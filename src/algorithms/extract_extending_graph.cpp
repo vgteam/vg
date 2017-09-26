@@ -296,31 +296,10 @@ namespace algorithms {
                                                       bool backward, bool preserve_cycles_on_src,
                                                       LRUCache<id_t, Node>* node_cache,
                                                       LRUCache<id_t, vector<Edge>>* edge_cache) {
-        
-        if (node_cache && edge_cache) {
-            return extract_extending_graph_internal(g, max_dist, pos, backward, preserve_cycles_on_src,
-                                                    [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                    [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                    [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        if (node_cache) {
-            return extract_extending_graph_internal(g, max_dist, pos, backward, preserve_cycles_on_src,
-                                                    [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                    [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                    [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (edge_cache) {
-            return extract_extending_graph_internal(g, max_dist, pos, backward, preserve_cycles_on_src,
-                                                    [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                    [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                    [&](id_t id) {return xg_index.node_sequence(id);});
-        }
-        else {
-            return extract_extending_graph_internal(g, max_dist, pos, backward, preserve_cycles_on_src,
-                                                    [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                    [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                    [&](id_t id) {return xg_index.node_sequence(id);});
-        }
+                                                      
+                                                      
+        // Just view the xg as a handle graph and ignore the caches.                                          
+        return extract_extending_graph(&xg_index, g, max_dist, pos, backward, preserve_cycles_on_src);
     }
 
 }

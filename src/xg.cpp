@@ -1605,7 +1605,6 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
     bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee) const {
 
     // OK go over all those edges
-    
     for (size_t i = 0; i < count; i++) {
         // What edge type is the edge?
         int type = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_TYPE_OFFSET];
