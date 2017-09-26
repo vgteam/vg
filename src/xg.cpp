@@ -1553,6 +1553,10 @@ bool XG::get_is_reverse(const handle_t& handle) const {
     return as_integer(handle) & HIGH_BIT;
 }
 
+handle_t XG::flip(const handle_t& handle) const {
+    return as_handle(as_integer(handle) ^ HIGH_BIT);
+}
+
 size_t XG::get_length(const handle_t& handle) const {
     return g_iv[as_integer(handle) & LOW_BITS + G_NODE_LENGTH_OFFSET];
 }

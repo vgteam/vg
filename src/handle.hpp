@@ -86,13 +86,16 @@ using namespace std;
 class HandleGraph {
 public:
     /// Look up the handle for the node with the given ID in the given orientation
-    virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const = 0;
+    virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const = 0;
     
     /// Get the ID from a handle
     virtual id_t get_id(const handle_t& handle) const = 0;
     
     /// Get the orientation of a handle
     virtual bool get_is_reverse(const handle_t& handle) const = 0;
+    
+    /// Invert the orientation of a handle (potentially without getting its ID)
+    virtual handle_t flip(const handle_t& handle) const = 0;
     
     /// Get the length of a node
     virtual size_t get_length(const handle_t& handle) const = 0;
@@ -117,7 +120,8 @@ public:
         
         // We also can't use result_of<T(handle_t)>::type to sniff the return
         // type out because that ::type would not exist (since that's what you
-        // get for a void apparently?) and we couldn't check if it's bool.
+        // get for a void apparently?) and we couldn't check if it's bool or
+        // void.
         
         // So we do this nonsense thing with a trailing return type (to get the
         // actual arg into scope) and a decltype (which is allowed to resolve to
@@ -136,6 +140,37 @@ public:
         
         // During development I managed to get earlier versions of this template to build infinitely recursive functions.
         static_assert(!std::is_void<decltype(lambda(get_handle(0, false)))>::value, "can't take our own lambda");
+    }
+    
+    /// Get the locally forward version of a handle
+    inline handle_t forward(const handle_t& handle) const {
+        return this->get_is_reverse(handle) ? this->flip(handle) : handle;
+    }
+    
+    // A pair of handles can be used as an edge. When so used, the handles have a
+    // cannonical order and orientation.
+    inline pair<handle_t, handle_t> edge_handle(const handle_t& left, const handle_t& right) const {
+        // The degeneracy is between any pair and a pair of the same nodes but reversed in order and orientation.
+        // We compare those two pairs and construct the smaller one.
+        auto flipped_right = this->flip(right);
+        
+        if (as_integer(left) > as_integer(flipped_right)) {
+            // The other orientation would be smaller.
+            return make_pair(flipped_right, this->flip(left));
+        } else if(as_integer(left) == as_integer(flipped_right)) {
+            // Our left and the flipped pair's left would be equal.
+            auto flipped_left = this->flip(left);
+            if (as_integer(right) > as_integer(flipped_left)) {
+                // And our right is too big, so flip.
+                return make_pair(flipped_right, flipped_left);
+            } else {
+                // No difference or we're smaller.
+                return make_pair(left, right);
+            }
+        } else {
+            // We're smaller
+            return make_pair(left, right);
+        }
     }
 };
 

@@ -100,6 +100,9 @@ public:
     /// Get the orientation of a handle
     virtual bool get_is_reverse(const handle_t& handle) const;
     
+    /// Invert the orientation of a handle (potentially without getting its ID)
+    virtual handle_t flip(const handle_t& handle) const;
+    
     /// Get the length of a node
     virtual size_t get_length(const handle_t& handle) const;
     
