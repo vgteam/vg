@@ -737,9 +737,13 @@ class VGCITest(TestCase):
                 # For each metric, compare stat to baseline
                 stat_val = unicode(r4(sval[metric_index]))
                 baseline_val = unicode(r4(bval[metric_index]))
-                if stat_val != 'DNE' and baseline_val != 'DNE' and sval[metric_index] < bval[metric_index]:
-                    # Stat got worse
-                    stat_val = '↓ {}'.format(stat_val)
+                if stat_val != 'DNE' and baseline_val != 'DNE':
+                    if sval[metric_index] < bval[metric_index]:
+                        # Stat got worse
+                        stat_val = '↓ {}'.format(stat_val)
+                    elif sval[metric_index] > bval[metric_index]:
+                        # Stat got better
+                        stat_val = '↑ {}'.format(stat_val)
                 row.append(stat_val)
                 row.append(baseline_val)
                                
@@ -946,8 +950,9 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096',
                            assembly="hg19",
-                           acc_threshold=0.002)
+                           acc_threshold=0.0075, multipath=True)
 
+    @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
@@ -960,7 +965,8 @@ class VGCITest(TestCase):
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
                            acc_threshold=0.02)
 
-    @timeout_decorator.timeout(3600)
+    @skip("skipping test to keep runtime down")        
+    @timeout_decorator.timeout(7200)
     def test_sim_mhc_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
         so jenkins doesn't report failures.  vg is run only in single ended with multipath on

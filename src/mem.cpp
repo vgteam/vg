@@ -6,13 +6,13 @@
 
 #include "mem.hpp"
 
-//#define debug_od_clusterer
-
 namespace vg {
     
     
 //size_t OrientedDistanceClusterer::PRUNE_COUNTER = 0;
 //size_t OrientedDistanceClusterer::CLUSTER_TOTAL = 0;
+//size_t OrientedDistanceClusterer::MEM_FILTER_COUNTER = 0;
+//size_t OrientedDistanceClusterer::MEM_TOTAL = 0;
     
 using namespace std;
 
@@ -150,7 +150,6 @@ bool clusters_overlap_in_graph(const vector<MaximalExactMatch>& cluster1,
                      std::back_inserter(comm));
     return comm.size() > 0;
 }
-
 }
 
 

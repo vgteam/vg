@@ -94,6 +94,10 @@ public:
     FragmentLengthDistribution(void);
     ~FragmentLengthDistribution();
     
+    
+    /// Instead of estimating anything, just use these parameters.
+    void force_parameters(double mean, double stddev);
+    
     /// Switches the entire program to single-threaded mode until reaching the maximum
     /// sample size so that estimation is deterministic. After reaching the maximum, the
     /// thread count is automatically switched back.
@@ -114,6 +118,10 @@ public:
     /// Returns true if the maximum sample size has been reached, which finalizes the
     /// distribution estimate
     bool is_finalized();
+    
+    /// Returns the max sample size up to which the distribution will continue to reestimate
+    /// parameters
+    size_t max_sample_size();
     
 private:
     multiset<double> lengths;
@@ -161,6 +169,10 @@ public:
     /// Gives up on deterministic estimation regardless of whether the distribution has been fixed
     void abandon_fragment_length_distr();
     
+    /// Use the given fragment length distribution parameters instead of
+    /// estimating them.
+    void force_fragment_length_distr(double mean, double stddev);
+    
     // MEM-based mapping
     // find maximal exact matches
     // These are SMEMs by definition when shorter than the max_mem_length or GCSA2 order.
@@ -175,7 +187,9 @@ public:
                    double& lcp_avg,
                    int max_mem_length = 0,
                    int min_mem_length = 1,
-                   int reseed_length = 0);
+                   int reseed_length = 0,
+                   bool use_lcp_reseed_heuristic = true,
+                   bool use_diff_based_fast_reseed = false);
     
     // Use the GCSA2 index to find super-maximal exact matches.
     vector<MaximalExactMatch>
@@ -189,7 +203,7 @@ public:
     int min_mem_length; // a mem must be >= this length
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
     bool fast_reseed; // use the fast reseed algorithm
-    int fast_reseed_length_diff; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
+    double fast_reseed_length_diff; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
     
     bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
@@ -203,7 +217,7 @@ protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
     /// that contain it
-    void find_sub_mems(vector<MaximalExactMatch>& mems,
+    void find_sub_mems(const vector<MaximalExactMatch>& mems,
                        string::const_iterator next_mem_end,
                        int min_mem_length,
                        vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
@@ -211,7 +225,7 @@ protected:
     /// Provides same semantics as find_sub_mems but with a different algorithm. This algorithm uses the
     /// min_mem_length as a pruning tool instead of the LCP index. It can be expected to be faster when both
     /// the min_mem_length reasonably large relative to the reseed_length (e.g. 1/2 of SMEM size or similar).
-    void find_sub_mems_fast(vector<MaximalExactMatch>& mems,
+    void find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                             string::const_iterator next_mem_end,
                             int min_sub_mem_length,
                             vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
@@ -279,11 +293,24 @@ protected:
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
     
+    FragmentLengthDistribution fragment_length_distr;
+
+    /// Get the appropriate aligner to use, based on
+    /// adjust_alignments_for_base_quality. By setting have_qualities to false,
+    /// you can force the non-quality-adjusted aligner, for reads that lack
+    /// quality scores.
+    BaseAligner* get_aligner(bool have_qualities = true) const;
+    
+    // Sometimes you really do need the two kinds of aligners, to pass to code
+    // that expects one or the other.
+    QualAdjAligner* get_qual_adj_aligner() const;
+    Aligner* get_regular_aligner() const;
+
+private:
     // GSSW aligners
     QualAdjAligner* qual_adj_aligner = nullptr;
-    Aligner* regular_aligner = nullptr;
-    
-    FragmentLengthDistribution fragment_length_distr;
+    Aligner* regular_aligner = nullptr;    
+
 };
 
 /**

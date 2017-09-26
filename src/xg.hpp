@@ -314,10 +314,10 @@ public:
     // like above, but find minumum over list of paths.  if names is empty, do all paths
     int64_t min_approx_path_distance(const vector<string>& names, int64_t id1, int64_t id2) const;
     
-    // returns all of the paths that a node traversal occurs on and in which orientation. false
-    // indicates that the traversal occurs in the same orientation as in the path, true indicates
-    // reverse (both may be included for the same traversal)
-    vector<pair<size_t, bool>> paths_of_node_traversal(int64_t id, bool is_rev) const;
+    // returns all of the paths that a node traversal occurs on, the rank of these occurrences on the path
+    // and the orientation of the occurrences. false indicates that the traversal occurs in the same
+    // orientation as in the path, true indicates.
+    vector<pair<size_t, vector<pair<size_t, bool>>>> paths_of_node_traversal(int64_t id, bool is_rev) const;
     
     // the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative)
     // estimated by the distance along the nearest shared path to the two positions plus the distance

@@ -675,13 +675,13 @@ public:
         /// Start only at these node traversals.
         const vector<NodeTraversal>* sources,
         /// When hitting a sink, don't keep walking.
-        const set<NodeTraversal>* sinks);         
+        const unordered_set<NodeTraversal>* sinks);
 
     /// Specialization of dfs for only handling nodes.
     void dfs(const function<void(NodeTraversal)>& node_begin_fn,
              const function<void(NodeTraversal)>& node_end_fn,
              const vector<NodeTraversal>* sources = NULL,
-             const set<NodeTraversal>* sinks = NULL);         
+             const unordered_set<NodeTraversal>* sinks = NULL);
 
     /// Specialization of dfs for only handling nodes + break function.
     void dfs(const function<void(NodeTraversal)>& node_begin_fn,
@@ -835,7 +835,7 @@ public:
     /// re-calculated by the caller.
     void divide_node(Node* node, int pos, Node*& left, Node*& right);
     /// Divide a node at a given internal position. This version works on a collection of internal positions, in linear time.
-    void divide_node(Node* node, vector<int> positions, vector<Node*>& parts);
+    void divide_node(Node* node, vector<int>& positions, vector<Node*>& parts);
     /// Divide a path at a position. Also invalidates stored rank information.
     void divide_path(map<long, id_t>& path, long pos, Node*& left, Node*& right);
     //void node_replace_prev(Node* node, Node* before, Node* after);
@@ -876,7 +876,7 @@ public:
     /// Makes sure that Nodes appear in the Protobuf Graph object in their topological sort order.
     void sort(void);
     /// Topological sort helper function, not really meant for external use.
-    void topological_sort(deque<NodeTraversal>& l);
+    void topological_sort(vector<NodeTraversal>& order);
     /// Swap the given nodes. TODO: what does that mean?
     void swap_nodes(Node* a, Node* b);
 

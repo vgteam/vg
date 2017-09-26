@@ -1922,25 +1922,16 @@ vector<size_t> XG::paths_of_node(int64_t id) const {
     return paths_of_entity(node_rank_as_entity(id));
 }
     
-vector<pair<size_t, bool>> XG::paths_of_node_traversal(int64_t id, bool is_rev) const {
-    vector<pair<size_t, bool>> path_orientations;
+vector<pair<size_t, vector<pair<size_t, bool>>>> XG::paths_of_node_traversal(int64_t id, bool is_rev) const {
+    vector<pair<size_t, vector<pair<size_t, bool>>>> path_occurrences;
     for (size_t path_rank : paths_of_node(id)) {
-        bool forward = false;
-        bool reverse = false;
-        auto& path = *paths[path_rank-1];
+        path_occurrences.emplace_back(path_rank,  vector<pair<size_t, bool>>());
+        auto& occurrences = path_occurrences.back().second;
         for (size_t i : node_ranks_in_path(id, path_rank)) {
-            bool orientation = is_rev != path.directions[i];
-            forward = forward || !orientation;
-            reverse = reverse || orientation;
-        }
-        if (forward) {
-            path_orientations.emplace_back(path_rank, false);
-        }
-        if (reverse) {
-            path_orientations.emplace_back(path_rank, true);
+            occurrences.emplace_back(i, is_rev != paths[path_rank-1]->directions[i]);
         }
     }
-    return path_orientations;
+    return path_occurrences;
 }
 
 vector<size_t> XG::paths_of_edge(int64_t id1, bool from_start, int64_t id2, bool to_end) const {
@@ -2478,7 +2469,7 @@ int64_t XG::min_approx_path_distance(const vector<string>& names,
 int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, bool rev1,
                                                   int64_t id2, size_t offset2, bool rev2,
                                                   size_t max_search_dist) const {
-
+    
 #ifdef debug_algorithms
     cerr << "[XG] estimating oriented distance between " << id1 << "[" << offset1 << "]" << (rev1 ? "-" : "+") << " and " << id2 << "[" << offset2 << "]" << (rev2 ? "-" : "+") << " with max search distance of " << max_search_dist << endl;
 #endif
@@ -2488,16 +2479,28 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
     
     set<pair<size_t, bool>> shared_paths;
     
+    // maps a path rank and an id to the node ranks within the path and their relative orientation
+    map<pair<size_t, int64_t>, vector<pair<size_t, bool>>> oriented_node_occurrences;
+    
     // ensure that the paths of the start nodes are added, even if their ends are too far away
     // from the positions for the search to explore
-    for (const pair<size_t, bool>& oriented_path_rank : paths_of_node_traversal(id1, rev1)) {
-        path_dists_1[oriented_path_rank] = make_tuple(id1, rev1, -((int64_t) offset1));
-    }
-    for (const pair<size_t, bool>& oriented_path_rank : paths_of_node_traversal(id2, rev2)) {
-        path_dists_2[oriented_path_rank] = make_tuple(id2, rev2, -((int64_t) offset2));
-        if (path_dists_1.count(oriented_path_rank)) {
-            shared_paths.insert(oriented_path_rank);
+    for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : paths_of_node_traversal(id1, rev1)) {
+        for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
+            pair<size_t, bool> path_occurrence(oriented_occurrences.first, occurrence.second);
+            path_dists_1[path_occurrence] = make_tuple(id1, rev1, -((int64_t) offset1));
         }
+        oriented_node_occurrences[make_pair(oriented_occurrences.first, id1)] = std::move(oriented_occurrences.second);
+    }
+    for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : paths_of_node_traversal(id2, rev2)) {
+        for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
+            pair<size_t, bool> path_occurrence(oriented_occurrences.first, occurrence.second);
+            path_dists_2[path_occurrence] = make_tuple(id2, rev2, -((int64_t) offset2));
+            
+            if (path_dists_2.count(path_occurrence)) {
+                shared_paths.insert(path_occurrence);
+            }
+        }
+        oriented_node_occurrences[make_pair(oriented_occurrences.first, id2)] = std::move(oriented_occurrences.second);
     }
     
     // priority queues over (distance, id, strand, search backward) tuples
@@ -2505,8 +2508,8 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
     // to the next nodes we will traverse to
     // there is a separate queue for each of the positions
     priority_queue<tuple<int64_t, int64_t, bool, bool>,
-                   vector<tuple<int64_t, int64_t, bool, bool>>,
-                   std::greater<tuple<int64_t, int64_t, bool, bool>>> queue_1, queue_2;
+    vector<tuple<int64_t, int64_t, bool, bool>>,
+    std::greater<tuple<int64_t, int64_t, bool, bool>>> queue_1, queue_2;
     set<pair<int64_t, bool>> queued_1, queued_2;
     
     // if we already found shared paths on the start nodes, don't search anymore
@@ -2549,19 +2552,23 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
             
             if ((get<1>(trav) != id1 || get<2>(trav) != rev1) && (get<1>(trav) != id2 || get<2>(trav) != rev2)) {
                 // this is not one of the start positions, so it might have new paths on it
-                for (const pair<size_t, bool>& path_orientation : paths_of_node_traversal(get<1>(trav), get<2>(trav))) {
+                for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : paths_of_node_traversal(get<1>(trav), get<2>(trav))) {
+                    for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
 #ifdef debug_algorithms
-                    cerr << "\ttraversal is on path " << path_orientation.first << " in " << (path_orientation.second ? "reverse" : "forward") << " orientation" << endl;
+                        cerr << "\ttraversal is on path " << oriented_occurrences.first << " in " << (occurrence.second ? "reverse" : "forward") << " orientation" << endl;
 #endif
-                    if (!curr_path_dists->count(path_orientation)) {
-                        // record the oriented distance to the forward beginning of the node, relative to the start traversal
-                        (*curr_path_dists)[path_orientation] = make_tuple(get<1>(trav), get<2>(trav),
-                                                                          get<3>(trav) ? -dist : get<0>(trav));
-                        // have we found nodes that share a path yet?
-                        if (other_path_dists->count(path_orientation)) {
-                            shared_paths.insert(path_orientation);
+                        pair<size_t, bool> path_orientation(oriented_occurrences.first, occurrence.second);
+                        if (!curr_path_dists->count(path_orientation)) {
+                            // record the oriented distance to the forward beginning of the node, relative to the start traversal
+                            (*curr_path_dists)[path_orientation] = make_tuple(get<1>(trav), get<2>(trav),
+                                                                              get<3>(trav) ? -dist : get<0>(trav));
+                            // have we found nodes that share a path yet?
+                            if (other_path_dists->count(path_orientation)) {
+                                shared_paths.insert(path_orientation);
+                            }
                         }
                     }
+                    oriented_node_occurrences[make_pair(oriented_occurrences.first, get<1>(trav))] = std::move(oriented_occurrences.second);
                 }
             }
             
@@ -2578,7 +2585,6 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
                     next_id = edge.from();
                     next_rev = edge.from_start() == get<3>(trav);
                 }
-                
                 
                 if (!curr_queued->count(make_pair(next_id, next_rev))) {
                     curr_queued->emplace(next_id, next_rev);
@@ -2605,37 +2611,45 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
         // the net distance searched between the two points to get to nodes on the path
         int64_t relative_offset = get<2>(node_trav_1) - get<2>(node_trav_2);
         
-        vector<size_t> node_ranks_1 = node_ranks_in_path(get<0>(node_trav_1), oriented_path.first);
-        vector<size_t> node_ranks_2 = node_ranks_in_path(get<0>(node_trav_2), oriented_path.first);
+#ifdef debug_algorithms
+        cerr << "[XG] search offset adds up to " << relative_offset << endl;
+#endif
         
-        // get the orientations of each occurrence of the node in the path
-        vector<bool> strand_1(node_ranks_1.size());
-        vector<bool> strand_2(node_ranks_2.size());
-        for (size_t i = 0; i < node_ranks_1.size(); i++) {
-            strand_1[i] = path.directions[node_ranks_1[i]];
+        vector<pair<size_t, bool>>& oriented_occurrences_1 = oriented_node_occurrences[make_pair(oriented_path.first, get<0>(node_trav_1))];
+        vector<pair<size_t, bool>>& oriented_occurrences_2 = oriented_node_occurrences[make_pair(oriented_path.first, get<0>(node_trav_2))];
+        
+#ifdef debug_algorithms
+        cerr << "[XG] from path node " << oriented_path.first << " " << get<0>(node_trav_1) << " got:" << endl;
+        for (pair<size_t, bool> occurrence : oriented_occurrences_1) {
+            cerr << "\t" << occurrence.first << " " << occurrence.second << endl;
         }
-        for (size_t i = 0; i < node_ranks_2.size(); i++) {
-            strand_2[i] = path.directions[node_ranks_2[i]];
+        cerr << "[XG] from path node " << oriented_path.first << " " << get<0>(node_trav_2) << " got:" << endl;
+        for (pair<size_t, bool> occurrence : oriented_occurrences_2) {
+            cerr << "\t" << occurrence.first << " " << occurrence.second << endl;
         }
+#endif
         
         // check each pair of node traversals for orientation consistency
-        for (size_t i = 0; i < node_ranks_1.size(); i++) {
-            for (size_t j = 0; j < node_ranks_2.size(); j++) {
+        for (size_t i = 0; i < oriented_occurrences_1.size(); i++) {
+            for (size_t j = 0; j < oriented_occurrences_2.size(); j++) {
                 // both traversals must be on the same orientation relative to the path
-                if ((get<1>(node_trav_1) == strand_1[i]) == (get<1>(node_trav_2) == strand_2[j])) {
+#ifdef debug_algorithms
+                cerr << "[XG] comparing occurrence " << oriented_occurrences_1[i].first << (oriented_occurrences_1[i].second ? "-" : "+") << " " << oriented_occurrences_2[j].first << (oriented_occurrences_2[j].second ? "-" : "+") << endl;
+#endif
+                if ((get<1>(node_trav_1) == oriented_occurrences_1[i].second) == (get<1>(node_trav_2) == oriented_occurrences_2[j].second)) {
                     // add up the distance between these nodes in the path plus the distance trarsed to them
                     // n.b. if the node traversals occur on the reverse strand of the path, the traversal
                     // distances represent searches to the opposite sides of the node, so the interval
                     // is offset by one node
 #ifdef debug_algorithms
-                    cerr << "[XG] found consistently ordered traversals at ranks " << node_ranks_1[i] << " and " << node_ranks_2[j] << endl;
+                    cerr << "[XG] found consistently ordered traversals at ranks " << oriented_occurrences_1[i].first << " and " << oriented_occurrences_2[j].first << endl;
 #endif
                     int64_t interval_dist = relative_offset;
                     if (oriented_path.second) {
-                        interval_dist += (path.positions[node_ranks_1[i]] + node_length(get<0>(node_trav_1))) - (path.positions[node_ranks_2[j]] + node_length(get<0>(node_trav_2)));
+                        interval_dist += (path.positions[oriented_occurrences_1[i].first] + node_length(get<0>(node_trav_1))) - (path.positions[oriented_occurrences_2[j].first] + node_length(get<0>(node_trav_2)));
                     }
                     else {
-                        interval_dist += path.positions[node_ranks_2[j]] - path.positions[node_ranks_1[i]];
+                        interval_dist += path.positions[oriented_occurrences_2[j].first] - path.positions[oriented_occurrences_1[i].first];
                     }
 #ifdef debug_algorithms
                     cerr << "[XG] estimating distance on path " << oriented_path.first << (oriented_path.second ? "-" : "+") << " at " << interval_dist << endl;

@@ -403,6 +403,7 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
 
         images = []
         captions = []
+        baseline_images = []
         for plot_name in 'pr', 'pr.control', 'pr.primary.filter', 'pr.control.primary.filter', 'qq', 'qq.control':
             plot_path = os.path.join(outstore, '{}.svg'.format(plot_name))
             if os.path.isfile(plot_path):
@@ -410,6 +411,10 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                 shutil.copy2(plot_path, os.path.join(report_dir, new_name))
                 images.append(new_name)
                 captions.append(plot_name.upper())
+                baseline_images.append(os.path.join(
+                    'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/vg_ci/jenkins_regression_baseline',
+                    os.path.basename(outstore),
+                    os.path.basename(plot_path)))
 
         if len(images) > 0:
             report += '<table class="image">\n'
@@ -423,7 +428,8 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                 report += '</tr>\n<tr>'
                 for j in range(i, i + row_size):
                     if j < len(images):
-                        report += '<td><a href=\"{}\">{} Plot</a></td>'.format(images[j], captions[j])
+                        report += '<td><a href=\"{}\">{} Plot</a>'.format(images[j], captions[j])
+                        report += ' <a href=\"{}\">(baseline)</a></td>'.format(baseline_images[j])
                 report += '</tr>\n'
                 i += row_size
             report += '</table>\n'

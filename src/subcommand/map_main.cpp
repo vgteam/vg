@@ -464,9 +464,9 @@ int main_map(int argc, char** argv) {
         return 1;
     }
 
-    if (qual_adjust_alignments && ((fastq1.empty() && hts_file.empty() && qual.empty()) // must have some quality input
-                                   || (!seq.empty() && qual.empty())                    // can't provide sequence without quality
-                                   || !read_file.empty()))                              // can't provide sequence list without qualities
+    if (qual_adjust_alignments && ((fastq1.empty() && hts_file.empty() && qual.empty() && gam_input.empty()) // must have some quality input
+                                   || (!seq.empty() && qual.empty())                                         // can't provide sequence without quality
+                                   || !read_file.empty()))                                                   // can't provide sequence list without qualities
     {
         cerr << "error:[vg map] Quality adjusted alignments require base quality scores for all sequences." << endl;
         return 1;

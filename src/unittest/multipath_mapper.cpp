@@ -11,6 +11,248 @@
 namespace vg {
 namespace unittest {
     
+TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipathmapper]" ) {
+
+    // Make up some MEMs
+    // GCSA range_type is just a pair of [start, end], so we can fake them.
+    
+    // This will actually own the MEMs
+    vector<MaximalExactMatch> mems;
+    
+    // This will hold our MEMs and their start positions in the imaginary graph.
+    vector<pair<const MaximalExactMatch*, pos_t>> mem_hits;
+    
+    // We need a fake read
+    string read("GATTACA");
+    
+    SECTION("No hits cover no bases") {
+        auto covered = MultipathMapper::read_coverage(mem_hits);
+        REQUIRE(covered == 0);
+    }
+    
+    SECTION("A hit of zero length covers 0 bases") {
+        // Make a MEM hit
+        mems.emplace_back(read.begin(), read.begin(), make_pair(5, 5), 1);
+        // Drop it on some arbitrary node
+        mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
+        
+        auto covered = MultipathMapper::read_coverage(mem_hits);
+        REQUIRE(covered == 0);
+    }
+    
+    SECTION("A hit that one-past-the-ends just after its start position covers 1 base") {
+        // Make a MEM hit
+        mems.emplace_back(read.begin(), read.begin() + 1, make_pair(5, 5), 1);
+        // Drop it on some arbitrary node
+        mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
+        
+        auto covered = MultipathMapper::read_coverage(mem_hits);
+        REQUIRE(covered == 1);
+    }
+    
+    SECTION("A hit that ends at the end of the string covers the string") {
+        // Make a MEM hit
+        mems.emplace_back(read.begin(), read.end(), make_pair(5, 5), 1);
+        // Drop it on some arbitrary node
+        mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
+        
+        auto covered = MultipathMapper::read_coverage(mem_hits);
+        REQUIRE(covered == read.size());
+    }
+    
+    SECTION("Two overlapping hits still only cover the string once") {
+        // Make a MEM hit
+        mems.emplace_back(read.begin(), read.begin() + 5, make_pair(5, 5), 1);
+        // Drop it on some arbitrary node
+        // Do it again
+        mems.emplace_back(read.begin() + 2, read.end(), make_pair(6, 6), 1);
+        
+        // Point into vector *after* it's done.
+        mem_hits.emplace_back(&mems[0], make_pos_t(999, false, 3));
+        mem_hits.emplace_back(&mems[1], make_pos_t(888, false, 3));
+        
+        auto covered = MultipathMapper::read_coverage(mem_hits);
+        REQUIRE(covered == read.size());
+    }
+    
+    SECTION("Two abutting hits cover the string") {
+        // Make a MEM hit
+        mems.emplace_back(read.begin(), read.begin() + 3, make_pair(5, 5), 1);
+        // Do it again
+        mems.emplace_back(read.begin() + 3, read.end(), make_pair(6, 6), 1);
+
+        // Point into vector *after* it's done.
+        mem_hits.emplace_back(&mems[0], make_pos_t(999, false, 3));
+        mem_hits.emplace_back(&mems[1], make_pos_t(888, false, 3));
+        
+        auto covered = MultipathMapper::read_coverage(mem_hits);
+        REQUIRE(covered == read.size());
+    }
+
+}
+
+TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][multipathmapper]" ) {
+    
+    string graph_json = R"({
+        "node": [{"id": 1, "sequence": "GATTACA"}],
+        "path": [
+            {"name": "ref", "mapping": [
+                {"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}
+            ]}
+        ]
+    })";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Build the xg index
+    xg::XG xg_index(proto_graph);
+    
+    // Make an aligner
+    Aligner aligner;
+    
+    // And a node cache
+    LRUCache<id_t, vg::Node> node_cache(100);
+    
+    // Make an Alignment that we're pretending we're doing
+    Alignment aln;
+    aln.set_sequence("GATTACA");
+    const string& read = aln.sequence();
+    
+    // Make some MEMs and their clusters
+    vector<MaximalExactMatch> mems;
+    vector<MultipathMapper::memcluster_t> clusters;
+
+    // Remember the important types:
+    // vector<clustergraph_t>
+    // using clustergraph_t = tuple<VG*, memcluster_t, size_t>;
+    // using memcluster_t = vector<pair<const MaximalExactMatch*, pos_t>>;
+    
+    SECTION("no MEMs produce no graphs") {
+    
+        auto results = MultipathMapper::query_cluster_graphs(&aligner, &xg_index, node_cache, aln, mems, clusters);
+        
+        REQUIRE(results.size() == 0);
+        
+        for (auto cluster_graph : results) {
+            // Clean up all those vg graphs
+            delete get<0>(cluster_graph);
+        }
+    
+    }
+    
+    SECTION("a single MEM produces one graph with the whole node") {
+        
+        // Make MEMs
+        mems.emplace_back(read.begin(), read.begin() + 3, make_pair(5, 5), 1);
+        // Fill in MEM hits with node_types
+        mems.back().nodes.push_back(gcsa::Node::encode(1, 0));
+        
+        // Make a cluster
+        clusters.resize(1);
+        clusters.back().emplace_back(&mems[1], make_pos_t(1, false, 0));
+        
+        REQUIRE(mems.size() == 1);
+        
+        // Now get the graph
+        auto results = MultipathMapper::query_cluster_graphs(&aligner, &xg_index, node_cache, aln, mems, clusters);
+        
+        // We have one graph
+        REQUIRE(results.size() == 1);
+        // It has one node
+        REQUIRE(get<0>(results[0])->node_count() == 1);
+        // It contains the one MEM we fed in
+        REQUIRE(get<1>(results[0]).size() == 1);
+        MultipathMapper::memcluster_t& assigned_mems = get<1>(results[0]);
+        const MaximalExactMatch* mem = assigned_mems[0].first;
+        pos_t where = assigned_mems[0].second;
+        REQUIRE(mem == &mems.back());
+        REQUIRE(where == make_pos_t(1, false, 0));
+        // It covers 3 bases from that MEM
+        REQUIRE(get<2>(results[0]) == 3);
+        
+        for (auto cluster_graph : results) {
+            // Clean up all those vg graphs
+            delete get<0>(cluster_graph);
+        }
+    
+    }
+    
+    SECTION("two MEMs close together in one cluster make one graph") {
+    
+        // We will use two fake overlapping MEMs
+        mems.emplace_back(read.begin(), read.begin() + 3, make_pair(5, 5), 1);
+        mems.back().nodes.push_back(gcsa::Node::encode(1, 0));
+        mems.emplace_back(read.begin() + 3, read.end(), make_pair(6, 6), 1);
+        mems.back().nodes.push_back(gcsa::Node::encode(1, 3));
+        clusters.resize(1);
+        clusters.back().emplace_back(&mems[0], make_pos_t(1, false, 0));
+        clusters.back().emplace_back(&mems[1], make_pos_t(1, false, 3));
+        
+        REQUIRE(mems.size() == 2);
+
+        // Now get the graph
+        auto results = MultipathMapper::query_cluster_graphs(&aligner, &xg_index, node_cache, aln, mems, clusters);
+        
+        // We have one graph
+        REQUIRE(results.size() == 1);
+        // It has one node
+        REQUIRE(get<0>(results[0])->node_count() == 1);
+        // It came from two MEM hits
+        REQUIRE(get<1>(results[0]).size() == 2);
+        // They are hits of the two MEMs we fed in at the right places
+        set<pair<const MaximalExactMatch*, pos_t>> found{get<1>(results[0]).begin(), get<1>(results[0]).end()};
+        set<pair<const MaximalExactMatch*, pos_t>> wanted{clusters.back().begin(), clusters.back().end()};
+        REQUIRE(found == wanted);
+        // It covers all 7 bases, like the MEMs do together
+        REQUIRE(get<2>(results[0]) == 7);
+        
+        for (auto cluster_graph : results) {
+            // Clean up all those vg graphs
+            delete get<0>(cluster_graph);
+        }
+    
+    }
+    
+    
+    SECTION("two MEMs close together in two clusters make one graph") {
+    
+        // We will use two fake overlapping MEMs
+        mems.emplace_back(read.begin(), read.begin() + 3, make_pair(5, 5), 1);
+        mems.back().nodes.push_back(gcsa::Node::encode(1, 0));
+        mems.emplace_back(read.begin() + 3, read.end(), make_pair(6, 6), 1);
+        mems.back().nodes.push_back(gcsa::Node::encode(1, 3));
+        clusters.resize(2);
+        clusters.front().emplace_back(&mems[0], make_pos_t(1, false, 0));
+        clusters.back().emplace_back(&mems[1], make_pos_t(1, false, 3));
+        
+        REQUIRE(mems.size() == 2);
+        
+        // Now get the graph
+        auto results = MultipathMapper::query_cluster_graphs(&aligner, &xg_index, node_cache, aln, mems, clusters);
+        
+        // We have one graph
+        REQUIRE(results.size() == 1);
+        // It has one node
+        REQUIRE(get<0>(results[0])->node_count() == 1);
+        // It came from two MEM hits
+        REQUIRE(get<1>(results[0]).size() == 2);
+        // They are hits of the two MEMs we fed in at the right places
+        set<pair<const MaximalExactMatch*, pos_t>> found{get<1>(results[0]).begin(), get<1>(results[0]).end()};
+        set<pair<const MaximalExactMatch*, pos_t>> wanted{clusters.front()[0], clusters.back()[0]};
+        REQUIRE(found == wanted);
+        // It covers all 7 bases, like the MEMs do together
+        REQUIRE(get<2>(results[0]) == 7);
+        
+        for (auto cluster_graph : results) {
+            // Clean up all those vg graphs
+            delete get<0>(cluster_graph);
+        }
+    
+    }
+}
+    
 TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][multipathmapper]" ) {
     
     string graph_json = R"({
@@ -99,7 +341,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     
     SECTION( "MultipathMapper can map two tiny paired reads" ) {
     
-        // Here are two reads in opposing, inward-facing directions
+        // Here are two reads on the same strand, as the mapper requires.
         Alignment read1, read2;
         read1.set_sequence("GAT");
         read2.set_sequence("ACA");
@@ -159,6 +401,117 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
             }
         }
     
+    }
+    
+    // Clean up the GCSA/LCP index
+    delete gcsaidx;
+    delete lcpidx;
+}
+
+TEST_CASE( "MultipathMapper can map to a bigger graph", "[multipath][mapping][multipathmapper]" ) {
+    
+    string graph_json = R"({"node":[{"sequence":"CTTCTCATCCCTCCTCAAGGGCCTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAGATG","id":12},{"sequence":"A","id":2},{"sequence":"CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGGTAATGGATATGTTGGGCTTT","id":3},{"sequence":"TTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAATGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTT","id":4},{"sequence":"CAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGAACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTA","id":5},{"sequence":"CTGACAGCAGAGGTTTGCTGTGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT","id":6},{"sequence":"ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCTTCTGGCTTTTCATTGTCAAC","id":7},{"sequence":"ACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCTCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTA","id":8},{"sequence":"AGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAGCTCTCCTTTGTGTCCAGAGTGTATACGATGTAACTCTGTTCGGGCACTGGTGAAAGATAA","id":9},{"sequence":"CAGAGGAAATGCCTGGCTTTTTATCAGAACATGTTTCCAAGCTTATCCCTTTTCCCAGCTCTCCTTGTCCCTCCCAAGATCTCTTCACTGGCCTCTTATC","id":10},{"sequence":"TTTACTGTTACCAAATCTTTCCAGAAGCTGCTCTTTCCCTCAATTGTTCATTTGTCTTCTTGTCCAGGAATGAACCACTGCTCTCTTCTTGTCAGATCAG","id":11}],"path":[{"name":"x","mapping":[{"position":{"node_id":3},"edit":[{"from_length":100,"to_length":100}],"rank":1},{"position":{"node_id":4},"edit":[{"from_length":100,"to_length":100}],"rank":2},{"position":{"node_id":5},"edit":[{"from_length":100,"to_length":100}],"rank":3},{"position":{"node_id":6},"edit":[{"from_length":100,"to_length":100}],"rank":4},{"position":{"node_id":7},"edit":[{"from_length":100,"to_length":100}],"rank":5},{"position":{"node_id":8},"edit":[{"from_length":100,"to_length":100}],"rank":6},{"position":{"node_id":9},"edit":[{"from_length":100,"to_length":100}],"rank":7},{"position":{"node_id":10},"edit":[{"from_length":100,"to_length":100}],"rank":8},{"position":{"node_id":11},"edit":[{"from_length":100,"to_length":100}],"rank":9},{"position":{"node_id":12},"edit":[{"from_length":100,"to_length":100}],"rank":10},{"position":{"node_id":2},"edit":[{"from_length":1,"to_length":1}],"rank":11}]}],"edge":[{"from":12,"to":2},{"from":3,"to":4},{"from":4,"to":5},{"from":5,"to":6},{"from":6,"to":7},{"from":7,"to":8},{"from":8,"to":9},{"from":9,"to":10},{"from":10,"to":11},{"from":11,"to":12}]})";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
+    // Configure GCSA temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(find_temp_dir());
+    // And make it quiet
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Make pointers to fill in
+    gcsa::GCSA* gcsaidx = nullptr;
+    gcsa::LCPArray* lcpidx = nullptr;
+    
+    // Build the GCSA index
+    graph.build_gcsa_lcp(gcsaidx, lcpidx, 16, false, false, 3);
+    
+    // Build the xg index
+    xg::XG xg_index(proto_graph);
+    
+    // Make a multipath mapper to map against the graph.
+    MultipathMapper mapper(&xg_index, gcsaidx, lcpidx);
+    // Lower the max mapping quality so that it thinks it can find unambiguous mappings of
+    // short sequences
+    mapper.max_mapping_quality = 10;
+    
+    SECTION( "MultipathMapper buffers pairs that don't map the first time" ) {
+        // Here are two reads on the same strand
+        Alignment read1, read2;
+        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
+        read2.set_sequence("TCCTT");
+        
+        // Have a list to fill with results
+        vector<pair<MultipathAlignment, MultipathAlignment>> results;
+        vector<pair<Alignment, Alignment>> buffer;
+        
+        // Align for just one pair of alignments
+        mapper.multipath_map_paired(read1, read2, results, buffer, 1);
+        
+        // The second read was ambiguous so we should have buffered this read.
+        REQUIRE(results.empty());
+        REQUIRE(buffer.size() == 1);
+        
+        // Did we buffer the right thing?
+        REQUIRE(buffer[0].first.sequence() == read1.sequence());
+        REQUIRE(buffer[0].second.sequence() == read2.sequence());
+    }
+    
+    SECTION( "MultipathMapper does not buffer unambiguous pairs" ) {
+        // Here are two reads on the same strand
+        Alignment read1, read2;
+        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
+        read2.set_sequence("TCCTTGACTTCTTGAAACA");
+        
+        // Have a list to fill with results
+        vector<pair<MultipathAlignment, MultipathAlignment>> results;
+        vector<pair<Alignment, Alignment>> buffer;
+        
+        // Align for just one pair of alignments
+        mapper.multipath_map_paired(read1, read2, results, buffer, 1);
+        
+        // The pair was not ambiguous so we should have produced a result.
+        REQUIRE(results.size() == 1);
+        REQUIRE(buffer.empty());
+        
+        // Did we map the right thing?
+        REQUIRE(results[0].first.sequence() == read1.sequence());
+        REQUIRE(results[0].second.sequence() == read2.sequence());
+    }
+    
+    // Fix the distribution
+    mapper.force_fragment_length_distr(100, 200);
+    
+    SECTION( "MultipathMapper aligns ambiguous pairs after the fragment length distribution is set" ) {
+        // Here are two reads on the same strand
+        Alignment read1, read2;
+        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
+        read2.set_sequence("TCCTT");
+        
+        // Have a list to fill with results
+        vector<pair<MultipathAlignment, MultipathAlignment>> results;
+        vector<pair<Alignment, Alignment>> buffer;
+        
+        // Align for just one pair of alignments
+        mapper.multipath_map_paired(read1, read2, results, buffer, 1);
+        
+        // The distribution has been estimated so we should have produced a result.
+        REQUIRE(results.size() == 1);
+        REQUIRE(buffer.empty());
+        
+        // Did we map the right thing?
+        REQUIRE(results[0].first.sequence() == read1.sequence());
+        REQUIRE(results[0].second.sequence() == read2.sequence());
+        
+        // But it should have MAPQ 0 for the second, ambiguously-placed read.
+        REQUIRE(results[0].second.mapping_quality() == 0);
+        // TODO: It also zeros MAPQ for the first read; is that smart?
     }
     
     // Clean up the GCSA/LCP index
