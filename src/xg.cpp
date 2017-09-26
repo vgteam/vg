@@ -2474,20 +2474,26 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
     cerr << "[XG] estimating oriented distance between " << id1 << "[" << offset1 << "]" << (rev1 ? "-" : "+") << " and " << id2 << "[" << offset2 << "]" << (rev2 ? "-" : "+") << " with max search distance of " << max_search_dist << endl;
 #endif
     // maps of oriented paths to (node id, strand, oriented distance) tuples
-    map<pair<size_t, bool>, tuple<int64_t, bool, int64_t>> path_dists_1;
-    map<pair<size_t, bool>, tuple<int64_t, bool, int64_t>> path_dists_2;
+    unordered_map<pair<size_t, bool>, tuple<int64_t, bool, int64_t>> path_dists_1;
+    unordered_map<pair<size_t, bool>, tuple<int64_t, bool, int64_t>> path_dists_2;
     
-    set<pair<size_t, bool>> shared_paths;
+    unordered_set<pair<size_t, bool>> shared_paths;
     
-    // maps a path rank and an id to the node ranks within the path and their relative orientation
-    map<pair<size_t, int64_t>, vector<pair<size_t, bool>>> oriented_node_occurrences;
+    // maps a path rank and an id to the node ranks within the path and their orientation relative to the path
+    unordered_map<pair<size_t, int64_t>, vector<pair<size_t, bool>>> oriented_node_occurrences;
     
     // ensure that the paths of the start nodes are added, even if their ends are too far away
     // from the positions for the search to explore
+    // TODO: this leaves the ambiguity that a node might occur multiple times on the same path, in which case
+    // the tie for closest traversal to the path is broken arbitrarily
     for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : paths_of_node_traversal(id1, rev1)) {
         for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
             pair<size_t, bool> path_occurrence(oriented_occurrences.first, occurrence.second);
             path_dists_1[path_occurrence] = make_tuple(id1, rev1, -((int64_t) offset1));
+            
+#ifdef debug_algorithms
+            cerr << "[XG] first position " << id1 << "[" << offset1 << "]" << (rev1 ? "-" : "+") << " has an initial path occurrence on " << path_occurrence.first << (path_occurrence.second ? "-" : "+") << endl;
+#endif
         }
         oriented_node_occurrences[make_pair(oriented_occurrences.first, id1)] = std::move(oriented_occurrences.second);
     }
@@ -2496,7 +2502,14 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
             pair<size_t, bool> path_occurrence(oriented_occurrences.first, occurrence.second);
             path_dists_2[path_occurrence] = make_tuple(id2, rev2, -((int64_t) offset2));
             
-            if (path_dists_2.count(path_occurrence)) {
+#ifdef debug_algorithms
+            cerr << "[XG] second position " << id2 << "[" << offset2 << "]" << (rev2 ? "-" : "+") << " has an initial path occurrence on " << path_occurrence.first << (path_occurrence.second ? "-" : "+") << endl;
+#endif
+            
+            if (path_dists_1.count(path_occurrence)) {
+#ifdef debug_algorithms
+                cerr << "[XG] this occurrence is on a shared path" << endl;
+#endif
                 shared_paths.insert(path_occurrence);
             }
         }
@@ -2508,9 +2521,9 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
     // to the next nodes we will traverse to
     // there is a separate queue for each of the positions
     priority_queue<tuple<int64_t, int64_t, bool, bool>,
-    vector<tuple<int64_t, int64_t, bool, bool>>,
-    std::greater<tuple<int64_t, int64_t, bool, bool>>> queue_1, queue_2;
-    set<pair<int64_t, bool>> queued_1, queued_2;
+                   vector<tuple<int64_t, int64_t, bool, bool>>,
+                   std::greater<tuple<int64_t, int64_t, bool, bool>>> queue_1, queue_2;
+    unordered_set<pair<int64_t, bool>> queued_1, queued_2;
     
     // if we already found shared paths on the start nodes, don't search anymore
     if (shared_paths.empty()) {

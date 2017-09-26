@@ -865,8 +865,7 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     return recorded_finite_dists;
 }
 
-vector<unordered_map<size_t, int64_t>> OrientedDistanceClusterer::flatten_distance_tree(
-                                                                                        size_t num_items,
+vector<unordered_map<size_t, int64_t>> OrientedDistanceClusterer::flatten_distance_tree(size_t num_items,
                                                                                         const unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists) {
     
 #ifdef debug_od_clusterer
@@ -1306,6 +1305,10 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
                                                                                      int64_t min_inter_cluster_distance,
                                                                                      int64_t max_inter_cluster_distance) {
     
+#ifdef debug_od_clusterer
+    cerr << "beginning clustering of MEM cluster pairs" << endl;
+#endif
+    
     // We will fill this in with all sufficiently close pairs of clusters from different reads.
     vector<pair<pair<size_t, size_t>, int64_t>> to_return;
     
@@ -1328,6 +1331,21 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     
     // Flatten the distance tree to a set of linear spaces, one per tree.
     vector<unordered_map<size_t, int64_t>> linear_spaces = flatten_distance_tree(total_clusters, distance_tree);
+    
+#ifdef debug_od_clusterer
+    for (const auto& strand : linear_spaces) {
+        cerr << "strand reconstruction: "  << endl;
+        for (const auto& record : strand) {
+            if (record.first < left_clusters.size()) {
+                cerr << "\t" << record.first << " left: " << record.second << "\t" << left_clusters[record.first]->front().second << endl;
+            }
+            else {
+                cerr << "\t" << record.first - left_clusters.size() << " right: " << record.second << "\t" << right_clusters[record.first - left_clusters.size()]->front().second << endl;
+            }
+
+        }
+    }
+#endif
     
     for (const unordered_map<size_t, int64_t>& linear_space : linear_spaces) {
         // For each linear space
@@ -1364,21 +1382,44 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
             int64_t coord_interval_start = sorted_pos[i].first + min_inter_cluster_distance;
             int64_t coord_interval_end = sorted_pos[i].first + max_inter_cluster_distance;
             
+#ifdef debug_od_clusterer
+            cerr << "looking for clusters consistent with cluster that starts with " << left_clusters[sorted_pos[i].second]->front().second << " at relative position " << sorted_pos[i].first << " in coordinate window " << coord_interval_start << ":" << coord_interval_end << endl;
+#endif
+            
             // move the window bounds forward until it's inside the coordinate interval
             while (window_start < sorted_pos.size() ? sorted_pos[window_start].first < coord_interval_start : false) {
                 window_start++;
+#ifdef debug_od_clusterer
+                if (window_start == sorted_pos.size()) {
+                    cerr << "window is beyond the end of the clusters" << endl;
+                }
+                else {
+                    cerr << "moving window start to relative position " << sorted_pos[window_start].first << endl;
+                }
+#endif
             }
             while (window_last + 1 < sorted_pos.size() ? sorted_pos[window_last + 1].first < coord_interval_end : false) {
                 window_last++;
+#ifdef debug_od_clusterer
+                cerr << "moving window end to relative position " << sorted_pos[window_last - 1].first << endl;
+#endif
             }
             
             // add each pair of clusters that's from the two read ends to the return value
             for (size_t j = window_start; j <= window_last; j++) {
                 if (sorted_pos[j].second >= left_clusters.size()) {
+#ifdef debug_od_clusterer
+                    cerr << "adding pair with cluster relative position " << sorted_pos[j].first << " starting with " << right_clusters[sorted_pos[j].second - left_clusters.size()]->front().second << endl;
+#endif
                     to_return.emplace_back(make_pair(sorted_pos[i].second,
                                                      sorted_pos[j].second - left_clusters.size()),
                                            sorted_pos[j].first - sorted_pos[i].first);
                 }
+#ifdef debug_od_clusterer
+                else {
+                    cerr << "cluster at relative position " << sorted_pos[j].first << " is from the same end, skipping" << endl;
+                }
+#endif
             }
         }
     }

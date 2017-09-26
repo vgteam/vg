@@ -429,7 +429,6 @@ namespace vg {
                 cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
         }
-        cerr << "extracting subgraphs..." << endl;
 #endif
         
         // empty the output vector (just for safety)
@@ -438,6 +437,9 @@ namespace vg {
         // do we find any pairs that satisfy the distance requirements?
         if (cluster_pairs.empty()) {
             // revert to independent single ended mappings
+#ifdef debug_multipath_mapper
+            cerr << "could not find a consistent pair, reverting to single ended mapping" << endl;
+#endif
             
             vector<MultipathAlignment> multipath_alns_1, multipath_alns_2;
             align_to_cluster_graphs(alignment1, mapping_quality_method, cluster_graphs1, multipath_alns_1, max_alt_mappings);
