@@ -84,7 +84,7 @@ using namespace std;
  * This is the interface that a graph that uses handles needs to support.
  */
 class HandleGraph {
-
+public:
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const = 0;
     

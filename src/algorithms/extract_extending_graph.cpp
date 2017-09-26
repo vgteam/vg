@@ -253,6 +253,37 @@ namespace algorithms {
         return id_trans;
     }
     
+    unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Graph& g, int64_t max_dist, pos_t pos,
+                                                      bool backward, bool preserve_cycles_on_src) {
+        
+        return extract_extending_graph_internal(g, max_dist, pos, backward, preserve_cycles_on_src,
+                                                [&](id_t id) {
+                                                    // Get edges on start
+                                                    vector<Edge> to_return;
+                                                    auto here = source->get_handle(id, false);
+                                                    source->follow_edges(here, true, [&](const handle_t& left) -> bool {
+                                                        to_return.push_back(xg::make_edge(source->get_id(left),
+                                                            source->get_is_reverse(left), id, false));
+                                                    });
+                                                    return to_return;
+                                                },
+                                                [&](id_t id) {
+                                                    // Get edges on start
+                                                    vector<Edge> to_return;
+                                                    auto here = source->get_handle(id, false);
+                                                    source->follow_edges(here, false, [&](const handle_t& right) -> bool {
+                                                        to_return.push_back(xg::make_edge(id, false, source->get_id(right),
+                                                            source->get_is_reverse(right)));
+                                                    });
+                                                    return to_return;
+                                                },
+                                                [&](id_t id) {
+                                                    // Get sequence
+                                                    return source->get_sequence(source->get_handle(id, false));
+                                                });                              
+    
+    }
+    
     unordered_map<id_t, id_t> extract_extending_graph(VG& vg, Graph& g, int64_t max_dist, pos_t pos,
                                                       bool backward, bool preserve_cycles_on_src){
         return extract_extending_graph_internal(g, max_dist, pos, backward, preserve_cycles_on_src,
