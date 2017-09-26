@@ -261,17 +261,17 @@ namespace algorithms {
                                                     // Get edges on start
                                                     vector<Edge> to_return;
                                                     auto here = source->get_handle(id, false);
-                                                    source->follow_edges(here, true, [&](const handle_t& left) -> bool {
+                                                    source->follow_edges(here, true, [&](const handle_t& left) {
                                                         to_return.push_back(xg::make_edge(source->get_id(left),
                                                             source->get_is_reverse(left), id, false));
                                                     });
                                                     return to_return;
                                                 },
                                                 [&](id_t id) {
-                                                    // Get edges on start
+                                                    // Get edges on end
                                                     vector<Edge> to_return;
                                                     auto here = source->get_handle(id, false);
-                                                    source->follow_edges(here, false, [&](const handle_t& right) -> bool {
+                                                    source->follow_edges(here, false, [&](const handle_t& right) {
                                                         to_return.push_back(xg::make_edge(id, false, source->get_id(right),
                                                             source->get_is_reverse(right)));
                                                     });

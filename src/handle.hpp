@@ -105,6 +105,38 @@ public:
     /// them to a callback which returns false to stop iterating and true to
     /// continue.
     virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const = 0;
+    
+    /// Loop over all the handles to next/previous (right/left) nodes. Works
+    /// with a callback that just takes all the handles and returns void.
+    template <typename T>
+    auto follow_edges(const handle_t& handle, bool go_left, T&& iteratee) const
+    -> typename std::enable_if<std::is_void<decltype(iteratee(get_handle(0, false)))>::value>::type {
+        // Implementation only for void-returning iteratees
+        // We ought to just overload on the std::function but that's not allowed until C++14.
+        // See <https://stackoverflow.com/q/13811180>
+        
+        // We also can't use result_of<T(handle_t)>::type to sniff the return
+        // type out because that ::type would not exist (since that's what you
+        // get for a void apparently?) and we couldn't check if it's bool.
+        
+        // So we do this nonsense thing with a trailing return type (to get the
+        // actual arg into scope) and a decltype (which is allowed to resolve to
+        // void) and is_void (which is allowed to take void) and a fake
+        // get_handle call (which is the shortest handle_t-typed expression I
+        // could think of).
+        
+        // Make a wrapper that puts a bool return type on.
+        function<bool(const handle_t&)> lambda = [&](const handle_t& found) {
+            iteratee(found);
+            return true;
+        };
+        
+        // Use that
+        follow_edges(handle, go_left, lambda);
+        
+        // During development I managed to get earlier versions of this template to build infinitely recursive functions.
+        static_assert(!std::is_void<decltype(lambda(get_handle(0, false)))>::value, "can't take our own lambda");
+    }
 };
 
 }
