@@ -1,6 +1,6 @@
 #include <unordered_set>
 #include "mapper.hpp"
-#include "algorithms/vg_algorithms.hpp"
+#include "algorithms/extract_containing_graph.hpp"
 
 //#define debug_mapper
 

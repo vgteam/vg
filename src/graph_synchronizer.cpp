@@ -1,5 +1,5 @@
 #include "graph_synchronizer.hpp"
-#include "algorithms/vg_algorithms.hpp"
+#include "algorithms/extract_connecting_graph.hpp"
 
 #include <iterator>
 
