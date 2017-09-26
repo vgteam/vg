@@ -201,6 +201,10 @@ namespace algorithms {
                 e->set_from_start(edge.first.second);
                 e->set_to_end(edge.second.second);
                 
+#ifdef debug_vg_algorithms
+                cerr << "[extract_extending_graph] " << "adding edge " << edge.first.first << (edge.first.second ? "-" : "+") << " -> " << edge.second.first << (edge.second.second ? "-" : "+") << " to source node copy" << endl;
+#endif
+                
                 if (edge.first.first == id(pos) && edge.second.first == id(pos)) {
                     // this edge is a self loop, always make a copy on the duplicated node
                     e->set_from(dup_id);
@@ -382,10 +386,12 @@ namespace algorithms {
                 // record the edges that touch the source in case we need to duplicate them
                 src_edges.push_back(edge);
                 // does the edge only touch the side of the source node that's not going to be cut?
-                // That means it must touch the right side of our starting handle.
-                // Which means either our starting handle is the left handle, or
-                // the reverse of our starting handle is the right handle.
-                add_edge == (edge.first == start_handle || edge.second == source->flip(start_handle));
+                // That means it must touch only the right side of our starting handle.
+                // We know it touches one side, so make sure it *doesn't* touch the left side.
+                // Which means we need the reverse of our starting handle to not
+                // be the left handle, and our handle to not be the right
+                // handle.
+                add_edge = !(edge.first == source->flip(start_handle) || edge.second == start_handle);
 #ifdef debug_vg_algorithms
                 cerr << "[extract_extending_graph] " << (add_edge ? "" : "not ") << "adding edge " << source->get_id(edge.first) << (source->get_is_reverse(edge.first) ? "-" : "+") << " -> " << source->get_id(edge.second) << (source->get_is_reverse(edge.second) ? "-" : "+") << " that touches source node" << endl;
 #endif
@@ -431,6 +437,10 @@ namespace algorithms {
                 // Load the IDs for this edge
                 auto from_id = source->get_id(edge.first);
                 auto to_id = source->get_id(edge.second);
+                
+#ifdef debug_vg_algorithms
+                cerr << "[extract_extending_graph] " << "adding edge " << source->get_id(edge.first) << (source->get_is_reverse(edge.first) ? "-" : "+") << " -> " << source->get_id(edge.second) << (source->get_is_reverse(edge.second) ? "-" : "+") << " to source node copy" << endl;
+#endif
                 
                 if (from_id == id(pos) && to_id == id(pos)) {
                     // this edge is a self loop, always make a copy on the duplicated node
@@ -486,33 +496,8 @@ namespace algorithms {
     
     unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Graph& g, int64_t max_dist, pos_t pos,
                                                       bool backward, bool preserve_cycles_on_src) {
+        return extract_extending_graph_internal(source, g, max_dist, pos, backward, preserve_cycles_on_src);
         
-        return extract_extending_graph_internal(g, max_dist, pos, backward, preserve_cycles_on_src,
-                                                [&](id_t id) {
-                                                    // Get edges on start
-                                                    vector<Edge> to_return;
-                                                    auto here = source->get_handle(id, false);
-                                                    source->follow_edges(here, true, [&](const handle_t& left) {
-                                                        to_return.push_back(xg::make_edge(source->get_id(left),
-                                                            source->get_is_reverse(left), id, false));
-                                                    });
-                                                    return to_return;
-                                                },
-                                                [&](id_t id) {
-                                                    // Get edges on end
-                                                    vector<Edge> to_return;
-                                                    auto here = source->get_handle(id, false);
-                                                    source->follow_edges(here, false, [&](const handle_t& right) {
-                                                        to_return.push_back(xg::make_edge(id, false, source->get_id(right),
-                                                            source->get_is_reverse(right)));
-                                                    });
-                                                    return to_return;
-                                                },
-                                                [&](id_t id) {
-                                                    // Get sequence
-                                                    return source->get_sequence(source->get_handle(id, false));
-                                                });                              
-    
     }
     
     unordered_map<id_t, id_t> extract_extending_graph(VG& vg, Graph& g, int64_t max_dist, pos_t pos,
