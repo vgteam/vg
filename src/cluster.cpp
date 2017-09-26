@@ -527,11 +527,14 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                 int64_t next_idx = sorted_pos[j].second;
                 ODNode& next = nodes[next_idx];
                 
-                if (next.mem->begin < pivot.mem->begin || next.mem->end < pivot.mem->end || j == i) {
-                    // the MEMs cannot be colinear along the read (also filters out j == i)
-                    // note: we allow identical start/end positions here even though they can't techinically
-                    // overlap because it tends to soak up redundant sub-MEMs into the same connected component
-                    // so that they don't get their own cluster
+                if (next.mem->begin < pivot.mem->begin || next.mem->end < pivot.mem->end
+                    || (next.mem->begin == pivot.mem->begin && next.mem->end == pivot.mem->end)) {
+                    // these MEMs cannot be colinear along the read (also filters out j == i)
+                    
+                    // note: we allow one of the start/end positions to be the same here even though they can't
+                    // techinically overlap because it tends to soak up redundant sub-MEMs into the same connected
+                    // component so that they don't get their own cluster
+                    
                     continue;
                 }
                 
