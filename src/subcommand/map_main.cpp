@@ -19,7 +19,7 @@ void help_map(char** argv) {
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
          << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [512]" << endl
-         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [0.0001]" << endl
+         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [0.00001]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
@@ -131,14 +131,14 @@ int main_map(int argc, char** argv) {
     bool fragment_orientation = false;
     bool fragment_direction = true;
     bool use_cluster_mq = false;
-    float chance_match = 0.05;
+    float chance_match = 0.00001;
     bool use_fast_reseed = true;
     float drop_chain = 0.5;
     float mq_overlap = 0.5;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
     int pair_window = 64; // unused
-    int mate_rescues = 4;
+    int mate_rescues = 64;
     bool fixed_fragment_model = false;
     bool print_fragment_model = false;
     int fragment_model_update = 10;

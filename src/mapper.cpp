@@ -1564,7 +1564,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     double hang_threshold = 0.9;
     double retry_threshold = 0.7;
     double perfect_score = mate1.sequence().size() * match_score + full_length_bonus;
-    bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.01));
+    bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.0001));
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     // based on our statistics about the alignments
     // get the subgraph overlapping the likely candidate position of the second alignment
@@ -2218,7 +2218,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             auto& aln2 = p->second;
             if (aln1.fragment_size() == 0 || aln2.fragment_size() == 0) {
                 auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
-                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.01));
+                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.0001));
             }
         }
         // sort the aligned pairs by score
@@ -2300,8 +2300,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             rescued_aln[&aln1] = rescues.first;
             rescued_aln[&aln2] = rescues.second;
             rescued |= rescues.first || rescues.second;
-            auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
-            frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.01));
         }
         if (rescued) {
             sort_and_dedup();
@@ -2367,7 +2365,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 aln1.clear_fragment();
                 aln2.clear_fragment();
                 auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
-                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.01));
+                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.0001));
             }
         }
     };
@@ -2393,16 +2391,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         read2_max_score = max(p->second.score(), read2_max_score);
         results.first.push_back(p->first);
         results.second.push_back(p->second);
-        possible_pairs += p->first.score() && p->second.score();
+        possible_pairs += p->first.fragment_score() > 0 && p->second.fragment_score() > 0;
     }
 
     // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
-        && maybe_mq1 + maybe_mq2 > 10
-        && (possible_pairs > 1 || maybe_mq1 + maybe_mq2 > 30)
-        && pair_consistent(results.first.front(), results.second.front(), 0.01)) {
+        //&& (maybe_mq1 + maybe_mq2 > 10 || possible_pairs > 1) // may help in human context
+        && pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, max_mapping_quality, max_mapping_quality);
     } else {
+        // compute mq independently
         compute_mapping_qualities(results.first, cluster_mq, mq_cap1, max_mapping_quality);
         compute_mapping_qualities(results.second, cluster_mq, mq_cap2, max_mapping_quality);
     }
