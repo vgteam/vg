@@ -318,8 +318,8 @@ namespace vg {
         cerr << "multipath mapping paired reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
 #endif
         
-#ifndef debug_force_frag_distr
         if (!fragment_length_distr.is_finalized()) {
+#ifndef debug_force_frag_distr
             // we have not estimated a fragment length distribution yet, so we revert to single ended mode and look
             // for unambiguous pairings
             
@@ -330,8 +330,15 @@ namespace vg {
             attempt_unpaired_multipath_map_of_pair(alignment1, alignment2, multipath_aln_pairs_out, ambiguous_pair_buffer);
             
             return;
-        }
+#else
+            // when we're using a compile-time forced distribution, add dummy observations until we unlock determinization
+            double dummy = 1.0;
+            while (!fragment_length_distr.is_finalized()) {
+                fragment_length_distr.register_fragment_length(dummy);
+                dummy += 1.0;
+            }
 #endif
+        }
         
         // the fragment length distribution has been estimated, so we can do full-fledged paired mode
     
