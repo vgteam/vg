@@ -1339,8 +1339,8 @@ double BaseMapper::estimate_gc_content(void) {
 }
 
 int BaseMapper::random_match_length(double chance_random) {
-    if (xindex) {
-        size_t length = xindex->seq_length;
+    if (gcsa) {
+        size_t length = gcsa::Range::length(gcsa->find(string("")));
         return ceil(- (log(1.0 - pow(pow(1.0-chance_random, -1), (-1.0/length))) / log(4.0)));
     } else {
         return 0;
