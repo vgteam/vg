@@ -55,7 +55,6 @@ rocksdb::Options Index::GetOptions(bool read_only) {
 
     // set up concurrency
     options.IncreaseParallelism(threads);
-    options.max_background_flushes = 3; // overrides IncreaseParallelism
 
     // set up universal compaction
     options.OptimizeUniversalStyleCompaction(memtable_bytes);
