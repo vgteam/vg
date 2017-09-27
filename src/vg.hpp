@@ -100,6 +100,9 @@ public:
     /// Get the orientation of a handle
     virtual bool get_is_reverse(const handle_t& handle) const;
     
+    /// Invert the orientation of a handle (potentially without getting its ID)
+    virtual handle_t flip(const handle_t& handle) const;
+    
     /// Get the length of a node
     virtual size_t get_length(const handle_t& handle) const;
     
@@ -110,7 +113,7 @@ public:
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue.
-    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee);
+    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
     
 private:
     // We have some masks for cramming things into handles

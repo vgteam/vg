@@ -7,23 +7,18 @@
 #ifndef multipath_mapper_hpp
 #define multipath_mapper_hpp
 
-#include <stdio.h>
-#include <cmath>
-
 #include "hash_map.hpp"
 #include "suffix_tree.hpp"
 #include "mapper.hpp"
 #include "gssw_aligner.hpp"
 #include "types.hpp"
 #include "multipath_alignment.hpp"
-#include "utility.hpp"
 #include "xg.hpp"
 #include "vg.pb.h"
 #include "position.hpp"
 #include "path.hpp"
 #include "edit.hpp"
 #include "snarls.hpp"
-#include "algorithms/vg_algorithms.hpp"
 
 using namespace std;
 

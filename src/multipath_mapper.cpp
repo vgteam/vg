@@ -18,6 +18,10 @@
 
 #include "multipath_mapper.hpp"
 
+#include "algorithms/extract_containing_graph.hpp"
+#include "algorithms/extract_connecting_graph.hpp"
+#include "algorithms/extract_extending_graph.hpp"
+
 namespace vg {
     
     //size_t MultipathMapper::PRUNE_COUNTER = 0;
