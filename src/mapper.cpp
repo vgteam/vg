@@ -280,6 +280,7 @@ BaseMapper::find_mems_simple(string::const_iterator seq_begin,
 vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_begin,
                                                      string::const_iterator seq_end,
                                                      double& longest_lcp,
+                                                     double& fraction_filtered,
                                                      int max_mem_length,
                                                      int min_mem_length,
                                                      int reseed_length,
@@ -344,7 +345,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     
     // did we move the cursor or the end of the match last iteration?
     bool prev_iter_jumped_lcp = false;
-    
+
+    int filtered_mems = 0;
     int max_lcp = 0;
     size_t mem_length = 0;
     vector<int> lcp_maxima;
@@ -565,7 +567,10 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             // extract the graph positions matching the range
             gcsa->locate(mem.range, mem.nodes);
             // it may be necessary to impose the cap on mem hits?
-            if (hit_max > 0 && mem.nodes.size() > hit_max) mem.nodes.clear();
+            if (hit_max > 0 && mem.nodes.size() > hit_max) {
+                filtered_mems += mem.nodes.size();
+                mem.nodes.clear();
+            }
         }
     }
     
@@ -587,7 +592,10 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
                 gcsa->locate(mem.range, mem.nodes);
                 // it may be necessary to impose the cap on mem hits?
-                if (hit_max > 0 && mem.nodes.size() > hit_max) mem.nodes.clear();
+                if (hit_max > 0 && mem.nodes.size() > hit_max) {
+                    filtered_mems += mem.nodes.size();
+                    mem.nodes.clear();
+                }
             }
         }
         
@@ -604,6 +612,10 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
         return m1.begin < m2.begin ? true : (m1.begin == m2.begin ? m1.end < m2.end : false);
     });
+
+    int total_mems = 0;
+    std::for_each(mems.begin(), mems.end(), [&total_mems](const MaximalExactMatch& mem) { total_mems += mem.nodes.size(); });
+    fraction_filtered = (double) filtered_mems / (double) total_mems;
     
     // remove non-unique MEMs
     // TODO: I think I already fixed this
@@ -1811,17 +1823,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
 
     pair<vector<Alignment>, vector<Alignment>> results;
-    double longest_lcp1, longest_lcp2;
+    double longest_lcp1, longest_lcp2, fraction_filtered1, fraction_filtered2;
     // find the MEMs for the alignments
     vector<MaximalExactMatch> mems1 = find_mems_deep(read1.sequence().begin(),
                                                      read1.sequence().end(),
                                                      longest_lcp1,
+                                                     fraction_filtered1,
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length);
     vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
                                                      read2.sequence().end(),
                                                      longest_lcp2,
+                                                     fraction_filtered2,
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length);
@@ -2418,15 +2432,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         possible_pairs += p->first.fragment_score() > 0 && p->second.fragment_score() > 0;
     }
 
+    // determine if we've filtered MEMs and use that to decide if we should use the estimated cap!
     // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
-        //&& (maybe_mq1 + maybe_mq2 > 10 || possible_pairs > 1) // may help in human context
+        && fraction_filtered1 < 0.5 && fraction_filtered2 < 0.5
         && pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, max_mapping_quality, max_mapping_quality);
     } else {
         // compute mq independently
-        compute_mapping_qualities(results.first, cluster_mq, mq_cap1, max_mapping_quality);
-        compute_mapping_qualities(results.second, cluster_mq, mq_cap2, max_mapping_quality);
+        compute_mapping_qualities(results.first, cluster_mq, mq_cap1, min(maybe_mq1, (double) max_mapping_quality));
+        compute_mapping_qualities(results.second, cluster_mq, mq_cap2, min(maybe_mq2,(double) max_mapping_quality));
     }
 
     // remove the extra pair used to compute mapping quality if necessary
@@ -4000,7 +4015,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
         additional_multimaps_for_quality = additional_multimaps;
     }
 
-    double longest_lcp;
+    double longest_lcp, fraction_filtered;
     vector<Alignment> alignments;
     
     // use pre-restricted mems for paired mapping or find mems here
@@ -4012,6 +4027,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
         vector<MaximalExactMatch> mems = find_mems_deep(aln.sequence().begin(),
                                                         aln.sequence().end(),
                                                         longest_lcp,
+                                                        fraction_filtered,
                                                         max_mem_length,
                                                         min_mem_length,
                                                         mem_reseed_length);

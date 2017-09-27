@@ -52,9 +52,9 @@ namespace vg {
 #endif
     
         // query MEMs using GCSA2
-        double dummy;
+        double dummy1; double dummy2;
         vector<MaximalExactMatch> mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(),
-                                                        dummy, 0, min_mem_length, mem_reseed_length, false, true);
+                                                        dummy1, dummy2, 0, min_mem_length, mem_reseed_length, false, true);
         
 #ifdef debug_multipath_mapper
         cerr << "obtained MEMs:" << endl;
@@ -319,11 +319,11 @@ namespace vg {
         // the fragment length distribution has been estimated, so we can do full-fledged paired mode
     
         // query MEMs using GCSA2
-        double dummy;
+        double dummy1, dummy2;
         vector<MaximalExactMatch> mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(),
-                                                         dummy, 0, min_mem_length, mem_reseed_length, false, true);
+                                                         dummy1, dummy2, 0, min_mem_length, mem_reseed_length, false, true);
         vector<MaximalExactMatch> mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(),
-                                                         dummy, 0, min_mem_length, mem_reseed_length, false, true);
+                                                         dummy1, dummy2, 0, min_mem_length, mem_reseed_length, false, true);
         
 #ifdef debug_multipath_mapper
         cerr << "obtained read1 MEMs:" << endl;

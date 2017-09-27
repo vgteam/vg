@@ -185,6 +185,7 @@ public:
     find_mems_deep(string::const_iterator seq_begin,
                    string::const_iterator seq_end,
                    double& lcp_avg,
+                   double& fraction_filtered,
                    int max_mem_length = 0,
                    int min_mem_length = 1,
                    int reseed_length = 0,
