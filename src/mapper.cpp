@@ -2436,6 +2436,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
         && fraction_filtered1 < 0.5 && fraction_filtered2 < 0.5
+        && (maybe_mq1 > 1 && maybe_mq2 > 1 || possible_pairs > 1) // may help in human context
         && pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, max_mapping_quality, max_mapping_quality);
     } else {
