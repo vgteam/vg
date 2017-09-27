@@ -951,7 +951,7 @@ class VGCITest(TestCase):
                            sample='HG00096',
                            assembly="hg19",
                            acc_threshold=0.0075, multipath=True,
-                           sim_opts='-l 150 -p 500 -v 50 -e 0.01 -i 0.002')
+                           sim_opts='-l 150 -p 1000 -v 75 -e 0.05 -i 0.01')
 
     @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(3600)
