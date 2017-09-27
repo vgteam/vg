@@ -2441,8 +2441,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, max_mapping_quality, max_mapping_quality);
     } else {
         // compute mq independently
-        compute_mapping_qualities(results.first, cluster_mq, mq_cap1, min(maybe_mq1, (double) max_mapping_quality));
-        compute_mapping_qualities(results.second, cluster_mq, mq_cap2, min(maybe_mq2,(double) max_mapping_quality));
+        compute_mapping_qualities(results.first, cluster_mq, mq_cap1, max_mapping_quality);
+        compute_mapping_qualities(results.second, cluster_mq, mq_cap2, max_mapping_quality);
     }
 
     // remove the extra pair used to compute mapping quality if necessary
