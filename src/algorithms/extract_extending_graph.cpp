@@ -46,23 +46,29 @@ namespace algorithms {
         graph[id(pos)] = src_node;
         id_trans[id(pos)] = id(pos);
         
+        // Keep a handle to where we start from.
+        // If the queue stays empty and we do no searching, the handle will be
+        // uninitialized.
+        handle_t start_handle;
+        
         // initialize the queue
         priority_queue<Traversal> queue;
         if (backward) {
             int64_t dist = offset(pos);
             if (dist < max_dist) {
-                queue.emplace(source->get_handle(id(pos), !is_rev(pos)), dist);
+                // We need to leave the node to get enough sequence
+                start_handle = source->get_handle(id(pos), !is_rev(pos));
+                queue.emplace(start_handle, dist);
             }
         }
         else {
             int64_t dist = g.node(0).sequence().size() - offset(pos);
             if (dist < max_dist) {
-                queue.emplace(source->get_handle(id(pos), is_rev(pos)), dist);
+                // We need to leave the node to get enough sequence
+                start_handle = source->get_handle(id(pos), is_rev(pos));
+                queue.emplace(start_handle, dist);
             }
         }
-        
-        // Grab the handle we're starting from
-        handle_t start_handle = queue.top().handle;
         
         id_t max_id = id(pos);
         bool cycled_to_source = false;
@@ -134,6 +140,7 @@ namespace algorithms {
         
         // add the edges to the graph
         for (const pair<handle_t, handle_t>& edge : observed_edges) {
+            // This loop will never run unless we actually ran the search, so it is safe to use start_handle here.
             bool add_edge;
             if (source->forward(edge.first) == source->forward(start_handle) ||
                 source->forward(edge.second) == source->forward(start_handle)) {

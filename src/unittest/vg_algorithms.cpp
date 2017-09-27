@@ -2172,6 +2172,32 @@ namespace vg {
             vg.create_edge(n6, n6, false, true);
             vg.create_edge(n7, n7);
             
+            SECTION( "Extending graph extraction algorithm can stay within a node and returns all of it after the cut point" ) {
+                
+                pos_t pos = make_pos_t(n1->id(), false, 5);
+                int64_t max_dist = 1;
+                bool search_backward = false;
+                bool preserve_cycles = false;
+                
+                Graph g;
+                
+                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                
+                REQUIRE(g.node_size() == 1);
+                REQUIRE(g.edge_size() == 0);
+                
+                bool found_node_0 = false;
+                
+                for (size_t i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (id_trans[n.id()] == n1->id() && n.sequence() == "CCACCACA") {
+                        found_node_0 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+            }
+            
             SECTION( "Extending graph extraction algorithm only finds nodes within the maximum distance" ) {
                 
                 pos_t pos = make_pos_t(n3->id(), false, 0);
