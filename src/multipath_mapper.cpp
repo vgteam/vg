@@ -249,10 +249,19 @@ namespace vg {
                 int64_t fragment_length = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                                         id(pos_2), offset(pos_2), is_rev(pos_2));
                 
+#ifdef debug_multipath_mapper
+                cerr << "fragment length between mappings measured at " << fragment_length << endl;;
+#endif
+                
                 // can we obtain a distance between these positions?
                 if (fragment_length != numeric_limits<int64_t>::max()) {
                     
                     // record the unambiguous mappings and the fragment length
+                    
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "registering measurement" << endl;;
+#endif
                     
                     multipath_aln_pairs_out.emplace_back(move(multipath_aln_1), move(multipath_aln_2));
                     multipath_aln_pairs_out.front().first.set_paired_read_name(multipath_aln_pairs_out.front().second.name());

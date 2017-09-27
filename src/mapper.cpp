@@ -4990,7 +4990,6 @@ void FragmentLengthDistribution::register_fragment_length(int64_t length) {
     if (is_fixed) {
         return;
     }
-    
 #pragma omp critical
     {
         // in case the distribution became fixed while this thread was waiting
@@ -5032,7 +5031,7 @@ void FragmentLengthDistribution::estimate_distribution() {
     size_t to_skip = (size_t) (lengths.size() * (1.0 - robust_estimation_fraction) * 0.5);
     auto begin = lengths.begin();
     auto end = lengths.end();
-    for (size_t i = 0; i < to_skip - 1; i++) {
+    for (size_t i = 0; i < to_skip; i++) {
         begin++;
         end--;
         

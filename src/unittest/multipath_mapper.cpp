@@ -483,6 +483,10 @@ TEST_CASE( "MultipathMapper can map to a bigger graph", "[multipath][mapping][mu
         // Did we map the right thing?
         REQUIRE(results[0].first.sequence() == read1.sequence());
         REQUIRE(results[0].second.sequence() == read2.sequence());
+        
+        // Did we get alignments?
+        REQUIRE(results[0].first.subpath_size() > 0);
+        REQUIRE(results[0].second.subpath_size() > 0);
     }
     
     // Fix the distribution
@@ -509,8 +513,14 @@ TEST_CASE( "MultipathMapper can map to a bigger graph", "[multipath][mapping][mu
         REQUIRE(results[0].first.sequence() == read1.sequence());
         REQUIRE(results[0].second.sequence() == read2.sequence());
         
+        // Did we get alignments?
+        REQUIRE(results[0].first.subpath_size() > 0);
+        REQUIRE(results[0].second.subpath_size() > 0);
+        
+        // TODO: this error check is no longer accurate now that I've implemented the fragment length
+        // distribution into the mapping quality
         // But it should have MAPQ 0 for the second, ambiguously-placed read.
-        REQUIRE(results[0].second.mapping_quality() == 0);
+        //REQUIRE(results[0].second.mapping_quality() == 0);
         // TODO: It also zeros MAPQ for the first read; is that smart?
     }
     
