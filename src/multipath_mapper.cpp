@@ -286,6 +286,16 @@ namespace vg {
             for (pair<Alignment,Alignment>& aln_pair : ambiguous_pair_buffer) {
                 cerr << "\t" << aln_pair.first.name() << ", " << aln_pair.second.name() << endl;
             }
+            cerr << "distance measurements:" << endl;
+            auto iter = fragment_length_distr.measurements_begin();
+            if (iter != fragment_length_distr.measurements_end()) {
+                cerr << *iter;
+                iter++;
+            }
+            for (; iter != fragment_length_distr.measurements_end(); iter++) {
+                cerr << ", " << *iter;
+            }
+            cerr << endl;
         }
 #endif
     }

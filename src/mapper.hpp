@@ -123,6 +123,14 @@ public:
     /// parameters
     size_t max_sample_size() const;
     
+    /// Begin iterator to the measurements that the distribution has used to estimate the
+    /// parameters
+    multiset<double>::const_iterator measurements_begin() const;
+    
+    /// End iterator to the measurements that the distribution has used to estimate the
+    /// parameters
+    multiset<double>::const_iterator measurements_end() const;
+    
 private:
     multiset<double> lengths;
     bool is_fixed = false;

@@ -5032,9 +5032,10 @@ void FragmentLengthDistribution::estimate_distribution() {
     size_t to_skip = (size_t) (lengths.size() * (1.0 - robust_estimation_fraction) * 0.5);
     auto begin = lengths.begin();
     auto end = lengths.end();
-    for (size_t i = 0; i < to_skip; i++) {
+    for (size_t i = 0; i < to_skip - 1; i++) {
         begin++;
         end--;
+        
     }
     // compute cumulants
     double count = 0.0;
@@ -5050,7 +5051,7 @@ void FragmentLengthDistribution::estimate_distribution() {
     double raw_var = sum_of_sqs / count - mu * mu;
     // apply method of moments estimation using the appropriate truncated normal distribution
     double a = normal_inverse_cdf(1.0 - 0.5 * (1.0 - robust_estimation_fraction));
-    sigma = sqrt(raw_var * robust_estimation_fraction / (1.0 - 2.0 * a * normal_pdf(a, 0.0, 1.0)));
+    sigma = sqrt(raw_var / (1.0 - 2.0 * a * normal_pdf(a, 0.0, 1.0)));
 }
     
 double FragmentLengthDistribution::mean() const {
@@ -5067,5 +5068,13 @@ bool FragmentLengthDistribution::is_finalized() const {
     
 size_t FragmentLengthDistribution::max_sample_size() const {
     return maximum_sample_size;
+}
+    
+multiset<double>::const_iterator FragmentLengthDistribution::measurements_begin() const {
+    return lengths.begin();
+}
+
+multiset<double>::const_iterator FragmentLengthDistribution::measurements_end() const {
+    return lengths.end();
 }
 }
