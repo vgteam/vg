@@ -23,7 +23,7 @@ void help_map(char** argv) {
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
-         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [16]" << endl
+         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [64]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than INT [60]" << endl
          << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
@@ -117,7 +117,7 @@ int main_map(int argc, char** argv) {
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
-    int min_multimaps = 16;
+    int min_multimaps = 64;
     int max_mapping_quality = 60;
     int maybe_mq_threshold = 60;
     double identity_weight = 2;
