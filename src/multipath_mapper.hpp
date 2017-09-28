@@ -141,7 +141,8 @@ namespace vg {
                              memcluster_t& graph_mems,
                              MultipathAlignment& multipath_aln_out) const;
         
-        /// Reorders the Subpaths in the MultipathAlignment to be in topological order (required by .proto specifications)
+        /// Reorders the Subpaths in the MultipathAlignment to be in topological
+        /// order according to "next" links (required by .proto specifications)
         void topologically_order_subpaths(MultipathAlignment& multipath_aln) const;
         
         /// Remove the full length bonus from all source or sink subpaths that received it
