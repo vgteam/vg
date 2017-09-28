@@ -88,29 +88,7 @@ namespace vg {
         /// as a priority).
         using clustergraph_t = tuple<VG*, memcluster_t, size_t>;
         
-        ////////////////////////////////////////////////////////////////////////
-        // Testable utility methods
-        ////////////////////////////////////////////////////////////////////////
-        
-        // TODO: should we break these out into another class or something?
-        
-        /// Computes the number of read bases a cluster of MEM hits covers.
-        static int64_t read_coverage(const memcluster_t& mem_hits);
-        
-        /// Extracts a subgraph around each cluster of MEMs that encompasses any
-        /// graph position reachable with local alignment anchored at the MEMs.
-        /// If any subgraphs overlap, they are merged into one subgraph. Returns
-        /// a vector of all the merged cluster subgraphs, their MEMs assigned
-        /// from the mems vector according to the MEMs' hits, and their read
-        /// coverages in bp. The caller must delete the VG objects produced!
-        static vector<clustergraph_t> query_cluster_graphs(const BaseAligner* aligner,
-                                                           xg::XG* xindex,
-                                                           LRUCache<id_t, vg::Node>& node_cache,
-                                                           const Alignment& alignment,
-                                                           const vector<MaximalExactMatch>& mems,
-                                                           const vector<memcluster_t>& clusters);
-        
-    private:
+    protected:
         
         /// Wrapped internal function that allows some code paths to circumvent the current
         /// mapping quality method option.
@@ -146,10 +124,13 @@ namespace vg {
                                           size_t max_alt_mappings);
         
         
-        /// Extract reachable (according to the Mapper's aligner) subgraphs from
-        /// each MEM cluster from the mapper's XG index, using the mapper's node
-        /// cache.
-        /// The caller must delete the VG objects produced!
+        /// Extracts a subgraph around each cluster of MEMs that encompasses any
+        /// graph position reachable (according to the Mapper's aligner) with
+        /// local alignment anchored at the MEMs. If any subgraphs overlap, they
+        /// are merged into one subgraph. Returns a vector of all the merged
+        /// cluster subgraphs, their MEMs assigned from the mems vector
+        /// according to the MEMs' hits, and their read coverages in bp. The
+        /// caller must delete the VG objects produced!
         vector<clustergraph_t> query_cluster_graphs(const Alignment& alignment,
                                                     const vector<MaximalExactMatch>& mems,
                                                     const vector<memcluster_t>& clusters);
@@ -171,6 +152,9 @@ namespace vg {
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
         void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs) const;
+        
+        /// Computes the number of read bases a cluster of MEM hits covers.
+        static int64_t read_coverage(const memcluster_t& mem_hits);
         
         /// Computes the Z-score of the number of matches against an equal length random DNA string.
         double read_coverage_z_score(int64_t coverage, const Alignment& alignment) const;

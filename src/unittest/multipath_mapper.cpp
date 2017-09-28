@@ -10,7 +10,24 @@
 
 namespace vg {
 namespace unittest {
-    
+
+// We define a child class to expose all the protected stuff for testing
+class TestMultipathMapper : public MultipathMapper {
+public:
+    using MultipathMapper::MultipathMapper;
+    using MultipathMapper::multipath_map_internal;
+    using MultipathMapper::attempt_unpaired_multipath_map_of_pair;
+    using MultipathMapper::align_to_cluster_graphs;
+    using MultipathMapper::align_to_cluster_graph_pairs;
+    using MultipathMapper::query_cluster_graphs;
+    using MultipathMapper::multipath_align;
+    using MultipathMapper::topologically_order_subpaths;
+    using MultipathMapper::strip_full_length_bonuses;
+    using MultipathMapper::sort_and_compute_mapping_quality;
+    using MultipathMapper::read_coverage;
+    using MultipathMapper::read_coverage_z_score;        
+};
+
 TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipathmapper]" ) {
 
     // Make up some MEMs
@@ -26,7 +43,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
     string read("GATTACA");
     
     SECTION("No hits cover no bases") {
-        auto covered = MultipathMapper::read_coverage(mem_hits);
+        auto covered = TestMultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == 0);
     }
     
@@ -36,7 +53,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         // Drop it on some arbitrary node
         mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
         
-        auto covered = MultipathMapper::read_coverage(mem_hits);
+        auto covered = TestMultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == 0);
     }
     
@@ -46,7 +63,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         // Drop it on some arbitrary node
         mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
         
-        auto covered = MultipathMapper::read_coverage(mem_hits);
+        auto covered = TestMultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == 1);
     }
     
@@ -56,7 +73,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         // Drop it on some arbitrary node
         mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
         
-        auto covered = MultipathMapper::read_coverage(mem_hits);
+        auto covered = TestMultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == read.size());
     }
     
@@ -71,7 +88,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         mem_hits.emplace_back(&mems[0], make_pos_t(999, false, 3));
         mem_hits.emplace_back(&mems[1], make_pos_t(888, false, 3));
         
-        auto covered = MultipathMapper::read_coverage(mem_hits);
+        auto covered = TestMultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == read.size());
     }
     
@@ -85,7 +102,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         mem_hits.emplace_back(&mems[0], make_pos_t(999, false, 3));
         mem_hits.emplace_back(&mems[1], make_pos_t(888, false, 3));
         
-        auto covered = MultipathMapper::read_coverage(mem_hits);
+        auto covered = TestMultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == read.size());
     }
 
@@ -106,14 +123,27 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     Graph proto_graph;
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
+    // Configure GCSA temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(find_temp_dir());
+    // And make it quiet
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Make pointers to fill in
+    gcsa::GCSA* gcsaidx = nullptr;
+    gcsa::LCPArray* lcpidx = nullptr;
+    
+    // Build the GCSA index
+    graph.build_gcsa_lcp(gcsaidx, lcpidx, 16, false, false, 3);
+    
     // Build the xg index
     xg::XG xg_index(proto_graph);
     
-    // Make an aligner
-    Aligner aligner;
-    
-    // And a node cache
-    LRUCache<id_t, vg::Node> node_cache(100);
+    // Make a multipath mapper to map against the graph.
+    TestMultipathMapper mapper(&xg_index, gcsaidx, lcpidx);
     
     // Make an Alignment that we're pretending we're doing
     Alignment aln;
@@ -131,7 +161,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     
     SECTION("no MEMs produce no graphs") {
     
-        auto results = MultipathMapper::query_cluster_graphs(&aligner, &xg_index, node_cache, aln, mems, clusters);
+        auto results = mapper.query_cluster_graphs(aln, mems, clusters);
         
         REQUIRE(results.size() == 0);
         
@@ -156,7 +186,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(mems.size() == 1);
         
         // Now get the graph
-        auto results = MultipathMapper::query_cluster_graphs(&aligner, &xg_index, node_cache, aln, mems, clusters);
+        auto results = mapper.query_cluster_graphs(aln, mems, clusters);
         
         // We have one graph
         REQUIRE(results.size() == 1);
@@ -193,7 +223,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(mems.size() == 2);
 
         // Now get the graph
-        auto results = MultipathMapper::query_cluster_graphs(&aligner, &xg_index, node_cache, aln, mems, clusters);
+        auto results = mapper.query_cluster_graphs(aln, mems, clusters);
         
         // We have one graph
         REQUIRE(results.size() == 1);
@@ -230,7 +260,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(mems.size() == 2);
         
         // Now get the graph
-        auto results = MultipathMapper::query_cluster_graphs(&aligner, &xg_index, node_cache, aln, mems, clusters);
+        auto results = mapper.query_cluster_graphs(aln, mems, clusters);
         
         // We have one graph
         REQUIRE(results.size() == 1);
