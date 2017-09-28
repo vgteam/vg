@@ -2181,7 +2181,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 1);
                 REQUIRE(g.edge_size() == 0);
@@ -2207,7 +2207,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 2);
                 REQUIRE(g.edge_size() == 1);
@@ -2250,7 +2250,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 2);
                 REQUIRE(g.edge_size() == 1);
@@ -2293,7 +2293,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 2);
                 REQUIRE(g.edge_size() == 1);
@@ -2336,7 +2336,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 2);
@@ -2390,7 +2390,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 2);
@@ -2444,7 +2444,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 7);
                 REQUIRE(g.edge_size() == 8);
@@ -2554,7 +2554,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 4);
@@ -2626,7 +2626,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                                 
                 REQUIRE(g.node_size() == 5);
                 REQUIRE(g.edge_size() == 6);

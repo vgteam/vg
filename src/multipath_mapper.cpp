@@ -1266,7 +1266,7 @@ namespace vg {
                     get_offset(end_pos)++;
                     
                     Graph tail_graph;
-                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(align_graph,
+                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
                                                                                                tail_graph,
                                                                                                target_length,
                                                                                                end_pos,
@@ -1362,7 +1362,7 @@ namespace vg {
 
                     
                     Graph tail_graph;
-                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(align_graph,
+                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
                                                                                                tail_graph,
                                                                                                target_length,
                                                                                                begin_pos,
