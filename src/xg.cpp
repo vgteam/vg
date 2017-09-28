@@ -815,7 +815,7 @@ void XG::build(map<id_t, string>& node_label,
     util::assign(g_cbv, rrr_vector<>(g_bv));
     util::assign(g_cbv_rank, rrr_vector<>::rank_1_type(&g_cbv));
     util::assign(g_cbv_select, rrr_vector<>::select_1_type(&g_cbv));
-
+    
     // convert the edges in g_iv to relativistic form
     for (int64_t i = 0; i < i_iv.size(); ++i) {
         int64_t id = i_iv[i];
@@ -1558,7 +1558,7 @@ handle_t XG::flip(const handle_t& handle) const {
 }
 
 size_t XG::get_length(const handle_t& handle) const {
-    return g_iv[as_integer(handle) & LOW_BITS + G_NODE_LENGTH_OFFSET];
+    return g_iv[(as_integer(handle) & LOW_BITS) + G_NODE_LENGTH_OFFSET];
 }
 
 string XG::get_sequence(const handle_t& handle) const {
@@ -1607,14 +1607,13 @@ bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) cons
 
 bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, bool is_to,
     bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee) const {
-
+    
     // OK go over all those edges
     for (size_t i = 0; i < count; i++) {
         // What edge type is the edge?
         int type = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_TYPE_OFFSET];
         
         if (edge_filter(type, is_to, want_left, is_reverse)) {
-            // We want this edge
             
             // What's the offset to the other node?
             int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
@@ -1626,10 +1625,18 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
             // Compose the handle for where we are going
             handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
             
+            // We want this edge
+            
             if (!iteratee(next_handle)) {
                 // Stop iterating
                 return false;
             }
+        }
+        else {
+            // TODO: delete this after using it to debug
+            int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
+            bool new_reverse = is_reverse != (type == 2 || type == 3);
+            handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
         }
     }
     // Iteratee didn't stop us.
@@ -1649,9 +1656,9 @@ void XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
     size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
     
-    // Where does each edge run start? 
-    size_t to_start = g + G_NODE_HEADER_LENGTH + sequence_size;
-    size_t from_start = g + G_NODE_HEADER_LENGTH + sequence_size + G_EDGE_LENGTH * edges_to_count;
+    // Where does each edge run start?
+    size_t to_start = g + G_NODE_HEADER_LENGTH;
+    size_t from_start = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
     
     // We will look for all the edges on the appropriate side, which means we have to check the from and to edges
     if (do_edges(g, to_start, edges_to_count, true, go_left, is_reverse, iteratee)) {
@@ -2519,56 +2526,88 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
         oriented_node_occurrences[make_pair(oriented_occurrences.first, id2)] = std::move(oriented_occurrences.second);
     }
     
-    // priority queues over (distance, id, strand, search backward) tuples
-    // distance is measure at the end of the node, so it's actually the distance
-    // to the next nodes we will traverse to
-    // there is a separate queue for each of the positions
-    priority_queue<tuple<int64_t, int64_t, bool, bool>,
-                   vector<tuple<int64_t, int64_t, bool, bool>>,
-                   std::greater<tuple<int64_t, int64_t, bool, bool>>> queue_1, queue_2;
-    unordered_set<pair<int64_t, bool>> queued_1, queued_2;
+    // a local struct for traversals that are ordered by search distance and keep
+    // track of whether we're searching to the left or right
+    struct Traversal {
+        Traversal() {}
+        Traversal(int64_t dist, handle_t handle, bool search_left) :
+                 dist(dist), handle(handle), search_left(search_left) {}
+        handle_t handle;
+        int64_t dist;
+        bool search_left;
+        inline bool operator<(const Traversal& other) const {
+            return dist > other.dist; // opposite order so priority queue selects minimum
+        }
+    };
     
     // if we already found shared paths on the start nodes, don't search anymore
     if (shared_paths.empty()) {
+#ifdef debug_algorithms
+        cerr << "[XG] no shared paths detected, beginning traversals" << endl;
+#endif
+        // priority queues over traversals
+        // distance is measure at the end of the node, so it's actually the distance
+        // to the next nodes we will traverse to
+        // there is a separate queue for each of the positions
+        priority_queue<Traversal> queue_1, queue_2;
+        unordered_set<handle_t> queued_1, queued_2;
+        
+#ifdef debug_algorithms
+        cerr << "[XG] getting handles for search starts" << endl;
+#endif
+        // get handles to the starting positions
+        handle_t handle1 = get_handle(id1, rev1);
+        handle_t handle2 = get_handle(id2, rev2);
+        
+#ifdef debug_algorithms
+        cerr << "[XG] initializing queues" << endl;
+#endif
+
         // add in the initial traversals in both directions from both start nodes
-        queue_1.emplace((int64_t) offset1 - (int64_t) node_length(id1), id1, rev1, true);
-        queue_1.emplace(-((int64_t) offset1), id1, rev1, false);
-        queue_2.emplace((int64_t) offset2 - (int64_t) node_length(id2), id2, rev2, true);
-        queue_2.emplace(-((int64_t) offset2), id2, rev2, false);
+        queue_1.emplace((int64_t) offset1 - (int64_t) get_length(handle1), handle1, true);
+        queue_1.emplace(-((int64_t) offset1), handle1, false);
+        queue_2.emplace((int64_t) offset2 - (int64_t) get_length(handle2), handle2, true);
+        queue_2.emplace(-((int64_t) offset2), handle2, false);
         
         // mark the initial traversals as queued
-        queued_1.emplace(id1, rev1);
-        queued_2.emplace(id2, rev2);
+        queued_1.insert(handle1);
+        queued_2.insert(handle2);
         
         while (!(queue_1.empty() && queue_2.empty()) && shared_paths.empty()) {
             // get the queue that has the next shortest path
+#ifdef debug_algorithms
+            cerr << "[XG] choosing queue for next traversal" << endl;
+#endif
             auto curr_queue = &queue_1;
             auto curr_queued = &queued_1;
             auto curr_path_dists = &path_dists_1;
             auto other_path_dists = &path_dists_2;
-            if (queue_1.empty() ? true : (queue_2.empty() ? false : get<0>(queue_1.top()) > get<0>(queue_2.top()))) {
+            if (queue_1.empty() ? true : (queue_2.empty() ? false : queue_1.top().dist > queue_2.top().dist)) {
                 curr_queue = &queue_2;
                 curr_queued = &queued_2;
                 std::swap(curr_path_dists, other_path_dists);
             }
             
-            tuple<int64_t, int64_t, bool, bool> trav = curr_queue->top();
+            Traversal trav = curr_queue->top();
             curr_queue->pop();
             
 #ifdef debug_algorithms
-            cerr << "[XG] traversing " << get<1>(trav) << (get<2>(trav) ? "-" : "+") << " in " << (get<3>(trav) ? "backwards" : "forward") << " direction at distance " << get<0>(trav) << endl;
+            cerr << "[XG] traversing " << get_id(trav.handle) << (get_is_reverse(trav.handle) ? "-" : "+") << " in " << (trav.search_left ? "leftward" : "rightward") << " direction at distance " << trav.dist << endl;
 #endif
             
             // don't look any further if the next closest traversal is beyond the maximum distance
-            if ( get<0>(trav) > (int64_t) max_search_dist) {
+            if ( trav.dist > (int64_t) max_search_dist) {
                 break;
             }
             
-            int64_t dist = get<0>(trav) + node_length(get<1>(trav));
+            int64_t dist = trav.dist + get_length(trav.handle);
             
-            if ((get<1>(trav) != id1 || get<2>(trav) != rev1) && (get<1>(trav) != id2 || get<2>(trav) != rev2)) {
+            int64_t trav_id = get_id(trav.handle);
+            bool trav_is_rev = get_is_reverse(trav.handle);
+            
+            if ((trav_id != id1 || trav_is_rev != rev1) && (trav_id != id2 || trav_is_rev != rev2)) {
                 // this is not one of the start positions, so it might have new paths on it
-                for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : paths_of_node_traversal(get<1>(trav), get<2>(trav))) {
+                for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : paths_of_node_traversal(trav_id, trav_is_rev)) {
                     for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
 #ifdef debug_algorithms
                         cerr << "\ttraversal is on path " << oriented_occurrences.first << " in " << (occurrence.second ? "reverse" : "forward") << " orientation" << endl;
@@ -2576,37 +2615,30 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
                         pair<size_t, bool> path_orientation(oriented_occurrences.first, occurrence.second);
                         if (!curr_path_dists->count(path_orientation)) {
                             // record the oriented distance to the forward beginning of the node, relative to the start traversal
-                            (*curr_path_dists)[path_orientation] = make_tuple(get<1>(trav), get<2>(trav),
-                                                                              get<3>(trav) ? -dist : get<0>(trav));
+                            (*curr_path_dists)[path_orientation] = make_tuple(trav_id, trav_is_rev,
+                                                                              trav.search_left ? -dist : trav.dist);
                             // have we found nodes that share a path yet?
                             if (other_path_dists->count(path_orientation)) {
                                 shared_paths.insert(path_orientation);
                             }
                         }
                     }
-                    oriented_node_occurrences[make_pair(oriented_occurrences.first, get<1>(trav))] = std::move(oriented_occurrences.second);
+                    oriented_node_occurrences[make_pair(oriented_occurrences.first, get_id(trav.handle))] = std::move(oriented_occurrences.second);
                 }
             }
             
-            // move in the search direction away from this node traversal and queue them up
-            bool search_backward = get<2>(trav) != get<3>(trav);
-            for (const Edge& edge : search_backward ? edges_on_start(get<1>(trav)) : edges_on_end(get<1>(trav))) {
-                bool next_rev;
-                int64_t next_id;
-                if (edge.from() == get<1>(trav) && edge.from_start() == search_backward) {
-                    next_id = edge.to();
-                    next_rev = edge.to_end() != get<3>(trav);
+            function<bool(const handle_t& next)> enqueue_next = [&](const handle_t& next) {
+                if (!curr_queued->count(next)) {
+#ifdef debug_algorithms
+                    cerr << "\tfollowing edge to " << get_id(next) << (get_is_reverse(trav.handle) ? "-" : "+") << " at dist " << dist << endl;
+#endif
+                    curr_queued->emplace(next);
+                    curr_queue->emplace(dist, next, trav.search_left);
                 }
-                else {
-                    next_id = edge.from();
-                    next_rev = edge.from_start() == get<3>(trav);
-                }
-                
-                if (!curr_queued->count(make_pair(next_id, next_rev))) {
-                    curr_queued->emplace(next_id, next_rev);
-                    curr_queue->emplace(dist, next_id, next_rev, get<3>(trav));
-                }
-            }
+                return true;
+            };
+            
+            follow_edges(trav.handle, trav.search_left, enqueue_next);
         }
     }
     

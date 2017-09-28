@@ -508,8 +508,8 @@ private:
     const static int G_NODE_FROM_COUNT_OFFSET = 4;
     const static int G_NODE_HEADER_LENGTH = 5;
     
-    const static int G_EDGE_TYPE_OFFSET = 0;
-    const static int G_EDGE_OFFSET_OFFSET = 1;
+    const static int G_EDGE_OFFSET_OFFSET = 0;
+    const static int G_EDGE_TYPE_OFFSET = 1;
     const static int G_EDGE_LENGTH = 2;
     
     // And some masks
