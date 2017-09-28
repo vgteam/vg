@@ -417,7 +417,7 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
     double next_score = -std::numeric_limits<double>::max();
     int32_t next_count = 0;
     
-    for (int32_t i = 1; i < scaled_scores.size(); i++) {
+    for (int32_t i = 1; i < scaled_scores.size(); ++i) {
         double score = scaled_scores[i];
         if (score > max_score) {
             if (next_score == max_score) {
