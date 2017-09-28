@@ -162,59 +162,13 @@ namespace algorithms {
         
         // make a dummy vector for all positions at the same distance
         vector<size_t> dists(positions.size(), max_dist);
-        return extract_containing_graph_internal(g, positions, dists, dists,
-                                                 [&](id_t id) {
-                                                     vector<Edge> to_return;
-                                                     for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                         if ((edge->from() == id && edge->from_start())
-                                                             || (edge->to() == id && !edge->to_end())) {
-                                                             to_return.push_back(*edge);
-                                                         }
-                                                     }
-                                                     return to_return;
-                                                 },
-                                                 [&](id_t id) {
-                                                     vector<Edge> to_return;
-                                                     for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                         if ((edge->from() == id && !edge->from_start())
-                                                             || (edge->to() == id && edge->to_end())) {
-                                                             to_return.push_back(*edge);
-                                                         }
-                                                     }
-                                                     return to_return;
-                                                 },
-                                                 [&](id_t id) {
-                                                     return vg.get_node(id)->sequence();
-                                                 });
+        return extract_containing_graph(vg, g, positions, dists);
     }
     
     void extract_containing_graph(VG& vg, Graph& g, const vector<pos_t>& positions,
                                   const vector<size_t>& position_max_dist) {
         
-        return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
-                                                 [&](id_t id) {
-                                                     vector<Edge> to_return;
-                                                     for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                         if ((edge->from() == id && edge->from_start())
-                                                             || (edge->to() == id && !edge->to_end())) {
-                                                             to_return.push_back(*edge);
-                                                         }
-                                                     }
-                                                     return to_return;
-                                                 },
-                                                 [&](id_t id) {
-                                                     vector<Edge> to_return;
-                                                     for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                         if ((edge->from() == id && !edge->from_start())
-                                                             || (edge->to() == id && edge->to_end())) {
-                                                             to_return.push_back(*edge);
-                                                         }
-                                                     }
-                                                     return to_return;
-                                                 },
-                                                 [&](id_t id) {
-                                                     return vg.get_node(id)->sequence();
-                                                 });
+        return extract_containing_graph(vg, g, positions, position_max_dist, position_max_dist);
     }
     
     void extract_containing_graph(VG& vg, Graph& g, const vector<pos_t>& positions,
@@ -252,60 +206,14 @@ namespace algorithms {
         
         // make a dummy vector for all positions at the same distance
         vector<size_t> dists(positions.size(), max_dist);
-        if (node_cache && edge_cache) {
-            return extract_containing_graph_internal(g, positions, dists, dists,
-                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (node_cache) {
-            return extract_containing_graph_internal(g, positions, dists, dists,
-                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (edge_cache) {
-            return extract_containing_graph_internal(g, positions, dists, dists,
-                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_index.node_sequence(id);});
-        }
-        else {
-            return extract_containing_graph_internal(g, positions, dists, dists,
-                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_index.node_sequence(id);});
-        }
+        return extract_containing_graph(xg_index, g, positions, dists, node_cache, edge_cache);
     }
     
     void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions,
                                   const vector<size_t>& position_max_dist,
                                   LRUCache<id_t, Node>* node_cache, LRUCache<id_t, vector<Edge>>* edge_cache) {
         
-        if (node_cache && edge_cache) {
-            return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
-                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (node_cache) {
-            return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
-                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (edge_cache) {
-            return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
-                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_index.node_sequence(id);});
-        }
-        else {
-            return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
-                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_index.node_sequence(id);});
-        }
+        return extract_containing_graph(xg_index, g, positions, position_max_dist, position_max_dist, node_cache, edge_cache);
     }
     
     void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions,
