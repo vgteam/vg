@@ -158,47 +158,17 @@ namespace algorithms {
         }
     }
     
-    void extract_containing_graph(VG& vg, Graph& g, const vector<pos_t>& positions, size_t max_dist) {
+    void extract_containing_graph(const HandleGraph* source, Graph& g, const vector<pos_t>& positions, size_t max_dist) {
         
         // make a dummy vector for all positions at the same distance
         vector<size_t> dists(positions.size(), max_dist);
-        return extract_containing_graph(vg, g, positions, dists);
+        return extract_containing_graph(source, g, positions, dists);
     }
     
-    void extract_containing_graph(VG& vg, Graph& g, const vector<pos_t>& positions,
+    void extract_containing_graph(const HandleGraph* source, Graph& g, const vector<pos_t>& positions,
                                   const vector<size_t>& position_max_dist) {
         
-        return extract_containing_graph(vg, g, positions, position_max_dist, position_max_dist);
-    }
-    
-    void extract_containing_graph(VG& vg, Graph& g, const vector<pos_t>& positions,
-                                  const vector<size_t>& position_forward_max_dist,
-                                  const vector<size_t>& position_backward_max_dist) {
-        
-        return extract_containing_graph(&vg, g, positions, position_forward_max_dist, position_backward_max_dist);
-    }
-    
-    void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions, size_t max_dist,
-                                  LRUCache<id_t, Node>* node_cache, LRUCache<id_t, vector<Edge>>* edge_cache) {
-        
-        // make a dummy vector for all positions at the same distance
-        vector<size_t> dists(positions.size(), max_dist);
-        return extract_containing_graph(xg_index, g, positions, dists, node_cache, edge_cache);
-    }
-    
-    void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions,
-                                  const vector<size_t>& position_max_dist,
-                                  LRUCache<id_t, Node>* node_cache, LRUCache<id_t, vector<Edge>>* edge_cache) {
-        
-        return extract_containing_graph(xg_index, g, positions, position_max_dist, position_max_dist, node_cache, edge_cache);
-    }
-    
-    void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions,
-                                  const vector<size_t>& position_forward_max_dist,
-                                  const vector<size_t>& position_backward_max_dist,
-                                  LRUCache<id_t, Node>* node_cache, LRUCache<id_t, vector<Edge>>* edge_cache) {
-        
-        return extract_containing_graph(&xg_index, g, positions, position_forward_max_dist, position_backward_max_dist);
+        return extract_containing_graph(source, g, positions, position_max_dist, position_max_dist);
     }
     
     void extract_containing_graph(const HandleGraph* source, Graph& g, const vector<pos_t>& positions,
