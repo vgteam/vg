@@ -14,6 +14,7 @@
 #include "../xg.hpp"
 #include "../vg.hpp"
 #include "../vg.pb.h"
+#include "../handle.hpp"
 #include "../hash_map.hpp"
 
 namespace vg {
@@ -65,6 +66,11 @@ namespace algorithms {
                                   const vector<size_t>& position_backward_max_dist,
                                   LRUCache<id_t, Node>* node_cache = nullptr,
                                   LRUCache<id_t, vector<Edge>>* edge_cache = nullptr);
+    
+    /// Extract the containing graph from a handle graph.               
+    void extract_containing_graph(const HandleGraph* source, Graph& g, const vector<pos_t>& positions,
+                                  const vector<size_t>& position_forward_max_dist,
+                                  const vector<size_t>& position_backward_max_dist);
 
 }
 }
