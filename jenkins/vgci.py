@@ -950,8 +950,9 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096',
                            assembly="hg19",
-                           acc_threshold=0.0075)
+                           acc_threshold=0.0075, multipath=True)
 
+    @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
@@ -964,6 +965,7 @@ class VGCITest(TestCase):
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
                            acc_threshold=0.02)
 
+    @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(7200)
     def test_sim_chr21_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors

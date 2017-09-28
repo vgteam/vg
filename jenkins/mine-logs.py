@@ -255,7 +255,7 @@ def md_summary(xml_root):
         md = 'Jenkins vg tests complete'
     try:
         if os.getenv('ghprbPullId'):
-            md += ' for [PR {}]({})'.format(os.getenv('ghprbPullId'), os.getenv('ghprbPullLink'))
+            md += ' for [PR {}]({})'.format(os.getenv('ghprbPullId'), os.getenv('ghprbPullLink').decode('utf8'))
         elif build_number:
             md += ' for merge to master'
         md += '.  View the [full report here]({{REPORT_URL}}).\n\n'
@@ -304,11 +304,14 @@ def html_header(xml_root):
     """
     Make an HTML header for the test suite XML
     """
+    
+    report = ''
+    
     try:
-        report = '''
+        report += '''
 <!DOCTYPE html><html><head>
 <meta charset="utf-8"/>
-<title>''' + escape(os.getenv('ghprbPullTitle', 'master')) + ''': vg Test Report</title>
+<title>''' + escape(os.getenv('ghprbPullTitle', 'master').decode('utf8')) + ''': vg Test Report</title>
 <style> table {
 font-family: arial, sans-serif; border-collapse: collapse; width: 100%;}
 td, dh { border: 1px solid #dddddd; text-align: left; padding: 8px;}
@@ -330,7 +333,7 @@ h1, h2, h3, h4, h5, h6 { font-family: sans-serif; }
         if os.getenv('ghprbPullId'):
             report += ' for <a href={}>PR {}: {}</a>'.format(os.getenv('ghprbPullLink'),
                                                              os.getenv('ghprbPullId'),
-                                                             escape(os.getenv('ghprbPullTitle')))
+                                                             escape(os.getenv('ghprbPullTitle').decode('utf8')))
         elif build_number:
             report += ' for merge to master'
             
@@ -403,6 +406,7 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
 
         images = []
         captions = []
+        baseline_images = []
         for plot_name in 'pr', 'pr.control', 'pr.primary.filter', 'pr.control.primary.filter', 'qq', 'qq.control':
             plot_path = os.path.join(outstore, '{}.svg'.format(plot_name))
             if os.path.isfile(plot_path):
@@ -410,6 +414,10 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                 shutil.copy2(plot_path, os.path.join(report_dir, new_name))
                 images.append(new_name)
                 captions.append(plot_name.upper())
+                baseline_images.append(os.path.join(
+                    'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/vg_ci/jenkins_regression_baseline',
+                    os.path.basename(outstore),
+                    os.path.basename(plot_path)))
 
         if len(images) > 0:
             report += '<table class="image">\n'
@@ -423,7 +431,8 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                 report += '</tr>\n<tr>'
                 for j in range(i, i + row_size):
                     if j < len(images):
-                        report += '<td><a href=\"{}\">{} Plot</a></td>'.format(images[j], captions[j])
+                        report += '<td><a href=\"{}\">{} Plot</a>'.format(images[j], captions[j])
+                        report += ' <a href=\"{}\">(baseline)</a></td>'.format(baseline_images[j])
                 report += '</tr>\n'
                 i += row_size
             report += '</table>\n'
