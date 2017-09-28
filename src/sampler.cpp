@@ -818,6 +818,8 @@ pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
         prefix_to_length += mapping.edit(edit_idx).to_length();
         edit_idx++;
     }
+    // walk back onto mapping
+    --edit_idx;
     // use the mapping's position and the distance we traveled on the graph to get the offset of
     // the beginning of this edit
     int64_t offset = mapping_pos.offset() + prefix_from_length - mapping.edit(edit_idx).from_length();
