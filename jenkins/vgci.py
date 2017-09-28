@@ -951,8 +951,11 @@ class VGCITest(TestCase):
                            sample='HG00096',
                            assembly="hg19",
                            acc_threshold=0.0075, multipath=True,
-                           sim_opts='-l 150 -p 500 -v 50 -e 0.01 -i 0.002')
-
+                           sim_opts='-d 0.167 -p 500 -v 50 -S 4.5',
+                           # 800k 148bp reads from Genome in a Bottle NA12878 library
+                           # (placeholder while finding something better)
+                           sim_fastq='ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz')
+        
     @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg_mpmap(self):
