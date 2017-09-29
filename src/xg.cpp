@@ -1546,7 +1546,7 @@ handle_t XG::get_handle(const id_t& node_id, bool is_reverse) const {
 
 id_t XG::get_id(const handle_t& handle) const {
     // Go get the g offset and then look up the noder ID
-    return g_iv[as_integer(handle) & LOW_BITS + G_NODE_ID_OFFSET];
+    return g_iv[(as_integer(handle) & LOW_BITS) + G_NODE_ID_OFFSET];
 }
 
 bool XG::get_is_reverse(const handle_t& handle) const {
@@ -1558,7 +1558,7 @@ handle_t XG::flip(const handle_t& handle) const {
 }
 
 size_t XG::get_length(const handle_t& handle) const {
-    return g_iv[as_integer(handle) & LOW_BITS + G_NODE_LENGTH_OFFSET];
+    return g_iv[(as_integer(handle) & LOW_BITS) + G_NODE_LENGTH_OFFSET];
 }
 
 string XG::get_sequence(const handle_t& handle) const {
@@ -1569,9 +1569,11 @@ string XG::get_sequence(const handle_t& handle) const {
     string sequence(sequence_size, '\0');
     // Extract the node record start
     size_t g = as_integer(handle) & LOW_BITS;
+    // Figure out where the sequence starts
+    size_t sequence_start = g_iv[g + G_NODE_SEQ_START_OFFSET];
     for (int64_t i = 0; i < sequence_size; i++) {
         // Blit the sequence out
-        sequence[i] = revdna3bit(g_iv[i + g + G_NODE_HEADER_LENGTH]);
+        sequence[i] = revdna3bit(s_iv[sequence_start + i]);
     }
     
     if (as_integer(handle) & HIGH_BIT) {
