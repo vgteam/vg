@@ -950,7 +950,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096',
                            assembly="hg19",
-                           acc_threshold=0.0075, multipath=True,
+                           acc_threshold=0.01125, multipath=True,
                            sim_opts='-l 150 -p 500 -v 50 -e 0.01 -i 0.002')
 
     @skip("skipping test to keep runtime down")        
