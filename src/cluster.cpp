@@ -587,27 +587,45 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     // we use a union find to keep track of which MEMs have been identified as being on the same strand
     UnionFind component_union_find(num_items);
     
-    size_t nlogn = ceil(log(num_items) * num_items);
+    size_t nlogn = ceil(num_items * log(num_items));
     
     // TODO: different shuffling orders?
     
+    size_t num_possible_merges_remaining = (num_items * (num_items - 1)) / 2;
+    
     // an initial pass that only looks at nodes on path
-    extend_on_strand_distance_tree(1, 0, 3 * nlogn, component_union_find, recorded_finite_dists, num_items, xgindex, get_position);
+    extend_dist_tree_by_permutations(1, 0, 3 * nlogn, num_possible_merges_remaining,component_union_find,
+                                     recorded_finite_dists, num_items, xgindex, get_position);
     
     // a second pass that tries fill in the tree by traversing to the nearest shared path
-    extend_on_strand_distance_tree(2, 50, nlogn, component_union_find, recorded_finite_dists, num_items, xgindex, get_position);
+    extend_dist_tree_by_permutations(2, 50, nlogn, num_possible_merges_remaining,component_union_find,
+                                     recorded_finite_dists, num_items, xgindex, get_position);
     
     return recorded_finite_dists;
 }
     
-void OrientedDistanceClusterer::extend_on_strand_distance_tree(int64_t max_failed_distance_probes,
-                                                               int64_t max_search_distance_to_path,
-                                                               size_t decrement_frequency,
-                                                               UnionFind& component_union_find,
-                                                               unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
-                                                               size_t num_items,
-                                                               xg::XG* xgindex,
-                                                               const function<pos_t(size_t)>& get_position) {
+//void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_failed_distance_probes,
+//                                                                 int64_t max_search_distance_to_path,
+//                                                                 size_t decrement_frequency,
+//                                                                 UnionFind& component_union_find,
+//                                                                 unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+//                                                                 size_t num_items,
+//                                                                 xg::XG* xgindex,
+//                                                                 const function<pos_t(size_t)>& get_position) {
+//    
+//    vector<vector<size_t>> path_groups;
+//    
+//}
+    
+void OrientedDistanceClusterer::extend_dist_tree_by_permutations(int64_t max_failed_distance_probes,
+                                                                 int64_t max_search_distance_to_path,
+                                                                 size_t decrement_frequency,
+                                                                 size_t& num_possible_merges_remaining,
+                                                                 UnionFind& component_union_find,
+                                                                 unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                                                 size_t num_items,
+                                                                 xg::XG* xgindex,
+                                                                 const function<pos_t(size_t)>& get_position) {
     
     // for recording the number of times elements of a strand cluster have been compared
     // and found an infinite distance
@@ -616,8 +634,6 @@ void OrientedDistanceClusterer::extend_on_strand_distance_tree(int64_t max_faile
     // We want to run through all possible pairsets of node numbers in a permuted order.
     ShuffledPairs shuffled_pairs(num_items);
     auto current_pair = shuffled_pairs.begin();
-    
-    size_t num_possible_merges_remaining = (num_items * (num_items - 1)) / 2;
     size_t pairs_checked = 0;
     
     // a simulated annealing parameter loosely inspired by the cutoff for an Erdos-Renyi random graph
