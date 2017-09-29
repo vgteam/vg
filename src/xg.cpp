@@ -1553,10 +1553,6 @@ bool XG::get_is_reverse(const handle_t& handle) const {
     return as_integer(handle) & HIGH_BIT;
 }
 
-handle_t XG::flip(const handle_t& handle) const {
-    return as_handle(as_integer(handle) ^ HIGH_BIT);
-}
-
 size_t XG::get_length(const handle_t& handle) const {
     return g_iv[as_integer(handle) & LOW_BITS + G_NODE_LENGTH_OFFSET];
 }
@@ -1581,7 +1577,7 @@ string XG::get_sequence(const handle_t& handle) const {
     }
 }
 
-bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) const {
+bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) {
     // Return true if we want an edge of the given type, where we are the from
     // or to node (according to is_to), when we are looking off the right or
     // left side of the node (according to want_left), and when the node is
@@ -1606,9 +1602,10 @@ bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) cons
 }
 
 bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, bool is_to,
-    bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee) const {
+    bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee) {
 
     // OK go over all those edges
+    
     for (size_t i = 0; i < count; i++) {
         // What edge type is the edge?
         int type = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_TYPE_OFFSET];
@@ -1636,7 +1633,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
     return true;
 }
 
-void XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+void XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) {
 
     // Unpack the handle
     size_t g = as_integer(handle) & LOW_BITS;

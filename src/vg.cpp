@@ -88,10 +88,6 @@ bool VG::get_is_reverse(const handle_t& handle) const {
     return as_integer(handle) & HIGH_BIT;
 }
 
-handle_t VG::flip(const handle_t& handle) const {
-    return as_handle(as_integer(handle) ^ HIGH_BIT);
-}
-
 size_t VG::get_length(const handle_t& handle) const {
     return get_sequence(handle).size();
 }
@@ -118,7 +114,7 @@ string VG::get_sequence(const handle_t& handle) const {
     
 }
 
-void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) {
     // Are we reverse?
     bool is_reverse = get_is_reverse(handle);
     
