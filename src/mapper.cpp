@@ -592,7 +592,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                                   use_diff_based_fast_reseed);
         }
     }
-    
+
     if (reseed_length) {
         // determine counts of matches
         for (pair<MaximalExactMatch, vector<size_t> >& sub_mem_and_parents : sub_mems) {
@@ -1625,8 +1625,8 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     bool rescued1 = false;
     bool rescued2 = false;
     if (!frag_stats.fragment_size) return make_pair(false, false);
-    double hang_threshold = 0.9;
-    double retry_threshold = 0.7;
+    double hang_threshold = 0.7;
+    double retry_threshold = 0.9;
     double perfect_score = mate1.sequence().size() * match_score + full_length_bonus;
     bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.0001));
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
@@ -2089,7 +2089,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               },
                               transition_weight,
                               band_width);
-        clusters = chainer.traceback(total_multimaps, true, debug);
+        clusters = chainer.traceback(total_multimaps, false, debug);
     }
 
     auto show_clusters = [&](void) {
@@ -2451,11 +2451,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         possible_pairs += p->first.fragment_score() > 0 && p->second.fragment_score() > 0;
     }
 
+    double max_possible_score = read1.sequence().size() * match + 2*full_length_bonus;
     double mqmax1 = max_mapping_quality;
     double mqmax2 = max_mapping_quality;
     // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
         && (fraction_filtered1 < 0.1 && fraction_filtered2 < 0.1 && maybe_mq1 > 1 && maybe_mq2 > 1 || possible_pairs > 1) // may help in human context
+        && (double)results.first.front().score()/max_possible_score > 0.66
+        && (double)results.second.front().score()/max_possible_score > 0.66
         && pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, mqmax1, mqmax2);
     } else {
