@@ -10,6 +10,14 @@
 
 #include "../multipath_mapper.hpp"
 
+//#define record_read_run_times
+
+#ifdef record_read_run_times
+#define READ_TIME_FILE "_read_times.tsv"
+#include <ctime>
+#include <iostream>
+#endif
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -45,7 +53,7 @@ void help_mpmap(char** argv) {
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [64]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [32]" << endl
-    << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within tåhis much of the SMEM's length [0.6]" << endl
+    << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.6]" << endl
     << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
     << "  -K, --clust-length INT  minimum MEM length to anchor multipath alignments [automatic]" << endl
     << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
@@ -602,6 +610,10 @@ int main_mpmap(int argc, char** argv) {
                                                           frag_length_robustness_fraction, true);
     }
     
+#ifdef record_read_run_times
+    ofstream read_time_file(READ_TIME_FILE);
+#endif
+    
     // note: sufficient to have only one buffer because fragment length distribution enforces single threaded mode
     // during distance estimation
     vector<pair<Alignment, Alignment>> ambiguous_pair_buffer;
@@ -679,6 +691,9 @@ int main_mpmap(int argc, char** argv) {
     
     // do unpaired multipath alignment and write to buffer
     function<void(Alignment&)> do_unpaired_alignments = [&](Alignment& alignment) {
+#ifdef record_read_run_times
+        clock_t start = clock();
+#endif
         vector<MultipathAlignment> mp_alns;
         multipath_mapper.multipath_map(alignment, mp_alns, max_num_mappings);
         if (single_path_alignment_mode) {
@@ -687,12 +702,20 @@ int main_mpmap(int argc, char** argv) {
         else {
             output_multipath_alignments(mp_alns);
         }
+#ifdef record_read_run_times
+        clock_t finish = clock();
+#pragma omp critical
+        read_time_file << alignment.name() << "\t" << double(finish - start) / CLOCKS_PER_SEC << endl;
+#endif
     };
     
     // do paired multipath alignment and write to buffer
     function<void(Alignment&, Alignment&)> do_paired_alignments = [&](Alignment& alignment_1, Alignment& alignment_2) {
         // get reads on the same strand so that oriented distance estimation works correctly
         // but if we're clearing the ambiguous buffer we already RC'd these on the first pass
+#ifdef record_read_run_times
+        clock_t start = clock();
+#endif
         if (!same_strand) {
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
@@ -707,6 +730,11 @@ int main_mpmap(int argc, char** argv) {
         else {
             output_multipath_paired_alignments(mp_aln_pairs);
         }
+#ifdef record_read_run_times
+        clock_t finish = clock();
+#pragma omp critical
+        read_time_file << alignment_1.name() << "\t" << alignment_2.name() << "\t" << double(finish - start) / CLOCKS_PER_SEC << endl;
+#endif
     };
     
     // FASTQ input
@@ -787,6 +815,10 @@ int main_mpmap(int argc, char** argv) {
         stream::write_buffered(cout, multipath_buffer, 0);
     }
     cout.flush();
+    
+#ifdef record_read_run_times
+    read_time_file.close();
+#endif
     
     //cerr << "MEM length filtering efficiency: " << ((double) OrientedDistanceClusterer::MEM_FILTER_COUNTER) / OrientedDistanceClusterer::MEM_TOTAL << " (" << OrientedDistanceClusterer::MEM_FILTER_COUNTER << "/" << OrientedDistanceClusterer::MEM_TOTAL << ")" << endl;
     //cerr << "MEM cluster filtering efficiency: " << ((double) OrientedDistanceClusterer::PRUNE_COUNTER) / OrientedDistanceClusterer::CLUSTER_TOTAL << " (" << OrientedDistanceClusterer::PRUNE_COUNTER << "/" << OrientedDistanceClusterer::CLUSTER_TOTAL << ")" << endl;

@@ -2541,7 +2541,7 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
     };
     
     // if we already found shared paths on the start nodes, don't search anymore
-    if (shared_paths.empty()) {
+    if (shared_paths.empty() && max_search_dist > 0) {
 #ifdef debug_algorithms
         cerr << "[XG] no shared paths detected, beginning traversals" << endl;
 #endif

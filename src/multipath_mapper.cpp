@@ -12,8 +12,8 @@
 
 // for debugging: choose a fixed fragment length distribution at compile time here
 #ifdef debug_force_frag_distr
-#define MEAN 1003.55
-#define SD 70.5764
+#define MEAN 1001.13
+#define SD 74.2508
 #endif
 
 #include "multipath_mapper.hpp"
@@ -63,7 +63,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "obtained MEMs:" << endl;
         for (MaximalExactMatch mem : mems) {
-            cerr << "\t" << mem << endl;
+            cerr << "\t" << mem << " (" << mem.nodes.size() << " hits)" << endl;
         }
         cerr << "clustering MEMs..." << endl;
 #endif
@@ -349,18 +349,18 @@ namespace vg {
         // query MEMs using GCSA2
         double dummy;
         vector<MaximalExactMatch> mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(),
-                                                         dummy, 0, min_mem_length, mem_reseed_length, false, true);
+                                                         dummy, 0, min_mem_length, mem_reseed_length, false, true, true);
         vector<MaximalExactMatch> mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(),
-                                                         dummy, 0, min_mem_length, mem_reseed_length, false, true);
+                                                         dummy, 0, min_mem_length, mem_reseed_length, false, true, true);
         
 #ifdef debug_multipath_mapper
         cerr << "obtained read1 MEMs:" << endl;
         for (MaximalExactMatch mem : mems1) {
-            cerr << "\t" << mem << endl;
+            cerr << "\t" << mem << " (" << mem.nodes.size() << " hits)" << endl;
         }
         cerr << "obtained read2 MEMs:" << endl;
         for (MaximalExactMatch mem : mems2) {
-            cerr << "\t" << mem << endl;
+            cerr << "\t" << mem << " (" << mem.nodes.size() << " hits)" << endl;
         }
         cerr << "clustering MEMs..." << endl;
 #endif

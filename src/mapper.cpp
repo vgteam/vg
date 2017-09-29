@@ -284,7 +284,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                                                      int min_mem_length,
                                                      int reseed_length,
                                                      bool use_lcp_reseed_heuristic,
-                                                     bool use_diff_based_fast_reseed) {
+                                                     bool use_diff_based_fast_reseed,
+                                                     bool include_parent_in_sub_mem_count) {
     
 #ifdef debug_mapper
 #pragma omp critical
@@ -572,9 +573,11 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         for (pair<MaximalExactMatch, vector<size_t> >& sub_mem_and_parents : sub_mems) {
             // count in entire range, including parents
             sub_mem_and_parents.first.match_count = gcsa->count(sub_mem_and_parents.first.range);
-            // remove parents from count
-            for (size_t parent_idx : sub_mem_and_parents.second) {
-                sub_mem_and_parents.first.match_count -= mems[parent_idx].match_count;
+            if (!include_parent_in_sub_mem_count) {
+                // remove parents from count
+                for (size_t parent_idx : sub_mem_and_parents.second) {
+                    sub_mem_and_parents.first.match_count -= mems[parent_idx].match_count;
+                }
             }
         }
         

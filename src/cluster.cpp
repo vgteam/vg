@@ -410,6 +410,9 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
         //        MEM_TOTAL += mem.nodes.size();
         
         if (mem.length() < min_mem_length) {
+#ifdef debug_od_clusterer
+            cerr << "skipping short MEM " << mem << endl;
+#endif
             //#pragma omp atomic
             //            MEM_FILTER_COUNTER += mem.nodes.size();
             continue;
@@ -575,11 +578,37 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     }
 }
 
-unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_strand_distance_tree(size_t num_items,
-                                                                                                    xg::XG* xgindex, const function<pos_t(size_t)>& get_position) {
+unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_strand_distance_tree(size_t num_items, xg::XG* xgindex,
+                                                                                                    const function<pos_t(size_t)>& get_position) {
     
     // for recording the distance of any pair that we check with a finite distance
     unordered_map<pair<size_t, size_t>, int64_t> recorded_finite_dists;
+    
+    // we use a union find to keep track of which MEMs have been identified as being on the same strand
+    UnionFind component_union_find(num_items);
+    
+    size_t nlogn = ceil(log(num_items) * num_items);
+    
+    // TODO: different shuffling orders?
+    
+    // an initial pass that only looks at nodes on path
+    extend_on_strand_distance_tree(1, 0, 3 * nlogn, component_union_find, recorded_finite_dists, num_items, xgindex, get_position);
+    
+    // a second pass that tries fill in the tree by traversing to the nearest shared path
+    extend_on_strand_distance_tree(2, 50, nlogn, component_union_find, recorded_finite_dists, num_items, xgindex, get_position);
+    
+    return recorded_finite_dists;
+}
+    
+void OrientedDistanceClusterer::extend_on_strand_distance_tree(int64_t max_failed_distance_probes,
+                                                               int64_t max_search_distance_to_path,
+                                                               size_t decrement_frequency,
+                                                               UnionFind& component_union_find,
+                                                               unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                                               size_t num_items,
+                                                               xg::XG* xgindex,
+                                                               const function<pos_t(size_t)>& get_position) {
+    
     // for recording the number of times elements of a strand cluster have been compared
     // and found an infinite distance
     map<pair<size_t, size_t>, size_t> num_infinite_dists;
@@ -588,27 +617,23 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     ShuffledPairs shuffled_pairs(num_items);
     auto current_pair = shuffled_pairs.begin();
     
-    // we use a union find to keep track of which MEMs have been identified as being on the same strand
-    UnionFind union_find(num_items);
-    
     size_t num_possible_merges_remaining = (num_items * (num_items - 1)) / 2;
     size_t pairs_checked = 0;
     
     // a simulated annealing parameter loosely inspired by the cutoff for an Erdos-Renyi random graph
     // to be connected with probability approaching 1
-    size_t current_max_num_probes = 2;
-    size_t decrement_frequency = ceil(log(num_items) * num_items);
+    size_t current_max_num_probes = max_failed_distance_probes;
     
     while (num_possible_merges_remaining > 0 && current_pair != shuffled_pairs.end() && current_max_num_probes > 0) {
         // slowly lower the number of distances we need to check before we believe that two clusters are on
         // separate strands
 #ifdef debug_od_clusterer
         size_t direct_merges_remaining = 0;
-        vector<vector<size_t>> groups = union_find.all_groups();
+        vector<vector<size_t>> groups = component_union_find.all_groups();
         for (size_t i = 1; i < groups.size(); i++) {
             for (size_t j = 0; j < i; j++) {
-                size_t strand_1 = union_find.find_group(groups[i].front());
-                size_t strand_2 = union_find.find_group(groups[j].front());
+                size_t strand_1 = component_union_find.find_group(groups[i].front());
+                size_t strand_2 = component_union_find.find_group(groups[j].front());
                 
                 if (num_infinite_dists.count(make_pair(strand_1, strand_2))) {
                     if (num_infinite_dists[make_pair(strand_1, strand_2)] >= current_max_num_probes) {
@@ -630,8 +655,8 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                 // break symmetry so we don't repeat the operation twice
                 if (inf_dist_record.first.first < inf_dist_record.first.second && inf_dist_record.second == current_max_num_probes) {
                     // this merge just fell below the new maximum number of distance probes
-                    size_t strand_size_1 = union_find.group_size(inf_dist_record.first.first);
-                    size_t strand_size_2 = union_find.group_size(inf_dist_record.first.second);
+                    size_t strand_size_1 = component_union_find.group_size(inf_dist_record.first.first);
+                    size_t strand_size_2 = component_union_find.group_size(inf_dist_record.first.second);
                     num_possible_merges_remaining -= strand_size_1 * strand_size_2;
 #ifdef debug_od_clusterer
                     cerr << "after reduction, the total number of probes between strand " << inf_dist_record.first.first << " and " << inf_dist_record.first.second <<  " is above max, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
@@ -646,8 +671,8 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
         
         pairs_checked++;
         
-        size_t strand_1 = union_find.find_group(node_pair.first);
-        size_t strand_2 = union_find.find_group(node_pair.second);
+        size_t strand_1 = component_union_find.find_group(node_pair.first);
+        size_t strand_2 = component_union_find.find_group(node_pair.second);
         
 #ifdef debug_od_clusterer
         cerr << "checking MEMs " << node_pair.first << " and " << node_pair.second << " in cluster " << strand_1 << " and " << strand_2 << endl;
@@ -676,7 +701,8 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
         const pos_t& pos_2 = get_position(node_pair.second);
         
         int64_t oriented_dist = xgindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                               id(pos_2), offset(pos_2), is_rev(pos_2), 50);
+                                                                               id(pos_2), offset(pos_2), is_rev(pos_2),
+                                                                               max_search_distance_to_path);
         
 #ifdef debug_od_clusterer
         cerr << "distance between " << pos_1 << " and " << pos_2 << " estimated at " << oriented_dist << endl;
@@ -699,8 +725,8 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
             // this infinite distance pushed the count over the maximum number of probes, so remove
             // these merges from the pool of potential merges remaining
             if (num_failed_probes->second >= current_max_num_probes) {
-                size_t strand_size_1 = union_find.group_size(strand_1);
-                size_t strand_size_2 = union_find.group_size(strand_2);
+                size_t strand_size_1 = component_union_find.group_size(strand_1);
+                size_t strand_size_2 = component_union_find.group_size(strand_2);
                 
                 num_possible_merges_remaining -= strand_size_1 * strand_size_2;
                 
@@ -714,15 +740,15 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
             
             recorded_finite_dists[node_pair] = oriented_dist;
             
-            size_t strand_size_1 = union_find.group_size(strand_1);
-            size_t strand_size_2 = union_find.group_size(strand_2);
+            size_t strand_size_1 = component_union_find.group_size(strand_1);
+            size_t strand_size_2 = component_union_find.group_size(strand_2);
             
-            union_find.union_groups(node_pair.first, node_pair.second);
+            component_union_find.union_groups(node_pair.first, node_pair.second);
             
             // remove these from the pool of remaining merges
             num_possible_merges_remaining -= strand_size_1 * strand_size_2;
             
-            size_t strand_retaining = union_find.find_group(node_pair.first);
+            size_t strand_retaining = component_union_find.find_group(node_pair.first);
             size_t strand_removing = strand_retaining == strand_1 ? strand_2 : strand_1;
             
 #ifdef debug_od_clusterer
@@ -751,24 +777,24 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                     
                     // update the number of possible merges remaining
                     if (retaining_already_blocked && !removing_already_blocked) {
-                        num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(removing_iter->first.second);
+                        num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(removing_iter->first.second);
                         
 #ifdef debug_od_clusterer
-                        cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
+                        cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                     }
                     else if (removing_already_blocked && !retaining_already_blocked) {
-                        num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * union_find.group_size(removing_iter->first.second);
+                        num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * component_union_find.group_size(removing_iter->first.second);
                         
 #ifdef debug_od_clusterer
-                        cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the removing strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
+                        cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the removing strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * component_union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                     }
                     else if (!retaining_already_blocked && !removing_already_blocked && retaining_iter->second >= current_max_num_probes) {
-                        num_possible_merges_remaining -= (strand_size_1 + strand_size_2) * union_find.group_size(removing_iter->first.second);
+                        num_possible_merges_remaining -= (strand_size_1 + strand_size_2) * component_union_find.group_size(removing_iter->first.second);
                         
 #ifdef debug_od_clusterer
-                        cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", reducing possible merges by " << (strand_size_1 + strand_size_2) * union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
+                        cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", reducing possible merges by " << (strand_size_1 + strand_size_2) * component_union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                         
                     }
@@ -786,10 +812,10 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                     // removed does not, check if we need to add the removing strand to the remaining merges
                     // counter
                     if (retaining_iter->second >= current_max_num_probes) {
-                        num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(retaining_iter->first.second);
+                        num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(retaining_iter->first.second);
                         
 #ifdef debug_od_clusterer
-                        cerr << "after merge, the total number of probes against strand " << retaining_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(retaining_iter->first.second) << " to " << num_possible_merges_remaining << endl;
+                        cerr << "after merge, the total number of probes against strand " << retaining_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(retaining_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                     }
                     retaining_iter++;
@@ -803,10 +829,10 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
             }
             while (retaining_iter != retaining_end) {
                 if (retaining_iter->second >= current_max_num_probes) {
-                    num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(retaining_iter->first.second);
+                    num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(retaining_iter->first.second);
                     
 #ifdef debug_od_clusterer
-                    cerr << "after merge, the total number of probes against strand " << retaining_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(retaining_iter->first.second) << " to " << num_possible_merges_remaining << endl;
+                    cerr << "after merge, the total number of probes against strand " << retaining_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(retaining_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                 }
                 retaining_iter++;
@@ -819,10 +845,10 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                 num_infinite_dists[make_pair(strand_retaining, unseen_comparison.first)] = unseen_comparison.second;
                 
                 if (unseen_comparison.second >= current_max_num_probes) {
-                    num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * union_find.group_size(unseen_comparison.first);
+                    num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * component_union_find.group_size(unseen_comparison.first);
                     
 #ifdef debug_od_clusterer
-                    cerr << "after merge, the total number of probes against strand " << unseen_comparison.first << " increased to " << unseen_comparison.second << ", above current max of " << current_max_num_probes << ", but the removing strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(unseen_comparison.first) << " to " << num_possible_merges_remaining << endl;
+                    cerr << "after merge, the total number of probes against strand " << unseen_comparison.first << " increased to " << unseen_comparison.second << ", above current max of " << current_max_num_probes << ", but the removing strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(unseen_comparison.first) << " to " << num_possible_merges_remaining << endl;
 #endif
                 }
             }
@@ -867,8 +893,6 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
             }
         }
     }
-    
-    return recorded_finite_dists;
 }
 
 vector<unordered_map<size_t, int64_t>> OrientedDistanceClusterer::flatten_distance_tree(size_t num_items,

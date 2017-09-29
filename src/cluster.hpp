@@ -219,6 +219,15 @@ private:
     static unordered_map<pair<size_t, size_t>, int64_t> get_on_strand_distance_tree(size_t num_items, xg::XG* xgindex,
                                                                                     const function<pos_t(size_t)>& get_position);
     
+    static void extend_on_strand_distance_tree(int64_t max_failed_distance_probes,
+                                               int64_t max_search_distance_to_path,
+                                               size_t decrement_frequency,
+                                               UnionFind& component_union_find,
+                                               unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                               size_t num_items,
+                                               xg::XG* xgindex,
+                                               const function<pos_t(size_t)>& get_position);
+    
     /**
      * Given a number of nodes, and a map from node pair to signed relative
      * distance on a consistent strand (defining a forrest of trees, as
