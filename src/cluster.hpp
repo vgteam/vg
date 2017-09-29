@@ -227,7 +227,8 @@ private:
                                                  unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
                                                  size_t num_items,
                                                  xg::XG* xgindex,
-                                                 const function<pos_t(size_t)>& get_position);
+                                                 const function<pos_t(size_t)>& get_position,
+                                                 unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo);
     
     /**
      * Given a number of nodes, and a map from node pair to signed relative

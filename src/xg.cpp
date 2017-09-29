@@ -1932,18 +1932,18 @@ vector<size_t> XG::paths_of_node(int64_t id) const {
     return paths_of_entity(node_rank_as_entity(id));
 }
     
-vector<pair<size_t, vector<pair<size_t, bool>>>> XG::paths_of_node_traversal(int64_t id, bool is_rev) const {
+vector<pair<size_t, vector<pair<size_t, bool>>>> XG::oriented_paths_of_node(int64_t id) const {
     vector<pair<size_t, vector<pair<size_t, bool>>>> path_occurrences;
     for (size_t path_rank : paths_of_node(id)) {
         path_occurrences.emplace_back(path_rank,  vector<pair<size_t, bool>>());
         auto& occurrences = path_occurrences.back().second;
         for (size_t i : node_ranks_in_path(id, path_rank)) {
-            occurrences.emplace_back(i, is_rev != paths[path_rank-1]->directions[i]);
+            occurrences.emplace_back(i, paths[path_rank-1]->directions[i]);
         }
     }
     return path_occurrences;
 }
-
+    
 vector<size_t> XG::paths_of_edge(int64_t id1, bool from_start, int64_t id2, bool to_end) const {
     return paths_of_entity(edge_rank_as_entity(id1, from_start, id2, to_end));
 }
@@ -2476,9 +2476,30 @@ int64_t XG::min_approx_path_distance(const vector<string>& names,
     return min_distance;
 }
     
+void XG::memoized_oriented_paths_of_node(int64_t id,
+                                         vector<pair<size_t, vector<pair<size_t, bool>>>>& local_paths_var,
+                                         vector<pair<size_t, vector<pair<size_t, bool>>>>*& paths_of_node_ptr_out,
+                                         unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo) const {
+    if (paths_of_node_memo) {
+        auto iter = paths_of_node_memo->find(id);
+        if (iter != paths_of_node_memo->end()) {
+            paths_of_node_ptr_out = &(iter->second);
+        }
+        else {
+            (*paths_of_node_memo)[id] = oriented_paths_of_node(id);
+            paths_of_node_ptr_out = &((*paths_of_node_memo)[id]);
+        }
+    }
+    else {
+        local_paths_var = oriented_paths_of_node(id);
+        paths_of_node_ptr_out = &local_paths_var;
+    }
+}
+    
 int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, bool rev1,
                                                   int64_t id2, size_t offset2, bool rev2,
-                                                  size_t max_search_dist) const {
+                                                  size_t max_search_dist,
+                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo) const {
     
 #ifdef debug_algorithms
     cerr << "[XG] estimating oriented distance between " << id1 << "[" << offset1 << "]" << (rev1 ? "-" : "+") << " and " << id2 << "[" << offset2 << "]" << (rev2 ? "-" : "+") << " with max search distance of " << max_search_dist << endl;
@@ -2489,27 +2510,30 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
     
     unordered_set<pair<size_t, bool>> shared_paths;
     
-    // maps a path rank and an id to the node ranks within the path and their orientation relative to the path
-    unordered_map<pair<size_t, int64_t>, vector<pair<size_t, bool>>> oriented_node_occurrences;
+    // a local variable to store local results if no memo is provided
+    vector<pair<size_t, vector<pair<size_t, bool>>>> local_paths_var1, local_paths_var2;
+    // a pointer that will be set to point to valid results of oriented_paths_of_node
+    vector<pair<size_t, vector<pair<size_t, bool>>>>* curr_node_path_occurrences;
     
     // ensure that the paths of the start nodes are added, even if their ends are too far away
     // from the positions for the search to explore
     // TODO: this leaves the ambiguity that a node might occur multiple times on the same path, in which case
     // the tie for closest traversal to the path is broken arbitrarily
-    for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : paths_of_node_traversal(id1, rev1)) {
+    memoized_oriented_paths_of_node(id1, local_paths_var1, curr_node_path_occurrences, paths_of_node_memo);
+    for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : *curr_node_path_occurrences) {
         for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
-            pair<size_t, bool> path_occurrence(oriented_occurrences.first, occurrence.second);
+            pair<size_t, bool> path_occurrence(oriented_occurrences.first, occurrence.second != rev1);
             path_dists_1[path_occurrence] = make_tuple(id1, rev1, -((int64_t) offset1));
             
 #ifdef debug_algorithms
             cerr << "[XG] first position " << id1 << "[" << offset1 << "]" << (rev1 ? "-" : "+") << " has an initial path occurrence on " << path_occurrence.first << (path_occurrence.second ? "-" : "+") << endl;
 #endif
         }
-        oriented_node_occurrences[make_pair(oriented_occurrences.first, id1)] = std::move(oriented_occurrences.second);
     }
-    for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : paths_of_node_traversal(id2, rev2)) {
+    memoized_oriented_paths_of_node(id2, local_paths_var1, curr_node_path_occurrences, paths_of_node_memo);
+    for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : *curr_node_path_occurrences) {
         for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
-            pair<size_t, bool> path_occurrence(oriented_occurrences.first, occurrence.second);
+            pair<size_t, bool> path_occurrence(oriented_occurrences.first, occurrence.second != rev2);
             path_dists_2[path_occurrence] = make_tuple(id2, rev2, -((int64_t) offset2));
             
 #ifdef debug_algorithms
@@ -2523,7 +2547,6 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
                 shared_paths.insert(path_occurrence);
             }
         }
-        oriented_node_occurrences[make_pair(oriented_occurrences.first, id2)] = std::move(oriented_occurrences.second);
     }
     
     // a local struct for traversals that are ordered by search distance and keep
@@ -2607,12 +2630,13 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
             
             if ((trav_id != id1 || trav_is_rev != rev1) && (trav_id != id2 || trav_is_rev != rev2)) {
                 // this is not one of the start positions, so it might have new paths on it
-                for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : paths_of_node_traversal(trav_id, trav_is_rev)) {
+                memoized_oriented_paths_of_node(trav_id, local_paths_var1, curr_node_path_occurrences, paths_of_node_memo);
+                for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : *curr_node_path_occurrences) {
                     for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
 #ifdef debug_algorithms
-                        cerr << "\ttraversal is on path " << oriented_occurrences.first << " in " << (occurrence.second ? "reverse" : "forward") << " orientation" << endl;
+                        cerr << "\tnode is on path " << oriented_occurrences.first << " in " << (occurrence.second ? "reverse" : "forward") << " orientation" << endl;
 #endif
-                        pair<size_t, bool> path_orientation(oriented_occurrences.first, occurrence.second);
+                        pair<size_t, bool> path_orientation(oriented_occurrences.first, occurrence.second != trav_is_rev);
                         if (!curr_path_dists->count(path_orientation)) {
                             // record the oriented distance to the forward beginning of the node, relative to the start traversal
                             (*curr_path_dists)[path_orientation] = make_tuple(trav_id, trav_is_rev,
@@ -2623,7 +2647,6 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
                             }
                         }
                     }
-                    oriented_node_occurrences[make_pair(oriented_occurrences.first, get_id(trav.handle))] = std::move(oriented_occurrences.second);
                 }
             }
             
@@ -2663,49 +2686,56 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
         cerr << "[XG] search offset adds up to " << relative_offset << endl;
 #endif
         
-        vector<pair<size_t, bool>>& oriented_occurrences_1 = oriented_node_occurrences[make_pair(oriented_path.first, get<0>(node_trav_1))];
-        vector<pair<size_t, bool>>& oriented_occurrences_2 = oriented_node_occurrences[make_pair(oriented_path.first, get<0>(node_trav_2))];
+        memoized_oriented_paths_of_node(get<0>(node_trav_1), local_paths_var1, curr_node_path_occurrences, paths_of_node_memo);
+        vector<pair<size_t, vector<pair<size_t, bool>>>>& path_occurrences_1 = *curr_node_path_occurrences;
+        memoized_oriented_paths_of_node(get<0>(node_trav_2), local_paths_var2, curr_node_path_occurrences, paths_of_node_memo);
+        vector<pair<size_t, vector<pair<size_t, bool>>>>& path_occurrences_2 = *curr_node_path_occurrences;
         
-#ifdef debug_algorithms
-        cerr << "[XG] from path node " << oriented_path.first << " " << get<0>(node_trav_1) << " got:" << endl;
-        for (pair<size_t, bool> occurrence : oriented_occurrences_1) {
-            cerr << "\t" << occurrence.first << " " << occurrence.second << endl;
+        // get the records corresponding to this shared path
+        size_t k = 0;
+        while (path_occurrences_1[k].first != oriented_path.first) {
+            k++;
         }
-        cerr << "[XG] from path node " << oriented_path.first << " " << get<0>(node_trav_2) << " got:" << endl;
-        for (pair<size_t, bool> occurrence : oriented_occurrences_2) {
-            cerr << "\t" << occurrence.first << " " << occurrence.second << endl;
+        auto& oriented_occurrences_1 = path_occurrences_1[k].second;
+        k = 0;
+        while (path_occurrences_2[k].first != oriented_path.first) {
+            k++;
         }
-#endif
-        
+        auto& oriented_occurrences_2 = path_occurrences_2[k].second;
+
         // check each pair of node traversals for orientation consistency
         for (size_t i = 0; i < oriented_occurrences_1.size(); i++) {
+            // is the first traversal oriented correctly on the path?
+            if ((get<1>(node_trav_1) != oriented_occurrences_1[i].second) != oriented_path.second) {
+                continue;
+            }
             for (size_t j = 0; j < oriented_occurrences_2.size(); j++) {
-                // both traversals must be on the same orientation relative to the path
+                // is the second traversal oriented correctly on the path?
+                if ((get<1>(node_trav_2) != oriented_occurrences_2[j].second) != oriented_path.second) {
+                    continue;
+                }
+                
+                // add up the distance between these nodes in the path plus the distance trarsed to them
+                // n.b. if the node traversals occur on the reverse strand of the path, the traversal
+                // distances represent searches to the opposite sides of the node, so the interval
+                // is offset by one node
 #ifdef debug_algorithms
-                cerr << "[XG] comparing occurrence " << oriented_occurrences_1[i].first << (oriented_occurrences_1[i].second ? "-" : "+") << " " << oriented_occurrences_2[j].first << (oriented_occurrences_2[j].second ? "-" : "+") << endl;
+                cerr << "[XG] found consistently ordered traversals at ranks " << oriented_occurrences_1[i].first << " and " << oriented_occurrences_2[j].first << endl;
 #endif
-                if ((get<1>(node_trav_1) == oriented_occurrences_1[i].second) == (get<1>(node_trav_2) == oriented_occurrences_2[j].second)) {
-                    // add up the distance between these nodes in the path plus the distance trarsed to them
-                    // n.b. if the node traversals occur on the reverse strand of the path, the traversal
-                    // distances represent searches to the opposite sides of the node, so the interval
-                    // is offset by one node
+                int64_t interval_dist = relative_offset;
+                if (oriented_path.second) {
+                    interval_dist += (path.positions[oriented_occurrences_1[i].first] + node_length(get<0>(node_trav_1))) - (path.positions[oriented_occurrences_2[j].first] + node_length(get<0>(node_trav_2)));
+                }
+                else {
+                    interval_dist += path.positions[oriented_occurrences_2[j].first] - path.positions[oriented_occurrences_1[i].first];
+                }
+                
 #ifdef debug_algorithms
-                    cerr << "[XG] found consistently ordered traversals at ranks " << oriented_occurrences_1[i].first << " and " << oriented_occurrences_2[j].first << endl;
+                cerr << "[XG] estimating distance on path " << oriented_path.first << (oriented_path.second ? "-" : "+") << " at " << interval_dist << endl;
 #endif
-                    int64_t interval_dist = relative_offset;
-                    if (oriented_path.second) {
-                        interval_dist += (path.positions[oriented_occurrences_1[i].first] + node_length(get<0>(node_trav_1))) - (path.positions[oriented_occurrences_2[j].first] + node_length(get<0>(node_trav_2)));
-                    }
-                    else {
-                        interval_dist += path.positions[oriented_occurrences_2[j].first] - path.positions[oriented_occurrences_1[i].first];
-                    }
-#ifdef debug_algorithms
-                    cerr << "[XG] estimating distance on path " << oriented_path.first << (oriented_path.second ? "-" : "+") << " at " << interval_dist << endl;
-#endif
-                    // find the minimum absolute distance, but retain signing
-                    if (abs(interval_dist) < abs(approx_dist)) {
-                        approx_dist = interval_dist;
-                    }
+                // find the minimum absolute distance, but retain signing
+                if (abs(interval_dist) < abs(approx_dist)) {
+                    approx_dist = interval_dist;
                 }
             }
         }

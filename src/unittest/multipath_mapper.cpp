@@ -292,6 +292,9 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     // Lower the max mapping quality so that it thinks it can find unambiguous mappings of
     // short sequences
     mapper.max_mapping_quality = 10;
+    // In case we're using compile time forced fragment length distribution, set a max sample
+    // size
+    mapper.set_fragment_length_distr_params(10, 10, .95, true);
     
     SECTION( "MultipathMapper can map a short fake read" ) {
 
@@ -440,6 +443,9 @@ TEST_CASE( "MultipathMapper can map to a bigger graph", "[multipath][mapping][mu
     // Lower the max mapping quality so that it thinks it can find unambiguous mappings of
     // short sequences
     mapper.max_mapping_quality = 10;
+    // In case we're using compile time forced fragment length distribution, set a max sample
+    // size
+    mapper.set_fragment_length_distr_params(10, 10, .95, true);
     
     SECTION( "MultipathMapper buffers pairs that don't map the first time" ) {
         // Here are two reads on the same strand

@@ -319,7 +319,14 @@ public:
     // returns all of the paths that a node traversal occurs on, the rank of these occurrences on the path
     // and the orientation of the occurrences. false indicates that the traversal occurs in the same
     // orientation as in the path, true indicates.
-    vector<pair<size_t, vector<pair<size_t, bool>>>> paths_of_node_traversal(int64_t id, bool is_rev) const;
+    vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_paths_of_node(int64_t id) const;
+    
+    // sets a pointer to a memoized result from oriented_paths_of_node. if no memo is provided, the result will be
+    // queried and stored in local_paths_var and the pointer will be set to point to this variable so that no
+    // additional code paths are necessary
+    void memoized_oriented_paths_of_node(int64_t id, vector<pair<size_t, vector<pair<size_t, bool>>>>& local_paths_var,
+                                         vector<pair<size_t, vector<pair<size_t, bool>>>>*& paths_of_node_ptr_out,
+                                         unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr) const;
     
     // the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative)
     // estimated by the distance along the nearest shared path to the two positions plus the distance
@@ -328,7 +335,8 @@ public:
     // not node length).
     int64_t closest_shared_path_oriented_distance(int64_t id1, size_t offset1, bool rev1,
                                                   int64_t id2, size_t offset2, bool rev2,
-                                                  size_t max_search_dist = 100) const;
+                                                  size_t max_search_dist = 100,
+                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // gPBWT API
