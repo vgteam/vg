@@ -286,7 +286,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                                                      int reseed_length,
                                                      bool use_lcp_reseed_heuristic,
                                                      bool use_diff_based_fast_reseed) {
-    
+
 #ifdef debug_mapper
 #pragma omp critical
     {
@@ -298,8 +298,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         min_mem_length << ", reseed length " << reseed_length << endl;
     }
 #endif
-    
-    
+
     if (!gcsa) {
         cerr << "error:[vg::Mapper] a GCSA2 index is required to query MEMs" << endl;
         exit(1);
@@ -347,6 +346,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     bool prev_iter_jumped_lcp = false;
 
     int filtered_mems = 0;
+    int total_mems = 0;
     int max_lcp = 0;
     size_t mem_length = 0;
     vector<int> lcp_maxima;
@@ -400,6 +400,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             mem_length = match.length();
             
             if (mem_length >= min_mem_length) {
+
                 mems.push_back(match);
                 
 #ifdef debug_mapper
@@ -468,7 +469,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 match.begin = cursor + 1;
                 match.range = last_range;
                 mem_length = match.end - match.begin;
-                
                 // record the last MEM, but check to make sure were not actually still searching
                 // for the end of the next MEM
                 if (mem_length >= min_mem_length && !prev_iter_jumped_lcp) {
@@ -548,13 +548,12 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
 #endif
         
         // are we reseeding?
-        if (should_reseed()) do_reseed();
+        if (should_reseed()
+            || (mems.size() == 1 && sub_mems.empty()
+                && mem_length >= reseed_length)) do_reseed();
         
     }
-//    if (mems.size() == 1) {
-//        match = mems.back();
-//        do_reseed();
-//    }
+
     lcp_maxima.push_back(max_lcp);
     longest_lcp = *max_element(lcp_maxima.begin(), lcp_maxima.end());
     
@@ -569,8 +568,28 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             // it may be necessary to impose the cap on mem hits?
             if (hit_max > 0 && mem.nodes.size() > hit_max) {
                 filtered_mems += mem.nodes.size();
+                total_mems += mem.nodes.size();
                 mem.nodes.clear();
             }
+        }
+    }
+
+    int total_mem_length = 0;
+    for (auto& mem : mems) total_mem_length += mem.length() * mem.nodes.size();
+
+    // we didn't manage to get enough hits, so boost our sensitivity by re-running whith shorter MEM length constraints
+    if (total_mem_length < (seq_end - seq_begin) * 0.66) {
+        //cerr << "total_mem_length " << total_mem_length << " ... " << seq_end - seq_begin << " ... we should try again" << endl;
+        if (min_mem_length > 8) {
+            return find_mems_deep(seq_begin,
+                                  seq_end,
+                                  longest_lcp,
+                                  fraction_filtered,
+                                  max(16.0, max_mem_length * 0.66),
+                                  max(8.0, min_mem_length * 0.66),
+                                  max(12.0, reseed_length * 0.66),
+                                  use_lcp_reseed_heuristic,
+                                  use_diff_based_fast_reseed);
         }
     }
     
@@ -594,6 +613,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 // it may be necessary to impose the cap on mem hits?
                 if (hit_max > 0 && mem.nodes.size() > hit_max) {
                     filtered_mems += mem.nodes.size();
+                    total_mems += mem.nodes.size();
                     mem.nodes.clear();
                 }
             }
@@ -613,7 +633,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         return m1.begin < m2.begin ? true : (m1.begin == m2.begin ? m1.end < m2.end : false);
     });
 
-    int total_mems = 0;
     std::for_each(mems.begin(), mems.end(), [&total_mems](const MaximalExactMatch& mem) { total_mems += mem.nodes.size(); });
     fraction_filtered = (double) filtered_mems / (double) total_mems;
     
@@ -1933,7 +1952,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 #ifdef debug_mapper
 #pragma omp critical
                         {
-                            if (debug) cerr << "bad orientations or dist of " << dist
+                            if (debug) cerr << "bad orientations or dist of " << approx_dist
                                 << " beyond fragment_size of " << frag_stats.fragment_size << endl;
                         }
 #endif
@@ -2686,6 +2705,7 @@ Mapper::align_mem_multi(const Alignment& aln,
                         vector<MaximalExactMatch>& mems,
                         double& cluster_mq,
                         double longest_lcp,
+                        double fraction_filtered,
                         int max_mem_length,
                         int keep_multimaps,
                         int additional_multimaps) {
@@ -2705,21 +2725,19 @@ Mapper::align_mem_multi(const Alignment& aln,
     int total_multimaps = max(max_multimaps, additional_multimaps);
     double mq_cap = max_mapping_quality;
 
-    {
-        // Estimate the maximum mapping quality we can get if the alignments based on the good MEMs are the best ones.
-        int mem_max_length = 0;
-        for (auto& mem : mems) if (mem.primary && mem.match_count) mem_max_length = max(mem_max_length, (int)mem.length());
-        double maybe_max = estimate_max_possible_mapping_quality(aln.sequence().size(),
-                                                                 aln.sequence().size()/max(1.0, (double)mem_max_length),
-                                                                 aln.sequence().size()/longest_lcp);
-        // use the estimated mapping quality to avoid hard work when the outcome will be noninformative
-        if (maybe_max < maybe_mq_threshold) {
-            mq_cap = maybe_max;
-        }
-        // TODO: why should we limit our number of MEM chains to examine to max_multimaps / max estimated mapping quality?
-        total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_max));
-        if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_max << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " longest LCP: " << longest_lcp << endl;
+    // Estimate the maximum mapping quality we can get if the alignments based on the good MEMs are the best ones.
+    int mem_max_length = 0;
+    for (auto& mem : mems) if (mem.primary && mem.match_count) mem_max_length = max(mem_max_length, (int)mem.length());
+    double maybe_mq = estimate_max_possible_mapping_quality(aln.sequence().size(),
+                                                            aln.sequence().size()/max(1.0, (double)mem_max_length),
+                                                            aln.sequence().size()/longest_lcp);
+    // use the estimated mapping quality to avoid hard work when the outcome will be noninformative
+    if (maybe_mq < maybe_mq_threshold) {
+        mq_cap = maybe_mq;
     }
+    // TODO: why should we limit our number of MEM chains to examine to max_multimaps / max estimated mapping quality?
+    total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_mq));
+    if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " longest LCP: " << longest_lcp << endl;
 
     double avg_node_len = average_node_length();
     // go through the ordered single-hit MEMs
@@ -2881,23 +2899,6 @@ Mapper::align_mem_multi(const Alignment& aln,
             cerr << endl;
         }
     }
-
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) {
-            for (auto& aln : alns) {
-                cerr << "cluster aln ------- " << pb2json(aln) << endl;
-            }
-            for (auto& aln : alns) {
-                if (!check_alignment(aln)) {
-                    cerr << "alignment failure " << pb2json(aln) << endl;
-                    assert(false);
-                }
-            }
-        }
-    }
-#endif
 
     vector<Alignment*> aln_ptrs;
     map<Alignment*, int> aln_index;
@@ -4027,7 +4028,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     // use pre-restricted mems for paired mapping or find mems here
     if (restricted_mems != nullptr) {
         // mem hits will already have been queried
-        alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, longest_lcp, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
+        alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }
     else {
         vector<MaximalExactMatch> mems = find_mems_deep(aln.sequence().begin(),
@@ -4038,7 +4039,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         min_mem_length,
                                                         mem_reseed_length);
         // query mem hits
-        alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
+        alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }
 
     for (auto& aln : alignments) {

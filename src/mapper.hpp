@@ -404,6 +404,7 @@ private:
                                       vector<MaximalExactMatch>& mems,
                                       double& cluster_mq,
                                       double lcp_avg,
+                                      double fraction_filtered,
                                       int max_mem_length,
                                       int keep_multimaps,
                                       int additional_multimaps);
