@@ -215,8 +215,6 @@ public:
     virtual id_t get_id(const handle_t& handle) const;
     /// Get the orientation of a handle
     virtual bool get_is_reverse(const handle_t& handle) const;
-    /// Invert the orientation of a handle (potentially without getting its ID)
-    virtual handle_t flip(const handle_t& handle) const;
     /// Get the length of a node
     virtual size_t get_length(const handle_t& handle) const;
     /// Get the sequence of a node, presented in the handle's local forward
@@ -225,7 +223,7 @@ public:
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue.
-    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
+    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee);
 
     ////////////////////////////////////////////////////////////////////////////
     // Higher-level graph API
@@ -520,7 +518,7 @@ private:
     /// want to visit an edge depending on its type, whether we're the to or
     /// from node, whether we want to look left or right, and whether we're
     /// forward or reverse on the node.
-    bool edge_filter(int type, bool is_to, bool want_left, bool is_reverse) const;
+    bool edge_filter(int type, bool is_to, bool want_left, bool is_reverse);
     
     // This loops over the given number of edge records for the given g node,
     // starting at the given start g vector position. For all the edges that are
@@ -528,7 +526,7 @@ private:
     // the iteratee is called. Returns true if the iteratee never returns false,
     // or false (and stops iteration) as soon as the iteratee returns false.
     bool do_edges(const size_t& g, const size_t& start, const size_t& count,
-        bool is_to, bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee) const;
+        bool is_to, bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee);
     
     ////////////////////////////////////////////////////////////////////////////
     // Here are the bits we need to keep around to talk about the sequence

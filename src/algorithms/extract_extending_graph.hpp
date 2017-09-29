@@ -15,7 +15,6 @@
 #include "../vg.hpp"
 #include "../vg.pb.h"
 #include "../hash_map.hpp"
-#include "../handle.hpp"
 
 namespace vg {
 namespace algorithms {
@@ -40,10 +39,6 @@ namespace algorithms {
                                                       bool backward, bool preserve_cycles_on_src,
                                                       LRUCache<id_t, Node>* node_cache = nullptr,
                                                       LRUCache<id_t, vector<Edge>>* edge_cache = nullptr);
-    
-    /// Same semantics as previous, but accesses graph through a handle graph interface instead of a VG.
-    unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Graph& g, int64_t max_dist, pos_t pos,
-                                                      bool backward, bool preserve_cycles_on_src);
     
 }
 }
