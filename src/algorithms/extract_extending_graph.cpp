@@ -103,7 +103,6 @@ namespace algorithms {
 #endif
                 
                 // Get the ID of where we're going.
-                // TODO: this costs a select. Can we avoid it somehow?
                 auto next_id = source->get_id(next);
                 
                 // do we ever return to the source node?
