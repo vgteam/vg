@@ -574,11 +574,10 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         }
     }
 
-    int total_mem_length = 0;
-    for (auto& mem : mems) total_mem_length += mem.length() * mem.nodes.size();
-
     // we didn't manage to get enough hits, so boost our sensitivity by re-running whith shorter MEM length constraints
     /*
+    int total_mem_length = 0;
+    for (auto& mem : mems) total_mem_length += mem.length() * mem.nodes.size();
     if (total_mem_length < (seq_end - seq_begin) * 0.5) {
         if (min_mem_length > 11) {
             return find_mems_deep(seq_begin,
@@ -1863,6 +1862,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double mq_cap1, mq_cap2;
     mq_cap1 = mq_cap2 = max_mapping_quality;
 
+    int total_mem_length1 = 0;
+    for (auto& mem : mems1) total_mem_length1 += mem.length() * mem.nodes.size();
+    int total_mem_length2 = 0;
+    for (auto& mem : mems2) total_mem_length2 += mem.length() * mem.nodes.size();
+
     int mem_max_length1 = 0;
     for (auto& mem : mems1) if (mem.primary && mem.match_count) mem_max_length1 = max(mem_max_length1, (int)mem.length());
     double maybe_mq1 = estimate_max_possible_mapping_quality(read1.sequence().size(),
@@ -2453,8 +2457,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
 
     double max_possible_score = read1.sequence().size() * match + 2*full_length_bonus;
-    double mqmax1 = max_mapping_quality;
-    double mqmax2 = max_mapping_quality;
+    double mem_read_ratio1 = min(1.0, (double)total_mem_length1 / (double)read1.sequence().size());
+    double mem_read_ratio2 = min(1.0, (double)total_mem_length2 / (double)read2.sequence().size());
+    double mqmax1 = max_mapping_quality; //mem_read_ratio1 > 0.5 ? max_mapping_quality : mem_read_ratio1 * max_mapping_quality;
+    double mqmax2 = max_mapping_quality; //mem_read_ratio2 > 0.5 ? max_mapping_quality : mem_read_ratio2 * max_mapping_quality;
     // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
         && (fraction_filtered1 < 0.1 && fraction_filtered2 < 0.1 && maybe_mq1 > 1 && maybe_mq2 > 1 || possible_pairs > 1) // may help in human context
@@ -2468,6 +2474,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             mqmax1 = maybe_mq1;
             mqmax2 = maybe_mq2;
         }
+        mqmax1 = mem_read_ratio1 > 0.5 ? mqmax1 : mem_read_ratio1 * mqmax1;
+        mqmax2 = mem_read_ratio2 > 0.5 ? mqmax2 : mem_read_ratio2 * mqmax2;
         // compute mq independently
         compute_mapping_qualities(results.first, cluster_mq, mq_cap1, mqmax1);
         compute_mapping_qualities(results.second, cluster_mq, mq_cap2, mqmax2);
@@ -2729,6 +2737,9 @@ Mapper::align_mem_multi(const Alignment& aln,
     int total_multimaps = max(max_multimaps, additional_multimaps);
     double mq_cap = max_mapping_quality;
 
+    int total_mem_length = 0;
+    for (auto& mem : mems) total_mem_length += mem.length() * mem.nodes.size();
+
     // Estimate the maximum mapping quality we can get if the alignments based on the good MEMs are the best ones.
     int mem_max_length = 0;
     for (auto& mem : mems) if (mem.primary && mem.match_count) mem_max_length = max(mem_max_length, (int)mem.length());
@@ -2947,7 +2958,9 @@ Mapper::align_mem_multi(const Alignment& aln,
         alns = score_sort_and_deduplicate_alignments(best_alns, aln);
     }
     // compute the mapping quality
-    compute_mapping_qualities(alns, cluster_mq, mq_cap, max_mapping_quality);
+    double mem_read_ratio = min(1.0, (double)total_mem_length / (double)aln.sequence().size());
+    compute_mapping_qualities(alns, cluster_mq, mq_cap,
+                              mem_read_ratio > 0.5 ? max_mapping_quality : mem_read_ratio * max_mapping_quality);
     // final filter step
     filter_and_process_multimaps(alns, keep_multimaps);
 
