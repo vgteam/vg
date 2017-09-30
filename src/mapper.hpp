@@ -609,6 +609,9 @@ public:
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
     float mq_overlap; // consider as alternative mappings any alignment with this overlap with our best
     int mate_rescues;
+
+    double pair_rescue_hang_threshold;
+    double pair_rescue_retry_threshold;
     
     // Keep track of fragment length distribution statistics
     FragmentLengthStatistics frag_stats;

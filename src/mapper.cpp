@@ -10,22 +10,22 @@ BaseMapper::BaseMapper(xg::XG* xidex,
                        gcsa::GCSA* g,
                        gcsa::LCPArray* a) :
       xindex(xidex)
-    , gcsa(g)
-    , lcp(a)
-    , min_mem_length(1)
-    , mem_reseed_length(0)
-    , fast_reseed(true)
-    , fast_reseed_length_diff(0.75)
-    , hit_max(0)
-    , cache_size(128)
-    , alignment_threads(1)
-    , qual_adj_aligner(nullptr)
-    , regular_aligner(nullptr)
-    , adjust_alignments_for_base_quality(false)
-    , mapping_quality_method(Approx)
-    , max_mapping_quality(60)
-    , strip_bonuses(false)
-    , assume_acyclic(false)
+      , gcsa(g)
+      , lcp(a)
+      , min_mem_length(1)
+      , mem_reseed_length(0)
+      , fast_reseed(true)
+      , fast_reseed_length_diff(0.75)
+      , hit_max(0)
+      , cache_size(128)
+      , alignment_threads(1)
+      , qual_adj_aligner(nullptr)
+      , regular_aligner(nullptr)
+      , adjust_alignments_for_base_quality(false)
+      , mapping_quality_method(Approx)
+      , max_mapping_quality(60)
+      , strip_bonuses(false)
+      , assume_acyclic(false)
 {
     init_aligner(default_match, default_mismatch, default_gap_open,
                  default_gap_extension, default_full_length_bonus);
@@ -1418,6 +1418,8 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
+    , pair_rescue_hang_threshold(0.7)
+    , pair_rescue_retry_threshold(0.5)
 {
     
 }
@@ -1625,8 +1627,8 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     bool rescued1 = false;
     bool rescued2 = false;
     if (!frag_stats.fragment_size) return make_pair(false, false);
-    double hang_threshold = 0.7;
-    double retry_threshold = 0.9;
+    double hang_threshold = pair_rescue_hang_threshold;
+    double retry_threshold = pair_rescue_retry_threshold;
     double perfect_score = mate1.sequence().size() * match_score + full_length_bonus;
     bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.0001));
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
@@ -2090,11 +2092,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         MEMChainModel chainer({ read1.sequence().size(), read2.sequence().size() },
                               { mems1, mems2 },
                               [&](pos_t n) -> int64_t {
-                                return approx_position(n);
+                                  return approx_position(n);
                               },
                               transition_weight,
                               band_width);
-        clusters = chainer.traceback(total_multimaps, true, debug);
+        clusters = chainer.traceback(total_multimaps, false, debug);
     }
 
     auto show_clusters = [&](void) {
@@ -2145,7 +2147,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             }
         }
     }
-    
+
     auto to_drop1 = clusters_to_drop(clusters1);
     auto to_drop2 = clusters_to_drop(clusters2);
     vector<pair<Alignment, Alignment> > alns;
@@ -2209,7 +2211,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     
     set<pair<string, string> > seen_alignments;
     for (auto& cluster_ptr : cluster_ptrs) {
-        if (alns.size() >= total_multimaps) { break; }
         // break the cluster into two pieces
         auto& cluster1 = *cluster_ptr.first;
         auto& cluster2 = *cluster_ptr.second;
@@ -2316,6 +2317,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     sort_and_dedup();
     show_alignments("dedup");
 
+    double max_possible_score = read1.sequence().size() * match + 2*full_length_bonus;
+
     // now add back in single-ended versions of everything
     vector<pair<Alignment, Alignment> > se_alns;
     vector<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*> > se_cluster_ptrs;
@@ -2325,16 +2328,21 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // if both mates are aligned, add each single end into the mix
         if (aln1.score() && aln2.score()) {
             auto cluster_ptr = cluster_ptrs[aln_index[p]];
-            se_alns.emplace_back();
-            auto& p = se_alns.back();
-            p.first = aln1;
-            p.second = read2;
-            se_cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
-            se_alns.emplace_back();
-            auto& q = se_alns.back();
-            q.first = read1;
-            q.second = aln2;
-            se_cluster_ptrs.push_back(make_pair(nullptr, cluster_ptr.second));
+            // if these can be used for rescue
+            if (aln1.score() > max_possible_score * pair_rescue_hang_threshold) {
+                se_alns.emplace_back();
+                auto& p = se_alns.back();
+                p.first = aln1;
+                p.second = read2;
+                se_cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
+            }
+            if (aln2.score() > max_possible_score * pair_rescue_hang_threshold) {
+                se_alns.emplace_back();
+                auto& q = se_alns.back();
+                q.first = read1;
+                q.second = aln2;
+                se_cluster_ptrs.push_back(make_pair(nullptr, cluster_ptr.second));
+            }
         }
     }
     int k = 0;
@@ -2455,15 +2463,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         results.second.push_back(p->second);
         possible_pairs += p->first.fragment_score() > 0 && p->second.fragment_score() > 0;
     }
+    bool max_first = results.first.size() && (read1_max_score == results.first.front().score() || read2_max_score == results.second.front().score());
 
-    double max_possible_score = read1.sequence().size() * match + 2*full_length_bonus;
     double mem_read_ratio1 = min(1.0, (double)total_mem_length1 / (double)read1.sequence().size());
     double mem_read_ratio2 = min(1.0, (double)total_mem_length2 / (double)read2.sequence().size());
     double mqmax1 = max_mapping_quality; //mem_read_ratio1 > 0.5 ? max_mapping_quality : mem_read_ratio1 * max_mapping_quality;
     double mqmax2 = max_mapping_quality; //mem_read_ratio2 > 0.5 ? max_mapping_quality : mem_read_ratio2 * max_mapping_quality;
     // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
-        && (fraction_filtered1 < 0.1 && fraction_filtered2 < 0.1 && maybe_mq1 > 1 && maybe_mq2 > 1 || possible_pairs > 1) // may help in human context
+        && (fraction_filtered1 < 0.1 && fraction_filtered2 < 0.1 && maybe_mq1 > 1 && maybe_mq2 > 1 || max_first || possible_pairs > 1) // may help in human context
         //&& (double)results.first.front().score()/max_possible_score > 0.66
         //&& (double)results.second.front().score()/max_possible_score > 0.66
         && pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
@@ -2958,9 +2966,8 @@ Mapper::align_mem_multi(const Alignment& aln,
         alns = score_sort_and_deduplicate_alignments(best_alns, aln);
     }
     // compute the mapping quality
-    double mem_read_ratio = min(1.0, (double)total_mem_length / (double)aln.sequence().size());
-    compute_mapping_qualities(alns, cluster_mq, mq_cap,
-                              mem_read_ratio > 0.5 ? max_mapping_quality : mem_read_ratio * max_mapping_quality);
+    compute_mapping_qualities(alns, cluster_mq, mq_cap, max_mapping_quality);
+
     // final filter step
     filter_and_process_multimaps(alns, keep_multimaps);
 
