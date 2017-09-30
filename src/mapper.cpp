@@ -2094,7 +2094,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               },
                               transition_weight,
                               band_width);
-        clusters = chainer.traceback(total_multimaps, false, debug);
+        clusters = chainer.traceback(total_multimaps, true, debug);
     }
 
     auto show_clusters = [&](void) {
@@ -2464,8 +2464,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
         && (fraction_filtered1 < 0.1 && fraction_filtered2 < 0.1 && maybe_mq1 > 1 && maybe_mq2 > 1 || possible_pairs > 1) // may help in human context
-        && (double)results.first.front().score()/max_possible_score > 0.66
-        && (double)results.second.front().score()/max_possible_score > 0.66
+        //&& (double)results.first.front().score()/max_possible_score > 0.66
+        //&& (double)results.second.front().score()/max_possible_score > 0.66
         && pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, mqmax1, mqmax2);
     } else {
