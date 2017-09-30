@@ -879,9 +879,13 @@ public:
 
     /// Topologically order nodes.
     /// Makes sure that Nodes appear in the Protobuf Graph object in their topological sort order.
+    /// Implementation ensures system-independent behavior.
     void sort(void);
     /// Topological sort helper function, not really meant for external use.
     void topological_sort(vector<NodeTraversal>& order);
+    /// Topologically order the nodes in the Protobuf graph. Only valid if the graph is a DAG, and
+    /// no guarantee of system independent behavior. Significantly faster than VG::sort().
+    void lazy_sort(void);
     /// Swap the given nodes. TODO: what does that mean?
     void swap_nodes(Node* a, Node* b);
 

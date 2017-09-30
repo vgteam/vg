@@ -896,9 +896,7 @@ namespace vg {
 #endif
             rev_trans.insert(make_pair(trans_record.second.first,
                                        make_pair(trans_record.first, trans_record.second.second)));
-        }
-        
-        align_graph.sort();
+        };
         
 #ifdef debug_multipath_mapper
         cerr << "making multipath alignment MEM graph" << endl;
