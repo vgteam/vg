@@ -12,8 +12,8 @@
 
 // for debugging: choose a fixed fragment length distribution at compile time here
 #ifdef debug_force_frag_distr
-#define MEAN 1001.13
-#define SD 74.2508
+#define MEAN 1002.61
+#define SD 75.5314
 #endif
 
 #include "multipath_mapper.hpp"
@@ -878,7 +878,7 @@ namespace vg {
         unordered_map<id_t, pair<id_t, bool> > node_trans;
         VG align_graph = vg->split_strands(node_trans);
         // if necessary, convert from cyclic to acylic
-        if (!align_graph.is_acyclic()) {
+        if (!vg->is_directed_acyclic()) {
             unordered_map<id_t, pair<id_t, bool> > dagify_trans;
             align_graph = align_graph.dagify(target_length, // high enough that num SCCs is never a limiting factor
                                              dagify_trans,

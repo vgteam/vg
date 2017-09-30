@@ -255,6 +255,8 @@ public:
     vector<unordered_set<id_t>> weakly_connected_components(void);
     /// Returns true if the graph does not contain cycles.
     bool is_acyclic(void);
+    /// Returns true if the graph does not contain a directed cycle (but it may contain a reversing cycle)
+    bool is_directed_acyclic(void);
     /// Remove all elements which are not in a strongly connected component.
     void keep_multinode_strongly_connected_components(void);
     /// Does the specified node have any self-loops?

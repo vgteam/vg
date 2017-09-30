@@ -1624,5 +1624,165 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     
 }
 
+TEST_CASE("is_directed_acyclic() should return whether the graph is directed acyclic", "[vg][cycles]") {
+    
+    SECTION("is_directed_acyclic() works on a single node") {
+        
+        VG vg;
+        
+        Node* n0 = vg.create_node("A");
+        
+        // the graph has no edges
+        REQUIRE(vg.is_directed_acyclic());
+        
+        vg.create_edge(n0, n0, false, true);
+        
+        // the graph has a reversing cycle, but no directed cycles
+        REQUIRE(vg.is_directed_acyclic());
+        
+        vg.create_edge(n0, n0, true, false);
+        
+        // the graph now has a directed cycle
+        REQUIRE(!vg.is_directed_acyclic());
+    }
+    
+    SECTION("is_directed_acyclic() works on DAG with only simple edges") {
+        
+        VG vg;
+        
+        Node* n0 = vg.create_node("A");
+        Node* n1 = vg.create_node("A");
+        Node* n2 = vg.create_node("A");
+        Node* n3 = vg.create_node("A");
+        Node* n4 = vg.create_node("A");
+        Node* n5 = vg.create_node("A");
+        Node* n6 = vg.create_node("A");
+        
+        vg.create_edge(n0, n1);
+        vg.create_edge(n0, n2);
+        vg.create_edge(n2, n3);
+        vg.create_edge(n1, n3);
+        vg.create_edge(n3, n4);
+        vg.create_edge(n0, n4);
+        vg.create_edge(n4, n5);
+        vg.create_edge(n0, n5);
+        vg.create_edge(n4, n6);
+        vg.create_edge(n3, n6);
+        
+        // the graph now has a directed cycle
+        REQUIRE(vg.is_directed_acyclic());
+    }
+    
+    SECTION("is_directed_acyclic() works on DAG with some doubly reversing edges") {
+        
+        VG vg;
+        
+        Node* n0 = vg.create_node("A");
+        Node* n1 = vg.create_node("A");
+        Node* n2 = vg.create_node("A");
+        Node* n3 = vg.create_node("A");
+        Node* n4 = vg.create_node("A");
+        Node* n5 = vg.create_node("A");
+        Node* n6 = vg.create_node("A");
+        
+        vg.create_edge(n1, n0, true, true);
+        vg.create_edge(n0, n2);
+        vg.create_edge(n2, n3);
+        vg.create_edge(n3, n1, true, true);
+        vg.create_edge(n4, n3, true, true);
+        vg.create_edge(n0, n4);
+        vg.create_edge(n4, n5);
+        vg.create_edge(n0, n5);
+        vg.create_edge(n6, n4, true, true);
+        vg.create_edge(n3, n6);
+        
+        // the graph now has a directed cycle
+        REQUIRE(vg.is_directed_acyclic());
+    }
+    
+    SECTION("is_directed_acyclic() works on DAG with doubly reversing and singly reversing eges") {
+        
+        VG vg;
+        
+        Node* n0 = vg.create_node("A");
+        Node* n1 = vg.create_node("A");
+        Node* n2 = vg.create_node("A");
+        Node* n3 = vg.create_node("A");
+        Node* n4 = vg.create_node("A");
+        Node* n5 = vg.create_node("A");
+        Node* n6 = vg.create_node("A");
+        
+        vg.create_edge(n1, n0, true, true);
+        vg.create_edge(n0, n2, false, true);
+        vg.create_edge(n2, n3, true, false);
+        vg.create_edge(n3, n1, true, true);
+        vg.create_edge(n4, n3, true, true);
+        vg.create_edge(n0, n4);
+        vg.create_edge(n4, n5, false, true);
+        vg.create_edge(n0, n5, false, true);
+        vg.create_edge(n6, n4, true, true);
+        vg.create_edge(n3, n6);
+        
+        // the graph now has a directed cycle
+        REQUIRE(vg.is_directed_acyclic());
+    }
+    
+    SECTION("is_directed_acyclic() works on a non trivial graph a reversing cycle but no directed cycles") {
+        
+        VG vg;
+        
+        Node* n0 = vg.create_node("A");
+        Node* n1 = vg.create_node("A");
+        Node* n2 = vg.create_node("A");
+        Node* n3 = vg.create_node("A");
+        
+        vg.create_edge(n0, n1);
+        vg.create_edge(n1, n2);
+        vg.create_edge(n1, n3);
+        vg.create_edge(n2, n3, false, true);
+        
+        // the graph now has a directed cycle
+        REQUIRE(vg.is_directed_acyclic());
+    }
+    
+    SECTION("is_directed_acyclic() works on a simple directed cycle") {
+        
+        VG vg;
+        
+        Node* n0 = vg.create_node("A");
+        Node* n1 = vg.create_node("A");
+        Node* n2 = vg.create_node("A");
+        
+        vg.create_edge(n0, n1);
+        vg.create_edge(n1, n2);
+        vg.create_edge(n2, n0);
+        
+        // the graph now has a directed cycle
+        REQUIRE(!vg.is_directed_acyclic());
+    }
+    
+    SECTION("is_directed_acyclic() works on a non trivial graph with a directed cycle") {
+        
+        VG vg;
+        
+        Node* n0 = vg.create_node("A");
+        Node* n1 = vg.create_node("A");
+        Node* n2 = vg.create_node("A");
+        Node* n3 = vg.create_node("A");
+        Node* n4 = vg.create_node("A");
+        Node* n5 = vg.create_node("A");
+        
+        vg.create_edge(n0, n1);
+        vg.create_edge(n1, n2);
+        vg.create_edge(n2, n0);
+        vg.create_edge(n0, n3);
+        vg.create_edge(n1, n4);
+        vg.create_edge(n2, n5);
+        
+        // the graph now has a directed cycle
+        REQUIRE(!vg.is_directed_acyclic());
+    }
+}
+    
 }
 }
