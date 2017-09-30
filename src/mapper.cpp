@@ -578,20 +578,21 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     for (auto& mem : mems) total_mem_length += mem.length() * mem.nodes.size();
 
     // we didn't manage to get enough hits, so boost our sensitivity by re-running whith shorter MEM length constraints
-    if (total_mem_length < (seq_end - seq_begin) * 0.66) {
-        //cerr << "total_mem_length " << total_mem_length << " ... " << seq_end - seq_begin << " ... we should try again" << endl;
-        if (min_mem_length > 8) {
+    /*
+    if (total_mem_length < (seq_end - seq_begin) * 0.5) {
+        if (min_mem_length > 11) {
             return find_mems_deep(seq_begin,
                                   seq_end,
                                   longest_lcp,
                                   fraction_filtered,
                                   max(16.0, max_mem_length * 0.66),
-                                  max(8.0, min_mem_length * 0.66),
+                                  max(11.0, min_mem_length * 0.66),
                                   max(12.0, reseed_length * 0.66),
                                   use_lcp_reseed_heuristic,
                                   use_diff_based_fast_reseed);
         }
     }
+    */
 
     if (reseed_length) {
         // determine counts of matches
