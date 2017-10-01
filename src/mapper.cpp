@@ -2461,19 +2461,17 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         read2_max_score = max(p->second.score(), read2_max_score);
         results.first.push_back(p->first);
         results.second.push_back(p->second);
-        possible_pairs += p->first.fragment_score() > 0 && p->second.fragment_score() > 0;
+        possible_pairs += p->first.score() > 0 && p->second.score() > 0;
     }
     bool max_first = results.first.size() && (read1_max_score == results.first.front().score() && read2_max_score == results.second.front().score());
 
     double mem_read_ratio1 = min(1.0, (double)total_mem_length1 / (double)read1.sequence().size());
     double mem_read_ratio2 = min(1.0, (double)total_mem_length2 / (double)read2.sequence().size());
-    double mqmax1 = max_mapping_quality; //mem_read_ratio1 > 0.5 ? max_mapping_quality : mem_read_ratio1 * max_mapping_quality;
-    double mqmax2 = max_mapping_quality; //mem_read_ratio2 > 0.5 ? max_mapping_quality : mem_read_ratio2 * max_mapping_quality;
+    double mqmax1 = max_mapping_quality;
+    double mqmax2 = max_mapping_quality;
     // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
         && (fraction_filtered1 < 0.1 && fraction_filtered2 < 0.1 && maybe_mq1 > 1 && maybe_mq2 > 1 && max_first && (mem_read_ratio1 > 0.5 || mem_read_ratio2 > 0.5) || possible_pairs > 1) // may help in human context
-        //&& (double)results.first.front().score()/max_possible_score > 0.66
-        //&& (double)results.second.front().score()/max_possible_score > 0.66
         && pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, mqmax1, mqmax2);
     } else {
