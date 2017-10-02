@@ -1625,7 +1625,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
             int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
             
             // Make sure we haven't gone off the rails into non-edge data.
-            assert(g + offset > 0);
+            assert((int64_t) g + offset >= 0);
             assert(g + offset < g_iv.size());
             
             // Should we invert?
