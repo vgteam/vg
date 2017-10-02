@@ -91,8 +91,10 @@ TEST_CASE( "A small linear chunk with no variants can be constructed", "[constru
     }
 }
 
-TEST_CASE( "A chunk with lower-case letters has them upper-cased", "[constructor]" ) {
+TEST_CASE( "A chunk with lowercase letters has them uppercased", "[constructor]" ) {
     Constructor constructor;
+    // Don't warn during testing
+    constructor.warn_on_lowercase = false;
     
     auto result = constructor.construct_chunk("cangantan", "lower", std::vector<vcflib::Variant>(), 0);
     
@@ -100,7 +102,7 @@ TEST_CASE( "A chunk with lower-case letters has them upper-cased", "[constructor
         REQUIRE(result.graph.node_size() == 1);
         auto& node = result.graph.node(0);
         
-        SECTION("the node should have the upper-case sequence") {
+        SECTION("the node should have the uppercase sequence") {
             REQUIRE(node.sequence() == "CANGANTAN");
         }
     }
