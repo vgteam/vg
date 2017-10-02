@@ -11,8 +11,8 @@
 namespace vg {
 namespace algorithms {
 
-    unordered_map<id_t, id_t> extract_extending_graph_internal(const HandleGraph* source, Graph& g, int64_t max_dist, pos_t pos,
-                                                               bool backward, bool preserve_cycles_on_src) {
+    unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Graph& g, int64_t max_dist, pos_t pos,
+                                                      bool backward, bool preserve_cycles_on_src) {
         
         if (g.node_size() || g.edge_size()) {
             cerr << "error:[extract_extending_graph] must extract into an empty graph" << endl;
@@ -103,7 +103,6 @@ namespace algorithms {
 #endif
                 
                 // Get the ID of where we're going.
-                // TODO: this costs a select. Can we avoid it somehow?
                 auto next_id = source->get_id(next);
                 
                 // do we ever return to the source node?
@@ -253,30 +252,5 @@ namespace algorithms {
         
         return id_trans;
     }
-    
-    unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Graph& g, int64_t max_dist, pos_t pos,
-                                                      bool backward, bool preserve_cycles_on_src) {
-        return extract_extending_graph_internal(source, g, max_dist, pos, backward, preserve_cycles_on_src);
-        
-    }
-    
-    unordered_map<id_t, id_t> extract_extending_graph(VG& vg, Graph& g, int64_t max_dist, pos_t pos,
-                                                      bool backward, bool preserve_cycles_on_src){
-        
-        // Just view the vg as a handle graph                                              
-        return extract_extending_graph(&vg, g, max_dist, pos, backward, preserve_cycles_on_src);
-                                                      
-    }
-    
-    unordered_map<id_t, id_t> extract_extending_graph(xg::XG& xg_index, Graph& g, int64_t max_dist, pos_t pos,
-                                                      bool backward, bool preserve_cycles_on_src,
-                                                      LRUCache<id_t, Node>* node_cache,
-                                                      LRUCache<id_t, vector<Edge>>* edge_cache) {
-                                                      
-                                                      
-        // Just view the xg as a handle graph and ignore the caches.                                          
-        return extract_extending_graph(&xg_index, g, max_dist, pos, backward, preserve_cycles_on_src);
-    }
-
 }
 }
