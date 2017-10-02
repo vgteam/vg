@@ -1669,7 +1669,6 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n4, n6);
         vg.create_edge(n3, n6);
         
-        // the graph now has a directed cycle
         REQUIRE(vg.is_directed_acyclic());
     }
     
@@ -1696,7 +1695,6 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n6, n4, true, true);
         vg.create_edge(n3, n6);
         
-        // the graph now has a directed cycle
         REQUIRE(vg.is_directed_acyclic());
     }
     
@@ -1723,7 +1721,6 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n6, n4, true, true);
         vg.create_edge(n3, n6);
         
-        // the graph now has a directed cycle
         REQUIRE(vg.is_directed_acyclic());
     }
     
@@ -1741,7 +1738,6 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n1, n3);
         vg.create_edge(n2, n3, false, true);
         
-        // the graph now has a directed cycle
         REQUIRE(vg.is_directed_acyclic());
     }
     
@@ -1757,7 +1753,6 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n1, n2);
         vg.create_edge(n2, n0);
         
-        // the graph now has a directed cycle
         REQUIRE(!vg.is_directed_acyclic());
     }
     
@@ -1779,10 +1774,97 @@ TEST_CASE("is_directed_acyclic() should return whether the graph is directed acy
         vg.create_edge(n1, n4);
         vg.create_edge(n2, n5);
         
-        // the graph now has a directed cycle
         REQUIRE(!vg.is_directed_acyclic());
     }
 }
+
+TEST_CASE("lazy_sort() should put a DAG in topological order", "[vg][sort]") {
     
+    SECTION("lazy_sort() works on a simple graph that's already in topological order") {
+        
+        VG vg;
+        
+        Node* n0 = vg.create_node("A");
+        Node* n1 = vg.create_node("A");
+        
+        vg.create_edge(n0, n1);
+        
+        vg.lazy_sort();
+        
+        unordered_map<id_t, size_t> id_to_idx;
+        for (size_t i = 0; i < vg.graph.node_size(); i++) {
+            id_to_idx[vg.graph.node(i).id()] = i;
+        }
+        
+        for (size_t i = 0; i < vg.graph.edge_size(); i++) {
+            const Edge& e = vg.graph.edge(i);
+            REQUIRE(id_to_idx[e.from()] < id_to_idx[e.to()]);
+        }
+    }
+    
+    SECTION("lazy_sort() works on a simple graph that's not already in topological order") {
+        
+        VG vg;
+        
+        Node* n0 = vg.create_node("A");
+        Node* n1 = vg.create_node("A");
+        
+        vg.create_edge(n1, n0);
+        
+        vg.lazy_sort();
+        
+        unordered_map<id_t, size_t> id_to_idx;
+        for (size_t i = 0; i < vg.graph.node_size(); i++) {
+            id_to_idx[vg.graph.node(i).id()] = i;
+        }
+        
+        for (size_t i = 0; i < vg.graph.edge_size(); i++) {
+            const Edge& e = vg.graph.edge(i);
+            REQUIRE(id_to_idx[e.from()] < id_to_idx[e.to()]);
+        }
+    }
+    
+    SECTION("lazy_sort() works on a more complex graph that's not already in topological order") {
+        
+        VG vg;
+        
+        Node* n0 = vg.create_node("A");
+        Node* n9 = vg.create_node("A");
+        Node* n2 = vg.create_node("A");
+        Node* n1 = vg.create_node("A");
+        Node* n4 = vg.create_node("A");
+        Node* n8 = vg.create_node("A");
+        Node* n5 = vg.create_node("A");
+        Node* n3 = vg.create_node("A");
+        Node* n7 = vg.create_node("A");
+        Node* n6 = vg.create_node("A");
+        
+        vg.create_edge(n0, n1);
+        vg.create_edge(n0, n3);
+        vg.create_edge(n0, n8);
+        vg.create_edge(n1, n2);
+        vg.create_edge(n1, n9);
+        vg.create_edge(n2, n5);
+        vg.create_edge(n3, n4);
+        vg.create_edge(n3, n7);
+        vg.create_edge(n5, n6);
+        vg.create_edge(n5, n8);
+        vg.create_edge(n6, n8);
+        vg.create_edge(n8, n9);
+        
+        vg.lazy_sort();
+        
+        unordered_map<id_t, size_t> id_to_idx;
+        for (size_t i = 0; i < vg.graph.node_size(); i++) {
+            id_to_idx[vg.graph.node(i).id()] = i;
+        }
+        
+        for (size_t i = 0; i < vg.graph.edge_size(); i++) {
+            const Edge& e = vg.graph.edge(i);
+            REQUIRE(id_to_idx[e.from()] < id_to_idx[e.to()]);
+        }
+    }
+}
+
 }
 }
