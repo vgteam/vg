@@ -91,6 +91,22 @@ TEST_CASE( "A small linear chunk with no variants can be constructed", "[constru
     }
 }
 
+TEST_CASE( "A chunk with lower-case letters has them upper-cased", "[constructor]" ) {
+    Constructor constructor;
+    
+    auto result = constructor.construct_chunk("cangantan", "lower", std::vector<vcflib::Variant>(), 0);
+    
+    SECTION("the graph should have one node") {
+        REQUIRE(result.graph.node_size() == 1);
+        auto& node = result.graph.node(0);
+        
+        SECTION("the node should have the upper-case sequence") {
+            REQUIRE(node.sequence() == "CANGANTAN");
+        }
+    }
+    
+}
+
 TEST_CASE( "Max node length is respected", "[constructor]" ) {
     Constructor constructor;
     constructor.max_node_size = 4;
