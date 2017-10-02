@@ -248,7 +248,7 @@ namespace vg {
                 optimal_alignment(multipath_aln_1, optimal_aln_1);
                 optimal_alignment(multipath_aln_2, optimal_aln_2);
                 pos_t pos_1 = initial_position(optimal_aln_1.path());
-                pos_t pos_2 = final_position(optimal_aln_2.path());
+                pos_t pos_2 = initial_position(optimal_aln_2.path());
                 
                 int64_t fragment_length = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                                         id(pos_2), offset(pos_2), is_rev(pos_2));

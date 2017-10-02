@@ -646,6 +646,9 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_pos
     
     // use the path strands to bucket distance measurements
     for (pair<size_t, bool>& strand_bucket : buckets) {
+#ifdef debug_od_clusterer
+        cerr << "doing a bucketed comparison of items on the path ranked " << strand_bucket.first << ", strand " << (strand_bucket.second ? "-" : "+") << endl;
+#endif
         vector<size_t>& bucket = items_on_path_strand[strand_bucket];
         for (size_t i = 1; i < bucket.size(); i++) {
             size_t prev = bucket[i - 1];
@@ -659,14 +662,26 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_pos
             // estimate the distance
             pos_t pos_prev = get_position(prev);
             pos_t pos_here = get_position(here);
+            
+#ifdef debug_od_clusterer
+            cerr << "measuring distance between " << prev << " at " << pos_prev << " and " << here << " at " << pos_here << endl;
+#endif
+            
             int64_t dist = xgindex->closest_shared_path_oriented_distance(id(pos_prev), offset(pos_prev), is_rev(pos_prev),
                                                                           id(pos_here), offset(pos_here), is_rev(pos_here),
                                                                           0, paths_of_node_memo);
             
             // did we get a successful estimation?
             if (dist == numeric_limits<int64_t>::max()) {
+#ifdef debug_od_clusterer
+                cerr << "they don't appear to be on the same path, skipping" << endl;
+#endif
                 continue;
             }
+            
+#ifdef debug_od_clusterer
+            cerr << "recording distance at " << dist << endl;
+#endif
             
             // merge them into a strand cluster
             recorded_finite_dists[make_pair(prev, here)] = dist;
@@ -1445,8 +1460,12 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
                                                                                                      // Grab the pos_t for the first thing in the cluster.
                                                                                                      return left_clusters[cluster_num]->front().second;
                                                                                                  } else {
-                                                                                                     // Grab the pos_t for this cluster from the other clusterer.
-                                                                                                     return right_clusters[cluster_num - left_clusters.size()]->back().second;
+                                                                                                     // Grab the pos_t for this cluster from the other clusterer
+                                                                                                     // TODO: we use the front here because it's sorted to be the longest MEM (least likely
+                                                                                                     // to be a false hit), but that means its position is typically associated with the
+                                                                                                     // middle or end of the read rather than the beginning--hard to know what distance to
+                                                                                                     // to measure. for now just using a permissive bound on distance and hoping it works out
+                                                                                                     return right_clusters[cluster_num - left_clusters.size()]->front().second;
                                                                                                  }
                                                                                              });
     
