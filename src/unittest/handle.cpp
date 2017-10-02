@@ -149,10 +149,13 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
                     // Load handles from the handle graph
                     g->follow_edges(node_handle, false, [&](const handle_t& next) {
                         next_handles.push_back(next);
+                        // Exercise both returning and non-returning syntaxes
+                        return true;
                     });
                     
                     g->follow_edges(node_handle, true, [&](const handle_t& next) {
                         prev_handles.push_back(next);
+                        // Exercise both returning and non-returning syntaxes
                     });
                     
                     // Make sure all the entries are unique
