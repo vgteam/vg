@@ -46,7 +46,8 @@ class VGCITest(TestCase):
 
         self.workdir = tempfile.mkdtemp()
         self.tempdir = tempfile.mkdtemp()
-        
+
+        # for checking calling f1
         self.f1_threshold = 0.005
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
@@ -669,7 +670,8 @@ class VGCITest(TestCase):
         return stats_dict
 
     def _verify_mapeval(self, reads, read_source_graph, score_baseline_name,
-                        positive_control, negative_control, tag, acc_threshold):
+                        positive_control, negative_control, tag, acc_threshold,
+                        auc_threshold):
         """
         Check the simulated mapping evaluation results.
         
@@ -764,9 +766,9 @@ class VGCITest(TestCase):
                     # Compare AUC stats. Make sure to patch up 0 AUCs from perfect classification.
                     new_auc = stats_dict[key][2] if stats_dict[key][2] != 0 else 1
                     old_auc = val[2] if val[2] != 0 else 1
-                    self.assertGreaterEqual(new_auc, old_auc - acc_threshold)
+                    self.assertGreaterEqual(new_auc, old_auc - auc_threshold)
                 if len(stats_dict[key]) > 4 and len(val) > 4:
-                    self.assertGreaterEqual(stats_dict[key][4], val[4] - self.f1_threshold)
+                    self.assertGreaterEqual(stats_dict[key][4], val[4] - acc_threshold)
                 if len(stats_dict[key]) != len(val):
                     log.warning('Key {} has {} baseline entries and {} stats'.format(key, len(val), len(stats_dict[key])))
             else:
@@ -854,7 +856,7 @@ class VGCITest(TestCase):
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
                       positive_control=None, negative_control=None, sample=None, multipath=False,
-                      assembly="hg38", tag_ext="", acc_threshold=0,
+                      assembly="hg38", tag_ext="", acc_threshold=0, auc_threshold=0,
                       sim_opts='-l 150 -p 500 -v 50 -e 0.05 -i 0.01', sim_fastq=None):
         """ Run simulation on a bakeoff graph
         
@@ -917,7 +919,7 @@ class VGCITest(TestCase):
         if self.verify:
             self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
                                  positive_control, negative_control, tag,
-                                 acc_threshold)
+                                 acc_threshold, auc_threshold)
 
     @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
@@ -930,7 +932,7 @@ class VGCITest(TestCase):
         self._test_mapeval(100000, 'BRCA1', 'snp1kg',
                            ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
-                           sample='HG00096', acc_threshold=0.02)
+                           sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
                            
     @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
@@ -941,7 +943,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
-                           sample='HG00096', acc_threshold=0.02)
+                           sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
 
     @timeout_decorator.timeout(16000)        
     def test_sim_chr21_snp1kg(self):
@@ -950,7 +952,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096',
                            assembly="hg19",
-                           acc_threshold=0.01125, multipath=True,
+                           acc_threshold=0.0075, auc_threshold=0.075, multipath=True,
                            sim_opts='-l 150 -p 500 -v 50 -e 0.01 -i 0.002')
 
     @skip("skipping test to keep runtime down")        
@@ -964,7 +966,7 @@ class VGCITest(TestCase):
                            ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
-                           acc_threshold=0.02)
+                           acc_threshold=0.02, auc_threshold=0.02)
 
     @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(7200)
@@ -977,7 +979,7 @@ class VGCITest(TestCase):
                            ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
-                           acc_threshold=0.02,
+                           acc_threshold=0.02, auc_threshold=0.02,
                            sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5',
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
 
