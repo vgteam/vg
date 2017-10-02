@@ -6,11 +6,15 @@
 #include "catch.hpp"
 
 #include "../handle.hpp"
+#include "../vg.hpp"
+#include "../xg.hpp"
 #include "../json2pb.h"
 
 #include <iostream>
 #include <limits>
+#include <algorithm>
 #include <vector>
+#include <unordered_set>
 
 namespace vg {
 namespace unittest {
@@ -56,6 +60,163 @@ TEST_CASE( "Handle utility functions work", "[handle]" ) {
         }
     }
     
+}
+
+TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
+    
+    // Make a vg graph
+    VG vg;
+            
+    Node* n0 = vg.create_node("CGA");
+    Node* n1 = vg.create_node("TTGG");
+    Node* n2 = vg.create_node("CCGT");
+    Node* n3 = vg.create_node("C");
+    Node* n4 = vg.create_node("GT");
+    Node* n5 = vg.create_node("GATAA");
+    Node* n6 = vg.create_node("CGG");
+    Node* n7 = vg.create_node("ACA");
+    Node* n8 = vg.create_node("GCCG");
+    Node* n9 = vg.create_node("ATATAAC");
+    
+    vg.create_edge(n1, n0, true, true); // a doubly reversing edge to keep it interesting
+    vg.create_edge(n1, n2);
+    vg.create_edge(n2, n3);
+    vg.create_edge(n2, n4);
+    vg.create_edge(n3, n5);
+    vg.create_edge(n4, n5);
+    vg.create_edge(n5, n6);
+    vg.create_edge(n5, n8);
+    vg.create_edge(n6, n7);
+    vg.create_edge(n6, n8);
+    vg.create_edge(n7, n9);
+    vg.create_edge(n8, n9);
+    
+    // Make an xg out of it
+    xg::XG xg_index(vg.graph);
+    
+    SECTION("Each graph exposes the right nodes") {
+        
+        for (const HandleGraph* g : {(HandleGraph*) &vg, (HandleGraph*) &xg_index}) {
+            for (Node* node : {n0, n1, n2, n3, n4, n5, n6, n7, n8, n9}) {
+                
+                handle_t node_handle = g->get_handle(node->id(), false);
+                
+                SECTION("We see each node correctly forward") {
+                    REQUIRE(g->get_id(node_handle) == node->id());
+                    REQUIRE(g->get_is_reverse(node_handle) == false);
+                    REQUIRE(g->get_sequence(node_handle) == node->sequence());
+                    REQUIRE(g->get_length(node_handle) == node->sequence().size());
+                }
+                
+                handle_t rev1 = g->flip(node_handle);
+                handle_t rev2 = g->get_handle(node->id(), true);
+                
+                SECTION("We see each node correctly reverse") {
+                    REQUIRE(rev1 == rev2);
+                    
+                    REQUIRE(g->get_id(rev1) == node->id());
+                    REQUIRE(g->get_is_reverse(rev1) == true);
+                    REQUIRE(g->get_sequence(rev1) == reverse_complement(node->sequence()));
+                    REQUIRE(g->get_length(rev1) == node->sequence().size());
+                    
+                    // Check it again for good measure!
+                    REQUIRE(g->get_id(rev2) == node->id());
+                    REQUIRE(g->get_is_reverse(rev2) == true);
+                    REQUIRE(g->get_sequence(rev2) == reverse_complement(node->sequence()));
+                    REQUIRE(g->get_length(rev2) == node->sequence().size());
+                    
+                }
+                
+                
+            }
+        }
+    
+    }
+    
+    SECTION("Each graph exposes the right edges") {
+        for (const HandleGraph* g : {(HandleGraph*) &vg, (HandleGraph*) &xg_index}) {
+            // For each graph type
+            for (Node* node : {n0, n1, n2, n3, n4, n5, n6, n7, n8, n9}) {
+                // For each node
+                for (bool orientation : {false, true}) {
+                    // In each orientation
+            
+                    handle_t node_handle = g->get_handle(node->id(), orientation);
+                    
+                    vector<handle_t> next_handles;
+                    vector<handle_t> prev_handles;
+                    
+                    // Load handles from the handle graph
+                    g->follow_edges(node_handle, false, [&](const handle_t& next) {
+                        next_handles.push_back(next);
+                    });
+                    
+                    g->follow_edges(node_handle, true, [&](const handle_t& next) {
+                        prev_handles.push_back(next);
+                    });
+                    
+                    // Make sure all the entries are unique
+                    REQUIRE(unordered_set<handle_t>(next_handles.begin(), next_handles.end()).size() == next_handles.size());
+                    REQUIRE(unordered_set<handle_t>(prev_handles.begin(), prev_handles.end()).size() == prev_handles.size());
+                    
+                    // Go look up the true prev/next neighbors as NodeTraversals
+                    NodeTraversal trav(node, orientation);
+                    vector<NodeTraversal> true_next = vg.nodes_next(trav);
+                    vector<NodeTraversal> true_prev = vg.nodes_prev(trav);
+                    
+                    REQUIRE(next_handles.size() == true_next.size());
+                    REQUIRE(prev_handles.size() == true_prev.size());
+                    
+                    for (auto& handle : next_handles) {
+                        // Each next handle becomes a NodeTraversal.
+                        NodeTraversal handle_trav(vg.get_node(g->get_id(handle)), g->get_is_reverse(handle));
+                        // And we insist on finding that traversal in the truth set.
+                        REQUIRE(find(true_next.begin(), true_next.end(), handle_trav) != true_next.end());
+                    }
+                    
+                    for (auto& handle : prev_handles) {
+                        // Each next handle becomes a NodeTraversal.
+                        NodeTraversal handle_trav(vg.get_node(g->get_id(handle)), g->get_is_reverse(handle));
+                        // And we insist on finding that traversal in the truth set.
+                        REQUIRE(find(true_prev.begin(), true_prev.end(), handle_trav) != true_prev.end());
+                    }
+                }
+            }
+        }
+    }
+    
+    SECTION("Iteratees can stop early") {
+        for (const HandleGraph* g : {(HandleGraph*) &vg, (HandleGraph*) &xg_index}) {
+            for (Node* node : {n0, n1, n2, n3, n4, n5, n6, n7, n8, n9}) {
+            
+                // How many edges are we given?
+                size_t loop_count = 0;
+                
+                handle_t node_handle = g->get_handle(node->id(), false);
+                
+                g->follow_edges(node_handle, false, [&](const handle_t& next) {
+                    loop_count++;
+                    // Never ask for more edges
+                    return false;
+                });
+                
+                // We have 1 or fewer edges on the right viewed.
+                REQUIRE(loop_count <= 1);
+                
+                loop_count = 0;
+                
+                g->follow_edges(node_handle, true, [&](const handle_t& next) {
+                    loop_count++;
+                    // Never ask for more edges
+                    return false;
+                });
+                
+                // We have 1 or fewer edges on the left viewed.
+                REQUIRE(loop_count <= 1);
+            }
+        }
+    }
+
 }
 
 }
