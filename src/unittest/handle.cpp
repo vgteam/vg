@@ -219,6 +219,74 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
             }
         }
     }
+    
+    SECTION("Converting handles to the forward strand works") {
+        for (const HandleGraph* g : {(HandleGraph*) &vg, (HandleGraph*) &xg_index}) {
+            // For each graph type
+            for (Node* node : {n0, n1, n2, n3, n4, n5, n6, n7, n8, n9}) {
+                // For each node
+                for (bool orientation : {false, true}) {
+                    // In each orientation
+            
+                    handle_t node_handle = g->get_handle(node->id(), orientation);
+                    
+                    REQUIRE(g->get_id(g->forward(node_handle)) == node->id());
+                    REQUIRE(g->get_is_reverse(g->forward(node_handle)) == false);
+                    
+                    if (orientation) {
+                        // We're reverse, so forward is our opposite
+                        REQUIRE(g->forward(node_handle) == g->flip(node_handle));
+                    } else {
+                        // Already forward
+                        REQUIRE(g->forward(node_handle) == node_handle);
+                    }
+                    
+                }
+            }
+        }
+    
+    }
+    
+    SECTION("Handle pair edge cannonicalization works") {
+        for (const HandleGraph* g : {(HandleGraph*) &vg, (HandleGraph*) &xg_index}) {
+
+            SECTION("Two versions of the same edge are recognized as equal") {
+                // Make the edge as it was added            
+                handle_t h1 = g->get_handle(n0->id(), true);
+                handle_t h2 = g->get_handle(n1->id(), true);
+                pair<handle_t, handle_t> edge_as_added = g->edge_handle(h1, h2);
+
+                // Make the edge in its simpler form
+                handle_t h3 = g->get_handle(n1->id(), false);
+                handle_t h4 = g->get_handle(n0->id(), false);
+                pair<handle_t, handle_t> easier_edge = g->edge_handle(h3, h4);
+                
+                // Looking at the edge both ways must return the same result
+                REQUIRE(edge_as_added == easier_edge);
+                // And that result must be one of the ways of looking at the edge
+                bool is_first = (edge_as_added.first == h1 && edge_as_added.second == h2);
+                bool is_second = (easier_edge.first == h3 && easier_edge.second == h4);
+                REQUIRE((is_first || is_second) == true);
+            }
+            
+            SECTION("Single-sided self loops work") {
+                handle_t h1 = g->get_handle(n5->id(), true);
+                handle_t h2 = g->flip(h1);
+                
+                // Flipping this edge the other way produces the same edge.
+                pair<handle_t, handle_t> only_version = make_pair(h1, h2);
+                REQUIRE(g->edge_handle(only_version.first, only_version.second) == only_version);
+
+                // We also need to handle the other end's loop                
+                pair<handle_t, handle_t> other_end_loop = make_pair(h2, h1);
+                REQUIRE(g->edge_handle(other_end_loop.first, other_end_loop.second) == other_end_loop);
+                
+                
+            }
+            
+        }
+    
+    }
 
 }
 
