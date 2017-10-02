@@ -883,8 +883,9 @@ public:
     void sort(void);
     /// Topological sort helper function, not really meant for external use.
     void topological_sort(vector<NodeTraversal>& order);
-    /// Topologically order the nodes in the Protobuf graph. Only valid if the graph is a DAG, and
-    /// no guarantee of system independent behavior. Significantly faster than VG::sort().
+    /// Topologically order the nodes in the Protobuf graph. Only valid if the graph is a DAG with all
+    /// no reversing edges or doubly reversing edges. No guarantee of system independent behavior, but
+    /// significantly faster than VG::sort().
     void lazy_sort(void);
     /// Swap the given nodes. TODO: what does that mean?
     void swap_nodes(Node* a, Node* b);

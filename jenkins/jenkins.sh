@@ -22,7 +22,7 @@ REUSE_VENV=0
 # Should we keep our test output around after uploading the new baseline?
 KEEP_OUTPUT=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
-SHOW_OPT=""q
+SHOW_OPT=""
 # What toil-vg should we install?
 TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@bb923d9cc00622dc8732dfe43604dc1c4941b0b5"
 # What tests should we run?

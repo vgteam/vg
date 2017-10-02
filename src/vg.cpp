@@ -3376,11 +3376,8 @@ bool VG::is_directed_acyclic(void) {
 }
     
 void VG::lazy_sort(void) {
-    // a map to the degrees on the left and right sides of nodes, which we also use to keep track
-    // if nodes have been added to the queue yet by removing them from the map
+    // a map to the degrees on the left and right sides of nodes
     unordered_map<id_t, pair<int64_t, int64_t>> side_degrees;
-    
-    // initialize these two structures
     for (size_t i = 0; i < graph.node_size(); i++) {
         id_t id = graph.node(i).id();
         side_degrees[id] = make_pair(start_degree(get_node(id)), end_degree(get_node(id)));
@@ -3397,8 +3394,7 @@ void VG::lazy_sort(void) {
     vector<id_t> order;
     order.reserve(graph.node_size());
     
-    // iterate across nodes in the system-independent order
-    for (size_t i = 0; i < graph.node_size();) {
+    while (!stack.empty()) {
         // get a head node off the queue
         NodeTraversal head_trav = stack.back();
         stack.pop_back();
