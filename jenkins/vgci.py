@@ -492,8 +492,8 @@ class VGCITest(TestCase):
         # things as file IDs?
         mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
         mapeval_options.bwa = True
-        mapeval_options.bwa_paired = True
-        mapeval_options.vg_paired = True
+        mapeval_options.do_single = True
+        mapeval_options.do_paired = True
         mapeval_options.fasta = make_url(fasta_path)
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
