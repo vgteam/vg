@@ -222,7 +222,7 @@ class VGCITest(TestCase):
         
         
     def _toil_vg_run(self, sample_name, chrom, graph_path, xg_path, gcsa_path, fq_path,
-                     true_vcf_path, fasta_path, interleaved, misc_opts, tag):
+                     true_vcf_path, fasta_path, interleaved, multipath, misc_opts, tag):
         """ Wrap toil-vg run as a shell command.  Expects reads to be in single fastq
         inputs can be None if toil-vg supports not having them (ie don't need to 
         include gcsa_path if want to reindex)
@@ -251,6 +251,8 @@ class VGCITest(TestCase):
             opts += '--vcfeval_opts \" --ref-overlap\" '
         if interleaved:
             opts += '--interleaved '
+        if multipath:
+            opts += '--multipath '
         if misc_opts:
             opts += ' {} '.format(misc_opts)
         opts += '--gcsa_index_cores {} --kmers_cores {} \
@@ -390,23 +392,28 @@ class VGCITest(TestCase):
 
         self.assertGreaterEqual(f1_score, baseline_f1 - threshold)
 
-    def _test_bakeoff(self, region, graph, skip_indexing):
+    def _test_bakeoff(self, region, graph, skip_indexing, multipath=False, tag_ext='', misc_opts=None):
         """ Run bakeoff F1 test for NA12878 """
-        tag = '{}-{}'.format(region, graph)
+        assert not tag_ext or tag_ext.startswith('-')
+        tag = '{}-{}{}'.format(region, graph, tag_ext)
         chrom, offset = self._bakeoff_coords(region)        
         if skip_indexing:
             xg_path = None
             gcsa_path = self._input('{}-{}.gcsa'.format(graph, region))
         else:
             xg_path = None
-            gcsa_path = None            
+            gcsa_path = None
+        extra_opts = '--vcf_offsets {}'.format(offset)
+        if misc_opts:
+            extra_opts += ' {}'.format(misc_opts)
+        
         self._toil_vg_run('NA12878', chrom,
                           self._input('{}-{}.vg'.format(graph, region)),
                           xg_path, gcsa_path,
                           self._input('platinum_NA12878_{}.fq.gz'.format(region)),
                           self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
-                          self._input('chr{}.fa.gz'.format(chrom)), True,
-                          '--vcf_offsets {}'.format(offset), tag)
+                          self._input('chr{}.fa.gz'.format(chrom)), True, multipath,
+                          extra_opts, tag)
 
         if self.verify:
             self._verify_f1('NA12878', tag)
@@ -1015,6 +1022,15 @@ class VGCITest(TestCase):
         """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'snp1kg', True)
+        
+    @timeout_decorator.timeout(600)
+    def test_map_brca1_snp1kg_mpmap(self):
+        """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph on mpmap.  
+        The filter_opts are the defaults minus the identity filter because mpmap doesn't 
+        write identities.
+        """
+        self._test_bakeoff('BRCA1', 'snp1kg', True, multipath=True, tag_ext='-mpmap',
+                           misc_opts='--filter_opts \"-q 15 -m 1 -D 999 -s 1000\"')
 
     @timeout_decorator.timeout(200)        
     def test_map_brca1_cactus(self):
