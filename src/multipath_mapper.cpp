@@ -1010,7 +1010,7 @@ namespace vg {
                 
                 // extract the graph between the matches
                 Graph connecting_graph;
-                unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(align_graph,      // DAG with split strands
+                unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&align_graph,     // DAG with split strands
                                                                                                connecting_graph, // graph to extract into
                                                                                                max_dist,         // longest distance necessary
                                                                                                src_pos,          // end of earlier match
