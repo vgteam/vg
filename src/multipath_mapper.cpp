@@ -12,8 +12,8 @@
 
 // for debugging: choose a fixed fragment length distribution at compile time here
 #ifdef debug_force_frag_distr
-#define MEAN 1002.61
-#define SD 75.5314
+#define MEAN 903.477
+#define SD 75.3368
 #endif
 
 #include "multipath_mapper.hpp"
@@ -437,7 +437,9 @@ namespace vg {
         int64_t min_separation = (int64_t) mean - 10.0 * stdev;
         
         // Compute the pairs of cluster graphs and their approximate distances from each other
-        vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs = OrientedDistanceClusterer::pair_clusters(cluster_mems_1,
+        vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs = OrientedDistanceClusterer::pair_clusters(alignment1,
+                                                                                                             alignment2,
+                                                                                                             cluster_mems_1,
                                                                                                              cluster_mems_2,
                                                                                                              xindex,
                                                                                                              min_separation,

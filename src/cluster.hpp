@@ -178,7 +178,9 @@ public:
      * returns a vector of pairs of cluster numbers (one in each vector) matched with the estimated
      * distance
      */
-    static vector<pair<pair<size_t, size_t>, int64_t>> pair_clusters(const vector<cluster_t*>& left_clusters,
+    static vector<pair<pair<size_t, size_t>, int64_t>> pair_clusters(const Alignment& alignment_1,
+                                                                     const Alignment& alignment_2,
+                                                                     const vector<cluster_t*>& left_clusters,
                                                                      const vector<cluster_t*>& right_clusters,
                                                                      xg::XG* xgindex,
                                                                      int64_t min_inter_cluster_distance,
@@ -205,7 +207,8 @@ private:
     
     /**
      * Given a certain number of items, and a callback to get each item's
-     * position, build a distance forest with trees for items that we can
+     * position, and a callback to a fixed offset from that position
+     * build a distance forest with trees for items that we can
      * verify are on the same strand of the same molecule.
      *
      * We use the distance approximation to cluster the MEM hits according to
@@ -217,7 +220,8 @@ private:
      * strand.
      */
     static unordered_map<pair<size_t, size_t>, int64_t> get_on_strand_distance_tree(size_t num_items, xg::XG* xgindex,
-                                                                                    const function<pos_t(size_t)>& get_position);
+                                                                                    const function<pos_t(size_t)>& get_position,
+                                                                                    const function<int64_t(size_t)>& get_offset);
     
     /**
      * Adds edges into the distance tree by estimating the distance between pairs
@@ -232,6 +236,7 @@ private:
                                                  size_t num_items,
                                                  xg::XG* xgindex,
                                                  const function<pos_t(size_t)>& get_position,
+                                                 const function<int64_t(size_t)>& get_offset,
                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo);
     
     
@@ -246,6 +251,7 @@ private:
                                                  size_t num_items,
                                                  xg::XG* xgindex,
                                                  const function<pos_t(size_t)>& get_position,
+                                                 const function<int64_t(size_t)>& get_offset,
                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo);
     
     /**

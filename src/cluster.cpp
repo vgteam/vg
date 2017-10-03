@@ -444,6 +444,9 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     unordered_map<pair<size_t, size_t>, int64_t> recorded_finite_dists = get_on_strand_distance_tree(nodes.size(), xgindex,
                                                                                                      [&](size_t node_number) {
                                                                                                          return nodes[node_number].start_pos;
+                                                                                                     },
+                                                                                                     [&](size_t node_number) {
+                                                                                                         return 0;
                                                                                                      });
     
     // Flatten the trees to maps of relative position by node ID.
@@ -579,7 +582,8 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
 }
 
 unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_strand_distance_tree(size_t num_items, xg::XG* xgindex,
-                                                                                                    const function<pos_t(size_t)>& get_position) {
+                                                                                                    const function<pos_t(size_t)>& get_position,
+                                                                                                    const function<int64_t(size_t)>& get_offset) {
     
     unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>> node_path_occurrence_memo;
     // we know we will need to look up the paths of the node traversals at least once each, so memoize the queries
@@ -604,12 +608,12 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     
     // an initial pass that only looks at nodes on path
     extend_dist_tree_by_path_buckets(num_possible_merges_remaining,component_union_find, recorded_finite_dists,
-                                     num_items, xgindex, get_position, &node_path_occurrence_memo);
+                                     num_items, xgindex, get_position, get_offset, &node_path_occurrence_memo);
     
     // a second pass that tries fill in the tree by traversing to the nearest shared path
     size_t nlogn = ceil(num_items * log(num_items));
     extend_dist_tree_by_permutations(2, 50, nlogn, num_possible_merges_remaining,component_union_find, recorded_finite_dists,
-                                     num_items, xgindex, get_position, &node_path_occurrence_memo);
+                                     num_items, xgindex, get_position, get_offset, &node_path_occurrence_memo);
     
     return recorded_finite_dists;
 }
@@ -620,6 +624,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_pos
                                                                  size_t num_items,
                                                                  xg::XG* xgindex,
                                                                  const function<pos_t(size_t)>& get_position,
+                                                                 const function<int64_t(size_t)>& get_offset,
                                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo){
     
     
@@ -671,6 +676,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_pos
                                                                           id(pos_here), offset(pos_here), is_rev(pos_here),
                                                                           0, paths_of_node_memo);
             
+            
             // did we get a successful estimation?
             if (dist == numeric_limits<int64_t>::max()) {
 #ifdef debug_od_clusterer
@@ -678,6 +684,9 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_pos
 #endif
                 continue;
             }
+            
+            // add the fixed offset from the hit position
+            dist += get_offset(here) - get_offset(prev);
             
 #ifdef debug_od_clusterer
             cerr << "recording distance at " << dist << endl;
@@ -700,6 +709,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(int64_t max_fai
                                                                  size_t num_items,
                                                                  xg::XG* xgindex,
                                                                  const function<pos_t(size_t)>& get_position,
+                                                                 const function<int64_t(size_t)>& get_offset,
                                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo) {
     
     // for recording the number of times elements of a strand cluster have been compared
@@ -828,6 +838,9 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(int64_t max_fai
         }
         else {
             // the distance is finite, so merge the strand clusters
+            
+            // add the fixed offset of the hit from the start position
+            oriented_dist += get_offset(node_pair.second) - get_offset(node_pair.first);
             
             recorded_finite_dists[node_pair] = oriented_dist;
             
@@ -1435,7 +1448,9 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     return std::move(to_return);
 }
 
-vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clusters(const vector<cluster_t*>& left_clusters,
+vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clusters(const Alignment& alignment_1,
+                                                                                     const Alignment& alignment_2,
+                                                                                     const vector<cluster_t*>& left_clusters,
                                                                                      const vector<cluster_t*>& right_clusters,
                                                                                      xg::XG* xgindex,
                                                                                      int64_t min_inter_cluster_distance,
@@ -1453,21 +1468,24 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     
     // Compute distance trees for sets of clusters that are distance-able on consistent strands.
     unordered_map<pair<size_t, size_t>, int64_t> distance_tree = get_on_strand_distance_tree(total_clusters, xgindex,
-                                                                                             [&](size_t cluster_num) {
-                                                                                                 // Get the position that stands in for each cluster. Should reverse the strand for clusters from the other clusterer.
-                                                                                                 // Assumes the clusters are nonempty.
-                                                                                                 if (cluster_num < left_clusters.size()) {
-                                                                                                     // Grab the pos_t for the first thing in the cluster.
-                                                                                                     return left_clusters[cluster_num]->front().second;
-                                                                                                 } else {
-                                                                                                     // Grab the pos_t for this cluster from the other clusterer
-                                                                                                     // TODO: we use the front here because it's sorted to be the longest MEM (least likely
-                                                                                                     // to be a false hit), but that means its position is typically associated with the
-                                                                                                     // middle or end of the read rather than the beginning--hard to know what distance to
-                                                                                                     // to measure. for now just using a permissive bound on distance and hoping it works out
-                                                                                                     return right_clusters[cluster_num - left_clusters.size()]->front().second;
-                                                                                                 }
-                                                                                             });
+         [&](size_t cluster_num) {
+             // Assumes the clusters are nonempty.
+             if (cluster_num < left_clusters.size()) {
+                 // Grab the pos_t for the first hit in the cluster, which is sorted to be the largest one.
+                 return left_clusters[cluster_num]->front().second;
+             } else {
+                 // Grab the pos_t for the largest hit from the other cluster
+                 return right_clusters[cluster_num - left_clusters.size()]->front().second;
+             }
+         },
+         [&](size_t cluster_num) {
+             // Give the offset of the position we chose to the start of the read
+             if (cluster_num < left_clusters.size()) {
+                 return alignment_1.sequence().begin() - left_clusters[cluster_num]->front().first->begin;
+             } else {
+                 return alignment_2.sequence().begin() - right_clusters[cluster_num - left_clusters.size()]->front().first->begin;
+             }
+         });
     
     // Flatten the distance tree to a set of linear spaces, one per tree.
     vector<unordered_map<size_t, int64_t>> linear_spaces = flatten_distance_tree(total_clusters, distance_tree);
