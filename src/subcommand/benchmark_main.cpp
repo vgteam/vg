@@ -123,7 +123,7 @@ int main_benchmark(int argc, char** argv) {
         pos_t pos_1 = make_pos_t(55, false, 0);
         pos_t pos_2 = make_pos_t(32, false, 0);
         
-        int64_t max_len = 500;
+        int64_t max_len = 5;
         
         Graph g;
         
