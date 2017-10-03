@@ -526,6 +526,29 @@ public:
                            int max_mem_length = 0,
                            bool only_top_scoring_pair = false,
                            bool retrying = false);
+                           
+    // Here's a super easy paired end mapper that just aligns both reads and
+    // looks for consistent pairs.
+    // TODO: queueing logic and resolving later should be factored out.
+    pair<vector<Alignment>, vector<Alignment>> 
+        align_paired_multi_trivial(const Alignment& read1,
+                                   const Alignment& read2,
+                                   bool& queued_resolve_later,
+                                   int max_mem_length = 0,
+                                   bool only_top_scoring_pair = false,
+                                   bool retrying = false);
+    
+    // Here's a super easy paired end mapper that just aligns both reads and
+    // looks for consistent pairs.
+    // TODO: queueing logic and resolving later should be factored out.
+    pair<vector<Alignment>, vector<Alignment>> 
+        align_paired_multi_easy(const Alignment& read1,
+                                const Alignment& read2,
+                                bool& queued_resolve_later,
+                                int max_mem_length = 0,
+                                bool only_top_scoring_pair = false,
+                                bool retrying = false);
+
 
     // lossily project an alignment into a particular path space of a graph
     // the resulting alignment is equivalent to a SAM record against the chosen path
