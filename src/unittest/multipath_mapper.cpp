@@ -10,7 +10,24 @@
 
 namespace vg {
 namespace unittest {
-    
+
+// We define a child class to expose all the protected stuff for testing
+class TestMultipathMapper : public MultipathMapper {
+public:
+    using MultipathMapper::MultipathMapper;
+    using MultipathMapper::multipath_map_internal;
+    using MultipathMapper::attempt_unpaired_multipath_map_of_pair;
+    using MultipathMapper::align_to_cluster_graphs;
+    using MultipathMapper::align_to_cluster_graph_pairs;
+    using MultipathMapper::query_cluster_graphs;
+    using MultipathMapper::multipath_align;
+    using MultipathMapper::topologically_order_subpaths;
+    using MultipathMapper::strip_full_length_bonuses;
+    using MultipathMapper::sort_and_compute_mapping_quality;
+    using MultipathMapper::read_coverage;
+    using MultipathMapper::read_coverage_z_score;        
+};
+
 TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipathmapper]" ) {
 
     // Make up some MEMs
@@ -26,7 +43,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
     string read("GATTACA");
     
     SECTION("No hits cover no bases") {
-        auto covered = MultipathMapper::read_coverage(mem_hits);
+        auto covered = TestMultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == 0);
     }
     
@@ -36,7 +53,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         // Drop it on some arbitrary node
         mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
         
-        auto covered = MultipathMapper::read_coverage(mem_hits);
+        auto covered = TestMultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == 0);
     }
     
@@ -46,7 +63,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         // Drop it on some arbitrary node
         mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
         
-        auto covered = MultipathMapper::read_coverage(mem_hits);
+        auto covered = TestMultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == 1);
     }
     
@@ -56,7 +73,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         // Drop it on some arbitrary node
         mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
         
-        auto covered = MultipathMapper::read_coverage(mem_hits);
+        auto covered = TestMultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == read.size());
     }
     
@@ -71,7 +88,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         mem_hits.emplace_back(&mems[0], make_pos_t(999, false, 3));
         mem_hits.emplace_back(&mems[1], make_pos_t(888, false, 3));
         
-        auto covered = MultipathMapper::read_coverage(mem_hits);
+        auto covered = TestMultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == read.size());
     }
     
@@ -85,7 +102,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         mem_hits.emplace_back(&mems[0], make_pos_t(999, false, 3));
         mem_hits.emplace_back(&mems[1], make_pos_t(888, false, 3));
         
-        auto covered = MultipathMapper::read_coverage(mem_hits);
+        auto covered = TestMultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == read.size());
     }
 
@@ -106,14 +123,27 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     Graph proto_graph;
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
+    // Configure GCSA temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(find_temp_dir());
+    // And make it quiet
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Make pointers to fill in
+    gcsa::GCSA* gcsaidx = nullptr;
+    gcsa::LCPArray* lcpidx = nullptr;
+    
+    // Build the GCSA index
+    graph.build_gcsa_lcp(gcsaidx, lcpidx, 16, false, false, 3);
+    
     // Build the xg index
     xg::XG xg_index(proto_graph);
     
-    // Make an aligner
-    Aligner aligner;
-    
-    // And a node cache
-    LRUCache<id_t, vg::Node> node_cache(100);
+    // Make a multipath mapper to map against the graph.
+    TestMultipathMapper mapper(&xg_index, gcsaidx, lcpidx);
     
     // Make an Alignment that we're pretending we're doing
     Alignment aln;
@@ -131,7 +161,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     
     SECTION("no MEMs produce no graphs") {
     
-        auto results = MultipathMapper::query_cluster_graphs(&aligner, &xg_index, node_cache, aln, mems, clusters);
+        auto results = mapper.query_cluster_graphs(aln, mems, clusters);
         
         REQUIRE(results.size() == 0);
         
@@ -156,7 +186,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(mems.size() == 1);
         
         // Now get the graph
-        auto results = MultipathMapper::query_cluster_graphs(&aligner, &xg_index, node_cache, aln, mems, clusters);
+        auto results = mapper.query_cluster_graphs(aln, mems, clusters);
         
         // We have one graph
         REQUIRE(results.size() == 1);
@@ -193,7 +223,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(mems.size() == 2);
 
         // Now get the graph
-        auto results = MultipathMapper::query_cluster_graphs(&aligner, &xg_index, node_cache, aln, mems, clusters);
+        auto results = mapper.query_cluster_graphs(aln, mems, clusters);
         
         // We have one graph
         REQUIRE(results.size() == 1);
@@ -230,7 +260,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(mems.size() == 2);
         
         // Now get the graph
-        auto results = MultipathMapper::query_cluster_graphs(&aligner, &xg_index, node_cache, aln, mems, clusters);
+        auto results = mapper.query_cluster_graphs(aln, mems, clusters);
         
         // We have one graph
         REQUIRE(results.size() == 1);
@@ -408,7 +438,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     delete lcpidx;
 }
 
-TEST_CASE( "MultipathMapper can map to a bigger graph", "[multipath][mapping][multipathmapper]" ) {
+TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][multipathmapper]" ) {
     
     string graph_json = R"({"node":[{"sequence":"CTTCTCATCCCTCCTCAAGGGCCTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAGATG","id":12},{"sequence":"A","id":2},{"sequence":"CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGGTAATGGATATGTTGGGCTTT","id":3},{"sequence":"TTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAATGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTT","id":4},{"sequence":"CAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGAACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTA","id":5},{"sequence":"CTGACAGCAGAGGTTTGCTGTGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT","id":6},{"sequence":"ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCTTCTGGCTTTTCATTGTCAAC","id":7},{"sequence":"ACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCTCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTA","id":8},{"sequence":"AGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAGCTCTCCTTTGTGTCCAGAGTGTATACGATGTAACTCTGTTCGGGCACTGGTGAAAGATAA","id":9},{"sequence":"CAGAGGAAATGCCTGGCTTTTTATCAGAACATGTTTCCAAGCTTATCCCTTTTCCCAGCTCTCCTTGTCCCTCCCAAGATCTCTTCACTGGCCTCTTATC","id":10},{"sequence":"TTTACTGTTACCAAATCTTTCCAGAAGCTGCTCTTTCCCTCAATTGTTCATTTGTCTTCTTGTCCAGGAATGAACCACTGCTCTCTTCTTGTCAGATCAG","id":11}],"path":[{"name":"x","mapping":[{"position":{"node_id":3},"edit":[{"from_length":100,"to_length":100}],"rank":1},{"position":{"node_id":4},"edit":[{"from_length":100,"to_length":100}],"rank":2},{"position":{"node_id":5},"edit":[{"from_length":100,"to_length":100}],"rank":3},{"position":{"node_id":6},"edit":[{"from_length":100,"to_length":100}],"rank":4},{"position":{"node_id":7},"edit":[{"from_length":100,"to_length":100}],"rank":5},{"position":{"node_id":8},"edit":[{"from_length":100,"to_length":100}],"rank":6},{"position":{"node_id":9},"edit":[{"from_length":100,"to_length":100}],"rank":7},{"position":{"node_id":10},"edit":[{"from_length":100,"to_length":100}],"rank":8},{"position":{"node_id":11},"edit":[{"from_length":100,"to_length":100}],"rank":9},{"position":{"node_id":12},"edit":[{"from_length":100,"to_length":100}],"rank":10},{"position":{"node_id":2},"edit":[{"from_length":1,"to_length":1}],"rank":11}]}],"edge":[{"from":12,"to":2},{"from":3,"to":4},{"from":4,"to":5},{"from":5,"to":6},{"from":6,"to":7},{"from":7,"to":8},{"from":8,"to":9},{"from":9,"to":10},{"from":10,"to":11},{"from":11,"to":12}]})";
     
@@ -436,10 +466,76 @@ TEST_CASE( "MultipathMapper can map to a bigger graph", "[multipath][mapping][mu
     xg::XG xg_index(proto_graph);
     
     // Make a multipath mapper to map against the graph.
-    MultipathMapper mapper(&xg_index, gcsaidx, lcpidx);
+    TestMultipathMapper mapper(&xg_index, gcsaidx, lcpidx);
     // Lower the max mapping quality so that it thinks it can find unambiguous mappings of
     // short sequences
     mapper.max_mapping_quality = 10;
+    
+    SECTION( "topologically_order_subpaths works within a node" ) {
+    
+        string aln_json = R"(
+        {
+            "subpath": [
+                {"path": {"mapping": [
+                    {"position": {"node_id": 3, "offset": 11}, "edit": [{"from_length": 10, "to_length": 10}]}
+                ]}},
+                {"path": {"mapping": [
+                    {"position": {"node_id": 3, "offset": 0}, "edit": [{"from_length": 10, "to_length": 10}]}
+                ]}, "next": [0]}
+            ]
+        }
+        )";
+    
+        MultipathAlignment disordered;
+        json2pb(disordered, aln_json.c_str(), aln_json.size());
+        
+        mapper.topologically_order_subpaths(disordered);
+        
+        REQUIRE(disordered.subpath_size() == 2);
+        // First subpath (used to be last) first
+        REQUIRE(disordered.subpath(0).path().mapping(0).position().node_id() == 3);
+        REQUIRE(disordered.subpath(0).path().mapping(0).position().offset() == 0);
+        // Then second
+        REQUIRE(disordered.subpath(1).path().mapping(0).position().node_id() == 3);
+        REQUIRE(disordered.subpath(1).path().mapping(0).position().offset() == 11);
+        
+    }
+    
+    SECTION( "topologically_order_subpaths works between nodes" ) {
+    
+        string aln_json = R"(
+        {
+            "subpath": [
+                {"path": {"mapping": [
+                    {"position": {"node_id": 4}, "edit": [{"from_length": 10, "to_length": 10}]}
+                ]}, "next": [1]},
+                {"path": {"mapping": [
+                    {"position": {"node_id": 4, "offset": 11}, "edit": [{"from_length": 10, "to_length": 10}]}
+                ]}},
+                {"path": {"mapping": [
+                    {"position": {"node_id": 3, "offset": 5}, "edit": [{"from_length": 10, "to_length": 10}]}
+                ]}, "next": [0]}
+            ]
+        }
+        )";
+    
+        MultipathAlignment disordered;
+        json2pb(disordered, aln_json.c_str(), aln_json.size());
+        
+        mapper.topologically_order_subpaths(disordered);
+        
+        REQUIRE(disordered.subpath_size() == 3);
+        // First subpath (used to be last) first
+        REQUIRE(disordered.subpath(0).path().mapping(0).position().node_id() == 3);
+        REQUIRE(disordered.subpath(0).path().mapping(0).position().offset() == 5);
+        // Then second
+        REQUIRE(disordered.subpath(1).path().mapping(0).position().node_id() == 4);
+        REQUIRE(disordered.subpath(1).path().mapping(0).position().offset() == 0);
+        // Then third
+        REQUIRE(disordered.subpath(2).path().mapping(0).position().node_id() == 4);
+        REQUIRE(disordered.subpath(2).path().mapping(0).position().offset() == 11);
+    
+    }
     
     SECTION( "MultipathMapper buffers pairs that don't map the first time" ) {
         // Here are two reads on the same strand

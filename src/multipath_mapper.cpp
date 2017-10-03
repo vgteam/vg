@@ -569,17 +569,10 @@ namespace vg {
                                                const vector<MaximalExactMatch>& mems,
                                                const vector<memcluster_t>& clusters) -> vector<clustergraph_t> {
         
-        // Call the static implementation and point it at the parts of us it needs
-        return move(query_cluster_graphs(get_aligner(), xindex, get_node_cache(), alignment, mems, clusters));
-                                               
-    }
-    
-    auto MultipathMapper::query_cluster_graphs(const BaseAligner* aligner,
-                                               xg::XG* xindex,
-                                               LRUCache<id_t, vg::Node>& node_cache,
-                                               const Alignment& alignment,
-                                               const vector<MaximalExactMatch>& mems,
-                                               const vector<memcluster_t>& clusters) -> vector<clustergraph_t> {
+        // Figure out the aligner to use
+        BaseAligner* aligner = get_aligner();
+        // And the node cache
+        LRUCache<id_t, vg::Node>& node_cache = get_node_cache();
         
         // We populate this with all the cluster graphs.
         vector<clustergraph_t> cluster_graphs_out;
