@@ -14,6 +14,8 @@
 #include "../benchmark.hpp"
 #include "../version.hpp"
 
+#include "../vg.hpp"
+
 
 
 using namespace std;
@@ -80,12 +82,37 @@ int main_benchmark(int argc, char** argv) {
     // Turn on nested parallelism, so we can parallelize over VCFs and over alignment bands
     omp_set_nested(1);
     
+    // Generate a test graph
+    VG vg;
+    for (size_t i = 1; i < 101; i++) {
+        // It will have 100 nodes
+        vg.create_node("ACGTACGT", i);
+    }
+    for (size_t i = 1; i < 101; i++) {
+        for (size_t j = 1; j < 101; j++) {
+            if ((i + (j << 3)) % 4 == 0) {
+                // Make some arbitrary edges
+                vg.create_edge(i, j, false, false);
+            }            
+        }
+    }
+    
+    vector<BenchmarkResult> results;
+    
     // Do the control against itself
-    auto result = run_benchmark("control", 1000, benchmark_control);
+    results.push_back(run_benchmark("control", 10000, benchmark_control));
+    
+    results.push_back(run_benchmark("VG::get_node", 100000, [&]() {
+        for (size_t i = 1; i < 101; i++) {
+            vg.get_node(i);
+        }
+    }));
 
     cout << "# Benchmark results for vg " << VG_VERSION_STRING << endl;
     cout << "# runs\ttest(us)\tstddev(us)\tcontrol(us)\tstddev(us)\tscore\terr\tname" << endl;
-    cout << result << endl;
+    for (auto& result : results) {
+        cout << result << endl;
+    }
 
     return 0;
 }
