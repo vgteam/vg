@@ -12,8 +12,8 @@
 
 // for debugging: choose a fixed fragment length distribution at compile time here
 #ifdef debug_force_frag_distr
-#define MEAN 903.685
-#define SD 75.2018
+#define MEAN 903.446
+#define SD 75.2968
 #endif
 
 #include "multipath_mapper.hpp"
