@@ -1054,7 +1054,6 @@ class VGCITest(TestCase):
         """ Indexing, mapping and calling bakeoff F1 test for MHC primary graph """
         self._test_bakeoff('MHC', 'primary', True)
 
-    @skip("skipping test to keep runtime down (baseline missing as well)")        
     @timeout_decorator.timeout(10000)        
     def test_map_mhc_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC snp1kg graph """
