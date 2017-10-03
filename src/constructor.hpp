@@ -99,6 +99,9 @@ public:
     // graph to allow the longer combined deletion?
     bool chain_deletions = true;
     
+    // Should we warn if lowercase characters are encountered in each input sequence?
+    bool warn_on_lowercase = true;
+    
     // What's the maximum node size we should allow?
     size_t max_node_size = 1000;
     
@@ -210,6 +213,9 @@ private:
      * the base after it and the base before it.
      */
     static pair<int64_t, int64_t> get_bounds(const vector<list<vcflib::VariantAllele>>& trimmed_variant);
+    
+    /// What sequences have we warned about containing lowercase characters?
+    mutable unordered_set<string> warned_sequences;
     
 
 };

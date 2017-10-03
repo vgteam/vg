@@ -3155,8 +3155,7 @@ VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExa
     
     // extract the protobuf Graph
     Graph proto_graph;
-    algorithms::extract_containing_graph(*xindex, proto_graph, positions, forward_max_dist,
-                                         backward_max_dist, &get_node_cache());
+    algorithms::extract_containing_graph(xindex, proto_graph, positions, forward_max_dist, backward_max_dist);
                                          
     // Wrap it in a vg
     VG graph;

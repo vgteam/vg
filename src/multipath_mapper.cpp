@@ -602,17 +602,10 @@ namespace vg {
                                                const vector<MaximalExactMatch>& mems,
                                                const vector<memcluster_t>& clusters) -> vector<clustergraph_t> {
         
-        // Call the static implementation and point it at the parts of us it needs
-        return move(query_cluster_graphs(get_aligner(), xindex, get_node_cache(), alignment, mems, clusters));
-                                               
-    }
-    
-    auto MultipathMapper::query_cluster_graphs(const BaseAligner* aligner,
-                                               xg::XG* xindex,
-                                               LRUCache<id_t, vg::Node>& node_cache,
-                                               const Alignment& alignment,
-                                               const vector<MaximalExactMatch>& mems,
-                                               const vector<memcluster_t>& clusters) -> vector<clustergraph_t> {
+        // Figure out the aligner to use
+        BaseAligner* aligner = get_aligner();
+        // And the node cache
+        LRUCache<id_t, vg::Node>& node_cache = get_node_cache();
         
         // We populate this with all the cluster graphs.
         vector<clustergraph_t> cluster_graphs_out;
@@ -663,8 +656,8 @@ namespace vg {
             Graph& graph = cluster_graph->graph;
             
             // extract the protobuf Graph in place in the VG
-            algorithms::extract_containing_graph(*xindex, graph, positions, forward_max_dist,
-                                                 backward_max_dist, &node_cache);
+            algorithms::extract_containing_graph(xindex, graph, positions, forward_max_dist,
+                                                 backward_max_dist);
             
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
@@ -1297,7 +1290,7 @@ namespace vg {
                     get_offset(end_pos)++;
                     
                     Graph tail_graph;
-                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(align_graph,
+                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
                                                                                                tail_graph,
                                                                                                target_length,
                                                                                                end_pos,
@@ -1393,7 +1386,7 @@ namespace vg {
 
                     
                     Graph tail_graph;
-                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(align_graph,
+                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
                                                                                                tail_graph,
                                                                                                target_length,
                                                                                                begin_pos,

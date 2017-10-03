@@ -111,7 +111,7 @@ vector<Edit> Sampler::mutate_edit(const Edit& edit,
                     // This should be an insertion relative to the original edit.
                     char n = bases[rbase(rng)];
                     e = new_mapping.add_edit();
-                    string s(1, c);
+                    string s(1, n);
                     e->set_sequence(s);
                     e->set_to_length(1);
                     

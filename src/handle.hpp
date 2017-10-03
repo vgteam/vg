@@ -82,6 +82,7 @@ using namespace std;
 
 /**
  * This is the interface that a graph that uses handles needs to support.
+ * It is also the interface that users should code against.
  */
 class HandleGraph {
 public:
