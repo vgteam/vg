@@ -119,7 +119,7 @@ int main_benchmark(int argc, char** argv) {
     }));
     
     
-    results.push_back(run_benchmark("algorithms::extract_connecting_graph", 1000, [&]() {
+    results.push_back(run_benchmark("algorithms::extract_connecting_graph on xg", 1000, [&]() {
         pos_t pos_1 = make_pos_t(55, false, 0);
         pos_t pos_2 = make_pos_t(32, false, 0);
         
@@ -128,6 +128,18 @@ int main_benchmark(int argc, char** argv) {
         Graph g;
         
         auto trans = algorithms::extract_connecting_graph(xg_index, g, max_len, pos_1, pos_2, false, false, true, true, true);
+    
+    }));
+    
+    results.push_back(run_benchmark("algorithms::extract_connecting_graph on vg", 1000, [&]() {
+        pos_t pos_1 = make_pos_t(55, false, 0);
+        pos_t pos_2 = make_pos_t(32, false, 0);
+        
+        int64_t max_len = 5;
+        
+        Graph g;
+        
+        auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
     
     }));
     
