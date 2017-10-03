@@ -10,13 +10,13 @@
 
 namespace vg {
 namespace algorithms {
-    unordered_map<id_t, id_t> extract_connecting_graph_internal(const HandleGraph* source, Graph& g, int64_t max_len,
-                                                                pos_t pos_1, pos_t pos_2,
-                                                                bool include_terminal_positions,
-                                                                bool detect_terminal_cycles,
-                                                                bool no_additional_tips,
-                                                                bool only_paths,
-                                                                bool strict_max_len) {
+    unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source, Graph& g, int64_t max_len,
+                                                       pos_t pos_1, pos_t pos_2,
+                                                       bool include_terminal_positions,
+                                                       bool detect_terminal_cycles,
+                                                       bool no_additional_tips,
+                                                       bool only_paths,
+                                                       bool strict_max_len) {
 #ifdef debug_vg_algorithms
         cerr << "[extract_connecting_graph] max len: " << max_len << ", pos 1: " << pos_1 << ", pos 2: " << pos_2 << endl;
 #endif
@@ -1434,42 +1434,5 @@ namespace algorithms {
         // the function, which are obviously available in the environment that calls it)
         return id_trans;
     }
-    
-    // wrapper for connecting graph algorithm using VG to access graph elements
-    unordered_map<id_t, id_t> extract_connecting_graph(VG& vg, Graph& g, int64_t max_len,
-                                                       pos_t pos_1, pos_t pos_2,
-                                                       bool include_terminal_positions,
-                                                       bool detect_terminal_cycles,
-                                                       bool no_additional_tips,
-                                                       bool only_paths,
-                                                       bool strict_max_len){
-        
-        return extract_connecting_graph_internal(&vg, g, max_len, pos_1, pos_2,
-                                                 include_terminal_positions,
-                                                 detect_terminal_cycles,
-                                                 no_additional_tips,
-                                                 only_paths,
-                                                 strict_max_len);
-    }
-    
-    // wrapper for connecting graph algorithm using XG to access graph elements
-    unordered_map<id_t, id_t> extract_connecting_graph(xg::XG& xg_index, Graph& g, int64_t max_len,
-                                                       pos_t pos_1, pos_t pos_2,
-                                                       bool include_terminal_positions,
-                                                       bool detect_terminal_cycles,
-                                                       bool no_additional_tips,
-                                                       bool only_paths,
-                                                       bool strict_max_len,
-                                                       LRUCache<id_t, Node>* node_cache,
-                                                       LRUCache<id_t, vector<Edge>>* edge_cache) {
-                                                       
-        return extract_connecting_graph_internal(&xg_index, g, max_len, pos_1, pos_2,
-                                                 include_terminal_positions,
-                                                 detect_terminal_cycles,
-                                                 no_additional_tips,
-                                                 only_paths,
-                                                 strict_max_len);
-     }
-    
 }
 }
