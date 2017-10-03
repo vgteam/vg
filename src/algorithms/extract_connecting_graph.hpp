@@ -62,7 +62,8 @@ namespace algorithms {
                                                        bool no_additional_tips = false,
                                                        bool only_paths = false,
                                                        bool strict_max_len = false,
-                                                       LRUCache<id_t, Node>* node_cache = nullptr);
+                                                       LRUCache<id_t, Node>* node_cache = nullptr,
+                                                       LRUCache<id_t, vector<Edge>>* edge_cache = nullptr);
 
 }
 }

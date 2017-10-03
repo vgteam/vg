@@ -15,6 +15,8 @@
 #include "../version.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
+#include "../algorithms/extract_connecting_graph.hpp"
 
 
 
@@ -88,25 +90,48 @@ int main_benchmark(int argc, char** argv) {
         // It will have 100 nodes
         vg.create_node("ACGTACGT", i);
     }
+    size_t bits = 1;
     for (size_t i = 1; i < 101; i++) {
         for (size_t j = 1; j < 101; j++) {
-            if ((i + (j << 3)) % 4 == 0) {
+            if ((bits ^ (i + (j << 3))) % 50 == 0) {
                 // Make some arbitrary edges
                 vg.create_edge(i, j, false, false);
-            }            
+            }
+            // Shifts and xors make good PRNGs right?
+            bits = bits ^ (bits << 13) ^ j;            
         }
     }
+    
+    // And a test XG of it
+    xg::XG xg_index(vg.graph);
     
     vector<BenchmarkResult> results;
     
     // Do the control against itself
-    results.push_back(run_benchmark("control", 10000, benchmark_control));
+    results.push_back(run_benchmark("control", 1000, benchmark_control));
     
-    results.push_back(run_benchmark("VG::get_node", 100000, [&]() {
-        for (size_t i = 1; i < 101; i++) {
-            vg.get_node(i);
+    results.push_back(run_benchmark("VG::get_node", 1000, [&]() {
+        for (size_t rep = 0; rep < 100; rep++) {
+            for (size_t i = 1; i < 101; i++) {
+                vg.get_node(i);
+            }
         }
     }));
+    
+    
+    results.push_back(run_benchmark("algorithms::extract_connecting_graph", 1000, [&]() {
+        pos_t pos_1 = make_pos_t(55, false, 0);
+        pos_t pos_2 = make_pos_t(32, false, 0);
+        
+        int64_t max_len = 500;
+        
+        Graph g;
+        
+        auto trans = algorithms::extract_connecting_graph(xg_index, g, max_len, pos_1, pos_2, false, false, true, true, true);
+    
+    }));
+    
+                
 
     cout << "# Benchmark results for vg " << VG_VERSION_STRING << endl;
     cout << "# runs\ttest(us)\tstddev(us)\tcontrol(us)\tstddev(us)\tscore\terr\tname" << endl;

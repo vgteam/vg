@@ -17,7 +17,8 @@ double BenchmarkResult::score() const {
     // We comnpute a score in points by comparing the experimental and control runtimes.
     // Higher is better.
     
-    double tests_per_control = (double)test_mean.count() / (double)control_mean.count();
+    // How many tests can we run per control run?
+    double tests_per_control = (double)control_mean.count() / (double)test_mean.count();
     return tests_per_control * 1000;
 }
 
@@ -26,10 +27,10 @@ double BenchmarkResult::score_error() const {
     
     // Set up some abstract variables according to the notation at
     // <https://en.wikipedia.org/wiki/Propagation_of_uncertainty#Example_formulas>
-    double A = test_mean.count();
-    double stddev_A = test_stddev.count();
-    double B = control_mean.count();
-    double stddev_B = control_stddev.count();
+    double A = control_mean.count();
+    double stddev_A = control_stddev.count();
+    double B = test_mean.count();
+    double stddev_B = test_stddev.count();
     double f = score() / 1000;
     
     // Do the error propagation
