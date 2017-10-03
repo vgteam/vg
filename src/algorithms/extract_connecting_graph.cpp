@@ -240,9 +240,7 @@ namespace algorithms {
             
             // initialize the queue going backward from the last position if it's reachable
             if (last_traversal_length <= backward_max_len) {
-                // TODO: why are we using id from pos_2 and is_rev from pos_1???
-                // TODO: The unit tests don't fail if I change this to !is_rev(pos_2)
-                queue.emplace(source->get_handle(id(pos_2), !is_rev(pos_1)), last_traversal_length);
+                queue.emplace(source->get_handle(id(pos_2), !is_rev(pos_2)), last_traversal_length);
             }
             
             // reset the queued traversal list and add the two reverse traversals
