@@ -38,6 +38,8 @@ const std::string sha1head(const std::string& data, size_t head);
 
 bool allATGC(const string& s);
 string nonATGCNtoN(const string& s);
+// Convert ASCII-encoded DNA to upper case
+string toUppercase(const string& s);
 double median(std::vector<int> &v);
 double stdev(const std::vector<double>& v);
 

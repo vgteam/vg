@@ -172,6 +172,23 @@ namespace vg {
     ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
             vector<vcflib::Variant> variants, size_t chunk_offset) const {
 
+        // Make sure the input sequence is upper-case
+        string uppercase_sequence = toUppercase(reference_sequence);
+        
+        if (uppercase_sequence != reference_sequence && warn_on_lowercase) {
+            #pragma omp critical (cerr)
+            {
+                // Note that the pragma also protects this mutable map that we update
+                if (!warned_sequences.count(reference_path_name)) {
+                    // We haven't warned about this sequence yet
+                    cerr << "warning:[vg::Constructor] Lowercase characters found in "
+                        << reference_path_name << "; coercing to uppercase." << endl;
+                    warned_sequences.insert(reference_path_name);
+                }    
+            }
+        }
+        swap(reference_sequence, uppercase_sequence);
+
         // Construct a chunk for this sequence with these variants.
         ConstructedChunk to_return;
 

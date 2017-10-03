@@ -152,6 +152,16 @@ string nonATGCNtoN(const string& s) {
     return n;
 }
 
+string toUppercase(const string& s) {
+    auto n = s;
+    for (string::iterator c = n.begin(); c != n.end(); ++c) {
+        if (*c >= 'a' && *c <= 'z') {
+            *c -= 'a' - 'A';
+        }
+    }
+    return n;
+}
+
 string tmpfilename(const string& base) {
     string tmpname = base + "XXXXXXXX";
     // hack to use mkstemp to get us a safe temporary file name
