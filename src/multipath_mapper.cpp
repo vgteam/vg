@@ -630,8 +630,8 @@ namespace vg {
             Graph& graph = cluster_graph->graph;
             
             // extract the protobuf Graph in place in the VG
-            algorithms::extract_containing_graph(*xindex, graph, positions, forward_max_dist,
-                                                 backward_max_dist, &node_cache);
+            algorithms::extract_containing_graph(xindex, graph, positions, forward_max_dist,
+                                                 backward_max_dist);
             
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
@@ -1266,7 +1266,7 @@ namespace vg {
                     get_offset(end_pos)++;
                     
                     Graph tail_graph;
-                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(align_graph,
+                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
                                                                                                tail_graph,
                                                                                                target_length,
                                                                                                end_pos,
@@ -1362,7 +1362,7 @@ namespace vg {
 
                     
                     Graph tail_graph;
-                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(align_graph,
+                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
                                                                                                tail_graph,
                                                                                                target_length,
                                                                                                begin_pos,

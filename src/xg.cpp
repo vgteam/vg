@@ -824,7 +824,6 @@ void XG::build(map<id_t, string>& node_label,
         // get to the edges to
         int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
         int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
-        int sequence_size = g_iv[g+G_NODE_LENGTH_OFFSET];
         int64_t t = g + G_NODE_HEADER_LENGTH;
         int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
         for (int64_t j = t; j < f; ) {
@@ -1546,7 +1545,7 @@ handle_t XG::get_handle(const id_t& node_id, bool is_reverse) const {
 
 id_t XG::get_id(const handle_t& handle) const {
     // Go get the g offset and then look up the noder ID
-    return g_iv[as_integer(handle) & LOW_BITS + G_NODE_ID_OFFSET];
+    return g_iv[(as_integer(handle) & LOW_BITS) + G_NODE_ID_OFFSET];
 }
 
 bool XG::get_is_reverse(const handle_t& handle) const {
@@ -1558,7 +1557,7 @@ handle_t XG::flip(const handle_t& handle) const {
 }
 
 size_t XG::get_length(const handle_t& handle) const {
-    return g_iv[as_integer(handle) & LOW_BITS + G_NODE_LENGTH_OFFSET];
+    return g_iv[(as_integer(handle) & LOW_BITS) + G_NODE_LENGTH_OFFSET];
 }
 
 string XG::get_sequence(const handle_t& handle) const {
@@ -1569,9 +1568,11 @@ string XG::get_sequence(const handle_t& handle) const {
     string sequence(sequence_size, '\0');
     // Extract the node record start
     size_t g = as_integer(handle) & LOW_BITS;
+    // Figure out where the sequence starts
+    size_t sequence_start = g_iv[g + G_NODE_SEQ_START_OFFSET];
     for (int64_t i = 0; i < sequence_size; i++) {
         // Blit the sequence out
-        sequence[i] = revdna3bit(g_iv[i + g + G_NODE_HEADER_LENGTH]);
+        sequence[i] = revdna3bit(s_iv[sequence_start + i]);
     }
     
     if (as_integer(handle) & HIGH_BIT) {
@@ -1613,11 +1614,19 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
         // What edge type is the edge?
         int type = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_TYPE_OFFSET];
         
+        // Make sure we got a valid edge type and we haven't wandered off into non-edge data.
+        assert(type >= 0);
+        assert(type <= 3);
+        
         if (edge_filter(type, is_to, want_left, is_reverse)) {
             // We want this edge
             
             // What's the offset to the other node?
             int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
+            
+            // Make sure we haven't gone off the rails into non-edge data.
+            assert((int64_t) g + offset >= 0);
+            assert(g + offset < g_iv.size());
             
             // Should we invert?
             // We only invert if we cross an end to end edge. Or a start to start edge
@@ -1642,16 +1651,13 @@ void XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     size_t g = as_integer(handle) & LOW_BITS;
     bool is_reverse = get_is_reverse(handle);
 
-    // How much sequence is there?
-    size_t sequence_size = g_iv[g + G_NODE_LENGTH_OFFSET];
-
     // How many edges are there of each type?
     size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
     size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
     
     // Where does each edge run start? 
-    size_t to_start = g + G_NODE_HEADER_LENGTH + sequence_size;
-    size_t from_start = g + G_NODE_HEADER_LENGTH + sequence_size + G_EDGE_LENGTH * edges_to_count;
+    size_t to_start = g + G_NODE_HEADER_LENGTH;
+    size_t from_start = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
     
     // We will look for all the edges on the appropriate side, which means we have to check the from and to edges
     if (do_edges(g, to_start, edges_to_count, true, go_left, is_reverse, iteratee)) {

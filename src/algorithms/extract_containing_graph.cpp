@@ -11,12 +11,9 @@
 namespace vg {
 namespace algorithms {
 
-    void extract_containing_graph_internal(Graph& g, const vector<pos_t>& positions,
+    void extract_containing_graph_internal(const HandleGraph* source, Graph& g, const vector<pos_t>& positions,
                                            const vector<size_t>& forward_search_lengths,
-                                           const vector<size_t>& backward_search_lengths,
-                                           function<vector<Edge>(id_t)> edges_on_start,
-                                           function<vector<Edge>(id_t)> edges_on_end,
-                                           function<string(id_t)> node_sequence) {
+                                           const vector<size_t>& backward_search_lengths) {
         
         if (forward_search_lengths.size() != backward_search_lengths.size()
             || forward_search_lengths.size() != positions.size()) {
@@ -38,30 +35,13 @@ namespace algorithms {
         
         // TODO: these structs are duplicative with extract_connecting_graph
         
-        // a local struct that packages a node traversal with its distance from the first position
-        // note: we don't use NodeTraversals because we may be using an XG, in which case we don't
-        // have Node*'s
+        // a local struct that packages a handle with its distance from the first position
         struct Traversal {
-            Traversal(id_t id, bool rev, int64_t dist) : id(id), rev(rev), dist(dist) {}
-            int64_t dist; // distance to the right side of this node
-            id_t id;      // node ID
-            bool rev;     // strand
+            Traversal(handle_t handle, int64_t dist) : handle(handle), dist(dist) {}
+            int64_t dist; // distance from pos to the right side of this node
+            handle_t handle; // Oriented node traversal
             inline bool operator<(const Traversal& other) const {
                 return dist > other.dist; // opposite order so priority queue selects minimum
-            }
-        };
-        
-        // represent an edge in a canonical ((from, from_start), (to, to_end)) format so that a hash can
-        // identify edges as the same or different
-        auto canonical_form_edge = [](const id_t& id, const bool& left_side, const id_t& to_id, const bool& reversing) {
-            if (id < to_id) {
-                return make_pair(make_pair(id, left_side), make_pair(to_id, left_side != reversing));
-            }
-            else if (to_id < id) {
-                return make_pair(make_pair(to_id, left_side == reversing), make_pair(id, !left_side));
-            }
-            else {
-                return make_pair(make_pair(id, reversing && left_side), make_pair(id, reversing && !left_side));
             }
         };
         
@@ -79,7 +59,9 @@ namespace algorithms {
             // add all of the initial nodes to the graph
             if (!graph.count(id(pos))) {
                 Node* node = g.add_node();
-                node->set_sequence(node_sequence(id(pos)));
+                // TODO: this might require more get_handle calls than we want
+                auto handle = source->get_handle(id(pos), false);
+                node->set_sequence(source->get_sequence(handle));
                 node->set_id(id(pos));
                 graph[id(pos)] = node;
             }
@@ -91,15 +73,15 @@ namespace algorithms {
             size_t dist_forward = graph[id(pos)]->sequence().size() - offset(pos) + max_search_length - forward_search_lengths[i];
             size_t dist_backward = offset(pos) + max_search_length - backward_search_lengths[i];
             if (dist_forward < max_search_length) {
-                queue.emplace(id(pos), is_rev(pos), dist_forward);
+                queue.emplace(source->get_handle(id(pos), is_rev(pos)), dist_forward);
             }
             if (dist_backward < max_search_length) {
-                queue.emplace(id(pos), !is_rev(pos), dist_backward);
+                queue.emplace(source->get_handle(id(pos), !is_rev(pos)), dist_backward);
             }
         }
         
-        unordered_set<pair<id_t, bool>> traversed;
-        unordered_set<pair<pair<id_t, bool>, pair<id_t, bool>>> observed_edges;
+        unordered_set<handle_t> traversed;
+        unordered_set<pair<handle_t, handle_t>> observed_edges;
         
         while (!queue.empty()) {
             // get the next shortest distance traversal from either the init
@@ -107,237 +89,68 @@ namespace algorithms {
             queue.pop();
             
             // make sure we haven't traversed this node already
-            if (traversed.count(make_pair(trav.id, trav.rev))) {
+            if (traversed.count(trav.handle)) {
                 continue;
             }
             // mark the node as traversed
-            traversed.emplace(trav.id, trav.rev);
+            traversed.emplace(trav.handle);
             
-            // which side are we traversing out of?
-            for (Edge& edge : (trav.rev ? edges_on_start(trav.id) : edges_on_end(trav.id))) {
+            source->follow_edges(trav.handle, false, [&](const handle_t& next) {
+                // Look locally right from this position
                 
-                // get the orientation and id of the other side of the edge
-                id_t next_id;
-                bool next_rev;
-                if (edge.from() == trav.id && edge.from_start() == trav.rev) {
-                    next_id = edge.to();
-                    next_rev = edge.to_end();
-                }
-                else {
-                    next_id = edge.from();
-                    next_rev = !edge.from_start();
-                }
+                // Get the ID of where we're going.
+                auto next_id = source->get_id(next);
                 
                 // record the edge
-                observed_edges.insert(canonical_form_edge(trav.id, trav.rev, next_id, next_rev != trav.rev));
+                observed_edges.insert(source->edge_handle(trav.handle, next));
                 
                 // make sure the node is in the graph
                 if (!graph.count(next_id)) {
                     Node* node = g.add_node();
-                    node->set_sequence(node_sequence(next_id));
+                    node->set_sequence(source->get_sequence(source->forward(next)));
                     node->set_id(next_id);
                     graph[next_id] = node;
                 }
                 
                 // distance to the end of this node
                 int64_t dist_thru = trav.dist + graph[next_id]->sequence().size();
-                if (!traversed.count(make_pair(next_id, next_rev)) && dist_thru < max_search_length) {
+                if (!traversed.count(next) && dist_thru < max_search_length) {
                     // we can add more nodes along same path without going over the max length
-                    queue.emplace(next_id, next_rev, dist_thru);
+                    queue.emplace(next, dist_thru);
                 }
-            }
+            });
         }
         
         // add the edges to the graph
-        for (const pair<pair<id_t, bool>, pair<id_t, bool>>& edge : observed_edges) {
+        for (const pair<handle_t, handle_t>& edge : observed_edges) {
             Edge* e = g.add_edge();
-            e->set_from(edge.first.first);
-            e->set_to(edge.second.first);
-            e->set_from_start(edge.first.second);
-            e->set_to_end(edge.second.second);
+            e->set_from(source->get_id(edge.first));
+            e->set_from_start(source->get_is_reverse(edge.first));
+            e->set_to(source->get_id(edge.second));
+            e->set_to_end(source->get_is_reverse(edge.second));
         }
     }
-    
-    void extract_containing_graph(VG& vg, Graph& g, const vector<pos_t>& positions, size_t max_dist) {
+
+    void extract_containing_graph(const HandleGraph* source, Graph& g, const vector<pos_t>& positions, size_t max_dist) {
         
         // make a dummy vector for all positions at the same distance
         vector<size_t> dists(positions.size(), max_dist);
-        return extract_containing_graph_internal(g, positions, dists, dists,
-                                                 [&](id_t id) {
-                                                     vector<Edge> to_return;
-                                                     for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                         if ((edge->from() == id && edge->from_start())
-                                                             || (edge->to() == id && !edge->to_end())) {
-                                                             to_return.push_back(*edge);
-                                                         }
-                                                     }
-                                                     return to_return;
-                                                 },
-                                                 [&](id_t id) {
-                                                     vector<Edge> to_return;
-                                                     for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                         if ((edge->from() == id && !edge->from_start())
-                                                             || (edge->to() == id && edge->to_end())) {
-                                                             to_return.push_back(*edge);
-                                                         }
-                                                     }
-                                                     return to_return;
-                                                 },
-                                                 [&](id_t id) {
-                                                     return vg.get_node(id)->sequence();
-                                                 });
+        return extract_containing_graph(source, g, positions, dists);
     }
     
-    void extract_containing_graph(VG& vg, Graph& g, const vector<pos_t>& positions,
+    void extract_containing_graph(const HandleGraph* source, Graph& g, const vector<pos_t>& positions,
                                   const vector<size_t>& position_max_dist) {
         
-        return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
-                                                 [&](id_t id) {
-                                                     vector<Edge> to_return;
-                                                     for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                         if ((edge->from() == id && edge->from_start())
-                                                             || (edge->to() == id && !edge->to_end())) {
-                                                             to_return.push_back(*edge);
-                                                         }
-                                                     }
-                                                     return to_return;
-                                                 },
-                                                 [&](id_t id) {
-                                                     vector<Edge> to_return;
-                                                     for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                         if ((edge->from() == id && !edge->from_start())
-                                                             || (edge->to() == id && edge->to_end())) {
-                                                             to_return.push_back(*edge);
-                                                         }
-                                                     }
-                                                     return to_return;
-                                                 },
-                                                 [&](id_t id) {
-                                                     return vg.get_node(id)->sequence();
-                                                 });
+        return extract_containing_graph(source, g, positions, position_max_dist, position_max_dist);
     }
     
-    void extract_containing_graph(VG& vg, Graph& g, const vector<pos_t>& positions,
+    void extract_containing_graph(const HandleGraph* source, Graph& g, const vector<pos_t>& positions,
                                   const vector<size_t>& position_forward_max_dist,
                                   const vector<size_t>& position_backward_max_dist) {
         
-        return extract_containing_graph_internal(g, positions, position_forward_max_dist, position_backward_max_dist,
-                                                 [&](id_t id) {
-                                                     vector<Edge> to_return;
-                                                     for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                         if ((edge->from() == id && edge->from_start())
-                                                             || (edge->to() == id && !edge->to_end())) {
-                                                             to_return.push_back(*edge);
-                                                         }
-                                                     }
-                                                     return to_return;
-                                                 },
-                                                 [&](id_t id) {
-                                                     vector<Edge> to_return;
-                                                     for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                         if ((edge->from() == id && !edge->from_start())
-                                                             || (edge->to() == id && edge->to_end())) {
-                                                             to_return.push_back(*edge);
-                                                         }
-                                                     }
-                                                     return to_return;
-                                                 },
-                                                 [&](id_t id) {
-                                                     return vg.get_node(id)->sequence();
-                                                 });
-    }
+        return extract_containing_graph_internal(source, g, positions, position_forward_max_dist, position_backward_max_dist);
     
-    void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions, size_t max_dist,
-                                  LRUCache<id_t, Node>* node_cache, LRUCache<id_t, vector<Edge>>* edge_cache) {
-        
-        // make a dummy vector for all positions at the same distance
-        vector<size_t> dists(positions.size(), max_dist);
-        if (node_cache && edge_cache) {
-            return extract_containing_graph_internal(g, positions, dists, dists,
-                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (node_cache) {
-            return extract_containing_graph_internal(g, positions, dists, dists,
-                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (edge_cache) {
-            return extract_containing_graph_internal(g, positions, dists, dists,
-                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_index.node_sequence(id);});
-        }
-        else {
-            return extract_containing_graph_internal(g, positions, dists, dists,
-                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_index.node_sequence(id);});
-        }
-    }
-    
-    void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions,
-                                  const vector<size_t>& position_max_dist,
-                                  LRUCache<id_t, Node>* node_cache, LRUCache<id_t, vector<Edge>>* edge_cache) {
-        
-        if (node_cache && edge_cache) {
-            return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
-                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (node_cache) {
-            return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
-                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (edge_cache) {
-            return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
-                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_index.node_sequence(id);});
-        }
-        else {
-            return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
-                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_index.node_sequence(id);});
-        }
-    }
-    
-    void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions,
-                                  const vector<size_t>& position_forward_max_dist,
-                                  const vector<size_t>& position_backward_max_dist,
-                                  LRUCache<id_t, Node>* node_cache, LRUCache<id_t, vector<Edge>>* edge_cache) {
-        
-        if (node_cache && edge_cache) {
-            return extract_containing_graph_internal(g, positions, position_forward_max_dist, position_backward_max_dist,
-                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (node_cache) {
-            return extract_containing_graph_internal(g, positions, position_forward_max_dist, position_backward_max_dist,
-                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (edge_cache) {
-            return extract_containing_graph_internal(g, positions, position_forward_max_dist, position_backward_max_dist,
-                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_index.node_sequence(id);});
-        }
-        else {
-            return extract_containing_graph_internal(g, positions, position_forward_max_dist, position_backward_max_dist,
-                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_index.node_sequence(id);});
-        }
-    }
+    } 
 
 }
 }

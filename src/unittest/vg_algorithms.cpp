@@ -1968,7 +1968,7 @@ namespace vg {
                 size_t max_len = 3;
                 vector<pos_t> positions{make_pos_t(n0->id(), false, 2), make_pos_t(n5->id(), true, 1)};
                 
-                algorithms::extract_containing_graph(vg, g, positions, max_len);
+                algorithms::extract_containing_graph(&vg, g, positions, max_len);
                 
                 REQUIRE(g.node_size() == 6);
                 REQUIRE(g.edge_size() == 4);
@@ -2047,7 +2047,7 @@ namespace vg {
                 vector<size_t> max_lens{2, 3};
                 vector<pos_t> positions{make_pos_t(n0->id(), false, 2), make_pos_t(n5->id(), true, 1)};
                 
-                algorithms::extract_containing_graph(vg, g, positions, max_lens);
+                algorithms::extract_containing_graph(&vg, g, positions, max_lens);
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 1);
@@ -2096,7 +2096,7 @@ namespace vg {
                 vector<size_t> backward_max_lens{2, 3};
                 vector<pos_t> positions{make_pos_t(n0->id(), true, 2), make_pos_t(n5->id(), false, 1)};
                 
-                algorithms::extract_containing_graph(vg, g, positions, forward_max_lens, backward_max_lens);
+                algorithms::extract_containing_graph(&vg, g, positions, forward_max_lens, backward_max_lens);
                                 
                 REQUIRE(g.node_size() == 4);
                 REQUIRE(g.edge_size() == 2);
@@ -2181,7 +2181,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 1);
                 REQUIRE(g.edge_size() == 0);
@@ -2207,7 +2207,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 2);
                 REQUIRE(g.edge_size() == 1);
@@ -2250,7 +2250,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 2);
                 REQUIRE(g.edge_size() == 1);
@@ -2293,7 +2293,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 2);
                 REQUIRE(g.edge_size() == 1);
@@ -2336,7 +2336,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 2);
@@ -2390,7 +2390,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 2);
@@ -2444,7 +2444,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 7);
                 REQUIRE(g.edge_size() == 8);
@@ -2554,7 +2554,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 4);
@@ -2626,7 +2626,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
                                 
                 REQUIRE(g.node_size() == 5);
                 REQUIRE(g.edge_size() == 6);

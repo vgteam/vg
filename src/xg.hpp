@@ -491,8 +491,8 @@ private:
     /// edges_from_count := integer
     /// edges_to := { edge_to, ... }
     /// edges_from := { edge_from, ... }
-    /// edge_to := { edge_type, offset_to_previous_node }
-    /// edge_to := { edge_type, offset_to_next_node }
+    /// edge_to := { offset_to_previous_node, edge_type }
+    /// edge_to := { offset_to_next_node, edge_type }
     int_vector<> g_iv;
     /// delimit node records to allow lookup of nodes in g_civ by rank
     bit_vector g_bv;
@@ -508,8 +508,8 @@ private:
     const static int G_NODE_FROM_COUNT_OFFSET = 4;
     const static int G_NODE_HEADER_LENGTH = 5;
     
-    const static int G_EDGE_TYPE_OFFSET = 0;
-    const static int G_EDGE_OFFSET_OFFSET = 1;
+    const static int G_EDGE_OFFSET_OFFSET = 0;
+    const static int G_EDGE_TYPE_OFFSET = 1;
     const static int G_EDGE_LENGTH = 2;
     
     // And some masks
