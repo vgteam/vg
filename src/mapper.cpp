@@ -1769,7 +1769,7 @@ bool Mapper::pair_consistent(const Alignment& aln1,
                              double pval) {
     if (!(aln1.score() && aln2.score())) return false;
     bool length_ok = false;
-    if (aln1.fragment_size() == 0 || aln2.fragment_size() == 0) {
+    if (aln1.fragment_size() == 0 || aln2.fragment_size() == 0 || aln1.fragment_size() != aln2.fragment_size()) {
         // use the approximate distance
         int len = approx_fragment_length(aln1, aln2);
         if (frag_stats.fragment_size && len > 0 && (pval > 0 && frag_stats.fragment_length_pval(len) > pval
