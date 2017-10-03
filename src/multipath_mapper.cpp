@@ -12,8 +12,8 @@
 
 // for debugging: choose a fixed fragment length distribution at compile time here
 #ifdef debug_force_frag_distr
-#define MEAN 903.477
-#define SD 75.3368
+#define MEAN 903.685
+#define SD 75.2018
 #endif
 
 #include "multipath_mapper.hpp"
@@ -1663,6 +1663,7 @@ namespace vg {
         }
         
         double log_base = get_aligner()->log_base;
+        double min_frag_score = numeric_limits<double>::max();
         
         // query the scores of the optimal alignments
         vector<double> scores(multipath_aln_pairs.size(), 0.0);
@@ -1670,7 +1671,13 @@ namespace vg {
             pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair = multipath_aln_pairs[i];
             int32_t alignment_score = optimal_alignment_score(multipath_aln_pair.first) + optimal_alignment_score(multipath_aln_pair.second);
             double frag_score = fragment_length_log_likelihood(cluster_pairs[i].second) / log_base;
+            min_frag_score = min(frag_score, min_frag_score);
             scores[i] = alignment_score + frag_score;
+        }
+        
+        // make it so fragment won't contribute to MAPQ if there is only one alignment
+        for (double& score : scores) {
+            score -= min_frag_score;
         }
         
 //#ifndef debug_force_frag_distr
