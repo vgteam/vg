@@ -313,6 +313,104 @@ namespace vg {
 #endif
     }
     
+    bool MultipathMapper::attempt_rescue(const MultipathAlignment& multipath_aln, const Alignment& other_aln,
+                                         bool rescue_forward, const vector<MaximalExactMatch>& mems,
+                                         vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out) {
+        
+#ifdef debug_force_frag_distr
+        double mean = MEAN;
+        double stdev = SD;
+#else
+        double mean = fragment_length_distr.mean();
+        double stdev = fragment_length_distr.stdev();
+#endif
+        
+        Alignment opt_anchoring_aln;
+        optimal_alignment(multipath_aln, opt_anchoring_aln);
+        
+        pos_t pos_from = initial_position(opt_anchoring_aln.path());
+        int64_t jump_dist = rescue_forward ? mean : -mean;
+        
+        MultipathAlignment rescue_multipath_aln;
+        
+        vector<pos_t> jump_positions = xindex->jump_along_closest_path(id(pos_from), is_rev(pos_from), offset(pos_from), jump_dist, 250);
+        vector<size_t> backward_dist(jump_positions.size(), 3 * stdev);
+        vector<size_t> forward_dist(jump_positions.size(), 3 * stdev + other_aln.sequence().size());
+        
+        VG rescue_graph;
+        algorithms::extract_containing_graph(xindex, rescue_graph.graph, jump_positions, backward_dist, forward_dist);
+        rescue_graph.rebuild_indexes();
+        
+        memcluster_t rescue_mem_hits;
+        for (const MaximalExactMatch& mem : mems) {
+            for (gcsa::node_type node : mem.nodes) {
+                pos_t pos =  make_pos_t(node);
+                if (rescue_graph.has_node(id(pos))) {
+                    rescue_mem_hits.emplace_back(&mem, pos);
+                }
+            }
+        }
+        
+        vector<double> score;
+        if (!rescue_mem_hits.empty()) {
+            multipath_align(other_aln, &rescue_graph, rescue_mem_hits, rescue_multipath_aln);
+            score.push_back(optimal_alignment_score(rescue_multipath_aln));
+        }
+        else {
+            // TODO: repetitive code with multipath_align
+            
+            // the longest path we could possibly align to (full gap and a full sequence)
+            size_t target_length = other_aln.sequence().size() + get_aligner()->longest_detectable_gap(other_aln);
+            
+            // convert from bidirected to directed
+            unordered_map<id_t, pair<id_t, bool> > node_trans;
+            VG align_graph = rescue_graph.split_strands(node_trans);
+            // if necessary, convert from cyclic to acylic
+            if (!rescue_graph.is_directed_acyclic()) {
+                unordered_map<id_t, pair<id_t, bool> > dagify_trans;
+                align_graph = align_graph.dagify(target_length, // high enough that num SCCs is never a limiting factor
+                                                 dagify_trans,
+                                                 target_length,
+                                                 0); // no maximum on size of component
+                node_trans = align_graph.overlay_node_translations(dagify_trans, node_trans);
+            }
+            
+            Alignment aln = other_aln;
+            aln.clear_path();
+            
+            get_aligner()->align(aln, align_graph.graph, true, false);
+            translate_oriented_node_ids(*aln.mutable_path(), node_trans);
+            
+            to_multipath_alignment(aln, rescue_multipath_aln);
+            
+            score.push_back(aln.score());
+        }
+        
+        int32_t max_score = get_aligner()->match * other_aln.sequence().size() + get_aligner()->full_length_bonus * 2;
+        
+        int32_t raw_mapq = get_aligner()->compute_mapping_quality(score, mapping_quality_method == None ? Approx : mapping_quality_method);
+        bool rescued = raw_mapq > 25 && score.front() > .5 * max_score;
+        
+        if (rescued) {
+            int32_t adjusted_mapq = min(raw_mapq, min(max_mapping_quality, multipath_aln.mapping_quality()));
+            rescue_multipath_aln.set_mapping_quality(adjusted_mapq);
+            
+            if (rescue_forward) {
+                multipath_aln_pairs_out.emplace_back(multipath_aln, rescue_multipath_aln);
+            }
+            else {
+                multipath_aln_pairs_out.emplace_back(rescue_multipath_aln, multipath_aln);
+            }
+            
+            if (mapping_quality_method == None) {
+                multipath_aln_pairs_out.back().first.clear_mapping_quality();
+                multipath_aln_pairs_out.back().second.clear_mapping_quality();
+            }
+        }
+        
+        return rescued;
+    }
+    
     void MultipathMapper::multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
                                                vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
@@ -474,19 +572,42 @@ namespace vg {
 #endif
             
             vector<MultipathAlignment> multipath_alns_1, multipath_alns_2;
-            align_to_cluster_graphs(alignment1, mapping_quality_method, cluster_graphs1, multipath_alns_1, max_alt_mappings);
-            align_to_cluster_graphs(alignment2, mapping_quality_method, cluster_graphs2, multipath_alns_2, max_alt_mappings);
+            align_to_cluster_graphs(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
+                                    cluster_graphs1, multipath_alns_1, max_alt_mappings);
+            align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
+                                    cluster_graphs2, multipath_alns_2, max_alt_mappings);
             
-            // have to report in pairs, so calculate the largest number of pairs we can/should report
-            // TODO: this is ugly, would be better to have some alternate return path for independent mappings
-            size_t num_pairs_to_report = min(max_alt_mappings, min(multipath_alns_1.size(), multipath_alns_2.size()));
-            
-            // move the multipath alignments to the return vector
-            multipath_aln_pairs_out.reserve(num_pairs_to_report);
-            for (size_t i = 0; i < num_pairs_to_report; i++) {
-                multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(multipath_alns_2[i]));
+            bool rescued = false;
+            if (multipath_alns_1.empty() ? false :
+                (multipath_alns_1.front().mapping_quality() < min(max_mapping_quality, 60) ? false :
+                 (multipath_alns_2.empty() ? true : multipath_alns_2.front().mapping_quality() < 20))) {
+                    
+                rescued = attempt_rescue(multipath_alns_1.front(), alignment2, true, mems2, multipath_aln_pairs_out);
+            }
+            else if (multipath_alns_2.empty() ? false :
+                     (multipath_alns_2.front().mapping_quality() < min(max_mapping_quality, 60) ? false :
+                      (multipath_alns_1.empty() ? true : multipath_alns_1.front().mapping_quality() < 20))) {
+                         
+                rescued = attempt_rescue(multipath_alns_2.front(), alignment1, false, mems1, multipath_aln_pairs_out);
             }
             
+            
+            if (!rescued) {
+                
+                // have to report in pairs, so calculate the largest number of pairs we can/should report
+                // TODO: this is ugly, would be better to have some alternate return path for independent mappings
+                size_t num_pairs_to_report = min(max_alt_mappings, min(multipath_alns_1.size(), multipath_alns_2.size()));
+                
+                // move the multipath alignments to the return vector
+                multipath_aln_pairs_out.reserve(num_pairs_to_report);
+                for (size_t i = 0; i < num_pairs_to_report; i++) {
+                    if (mapping_quality_method == None) {
+                        multipath_alns_1[i].clear_mapping_quality();
+                        multipath_alns_2[i].clear_mapping_quality();
+                    }
+                    multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(multipath_alns_2[i]));
+                }
+            }
         }
         else {
             // only perform the mappings that satisfy the expectations on distance
