@@ -1672,7 +1672,8 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const 
     for (size_t g = 0; g < g_iv.size(); g += entry_size) {
         // Make the handle
         // We need to make sure our index won't set the orientation bit.
-        assert(g & (~LOW_BITS) == 0);
+        assert((g & (~LOW_BITS)) == 0);
+        
         // Just make it into a handle; we're always forward.
         handle_t handle = as_handle(g);
         
@@ -1687,7 +1688,7 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const 
         size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
         
         // This record is the header plus all the edge records it contains
-        entry_size = G_NODE_HEADER_LENGTH + G_EDGE_OFFSET_OFFSET * (edges_to_count + edges_from_count);
+        entry_size = G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
     }
 }
 

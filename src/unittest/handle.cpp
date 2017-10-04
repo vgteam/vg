@@ -188,7 +188,7 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
         }
     }
     
-    SECTION("Iteratees can stop early") {
+    SECTION("Edge iteratees can stop early") {
         for (const HandleGraph* g : {(HandleGraph*) &vg, (HandleGraph*) &xg_index}) {
             for (Node* node : {n0, n1, n2, n3, n4, n5, n6, n7, n8, n9}) {
             
@@ -286,6 +286,33 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
             
         }
     
+    }
+    
+    SECTION("Node iteration works") {
+        for (const HandleGraph* g : {(HandleGraph*) &vg, (HandleGraph*) &xg_index}) {
+            vector<handle_t> found;
+            g->for_each_handle([&](const handle_t& handle) {
+                // Everything should be in its local forward orientation.
+                REQUIRE(g->get_is_reverse(handle) == false);
+                
+                found.push_back(handle);
+            });
+            
+            // We should have all the nodes and they should all be unique
+            REQUIRE(found.size() == 10);
+            REQUIRE(unordered_set<handle_t>(found.begin(), found.end()).size() == found.size());
+            // They should be in the order we added them
+            REQUIRE(g->get_id(found[0]) == n0->id());
+            REQUIRE(g->get_id(found[1]) == n1->id());
+            REQUIRE(g->get_id(found[2]) == n2->id());
+            REQUIRE(g->get_id(found[3]) == n3->id());
+            REQUIRE(g->get_id(found[4]) == n4->id());
+            REQUIRE(g->get_id(found[5]) == n5->id());
+            REQUIRE(g->get_id(found[6]) == n6->id());
+            REQUIRE(g->get_id(found[7]) == n7->id());
+            REQUIRE(g->get_id(found[8]) == n8->id());
+            REQUIRE(g->get_id(found[9]) == n9->id());
+        }
     }
 
 }
