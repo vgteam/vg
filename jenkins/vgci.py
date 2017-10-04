@@ -412,7 +412,7 @@ class VGCITest(TestCase):
 
     def _mapeval_vg_run(self, reads, base_xg_path, sim_xg_paths, fasta_path,
                         test_index_bases, test_names, score_baseline_name,
-                        multipath, sim_opts, sim_fastq, tag):
+                        multipath, paired_only, sim_opts, sim_fastq, tag):
         """ Wrap toil-vg mapeval. 
         
         Evaluates realignments (to the linear reference and to a set of graphs)
@@ -492,8 +492,8 @@ class VGCITest(TestCase):
         # things as file IDs?
         mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
         mapeval_options.bwa = True
-        mapeval_options.bwa_paired = True
-        mapeval_options.vg_paired = True
+        mapeval_options.do_single = not paired_only
+        mapeval_options.do_paired = True
         mapeval_options.fasta = make_url(fasta_path)
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
@@ -857,6 +857,7 @@ class VGCITest(TestCase):
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
                       positive_control=None, negative_control=None, sample=None, multipath=False,
+                      paired_only=False,
                       assembly="hg38", tag_ext="", acc_threshold=0, auc_threshold=0,
                       sim_opts='-l 150 -p 500 -v 50 -e 0.05 -i 0.01', sim_fastq=None):
         """ Run simulation on a bakeoff graph
@@ -916,7 +917,7 @@ class VGCITest(TestCase):
             test_tag = '{}-{}'.format(test_graph, region)
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
         self._mapeval_vg_run(reads, xg_path, sim_xg_paths, fasta_path, test_index_bases,
-                             test_graphs, score_baseline_graph, multipath, sim_opts, sim_fastq, tag)
+                             test_graphs, score_baseline_graph, multipath, paired_only, sim_opts, sim_fastq, tag)
         if self.verify:
             self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
                                  positive_control, negative_control, tag,
@@ -958,6 +959,20 @@ class VGCITest(TestCase):
                            assembly="hg19",
                            acc_threshold=0.0075, auc_threshold=0.075, multipath=True,
                            sim_opts='-l 150 -p 500 -v 50 -e 0.01 -i 0.002')
+
+    @timeout_decorator.timeout(16000)        
+    def test_sim_chr21_snp1kg_trained(self):
+        self._test_mapeval(100000, 'CHR21', 'snp1kg',
+                           ['primary', 'snp1kg'],
+                           #score_baseline_graph='primary',
+                           sample='HG00096',
+                           assembly="hg19",
+                           acc_threshold=0.0075, auc_threshold=0.075, multipath=True, paired_only=True,
+                           tag_ext='-trained',
+                           sim_opts='-p 500 -v 50 -S 4 -i 0.002',
+                           # 800k 148bp reads from Genome in a Bottle NA12878 library
+                           # (placeholder while finding something better)
+                           sim_fastq='ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz')
 
     @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(3600)
