@@ -964,10 +964,11 @@ class VGCITest(TestCase):
     def test_sim_chr21_snp1kg_trained(self):
         self._test_mapeval(100000, 'CHR21', 'snp1kg',
                            ['primary', 'snp1kg'],
-                           score_baseline_graph='primary',
+                           #score_baseline_graph='primary',
                            sample='HG00096',
                            assembly="hg19",
                            acc_threshold=0.0075, auc_threshold=0.075, multipath=True, paired_only=True,
+                           tag_ext='-trained',
                            sim_opts='-p 500 -v 50 -S 4 -i 0.002',
                            # 800k 148bp reads from Genome in a Bottle NA12878 library
                            # (placeholder while finding something better)
