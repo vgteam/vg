@@ -116,6 +116,7 @@ public:
     
     /// Loop over all the handles to next/previous (right/left) nodes. Works
     /// with a callback that just takes all the handles and returns void.
+    /// MUST be pulled into implementing classes with `using` in order to work!
     template <typename T>
     auto follow_edges(const handle_t& handle, bool go_left, T&& iteratee) const
     -> typename std::enable_if<std::is_void<decltype(iteratee(get_handle(0, false)))>::value>::type {
@@ -149,6 +150,7 @@ public:
     
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Works with void-returning iteratees.
+    /// MUST be pulled into implementing classes with `using` in order to work!
     template <typename T>
     auto for_each_handle(T&& iteratee) const
     -> typename std::enable_if<std::is_void<decltype(iteratee(get_handle(0, false)))>::value>::type {
