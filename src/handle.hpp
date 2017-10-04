@@ -205,13 +205,13 @@ public:
     virtual handle_t create_handle(const string& sequence) = 0;
     
     /// Remove the node belonging to the given handle and all of its edges.
-    virtual void delete_handle(const handle_t& handle) = 0;
+    virtual void destroy_handle(const handle_t& handle) = 0;
     
     /// Create an edge connecting the given handles in the given order and orientations.
     virtual void create_edge(const handle_t& left, const handle_t& right) = 0;
     
     /// Remove the edge connecting the given handles in the given order and orientations.
-    virtual void delete_edge(const handle_t& left, const handle_t& right) = 0;
+    virtual void destroy_edge(const handle_t& left, const handle_t& right) = 0;
     
     /// Swap the nodes corresponding to the given handles, in the ordering used
     /// by for_each_handle when looping over the graph. Other handles to the
@@ -223,12 +223,15 @@ public:
     /// Rewrites all edges pointing to the node and the node's sequence to
     /// reflect this. Invalidates all handles to the node (including the one
     /// passed). Returns a new, valid handle to the node in its new forward
-    /// orientation.
+    /// orientation. Note that it is possible for the node's ID to change.
     virtual handle_t apply_orientation(const handle_t& handle) = 0;
     
     /// Split a handle's underlying node at the given offsets in the handle's
     /// orientation. Returns all of the handles to the parts. Other handles to
-    /// the node being split may be invalidated.
+    /// the node being split may be invalidated. The split pieces stay in the
+    /// same local forward orientation as the original node, but the returned
+    /// handles come in the order and orientation appropriate for the handle
+    /// passed in.
     virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets) = 0;
     
     /// Specialization of divide_handle for a single division point

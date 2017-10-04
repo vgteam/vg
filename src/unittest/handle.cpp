@@ -317,7 +317,7 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
 
 }
 
-TEST_CASE("Writable handle graphs work", "[handle][vg]") {
+TEST_CASE("Writable handle graphs work", "[handle][writablehandle][vg]") {
     
     // TODO: populate this with instances of actual implementations.
     vector<WritableHandleGraph*> implementations;
@@ -340,6 +340,19 @@ TEST_CASE("Writable handle graphs work", "[handle][vg]") {
             REQUIRE(g->get_sequence(handle) == "GATTACA");
             REQUIRE(g->get_handle(g->get_id(handle)) == handle);
             
+            SECTION("Its orientation can be changed") {
+                handle_t modified = g->apply_orientation(g->flip(handle));
+                
+                REQUIRE(g->get_sequence(modified) == reverse_complement("GATTACA"));
+                REQUIRE(g->get_is_reverse(modified) == false);
+                // We don't check the ID. It's possible the ID can change.
+                
+                size_t node_count = 0;
+                g->for_each_handle([&](const handle_t& ignored) {
+                    node_count++;
+                });
+                REQUIRE(node_count == 1);
+            }
             
             SECTION("Another node can be added") {
                 handle_t handle2 = g->create_handle("CATTAG");
@@ -354,6 +367,31 @@ TEST_CASE("Writable handle graphs work", "[handle][vg]") {
                         node_count++;
                     });
                     REQUIRE(node_count == 2);
+                }
+                
+                SECTION("Nodes can be swapped") {
+                    // Get all the nodes
+                    vector<handle_t> order;
+                    g->for_each_handle([&](const handle_t& found) {
+                        order.push_back(found);
+                    });
+                    REQUIRE(order.size() == 2);
+                    
+                    // Swap the two
+                    g->swap_handles(order.front(), order.back());
+                    
+                    // Get all the nodes again
+                    vector<handle_t> swapped;
+                    g->for_each_handle([&](const handle_t& found) {
+                        swapped.push_back(found);
+                    });
+                    REQUIRE(swapped.size() == 2);
+                    
+                    // Make sure they are in the opposite order when iterated
+                    // after being swapped.
+                    REQUIRE(swapped.front() == order.back());
+                    REQUIRE(swapped.back() == order.front());
+                    
                 }
                 
                 SECTION("No edges exist by default") {
@@ -388,11 +426,87 @@ TEST_CASE("Writable handle graphs work", "[handle][vg]") {
                     });
                     
                     REQUIRE(edges.size() == 1);
-                    REQUIRE(edges.front() == make_pair(handle, handle2));
+                    REQUIRE(edges.front() == g->edge_handle(handle, handle2));
+                    
+                    SECTION("Reorienting nodes modifies edges") {
+                        handle_t modified = g->apply_orientation(g->flip(handle));
+                        
+                        // Grab all the edges            
+                        vector<pair<handle_t, handle_t>> edges;
+                        g->follow_edges(modified, false, [&](const handle_t& other) {
+                            edges.push_back(g->edge_handle(modified, other));
+                        });
+                        g->follow_edges(modified, true, [&](const handle_t& other) {
+                            edges.push_back(g->edge_handle(modified, other));
+                        });
+                        
+                        REQUIRE(edges.size() == 1);
+                        REQUIRE(edges.front() == g->edge_handle(g->flip(handle2), modified));
+                        
+                        
+                    }
                 
                 }
                 
             }
+            
+            SECTION("A node can be split") {
+                // Should get GATT and ACA, but in reverse (TGT, AATC)
+                auto parts = g->divide_handle(g->flip(handle), 3);
+                
+                REQUIRE(g->get_sequence(parts.first) == "TGT");
+                REQUIRE(g->get_is_reverse(parts.first) == true);
+                REQUIRE(g->get_sequence(parts.second) == "AATC");
+                REQUIRE(g->get_is_reverse(parts.second) == true);
+                
+                SECTION("The original node is gone") {
+                    size_t node_count = 0;
+                    g->for_each_handle([&](const handle_t& ignored) {
+                        node_count++;
+                    });
+                    REQUIRE(node_count == 2);
+                }
+                
+                SECTION("Splitting creates the appropriate edge") {
+                    vector<handle_t> found;
+                    g->follow_edges(parts.first, false, [&](const handle_t& other) {
+                        found.push_back(other);
+                    });
+                    
+                    REQUIRE(found.size() == 1);
+                    REQUIRE(found.front() == parts.second);
+                }
+                
+                SECTION("An edge can be removed") {
+                    g->destroy_edge(parts.first, parts.second);
+                    
+                    vector<handle_t> found;
+                    g->follow_edges(parts.first, false, [&](const handle_t& other) {
+                        found.push_back(other);
+                    });
+                    
+                    REQUIRE(found.size() == 0);
+                }
+                
+                SECTION("A node can be removed") {
+                    g->destroy_handle(parts.second);
+                    
+                    vector<handle_t> found;
+                    g->follow_edges(parts.first, false, [&](const handle_t& other) {
+                        found.push_back(other);
+                    });
+                    
+                    REQUIRE(found.size() == 0);
+                    
+                    size_t node_count = 0;
+                    g->for_each_handle([&](const handle_t& ignored) {
+                        node_count++;
+                    });
+                    REQUIRE(node_count == 1);
+                }
+                
+            }
+            
         }
     }
     
