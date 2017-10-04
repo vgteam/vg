@@ -405,7 +405,7 @@ TEST_CASE("Writable handle graphs work", "[handle][writablehandle][vg]") {
                         edges.push_back(g->edge_handle(handle, other));
                     });
                     g->follow_edges(handle, true, [&](const handle_t& other) {
-                        edges.push_back(g->edge_handle(handle, other));
+                        edges.push_back(g->edge_handle(other, handle));
                     });
                     
                     REQUIRE(edges.size() == 0);    
@@ -425,7 +425,7 @@ TEST_CASE("Writable handle graphs work", "[handle][writablehandle][vg]") {
                         edges.push_back(g->edge_handle(handle, other));
                     });
                     g->follow_edges(handle, true, [&](const handle_t& other) {
-                        edges.push_back(g->edge_handle(handle, other));
+                        edges.push_back(g->edge_handle(other, handle));
                     });
                     
                     REQUIRE(edges.size() == 1);
@@ -440,7 +440,7 @@ TEST_CASE("Writable handle graphs work", "[handle][writablehandle][vg]") {
                             edges.push_back(g->edge_handle(modified, other));
                         });
                         g->follow_edges(modified, true, [&](const handle_t& other) {
-                            edges.push_back(g->edge_handle(modified, other));
+                            edges.push_back(g->edge_handle(other, modified));
                         });
                         
                         REQUIRE(edges.size() == 1);
