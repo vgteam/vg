@@ -11,9 +11,9 @@
 namespace vg {
 namespace algorithms {
 
-    void extract_containing_graph_internal(const HandleGraph* source, Graph& g, const vector<pos_t>& positions,
-                                           const vector<size_t>& forward_search_lengths,
-                                           const vector<size_t>& backward_search_lengths) {
+    void extract_containing_graph(const HandleGraph* source, Graph& g, const vector<pos_t>& positions,
+                                  const vector<size_t>& forward_search_lengths,
+                                  const vector<size_t>& backward_search_lengths) {
         
         if (forward_search_lengths.size() != backward_search_lengths.size()
             || forward_search_lengths.size() != positions.size()) {
@@ -143,14 +143,6 @@ namespace algorithms {
         
         return extract_containing_graph(source, g, positions, position_max_dist, position_max_dist);
     }
-    
-    void extract_containing_graph(const HandleGraph* source, Graph& g, const vector<pos_t>& positions,
-                                  const vector<size_t>& position_forward_max_dist,
-                                  const vector<size_t>& position_backward_max_dist) {
-        
-        return extract_containing_graph_internal(source, g, positions, position_forward_max_dist, position_backward_max_dist);
-    
-    } 
 
 }
 }
