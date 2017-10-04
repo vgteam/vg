@@ -199,7 +199,7 @@ public:
  * graph keeps an index of paths, all operations must also modify the stored
  * paths. The paths are never allowed to be inconsistent with the graph.
  */
-class WritableHandleGraph : public HandleGraph {
+class MutableHandleGraph : public HandleGraph {
 public:
     /// Create a new node with the given sequence and return the handle.
     virtual handle_t create_handle(const string& sequence) = 0;

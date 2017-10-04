@@ -317,9 +317,9 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
 
 }
 
-TEST_CASE("Writable handle graphs work", "[handle][writablehandle][vg]") {
+TEST_CASE("Mutable handle graphs work", "[handle][vg]") {
     
-    vector<WritableHandleGraph*> implementations;
+    vector<MutableHandleGraph*> implementations;
     
     // Test the VG implementation
     VG vg;

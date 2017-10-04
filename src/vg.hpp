@@ -83,7 +83,7 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public WritableHandleGraph {
+class VG : public Progressive, public MutableHandleGraph {
 
 public:
 
@@ -120,7 +120,7 @@ public:
     virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const;
     
     ////////////////////////////////////////////////////////////////////////////
-    // Writable handle-based interface
+    // Mutable handle-based interface
     ////////////////////////////////////////////////////////////////////////////
     
     /// Create a new node with the given sequence and return the handle.
