@@ -127,7 +127,7 @@ int main_benchmark(int argc, char** argv) {
         
         Graph g;
         
-        auto trans = algorithms::extract_connecting_graph(xg_index, g, max_len, pos_1, pos_2, false, false, true, true, true);
+        auto trans = algorithms::extract_connecting_graph(&xg_index, g, max_len, pos_1, pos_2, false, false, true, true, true);
     
     }));
     
@@ -139,7 +139,7 @@ int main_benchmark(int argc, char** argv) {
         
         Graph g;
         
-        auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+        auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
     
     }));
     
