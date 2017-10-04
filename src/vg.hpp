@@ -83,7 +83,7 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public HandleGraph {
+class VG : public Progressive, public WritableHandleGraph {
 
 public:
 
@@ -118,6 +118,43 @@ public:
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
     virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Writable handle-based interface
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Create a new node with the given sequence and return the handle.
+    virtual handle_t create_handle(const string& sequence);
+    
+    /// Remove the node belonging to the given handle and all of its edges.
+    virtual void destroy_handle(const handle_t& handle);
+    
+    /// Create an edge connecting the given handles in the given order and orientations.
+    virtual void create_edge(const handle_t& left, const handle_t& right);
+    
+    /// Remove the edge connecting the given handles in the given order and orientations.
+    virtual void destroy_edge(const handle_t& left, const handle_t& right);
+    
+    /// Swap the nodes corresponding to the given handles, in the ordering used
+    /// by for_each_handle when looping over the graph. Other handles to the
+    /// nodes being swapped must not be invalidated.
+    virtual void swap_handles(const handle_t& a, const handle_t& b);
+    
+    /// Alter the node that the given handle corresponds to so the orientation
+    /// indicated by the handle becomes the node's local forward orientation.
+    /// Rewrites all edges pointing to the node and the node's sequence to
+    /// reflect this. Invalidates all handles to the node (including the one
+    /// passed). Returns a new, valid handle to the node in its new forward
+    /// orientation. Note that it is possible for the node's ID to change.
+    virtual handle_t apply_orientation(const handle_t& handle);
+    
+    /// Split a handle's underlying node at the given offsets in the handle's
+    /// orientation. Returns all of the handles to the parts. Other handles to
+    /// the node being split may be invalidated. The split pieces stay in the
+    /// same local forward orientation as the original node, but the returned
+    /// handles come in the order and orientation appropriate for the handle
+    /// passed in.
+    virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets);
     
 private:
     // We have some masks for cramming things into handles
@@ -781,7 +818,7 @@ public:
     Edge* get_edge(const pair<NodeSide, NodeSide>& sides);
     /// Get the edge connecting the given oriented nodes in the given order.
     Edge* get_edge(const NodeTraversal& left, const NodeTraversal& right);
-    /// Festroy the edge at the given pointer. This pointer must point to an edge owned by the graph.
+    /// Destroy the edge at the given pointer. This pointer must point to an edge owned by the graph.
     void destroy_edge(Edge* edge);
     /// Destroy the edge between the given sides of nodes. These can be in either order.
     void destroy_edge(const NodeSide& side1, const NodeSide& side2);

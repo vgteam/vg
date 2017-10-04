@@ -208,9 +208,11 @@ public:
     virtual void destroy_handle(const handle_t& handle) = 0;
     
     /// Create an edge connecting the given handles in the given order and orientations.
+    /// Ignores existing edges.
     virtual void create_edge(const handle_t& left, const handle_t& right) = 0;
     
     /// Remove the edge connecting the given handles in the given order and orientations.
+    /// Ignores nonexistent edges.
     virtual void destroy_edge(const handle_t& left, const handle_t& right) = 0;
     
     /// Swap the nodes corresponding to the given handles, in the ordering used
