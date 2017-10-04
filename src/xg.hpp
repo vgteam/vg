@@ -115,9 +115,9 @@ public:
                bool is_sorted_dag);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 3;
+    const static uint32_t MAX_INPUT_VERSION = 4;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 3;
+    const static uint32_t OUTPUT_VERSION = 4;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -496,9 +496,8 @@ private:
     int_vector<> g_iv;
     /// delimit node records to allow lookup of nodes in g_civ by rank
     bit_vector g_bv;
-    rrr_vector<> g_cbv;
-    rrr_vector<>::rank_1_type g_cbv_rank;
-    rrr_vector<>::select_1_type g_cbv_select;
+    rank_support_v<1> g_bv_rank;
+    bit_vector::select_1_type g_bv_select;
     
     // Let's define some offset ints
     const static int G_NODE_ID_OFFSET = 0;
@@ -542,10 +541,6 @@ private:
     bit_vector s_bv; // node positions in siv
     rank_support_v<1> s_bv_rank;
     bit_vector::select_1_type s_bv_select;
-    // compressed version
-    rrr_vector<> s_cbv;
-    rrr_vector<>::rank_1_type s_cbv_rank;
-    rrr_vector<>::select_1_type s_cbv_select;
     
     ////////////////////////////////////////////////////////////////////////////
     // And here are the bits for tracking actual node IDs

@@ -158,7 +158,7 @@ void XG::load(istream& in) {
         ////////////////////////////////////////////////////////////////////////
         switch (file_version) {
         
-        case 3:
+        case 4:
             {
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
@@ -173,14 +173,14 @@ void XG::load(istream& in) {
                 r_iv.load(in);
 
                 g_iv.load(in);
-                g_cbv.load(in);
-                g_cbv_rank.load(in, &g_cbv);
-                g_cbv_select.load(in, &g_cbv);
+                g_bv.load(in);
+                g_bv_rank.load(in, &g_bv);
+                g_bv_select.load(in, &g_bv);
 
                 s_iv.load(in);
-                s_cbv.load(in);
-                s_cbv_rank.load(in, &s_cbv);
-                s_cbv_select.load(in, &s_cbv);
+                s_bv.load(in);
+                s_bv_rank.load(in, &s_bv);
+                s_bv_select.load(in, &s_bv);
 
                 f_iv.load(in);
                 f_bv.load(in);
@@ -444,14 +444,14 @@ size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string nam
     written += r_iv.serialize(out, child, "rank_id_vector");
 
     written += g_iv.serialize(out, child, "graph_vector");
-    written += g_cbv.serialize(out, child, "graph_bit_vector");
-    written += g_cbv_rank.serialize(out, child, "graph_bit_vector_rank");
-    written += g_cbv_select.serialize(out, child, "graph_bit_vector_select");
+    written += g_bv.serialize(out, child, "graph_bit_vector");
+    written += g_bv_rank.serialize(out, child, "graph_bit_vector_rank");
+    written += g_bv_select.serialize(out, child, "graph_bit_vector_select");
     
     written += s_iv.serialize(out, child, "seq_vector");
-    written += s_cbv.serialize(out, child, "seq_node_starts");
-    written += s_cbv_rank.serialize(out, child, "seq_node_starts_rank");
-    written += s_cbv_select.serialize(out, child, "seq_node_starts_select");
+    written += s_bv.serialize(out, child, "seq_node_starts");
+    written += s_bv_rank.serialize(out, child, "seq_node_starts_rank");
+    written += s_bv_select.serialize(out, child, "seq_node_starts_select");
 
     written += f_iv.serialize(out, child, "from_vector");
     written += f_bv.serialize(out, child, "from_node");
@@ -774,11 +774,6 @@ void XG::build(map<id_t, string>& node_label,
     util::assign(t_bv_rank, rank_support_v<1>(&t_bv));
     util::assign(t_bv_select, bit_vector::select_1_type(&t_bv));
     
-    // compressed vectors of the above
-    util::assign(s_cbv, rrr_vector<>(s_bv));
-    util::assign(s_cbv_rank, rrr_vector<>::rank_1_type(&s_cbv));
-    util::assign(s_cbv_select, rrr_vector<>::select_1_type(&s_cbv));
-
     // now that we've set up our sequence indexes, we can build the locally traversable graph storage
     // calculate g_iv size
     size_t g_iv_size =
@@ -812,26 +807,25 @@ void XG::build(map<id_t, string>& node_label,
     }
 
     // set up rank and select supports on g_bv so we can locate nodes in g_iv
-    util::assign(g_cbv, rrr_vector<>(g_bv));
-    util::assign(g_cbv_rank, rrr_vector<>::rank_1_type(&g_cbv));
-    util::assign(g_cbv_select, rrr_vector<>::select_1_type(&g_cbv));
+    util::assign(g_bv_rank, rank_support_v<1>(&g_bv));
+    util::assign(g_bv_select, bit_vector::select_1_type(&g_bv));
 
     // convert the edges in g_iv to relativistic form
     for (int64_t i = 0; i < i_iv.size(); ++i) {
         int64_t id = i_iv[i];
         // find the start of the node's record in g_iv
-        int64_t g = g_cbv_select(id_to_rank(id));
+        int64_t g = g_bv_select(id_to_rank(id));
         // get to the edges to
         int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
         int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
         int64_t t = g + G_NODE_HEADER_LENGTH;
         int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
         for (int64_t j = t; j < f; ) {
-            g_iv[j] = g_cbv_select(id_to_rank(g_iv[j])) - g;
+            g_iv[j] = g_bv_select(id_to_rank(g_iv[j])) - g;
             j += 2;
         }
         for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
-            g_iv[j] = g_cbv_select(id_to_rank(g_iv[j])) - g;
+            g_iv[j] = g_bv_select(id_to_rank(g_iv[j])) - g;
             j += 2;
         }
     }
@@ -959,7 +953,7 @@ void XG::build(map<id_t, string>& node_label,
 
 #ifdef DEBUG_CONSTRUCTION
     cerr << "|g_iv| = " << size_in_mega_bytes(g_iv) << endl;
-    cerr << "|g_cbv| = " << size_in_mega_bytes(g_cbv) << endl;
+    cerr << "|g_bv| = " << size_in_mega_bytes(g_bv) << endl;
     cerr << "|s_iv| = " << size_in_mega_bytes(s_iv) << endl;
     cerr << "|f_iv| = " << size_in_mega_bytes(f_iv) << endl;
     cerr << "|t_iv| = " << size_in_mega_bytes(t_iv) << endl;
@@ -973,7 +967,7 @@ void XG::build(map<id_t, string>& node_label,
     cerr << "|i_iv| = " << size_in_mega_bytes(i_iv) << endl;
     //cerr << "|i_wt| = " << size_in_mega_bytes(i_wt) << endl;
 
-    cerr << "|s_cbv| = " << size_in_mega_bytes(s_cbv) << endl;
+    cerr << "|s_bv| = " << size_in_mega_bytes(s_bv) << endl;
     
     cerr << "|h_iv| = " << size_in_mega_bytes(h_iv) << endl;
     cerr << "|ts_iv| = " << size_in_mega_bytes(ts_iv) << endl;
@@ -1007,7 +1001,7 @@ void XG::build(map<id_t, string>& node_label,
         + size_in_mega_bytes(t_bv)
         + size_in_mega_bytes(i_iv)
         //+ size_in_mega_bytes(i_wt)
-        + size_in_mega_bytes(s_cbv)
+        + size_in_mega_bytes(s_bv)
         + size_in_mega_bytes(h_iv)
         + size_in_mega_bytes(ts_iv)
         // TODO: add in size of the bs_arrays in a loop
@@ -1025,7 +1019,7 @@ void XG::build(map<id_t, string>& node_label,
         for (int64_t i = 0; i < i_iv.size(); ++i) {
             int64_t id = i_iv[i];
             // find the start of the node's record in g_iv
-            int64_t g = g_cbv_select(id_to_rank(id));
+            int64_t g = g_bv_select(id_to_rank(id));
             // get to the edges to
             int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
             int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
@@ -1039,12 +1033,12 @@ void XG::build(map<id_t, string>& node_label,
             int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
             cerr << " from ";
             for (int64_t j = t; j < f; ) {
-                cerr << i_iv[g_cbv_rank(g+g_iv[j])] << " ";
+                cerr << i_iv[g_bv_rank(g+g_iv[j])] << " ";
                 j += 2;
             }
             cerr << "to ";
             for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
-                cerr << i_iv[g_cbv_rank(g+g_iv[j])] << " ";
+                cerr << i_iv[g_bv_rank(g+g_iv[j])] << " ";
                 j += 2;
             }
             cerr << endl;
@@ -1078,7 +1072,7 @@ void XG::build(map<id_t, string>& node_label,
 
     if (validate_graph) {
         cerr << "validating graph sequence" << endl;
-        int max_id = s_cbv_rank(s_cbv.size());
+        int max_id = s_bv_rank(s_bv.size());
         for (auto& p : node_label) {
             int64_t id = p.first;
             const string& l = p.second;
@@ -1086,10 +1080,10 @@ void XG::build(map<id_t, string>& node_label,
             size_t rank = id_to_rank(id);
             //cerr << rank << endl;
             // find the node in the array
-            //cerr << "id = " << id << " rank = " << s_cbv_select(rank) << endl;
+            //cerr << "id = " << id << " rank = " << s_bv_select(rank) << endl;
             // this should be true given how we constructed things
-            if (rank != s_cbv_rank(s_cbv_select(rank)+1)) {
-                cerr << rank << " != " << s_cbv_rank(s_cbv_select(rank)+1) << " for node " << id << endl;
+            if (rank != s_bv_rank(s_bv_select(rank)+1)) {
+                cerr << rank << " != " << s_bv_rank(s_bv_select(rank)+1) << " for node " << id << endl;
                 assert(false);
             }
             // get the sequence from the s_iv
@@ -1285,10 +1279,10 @@ Node XG::node(int64_t id) const {
 string XG::node_sequence(int64_t id) const {
     size_t rank = id_to_rank(id);
     assert(rank != 0); // We can crash if we try to look up rank 0.
-    size_t start = s_cbv_select(rank);
-    size_t end = rank == node_count ? s_cbv.size() : s_cbv_select(rank+1);
+    size_t start = s_bv_select(rank);
+    size_t end = rank == node_count ? s_bv.size() : s_bv_select(rank+1);
     string s; s.resize(end-start);
-    for (size_t i = start; i < s_cbv.size() && i < end; ++i) {
+    for (size_t i = start; i < s_bv.size() && i < end; ++i) {
         s[i-start] = revdna3bit(s_iv[i]);
     }
     return s;
@@ -1296,8 +1290,8 @@ string XG::node_sequence(int64_t id) const {
 
 size_t XG::node_length(int64_t id) const {
     size_t rank = id_to_rank(id);
-    size_t start = s_cbv_select(rank);
-    size_t end = rank == node_count ? s_cbv.size() : s_cbv_select(rank+1);
+    size_t start = s_bv_select(rank);
+    size_t end = rank == node_count ? s_bv.size() : s_bv_select(rank+1);
     return end-start;
 }
 
@@ -1305,13 +1299,13 @@ char XG::pos_char(int64_t id, bool is_rev, size_t off) const {
     assert(off < node_length(id));
     if (!is_rev) {
         size_t rank = id_to_rank(id);
-        size_t pos = s_cbv_select(rank) + off;
+        size_t pos = s_bv_select(rank) + off;
         assert(pos < s_iv.size());
         char c = revdna3bit(s_iv[pos]);
         return c;
     } else {
         size_t rank = id_to_rank(id);
-        size_t pos = s_cbv_select(rank+1) - (off+1);
+        size_t pos = s_bv_select(rank+1) - (off+1);
         assert(pos < s_iv.size());
         char c = revdna3bit(s_iv[pos]);
         return reverse_complement(c);
@@ -1321,35 +1315,35 @@ char XG::pos_char(int64_t id, bool is_rev, size_t off) const {
 string XG::pos_substr(int64_t id, bool is_rev, size_t off, size_t len) const {
     if (!is_rev) {
         size_t rank = id_to_rank(id);
-        size_t start = s_cbv_select(rank) + off;
+        size_t start = s_bv_select(rank) + off;
         assert(start < s_iv.size());
         // get until the end position, or the end of the node, which ever is first
         size_t end;
         if (!len) {
-            end = s_cbv_select(rank+1);
+            end = s_bv_select(rank+1);
         } else {
-            end = min(start + len, (size_t)s_cbv_select(rank+1));
+            end = min(start + len, (size_t)s_bv_select(rank+1));
         }
         assert(end < s_iv.size());
         string s; s.resize(end-start);
-        for (size_t i = start; i < s_cbv.size() && i < end; ++i) {
+        for (size_t i = start; i < s_bv.size() && i < end; ++i) {
             s[i-start] = revdna3bit(s_iv[i]);
         }
         return s;
     } else {
         size_t rank = id_to_rank(id);
-        size_t end = s_cbv_select(rank+1) - off;
+        size_t end = s_bv_select(rank+1) - off;
         assert(end < s_iv.size());
         // get until the end position, or the end of the node, which ever is first
         size_t start;
         if (len > end || !len) {
-            start = s_cbv_select(rank);
+            start = s_bv_select(rank);
         } else {
-            start = max(end - len, (size_t)s_cbv_select(rank));
+            start = max(end - len, (size_t)s_bv_select(rank));
         }
         assert(end < s_iv.size());
         string s; s.resize(end-start);
-        for (size_t i = start; i < s_cbv.size() && i < end; ++i) {
+        for (size_t i = start; i < s_bv.size() && i < end; ++i) {
             s[i-start] = revdna3bit(s_iv[i]);
         }
         return reverse_complement(s);
@@ -1431,7 +1425,7 @@ void XG::idify_graph(Graph& graph) const {
 }
 
 Graph XG::node_subgraph_id(int64_t id) const {
-    Graph graph = node_subgraph_g(g_cbv_select(id_to_rank(id)));
+    Graph graph = node_subgraph_g(g_bv_select(id_to_rank(id)));
     idify_graph(graph);
     return graph;
 }
@@ -1468,7 +1462,7 @@ Graph XG::node_subgraph_g(int64_t g) const {
 
 Graph XG::graph_context_id(const pos_t& pos, int64_t length) const {
     pos_t g = pos;
-    vg::get_id(g) = g_cbv_select(id_to_rank(id(pos)));
+    vg::get_id(g) = g_bv_select(id_to_rank(id(pos)));
     Graph graph = graph_context_g(g, length);
     idify_graph(graph);
     return graph;
@@ -1537,7 +1531,7 @@ handle_t XG::get_handle(const id_t& node_id, bool is_reverse) const {
     // Handles will be g vector index with is_reverse in the high bit
     
     // Where in the g vector do we need to be
-    size_t handle = g_cbv_select(id_to_rank(node_id));
+    size_t handle = g_bv_select(id_to_rank(node_id));
     // And set the high bit if it's reverse
     if (is_reverse) handle |= HIGH_BIT;
     return as_handle(handle);
@@ -1737,15 +1731,15 @@ vector<Edge> XG::edges_on_end(int64_t id) const {
 }
 
 size_t XG::max_node_rank(void) const {
-    return s_cbv_rank(s_cbv.size());
+    return s_bv_rank(s_bv.size());
 }
 
 int64_t XG::node_at_seq_pos(size_t pos) const {
-    return rank_to_id(s_cbv_rank(pos));
+    return rank_to_id(s_bv_rank(pos));
 }
 
 size_t XG::node_start(int64_t id) const {
-    return s_cbv_select(id_to_rank(id));
+    return s_bv_select(id_to_rank(id));
 }
 
 size_t XG::max_path_rank(void) const {
@@ -2278,13 +2272,13 @@ void XG::get_id_range(int64_t id1, int64_t id2, Graph& g) const {
 void XG::get_id_range_by_length(int64_t id, int64_t length, Graph& g, bool forward) const {
     // find out first base of node's position in the sequence vector
     size_t rank = id_to_rank(id);
-    size_t start = s_cbv_select(rank);
+    size_t start = s_bv_select(rank);
     size_t end;
     // jump by length, checking to make sure we stay in bounds
     if (forward) {
-        end = s_cbv_rank(min(s_cbv.size() - 1, start + node_length(id) + length));
+        end = s_bv_rank(min(s_bv.size() - 1, start + node_length(id) + length));
     } else {
-        end = s_cbv_rank(1 + max((int64_t)0, (int64_t)(start  - length)));
+        end = s_bv_rank(1 + max((int64_t)0, (int64_t)(start  - length)));
     }
     // convert back to id
     int64_t id2 = rank_to_id(end);
