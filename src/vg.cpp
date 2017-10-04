@@ -221,8 +221,9 @@ handle_t VG::apply_orientation(const handle_t& handle) {
         destroy_edge(handle, right);
     }
     
-    // Reverse complement the sequence
-    string new_sequence = reverse_complement(get_sequence(handle));
+    // Copy the sequence from the reverse view of the node to become its locally
+    // forward sequence.
+    string new_sequence = get_sequence(handle);
     
     // Save the ID to reuse
     id_t id = get_id(handle);

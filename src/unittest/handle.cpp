@@ -319,8 +319,11 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
 
 TEST_CASE("Writable handle graphs work", "[handle][writablehandle][vg]") {
     
-    // TODO: populate this with instances of actual implementations.
     vector<WritableHandleGraph*> implementations;
+    
+    // Test the VG implementation
+    VG vg;
+    implementations.push_back(&vg);
     
     for(auto* g : implementations) {
     
@@ -343,8 +346,8 @@ TEST_CASE("Writable handle graphs work", "[handle][writablehandle][vg]") {
             SECTION("Its orientation can be changed") {
                 handle_t modified = g->apply_orientation(g->flip(handle));
                 
-                REQUIRE(g->get_sequence(modified) == reverse_complement("GATTACA"));
                 REQUIRE(g->get_is_reverse(modified) == false);
+                REQUIRE(g->get_sequence(modified) == reverse_complement("GATTACA"));
                 // We don't check the ID. It's possible the ID can change.
                 
                 size_t node_count = 0;
