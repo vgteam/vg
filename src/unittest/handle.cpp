@@ -317,5 +317,87 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
 
 }
 
+TEST_CASE("Writable handle graphs work", "[handle][vg]") {
+    
+    // TODO: populate this with instances of actual implementations.
+    vector<WritableHandleGraph*> implementations;
+    
+    for(auto* g : implementations) {
+    
+        SECTION("No nodes exist by default") {
+            size_t node_count = 0;
+            g->for_each_handle([&](const handle_t& ignored) {
+                node_count++;
+            });
+            REQUIRE(node_count == 0);
+        }
+    
+        SECTION("A node can be added") {
+            
+            handle_t handle = g->create_handle("GATTACA");
+            
+            REQUIRE(g->get_is_reverse(handle) == false);
+            REQUIRE(g->get_sequence(handle) == "GATTACA");
+            REQUIRE(g->get_handle(g->get_id(handle)) == handle);
+            
+            
+            SECTION("Another node can be added") {
+                handle_t handle2 = g->create_handle("CATTAG");
+                
+                REQUIRE(g->get_is_reverse(handle2) == false);
+                REQUIRE(g->get_sequence(handle2) == "CATTAG");
+                REQUIRE(g->get_handle(g->get_id(handle2)) == handle2);
+                
+                SECTION("The graph finds the right number of nodes") {
+                    size_t node_count = 0;
+                    g->for_each_handle([&](const handle_t& ignored) {
+                        node_count++;
+                    });
+                    REQUIRE(node_count == 2);
+                }
+                
+                SECTION("No edges exist by default") {
+                    
+                    // Grab all the edges            
+                    vector<pair<handle_t, handle_t>> edges;
+                    g->follow_edges(handle, false, [&](const handle_t& other) {
+                        edges.push_back(g->edge_handle(handle, other));
+                    });
+                    g->follow_edges(handle, true, [&](const handle_t& other) {
+                        edges.push_back(g->edge_handle(handle, other));
+                    });
+                    
+                    REQUIRE(edges.size() == 0);    
+                    
+                }
+                
+                SECTION("Edges can be added") {
+
+                    // Test deduplication
+                    g->create_edge(handle, handle2);
+                    g->create_edge(g->flip(handle2), g->flip(handle));
+                    g->create_edge(handle, handle2);
+
+                    // Grab all the edges            
+                    vector<pair<handle_t, handle_t>> edges;
+                    g->follow_edges(handle, false, [&](const handle_t& other) {
+                        edges.push_back(g->edge_handle(handle, other));
+                    });
+                    g->follow_edges(handle, true, [&](const handle_t& other) {
+                        edges.push_back(g->edge_handle(handle, other));
+                    });
+                    
+                    REQUIRE(edges.size() == 1);
+                    REQUIRE(edges.front() == make_pair(handle, handle2));
+                
+                }
+                
+            }
+        }
+    }
+    
+    
+}
+
 }
 }
