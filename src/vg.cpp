@@ -140,6 +140,18 @@ void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     }
 }
 
+void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
+    for (id_t i = 0; i < graph.node_size(); ++i) {
+        // For each node in the backing graph
+        // Get its ID and make a handle to it forward
+        // And pass it to the iteratee
+        if (!iteratee(get_handle(graph.node(i).id(), false))) {
+            // Iteratee stopped
+            return;
+        }
+    }
+}
+
 void VG::clear_paths(void) {
     paths.clear();
     graph.clear_path(); // paths.clear() should do this too
