@@ -200,18 +200,15 @@ handle_t VG::apply_orientation(const handle_t& handle) {
     vector<handle_t> left_nodes;
     vector<handle_t> right_nodes;
     
-    auto lambda1 = [&](const handle_t& other) -> void {
+    follow_edges(handle, false, [&](const handle_t& other) -> void {
         right_nodes.push_back(other);
         return;
-    };
+    });
     
-    auto lambda2 = [&](const handle_t& other) -> void {
+    follow_edges(handle, true, [&](const handle_t& other) -> void {
         left_nodes.push_back(other);
         return;
-    };
-    
-    this->HandleGraph::template follow_edges<decltype(lambda1)>(handle, false, std::move(lambda1));
-    this->HandleGraph::template follow_edges<decltype(lambda2)>(handle, true, std::move(lambda2));
+    });
     
     // Remove them
     for (auto& left : left_nodes) {

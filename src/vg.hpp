@@ -115,9 +115,15 @@ public:
     /// continue.
     virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
     
+    // Copy over the template for nice calls
+    using HandleGraph::follow_edges;
+    
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
     virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const;
+    
+    // Copy over the template for nice calls
+    using HandleGraph::for_each_handle;
     
     ////////////////////////////////////////////////////////////////////////////
     // Mutable handle-based interface
