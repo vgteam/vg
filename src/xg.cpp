@@ -1666,6 +1666,32 @@ void XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     }
 }
 
+void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
+    // How big is the g vector entry size we are on?
+    size_t entry_size = 0;
+    for (size_t g = 0; g < g_iv.size(); g += entry_size) {
+        // Make the handle
+        // We need to make sure our index won't set the orientation bit.
+        assert((g & (~LOW_BITS)) == 0);
+        
+        // Just make it into a handle; we're always forward.
+        handle_t handle = as_handle(g);
+        
+        // Run the iteratee
+        if (!iteratee(handle)) {
+            // The iteratee is bored and wants to stop.
+            return;
+        }
+    
+        // How many edges are there of each type on this record?
+        size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
+        size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
+        
+        // This record is the header plus all the edge records it contains
+        entry_size = G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
+    }
+}
+
 vector<Edge> XG::edges_of(int64_t id) const {
     auto e1 = edges_to(id);
     auto e2 = edges_from(id);
