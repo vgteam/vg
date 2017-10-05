@@ -140,6 +140,166 @@ void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     }
 }
 
+void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
+    for (id_t i = 0; i < graph.node_size(); ++i) {
+        // For each node in the backing graph
+        // Get its ID and make a handle to it forward
+        // And pass it to the iteratee
+        if (!iteratee(get_handle(graph.node(i).id(), false))) {
+            // Iteratee stopped
+            return;
+        }
+    }
+}
+
+handle_t VG::create_handle(const string& sequence) {
+    Node* node = create_node(sequence);
+    return get_handle(node->id(), false);
+}
+
+void VG::destroy_handle(const handle_t& handle) {
+    destroy_node(get_id(handle));
+    // TODO: does destroy_node update paths?
+}
+
+void VG::create_edge(const handle_t& left, const handle_t& right) {
+    create_edge(get_node(get_id(left)), get_node(get_id(right)),
+        get_is_reverse(left), get_is_reverse(right));
+}
+    
+void VG::destroy_edge(const handle_t& left, const handle_t& right) {
+    // Convert to NodeSides and find the edge between them
+    Edge* found = get_edge(NodeSide(get_id(left), !get_is_reverse(left)),
+        NodeSide(get_id(right), get_is_reverse(right)));
+    if (found != nullptr) {
+        // If there is one, destroy it.
+        destroy_edge(found);
+        // TODO: does destroy_edge update paths?
+    }
+}
+
+void VG::swap_handles(const handle_t& a, const handle_t& b) {
+    swap_nodes(get_node(get_id(a)), get_node(get_id(b)));
+}
+
+handle_t VG::apply_orientation(const handle_t& handle) {
+    if (!get_is_reverse(handle)) {
+        // Nothing to do!
+        return handle;
+    }
+    
+    // Otherwise we need to reverse it
+
+    // Grab a handle to the reverse version that exists now.
+    handle_t rev_handle = flip(handle);
+    
+    // Find all the edges (including self loops)
+    
+    // We represent self loops with the (soon to be invalidated) forward and
+    // reverse handles to the node we're flipping.
+    vector<handle_t> left_nodes;
+    vector<handle_t> right_nodes;
+    
+    follow_edges(handle, false, [&](const handle_t& other) -> void {
+        right_nodes.push_back(other);
+        return;
+    });
+    
+    follow_edges(handle, true, [&](const handle_t& other) -> void {
+        left_nodes.push_back(other);
+        return;
+    });
+    
+    // Remove them
+    for (auto& left : left_nodes) {
+        destroy_edge(left, handle);
+    }
+    for (auto& right : right_nodes) {
+        destroy_edge(handle, right);
+    }
+    
+    // Copy the sequence from the reverse view of the node to become its locally
+    // forward sequence.
+    string new_sequence = get_sequence(handle);
+    
+    // Save the ID to reuse
+    id_t id = get_id(handle);
+    
+    // Remove the old node (without destroying the paths???)
+    destroy_handle(handle);
+    
+    // Create a new node, re-using the ID
+    Node* new_node = create_node(new_sequence, id);
+    handle_t new_handle = get_handle(id, false);
+    
+    // Connect up the new node
+    for (handle_t left : left_nodes) {
+        if (left == handle) {
+            // Actually go to the reverse of the new handle
+            left = flip(new_handle);
+        } else if (left == rev_handle) {
+            // Actually go to the new handle forward
+            left = new_handle;
+        }
+        
+        create_edge(left, new_handle);
+    }
+    
+    for (handle_t right : right_nodes) {
+        if (right == handle) {
+            // Actually go to the reverse of the new handle
+            right = flip(new_handle);
+        } else if (right == rev_handle) {
+            // Actually go to the new handle forward
+            right = new_handle;
+        }
+        
+        create_edge(new_handle, right);
+    }
+    
+    // TODO: Fix up the paths
+    return new_handle;
+    
+}
+
+vector<handle_t> VG::divide_handle(const handle_t& handle, const vector<size_t>& offsets) {
+    Node* node = get_node(get_id(handle));
+    bool reverse = get_is_reverse(handle);
+    
+    // We need to convert vector types
+    vector<int> int_offsets;
+    if (reverse) {
+        // We need to fill in the vector of offsets from the end of the node.
+        
+        auto node_size = get_length(handle);
+        
+        for (auto it = offsets.rbegin(); it != offsets.rend(); ++it) {
+            // Flip the order around, and also measure from the other end
+            int_offsets.push_back(node_size - *it);
+        }
+    } else {
+        // Just blit over the offsets
+        int_offsets = vector<int>(offsets.begin(), offsets.end());
+    }
+    
+    // Populate this parts vector by doing the division
+    vector<Node*> parts;
+    divide_node( node, int_offsets, parts);
+    
+    vector<handle_t> to_return;
+    for (Node* n : parts) {
+        // Copy the nodes into handles in their final orientation
+        to_return.push_back(get_handle(n->id(), reverse));
+    }
+    if (reverse) {
+        // And make sure they are in the right order
+        std::reverse(to_return.begin(), to_return.end());
+    }
+    
+    return to_return;
+    
+}
+
 void VG::clear_paths(void) {
     paths.clear();
     graph.clear_path(); // paths.clear() should do this too
