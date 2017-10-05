@@ -1,5 +1,5 @@
-#ifndef VG_NAME_MAPPER_HPP
-#define VG_NAME_MAPPER_HPP
+#ifndef VG_NAME_MAPPER_HPP_INCLUDED
+#define VG_NAME_MAPPER_HPP_INCLUDED
 
 /** \file
  * name_mapper.hpp: defines a class that maps back and forth from VCF-space

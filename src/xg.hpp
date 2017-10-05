@@ -1,5 +1,5 @@
-#ifndef SUCCINCT_GRAPH_SG_HPP
-#define SUCCINCT_GRAPH_SG_HPP
+#ifndef VG_XG_HPP_INCLUDED
+#define VG_XG_HPP_INCLUDED
 
 #include <iostream>
 #include <fstream>
