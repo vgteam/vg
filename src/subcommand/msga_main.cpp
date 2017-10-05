@@ -21,14 +21,15 @@ void help_msga(char** argv) {
          << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
          << "    -s, --seq SEQUENCE      literally include this sequence" << endl
          << "    -g, --graph FILE        include this graph" << endl
+         << "    -a, --fasta-order       build the graph in the order the sequences are seen in the FASTA (default: bigger first)" << endl
          << "alignment:" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length [estimated given -e]" << endl
-         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [512]" << endl
+         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [1024]" << endl
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
-         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [4]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
@@ -36,7 +37,7 @@ void help_msga(char** argv) {
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [2*{-w}]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [64]" << endl
          << "    -M, --max-multimaps INT when set > 1, thread an optimal alignment through the multimappings of each band [1]" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
@@ -79,16 +80,14 @@ int main_msga(int argc, char** argv) {
     vector<string> graph_files;
     string base_seq_name;
     int idx_kmer_size = 16;
-    int idx_doublings = 2;
-    int hit_max = 100;
-    int max_attempts = 10;
+    int hit_max = 1024;
     // if we set this above 1, we use a dynamic programming process to determine the
     // optimal alignment through a series of bands based on a proximity metric
-    int max_multimaps = 1;
+    int max_multimaps = 16;
     float min_identity = 0.0;
     int band_width = 256;
     int max_band_jump = -1;
-    int band_multimaps = 4;
+    int band_multimaps = 64;
     size_t doubling_steps = 3;
     bool debug = false;
     bool debug_align = false;
@@ -114,15 +113,16 @@ int main_msga(int argc, char** argv) {
     int min_cluster_length = 0;
     float mem_reseed_factor = 1.5;
     float random_match_chance = 0.05;
-    int extra_multimaps = 64;
-    int min_multimaps = 4;
-    float drop_chain = 0.4;
+    int extra_multimaps = 512;
+    int min_multimaps = 64;
+    float drop_chain = 0.5;
     int max_mapping_quality = 60;
     int method_code = 1;
-    int maybe_mq_threshold = 60;
+    int maybe_mq_threshold = 0;
     int min_banded_mq = 0;
     bool use_fast_reseed = true;
     bool show_align_progress = false;
+    bool bigger_first = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -170,11 +170,12 @@ int main_msga(int argc, char** argv) {
                 {"try-at-least", required_argument, 0, 'l'},
                 {"drop-chain", required_argument, 0, 'C'},
                 {"align-progress", no_argument, 0, 'S'},
+                {"bigger-first", no_argument, 0, 'a'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:a",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -343,6 +344,10 @@ int main_msga(int argc, char** argv) {
             full_length_bonus = atoi(optarg);
             break;
 
+        case 'a':
+            bigger_first = false;
+            break;
+
         case 'h':
         case '?':
             help_msga(argv);
@@ -421,10 +426,12 @@ int main_msga(int argc, char** argv) {
         names_in_order.push_back(name);
     }
 
-    // always go from biggest to smallest in progression
-    sort(names_in_order.begin(), names_in_order.end(),
-         [&strings](const string& s1, const string& s2) {
-             return strings[s1].size() > strings[s2].size(); });
+    // by default we from biggest to smallest in progression
+    if (bigger_first) {
+        sort(names_in_order.begin(), names_in_order.end(),
+             [&strings](const string& s1, const string& s2) {
+                 return strings[s1].size() > strings[s2].size(); });
+    }
 
     // align, include, repeat
 
