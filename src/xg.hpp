@@ -6,6 +6,7 @@
 #include <map>
 #include <queue>
 #include <omp.h>
+#include <unordered_map>
 #include "cpp/vg.pb.h"
 #include "sdsl/bit_vectors.hpp"
 #include "sdsl/enc_vector.hpp"
@@ -105,9 +106,9 @@ public:
     void from_callback(function<void(function<void(Graph&)>)> get_chunks,
         bool validate_graph = false, bool print_graph = false,
         bool store_threads = false, bool is_sorted_dag = false); 
-    void build(map<id_t, string>& node_label,
-               map<side_t, set<side_t> >& from_to,
-               map<side_t, set<side_t> >& to_from,
+    void build(vector<pair<id_t, string> >& node_label,
+               unordered_map<side_t, vector<side_t> >& from_to,
+               unordered_map<side_t, vector<side_t> >& to_from,
                map<string, vector<trav_t> >& path_nodes,
                bool validate_graph,
                bool print_graph,

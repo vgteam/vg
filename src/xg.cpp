@@ -540,10 +540,10 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
     bool validate_graph, bool print_graph, bool store_threads, bool is_sorted_dag) {
 
     // temporaries for construction
-    map<id_t, string> node_label;
+    vector<pair<id_t, string> > node_label;
     // need to store node sides
-    map<side_t, set<side_t> > from_to;
-    map<side_t, set<side_t> > to_from;
+    unordered_map<side_t, vector<side_t> > from_to;
+    unordered_map<side_t, vector<side_t> > to_from;
     map<string, vector<trav_t> > path_nodes;
 
     // This takes in graph chunks and adds them into our temporary storage.
@@ -555,20 +555,23 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
 
         for (int64_t i = 0; i < graph.node_size(); ++i) {
             const Node& n = graph.node(i);
-            if (node_label.find(n.id()) == node_label.end()) {
-                ++node_count;
-                seq_length += n.sequence().size();
-                node_label[n.id()] = n.sequence();
-            }
+            node_label.push_back(make_pair(n.id(), n.sequence()));
         }
         for (int64_t i = 0; i < graph.edge_size(); ++i) {
             // Canonicalize every edge, so only canonical edges are in the index.
             Edge e = canonicalize(graph.edge(i));
-            if (from_to.find(make_side(e.from(), e.from_start())) == from_to.end()
-                || from_to[make_side(e.from(), e.from_start())].count(make_side(e.to(), e.to_end())) == 0) {
+            bool new_from = from_to.find(make_side(e.from(), e.from_start())) == from_to.end();
+            bool new_edge = true;
+            if (!new_from) {
+                side_t to_add = make_side(e.to(), e.to_end());
+                for (auto& side : from_to[make_side(e.from(), e.from_start())]) {
+                    if (side == to_add) { new_edge = false; break; }
+                }
+            }
+            if (new_edge) {
                 ++edge_count;
-                from_to[make_side(e.from(), e.from_start())].insert(make_side(e.to(), e.to_end()));
-                to_from[make_side(e.to(), e.to_end())].insert(make_side(e.from(), e.from_start()));
+                from_to[make_side(e.from(), e.from_start())].push_back(make_side(e.to(), e.to_end()));
+                to_from[make_side(e.to(), e.to_end())].push_back(make_side(e.from(), e.from_start()));
             }
         }
 
@@ -597,7 +600,15 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
     // Get all the chunks via the callback, and have them called back to us.
     // The other end handles figuring out how much to loop.
     get_chunks(lambda);
-    
+
+    // sort the node labels and remove any duplicates
+    std::sort(node_label.begin(), node_label.end());
+    node_label.erase(std::unique(node_label.begin(), node_label.end()), node_label.end());
+    for (auto& p : node_label) {
+        ++node_count;
+        seq_length += p.second.size();
+    }
+
     path_count = path_nodes.size();
     
     // sort the paths using mapping rank
@@ -626,9 +637,9 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
     
 }
 
-void XG::build(map<id_t, string>& node_label,
-               map<side_t, set<side_t> >& from_to,
-               map<side_t, set<side_t> >& to_from,
+void XG::build(vector<pair<id_t, string> >& node_label,
+               unordered_map<side_t, vector<side_t> >& from_to,
+               unordered_map<side_t, vector<side_t> >& to_from,
                map<string, vector<trav_t> >& path_nodes,
                bool validate_graph,
                bool print_graph,
@@ -1120,7 +1131,11 @@ void XG::build(map<id_t, string>& node_label,
                     to_end = side_is_end(side);
                 }
             }
-            if (from_to[make_side(fid, from_start)].count(make_side(tid, to_end)) == 0) {
+            bool has_edge = false;
+            for (auto& side : from_to[make_side(fid, from_start)]) {
+                if (side == make_side(tid, to_end)) { has_edge = true; break; }
+            }
+            if (!has_edge) {
                 cerr << "could not find edge (f) "
                      << fid << (from_start ? "+" : "-")
                      << " -> "
@@ -1148,7 +1163,11 @@ void XG::build(map<id_t, string>& node_label,
                     from_start = side_is_end(side);
                 }
             }
-            if (to_from[make_side(tid, to_end)].count(make_side(fid, from_start)) == 0) {
+            bool has_edge = false;
+            for (auto& side : to_from[make_side(tid, to_end)]) {
+                if (side == make_side(fid, from_start)) { has_edge = true; break; }
+            }
+            if (!has_edge) {
                 cerr << "could not find edge (t) "
                      << fid << (from_start ? "+" : "-")
                      << " -> "
