@@ -254,8 +254,9 @@ class VGCITest(TestCase):
         if misc_opts:
             opts += ' {} '.format(misc_opts)
         opts += '--gcsa_index_cores {} --kmers_cores {} \
-        --alignment_cores {} --calling_cores {} --vcfeval_cores {} '.format(
-            self.cores, self.cores, self.cores, self.cores, self.cores)
+        --alignment_cores {} --calling_cores {} --call_chunk_cores {} --vcfeval_cores {} '.format(
+            self.cores, self.cores, self.cores, max(1, self.cores / 4),
+            max(1, self.cores / 2), self.cores)
         
         cmd = 'toil-vg run {} {} {} {}'.format(job_store, sample_name, out_store, opts)
         
@@ -492,8 +493,7 @@ class VGCITest(TestCase):
         # things as file IDs?
         mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
         mapeval_options.bwa = True
-        mapeval_options.do_single = not paired_only
-        mapeval_options.do_paired = True
+        mapeval_options.paired_only = paired_only        
         mapeval_options.fasta = make_url(fasta_path)
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
@@ -937,7 +937,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
                            
-    #@skip("skipping test to keep runtime down")
+    @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """
