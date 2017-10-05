@@ -114,6 +114,10 @@ public:
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
     virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const = 0;
     
+    /// Return the number of nodes in the graph
+    /// TODO: can't be node_count because XG has a field named node_count.
+    virtual size_t node_size() const = 0;
+    
     /// Loop over all the handles to next/previous (right/left) nodes. Works
     /// with a callback that just takes all the handles and returns void.
     /// MUST be pulled into implementing classes with `using` in order to work!

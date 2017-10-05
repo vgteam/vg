@@ -1692,6 +1692,10 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const 
     }
 }
 
+size_t XG::node_size() const {
+    return this->node_count;
+}
+
 vector<Edge> XG::edges_of(int64_t id) const {
     auto e1 = edges_to(id);
     auto e2 = edges_from(id);

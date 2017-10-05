@@ -152,6 +152,10 @@ void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const 
     }
 }
 
+size_t VG::node_size() const {
+    return graph.node_size();
+}
+
 handle_t VG::create_handle(const string& sequence) {
     Node* node = create_node(sequence);
     return get_handle(node->id(), false);
@@ -584,11 +588,11 @@ void VG::circularize(vector<string> pathnames){
     }
 }
 
-id_t VG::node_count(void) {
+size_t VG::node_count(void) const {
     return graph.node_size();
 }
 
-id_t VG::edge_count(void) {
+size_t VG::edge_count(void) const {
     return graph.edge_size();
 }
 
