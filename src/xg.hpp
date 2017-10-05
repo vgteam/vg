@@ -727,9 +727,9 @@ public:
     XGPath& operator=(const XGPath& other) = delete;
     XGPath& operator=(XGPath&& other) = delete;
     
-    rrr_vector<> members;
-    rrr_vector<>::rank_1_type members_rank;
-    rrr_vector<>::select_1_type members_select;
+    bit_vector members;
+    bit_vector::rank_1_type members_rank;
+    bit_vector::select_1_type members_select;
     wt_int<> ids;
     sd_vector<> directions; // forward or backward through nodes
     int_vector<> positions;

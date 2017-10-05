@@ -287,8 +287,7 @@ XGPath::XGPath(const string& path_name,
                size_t* unique_member_count_out) {
 
     // path members (of nodes and edges ordered as per f_bv)
-    bit_vector members_bv;
-    util::assign(members_bv, bit_vector(entity_count));
+    util::assign(members, bit_vector(entity_count));
     // node ids, the literal path
     int_vector<> ids_iv;
     util::assign(ids_iv, int_vector<>(path.size()));
@@ -325,7 +324,7 @@ XGPath::XGPath(const string& path_name,
         bool is_reverse = trav_is_rev(trav);
         //cerr << node_id << endl;
         // record node
-        members_bv[graph.node_rank_as_entity(node_id)-1] = 1;
+        members[graph.node_rank_as_entity(node_id)-1] = 1;
         // record direction of passage through node
         directions_bv[i] = is_reverse;
         // and the external rank of the mapping
@@ -354,13 +353,13 @@ XGPath::XGPath(const string& path_name,
                 rev1 = is_reverse; rev2 = next_is_reverse;
             }
             if (graph.has_edge(id1, rev1, id2, rev2)) {
-                members_bv[graph.edge_rank_as_entity(id1, rev1, id2, rev2)-1] = 1;
+                members[graph.edge_rank_as_entity(id1, rev1, id2, rev2)-1] = 1;
                 uniq_edges.insert(
                     make_pair(
                         make_pair(id1, rev1),
                         make_pair(id2, rev2)));
             } else if (graph.has_edge(id2, !rev2, id1, !rev1)) {
-                members_bv[graph.edge_rank_as_entity(id2, !rev2, id1, !rev1)-1] = 1;
+                members[graph.edge_rank_as_entity(id2, !rev2, id1, !rev1)-1] = 1;
                 uniq_edges.insert(
                     make_pair(
                         make_pair(id2, !rev2),
@@ -383,9 +382,8 @@ XGPath::XGPath(const string& path_name,
         *unique_member_count_out = uniq_nodes.size() + uniq_edges.size();
     }
     // compress path membership vectors
-    util::assign(members, rrr_vector<>(members_bv));
-    util::assign(members_rank, rrr_vector<>::rank_1_type(&members));
-    util::assign(members_select, rrr_vector<>::select_1_type(&members));
+    util::assign(members_rank, bit_vector::rank_1_type(&members));
+    util::assign(members_select, bit_vector::select_1_type(&members));
     // and traversal information
     util::assign(directions, sd_vector<>(directions_bv));
     // handle entity lookup structure (wavelet tree)
@@ -1167,7 +1165,7 @@ void XG::build(map<id_t, string>& node_label,
             size_t prank = path_rank(name);
             //cerr << path_name(prank) << endl;
             assert(path_name(prank) == name);
-            rrr_vector<>& pe_bv = paths[prank-1]->members;
+            bit_vector& pe_bv = paths[prank-1]->members;
             int_vector<>& pp_iv = paths[prank-1]->positions;
             sd_vector<>& dir_bv = paths[prank-1]->directions;
             // check each entity in the nodes is present
@@ -2343,10 +2341,6 @@ int64_t XG::next_path_node_by_id(size_t path_rank, int64_t id) const {
         return id;
     }
 
-    // note: rank select in members sd_vector is O(log[|graph| / |path|])
-    // so this will be relatively slow on tiny paths (but so will alternatives
-    // like checking path->members on every node):
-
     // find number of members before our node in the path
     size_t members_rank_at_node = path->members_rank(entity_rank - 1);
     // next member doesn't exist
@@ -2379,10 +2373,6 @@ int64_t XG::prev_path_node_by_id(size_t path_rank, int64_t id) const {
     if (path->members[entity_rank - 1] == 1) {
         return id;
     }
-
-    // note: rank select in members sd_vector is O(log[|graph| / |path|])
-    // so this will be relatively slow on tiny paths (but so will alternatives
-    // like checking path->members on every node):
 
     // find number of members before our node in the path
     size_t members_rank_at_node = path->members_rank(entity_rank - 1);
