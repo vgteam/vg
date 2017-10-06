@@ -21,10 +21,10 @@ namespace algorithms {
 using namespace std;
 
 /// Find all of the nodes with no edges on their left sides.
-vector<handle_t> head_nodes(const HandleGraph* g);
+vector<handle_t>&& head_nodes(const HandleGraph* g);
 
 /// Find all of the nodes with no edges on their right sides.
-vector<handle_t> head_nodes(const HandleGraph* g);
+vector<handle_t>&& head_nodes(const HandleGraph* g);
 
 /**
  * Order and orient the nodes in the graph using a topological sort.
@@ -52,7 +52,7 @@ vector<handle_t> head_nodes(const HandleGraph* g);
  *                     (This helps start at natural entry points to cycles)
  *     return L (a topologically sorted order and orientation)
  */
-vector<handle_t> topological_sort(const HandleGraph* g);
+vector<handle_t>&& topological_sort(const HandleGraph* g);
                                                       
 }
 }

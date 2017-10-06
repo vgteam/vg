@@ -105,15 +105,14 @@ public:
     /// orientation.
     virtual string get_sequence(const handle_t& handle) const = 0;
     
-    /// Loop over some of the handles to next/previous (right/left) nodes. Passes
+    /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue.
-    virtual void follow_some_edges(const handle_t& handle, bool go_left,
-        const function<bool(const handle_t&)>& iteratee) const = 0;
+    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const = 0;
     
-    /// Loop over some of the nodes in the graph in their local forward
+    /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_some_handles(const function<bool(const handle_t&)>& iteratee) const = 0;
+    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const = 0;
     
     /// Return the number of nodes in the graph
     /// TODO: can't be node_count because XG has a field named node_count.
@@ -121,29 +120,52 @@ public:
     
     /// Loop over all the handles to next/previous (right/left) nodes. Works
     /// with a callback that just takes all the handles and returns void.
-    inline void follow_edges(const handle_t& handle, bool go_left, const function<void(const handle_t&)>& iteratee) const {
-        // Make a bool-returning function
-        function<bool(const handle_t&)> lambda = [&](const handle_t& found) -> bool {
+    /// MUST be pulled into implementing classes with `using` in order to work!
+    template <typename T>
+    auto follow_edges(const handle_t& handle, bool go_left, T&& iteratee) const
+    -> typename std::enable_if<std::is_void<decltype(iteratee(get_handle(0, false)))>::value>::type {
+        // Implementation only for void-returning iteratees
+        // We ought to just overload on the std::function but that's not allowed until C++14.
+        // See <https://stackoverflow.com/q/13811180>
+        
+        // We also can't use result_of<T(handle_t)>::type to sniff the return
+        // type out because that ::type would not exist (since that's what you
+        // get for a void apparently?) and we couldn't check if it's bool or
+        // void.
+        
+        // So we do this nonsense thing with a trailing return type (to get the
+        // actual arg into scope) and a decltype (which is allowed to resolve to
+        // void) and is_void (which is allowed to take void) and a fake
+        // get_handle call (which is the shortest handle_t-typed expression I
+        // could think of).
+        
+        // Make a wrapper that puts a bool return type on.
+        function<bool(const handle_t&)> lambda = [&](const handle_t& found) {
             iteratee(found);
             return true;
         };
         
         // Use that
-        follow_some_edges(handle, go_left, lambda);
+        follow_edges(handle, go_left, lambda);
         
+        // During development I managed to get earlier versions of this template to build infinitely recursive functions.
+        static_assert(!std::is_void<decltype(lambda(get_handle(0, false)))>::value, "can't take our own lambda");
     }
     
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Works with void-returning iteratees.
-    inline void for_each_handle(const function<void(const handle_t&)>& iteratee) const {
+    /// MUST be pulled into implementing classes with `using` in order to work!
+    template <typename T>
+    auto for_each_handle(T&& iteratee) const
+    -> typename std::enable_if<std::is_void<decltype(iteratee(get_handle(0, false)))>::value>::type {
         // Make a wrapper that puts a bool return type on.
-        function<bool(const handle_t&)> lambda = [&](const handle_t& found) -> bool {
+        function<bool(const handle_t&)> lambda = [&](const handle_t& found) {
             iteratee(found);
             return true;
         };
         
         // Use that
-        for_some_handles(lambda);
+        for_each_handle(lambda);
     }
     
     /// Get the locally forward version of a handle

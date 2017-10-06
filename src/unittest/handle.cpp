@@ -147,15 +147,15 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
                     vector<handle_t> prev_handles;
                     
                     // Load handles from the handle graph
-                    g->follow_some_edges(node_handle, false, [&](const handle_t& next) {
+                    g->follow_edges(node_handle, false, [&](const handle_t& next) {
                         next_handles.push_back(next);
-                        // Exercise both returning and non-returning versions
+                        // Exercise both returning and non-returning syntaxes
                         return true;
                     });
                     
                     g->follow_edges(node_handle, true, [&](const handle_t& next) {
                         prev_handles.push_back(next);
-                        // Exercise both returning and non-returning versions
+                        // Exercise both returning and non-returning syntaxes
                     });
                     
                     // Make sure all the entries are unique
@@ -197,7 +197,7 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
                 
                 handle_t node_handle = g->get_handle(node->id(), false);
                 
-                g->follow_some_edges(node_handle, false, [&](const handle_t& next) {
+                g->follow_edges(node_handle, false, [&](const handle_t& next) {
                     loop_count++;
                     // Never ask for more edges
                     return false;
@@ -208,7 +208,7 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
                 
                 loop_count = 0;
                 
-                g->follow_some_edges(node_handle, true, [&](const handle_t& next) {
+                g->follow_edges(node_handle, true, [&](const handle_t& next) {
                     loop_count++;
                     // Never ask for more edges
                     return false;

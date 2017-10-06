@@ -1645,7 +1645,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
     return true;
 }
 
-void XG::follow_some_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+void XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
 
     // Unpack the handle
     size_t g = as_integer(handle) & LOW_BITS;
@@ -1666,7 +1666,7 @@ void XG::follow_some_edges(const handle_t& handle, bool go_left, const function<
     }
 }
 
-void XG::for_some_handles(const function<bool(const handle_t&)>& iteratee) const {
+void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
     // How big is the g vector entry size we are on?
     size_t entry_size = 0;
     for (size_t g = 0; g < g_iv.size(); g += entry_size) {
