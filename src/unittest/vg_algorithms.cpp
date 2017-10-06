@@ -69,7 +69,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
                 
                 REQUIRE( g.node_size() == 1 );
                 REQUIRE( g.edge_size() == 0 );
@@ -86,7 +86,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
                 
                 set<int64_t> expected_node_ids{n0->id(), n1->id()};
                 
@@ -119,7 +119,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
                 
                 set<int64_t> expected_node_ids{n2->id(), n3->id(), n4->id(), n5->id()};
                 
@@ -187,7 +187,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
                 
                 set<int64_t> expected_node_ids{n2->id(), n4->id()};
                 
@@ -220,7 +220,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
                 
                 REQUIRE( g.node_size() == 0 );
                 REQUIRE( g.edge_size() == 0 );
@@ -235,7 +235,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
                 
                 REQUIRE( g.node_size() == 0 );
                 REQUIRE( g.edge_size() == 0 );
@@ -250,7 +250,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
                 
                 REQUIRE( g.node_size() == 1 );
                 REQUIRE( g.edge_size() == 0 );
@@ -267,7 +267,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
                 
                 set<int64_t> expected_node_ids{n0->id(), n1->id()};
                 
@@ -300,7 +300,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
                 
                 set<int64_t> expected_node_ids{n2->id(), n3->id(), n5->id()};
                 
@@ -353,7 +353,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
                 
                 set<int64_t> expected_node_ids{n5->id(), n8->id(), n9->id()};
                 
@@ -416,7 +416,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
                 
                 set<int64_t> expected_node_ids{n0->id()};
                 
@@ -462,7 +462,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
                 
                 set<int64_t> expected_node_ids{n0->id()};
                 
@@ -510,7 +510,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, true);
                 
                 set<int64_t> expected_node_ids{n0->id(), n1->id()};
                 
@@ -622,7 +622,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, true);
                 
                 REQUIRE( g.node_size() == 4 );
                 REQUIRE( g.edge_size() == 8 );
@@ -769,7 +769,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, true);
                 
                 REQUIRE( g.node_size() == 6 );
                 REQUIRE( g.edge_size() == 10 );
@@ -943,7 +943,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, true);
                 
                 REQUIRE( g.node_size() == 5 );
                 REQUIRE( g.edge_size() == 8 );
@@ -1090,7 +1090,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, true);
                 
                 REQUIRE( g.node_size() == 4 );
                 REQUIRE( g.edge_size() == 8 );
@@ -1237,7 +1237,7 @@ namespace vg {
                 
                 Graph g;
                 
-                auto trans = algorithms::extract_connecting_graph(vg, g, max_len, pos_1, pos_2, false, true);
+                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, true);
                 
                 REQUIRE( g.node_size() == 5 );
                 REQUIRE( g.edge_size() == 18 );
@@ -1469,7 +1469,7 @@ namespace vg {
                 {
                     Graph g;
                     
-                    auto trans = algorithms::extract_connecting_graph(vg, g, max_len,
+                    auto trans = algorithms::extract_connecting_graph(&vg, g, max_len,
                                                                       make_pos_t(n0->id(), false, 0),
                                                                       make_pos_t(n0->id(), false, 2),
                                                                       true);
@@ -1482,7 +1482,7 @@ namespace vg {
                 {
                     Graph g;
                     
-                    auto trans = algorithms::extract_connecting_graph(vg, g, max_len,
+                    auto trans = algorithms::extract_connecting_graph(&vg, g, max_len,
                                                                       make_pos_t(n0->id(), true, 0),
                                                                       make_pos_t(n0->id(), true, 2),
                                                                       true);
@@ -1500,7 +1500,7 @@ namespace vg {
                 {
                     Graph g;
                     
-                    auto trans = algorithms::extract_connecting_graph(vg, g, max_len,
+                    auto trans = algorithms::extract_connecting_graph(&vg, g, max_len,
                                                                       make_pos_t(n0->id(), false, 0),
                                                                       make_pos_t(n1->id(), false, 2),
                                                                       true);
@@ -1536,7 +1536,7 @@ namespace vg {
                 {
                     Graph g;
                     
-                    auto trans = algorithms::extract_connecting_graph(vg, g, max_len,
+                    auto trans = algorithms::extract_connecting_graph(&vg, g, max_len,
                                                                       make_pos_t(n1->id(), true, 1),
                                                                       make_pos_t(n0->id(), true, 2),
                                                                       true);
@@ -1575,7 +1575,7 @@ namespace vg {
                 {
                     Graph g;
                     
-                    auto trans = algorithms::extract_connecting_graph(vg, g, 0,
+                    auto trans = algorithms::extract_connecting_graph(&vg, g, 0,
                                                                       make_pos_t(n0->id(), true, 0),
                                                                       make_pos_t(n0->id(), true, 0),
                                                                       true);
@@ -1588,7 +1588,7 @@ namespace vg {
                 {
                     Graph g;
                     
-                    auto trans = algorithms::extract_connecting_graph(vg, g, 5,
+                    auto trans = algorithms::extract_connecting_graph(&vg, g, 5,
                                                                       make_pos_t(n0->id(), false, 0),
                                                                       make_pos_t(n1->id(), false, 2),
                                                                       true);
@@ -1626,7 +1626,7 @@ namespace vg {
                 {
                     Graph g;
                     
-                    auto trans = algorithms::extract_connecting_graph(vg, g, 4,
+                    auto trans = algorithms::extract_connecting_graph(&vg, g, 4,
                                                                       make_pos_t(n0->id(), false, 0),
                                                                       make_pos_t(n1->id(), false, 2),
                                                                       true);
@@ -1640,7 +1640,7 @@ namespace vg {
                 {
                     Graph g;
                     
-                    auto trans = algorithms::extract_connecting_graph(vg, g, 10,
+                    auto trans = algorithms::extract_connecting_graph(&vg, g, 10,
                                                                       make_pos_t(n1->id(), false, 3),
                                                                       make_pos_t(n6->id(), false, 0),
                                                                       true, false);
@@ -1736,7 +1736,7 @@ namespace vg {
                 {
                     Graph g;
                     
-                    auto trans = algorithms::extract_connecting_graph(vg, g, 10,
+                    auto trans = algorithms::extract_connecting_graph(&vg, g, 10,
                                                                       make_pos_t(n1->id(), false, 3),
                                                                       make_pos_t(n6->id(), false, 0),
                                                                       true, false, true);
@@ -1821,7 +1821,7 @@ namespace vg {
                 {
                     Graph g;
                     
-                    auto trans = algorithms::extract_connecting_graph(vg, g, 10,
+                    auto trans = algorithms::extract_connecting_graph(&vg, g, 10,
                                                                       make_pos_t(n1->id(), false, 3),
                                                                       make_pos_t(n6->id(), false, 0),
                                                                       true, false, true, true);
@@ -1889,7 +1889,7 @@ namespace vg {
                 {
                     Graph g;
                     
-                    auto trans = algorithms::extract_connecting_graph(vg, g, 4,
+                    auto trans = algorithms::extract_connecting_graph(&vg, g, 4,
                                                                       make_pos_t(n1->id(), false, 3),
                                                                       make_pos_t(n6->id(), false, 0),
                                                                       true, false, true, true, true);

@@ -1,5 +1,5 @@
-#ifndef VG_EXTRACT_CONNECTING_GRAPH_HPP
-#define VG_EXTRACT_CONNECTING_GRAPH_HPP
+#ifndef VG_ALGORITHMS_EXTRACT_CONNECTING_GRAPH_HPP_INCLUDED
+#define VG_ALGORITHMS_EXTRACT_CONNECTING_GRAPH_HPP_INCLUDED
 
 /**
  * \file extract_connecting_graph.cpp
@@ -11,8 +11,7 @@
 
 #include "../position.hpp"
 #include "../cached_position.hpp"
-#include "../xg.hpp"
-#include "../vg.hpp"
+#include "../handle.hpp"
 #include "../vg.pb.h"
 #include "../hash_map.hpp"
 
@@ -31,7 +30,7 @@ namespace algorithms {
     /// empty when passed to function.
     ///
     /// Args:
-    ///  vg                         graph to extract subgraph from
+    ///  source                    graph to extract subgraph from
     ///  g                          graph to extract into
     ///  max_len                    guarantee finding paths along which pos_1 and pos_2 are this distance apart
     ///  pos_1                      start position, subgraph paths begin from here in same orientation
@@ -44,25 +43,13 @@ namespace algorithms {
     ///                             pos_2 (implies no_additional_tips = true)
     ///  strict_max_len             only extract nodes and edges if they fall on some path between pos_1 and
     ///                             pos_2 that is under the maximum length (implies only_paths = true)
-    unordered_map<id_t, id_t> extract_connecting_graph(VG& vg, Graph& g, int64_t max_len,
+    unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source, Graph& g, int64_t max_len,
                                                        pos_t pos_1, pos_t pos_2,
                                                        bool include_terminal_positions = false,
                                                        bool detect_terminal_cycles = false,
                                                        bool no_additional_tips = false,
                                                        bool only_paths = false,
                                                        bool strict_max_len = false);
-    
-    
-    /// Same semantics as previous, but accesses graph through an XG instead of a VG. Optionally uses
-    /// an LRUCache to speed up Node queries (recommended for detecting terminal cycles in particular).
-    unordered_map<id_t, id_t> extract_connecting_graph(xg::XG& xg_index, Graph& g, int64_t max_len,
-                                                       pos_t pos_1, pos_t pos_2,
-                                                       bool include_terminal_positions = false,
-                                                       bool detect_terminal_cycles = false,
-                                                       bool no_additional_tips = false,
-                                                       bool only_paths = false,
-                                                       bool strict_max_len = false,
-                                                       LRUCache<id_t, Node>* node_cache = nullptr);
 
 }
 }

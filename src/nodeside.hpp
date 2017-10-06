@@ -1,5 +1,5 @@
-#ifndef VG_NODESIDE_HPP
-#define VG_NODESIDE_HPP
+#ifndef VG_NODESIDE_HPP_INCLUDED
+#define VG_NODESIDE_HPP_INCLUDED
 
 #include <ostream>
 #include <utility>

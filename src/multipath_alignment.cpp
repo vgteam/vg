@@ -31,15 +31,16 @@ namespace vg {
     
     int32_t optimal_alignment_internal(const MultipathAlignment& multipath_aln, Alignment* aln_out) {
         // initialize DP structures
-        
+                
         // score of the optimal alignment ending in this subpath
-        vector<int32_t> prefix_score(multipath_aln.subpath_size(), 0);
+        vector<int32_t> prefix_score(multipath_aln.subpath_size(), numeric_limits<int32_t>::min());
         // previous subpath for traceback (we refer to subpaths by their index)
-        vector<int64_t> prev_subpath(multipath_aln.subpath_size(), 0);
+        vector<int64_t> prev_subpath(multipath_aln.subpath_size());
         
         // add sentinel for alignment start as base case
         for (size_t i = 0; i < multipath_aln.start_size(); i++) {
             prev_subpath[multipath_aln.start(i)] = -1;
+            prefix_score[multipath_aln.start(i)] = 0;
         }
         
         int32_t opt_score = 0;

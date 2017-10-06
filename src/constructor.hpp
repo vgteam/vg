@@ -1,5 +1,5 @@
-#ifndef VG_CONSTRUCTOR_HPP
-#define VG_CONSTRUCTOR_HPP
+#ifndef VG_CONSTRUCTOR_HPP_INCLUDED
+#define VG_CONSTRUCTOR_HPP_INCLUDED
 
 /** \file
  * constructor.hpp: defines a tool class used for constructing VG graphs from
