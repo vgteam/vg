@@ -2754,6 +2754,50 @@ namespace vg {
                 }
                
             }
+            
+            SECTION( "algorithms::topological_sort produces a consistent total ordering and orientation" ) {
+                auto handle_sort = algorithms::topological_sort(&vg);
+
+                SECTION( "Ordering and orientation is consistent" ) {
+                
+                    unordered_map<id_t, handle_t> oriented;
+                    
+                    for (auto& handle : handle_sort) {
+                        // For each oriented node
+                        
+                        // What was before it
+                        vector<handle_t> prev_handles;
+                        vg.follow_edges(handle, true, [&](const handle_t& prev) {
+                            prev_handles.push_back(prev);
+                        });
+                        
+                        for (auto& prev : prev_handles) {
+                            // We should have visited this already
+                            REQUIRE(oriented.count(vg.get_id(prev)) != 0);
+                            // And it should have been in the correct orientation
+                            REQUIRE(oriented.at(vg.get_id(prev)) == prev);
+                        }
+                        
+                        // Remember we were here in this orientation
+                        oriented.insert(make_pair(vg.get_id(handle), handle));
+                    }
+                    
+                }
+                
+                SECTION( "All nodes are placed" ) {
+                    REQUIRE(handle_sort.size() == vg.node_size());
+                
+                    unordered_set<id_t> found;
+                    
+                    for (auto& handle : handle_sort) {
+                        found.insert(vg.get_id(handle));
+                    }
+                    
+                    REQUIRE(found.size() == vg.node_size());
+                    
+                }
+               
+            }
         }
     }
 }
