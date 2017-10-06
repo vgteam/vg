@@ -86,25 +86,27 @@ int main_benchmark(int argc, char** argv) {
     omp_set_nested(1);
     
     // Generate a test graph
-    VG vg;
+    VG vg_mut;
     for (size_t i = 1; i < 101; i++) {
         // It will have 100 nodes
-        vg.create_node("ACGTACGT", i);
+        vg_mut.create_node("ACGTACGT", i);
     }
     size_t bits = 1;
     for (size_t i = 1; i < 101; i++) {
         for (size_t j = 1; j < 101; j++) {
             if ((bits ^ (i + (j << 3))) % 50 == 0) {
                 // Make some arbitrary edges
-                vg.create_edge(i, j, false, false);
+                vg_mut.create_edge(i, j, false, false);
             }
             // Shifts and xors make good PRNGs right?
             bits = bits ^ (bits << 13) ^ j;            
         }
     }
     
+    const VG vg(vg_mut);
+    
     // And a test XG of it
-    xg::XG xg_index(vg.graph);
+    const xg::XG xg_index(vg_mut.graph);
     
     vector<BenchmarkResult> results;
     
@@ -114,16 +116,43 @@ int main_benchmark(int argc, char** argv) {
     }));
     
     results.push_back(run_benchmark("VG direct topological_sort", 1000, [&]() {
+        vg_mut = vg;
+    }, [&]() {
         vector<NodeTraversal> order;
-        vg.topological_sort(order);
-        assert(order.size() == vg.node_size());
+        vg_mut.topological_sort(order);
+        assert(order.size() == vg_mut.node_size());
+    }));
+    
+    results.push_back(run_benchmark("vg::algorithms sort", 1000, [&]() {
+        vg_mut = vg;
+    }, [&]() {
+        algorithms::sort(&vg_mut);
+    }));
+    
+    results.push_back(run_benchmark("VG direct sort", 1000, [&]() {
+        vg_mut = vg;
+    }, [&]() {
+        vg_mut.sort();
+    }));
+    
+    results.push_back(run_benchmark("vg::algorithms orient_nodes_forward", 1000, [&]() {
+        vg_mut = vg;
+    }, [&]() {
+        algorithms::orient_nodes_forward(&vg_mut);
+    }));
+    
+    results.push_back(run_benchmark("VG direct orient_nodes_forward", 1000, [&]() {
+        vg_mut = vg;
+    }, [&]() {
+        std::set<vg::id_t> flipped;
+        vg_mut.orient_nodes_forward(flipped);
     }));
 
     
     results.push_back(run_benchmark("VG::get_node", 1000, [&]() {
         for (size_t rep = 0; rep < 100; rep++) {
             for (size_t i = 1; i < 101; i++) {
-                vg.get_node(i);
+                vg_mut.get_node(i);
             }
         }
     }));

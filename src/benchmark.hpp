@@ -59,6 +59,11 @@ void benchmark_control();
  */
 BenchmarkResult run_benchmark(const string& name, size_t iterations, const function<void(void)>& under_test);
 
+/**
+ * Run a benchmark with a setup function.
+ */
+BenchmarkResult run_benchmark(const string& name, size_t iterations, const function<void(void)>&  setup, const function<void(void)>& under_test);
+
 
 }
 

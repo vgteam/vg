@@ -248,5 +248,48 @@ vector<handle_t> topological_sort(const HandleGraph* g) {
 
 }
 
+void sort(MutableHandleGraph* g) {
+    if (g->node_size() <= 1) {
+        // A graph with <2 nodes has only one sort.
+        return;
+    }
+    
+    // No need to modify the graph; topological_sort is guaranteed to be stable.
+    
+    // Topologically sort, which orders and orients all the nodes.
+    vector<handle_t> sorted = topological_sort(g);
+    
+    size_t index = 0;
+    g->for_each_handle([&](const handle_t& at_index) {
+        // For each handle in the graph, along with its index
+        
+        // Swap the handle we observe at this index with the handle that we know belongs at this index.
+        // The loop invariant is that all the handles before index are the correct sorted handles in the right order.
+        // Note that this ignores orientation
+        g->swap_handles(at_index, sorted.at(index));
+        
+        // Now we've written the sorted handles through one more space.
+        index++;
+    });
+}
+
+unordered_set<id_t> orient_nodes_forward(MutableHandleGraph* g) {
+    // Topologically sort, which orders and orients all the nodes.
+    vector<handle_t> sorted = topological_sort(g);
+    
+    // Track what we flip
+    unordered_set<id_t> flipped;
+    for (auto& handle : sorted) {
+        if (g->get_is_reverse(handle)) {
+            // This needs to be flipped
+            flipped.insert(g->get_id(handle));
+            // Flip it
+            g->apply_orientation(handle);
+        }
+    }
+    
+    return flipped;
+}
+    
 }
 }

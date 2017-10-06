@@ -24,10 +24,12 @@ using namespace std;
 vector<handle_t> head_nodes(const HandleGraph* g);
 
 /// Find all of the nodes with no edges on their right sides.
-vector<handle_t> head_nodes(const HandleGraph* g);
+vector<handle_t> tail_nodes(const HandleGraph* g);
 
 /**
- * Order and orient the nodes in the graph using a topological sort.
+ * Order and orient the nodes in the graph using a topological sort. The sort is
+ * guaranteed to be machine-independent given the initial graph's node and edge
+ * ordering.
  * 
  * We use a bidirected adaptation of Kahn's topological sort (1962), which can handle components with no heads or tails.
  * 
@@ -53,6 +55,20 @@ vector<handle_t> head_nodes(const HandleGraph* g);
  *     return L (a topologically sorted order and orientation)
  */
 vector<handle_t> topological_sort(const HandleGraph* g);
+
+/**
+ * Topologically sort the given handle graph, and then apply that sort to re-
+ * order the nodes of the graph. The sort is guaranteed to be stable.
+ */
+void sort(MutableHandleGraph* g);
+
+/**
+ * Topologically sort the given handle graph, and then apply that sort to orient
+ * all the nodes in the global forward direction. May invalidate any paths
+ * stored by the graph. The re-orientation is guaranteed to be stable.
+ * Invalidates all handles into the graph (since any node might be flipped).
+ */
+unordered_set<id_t> orient_nodes_forward(MutableHandleGraph* g);
                                                       
 }
 }
