@@ -17,6 +17,7 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include "../algorithms/extract_connecting_graph.hpp"
+#include "../algorithms/topological_sort.hpp"
 
 
 
@@ -107,8 +108,17 @@ int main_benchmark(int argc, char** argv) {
     
     vector<BenchmarkResult> results;
     
-    // Do the control against itself
-    results.push_back(run_benchmark("control", 1000, benchmark_control));
+    results.push_back(run_benchmark("vg::algorithms topological_sort", 1000, [&]() {
+        vector<handle_t> order = algorithms::topological_sort(&vg);
+        assert(order.size() == vg.node_size());
+    }));
+    
+    results.push_back(run_benchmark("VG direct topological_sort", 1000, [&]() {
+        vector<NodeTraversal> order;
+        vg.topological_sort(order);
+        assert(order.size() == vg.node_size());
+    }));
+
     
     results.push_back(run_benchmark("VG::get_node", 1000, [&]() {
         for (size_t rep = 0; rep < 100; rep++) {
@@ -143,7 +153,8 @@ int main_benchmark(int argc, char** argv) {
     
     }));
     
-                
+    // Do the control against itself
+    results.push_back(run_benchmark("control", 1000, benchmark_control));
 
     cout << "# Benchmark results for vg " << VG_VERSION_STRING << endl;
     cout << "# runs\ttest(us)\tstddev(us)\tcontrol(us)\tstddev(us)\tscore\terr\tname" << endl;

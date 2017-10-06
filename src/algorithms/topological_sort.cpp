@@ -5,7 +5,7 @@ namespace algorithms {
 
 using namespace std;
 
-vector<handle_t>&& head_nodes(const HandleGraph* g) {
+vector<handle_t> head_nodes(const HandleGraph* g) {
     vector<handle_t> to_return;
     g->for_each_handle([&](const handle_t& found) {
         // For each (locally forward) node
@@ -23,11 +23,11 @@ vector<handle_t>&& head_nodes(const HandleGraph* g) {
         }
     });
     
-    return move(to_return);
+    return to_return;
     
 }
 
-vector<handle_t>&& tail_nodes(const HandleGraph* g) {
+vector<handle_t> tail_nodes(const HandleGraph* g) {
     vector<handle_t> to_return;
     g->for_each_handle([&](const handle_t& found) {
         // For each (locally forward) node
@@ -45,11 +45,11 @@ vector<handle_t>&& tail_nodes(const HandleGraph* g) {
         }
     });
     
-    return move(to_return);
+    return to_return;
     
 }
 
-vector<handle_t>&& topological_sort(const HandleGraph* g) {
+vector<handle_t> topological_sort(const HandleGraph* g) {
     
     // Make a vector to hold the ordered and oriented nodes.
     vector<handle_t> sorted;
@@ -244,7 +244,7 @@ vector<handle_t>&& topological_sort(const HandleGraph* g) {
     }
 
     // Send away our sorted ordering.
-    return move(sorted);
+    return sorted;
 
 }
 
