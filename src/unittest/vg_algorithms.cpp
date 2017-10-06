@@ -12,6 +12,7 @@
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
+#include "algorithms/topological_sort.hpp"
 #include "vg.hpp"
 #include "json2pb.h"
 
@@ -2707,6 +2708,51 @@ namespace vg {
                 REQUIRE(found_edge_3);
                 REQUIRE(found_edge_4);
                 REQUIRE(found_edge_5);
+            }
+        }
+        
+        TEST_CASE( "Topological sort works",
+                  "[algorithms]" ) {
+            
+            VG vg;
+            
+            Node* n0 = vg.create_node("CGA");
+            Node* n1 = vg.create_node("TTGG");
+            Node* n2 = vg.create_node("CCGT");
+            Node* n3 = vg.create_node("C");
+            Node* n4 = vg.create_node("GT");
+            Node* n5 = vg.create_node("GATAA");
+            Node* n6 = vg.create_node("CGG");
+            Node* n7 = vg.create_node("ACA");
+            Node* n8 = vg.create_node("GCCG");
+            Node* n9 = vg.create_node("ATATAAC");
+            
+            vg.create_edge(n1, n0, true, true); // a doubly reversing edge to keep it interesting
+            vg.create_edge(n1, n2);
+            vg.create_edge(n2, n3);
+            vg.create_edge(n2, n4);
+            vg.create_edge(n3, n5);
+            vg.create_edge(n4, n5);
+            vg.create_edge(n5, n6);
+            vg.create_edge(n5, n8);
+            vg.create_edge(n6, n7);
+            vg.create_edge(n6, n8);
+            vg.create_edge(n7, n9);
+            vg.create_edge(n8, n9);
+            
+            SECTION( "algorithms::topological_sort agrees with VG::topological_sort" ) {
+                auto handle_sort = algorithms::topological_sort(&vg);
+                
+                vector<NodeTraversal> builtin_sort;
+                vg.topological_sort(builtin_sort);
+                
+                REQUIRE(handle_sort.size() == builtin_sort.size());
+                
+                for (size_t i = 0; i < handle_sort.size(); i++) {
+                    REQUIRE(vg.get_id(handle_sort[i]) == builtin_sort[i].node->id());
+                    REQUIRE(vg.get_is_reverse(handle_sort[i]) == builtin_sort[i].backward);
+                }
+               
             }
         }
     }
