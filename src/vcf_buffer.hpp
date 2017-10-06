@@ -1,5 +1,5 @@
-#ifndef VG_VCF_BUFFER_HPP
-#define VG_VCF_BUFFER_HPP
+#ifndef VG_VCF_BUFFER_HPP_INCLUDED
+#define VG_VCF_BUFFER_HPP_INCLUDED
 
 /** \file
  * vcf_buffer.hpp: defines a buffer for reading through VCF files with

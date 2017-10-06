@@ -1,5 +1,5 @@
-#ifndef SUCCINCT_GRAPH_SG_HPP
-#define SUCCINCT_GRAPH_SG_HPP
+#ifndef VG_XG_HPP_INCLUDED
+#define VG_XG_HPP_INCLUDED
 
 #include <iostream>
 #include <fstream>
@@ -229,6 +229,8 @@ public:
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
     virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const;
+    /// Return the number of nodes in the graph
+    virtual size_t node_size() const;
 
     ////////////////////////////////////////////////////////////////////////////
     // Higher-level graph API

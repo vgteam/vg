@@ -125,6 +125,9 @@ public:
     // Copy over the template for nice calls
     using HandleGraph::for_each_handle;
     
+    /// Return the number of nodes in the graph
+    virtual size_t node_size() const;
+    
     ////////////////////////////////////////////////////////////////////////////
     // Mutable handle-based interface
     ////////////////////////////////////////////////////////////////////////////
@@ -580,10 +583,11 @@ public:
     /// Add in the given edges, by value.
     void add_edges(const set<Edge*>& edges);
 
-    /// Count the number of nodes in the graph.
-    id_t node_count(void);
+    
+    /// Return the number of nodes in the graph
+    size_t node_count(void) const;
     /// Count the number of edges in the graph.
-    id_t edge_count(void);
+    size_t edge_count(void) const;
     /// Get the total sequence length of nodes in the graph.
     /// TODO: redundant with length().
     id_t total_length_of_nodes(void);

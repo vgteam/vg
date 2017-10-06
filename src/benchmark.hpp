@@ -1,5 +1,5 @@
-#ifndef VG_BENCHMARK_HPP
-#define VG_BENCHMARK_HPP
+#ifndef VG_BENCHMARK_HPP_INCLUDED
+#define VG_BENCHMARK_HPP_INCLUDED
 
 #include <chrono>
 #include <functional>

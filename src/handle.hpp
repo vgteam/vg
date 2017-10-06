@@ -114,6 +114,10 @@ public:
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
     virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const = 0;
     
+    /// Return the number of nodes in the graph
+    /// TODO: can't be node_count because XG has a field named node_count.
+    virtual size_t node_size() const = 0;
+    
     /// Loop over all the handles to next/previous (right/left) nodes. Works
     /// with a callback that just takes all the handles and returns void.
     /// MUST be pulled into implementing classes with `using` in order to work!
@@ -197,9 +201,7 @@ public:
 };
 
 /**
- * This is the interface for a handle graph that supports modification. If the
- * graph keeps an index of paths, all operations must also modify the stored
- * paths. The paths are never allowed to be inconsistent with the graph.
+ * This is the interface for a handle graph that supports modification.
  */
 class MutableHandleGraph : public HandleGraph {
 public:
@@ -207,6 +209,7 @@ public:
     virtual handle_t create_handle(const string& sequence) = 0;
     
     /// Remove the node belonging to the given handle and all of its edges.
+    /// Does not update any stored paths.
     virtual void destroy_handle(const handle_t& handle) = 0;
     
     /// Create an edge connecting the given handles in the given order and orientations.
@@ -215,6 +218,7 @@ public:
     
     /// Remove the edge connecting the given handles in the given order and orientations.
     /// Ignores nonexistent edges.
+    /// Does not update any stored paths.
     virtual void destroy_edge(const handle_t& left, const handle_t& right) = 0;
     
     /// Swap the nodes corresponding to the given handles, in the ordering used
@@ -228,6 +232,7 @@ public:
     /// reflect this. Invalidates all handles to the node (including the one
     /// passed). Returns a new, valid handle to the node in its new forward
     /// orientation. Note that it is possible for the node's ID to change.
+    /// Does not update any stored paths.
     virtual handle_t apply_orientation(const handle_t& handle) = 0;
     
     /// Split a handle's underlying node at the given offsets in the handle's
@@ -236,6 +241,7 @@ public:
     /// same local forward orientation as the original node, but the returned
     /// handles come in the order and orientation appropriate for the handle
     /// passed in.
+    /// Updates stored paths.
     virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets) = 0;
     
     /// Specialization of divide_handle for a single division point

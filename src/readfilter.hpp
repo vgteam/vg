@@ -1,5 +1,5 @@
-#ifndef VG_READFILTER_HPP
-#define VG_READFILTER_HPP
+#ifndef VG_READFILTER_HPP_INCLUDED
+#define VG_READFILTER_HPP_INCLUDED
 
 #include <vector>
 #include <cstdlib>
