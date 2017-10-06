@@ -118,7 +118,7 @@ string VG::get_sequence(const handle_t& handle) const {
     
 }
 
-void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+void VG::follow_some_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
     // Are we reverse?
     bool is_reverse = get_is_reverse(handle);
     
@@ -140,7 +140,7 @@ void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     }
 }
 
-void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
+void VG::for_some_handles(const function<bool(const handle_t&)>& iteratee) const {
     for (id_t i = 0; i < graph.node_size(); ++i) {
         // For each node in the backing graph
         // Get its ID and make a handle to it forward

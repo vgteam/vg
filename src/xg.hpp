@@ -222,13 +222,13 @@ public:
     /// Get the sequence of a node, presented in the handle's local forward
     /// orientation.
     virtual string get_sequence(const handle_t& handle) const;
-    /// Loop over all the handles to next/previous (right/left) nodes. Passes
-    /// them to a callback which returns false to stop iterating and true to
-    /// continue.
-    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
-    /// Loop over all the nodes in the graph in their local forward
+    /// Loop over some of the handles to next/previous (right/left) nodes.
+    /// Passes them to a callback which returns false to stop iterating and true
+    /// to continue.
+    virtual void follow_some_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
+    /// Loop over some of the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const;
+    virtual void for_some_handles(const function<bool(const handle_t&)>& iteratee) const;
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
 

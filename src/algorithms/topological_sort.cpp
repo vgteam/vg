@@ -5,13 +5,13 @@ namespace algorithms {
 
 using namespace std;
 
-vector<handle_t>&& head_nodes(const HandleGraph* g) {
+vector<handle_t> head_nodes(const HandleGraph* g) {
     vector<handle_t> to_return;
-    g->for_each_handle([&](const handle_t& found) {
+    g->for_each_handle([&](const handle_t& found) -> void {
         // For each (locally forward) node
         
         bool no_left_edges = true;
-        g->follow_edges(found, true, [&](const handle_t& ignored) {
+        g->follow_some_edges(found, true, [&](const handle_t& ignored) -> bool {
             // We found a left edge!
             no_left_edges = false;
             // We only need one
@@ -23,17 +23,17 @@ vector<handle_t>&& head_nodes(const HandleGraph* g) {
         }
     });
     
-    return move(to_return);
+    return to_return;
     
 }
 
-vector<handle_t>&& tail_nodes(const HandleGraph* g) {
+vector<handle_t> tail_nodes(const HandleGraph* g) {
     vector<handle_t> to_return;
-    g->for_each_handle([&](const handle_t& found) {
+    g->for_each_handle([&](const handle_t& found) -> void {
         // For each (locally forward) node
         
         bool no_right_edges = true;
-        g->follow_edges(found, false, [&](const handle_t& ignored) {
+        g->follow_some_edges(found, false, [&](const handle_t& ignored) -> bool {
             // We found a right edge!
             no_right_edges = false;
             // We only need one
@@ -45,11 +45,11 @@ vector<handle_t>&& tail_nodes(const HandleGraph* g) {
         }
     });
     
-    return move(to_return);
+    return to_return;
     
 }
 
-vector<handle_t>&& topological_sort(const HandleGraph* g) {
+vector<handle_t> topological_sort(const HandleGraph* g) {
     
     // Make a vector to hold the ordered and oriented nodes.
     vector<handle_t> sorted;
@@ -63,8 +63,8 @@ vector<handle_t>&& topological_sort(const HandleGraph* g) {
     map<id_t, handle_t> s;
 
     // We find the head and tails, if there are any
-    vector<handle_t> heads{head_nodes(g)};
-    vector<handle_t> tails{tail_nodes(g)};
+    vector<handle_t> heads = head_nodes(g);
+    vector<handle_t> tails = tail_nodes(g);
 
     // We'll fill this in with the heads, so we can orient things according to
     // them first, and then arbitrarily. We ignore tails since we only orient
@@ -195,7 +195,7 @@ vector<handle_t>&& topological_sort(const HandleGraph* g) {
 #endif
 
                     bool unmasked_incoming_edge = false;
-                    g->follow_edges(next_node, true, [&](const handle_t& prev_node) {
+                    g->follow_some_edges(next_node, true, [&](const handle_t& prev_node) {
                         // Get a handle for each incoming edge
                         auto prev_edge = g->edge_handle(prev_node, next_node);
                         
@@ -244,7 +244,7 @@ vector<handle_t>&& topological_sort(const HandleGraph* g) {
     }
 
     // Send away our sorted ordering.
-    return move(sorted);
+    return sorted;
 
 }
 
