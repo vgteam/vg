@@ -1,4 +1,5 @@
 #include "genotypekit.hpp"
+#include "algorithms/topological_sort.hpp"
 
 //#define debug
 
@@ -211,7 +212,7 @@ CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
     graph(graph), hint_path_name(hint_path_name), filter_trivial_bubbles(filter_trivial_bubbles) {
     // Make sure the graph is sorted.
     // cactus needs the nodes to be sorted in order to find a source and sink.
-    graph.sort();
+    algorithms::sort(&graph);
 }
 
 

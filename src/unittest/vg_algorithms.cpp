@@ -2740,21 +2740,6 @@ namespace vg {
             vg.create_edge(n7, n9);
             vg.create_edge(n8, n9);
             
-            SECTION( "algorithms::topological_sort agrees with VG::topological_sort" ) {
-                auto handle_sort = algorithms::topological_sort(&vg);
-                
-                vector<NodeTraversal> builtin_sort;
-                vg.topological_sort(builtin_sort);
-                
-                REQUIRE(handle_sort.size() == builtin_sort.size());
-                
-                for (size_t i = 0; i < handle_sort.size(); i++) {
-                    REQUIRE(vg.get_id(handle_sort[i]) == builtin_sort[i].node->id());
-                    REQUIRE(vg.get_is_reverse(handle_sort[i]) == builtin_sort[i].backward);
-                }
-               
-            }
-            
             SECTION( "algorithms::topological_sort produces a consistent total ordering and orientation" ) {
                 auto handle_sort = algorithms::topological_sort(&vg);
 

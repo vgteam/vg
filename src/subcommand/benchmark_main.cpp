@@ -115,24 +115,10 @@ int main_benchmark(int argc, char** argv) {
         assert(order.size() == vg.node_size());
     }));
     
-    results.push_back(run_benchmark("VG direct topological_sort", 1000, [&]() {
-        vg_mut = vg;
-    }, [&]() {
-        vector<NodeTraversal> order;
-        vg_mut.topological_sort(order);
-        assert(order.size() == vg_mut.node_size());
-    }));
-    
     results.push_back(run_benchmark("vg::algorithms sort", 1000, [&]() {
         vg_mut = vg;
     }, [&]() {
         algorithms::sort(&vg_mut);
-    }));
-    
-    results.push_back(run_benchmark("VG direct sort", 1000, [&]() {
-        vg_mut = vg;
-    }, [&]() {
-        vg_mut.sort();
     }));
     
     results.push_back(run_benchmark("vg::algorithms orient_nodes_forward", 1000, [&]() {
@@ -140,14 +126,6 @@ int main_benchmark(int argc, char** argv) {
     }, [&]() {
         algorithms::orient_nodes_forward(&vg_mut);
     }));
-    
-    results.push_back(run_benchmark("VG direct orient_nodes_forward", 1000, [&]() {
-        vg_mut = vg;
-    }, [&]() {
-        std::set<vg::id_t> flipped;
-        vg_mut.orient_nodes_forward(flipped);
-    }));
-
     
     results.push_back(run_benchmark("VG::get_node", 1000, [&]() {
         for (size_t rep = 0; rep < 100; rep++) {

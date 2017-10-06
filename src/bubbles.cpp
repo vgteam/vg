@@ -1,6 +1,7 @@
 #include <unordered_set>
 #include "bubbles.hpp"
 #include "vg.hpp"
+#include "algorithms/topological_sort.hpp"
 
 extern "C" {
 #include "sonLib.h"
@@ -68,7 +69,7 @@ map<pair<id_t, id_t>, vector<id_t> > superbubbles(VG& graph) {
     // flip doubly reversed edges
     graph.flip_doubly_reversed_edges();
     // ensure we're sorted
-    graph.sort();
+    algorithms::sort(&graph);
     // if we have a DAG, then we can find all the nodes in each superbubble
     // in constant time as they lie in the range between the entry and exit node
     auto supbubs = get_superbubbles(graph);
@@ -375,7 +376,7 @@ BubbleTree* ultrabubble_tree(VG& graph) {
 
 map<pair<id_t, id_t>, vector<id_t> > ultrabubbles(VG& graph) {
 
-    graph.sort();
+    algorithms::sort(&graph);
     map<pair<id_t, id_t>, vector<id_t> > output;
 
     BubbleTree* bubble_tree = ultrabubble_tree(graph);
