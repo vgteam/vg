@@ -193,6 +193,7 @@ public:
     find_mems_deep(string::const_iterator seq_begin,
                    string::const_iterator seq_end,
                    double& lcp_avg,
+                   double& fraction_filtered,
                    int max_mem_length = 0,
                    int min_mem_length = 1,
                    int reseed_length = 0,
@@ -412,6 +413,7 @@ private:
                                       vector<MaximalExactMatch>& mems,
                                       double& cluster_mq,
                                       double lcp_avg,
+                                      double fraction_filtered,
                                       int max_mem_length,
                                       int keep_multimaps,
                                       int additional_multimaps);
@@ -448,7 +450,7 @@ public:
                          double pval);
 
     /// use the fragment configuration statistics to rescue more precisely
-    pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bool traceback);
+    pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, int full_length_bonus, bool traceback);
 
     /// assuming the read has only been score-aligned, realign from the end position backwards
     Alignment realign_from_start_position(const Alignment& aln, int extra, int iteration);
@@ -616,6 +618,9 @@ public:
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
     float mq_overlap; // consider as alternative mappings any alignment with this overlap with our best
     int mate_rescues;
+
+    double pair_rescue_hang_threshold;
+    double pair_rescue_retry_threshold;
     
     // Keep track of fragment length distribution statistics
     FragmentLengthStatistics frag_stats;

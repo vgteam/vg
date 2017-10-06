@@ -10,16 +10,13 @@
 
 namespace vg {
 namespace algorithms {
-    unordered_map<id_t, id_t> extract_connecting_graph_internal(Graph& g, int64_t max_len,
-                                                                pos_t pos_1, pos_t pos_2,
-                                                                bool include_terminal_positions,
-                                                                bool detect_terminal_cycles,
-                                                                bool no_additional_tips,
-                                                                bool only_paths,
-                                                                bool strict_max_len,
-                                                                function<vector<Edge>(id_t)> edges_on_start,
-                                                                function<vector<Edge>(id_t)> edges_on_end,
-                                                                function<string(id_t)> node_sequence) {
+    unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source, Graph& g, int64_t max_len,
+                                                       pos_t pos_1, pos_t pos_2,
+                                                       bool include_terminal_positions,
+                                                       bool detect_terminal_cycles,
+                                                       bool no_additional_tips,
+                                                       bool only_paths,
+                                                       bool strict_max_len) {
 #ifdef debug_vg_algorithms
         cerr << "[extract_connecting_graph] max len: " << max_len << ", pos 1: " << pos_1 << ", pos 2: " << pos_2 << endl;
 #endif
@@ -39,14 +36,11 @@ namespace algorithms {
             vector<pair<id_t, bool>> edges_right;
         };
         
-        // a local struct that packages a node traversal with its distance from the first position
-        // note: we don't use NodeTraversals because we may be using an XG, in which case we don't
-        // have Node*'s
+        // a local struct that packages a handle with its distance from the first position
         struct Traversal {
-            Traversal(id_t id, bool rev, int64_t dist) : id(id), rev(rev), dist(dist) {}
-            int64_t dist; // distance from pos_1 to the right side of this node
-            id_t id;      // node ID
-            bool rev;     // strand
+            Traversal(handle_t handle, int64_t dist) : handle(handle), dist(dist) {}
+            int64_t dist; // distance from pos to the right side of this node
+            handle_t handle; // Oriented node traversal
             inline bool operator<(const Traversal& other) const {
                 return dist > other.dist; // opposite order so priority queue selects minimum
             }
@@ -54,21 +48,6 @@ namespace algorithms {
         
         // local enum to keep track of the cases where the positions are on the same node
         enum colocation_t {SeparateNodes, SharedNodeReachable, SharedNodeUnreachable, SharedNodeReverse};
-        
-        // represent an edge in a canonical ((from, from_start), (to, to_end)) format so that a hash can
-        // identify edges as the same or different
-        auto canonical_form_edge = [](const id_t& id, const bool& left_side, const id_t& to_id, const bool& reversing) {
-            if (id < to_id) {
-                return make_pair(make_pair(id, left_side), make_pair(to_id, left_side != reversing));
-            }
-            else if (to_id < id) {
-                return make_pair(make_pair(to_id, left_side == reversing), make_pair(id, !left_side));
-            }
-            else {
-                return make_pair(make_pair(id, reversing && left_side), make_pair(id, reversing && !left_side));
-            }
-        };
-        
         
         // functions to extract the part of the node string past the first and second positions:
         // get sequence to the right
@@ -118,24 +97,25 @@ namespace algorithms {
         unordered_map<id_t, id_t> id_trans;
         
         // the edges we have encountered in the traversal
-        unordered_set<pair<pair<id_t, bool>, pair<id_t, bool>>> observed_edges;
+        unordered_set<pair<handle_t, handle_t>> observed_edges;
         
         // the representation of the graph we're going to build up before storing in g (allows easier
         // subsetting operations than Graph, XG, or VG objects)
+        // TODO: reduce duplicate get_handle calls!
         unordered_map<id_t, LocalNode> graph;
-        graph[id(pos_1)] = LocalNode(node_sequence(id(pos_1)));
+        graph[id(pos_1)] = LocalNode(source->get_sequence(source->get_handle(id(pos_1), false)));
         if (id(pos_2) != id(pos_1)) {
-            graph[id(pos_2)] = LocalNode(node_sequence(id(pos_2)));
+            graph[id(pos_2)] = LocalNode(source->get_sequence(source->get_handle(id(pos_2), false)));
         }
         
         // keep track of whether we find a path or not
         bool found_target = false;
         
-        unordered_set<pair<id_t, bool>> queued_traversals{make_pair(id(pos_1), is_rev(pos_1))};
+        unordered_set<handle_t> queued_traversals{source->get_handle(id(pos_1), is_rev(pos_1))};
         // mark final position as "queued" so that we won't look for additional traversals unless that's
         // the only way to find terminal cycles
         if (!(colocation == SharedNodeReverse && detect_terminal_cycles)) {
-            queued_traversals.insert(make_pair(id(pos_2), is_rev(pos_2)));
+            queued_traversals.insert(source->get_handle(id(pos_2), is_rev(pos_2)));
         }
         // initialize the queue
         priority_queue<Traversal> queue;
@@ -169,7 +149,7 @@ namespace algorithms {
             
             // if we can reach the end of this node, init the queue with it
             if (first_traversal_length <= forward_max_len) {
-                queue.emplace(id(pos_1), is_rev(pos_1), first_traversal_length);
+                queue.emplace(source->get_handle(id(pos_1), is_rev(pos_1)), first_traversal_length);
             }
             
             // search along a Dijkstra tree
@@ -179,49 +159,49 @@ namespace algorithms {
                 queue.pop();
                 
 #ifdef debug_vg_algorithms
-                cerr << "FORWARD SEARCH: traversing node " << trav.id << " in " << (trav.rev ? "reverse" : "forward") << " orientation at distance " << trav.dist << endl;
+                cerr << "FORWARD SEARCH: traversing node " << source->get_id(trav.handle) << " in "
+                    << (source->get_is_reverse(trav.handle) ? "reverse" : "forward")
+                    << " orientation at distance " << trav.dist << endl;
 #endif
                 
                 // which side are we traversing out of?
-                auto& edges_out = trav.rev ? graph[trav.id].edges_left : graph[trav.id].edges_right;
-                for (Edge& edge : (trav.rev ? edges_on_start(trav.id) : edges_on_end(trav.id))) {
+                auto& edges_out = source->get_is_reverse(trav.handle) ?
+                    graph[source->get_id(trav.handle)].edges_left :
+                    graph[source->get_id(trav.handle)].edges_right;
+                source->follow_edges(trav.handle, false, [&](const handle_t& next) {
                     // get the orientation and id of the other side of the edge
-#ifdef debug_vg_algorithms
-                    cerr << "FORWARD SEARCH: got edge " << pb2json(edge) << endl;
-#endif
-                    id_t next_id;
-                    bool next_rev;
-                    if (edge.from() == trav.id && edge.from_start() == trav.rev) {
-                        next_id = edge.to();
-                        next_rev = edge.to_end();
-                    }
-                    else {
-                        next_id = edge.from();
-                        next_rev = !edge.from_start();
-                    }
                     
+                    id_t next_id = source->get_id(next);
+                    bool next_rev = source->get_is_reverse(next);
+                    
+#ifdef debug_vg_algorithms
+                    cerr << "FORWARD SEARCH: got edge "
+                        << source->get_id(trav.handle) << " " << source->get_is_reverse(trav.handle)
+                        << " -> " << next_id << " " << next_rev << endl;
+#endif
                     found_target = found_target || (next_id == id(pos_2) && next_rev == is_rev(pos_2));
                     max_id = max(max_id, next_id);
                     
                     // make sure the node is in
                     if (!graph.count(next_id)) {
-                        graph[next_id] = LocalNode(node_sequence(next_id));
+                        // Make a node with the forward orientation sequence
+                        graph[next_id] = LocalNode(source->get_sequence(source->forward(next)));
                     }
                     
                     // distance to the end of this node
                     int64_t dist_thru = trav.dist + graph[next_id].sequence.size();
-                    if (!queued_traversals.count(make_pair(next_id, next_rev)) && dist_thru <= forward_max_len) {
+                    if (!queued_traversals.count(next) && dist_thru <= forward_max_len) {
                         // we can add more nodes along same path without going over the max length
                         // and we have not reached the target node yet
-                        queue.emplace(next_id, next_rev, dist_thru);
-                        queued_traversals.emplace(next_id, next_rev);
+                        queue.emplace(next, dist_thru);
+                        queued_traversals.insert(next);
 #ifdef debug_vg_algorithms
                         cerr << "FORWARD SEARCH: distance " << dist_thru << " is under maximum, adding to queue" << endl;
 #endif
                     }
                     
-                    bool reversing = (trav.rev != next_rev);
-                    auto canonical_edge = canonical_form_edge(trav.id, trav.rev, next_id, reversing);
+                    bool reversing = (source->get_is_reverse(trav.handle) != next_rev);
+                    auto canonical_edge = source->edge_handle(trav.handle, next);
                     if (!observed_edges.count(canonical_edge)) {
                         // what side does this edge enter on the next node?
                         auto& edges_in = next_rev ? graph[next_id].edges_right : graph[next_id].edges_left;
@@ -229,12 +209,12 @@ namespace algorithms {
                         // add this edge to the edge list on the current node
                         edges_out.push_back(make_pair(next_id, reversing));
                         // add to other node, but if it is a self-loop to the same side don't add it twice
-                        if (!(trav.id == next_id && reversing) ) {
-                            edges_in.push_back(make_pair(trav.id, reversing));
+                        if (!(source->get_id(trav.handle) == next_id && reversing) ) {
+                            edges_in.push_back(make_pair(source->get_id(trav.handle), reversing));
                         }
                         observed_edges.insert(canonical_edge);
                     }
-                }
+                });
             }
         }
         
@@ -260,13 +240,13 @@ namespace algorithms {
             
             // initialize the queue going backward from the last position if it's reachable
             if (last_traversal_length <= backward_max_len) {
-                queue.emplace(id(pos_2), !is_rev(pos_1), last_traversal_length);
+                queue.emplace(source->get_handle(id(pos_2), !is_rev(pos_2)), last_traversal_length);
             }
             
             // reset the queued traversal list and add the two reverse traversals
             queued_traversals.clear();
-            queued_traversals.insert(make_pair(id(pos_2), !is_rev(pos_2)));
-            queued_traversals.insert(make_pair(id(pos_1), !is_rev(pos_1)));
+            queued_traversals.insert(source->get_handle(id(pos_2), !is_rev(pos_2)));
+            queued_traversals.insert(source->get_handle(id(pos_1), !is_rev(pos_1)));
             
             // search along a Dijkstra tree
             while (!queue.empty()) {
@@ -275,62 +255,61 @@ namespace algorithms {
                 queue.pop();
                 
 #ifdef debug_vg_algorithms
-                cerr << "BACKWARD SEARCH: traversing node " << trav.id << " in " << (trav.rev ? "reverse" : "forward") << " orientation at distance " << trav.dist << endl;
+                cerr << "BACKWARD SEARCH: traversing node " << source->get_id(trav.handle)
+                    << " in " << (source->get_is_rev(trav.handle) ? "reverse" : "forward") 
+                    << " orientation at distance " << trav.dist << endl;
 #endif
                 
-                for (Edge& edge : (trav.rev ? edges_on_start(trav.id) : edges_on_end(trav.id))) {
+                source->follow_edges(trav.handle, false, [&](const handle_t& next) {
                     // get the orientation and id of the other side of the edge
 #ifdef debug_vg_algorithms
-                    cerr << "BACKWARD SEARCH: got edge " << pb2json(edge) << endl;
+                    cerr << "BACKWARD SEARCH: got edge "
+                        << source->get_id(trav.handle) << " " << source->get_is_reverse(trav.handle)
+                        << " -> " << next_id << " " << next_rev << endl;
 #endif
-                    id_t next_id;
-                    bool next_rev;
-                    if (edge.from() == trav.id && edge.from_start() == trav.rev) {
-                        next_id = edge.to();
-                        next_rev = edge.to_end();
-                    }
-                    else {
-                        next_id = edge.from();
-                        next_rev = !edge.from_start();
-                    }
+                    id_t next_id = source->get_id(next);
+                    bool next_rev = source->get_is_reverse(next);
+
                     max_id = max(max_id, next_id);
                     
                     // make sure the node is in the graph
                     
                     if (!graph.count(next_id)) {
-                        graph[next_id] = LocalNode(node_sequence(next_id));
+                        graph[next_id] = LocalNode(source->get_sequence(source->forward(next)));
                     }
                     
                     
                     // distance to the end of this node
                     int64_t dist_thru = trav.dist + graph[next_id].sequence.size();
-                    if (!queued_traversals.count(make_pair(next_id, next_rev)) && dist_thru <= forward_max_len) {
+                    if (!queued_traversals.count(next) && dist_thru <= forward_max_len) {
                         // we can add more nodes along same path without going over the max length
                         // and we have not reached the target node yet
-                        queue.emplace(next_id, next_rev, dist_thru);
-                        queued_traversals.emplace(next_id, next_rev);
+                        queue.emplace(next, dist_thru);
+                        queued_traversals.insert(next);
 #ifdef debug_vg_algorithms
                         cerr << "BACKWARD SEARCH: distance " << dist_thru << " is under maximum, adding to queue" << endl;
 #endif
                     }
                     
                     // is the edge reversing?
-                    bool reversing = (trav.rev != next_rev);
-                    auto canonical_edge = canonical_form_edge(trav.id, trav.rev, next_id, reversing);
+                    bool reversing = (source->get_is_reverse(trav.handle) != next_rev);
+                    auto canonical_edge = source->edge_handle(trav.handle, next);
                     if (!observed_edges.count(canonical_edge)) {
                         // which side are we traversing out of?
-                        auto& edges_out = trav.rev ? graph[trav.id].edges_left : graph[trav.id].edges_right;
+                        auto& edges_out = source->get_is_reverse(trav.handle) ?
+                            graph[source->get_id(trav.handle)].edges_left :
+                            graph[source->get_id(trav.handle)].edges_right;
                         // what side does this edge enter on the next node?
                         auto& edges_in = next_rev ? graph[next_id].edges_right : graph[next_id].edges_left;
                         // add this edge to the edge list on the current node
                         edges_out.push_back(make_pair(next_id, reversing));
                         // add to other node, but if it is a self-loop to the same side don't add it twice
-                        if (!(trav.id == next_id && reversing) ) {
-                            edges_in.push_back(make_pair(trav.id, reversing));
+                        if (!(source->get_id(trav.handle) == next_id && reversing) ) {
+                            edges_in.push_back(make_pair(source->get_id(trav.handle), reversing));
                         }
                         observed_edges.insert(canonical_edge);
                     }
-                }
+                });
             }
         }
         
@@ -1005,6 +984,24 @@ namespace algorithms {
         // provide three options for pruning away any unnecessary nodes and edges we've added in the
         // process of searching for the subgraph that has this guarantee
         
+        // Now we need traversals and queues for our exploration of this already-extracted graph.
+        // We don't need to touch handles anymore
+        
+        // Define a traversal for our local-variable-based graph representation
+        struct LocalTraversal {
+            LocalTraversal(id_t id, bool rev, int64_t dist) : id(id), rev(rev), dist(dist) {}
+            int64_t dist; // distance from pos_1 to the right side of this node
+            id_t id;      // node ID
+            bool rev;     // strand
+            inline bool operator<(const LocalTraversal& other) const {
+                return dist > other.dist; // opposite order so priority queue selects minimum
+            }
+        };
+        
+        // Define new queue
+        unordered_set<pair<id_t, bool>> local_queued_traversals;
+        priority_queue<LocalTraversal> local_queue;
+        
         if (strict_max_len) {
             // OPTION 1: PRUNE TO PATHS UNDER MAX LENGTH
             // some nodes in the current graph may not be on paths, or the paths that they are on may be
@@ -1014,22 +1011,22 @@ namespace algorithms {
             unordered_map<pair<id_t, bool>, int64_t> reverse_trav_dist;
             
             // re-initialize the queue in the forward direction
-            queue.emplace(id(pos_1), is_rev(pos_1), graph[id(pos_1)].sequence.size());
+            local_queue.emplace(id(pos_1), is_rev(pos_1), graph[id(pos_1)].sequence.size());
             
             // reset the queued traversal list and the first traversal
-            queued_traversals.clear();
-            queued_traversals.insert(make_pair(id(pos_1), is_rev(pos_1)));
+            local_queued_traversals.clear();
+            local_queued_traversals.emplace(id(pos_1), is_rev(pos_1));
             
             // if we duplicated the start node, add that too
             if (duplicate_node_1) {
-                queue.emplace(duplicate_node_1, is_rev(pos_1), graph[duplicate_node_1].sequence.size());
-                queued_traversals.insert(make_pair(duplicate_node_1, is_rev(pos_1)));
+                local_queue.emplace(duplicate_node_1, is_rev(pos_1), graph[duplicate_node_1].sequence.size());
+                local_queued_traversals.emplace(duplicate_node_1, is_rev(pos_1));
             }
             
-            while (!queue.empty()) {
+            while (!local_queue.empty()) {
                 // get the next closest node traversal
-                Traversal trav = queue.top();
-                queue.pop();
+                LocalTraversal trav = local_queue.top();
+                local_queue.pop();
                 forward_trav_dist[make_pair(trav.id, trav.rev)] = trav.dist;
                 
 #ifdef debug_vg_algorithms
@@ -1045,30 +1042,30 @@ namespace algorithms {
                     
                     // queue up the node traversal if it hasn't been seen before
                     pair<id_t, bool> next_trav = make_pair(edge.first, edge.second != trav.rev);
-                    if (!queued_traversals.count(next_trav)) {
-                        queue.emplace(next_trav.first, next_trav.second, dist_thru);
-                        queued_traversals.insert(next_trav);
+                    if (!local_queued_traversals.count(next_trav)) {
+                        local_queue.emplace(next_trav.first, next_trav.second, dist_thru);
+                        local_queued_traversals.insert(next_trav);
                     }
                 }
             }
             
             // re-initialize the queue
-            queue.emplace(id(pos_2), !is_rev(pos_2), 0);
+            local_queue.emplace(id(pos_2), !is_rev(pos_2), 0);
             
             // reset the queued traversal list and add the reverse traversal
-            queued_traversals.clear();
-            queued_traversals.insert(make_pair(id(pos_2), !is_rev(pos_2)));
+            local_queued_traversals.clear();
+            local_queued_traversals.insert(make_pair(id(pos_2), !is_rev(pos_2)));
             
             // if we duplicated the end node, add that too
             if (duplicate_node_2) {
-                queue.emplace(duplicate_node_2, !is_rev(pos_2), 0);
-                queued_traversals.insert(make_pair(duplicate_node_2, !is_rev(pos_2)));
+                local_queue.emplace(duplicate_node_2, !is_rev(pos_2), 0);
+                local_queued_traversals.insert(make_pair(duplicate_node_2, !is_rev(pos_2)));
             }
             
-            while (!queue.empty()) {
+            while (!local_queue.empty()) {
                 // get the next closest node traversal
-                Traversal trav = queue.top();
-                queue.pop();
+                LocalTraversal trav = local_queue.top();
+                local_queue.pop();
                 reverse_trav_dist[make_pair(trav.id, trav.rev)] = trav.dist;
                 
 #ifdef debug_vg_algorithms
@@ -1084,9 +1081,9 @@ namespace algorithms {
                 for (const pair<id_t, bool>& edge : edges_out) {
                     // queue up the node traversal if it hasn't been seen before
                     pair<id_t, bool> next_trav = make_pair(edge.first, edge.second != trav.rev);
-                    if (!queued_traversals.count(next_trav)) {
-                        queue.emplace(next_trav.first, next_trav.second, dist_thru);
-                        queued_traversals.insert(next_trav);
+                    if (!local_queued_traversals.count(next_trav)) {
+                        local_queue.emplace(next_trav.first, next_trav.second, dist_thru);
+                        local_queued_traversals.insert(next_trav);
                     }
                 }
             }
@@ -1437,102 +1434,5 @@ namespace algorithms {
         // the function, which are obviously available in the environment that calls it)
         return id_trans;
     }
-    
-    // wrapper for connecting graph algorithm using VG to access graph elements
-    unordered_map<id_t, id_t> extract_connecting_graph(VG& vg, Graph& g, int64_t max_len,
-                                                       pos_t pos_1, pos_t pos_2,
-                                                       bool include_terminal_positions,
-                                                       bool detect_terminal_cycles,
-                                                       bool no_additional_tips,
-                                                       bool only_paths,
-                                                       bool strict_max_len){
-        
-        return extract_connecting_graph_internal(g, max_len, pos_1, pos_2,
-                                                 include_terminal_positions,
-                                                 detect_terminal_cycles,
-                                                 no_additional_tips,
-                                                 only_paths,
-                                                 strict_max_len,
-                                                 [&](id_t id) {
-                                                     vector<Edge> to_return;
-                                                     for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                         if ((edge->from() == id && edge->from_start())
-                                                             || (edge->to() == id && !edge->to_end())) {
-                                                             to_return.push_back(*edge);
-                                                         }
-                                                     }
-                                                     return to_return;
-                                                 },
-                                                 [&](id_t id) {
-                                                     vector<Edge> to_return;
-                                                     for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                         if ((edge->from() == id && !edge->from_start())
-                                                             || (edge->to() == id && edge->to_end())) {
-                                                             to_return.push_back(*edge);
-                                                         }
-                                                     }
-                                                     return to_return;
-                                                 },
-                                                 [&](id_t id) {
-                                                     return vg.get_node(id)->sequence();
-                                                 });
-    }
-    
-    // wrapper for connecting graph algorithm using XG to access graph elements
-    unordered_map<id_t, id_t> extract_connecting_graph(xg::XG& xg_index, Graph& g, int64_t max_len,
-                                                       pos_t pos_1, pos_t pos_2,
-                                                       bool include_terminal_positions,
-                                                       bool detect_terminal_cycles,
-                                                       bool no_additional_tips,
-                                                       bool only_paths,
-                                                       bool strict_max_len,
-                                                       LRUCache<id_t, Node>* node_cache,
-                                                       LRUCache<id_t, vector<Edge>>* edge_cache) {
-        if (node_cache && edge_cache) {
-            return extract_connecting_graph_internal(g, max_len, pos_1, pos_2,
-                                                     include_terminal_positions,
-                                                     detect_terminal_cycles,
-                                                     no_additional_tips,
-                                                     only_paths,
-                                                     strict_max_len,
-                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (node_cache) {
-            return extract_connecting_graph_internal(g, max_len, pos_1, pos_2,
-                                                     include_terminal_positions,
-                                                     detect_terminal_cycles,
-                                                     no_additional_tips,
-                                                     only_paths,
-                                                     strict_max_len,
-                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
-        }
-        else if (edge_cache) {
-            return extract_connecting_graph_internal(g, max_len, pos_1, pos_2,
-                                                     include_terminal_positions,
-                                                     detect_terminal_cycles,
-                                                     no_additional_tips,
-                                                     only_paths,
-                                                     strict_max_len,
-                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
-                                                     [&](id_t id) {return xg_index.node_sequence(id);});
-        }
-        else {
-            return extract_connecting_graph_internal(g, max_len, pos_1, pos_2,
-                                                     include_terminal_positions,
-                                                     detect_terminal_cycles,
-                                                     no_additional_tips,
-                                                     only_paths,
-                                                     strict_max_len,
-                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
-                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_index.node_sequence(id);});
-        }
-    }
-    
 }
 }
