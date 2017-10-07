@@ -3618,8 +3618,6 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     int8_t gap_extension = aligner->gap_extension;
     int8_t gap_open = aligner->gap_open;
 
-    int total_multimaps = max(max_multimaps, extra_multimaps);
-
     //cerr << "top of align_banded " << pb2json(read) << endl;
     // split the alignment up into overlapping chunks of band_width size
     // force used bandwidth to be divisible by 4
@@ -3691,15 +3689,18 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         if (!aln1.has_path() && !aln2.has_path()) {
             return -std::numeric_limits<double>::max();
         } else if (!aln2.has_path()) {
-            return (double) aln1.score();// - aln2.sequence().size() * gap_extension;
-        } else {
-            return (double) aln2.score();// - aln1.sequence().size() * gap_extension;
+            return (double) aln1.score() - (gap_open + aln2.sequence().size() * gap_extension);
+        } else if (!aln1.has_path()) {
+            return (double) aln2.score() - (gap_open + aln1.sequence().size() * gap_extension);
         }
         auto aln1_end = path_end(aln1.path());
         auto aln2_begin = path_start(aln2.path());
         int64_t path_dist = xindex->min_approx_path_distance({}, aln1_end.node_id(), aln2_begin.node_id());
         int64_t graph_dist = graph_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin), max_band_jump);
-        int64_t dist = min(path_dist, graph_dist);
+        //int64_t approx_dist = abs(approx_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin)));
+        //int64_t dist = min(min(path_dist, graph_dist), approx_dist);
+        int64_t dist = min(abs(path_dist), graph_dist);
+        if (debug) cerr << "dist " << dist << endl;
         if (dist >= max_band_jump) {
             return -std::numeric_limits<double>::max();
         } else {
@@ -3712,11 +3713,13 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
             }
             */
             double weight = aln1.sequence().size() + aln2.sequence().size() + aln1.score() + aln2.score() + aln1.mapping_quality() + aln2.mapping_quality();
+            /*
             if (aln1_end.is_reverse() != aln2_begin.is_reverse()) {
                 // make inversions cost twice as much as a full length insertion of the inverted sequences
                 weight -= 2 * (gap_open + (aln1.sequence().size() + aln2.sequence().size()) * gap_extension);
             }
-            dist = abs(dist);
+            */
+            //dist = abs(dist);
             weight -= (gap_open + dist * gap_extension);
             return weight;
         }
@@ -3726,12 +3729,9 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     if (debug) chainer.display(cerr);
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps+1, false, debug);
     for (auto& aln : alignments) {
-        // patch the alignment
-        //cerr << "patching and simplifying " << pb2json(aln) << endl;
-        //aln = simplify(aln);
-        aln = patch_alignment(aln, band_width);
+        // patch the alignment to deal with short unaligned regions
+        aln = patch_alignment(aln, band_width+1);
         aln.set_score(score_alignment(aln, true));
-        //cerr << "done patching and simplin" << endl;
     }
     // sort the alignments by score
     std::sort(alignments.begin(), alignments.end(), [](const Alignment& aln1, const Alignment& aln2) { return aln1.score() > aln2.score(); });

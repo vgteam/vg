@@ -38,7 +38,7 @@ void help_msga(char** argv) {
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [10*{-w}]" << endl
          << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [64]" << endl
-         << "    -M, --max-multimaps INT when set > 1, thread an optimal alignment through the multimappings of each band [1]" << endl
+         << "    -M, --max-multimaps INT when set > 1, thread an optimal alignment through the multimappings of each band [64]" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -83,7 +83,7 @@ int main_msga(int argc, char** argv) {
     int hit_max = 1024;
     // if we set this above 1, we use a dynamic programming process to determine the
     // optimal alignment through a series of bands based on a proximity metric
-    int max_multimaps = 16;
+    int max_multimaps = 64;
     float min_identity = 0.0;
     int band_width = 256;
     int max_band_jump = -1;
