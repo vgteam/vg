@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 12
+plan tests 13
 
 is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 4 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
 
@@ -36,6 +36,8 @@ is $? 0 "HLA K-3138 correctly includes all input paths"
 
 vg msga -f msgas/cycle.fa -b s1 -w 32 -e 4 -P 0.95 -t 1 | vg validate -
 is $? 0 "a difficult cyclic path can be included to produce a valid graph"
+
+is $(vg msga -f msgas/inv.fa -w 23 | vg mod -X 1 - | vg stats -O - | tr '\t' ' ' | grep 'inv.fwd 76 135\|inv.fwd 100 111\|inv.fwd 99 112' | wc -l) 3 "a reference sequence set representing an inversion in it maybe msga'd and detected"
 
 vg msga -f msgas/l.fa -b a1 -w 16 | vg validate -
 is $? 0 "edges in cycles with two nodes are correctly included"
