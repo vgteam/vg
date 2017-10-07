@@ -14,7 +14,7 @@
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
-#include "cached_position.hpp"
+#include "xg_position.hpp"
 #include "lru_cache.h"
 #include "json2pb.h"
 #include "entropy.hpp"
@@ -263,6 +263,7 @@ protected:
     void check_mems(const vector<MaximalExactMatch>& mems);
     
     int alignment_threads; // how many threads will *this* mapper use. Should not be set directly.
+    /*
     int cache_size;
     
     // match walking support to prevent repeated calls to the xg index for the same node
@@ -283,6 +284,7 @@ protected:
     vector<LRUCache<id_t, vector<Edge> >* > edge_cache;
     LRUCache<id_t, vector<Edge> >& get_edge_cache(void);
     void init_edge_cache(void);
+    */
     
     void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
     void clear_aligners(void);

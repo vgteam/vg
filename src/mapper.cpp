@@ -17,7 +17,6 @@ BaseMapper::BaseMapper(xg::XG* xidex,
       , fast_reseed(true)
       , fast_reseed_length_diff(0.75)
       , hit_max(0)
-      , cache_size(128)
       , alignment_threads(1)
       , qual_adj_aligner(nullptr)
       , regular_aligner(nullptr)
@@ -29,10 +28,6 @@ BaseMapper::BaseMapper(xg::XG* xidex,
 {
     init_aligner(default_match, default_mismatch, default_gap_open,
                  default_gap_extension, default_full_length_bonus);
-    init_node_cache();
-    init_node_start_cache();
-    init_node_pos_cache();
-    init_edge_cache();
     
     // TODO: removing these consistency checks because we seem to have violated them pretty wontonly in
     // the code base already by changing the members directly when they were still public
@@ -67,18 +62,6 @@ BaseMapper::~BaseMapper(void) {
     
     clear_aligners();
     
-    for (auto& nc : node_cache) {
-        delete nc;
-    }
-    for (auto& npc : node_pos_cache) {
-        delete npc;
-    }
-    for (auto& nsc : node_start_cache) {
-        delete nsc;
-    }
-    for (auto& ec : edge_cache) {
-        delete ec;
-    }
 }
     
 // Use the GCSA2 index to find super-maximal exact matches.
@@ -1158,7 +1141,7 @@ void BaseMapper::mem_positions_by_index(MaximalExactMatch& mem, pos_t hit_pos,
         }
         
         // does this graph position match the MEM?
-        if (*(mem.begin + mem_idx) != xg_cached_pos_char(graph_pos, xindex, get_node_cache())) {
+        if (*(mem.begin + mem_idx) != xg_pos_char(graph_pos, xindex)) {
             // mark this node as a miss
             false_pos_by_mem_index[mem_idx].insert(graph_pos);
             
@@ -1188,7 +1171,7 @@ void BaseMapper::mem_positions_by_index(MaximalExactMatch& mem, pos_t hit_pos,
     
     
 set<pos_t> BaseMapper::positions_bp_from(pos_t pos, int distance, bool rev) {
-    return xg_cached_positions_bp_from(pos, distance, rev, xindex, get_node_cache(), get_edge_cache());
+    return xg_positions_bp_from(pos, distance, rev, xindex);
 }
 
 void BaseMapper::check_mems(const vector<MaximalExactMatch>& mems) {
@@ -1208,11 +1191,11 @@ void BaseMapper::check_mems(const vector<MaximalExactMatch>& mems) {
 }
     
 char BaseMapper::pos_char(pos_t pos) {
-    return xg_cached_pos_char(pos, xindex, get_node_cache());
+    return xg_pos_char(pos, xindex);
 }
 
 map<pos_t, char> BaseMapper::next_pos_chars(pos_t pos) {
-    return xg_cached_next_pos_chars(pos, xindex, get_node_cache(), get_edge_cache());
+    return xg_next_pos_chars(pos, xindex);
 }
     
 set<pos_t> BaseMapper::sequence_positions(const string& seq) {
@@ -1224,58 +1207,6 @@ set<pos_t> BaseMapper::sequence_positions(const string& seq) {
     
 void BaseMapper::set_alignment_threads(int new_thread_count) {
     alignment_threads = new_thread_count;
-    init_node_cache();
-    init_node_start_cache();
-    init_node_pos_cache();
-    init_edge_cache();
-}
-
-void BaseMapper::init_node_cache(void) {
-    for (auto& nc : node_cache) {
-        delete nc;
-    }
-    node_cache.clear();
-    for (int i = 0; i < alignment_threads; ++i) {
-        node_cache.push_back(new LRUCache<id_t, Node>(cache_size));
-    }
-}
-
-void BaseMapper::init_node_start_cache(void) {
-    for (auto& nc : node_start_cache) {
-        delete nc;
-    }
-    node_start_cache.clear();
-    for (int i = 0; i < alignment_threads; ++i) {
-        node_start_cache.push_back(new LRUCache<id_t, int64_t>(cache_size));
-    }
-}
-
-void BaseMapper::init_node_pos_cache(void) {
-    for (auto& nc : node_pos_cache) {
-        delete nc;
-    }
-    node_pos_cache.clear();
-    for (int i = 0; i < alignment_threads; ++i) {
-        node_pos_cache.push_back(new LRUCache<gcsa::node_type, map<string, vector<size_t> > >(cache_size));
-    }
-}
-
-void BaseMapper::init_edge_cache(void) {
-    for (auto& ec : edge_cache) {
-        delete ec;
-    }
-    edge_cache.clear();
-    for (int i = 0; i < alignment_threads; ++i) {
-        edge_cache.push_back(new LRUCache<id_t, vector<Edge> >(cache_size));
-    }
-}
-
-void BaseMapper::set_cache_size(int new_cache_size) {
-    cache_size = new_cache_size;
-    init_edge_cache();
-    init_node_cache();
-    init_node_pos_cache();
-    init_node_start_cache();
 }
 
 bool BaseMapper::has_fixed_fragment_length_distr() {
@@ -1290,28 +1221,6 @@ void BaseMapper::force_fragment_length_distr(double mean, double stddev) {
     fragment_length_distr.force_parameters(mean, stddev);
 }
     
-// TODO: this strategy of dropping the index down to 0 works for vg map's approach of having a copy of
-// the mapper for each thread, but it's dangerous when one mapper is using multiple threads
-LRUCache<id_t, Node>& BaseMapper::get_node_cache(void) {
-    int tid = node_cache.size() > 1 ? omp_get_thread_num() : 0;
-    return *node_cache[tid];
-}
-
-LRUCache<id_t, int64_t>& BaseMapper::get_node_start_cache(void) {
-    int tid = node_start_cache.size() > 1 ? omp_get_thread_num() : 0;
-    return *node_start_cache[tid];
-}
-
-LRUCache<gcsa::node_type, map<string, vector<size_t> > >& BaseMapper::get_node_pos_cache(void) {
-    int tid = node_pos_cache.size() > 1 ? omp_get_thread_num() : 0;
-    return *node_pos_cache[tid];
-}
-
-LRUCache<id_t, vector<Edge> >& BaseMapper::get_edge_cache(void) {
-    int tid = edge_cache.size() > 1 ? omp_get_thread_num() : 0;
-    return *edge_cache[tid];
-}
-
 BaseAligner* BaseMapper::get_aligner(bool have_qualities) const {
     return (have_qualities && adjust_alignments_for_base_quality) ?
         (BaseAligner*) qual_adj_aligner :
@@ -3485,7 +3394,7 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
 int64_t Mapper::get_node_length(int64_t node_id) {
     // Grab the node sequence only from the XG index and get its size.
     // Make sure to use the cache
-    return xg_cached_node_length(node_id, xindex, get_node_cache());
+    return xg_node_length(node_id, xindex);
 }
 
 bool Mapper::check_alignment(const Alignment& aln) {
@@ -4124,15 +4033,15 @@ set<pos_t> gcsa_nodes_to_positions(const vector<gcsa::node_type>& nodes) {
 
 
 int64_t Mapper::graph_distance(pos_t pos1, pos_t pos2, int64_t maximum) {
-    return xg_cached_distance(pos1, pos2, maximum, xindex, get_node_cache(), get_edge_cache());
+    return xg_distance(pos1, pos2, maximum, xindex);
 }
 
 int64_t Mapper::approx_position(pos_t pos) {
     // get nodes on the forward strand
     if (is_rev(pos)) {
-        pos = reverse(pos, xg_cached_node_length(id(pos), xindex, get_node_cache()));
+        pos = reverse(pos, xg_node_length(id(pos), xindex));
     }
-    return (int64_t)xg_cached_node_start(id(pos), xindex, get_node_start_cache()) + (int64_t)offset(pos);
+    return (int64_t)xg_node_start(id(pos), xindex) + (int64_t)offset(pos);
 }
 
 int64_t Mapper::approx_distance(pos_t pos1, pos_t pos2) {
@@ -4173,14 +4082,7 @@ id_t Mapper::node_approximately_at(int64_t approx_pos) {
 
 // use LRU caching to get the most-recent node positions
 map<string, vector<size_t> > Mapper::node_positions_in_paths(gcsa::node_type node) {
-    auto& pos_cache = get_node_pos_cache();
-    auto cached = pos_cache.retrieve(node);
-    if(!cached.second) {
-        // todo use approximate estimate
-        cached.first = xindex->position_in_paths(gcsa::Node::id(node), gcsa::Node::rc(node), gcsa::Node::offset(node));
-        pos_cache.put(node, cached.first);
-    }
-    return cached.first;
+    return xindex->position_in_paths(gcsa::Node::id(node), gcsa::Node::rc(node), gcsa::Node::offset(node));
 }
 
 Alignment Mapper::walk_match(const string& seq, pos_t pos) {
@@ -4351,8 +4253,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
     // walk along the alignment and find the portions that are unaligned
     int read_pos = 0;
     auto& path = aln.path();
-    auto& node_cache = get_node_cache();
-    auto& edge_cache = get_edge_cache();
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
         //cerr << "looking at mapping " << i << " " << pb2json(mapping) << endl;
@@ -4403,7 +4303,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         // reverse the position, we're going backwards to get the graph off the end of where we are
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
-                            pos_t pos_rev = reverse(pos, xg_cached_node_length(id(pos), xindex, get_node_cache()));
+                            pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
                             Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size());
                             sort_by_id_dedup_and_clean(graph);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
