@@ -36,7 +36,7 @@ void help_msga(char** argv) {
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
-         << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [2*{-w}]" << endl
+         << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [10*{-w}]" << endl
          << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [64]" << endl
          << "    -M, --max-multimaps INT when set > 1, thread an optimal alignment through the multimappings of each band [1]" << endl
          << "local alignment parameters:" << endl
@@ -529,7 +529,7 @@ int main_msga(int argc, char** argv) {
             mapper->debug = debug_align;
             mapper->min_identity = min_identity;
             mapper->min_banded_mq = min_banded_mq;
-            mapper->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
+            mapper->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width * 10;
             mapper->band_multimaps = band_multimaps;
             mapper->drop_chain = drop_chain;
             mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length

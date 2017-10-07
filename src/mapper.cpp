@@ -784,6 +784,14 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
 #endif
 }
 
+// TODO: rewrite roughly as follows
+// //// idea is to check all the possible sub mems starting from the same position so we obviate the need to call count for every LF step
+// initally take the range of the MEM, then do parent operation to find the next-longest match with a long range
+// get ranges for all suffixes of the MEM to reseed
+// for each suffix range we keep the starting position fixed then use parent queries to find candidates (avoids excessive count calls)
+// --- hope is that the first call to parent jumps us close to the limit for minimum length ...
+// goal is to get to roughly a linear number of LFs an parent()s per MEM we reseed
+
 void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                                     string::const_iterator next_mem_end,
                                     int min_sub_mem_length,
@@ -3727,7 +3735,11 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     }
     // sort the alignments by score
     std::sort(alignments.begin(), alignments.end(), [](const Alignment& aln1, const Alignment& aln2) { return aln1.score() > aln2.score(); });
-    compute_mapping_qualities(alignments, 0, max_mapping_quality, max_mapping_quality);
+    if (alignments.size() == 1) {
+        alignments.front().set_mapping_quality(max_mapping_quality);
+    } else {
+        compute_mapping_qualities(alignments, 0, max_mapping_quality, max_mapping_quality);
+    }
     filter_and_process_multimaps(alignments, max_multimaps);
     return alignments;
 }
