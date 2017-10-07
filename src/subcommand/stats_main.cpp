@@ -324,16 +324,6 @@ int main_stats(int argc, char** argv) {
                     }
                 }
             }
-            for (auto& p : p2_ranks) {
-                auto f = p1_ranks.find(p.first);
-                if (f != p1_ranks.end()) {
-                    for (auto& id1 : p.second) {
-                        for (auto& id2 : f->second) {
-                            cout << p1.name() << "." << p2.name() << "\t" << id2 << "\t" << id1 << endl;
-                        }
-                    }
-                }
-            }
         };
         cout << "comparison" << "\t" << "x" << "\t" << "y" << endl;
         vector<string> path_names;
