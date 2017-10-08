@@ -560,7 +560,9 @@ int main_msga(int argc, char** argv) {
 
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
+    int i = 0;
     for (auto& name : names_in_order) {
+        ++i;
         //cerr << "do... " << name << " ?" << endl;
         if (!base_seq_name.empty() && name == base_seq_name) continue; // already embedded
         bool incomplete = true; // complete when we've fully included the sequence set
@@ -577,7 +579,7 @@ int main_msga(int argc, char** argv) {
 #endif
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
-            if (debug) cerr << name << ": adding to graph" << iter << endl;
+            if (debug) cerr << name << ": adding to graph " << i << "/" << names_in_order.size() << endl;
             vector<Path> paths;
             int j = 0;
             // align to the graph

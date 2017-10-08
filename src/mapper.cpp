@@ -3570,14 +3570,18 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         malns.push_back(bands[i]);
         for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
             Alignment& aln = *a;
+            // strip overlaps
+            aln = strip_from_start(aln, to_strip[i].first);
+            aln = strip_from_end(aln, to_strip[i].second);
+            aln.set_identity(identity(aln.path()));
+            aln.set_score(score_alignment(aln, false));
             bool above_threshold = aln.identity() >= min_identity && aln.mapping_quality() >= min_banded_mq;
             if (!above_threshold) {
                 // treat as unmapped
                 aln = bands[i];
+                aln = strip_from_start(aln, to_strip[i].first);
+                aln = strip_from_end(aln, to_strip[i].second);
             }
-            // strip overlaps
-            aln = strip_from_start(aln, to_strip[i].first);
-            aln = strip_from_end(aln, to_strip[i].second);
         }
     };
 
@@ -3610,7 +3614,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         //int64_t dist = min(min(path_dist, graph_dist), approx_dist);
         int64_t dist = min(abs(path_dist), graph_dist);
         if (debug) cerr << "dist " << dist << endl;
-        if (dist >= max_band_jump) {
+        if (dist >= max_band_jump*2) {
             return -std::numeric_limits<double>::max();
         } else {
             // try to get the precise distance
@@ -3634,7 +3638,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         }
     };
 
-    AlignmentChainModel chainer(multi_alns, this, transition_weight, max_band_jump);
+    AlignmentChainModel chainer(multi_alns, this, transition_weight, max_band_jump*3);
     if (debug) chainer.display(cerr);
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps+1, false, debug);
     for (auto& aln : alignments) {
