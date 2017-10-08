@@ -233,13 +233,13 @@ namespace vg {
             
 #ifdef debug_multipath_mapper
             cerr << "single ended mappings achieves scores " << optimal_alignment_score(multipath_aln_1) << " and " << optimal_alignment_score(multipath_aln_2) << ", looking for scores " << .8 * max_score_1 << " and " << .8 * max_score_2 << endl;
-            cerr << "single ended mappings achieves mapping qualities " << multipath_aln_1.mapping_quality() << " and " << multipath_aln_2.mapping_quality() << ", looking for mapq " << min(max_mapping_quality, 60) << endl;
+            cerr << "single ended mappings achieves mapping qualities " << multipath_aln_1.mapping_quality() << " and " << multipath_aln_2.mapping_quality() << ", looking for mapq " << min(max_mapping_quality, 45) << endl;
 #endif
             
             // are these reads unambiguously mapped and well-aligned?
             // TODO: i don't like having constants floating around in here
-            if (multipath_aln_1.mapping_quality() >= min(max_mapping_quality, 60)
-                && multipath_aln_2.mapping_quality() >= min(max_mapping_quality, 60)
+            if (multipath_aln_1.mapping_quality() >= min(max_mapping_quality, 45)
+                && multipath_aln_2.mapping_quality() >= min(max_mapping_quality, 45)
                 && optimal_alignment_score(multipath_aln_1) >= .8 * max_score_1
                 && optimal_alignment_score(multipath_aln_2) >= .8 * max_score_2) {
                 

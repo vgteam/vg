@@ -1277,10 +1277,6 @@ void BaseMapper::set_cache_size(int new_cache_size) {
 bool BaseMapper::has_fixed_fragment_length_distr() {
     return fragment_length_distr.is_finalized();
 }
-    
-void BaseMapper::abandon_fragment_length_distr() {
-    fragment_length_distr.unlock_determinization();
-}
 
 void BaseMapper::force_fragment_length_distr(double mean, double stddev) {
     fragment_length_distr.force_parameters(mean, stddev);
@@ -1379,7 +1375,7 @@ void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_
 }
     
 void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, size_t reestimation_frequency,
-                                                  double robust_estimation_fraction, bool deterministic) {
+                                                  double robust_estimation_fraction) {
     
     if (fragment_length_distr.is_finalized()) {
         cerr << "warning:[vg::Mapper] overwriting a fragment length distribution that has already been estimated" << endl;
@@ -1387,9 +1383,6 @@ void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, si
     
     fragment_length_distr = FragmentLengthDistribution(maximum_sample_size, reestimation_frequency,
                                                        robust_estimation_fraction);
-    if (deterministic) {
-        fragment_length_distr.determinize_estimation();
-    }
 }
     
 Mapper::Mapper(xg::XG* xidex,
@@ -5053,10 +5046,9 @@ FragmentLengthDistribution::~FragmentLengthDistribution() {
 }
 
 void FragmentLengthDistribution::force_parameters(double mean, double stddev) {
-    is_fixed = true;
     mu = mean;
     sigma = stddev;
-    unlock_determinization();
+    is_fixed = true;
 }
 
 void FragmentLengthDistribution::register_fragment_length(int64_t length) {
@@ -5075,8 +5067,6 @@ void FragmentLengthDistribution::register_fragment_length(int64_t length) {
                 // we've reached the maximum sample we wanted, so fix the estimation
                 estimate_distribution();
                 is_fixed = true;
-                // switch back to multithreaded mode if necessary
-                unlock_determinization();
             }
             else if (lengths.size() % reestimation_frequency == 0) {
                 estimate_distribution();
@@ -5084,23 +5074,7 @@ void FragmentLengthDistribution::register_fragment_length(int64_t length) {
         }
     }
 }
-
-void FragmentLengthDistribution::determinize_estimation() {
-    if (multithread_reset || is_fixed) {
-        return;
-    }
-    multithread_reset = get_thread_count();
-    omp_set_num_threads(1);
-}
-
-void FragmentLengthDistribution::unlock_determinization() {
-    if (!multithread_reset) {
-        return;
-    }
-    omp_set_num_threads(multithread_reset);
-    multithread_reset = 0;
-}
-
+    
 void FragmentLengthDistribution::estimate_distribution() {
     // remove the tails from the estimation
     size_t to_skip = (size_t) (lengths.size() * (1.0 - robust_estimation_fraction) * 0.5);
