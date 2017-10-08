@@ -859,6 +859,7 @@ public:
                 bool superbubble_labeling = false,
                 bool ultrabubble_labeling = false,
                 bool skip_missing_nodes = false,
+                bool ascii_labels = false,
                 int random_seed = 0);
 
     /// Convert the graph to Dot format.

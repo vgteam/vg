@@ -5889,6 +5889,7 @@ void VG::to_dot(ostream& out,
                 bool superbubble_labeling,
                 bool ultrabubble_labeling,
                 bool skip_missing_nodes,
+                bool ascii_labels,
                 int random_seed) {
 
     // setup graphviz output
@@ -5916,7 +5917,7 @@ void VG::to_dot(ostream& out,
                 vb << i << ",";
             }
             auto repr = vb.str();
-            string emoji = picts.hashed(repr);
+            string emoji = ascii_labels ? picts.hashed_char(repr) : picts.hashed(repr);
             string color = colors.hashed(repr);
             auto label = make_pair(color, emoji);
             for (auto& i : bub.second) {
@@ -5993,9 +5994,9 @@ void VG::to_dot(ostream& out,
         Pictographs picts(random_seed);
         Colors colors(random_seed);
         // Work out what path symbols belong on what edges
-        function<void(const Path&)> lambda = [this, &picts, &colors, &symbols_for_edge](const Path& path) {
+        function<void(const Path&)> lambda = [this, &picts, &colors, &symbols_for_edge, &ascii_labels](const Path& path) {
             // Make up the path's label
-            string path_label = picts.hashed(path.name());
+            string path_label = ascii_labels ? picts.hashed_char(path.name()) : picts.hashed(path.name());
             string color = colors.hashed(path.name());
             for (int i = 0; i < path.mapping_size(); ++i) {
                 const Mapping& m1 = path.mapping(i);
@@ -6232,7 +6233,7 @@ void VG::to_dot(ostream& out,
         Colors colors(random_seed);
         for (auto& locus : loci) {
             // get the paths of the alleles
-            string path_label = picts.hashed(locus.name());
+            string path_label = ascii_labels ? picts.hashed_char(locus.name()) : picts.hashed(locus.name());
             string color = colors.hashed(locus.name());
             for (int j = 0; j < locus.allele_size(); ++j) {
                 auto& path = locus.allele(j);
@@ -6265,9 +6266,9 @@ void VG::to_dot(ostream& out,
         Colors colors(random_seed);
         map<string, int> path_starts;
         function<void(const Path&)> lambda =
-            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths,show_mappings,&path_starts]
+            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths,show_mappings,&path_starts,&ascii_labels]
             (const Path& path) {
-            string path_label = picts.hashed(path.name());
+            string path_label = ascii_labels ? picts.hashed_char(path.name()) : picts.hashed(path.name());
             string color = colors.hashed(path.name());
             path_starts[path.name()] = pathid;
             if (show_paths) {
