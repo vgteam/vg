@@ -110,18 +110,26 @@ public:
     void register_fragment_length(int64_t length);
 
     /// Robust mean of the distribution observed so far
-    double mean();
+    double mean() const;
     
     /// Robust standard deviation of the distribution observed so far
-    double stdev();
+    double stdev() const;
     
     /// Returns true if the maximum sample size has been reached, which finalizes the
     /// distribution estimate
-    bool is_finalized();
+    bool is_finalized() const;
     
     /// Returns the max sample size up to which the distribution will continue to reestimate
     /// parameters
-    size_t max_sample_size();
+    size_t max_sample_size() const;
+    
+    /// Begin iterator to the measurements that the distribution has used to estimate the
+    /// parameters
+    multiset<double>::const_iterator measurements_begin() const;
+    
+    /// End iterator to the measurements that the distribution has used to estimate the
+    /// parameters
+    multiset<double>::const_iterator measurements_end() const;
     
 private:
     multiset<double> lengths;
@@ -190,7 +198,8 @@ public:
                    int min_mem_length = 1,
                    int reseed_length = 0,
                    bool use_lcp_reseed_heuristic = true,
-                   bool use_diff_based_fast_reseed = false);
+                   bool use_diff_based_fast_reseed = false,
+                   bool include_parent_in_sub_mem_count = false);
     
     // Use the GCSA2 index to find super-maximal exact matches.
     vector<MaximalExactMatch>

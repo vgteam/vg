@@ -990,6 +990,20 @@ class VGCITest(TestCase):
 
     @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(7200)
+    def test_sim_chr21_snp1kg_mpmap(self):
+        """ multipath mapper test, which is a smaller version of above.  we catch all errors
+        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        and off.
+        """
+        self._test_mapeval(100000, 'CHR21', 'snp1kg',
+                           ['primary', 'snp1kg'],
+                           score_baseline_graph='primary',
+                           sample='HG00096', multipath=True, tag_ext='-mpmap',
+                           acc_threshold=0.02,
+                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5',
+                           sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
+
+    @timeout_decorator.timeout(7200)
     def test_sim_mhc_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
         so jenkins doesn't report failures.  vg is run only in single ended with multipath on
