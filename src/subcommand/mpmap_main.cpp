@@ -47,6 +47,8 @@ void help_mpmap(char** argv) {
     << "  -U, --snarl-max-cut INT   do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
     << "  -a, --alt-paths INT       align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
     << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
+    << "  -I, --frag-mean           mean for fixed fragment length distribution" << endl
+    << "  -D, --frag-stddev         standard deviation for fixed fragment length distribution" << endl
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
@@ -116,6 +118,8 @@ int main_mpmap(int argc, char** argv) {
     int max_mapq = 60;
     size_t frag_length_sample_size = 1000;
     double frag_length_robustness_fraction = 0.95;
+    double frag_length_mean = NAN;
+    double frag_length_stddev = NAN;
     bool same_strand = false;
     
     int c;
@@ -135,6 +139,8 @@ int main_mpmap(int argc, char** argv) {
             {"snarl-max-cut", required_argument, 0, 'U'},
             {"alt-paths", required_argument, 0, 'a'},
             {"frag-sample", required_argument, 0, 'b'},
+            {"frag-mean", required_argument, 0, 'I'},
+            {"frag-stddev", required_argument, 0, 'D'},
             {"mq-method", required_argument, 0, 'v'},
             {"mq-max", required_argument, 0, 'Q'},
             {"band-padding", required_argument, 0, 'p'},
@@ -162,7 +168,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:b:v:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:b:I:D:v:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -247,6 +253,14 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'b':
                 frag_length_sample_size = atoi(optarg);
+                break;
+                
+            case 'I':
+                frag_length_mean = atof(optarg);
+                break;
+                
+            case 'D':
+                frag_length_stddev = atof(optarg);
                 break;
                 
             case 'v':
@@ -373,6 +387,21 @@ int main_mpmap(int argc, char** argv) {
     }
     
     // check for valid parameters
+    
+    if (std::isnan(frag_length_mean) != std::isnan(frag_length_stddev)) {
+        cerr << "error:[vg mpmap] Cannot specify only one of fragment length mean (-I) and standard deviation (-D)." << endl;
+        exit(1);
+    }
+    
+    if (!std::isnan(frag_length_mean) && frag_length_mean < 0) {
+        cerr << "error:[vg mpmap] Fragment length mean (-I) must be nonnegative." << endl;
+        exit(1);
+    }
+    
+    if (!std::isnan(frag_length_stddev) && frag_length_stddev < 0) {
+        cerr << "error:[vg mpmap] Fragment length standard deviation (-D) must be nonnegative." << endl;
+        exit(1);
+    }
     
     if (interleaved_input && !fastq_name_2.empty()) {
         cerr << "error:[vg mpmap] Cannot designate both interleaved paired ends (-i) and separate paired end file (-f)." << endl;
@@ -605,9 +634,15 @@ int main_mpmap(int argc, char** argv) {
             buffer_size++;
         }
         
-        // ensure deterministic fragment length estimation by temporarily switching to single-threaded mode
-        multipath_mapper.set_fragment_length_distr_params(frag_length_sample_size, frag_length_sample_size,
-                                                          frag_length_robustness_fraction);
+        if (!std::isnan(frag_length_mean) && !std::isnan(frag_length_stddev)) {
+            // Force a fragment length distribution
+            multipath_mapper.force_fragment_length_distr(frag_length_mean, frag_length_stddev);
+        } else {
+            // ensure deterministic fragment length estimation by temporarily switching to single-threaded mode
+            multipath_mapper.set_fragment_length_distr_params(frag_length_sample_size, frag_length_sample_size,
+                                                              frag_length_robustness_fraction);
+        }
+
     }
     
 #ifdef record_read_run_times
