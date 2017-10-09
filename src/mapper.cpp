@@ -4325,21 +4325,14 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         assert(false);
                     }
 #endif
-                    //cerr << "band before strip " << pb2json(band) << endl;
-                    //cerr << "stripping " << to_strip[k].first << "," << to_strip[k].second << endl;
                     assert(band.sequence().size() > to_strip[k].first + to_strip[k].second);
                     band = strip_from_start(band, to_strip[k].first);
                     band = strip_from_end(band, to_strip[k].second);
                     band = simplify(band);
                     band.set_identity(identity(band.path()));
-                    //cerr << "band simplified " << pb2json(band) << endl;
                     // update the reference end position
                     if (band.has_path()) {
-                        //cerr << "we have an alignment" << endl;
-                        if (alignment_from_length(band) > min_mem_length) {
-                            //&& band.identity() >= min_identity) {
-                            //&& band.sequence().size() >= min_cluster_length) {
-                            //cerr << "new ref pos " << band_ref_pos << endl;
+                        if (alignment_from_length(band) >= min_mem_length) {
                             band_ref_pos.clear();
                             // todo... step our position back just a little to match the banding
                             // right now we're relying on the chunkiness of the graph to get this for us
@@ -4733,7 +4726,7 @@ AlignmentChainModel::AlignmentChainModel(
             v.aln = &aln;
             v.band_begin = offset;
             v.band_idx = idx;
-            v.weight = aln.score() + aln.mapping_quality();
+            v.weight = aln.sequence().size() + aln.score() + aln.mapping_quality();
             v.prev = nullptr;
             v.score = 0;
             v.approx_position = mapper->approx_alignment_position(aln);
