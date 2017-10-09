@@ -64,7 +64,7 @@ vector<handle_t> topological_sort(const HandleGraph* g) {
 
     // We find the head and tails, if there are any
     vector<handle_t> heads{head_nodes(g)};
-    vector<handle_t> tails{tail_nodes(g)};
+    // No need to fetch the tails since we don't use them
 
     
     // Maps from node ID to first orientation we suggested for it.
