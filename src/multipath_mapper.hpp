@@ -106,10 +106,9 @@ namespace vg {
         
         /// Extracts a section of graph at a distance from the MultipathAlignment based on the fragment length
         /// distribution and attempts to align the other paired read to it. If rescuing forward, assumes the
-        /// provided MultipathAlignment is the first read and vice versa if rescuing backward. Rescue first
-        /// attempts to assign MEMs to the extracted graph and form a true MultipathAlignment. Failing that, it then
-        /// attempts a conventional local alignment with gssw and converts the Alignment to a MultipathAlignment.
-        /// The MultipathAlignment will be stored in the provided object.
+        /// provided MultipathAlignment is the first read and vice versa if rescuing backward. Rescue constructs
+        /// a conventional local alignment with gssw and converts the Alignment to a MultipathAlignment. The
+        /// MultipathAlignment will be stored in the object passed by reference as an argument.
         bool attempt_rescue(const MultipathAlignment& multipath_aln, const Alignment& other_aln,
                             bool rescue_forward, MultipathAlignment& rescue_multipath_aln);
         

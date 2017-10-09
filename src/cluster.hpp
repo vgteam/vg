@@ -237,7 +237,8 @@ private:
                                                  xg::XG* xgindex,
                                                  const function<pos_t(size_t)>& get_position,
                                                  const function<int64_t(size_t)>& get_offset,
-                                                 unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo);
+                                                 unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo,
+                                                 unordered_map<pair<id_t, bool>, handle_t>* handle_memo);
     
     
     /**
@@ -252,7 +253,8 @@ private:
                                                  xg::XG* xgindex,
                                                  const function<pos_t(size_t)>& get_position,
                                                  const function<int64_t(size_t)>& get_offset,
-                                                 unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo);
+                                                 unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo,
+                                                 unordered_map<pair<id_t, bool>, handle_t>* handle_memo);
     
     /**
      * Given a number of nodes, and a map from node pair to signed relative

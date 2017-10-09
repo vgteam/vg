@@ -333,6 +333,10 @@ public:
                                          vector<pair<size_t, vector<pair<size_t, bool>>>>*& paths_of_node_ptr_out,
                                          unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr) const;
     
+    /// returns a the memoized result from get_handle if a memo is provided that the result has been queried previously
+    /// otherwise, returns the result of get_handle directly and stores it in the memo if one is provided
+    handle_t memoized_get_handle(int64_t id, bool rev, unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
+    
     /// the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative)
     /// estimated by the distance along the nearest shared path to the two positions plus the distance
     /// to traverse to that path. returns numeric_limits<int64_t>::max() if no pair of nodes that occur same
@@ -341,14 +345,16 @@ public:
     int64_t closest_shared_path_oriented_distance(int64_t id1, size_t offset1, bool rev1,
                                                   int64_t id2, size_t offset2, bool rev2,
                                                   size_t max_search_dist = 100,
-                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr) const;
+                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr,
+                                                  unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
     
     /// returns a vector of (node id, is reverse, offset) tuples that are found by jumping a fixed oriented distance
     /// along path(s) from the given position. if the position is not on a path, searches from the position to a path
     /// and adds/subtracts the search distance to the jump depending on the search direction. returns an empty vector
     /// if there is no path within the max search distance or if the jump distance goes past the end of the path
     vector<tuple<int64_t, bool, size_t>> jump_along_closest_path(int64_t id, bool is_rev, size_t offset, int64_t jump_dist, size_t max_search_dist,
-                                                                 unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr) const;
+                                                                 unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr,
+                                                                 unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // gPBWT API
