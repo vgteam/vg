@@ -4282,7 +4282,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                 //cerr << "got " << bands.size() << " bands" << endl;
                 //pos_t band_ref_pos = ref_pos;
                 set<pos_t> band_ref_pos;
-                band_ref_pos.insert(ref_pos);
+                if (id(ref_pos)) band_ref_pos.insert(ref_pos);
                 for (int k = 0; k < bands.size(); ++k) {
                     Alignment& band = bands[k];
                     //cerr << "on band " << k << " " << pb2json(band) << endl;
@@ -4349,9 +4349,11 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                             // strip back a little
                             if (to_strip.size() > k+1 && to_strip[k+1].first && band.sequence().size() > to_strip[k+1].first) {
                                 auto band_chew = strip_from_end(band, to_strip[k+1].first);
-                                band_ref_pos.insert(make_pos_t(alignment_end_position(band_chew)));
+                                pos_t pos = make_pos_t(alignment_end_position(band_chew));
+                                if (id(pos)) band_ref_pos.insert(pos);
                             } else {
-                                band_ref_pos.insert(make_pos_t(alignment_end_position(band)));
+                                pos_t pos = make_pos_t(alignment_end_position(band));
+                                if (id(pos)) band_ref_pos.insert(pos);
                             }
 #ifdef debug_mapper
                             if (debug && !check_alignment(band)) {
@@ -4768,13 +4770,13 @@ AlignmentChainModel::AlignmentChainModel(
     for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
         for (auto u = v+1; u != model.end(); ++u) {
             if (v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
-                if (v->band_begin < u->band_begin) {
+                if (v->band_begin < u->band_begin && u->band_begin - v->band_begin <= band_width) {
                     double weight = transition_weight(*v->aln, *u->aln);
                     if (weight > -std::numeric_limits<double>::max()) {
                         v->next_cost.push_back(make_pair(&*u, weight));
                         u->prev_cost.push_back(make_pair(&*v, weight));
                     }
-                } else if (v->band_begin > u->band_begin) {
+                } else if (v->band_begin > u->band_begin && v->band_begin - u->band_begin <= band_width) {
                     double weight = transition_weight(*u->aln, *v->aln);
                     if (weight > -std::numeric_limits<double>::max()) {
                         u->next_cost.push_back(make_pair(&*v, weight));
