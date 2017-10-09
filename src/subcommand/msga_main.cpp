@@ -583,8 +583,10 @@ int main_msga(int argc, char** argv) {
             vector<Path> paths;
             int j = 0;
             // align to the graph
-            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
-                graph->node_count() << " nodes" << endl;
+            if (debug) cerr << name << ": aligning " << seq.size() << "bp -> g:"
+                            << graph->length() << "bp "
+                            << "n:" << graph->node_count() << " "
+                            << "e:" << graph->edge_count() << endl;
             Alignment aln = simplify(mapper->align(seq, 0, 0, 0, band_width));
             aln.set_name(name);
             if (aln.path().mapping_size()) {
