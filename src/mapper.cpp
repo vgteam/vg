@@ -3570,12 +3570,16 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         malns.push_back(bands[i]);
         for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
             Alignment& aln = *a;
-            // strip overlaps
-            aln = strip_from_start(aln, to_strip[i].first);
-            aln = strip_from_end(aln, to_strip[i].second);
-            aln.set_identity(identity(aln.path()));
-            aln.set_score(score_alignment(aln, false));
-            bool above_threshold = aln.identity() >= min_identity && aln.mapping_quality() >= min_banded_mq;
+            aln = simplify(aln);
+            bool above_threshold = false;
+            if (aln.score() > 0) {
+                // strip overlaps and re-score the part of the alignment we keep
+                aln = strip_from_start(aln, to_strip[i].first);
+                aln = strip_from_end(aln, to_strip[i].second);
+                aln.set_identity(identity(aln.path()));
+                aln.set_score(score_alignment(aln, false));
+                above_threshold = aln.identity() >= min_identity && aln.mapping_quality() >= min_banded_mq;
+            }
             if (!above_threshold) {
                 // treat as unmapped
                 aln = bands[i];
@@ -3599,12 +3603,11 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     // cost function
     auto transition_weight = [&](const Alignment& aln1, const Alignment& aln2) {
         // scoring scheme for unaligned reads
-        if (!aln1.has_path() && !aln2.has_path()) {
-            return -std::numeric_limits<double>::max();
-        } else if (!aln2.has_path()) {
-            return (double) aln1.score() - (gap_open + aln2.sequence().size() * gap_extension);
-        } else if (!aln1.has_path()) {
-            return (double) aln2.score() - (gap_open + aln1.sequence().size() * gap_extension);
+        if (!aln1.has_path()) {
+            return -(double)(aln1.sequence().length() * gap_extension + gap_open)/2.0;
+        }
+        if (!aln2.has_path()) {
+            return -(double)(aln2.sequence().length() * gap_extension + gap_open)/2.0;
         }
         auto aln1_end = path_end(aln1.path());
         auto aln2_begin = path_start(aln2.path());
@@ -3613,21 +3616,15 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         int64_t approx_dist = abs(approx_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin)));
         int64_t dist = min(min(path_dist, graph_dist), approx_dist);
         if (debug) cerr << "dist " << dist << endl;
-        if (dist >= max_band_jump*10) { // big number
-            return (double) -dist*gap_extension + gap_open;
-        } else {
-            double weight = aln1.sequence().size() + aln2.sequence().size() + aln1.score() + aln2.score() + aln1.mapping_quality() + aln2.mapping_quality();
-            weight -= (gap_open + dist * gap_extension);
-            return weight;
-        }
+        return -((double)gap_open + (double)dist * (double)gap_extension);
     };
 
-    AlignmentChainModel chainer(multi_alns, this, transition_weight, max_band_jump*3);
+    AlignmentChainModel chainer(multi_alns, this, transition_weight, max_band_jump);
     if (debug) chainer.display(cerr);
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps+1, false, debug);
     for (auto& aln : alignments) {
         // patch the alignment to deal with short unaligned regions
-        aln = patch_alignment(aln, band_width+1);
+        aln = patch_alignment(aln, band_width/8);
         aln.set_identity(identity(aln.path()));
         aln.set_score(score_alignment(aln, true));
     }
@@ -4293,7 +4290,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
-                            Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size());
+                            Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size()*2);
                             sort_by_id_dedup_and_clean(graph);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
@@ -4307,7 +4304,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         //cerr << "soft clip at end " << band.sequence() << endl;
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
-                            Graph graph = xindex->graph_context_id(pos, band.sequence().size());
+                            Graph graph = xindex->graph_context_id(pos, band.sequence().size()*2);
                             sort_by_id_dedup_and_clean(graph);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
@@ -4316,7 +4313,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         //cerr << "internal addition" << endl;
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
-                            Graph graph = xindex->graph_context_id(pos, band.sequence().size());
+                            Graph graph = xindex->graph_context_id(pos, band.sequence().size()*2);
                             sort_by_id_dedup_and_clean(graph);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
@@ -4339,9 +4336,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                     // update the reference end position
                     if (band.has_path()) {
                         //cerr << "we have an alignment" << endl;
-                        if (alignment_from_length(band) >= min_mem_length
-                            && band.identity() >= min_identity
-                            && band.sequence().size() >= min_cluster_length) {
+                        if (alignment_from_length(band) > min_mem_length) {
+                            //&& band.identity() >= min_identity) {
+                            //&& band.sequence().size() >= min_cluster_length) {
                             //cerr << "new ref pos " << band_ref_pos << endl;
                             band_ref_pos.clear();
                             // todo... step our position back just a little to match the banding
@@ -4736,7 +4733,7 @@ AlignmentChainModel::AlignmentChainModel(
             v.aln = &aln;
             v.band_begin = offset;
             v.band_idx = idx;
-            v.weight = aln.score();
+            v.weight = aln.score() + aln.mapping_quality();
             v.prev = nullptr;
             v.score = 0;
             v.approx_position = mapper->approx_alignment_position(aln);
@@ -4770,13 +4767,13 @@ AlignmentChainModel::AlignmentChainModel(
     for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
         for (auto u = v+1; u != model.end(); ++u) {
             if (v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
-                if (v->band_begin < u->band_begin && u->band_begin - v->band_begin <= band_width) {
+                if (v->band_idx + 1 == u->band_idx) {
                     double weight = transition_weight(*v->aln, *u->aln);
                     if (weight > -std::numeric_limits<double>::max()) {
                         v->next_cost.push_back(make_pair(&*u, weight));
                         u->prev_cost.push_back(make_pair(&*v, weight));
                     }
-                } else if (v->band_begin > u->band_begin && v->band_begin - u->band_begin <= band_width) {
+                } else if (u->band_idx + 1 == v->band_idx) {
                     double weight = transition_weight(*u->aln, *v->aln);
                     if (weight > -std::numeric_limits<double>::max()) {
                         u->next_cost.push_back(make_pair(&*v, weight));

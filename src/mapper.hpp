@@ -67,7 +67,7 @@ public:
         const function<double(const Alignment&, const Alignment&)>& transition_weight,
         int band_width = 10,
         int position_depth = 1,
-        int max_connections = 10);
+        int max_connections = 30);
     void score(const set<AlignmentChainModelVertex*>& exclude);
     AlignmentChainModelVertex* max_vertex(void);
     vector<Alignment> traceback(const Alignment& read, int alt_alns, bool paired, bool debug);
