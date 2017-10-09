@@ -39,7 +39,8 @@ vector<handle_t> tail_nodes(const HandleGraph* g);
  * 
  * while N is nonempty do
  *     remove a node from N, orient it arbitrarily, and add it to S
- *         (In practice, we use "seeds": the heads and any nodes we have seen that had too many incoming edges)
+ *         (In practice, we use "seeds": the heads all in a batch at the start, and any
+ *          nodes we have seen that had too many incoming edges)
  *     while S is non-empty do
  *         remove an oriented node n from S
  *         add n to tail of L

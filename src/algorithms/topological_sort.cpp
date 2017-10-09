@@ -66,23 +66,34 @@ vector<handle_t> topological_sort(const HandleGraph* g) {
     vector<handle_t> heads{head_nodes(g)};
     vector<handle_t> tails{tail_nodes(g)};
 
-    // We'll fill this in with the heads, so we can orient things according to
-    // them first, and then arbitrarily. We ignore tails since we only orient
-    // right from nodes we pick.
+    
     // Maps from node ID to first orientation we suggested for it.
     map<id_t, handle_t> seeds;
+    
+    
     for(handle_t& head : heads) {
-        seeds[g->get_id(head)] = head;
+        // Dump all the heads into the oriented set, rather than having them as
+        // seeds. We will only go for cycle-breaking seeds when we run out of
+        // heads. This is bad for contiguity/ordering consistency in cyclic
+        // graphs and reversing graphs, but makes sure we work out to just
+        // topological sort on DAGs. It mimics the effect we used to get when we
+        // joined all the head nodes to a new root head node and seeded that. We
+        // ignore tails since we only orient right from nodes we pick.
+        s[g->get_id(head)] = head;
     }
 
     // We will use an ordered map handles by ID for nodes we have not visited
     // yet. This ensures a consistent sort order across systems.
     map<id_t, handle_t> unvisited;
     g->for_each_handle([&](const handle_t& found) {
-        unvisited.emplace(g->get_id(found), found);
+        if (!s.count(g->get_id(found))) {
+            // Only nodes that aren't yet in s are unvisited.
+            // Nodes in s are visited but just need to be added tot he ordering.
+            unvisited.emplace(g->get_id(found), found);
+        }
     });
 
-    while(!unvisited.empty()) {
+    while(!unvisited.empty() || !s.empty()) {
 
         // Put something in s. First go through seeds until we can find one
         // that's not already oriented.
