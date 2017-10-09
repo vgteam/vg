@@ -4,6 +4,8 @@ language: cpp
 compiler: gcc
 sudo: required
 dist: trusty
+env:
+  - HOMEBREW_NO_AUTO_UPDATE=1
 # We have some shenanigans to let us cache submodules, and update changed files
 # without messing up mtimes and triggering rebuilds unnecessarily. Travis checks
 # out our submodules and then restores the cache over them. We move the cached
