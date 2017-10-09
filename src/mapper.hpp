@@ -65,7 +65,7 @@ public:
         vector<vector<Alignment> >& bands,
         Mapper* mapper,
         const function<double(const Alignment&, const Alignment&)>& transition_weight,
-        int band_width = 10,
+        int vertex_width = 10,
         int position_depth = 1,
         int max_connections = 30);
     void score(const set<AlignmentChainModelVertex*>& exclude);

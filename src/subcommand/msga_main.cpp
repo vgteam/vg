@@ -622,6 +622,7 @@ int main_msga(int argc, char** argv) {
             graph->edit(paths);
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
+            if (normalize) graph->normalize(10, debug);
             graph->dice_nodes(node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
@@ -695,17 +696,6 @@ int main_msga(int argc, char** argv) {
     //          }
     //      };
 
-    if (normalize) {
-        if (debug) cerr << "normalizing graph" << endl;
-        graph->remove_non_path();
-        graph->normalize();
-        graph->dice_nodes(node_max);
-        graph->sort();
-        graph->compact_ids();
-        if (!graph->is_valid()) {
-            cerr << "[vg msga] warning! graph is not valid after normalization" << endl;
-        }
-    }
 
     // finally, validate the included paths
     set<string> failures;

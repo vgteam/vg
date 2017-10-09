@@ -269,7 +269,7 @@ public:
     /// Use the orientation of the first node as the basis.
     Node* merge_nodes(const list<Node*>& nodes);
     /// Use unchop and sibling merging to simplify the graph into a normalized form.
-    void normalize(int max_iter = 1);
+    void normalize(int max_iter = 1, bool debug = false);
     /// Remove redundant overlaps.
     void bluntify(void);
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times

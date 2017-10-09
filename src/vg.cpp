@@ -1389,7 +1389,7 @@ void VG::unchop(void) {
     paths.compact_ranks();
 }
 
-void VG::normalize(int max_iter) {
+void VG::normalize(int max_iter, bool debug) {
     size_t last_len = 0;
     if (max_iter > 1) {
         last_len = length();
@@ -1416,13 +1416,13 @@ void VG::normalize(int max_iter) {
         //if (!is_valid()) cerr << "invalid after compact ranks two  " << endl;
         if (max_iter > 1) {
             size_t curr_len = length();
-            cerr << "[VG::normalize] iteration " << iter+1 << " current length " << curr_len << endl;
+            if (debug) cerr << "[VG::normalize] iteration " << iter+1 << " current length " << curr_len << endl;
             if (curr_len == last_len) break;
             last_len = curr_len;
         }
     } while (++iter < max_iter);
     if (max_iter > 1) {
-        cerr << "[VG::normalize] normalized in " << iter << " steps" << endl;
+        if (debug) cerr << "[VG::normalize] normalized in " << iter << " steps" << endl;
     }
 }
 
