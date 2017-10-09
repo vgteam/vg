@@ -3629,8 +3629,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     for (auto& aln : alignments) {
         // patch the alignment to deal with short unaligned regions
         aln = patch_alignment(aln, band_width);
-        aln.set_identity(identity(aln.path()));
-        aln.set_score(score_alignment(aln, false));
+        //aln.set_identity(identity(aln.path()));
+        //aln.set_score(score_alignment(aln, false));
     }
     // sort the alignments by score
     std::sort(alignments.begin(), alignments.end(), [](const Alignment& aln1, const Alignment& aln2) { return aln1.score() > aln2.score(); });
@@ -4297,7 +4297,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                             //cerr << "trying position " << pos << endl;
                             pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
                             Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size()*4);
-                            graph.MergeFrom(xindex->graph_context_id(pos, band.sequence().size()*3));
+                            graph.MergeFrom(xindex->graph_context_id(pos, band.sequence().size()*2));
                             sort_by_id_dedup_and_clean(graph);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
@@ -4314,7 +4314,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                             //cerr << "trying position " << pos << endl;
                             Graph graph = xindex->graph_context_id(pos, band.sequence().size()*4);
                             pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
-                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*3));
+                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*2));
                             sort_by_id_dedup_and_clean(graph);
                             //cerr << "on graph " << pb2json(graph) << endl;
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
@@ -4327,7 +4327,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                             //cerr << "trying position " << pos << endl;
                             Graph graph = xindex->graph_context_id(pos, band.sequence().size()*4);
                             pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
-                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*3));
+                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*2));
                             sort_by_id_dedup_and_clean(graph);
                             //cerr << "on graph " << pb2json(graph) << endl;
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
@@ -4347,7 +4347,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                     band.set_identity(identity(band.path()));
                     // update the reference end position
                     if (band.has_path()) {
-                        if (alignment_from_length(band) >= min_mem_length) {
+                        if (alignment_from_length(band) >= min_mem_length
+                            && band.identity() > min_identity) {
                             band_ref_pos.clear();
                             //cerr << "thing worked " << pb2json(band) << endl;
                             // todo... step our position back just a little to match the banding
@@ -4446,7 +4447,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
     // set the identity
     patched.set_identity(identity(patched.path()));
     // recompute the score
-    patched.set_score(score_alignment(patched, true));
+    patched.set_score(score_alignment(patched, false));
     return patched;
 }
 
