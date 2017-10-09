@@ -4347,7 +4347,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                     band.set_identity(identity(band.path()));
                     // update the reference end position
                     if (band.has_path()) {
-                        if (alignment_from_length(band) >= min_mem_length
+                        auto from_length = alignment_from_length(band);
+                        if (from_length >= min_mem_length
+                            && from_length >= min_cluster_length
                             && band.identity() > min_identity) {
                             band_ref_pos.clear();
                             //cerr << "thing worked " << pb2json(band) << endl;
