@@ -3603,11 +3603,12 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     // cost function
     auto transition_weight = [&](const Alignment& aln1, const Alignment& aln2) {
         // scoring scheme for unaligned reads
-        if (!aln1.has_path()) {
-            return -(double)(aln1.sequence().length() * gap_extension + gap_open)/2.0;
-        }
-        if (!aln2.has_path()) {
-            return -(double)(aln2.sequence().length() * gap_extension + gap_open)/2.0;
+        if (!aln1.has_path() && !aln2.has_path()) {
+            return -(double)((aln1.sequence().size() + aln2.sequence().size()) * gap_extension + gap_open);
+        } else if (!aln1.has_path()) {
+            return -(double)(aln1.sequence().size() * gap_extension + gap_open);
+        } else if (!aln2.has_path()) {
+            return -(double)(aln2.sequence().size() * gap_extension + gap_open);
         }
         auto aln1_end = path_end(aln1.path());
         auto aln2_begin = path_start(aln2.path());
@@ -3624,7 +3625,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps+1, false, debug);
     for (auto& aln : alignments) {
         // patch the alignment to deal with short unaligned regions
-        aln = patch_alignment(aln, band_width/8);
+        aln = patch_alignment(aln, band_width);
         aln.set_identity(identity(aln.path()));
         aln.set_score(score_alignment(aln, true));
     }
