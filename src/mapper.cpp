@@ -5089,7 +5089,7 @@ void FragmentLengthDistribution::determinize_estimation() {
     if (multithread_reset || is_fixed) {
         return;
     }
-    multithread_reset = omp_get_num_threads();
+    multithread_reset = get_thread_count();
     omp_set_num_threads(1);
 }
 
@@ -5142,6 +5142,10 @@ bool FragmentLengthDistribution::is_finalized() const {
     
 size_t FragmentLengthDistribution::max_sample_size() const {
     return maximum_sample_size;
+}
+    
+size_t FragmentLengthDistribution::curr_sample_size() const {
+    return lengths.size();
 }
     
 multiset<double>::const_iterator FragmentLengthDistribution::measurements_begin() const {

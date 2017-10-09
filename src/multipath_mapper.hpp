@@ -104,6 +104,15 @@ namespace vg {
                                                     vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                     vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer);
         
+        /// Extracts a section of graph at a distance from the MultipathAlignment based on the fragment length
+        /// distribution and attempts to align the other paired read to it. If rescuing forward, assumes the
+        /// provided MultipathAlignment is the first read and vice versa if rescuing backward. Rescue first
+        /// attempts to assign MEMs to the extracted graph and form a true MultipathAlignment. Failing that, it then
+        /// attempts a conventional local alignment with gssw and converts the Alignment to a MultipathAlignment.
+        /// The MultipathAlignment will be stored in the provided object.
+        bool attempt_rescue(const MultipathAlignment& multipath_aln, const Alignment& other_aln,
+                            bool rescue_forward, MultipathAlignment& rescue_multipath_aln);
+        
         /// After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform
         /// multipath alignment
         void align_to_cluster_graphs(const Alignment& alignment,

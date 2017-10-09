@@ -123,6 +123,9 @@ public:
     /// parameters
     size_t max_sample_size() const;
     
+    /// Returns the number of samples that have been collected so far
+    size_t curr_sample_size() const;
+    
     /// Begin iterator to the measurements that the distribution has used to estimate the
     /// parameters
     multiset<double>::const_iterator measurements_begin() const;
