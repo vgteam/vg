@@ -6950,10 +6950,17 @@ Alignment VG::align(const Alignment& alignment,
 
     if ((acyclic || is_acyclic()) && !has_inverting_edges()) {
         // graph is a non-inverting DAG, so we just need to sort
+#ifdef debug
+        cerr << "Graph is a non-inverting DAG, so just sort and align" << endl;
+#endif
         algorithms::sort(this);
         // run the alignment
         do_align(this->graph);
     } else {
+#ifdef debug
+        cerr << "Graph is complex, so dagify and unfold before alignment" << endl;
+#endif
+        
         unordered_map<id_t, pair<id_t, bool> > unfold_trans;
         unordered_map<id_t, pair<id_t, bool> > dagify_trans;
         // Work out how long we could possibly span with an alignment.
@@ -8857,7 +8864,7 @@ VG VG::unfold(uint32_t max_length,
             unfolded.create_edge(reversed_nodes[init_next.node->id()], main_orientation[init_trav.node->id()].first);
         }
 #ifdef debug
-        cerr << "[unfold] adding edge to unfold graph as " << pb2json(edge) << endl;
+        cerr << "[unfold] adding edge to unfold graph" << endl;
 #endif
         
         if (!queued.count(make_pair(init_next.node->id(), init_next.backward))) {
@@ -8921,7 +8928,7 @@ VG VG::unfold(uint32_t max_length,
                     }
                     reversed_edges.insert(edge);
 #ifdef debug
-                    cerr << "[unfold] edge has not been observed on reverse strand, adding reverse edge " << pb2json(new_edge) << endl;
+                    cerr << "[unfold] edge has not been observed on reverse strand, adding reverse edge" << endl;
 #endif
                 }
                 
