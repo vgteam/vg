@@ -72,16 +72,19 @@ namespace vg {
         
         // cluster the MEMs
         vector<memcluster_t> clusters;
+        // memos for the results of expensive succinct operations that we may need to do multiple times
+        OrientedDistanceClusterer::node_occurrence_on_paths_memo_t node_path_occurrence_memo;
+        OrientedDistanceClusterer::handle_memo_t handle_memo;
         // TODO: Making OrientedDistanceClusterers is the only place we actually
         // need to distinguish between regular_aligner and qual_adj_aligner
         if (adjust_alignments_for_base_quality) {
             OrientedDistanceClusterer clusterer(alignment, mems, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error,
-                                                min_clustering_mem_length);
+                                                min_clustering_mem_length, &node_path_occurrence_memo, &handle_memo);
             clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         else {
             OrientedDistanceClusterer clusterer(alignment, mems, *get_regular_aligner(), xindex, max_expected_dist_approx_error,
-                                                min_clustering_mem_length);
+                                                min_clustering_mem_length, &node_path_occurrence_memo, &handle_memo);
             clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         
@@ -451,21 +454,24 @@ namespace vg {
         
         vector<memcluster_t> clusters1;
         vector<memcluster_t> clusters2;
+        // memos for the results of expensive succinct operations that we may need to do multiple times
+        OrientedDistanceClusterer::node_occurrence_on_paths_memo_t node_path_occurrence_memo;
+        OrientedDistanceClusterer::handle_memo_t handle_memo;
         // TODO: Making OrientedDistanceClusterers is the only place we actually
         // need to distinguish between regular_aligner and qual_adj_aligner
         if (adjust_alignments_for_base_quality) {
             OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error,
-                                                 min_clustering_mem_length);
+                                                 min_clustering_mem_length, &node_path_occurrence_memo, &handle_memo);
             OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error,
-                                                 min_clustering_mem_length);
+                                                 min_clustering_mem_length, &node_path_occurrence_memo, &handle_memo);
             clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
             clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         else {
             OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error,
-                                                 min_clustering_mem_length);
+                                                 min_clustering_mem_length, &node_path_occurrence_memo, &handle_memo);
             OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error,
-                                                 min_clustering_mem_length);
+                                                 min_clustering_mem_length, &node_path_occurrence_memo, &handle_memo);
             clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
             clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
@@ -525,7 +531,9 @@ namespace vg {
                                                                                                              cluster_mems_2,
                                                                                                              xindex,
                                                                                                              min_separation,
-                                                                                                             max_separation);
+                                                                                                             max_separation,
+                                                                                                             &node_path_occurrence_memo,
+                                                                                                             &handle_memo);
 #ifdef debug_multipath_mapper
         cerr << "obtained cluster pairs:" << endl;
         for (int i = 0; i < cluster_pairs.size(); i++) {
