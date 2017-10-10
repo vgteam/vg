@@ -949,8 +949,7 @@ class VGCITest(TestCase):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """
         log.info("Test start at {}".format(datetime.now()))        
         self._test_mapeval(100000, 'MHC', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus'],
-                           score_baseline_graph='primary',
+                           ['snp1kg', 'cactus'],
                            multipath=True,
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
 
