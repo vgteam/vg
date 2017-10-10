@@ -3577,7 +3577,6 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
                 aln = strip_from_start(aln, to_strip[i].first);
                 aln = strip_from_end(aln, to_strip[i].second);
                 aln.set_identity(identity(aln.path()));
-                aln.set_score(score_alignment(aln, false));
                 above_threshold = aln.identity() >= min_identity && aln.mapping_quality() >= min_banded_mq;
             }
             if (!above_threshold) {
@@ -3606,31 +3605,19 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         if (!aln1.has_path() || !aln2.has_path()) {
             return -(double)(10*(aln1.sequence().size() + aln2.sequence().size()) * gap_extension + gap_open);
         }
-        /*
-        } else if (!aln1.has_path()) {
-            return -(double)(10*aln1.sequence().size() * gap_extension + gap_open);
-        } else if (!aln2.has_path()) {
-            return -(double)(10*aln2.sequence().size() * gap_extension + gap_open);
-        }
-        */
-        auto aln1_end = path_end(aln1.path());
-        auto aln2_begin = path_start(aln2.path());
-        int64_t path_dist = xindex->min_approx_path_distance({}, aln1_end.node_id(), aln2_begin.node_id());
-        int64_t graph_dist = graph_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin), max_band_jump/4);
-        int64_t approx_dist = abs(approx_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin)));
-        int64_t dist = min(min(path_dist, graph_dist), approx_dist);
+        auto aln1_end = make_pos_t(path_end(aln1.path()));
+        auto aln2_begin = make_pos_t(path_start(aln2.path()));
+        auto dist = graph_mixed_distance_estimate(aln1_end, aln2_begin, 32);
         if (debug) cerr << "dist " << dist << endl;
         return -((double)gap_open + (double)dist * (double)gap_extension);
     };
 
     AlignmentChainModel chainer(multi_alns, this, transition_weight, 1);
     if (debug) chainer.display(cerr);
-    vector<Alignment> alignments = chainer.traceback(read, max_multimaps+1, false, debug);
+    vector<Alignment> alignments = chainer.traceback(read, max_multimaps, false, debug);
     for (auto& aln : alignments) {
         // patch the alignment to deal with short unaligned regions
         aln = patch_alignment(aln, band_width);
-        //aln.set_identity(identity(aln.path()));
-        //aln.set_score(score_alignment(aln, false));
     }
     // sort the alignments by score
     std::sort(alignments.begin(), alignments.end(), [](const Alignment& aln1, const Alignment& aln2) { return aln1.score() > aln2.score(); });
@@ -4027,6 +4014,16 @@ int64_t Mapper::graph_distance(pos_t pos1, pos_t pos2, int64_t maximum) {
     return xg_distance(pos1, pos2, maximum, xindex);
 }
 
+int64_t Mapper::graph_mixed_distance_estimate(pos_t pos1, pos_t pos2, int64_t maximum) {
+    if (maximum) {
+        int64_t graph_dist = graph_distance(pos1, pos2, maximum);
+        if (graph_dist < maximum) return graph_dist;
+    }
+    int64_t path_dist = xindex->min_approx_path_distance({}, id(pos1), id(pos2));
+    int64_t approx_dist = abs(approx_distance(pos1, pos2));
+    return min(path_dist, approx_dist);
+}
+
 int64_t Mapper::approx_position(pos_t pos) {
     // get nodes on the forward strand
     if (is_rev(pos)) {
@@ -4395,7 +4392,17 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                                 next_pos.insert(next);
                             }
                         }
-                        band_ref_pos = next_pos;
+                        // keep only 4 next positions
+                        band_ref_pos.clear();
+                        if (next_pos.size()) {
+                            int to_keep = 4;
+                            int p = 0;
+                            for (auto& pos : next_pos) {
+                                if (++p <= to_keep) {
+                                    band_ref_pos.insert(pos);
+                                }
+                            }
+                        }
                     }
                 }
                 /*
@@ -4469,17 +4476,7 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
     } else {
         // Use the exact method, and if we hit the limit, fall back to the approximate method.
         return aligner->score_gappy_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
-            auto dist = graph_distance(last, next, max_search);
-            if (dist == max_search) {
-#ifdef debug_mapper
-#pragma omp critical
-                {
-                    if (debug) cerr << "could not find distance to next target, using approximation" << endl;
-                }
-#endif
-                dist = abs(approx_distance(last, next));
-            }
-            return dist;
+                return graph_mixed_distance_estimate(last, next, min(32, (int)max_search));
         }, strip_bonuses);
     }
     

@@ -547,6 +547,8 @@ public:
     double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
     // walks the graph one base at a time from pos1 until we find pos2
     int64_t graph_distance(pos_t pos1, pos_t pos2, int64_t maximum = 1e3);
+    // takes the min of graph_distance, approx_distance, and xindex->min_approx_path_distance()
+    int64_t graph_mixed_distance_estimate(pos_t pos1, pos_t pos2, int64_t maximum);
     // use the offset in the sequence array to give an approximate distance
     int64_t approx_distance(pos_t pos1, pos_t pos2);
     // use the offset in the sequence array to get an approximate position
