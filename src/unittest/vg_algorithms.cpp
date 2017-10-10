@@ -12,6 +12,7 @@
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
+#include "algorithms/topological_sort.hpp"
 #include "vg.hpp"
 #include "json2pb.h"
 
@@ -2709,5 +2710,145 @@ namespace vg {
                 REQUIRE(found_edge_5);
             }
         }
+        
+        TEST_CASE( "Topological sort works on a small graph",
+                  "[algorithms][topologicalsort]" ) {
+            
+            VG vg;
+            
+            Node* n0 = vg.create_node("CGA");
+            Node* n1 = vg.create_node("TTGG");
+            Node* n2 = vg.create_node("CCGT");
+            Node* n3 = vg.create_node("C");
+            Node* n4 = vg.create_node("GT");
+            Node* n5 = vg.create_node("GATAA");
+            Node* n6 = vg.create_node("CGG");
+            Node* n7 = vg.create_node("ACA");
+            Node* n8 = vg.create_node("GCCG");
+            Node* n9 = vg.create_node("ATATAAC");
+            
+            vg.create_edge(n1, n0, true, true); // a doubly reversing edge to keep it interesting
+            vg.create_edge(n1, n2);
+            vg.create_edge(n2, n3);
+            vg.create_edge(n2, n4);
+            vg.create_edge(n3, n5);
+            vg.create_edge(n4, n5);
+            vg.create_edge(n5, n6);
+            vg.create_edge(n5, n8);
+            vg.create_edge(n6, n7);
+            vg.create_edge(n6, n8);
+            vg.create_edge(n7, n9);
+            vg.create_edge(n8, n9);
+            
+            SECTION( "algorithms::topological_sort produces a consistent total ordering and orientation" ) {
+                auto handle_sort = algorithms::topological_sort(&vg);
+
+                SECTION( "Ordering and orientation is consistent" ) {
+                
+                    unordered_map<id_t, handle_t> oriented;
+                    
+                    for (auto& handle : handle_sort) {
+                        // For each oriented node
+                        
+                        // What was before it
+                        vector<handle_t> prev_handles;
+                        vg.follow_edges(handle, true, [&](const handle_t& prev) {
+                            prev_handles.push_back(prev);
+                        });
+                        
+                        for (auto& prev : prev_handles) {
+                            // We should have visited this already
+                            REQUIRE(oriented.count(vg.get_id(prev)) != 0);
+                            // And it should have been in the correct orientation
+                            REQUIRE(oriented.at(vg.get_id(prev)) == prev);
+                        }
+                        
+                        // Remember we were here in this orientation
+                        oriented.insert(make_pair(vg.get_id(handle), handle));
+                    }
+                    
+                }
+                
+                SECTION( "All nodes are placed" ) {
+                    REQUIRE(handle_sort.size() == vg.node_size());
+                
+                    unordered_set<id_t> found;
+                    
+                    for (auto& handle : handle_sort) {
+                        found.insert(vg.get_id(handle));
+                    }
+                    
+                    REQUIRE(found.size() == vg.node_size());
+                    
+                }
+               
+            }
+        }
+        
+        TEST_CASE( "Topological sort works on a more complex graph",
+                  "[algorithms][topologicalsort]" ) {
+
+
+            string graph_json = R"(
+            {"node": [{"id": 1, "sequence": "GTATTTTTAGTA"}, {"id": 2, "sequence": "G"}, {"id": 3, "sequence": "GAGACGGGGTTTCACCATGTT"}, {"id": 4, "sequence": "T"}, {"id": 5, "sequence": "CTAATTTTT"}, {"id": 6, "sequence": "CA"}, {"id": 7, "sequence": "GG"}, {"id": 8, "sequence": "ACGCCC"}, {"id": 9, "sequence": "C"}, {"id": 10, "sequence": "T"}, {"id": 11, "sequence": "C"}, {"id": 12, "sequence": "GCCA"}, {"id": 13, "sequence": "A"}, {"id": 14, "sequence": "GGGATTACAGGCGCACACC"}, {"id": 15, "sequence": "CCACACC"}, {"id": 16, "sequence": "AT"}, {"id": 17, "sequence": "CC"}, {"id": 18, "sequence": "GGTCAGGCTGGTCTCGACTCC"}, {"id": 19, "sequence": "TGACCTCCTGATCTGCCCCCC"}, {"id": 20, "sequence": "A"}, {"id": 21, "sequence": "G"}, {"id": 22, "sequence": "TATTTTTAGTA"}, {"id": 23, "sequence": "A"}, {"id": 24, "sequence": "G"}, {"id": 25, "sequence": "GA"}], "edge": [{"from": 4, "to": 1}, {"from": 5, "to": 1}, {"from": 1, "to": 2}, {"from": 1, "to": 3}, {"from": 22, "to": 2}, {"from": 2, "to": 20}, {"from": 2, "to": 21}, {"from": 3, "to": 18}, {"from": 5, "to": 4}, {"from": 6, "to": 5}, {"from": 7, "to": 5}, {"from": 8, "to": 6}, {"from": 8, "to": 7}, {"from": 9, "to": 8}, {"from": 10, "to": 8}, {"from": 11, "to": 9}, {"from": 11, "to": 10}, {"from": 12, "to": 11}, {"from": 13, "to": 11}, {"from": 16, "to": 12}, {"from": 17, "to": 12}, {"from": 12, "to": 15}, {"from": 14, "to": 13}, {"from": 18, "to": 19}, {"from": 20, "to": 25}, {"from": 21, "to": 25}, {"from": 23, "to": 22}, {"from": 24, "to": 22}]}
+            )";
+            
+            // Load the JSON
+            Graph proto_graph;
+            json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+            
+            // Make it into a VG
+            VG vg;
+            vg.extend(proto_graph);
+            
+            SECTION( "algorithms::topological_sort produces a consistent total ordering and orientation" ) {
+                auto handle_sort = algorithms::topological_sort(&vg);
+
+                SECTION( "Ordering and orientation is consistent" ) {
+                
+                    unordered_map<id_t, handle_t> oriented;
+                    
+                    for (auto& handle : handle_sort) {
+                        // For each oriented node
+                        
+                        // What was before it
+                        vector<handle_t> prev_handles;
+                        vg.follow_edges(handle, true, [&](const handle_t& prev) {
+                            prev_handles.push_back(prev);
+                        });
+                        
+                        for (auto& prev : prev_handles) {
+                            // We should have visited this already
+                            REQUIRE(oriented.count(vg.get_id(prev)) != 0);
+                            // And it should have been in the correct orientation
+                            REQUIRE(oriented.at(vg.get_id(prev)) == prev);
+                        }
+                        
+                        // Remember we were here in this orientation
+                        oriented.insert(make_pair(vg.get_id(handle), handle));
+                    }
+                    
+                }
+                
+                SECTION( "All nodes are placed" ) {
+                    REQUIRE(handle_sort.size() == vg.node_size());
+                
+                    unordered_set<id_t> found;
+                    
+                    for (auto& handle : handle_sort) {
+                        found.insert(vg.get_id(handle));
+                    }
+                    
+                    REQUIRE(found.size() == vg.node_size());
+                    
+                }
+               
+            }
+                  
+        }
+        
     }
+    
+    
+
 }

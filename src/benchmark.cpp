@@ -111,6 +111,12 @@ void benchmark_control() {
 }
 
 BenchmarkResult run_benchmark(const string& name, size_t iterations, const function<void(void)>& under_test) {
+    return run_benchmark(name, iterations, []() {}, under_test);
+}
+
+BenchmarkResult run_benchmark(const string& name, size_t iterations, const function<void(void)>& setup,
+    const function<void(void)>& under_test) {
+
     // We'll fill this in with the results of the benchmark run
     BenchmarkResult to_return;
     to_return.runs = iterations;
@@ -128,6 +134,9 @@ BenchmarkResult run_benchmark(const string& name, size_t iterations, const funct
     
     for (size_t i = 0; i < iterations; i++) {
         // For each iteration
+        
+        // Run the setup function
+        setup();
         
         // Run the function under test
         auto test_start = chrono::high_resolution_clock::now();

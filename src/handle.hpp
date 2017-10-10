@@ -223,7 +223,11 @@ public:
     
     /// Swap the nodes corresponding to the given handles, in the ordering used
     /// by for_each_handle when looping over the graph. Other handles to the
-    /// nodes being swapped must not be invalidated.
+    /// nodes being swapped must not be invalidated. If a swap is made while
+    /// for_each_handle is running, it affects the order of the handles
+    /// traversed during the current traversal (so swapping an already seen
+    /// handle to a later handle's position will make the seen handle be visited
+    /// again and the later handle not be visited at all).
     virtual void swap_handles(const handle_t& a, const handle_t& b) = 0;
     
     /// Alter the node that the given handle corresponds to so the orientation
