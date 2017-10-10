@@ -321,7 +321,7 @@ int main_stats(int argc, char** argv) {
                     for (auto& id1 : p.second) {
                         for (auto& id2 : f->second) {
                             if (seen.count(make_pair(id1, id2))) continue;
-                            cout << p1.name() << "." << p2.name() << "\t" << id1 << "\t" << id2 << endl;
+                            cout << p1.name() << "____" << p2.name() << "\t" << id1 << "\t" << id2 << endl;
                             seen.insert(make_pair(id1, id2));
                         }
                     }
@@ -329,7 +329,7 @@ int main_stats(int argc, char** argv) {
                     // non-overlap
                     for (auto& id1 : p.second) {
                         if (seen.count(make_pair(id1, 0))) continue;
-                        cout << p1.name() << "." << p2.name() << "\t" << id1 << "\t" << 0 << endl;
+                        cout << p1.name() << "____" << p2.name() << "\t" << id1 << "\t" << 0 << endl;
                         seen.insert(make_pair(id1, 0));
                     }
                 }
@@ -340,7 +340,7 @@ int main_stats(int argc, char** argv) {
                 if (f != p1_ranks.end()) {
                     for (auto& id2 : p.second) {
                         if (seen.count(make_pair(0, id2))) continue;
-                        cout << p1.name() << "." << p2.name() << "\t" << 0 << "\t" << id2 << endl;
+                        cout << p1.name() << "____" << p2.name() << "\t" << 0 << "\t" << id2 << endl;
                         seen.insert(make_pair(0, id2));
                     }
                 }
