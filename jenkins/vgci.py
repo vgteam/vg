@@ -951,8 +951,7 @@ class VGCITest(TestCase):
         self._test_mapeval(100000, 'MHC', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'],
                            score_baseline_graph='primary',
-                           positive_control='snp1kg_HG00096',
-                           negative_control='snp1kg_minus_HG00096',
+                           multipath=True,
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
 
     @timeout_decorator.timeout(16000)        
