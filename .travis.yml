@@ -31,10 +31,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm use 2.3.3; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew tap homebrew/science; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew tap homebrew/versions; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install jq jansson coreutils md5sha1sum samtools rasqal gtk-doc bison raptor rasqal gperftools autogen gcc49 lz4 xz; brew link bison --force; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew uninstall libtool; brew install libtool; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install jq jansson coreutils md5sha1sum samtools rasqal bison raptor rasqal gperftools autogen gcc49 lz4 xz; brew link bison --force; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CFLAGS="-I/usr/local/include/"; fi
@@ -43,7 +40,6 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir -p ./bin; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which g++-4.9` ./bin/g++; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which gcc-4.9` ./bin/gcc; fi
-  - python ./configure.py
   - source ./source_me.sh
 install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps;fi
@@ -51,7 +47,7 @@ script:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then git submodule update --recursive && make -j4 && make test && make static -j4; fi
   # If the deps manage to build fast enough, we should have enough time to finish the build.
   # Otherwise we should abort and cache what we have.
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then timeout 1000 make -j4 deps && make -j4 && make test; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then timeout 900 make -j4 deps && make -j4 && make test; fi
 # Cache all our dependency directories, and our lib and include
 cache:
   directories:
