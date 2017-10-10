@@ -59,7 +59,9 @@ void BandedGlobalAligner<IntType>::BABuilder::update_state(matrix_t matrix, Node
         cerr << "[BABuilder::update_state] transitioning into a new matrix" << endl;
 #endif
         // transitioned into another matrix, finish current edit and begin new one
-        finish_current_edit();
+        if (!empty_node_seq) {
+            finish_current_edit();
+        }
         matrix_state = matrix;
         if (matrix_state == Match) {
             matching = (alignment.sequence()[read_idx] == current_node->sequence()[node_idx]);
@@ -84,7 +86,7 @@ void BandedGlobalAligner<IntType>::BABuilder::update_state(matrix_t matrix, Node
     }
     
 #ifdef debug_banded_aligner_traceback
-    cerr << "[BABuilder::update_state] finished updating state, matrix is " << (matrix_state == Match ? "match" : (matrix_state == InsertRow ? "insert column" : "insert row" )) << ", is matching? " << (matching ? "yes" : "no") << ", edit length " << edit_length << ", edit end index (on read) " << edit_read_end_idx << ", current node " << current_node->id() << endl;
+    cerr << "[BABuilder::update_state] finished updating state, matrix is " << (matrix_state == Match ? "match" : (matrix_state == InsertRow ? "insert row" : "insert column" )) << ", is matching? " << (matching ? "yes" : "no") << ", edit length " << edit_length << ", edit end index (on read) " << edit_read_end_idx << ", current node " << current_node->id() << endl;
 #endif
 }
 
@@ -1579,7 +1581,8 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
             cerr << "[BAMatrix::traceback_internal] initial row gaps are present, adding read char " << top_diag + i - 1 << ": " << read[top_diag + i - 1] << endl;
 #endif
             i--;
-            builder.update_state(InsertRow, empty_source_path.empty() ? node : empty_source_path.back()->node, i + top_diag, -1);
+            Node* end_node = empty_source_path.empty() ? node : empty_source_path.back()->node;
+            builder.update_state(InsertRow, end_node, i + top_diag, -1, end_node->sequence().empty());
         }
         return;
     }

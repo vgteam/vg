@@ -321,19 +321,34 @@ public:
     // like above, but find minumum over list of paths.  if names is empty, do all paths
     int64_t min_approx_path_distance(const vector<string>& names, int64_t id1, int64_t id2) const;
     
-    // returns all of the paths that a node traversal occurs on, the rank of these occurrences on the path
-    // and the orientation of the occurrences. false indicates that the traversal occurs in the same
-    // orientation as in the path, true indicates.
-    vector<pair<size_t, vector<pair<size_t, bool>>>> paths_of_node_traversal(int64_t id, bool is_rev) const;
+    /// returns all of the paths that a node traversal occurs on, the rank of these occurrences on the path
+    /// and the orientation of the occurrences. false indicates that the traversal occurs in the same
+    /// orientation as in the path, true indicates.
+    vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_paths_of_node(int64_t id) const;
     
-    // the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative)
-    // estimated by the distance along the nearest shared path to the two positions plus the distance
-    // to traverse to that path. returns numeric_limits<int64_t>::max() if no pair of nodes that occur same
-    // on the strand of a path are reachable within the max search distance (measured in sequence length,
-    // not node length).
+    /// sets a pointer to a memoized result from oriented_paths_of_node. if no memo is provided, the result will be
+    /// queried and stored in local_paths_var and the pointer will be set to point to this variable so that no
+    /// additional code paths are necessary
+    void memoized_oriented_paths_of_node(int64_t id, vector<pair<size_t, vector<pair<size_t, bool>>>>& local_paths_var,
+                                         vector<pair<size_t, vector<pair<size_t, bool>>>>*& paths_of_node_ptr_out,
+                                         unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr) const;
+    
+    /// the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative)
+    /// estimated by the distance along the nearest shared path to the two positions plus the distance
+    /// to traverse to that path. returns numeric_limits<int64_t>::max() if no pair of nodes that occur same
+    /// on the strand of a path are reachable within the max search distance (measured in sequence length,
+    /// not node length).
     int64_t closest_shared_path_oriented_distance(int64_t id1, size_t offset1, bool rev1,
                                                   int64_t id2, size_t offset2, bool rev2,
-                                                  size_t max_search_dist = 100) const;
+                                                  size_t max_search_dist = 100,
+                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr) const;
+    
+    /// returns a vector of (node id, is reverse, offset) tuples that are found by jumping a fixed oriented distance
+    /// along path(s) from the given position. if the position is not on a path, searches from the position to a path
+    /// and adds/subtracts the search distance to the jump depending on the search direction. returns an empty vector
+    /// if there is no path within the max search distance or if the jump distance goes past the end of the path
+    vector<tuple<int64_t, bool, size_t>> jump_along_closest_path(int64_t id, bool is_rev, size_t offset, int64_t jump_dist, size_t max_search_dist,
+                                                                 unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // gPBWT API

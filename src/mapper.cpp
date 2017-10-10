@@ -285,8 +285,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                                                      int min_mem_length,
                                                      int reseed_length,
                                                      bool use_lcp_reseed_heuristic,
-                                                     bool use_diff_based_fast_reseed) {
-
+                                                     bool use_diff_based_fast_reseed,
+                                                     bool include_parent_in_sub_mem_count) {
 #ifdef debug_mapper
 #pragma omp critical
     {
@@ -598,9 +598,11 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         for (pair<MaximalExactMatch, vector<size_t> >& sub_mem_and_parents : sub_mems) {
             // count in entire range, including parents
             sub_mem_and_parents.first.match_count = gcsa->count(sub_mem_and_parents.first.range);
-            // remove parents from count
-            for (size_t parent_idx : sub_mem_and_parents.second) {
-                sub_mem_and_parents.first.match_count -= mems[parent_idx].match_count;
+            if (!include_parent_in_sub_mem_count) {
+                // remove parents from count
+                for (size_t parent_idx : sub_mem_and_parents.second) {
+                    sub_mem_and_parents.first.match_count -= mems[parent_idx].match_count;
+                }
             }
         }
         
@@ -810,6 +812,8 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
     if (probe_string_end <= next_mem_end) {
         probe_string_end = next_mem_end + 1;
     }
+    // the leftmost possible index of the next sub-MEM
+    string::const_iterator leftmost_bound = mem.begin;
     
     while (probe_string_end <= mem.end) {
         
@@ -848,15 +852,12 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             // this is the prefix of a sub-MEM of length >= the minimum, now we need to
             // find its end using binary search
             
-            if (probe_string_end == next_mem_end + 1) {
-                // edge case: we arbitrarily moved the probe string to the right to avoid finding
-                // sub-MEMs that are contained in the next SMEM, so we don't have the normal guarantee
-                // that this match cannot be extended to the left
-                // to re-establish this guarantee, we need to walk it out as far as possible before
-                // looking for the right end of the sub-MEM
+            if (probe_string_begin > leftmost_bound) {
+                // the probe string is contained in a sub-MEM, but that doesn't mean it's been
+                // extended as far as possible to the left
                 
                 // extend match until beginning of SMEM or until the end of the independent hit
-                while (cursor >= mem.begin) {
+                while (cursor >= leftmost_bound) {
                     gcsa::range_type last_range = range;
                     range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                     
@@ -899,16 +900,14 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 range = gcsa::range_type(0, gcsa->size() - 1);
                 
                 // check if there is an independent occurrence of this substring outside of the SMEM
-                // TODO: potential optimization: if the range of matches at some index is equal to the
-                // range of matches in an already confirmed independent match at the same index, then
-                // it will still be so for the rest of the LF queries, so we can bail out of the loop
-                // early as a match
                 bool contained_in_independent_match = true;
                 while (cursor >= probe_string_begin) {
                     
                     range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                     
                     if (gcsa->count(range) <= parent_count) {
+                        // this probe is too long and it no longer is contained in the indendent hit
+                        // that we detected
                         contained_in_independent_match = false;
                         break;
                     }
@@ -917,6 +916,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 }
                 
                 if (contained_in_independent_match) {
+                    
                     // the end of the sub-MEM must be here or to the right
                     left_search_bound = middle;
                     // update the range of matches (this is the longest match we've verified so far)
@@ -944,7 +944,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             // identify all previous MEMs that also contain this sub-MEM
             for (int64_t i = ((int64_t) mems.size()) - 2; i >= 0; i--) {
                 if (probe_string_begin >= mems[i].begin) {
-                    // contined in next MEM, add its index to sub MEM's list of parents
+                    // contained in next MEM, add its index to sub MEM's list of parents
                     sub_mems_out.back().second.push_back(i);
                 }
                 else {
@@ -956,6 +956,10 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             // the closest possible independent probe string will now occur one position
             // to the right of this sub-MEM
             probe_string_end = right_search_bound + 1;
+            
+            // any sub-MEMs will need to have their start position at least one position to the right
+            // of this one
+            leftmost_bound = probe_string_begin + 1;
             
         }
         else {
@@ -1538,12 +1542,21 @@ map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, 
 }
     
 map<string, size_t> Mapper::alignment_initial_path_positions(const Alignment& aln) {
+#ifdef debug_mapper
+    cerr << "finding initial path positions for read " << aln.name() << endl;
+#endif
     map<string, size_t> to_return;
     for (size_t i = 0; i < aln.path().mapping_size(); i++){
         const Position& pos = aln.path().mapping(i).position();
         map<string, vector<size_t>> path_positions = xindex->position_in_paths(pos.node_id(), pos.is_reverse(), pos.offset());
         for (const pair<string, vector<size_t>>& path_record : path_positions) {
             if (!to_return.count(path_record.first)) {
+#ifdef debug_mapper
+                cerr << "found first occurrence of path " << path_record.first << " on " << i << "-th mapping with position " << pb2json(aln.path().mapping(i).position()) << ", which occurs " << path_record.second.size() << " times on this path:" << endl;
+                for (auto off : path_record.second) {
+                    cerr << "\t" << off << endl;
+                }
+#endif
                 to_return[path_record.first] = *min_element(path_record.second.begin(), path_record.second.end());
             }
         }
@@ -5052,7 +5065,6 @@ void FragmentLengthDistribution::register_fragment_length(int64_t length) {
     if (is_fixed) {
         return;
     }
-    
 #pragma omp critical
     {
         // in case the distribution became fixed while this thread was waiting
@@ -5077,7 +5089,7 @@ void FragmentLengthDistribution::determinize_estimation() {
     if (multithread_reset || is_fixed) {
         return;
     }
-    multithread_reset = omp_get_num_threads();
+    multithread_reset = get_thread_count();
     omp_set_num_threads(1);
 }
 
@@ -5097,6 +5109,7 @@ void FragmentLengthDistribution::estimate_distribution() {
     for (size_t i = 0; i < to_skip; i++) {
         begin++;
         end--;
+        
     }
     // compute cumulants
     double count = 0.0;
@@ -5112,22 +5125,34 @@ void FragmentLengthDistribution::estimate_distribution() {
     double raw_var = sum_of_sqs / count - mu * mu;
     // apply method of moments estimation using the appropriate truncated normal distribution
     double a = normal_inverse_cdf(1.0 - 0.5 * (1.0 - robust_estimation_fraction));
-    sigma = sqrt(raw_var * robust_estimation_fraction / (1.0 - 2.0 * a * normal_pdf(a, 0.0, 1.0)));
+    sigma = sqrt(raw_var / (1.0 - 2.0 * a * normal_pdf(a, 0.0, 1.0)));
 }
     
-double FragmentLengthDistribution::mean() {
+double FragmentLengthDistribution::mean() const {
     return mu;
 }
 
-double FragmentLengthDistribution::stdev() {
+double FragmentLengthDistribution::stdev() const {
     return sigma;
 }
 
-bool FragmentLengthDistribution::is_finalized() {
+bool FragmentLengthDistribution::is_finalized() const {
     return is_fixed;
 }
     
-size_t FragmentLengthDistribution::max_sample_size() {
+size_t FragmentLengthDistribution::max_sample_size() const {
     return maximum_sample_size;
+}
+    
+size_t FragmentLengthDistribution::curr_sample_size() const {
+    return lengths.size();
+}
+    
+multiset<double>::const_iterator FragmentLengthDistribution::measurements_begin() const {
+    return lengths.begin();
+}
+
+multiset<double>::const_iterator FragmentLengthDistribution::measurements_end() const {
+    return lengths.end();
 }
 }
