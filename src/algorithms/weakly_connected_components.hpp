@@ -17,7 +17,7 @@ namespace algorithms {
 
 using namespace std;
 
-/// Returns sets of handles defining components that are connected by any series
+/// Returns sets of IDs defining components that are connected by any series
 /// of nodes and edges, even if it is not a valid bidirected walk. TODO: It
 /// might make sense to have a handle-returning version, but the consumers of
 /// weakly connected components right now want IDs, and membership in a weakly
