@@ -21,6 +21,7 @@
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
+#include "algorithms/topological_sort.hpp"
 
 namespace vg {
     
@@ -1021,7 +1022,7 @@ namespace vg {
 #endif
             rev_trans.insert(make_pair(trans_record.second.first,
                                        make_pair(trans_record.first, trans_record.second.second)));
-        };
+        }
         
 #ifdef debug_multipath_mapper
         cerr << "making multipath alignment MEM graph" << endl;

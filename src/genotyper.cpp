@@ -1,5 +1,6 @@
 #include <cstdint>
 #include "genotyper.hpp"
+#include "algorithms/topological_sort.hpp"
 
 
 namespace vg {
@@ -754,7 +755,7 @@ namespace vg {
             }
 
             // Unfold/unroll, find the superbubbles, and translate back.
-            graph.sort();
+            algorithms::sort(&graph);
             sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
             : find_sites_with_supbub(graph);
 
@@ -1257,7 +1258,7 @@ namespace vg {
         vector<Site> to_return;
 
         // cactus needs the nodes to be sorted in order to find a source and sink
-        graph.sort();
+        algorithms::sort(&graph);
 
         // todo: use deomposition instead of converting tree into flat structure
         BubbleTree* bubble_tree = ultrabubble_tree(graph);

@@ -928,25 +928,12 @@ public:
                   bool check_paths = true,
                   bool check_orphans = true);
 
-    /// Topologically order nodes.
-    /// Makes sure that Nodes appear in the Protobuf Graph object in their topological sort order.
-    /// Implementation ensures system-independent behavior.
-    void sort(void);
-    /// Topological sort helper function, not really meant for external use.
-    void topological_sort(vector<NodeTraversal>& order);
     /// Topologically order the nodes in the Protobuf graph. Only valid if the graph is a DAG with all
     /// no reversing edges or doubly reversing edges. No guarantee of system independent behavior, but
     /// significantly faster than VG::sort().
     void lazy_sort(void);
     /// Swap the given nodes. TODO: what does that mean?
     void swap_nodes(Node* a, Node* b);
-
-    /// Use a topological sort to order and orient the nodes, and then flip some
-    /// nodes around so that they are oriented the way they are in the sort.
-    /// Populates nodes_flipped with the ids of the nodes that have had their
-    /// orientations changed. TODO: update the paths that touch nodes that
-    /// flipped around
-    void orient_nodes_forward(set<id_t>& nodes_flipped);
 
     /// For each path, assign edits that describe a total match of the mapping to the node.
     void force_path_match(void);

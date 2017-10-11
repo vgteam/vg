@@ -5,7 +5,7 @@ namespace algorithms {
 
 using namespace std;
 
-vector<handle_t>&& head_nodes(const HandleGraph* g) {
+vector<handle_t> head_nodes(const HandleGraph* g) {
     vector<handle_t> to_return;
     g->for_each_handle([&](const handle_t& found) {
         // For each (locally forward) node
@@ -23,11 +23,11 @@ vector<handle_t>&& head_nodes(const HandleGraph* g) {
         }
     });
     
-    return move(to_return);
+    return to_return;
     
 }
 
-vector<handle_t>&& tail_nodes(const HandleGraph* g) {
+vector<handle_t> tail_nodes(const HandleGraph* g) {
     vector<handle_t> to_return;
     g->for_each_handle([&](const handle_t& found) {
         // For each (locally forward) node
@@ -45,11 +45,11 @@ vector<handle_t>&& tail_nodes(const HandleGraph* g) {
         }
     });
     
-    return move(to_return);
+    return to_return;
     
 }
 
-vector<handle_t>&& topological_sort(const HandleGraph* g) {
+vector<handle_t> topological_sort(const HandleGraph* g) {
     
     // Make a vector to hold the ordered and oriented nodes.
     vector<handle_t> sorted;
@@ -64,25 +64,36 @@ vector<handle_t>&& topological_sort(const HandleGraph* g) {
 
     // We find the head and tails, if there are any
     vector<handle_t> heads{head_nodes(g)};
-    vector<handle_t> tails{tail_nodes(g)};
+    // No need to fetch the tails since we don't use them
 
-    // We'll fill this in with the heads, so we can orient things according to
-    // them first, and then arbitrarily. We ignore tails since we only orient
-    // right from nodes we pick.
+    
     // Maps from node ID to first orientation we suggested for it.
     map<id_t, handle_t> seeds;
+    
+    
     for(handle_t& head : heads) {
-        seeds[g->get_id(head)] = head;
+        // Dump all the heads into the oriented set, rather than having them as
+        // seeds. We will only go for cycle-breaking seeds when we run out of
+        // heads. This is bad for contiguity/ordering consistency in cyclic
+        // graphs and reversing graphs, but makes sure we work out to just
+        // topological sort on DAGs. It mimics the effect we used to get when we
+        // joined all the head nodes to a new root head node and seeded that. We
+        // ignore tails since we only orient right from nodes we pick.
+        s[g->get_id(head)] = head;
     }
 
     // We will use an ordered map handles by ID for nodes we have not visited
     // yet. This ensures a consistent sort order across systems.
     map<id_t, handle_t> unvisited;
     g->for_each_handle([&](const handle_t& found) {
-        unvisited.emplace(g->get_id(found), found);
+        if (!s.count(g->get_id(found))) {
+            // Only nodes that aren't yet in s are unvisited.
+            // Nodes in s are visited but just need to be added tot he ordering.
+            unvisited.emplace(g->get_id(found), found);
+        }
     });
 
-    while(!unvisited.empty()) {
+    while(!unvisited.empty() || !s.empty()) {
 
         // Put something in s. First go through seeds until we can find one
         // that's not already oriented.
@@ -244,9 +255,52 @@ vector<handle_t>&& topological_sort(const HandleGraph* g) {
     }
 
     // Send away our sorted ordering.
-    return move(sorted);
+    return sorted;
 
 }
 
+void sort(MutableHandleGraph* g) {
+    if (g->node_size() <= 1) {
+        // A graph with <2 nodes has only one sort.
+        return;
+    }
+    
+    // No need to modify the graph; topological_sort is guaranteed to be stable.
+    
+    // Topologically sort, which orders and orients all the nodes.
+    vector<handle_t> sorted = topological_sort(g);
+    
+    size_t index = 0;
+    g->for_each_handle([&](const handle_t& at_index) {
+        // For each handle in the graph, along with its index
+        
+        // Swap the handle we observe at this index with the handle that we know belongs at this index.
+        // The loop invariant is that all the handles before index are the correct sorted handles in the right order.
+        // Note that this ignores orientation
+        g->swap_handles(at_index, sorted.at(index));
+        
+        // Now we've written the sorted handles through one more space.
+        index++;
+    });
+}
+
+unordered_set<id_t> orient_nodes_forward(MutableHandleGraph* g) {
+    // Topologically sort, which orders and orients all the nodes.
+    vector<handle_t> sorted = topological_sort(g);
+    
+    // Track what we flip
+    unordered_set<id_t> flipped;
+    for (auto& handle : sorted) {
+        if (g->get_is_reverse(handle)) {
+            // This needs to be flipped
+            flipped.insert(g->get_id(handle));
+            // Flip it
+            g->apply_orientation(handle);
+        }
+    }
+    
+    return flipped;
+}
+    
 }
 }

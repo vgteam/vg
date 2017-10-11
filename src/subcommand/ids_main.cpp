@@ -14,6 +14,7 @@
 
 #include "../vg.hpp"
 #include "../vg_set.hpp"
+#include "../algorithms/topological_sort.hpp"
 
 using namespace std;
 using namespace vg;
@@ -107,7 +108,7 @@ int main_ids(int argc, char** argv) {
 
         if (sort) {
             // Set up the nodes so we go through them in topological order
-            graph->sort();
+            algorithms::sort(graph);
         }
 
         if (compact || sort) {

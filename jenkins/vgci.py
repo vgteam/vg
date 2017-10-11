@@ -944,16 +944,13 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
                            
-    @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """
         log.info("Test start at {}".format(datetime.now()))        
         self._test_mapeval(100000, 'MHC', 'snp1kg',
-                           ['primary', 'snp1kg', 'common1kg'],
-                           score_baseline_graph='primary',
-                           positive_control='snp1kg_HG00096',
-                           negative_control='snp1kg_minus_HG00096',
+                           ['snp1kg', 'cactus'],
+                           multipath=True,
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
 
     @timeout_decorator.timeout(16000)        
