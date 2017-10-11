@@ -633,7 +633,6 @@ int main_mpmap(int argc, char** argv) {
         if (buffer_size % 2 == 1) {
             buffer_size++;
         }
-
         if (!std::isnan(frag_length_mean) && !std::isnan(frag_length_stddev)) {
             // Force a fragment length distribution
             multipath_mapper.force_fragment_length_distr(frag_length_mean, frag_length_stddev);
