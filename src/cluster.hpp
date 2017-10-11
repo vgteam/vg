@@ -219,8 +219,8 @@ private:
                               xg::XG* xgindex,
                               size_t max_expected_dist_approx_error,
                               size_t min_mem_length,
-                              node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
-                              handle_memo_t* handle_memo = nullptr);
+                              node_occurrence_on_paths_memo_t* paths_of_node_memo,
+                              handle_memo_t* handle_memo);
     
     /**
      * Given a certain number of items, and a callback to get each item's
