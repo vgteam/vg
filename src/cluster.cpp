@@ -381,7 +381,8 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      size_t min_mem_length,
                                                      node_occurrence_on_paths_memo_t* node_path_memo,
                                                      handle_memo_t* handle_memo) :
-OrientedDistanceClusterer(alignment, mems, nullptr, &aligner, xgindex, max_expected_dist_approx_error, min_mem_length) {
+    OrientedDistanceClusterer(alignment, mems, nullptr, &aligner, xgindex, max_expected_dist_approx_error,
+                              min_mem_length, node_path_memo, handle_memo) {
     // nothing else to do
 }
 
@@ -393,7 +394,8 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      size_t min_mem_length,
                                                      node_occurrence_on_paths_memo_t* node_path_memo,
                                                      handle_memo_t* handle_memo) :
-OrientedDistanceClusterer(alignment, mems, &aligner, nullptr, xgindex, max_expected_dist_approx_error, min_mem_length) {
+    OrientedDistanceClusterer(alignment, mems, &aligner, nullptr, xgindex, max_expected_dist_approx_error,
+                              min_mem_length, node_path_memo, handle_memo) {
     // nothing else to do
 }
 
@@ -626,6 +628,9 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_pos
                                                                  const function<int64_t(size_t)>& get_offset,
                                                                  node_occurrence_on_paths_memo_t* paths_of_node_memo,
                                                                  handle_memo_t* handle_memo) {
+    if (!paths_of_node_memo) {
+        return;
+    }
     
     for (size_t i = 0; i < num_items; i++) {
         pos_t pos = get_position(i);
