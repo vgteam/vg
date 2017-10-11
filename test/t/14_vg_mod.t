@@ -30,9 +30,9 @@ is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg 
 rm t.vg
 rm -rf t.idx.xg t.idx.gcsa
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg view -g - | sort | md5sum | awk '{ print $1 }') ce5d5ffaa71fea6a25cb4a5b836ccb89 "graph complexity reduction works as expected"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg stats -E - ) 287 "graph complexity reduction works as expected"
 
-is $( vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 -t 16 - | vg mod -S -l 200 - | vg view - | grep ^S | wc -l) 186 "short subgraph pruning works"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 -t 16 - | vg mod -S -l 200 - | vg stats -l - | cut -f 2) 983 "short subgraph pruning works"
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa >t.vg
 vg align -s GGGGGGGAAATTTTCTGGAGTTCTATTATATTCCAAAAAAAAAA t.vg >t.gam
