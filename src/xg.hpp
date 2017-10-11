@@ -143,6 +143,7 @@ public:
     size_t id_to_rank(int64_t id) const;
     int64_t rank_to_id(size_t rank) const;
     size_t max_node_rank(void) const;
+    bool has_node(int64_t id) const;
     int64_t node_at_seq_pos(size_t pos) const;
     size_t node_start(int64_t id) const;
     Node node(int64_t id) const; // gets node sequence

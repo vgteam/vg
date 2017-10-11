@@ -1285,6 +1285,10 @@ const size_t XG::sequence_bit_size(void) const {
     return s_iv.bit_size();
 }
 
+bool XG::has_node(int64_t id) const {
+    return id_to_rank(id) != 0;
+}
+
 Node XG::node(int64_t id) const {
     Node n;
     n.set_id(id);
@@ -1368,6 +1372,8 @@ string XG::pos_substr(int64_t id, bool is_rev, size_t off, size_t len) const {
 }
 
 size_t XG::id_to_rank(int64_t id) const {
+    size_t x = id-min_id;
+    if (x < 0 || x >= r_iv.size()) return 0;
     return r_iv[id-min_id];
 }
 
