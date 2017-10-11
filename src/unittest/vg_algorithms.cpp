@@ -13,6 +13,7 @@
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/topological_sort.hpp"
+#include "algorithms/weakly_connected_components.hpp"
 #include "vg.hpp"
 #include "json2pb.h"
 
@@ -2845,6 +2846,65 @@ namespace vg {
                
             }
                   
+        }
+        
+        TEST_CASE( "Weakly connected components works",
+                  "[algorithms]" ) {
+            
+            VG vg;
+            
+            Node* n0 = vg.create_node("CGA");
+            Node* n1 = vg.create_node("TTGG");
+            Node* n2 = vg.create_node("CCGT");
+            Node* n3 = vg.create_node("C");
+            Node* n4 = vg.create_node("GT");
+            Node* n5 = vg.create_node("GATAA");
+            Node* n6 = vg.create_node("CGG");
+            Node* n7 = vg.create_node("ACA");
+            Node* n8 = vg.create_node("GCCG");
+            Node* n9 = vg.create_node("ATATAAC");
+            
+            vg.create_edge(n1, n0, true, true); // a doubly reversing edge to keep it interesting
+            vg.create_edge(n1, n2);
+            vg.create_edge(n2, n3);
+            vg.create_edge(n2, n4);
+            
+            // Skip edges from 3 and 4 to 5 so we have 2 components
+            
+            vg.create_edge(n5, n6);
+            vg.create_edge(n5, n8);
+            vg.create_edge(n6, n7);
+            vg.create_edge(n6, n8);
+            vg.create_edge(n7, n9);
+            vg.create_edge(n8, n9);
+            
+            SECTION( "algorithms::weakly_connected_components finds two components" ) {
+                auto components = algorithms::weakly_connected_components(&vg);
+
+                REQUIRE(components.size() == 2);
+                
+                SECTION( "The components are the first and second parts of the graph" ){
+                    set<size_t> sizes;
+                    for (auto& component : components) {
+                        sizes.insert(component.size());
+                    }
+                    
+                    // Actually these are both the same size
+                    REQUIRE(sizes == set<size_t>{5});
+                }
+            }
+            
+            vg.create_edge(n3, n5);
+            vg.create_edge(n4, n5);
+            
+            SECTION( "Components can be joined" ) {
+            
+                auto components = algorithms::weakly_connected_components(&vg);
+
+                REQUIRE(components.size() == 1);
+                REQUIRE(components.front().size() == 10);
+            
+            }
         }
         
     }
