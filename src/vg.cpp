@@ -8162,7 +8162,7 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
     for_each_kpath_parallel(path_length, false, edge_max, prev_maxed, next_maxed, noop);
 
     // What nodes will we destroy because we got into them with too much complexity?
-    set<Node*> to_destroy;
+    set<Edge*> to_destroy;
 
     set<NodeTraversal> prev;
     for (auto& p : prev_maxed_nodes) {
@@ -8181,17 +8181,18 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
             // edges mean connecting to the start of the other nodes.
             for (auto& e : edges_start(node.node)) {
                 create_edge(e.first, head_node->id(), e.second, true);
+                to_destroy.insert(get_edge(NodeSide(e.first, e.second),
+                                           NodeSide(node.node->id(), false)));
             }
         } else {
             // Going left into it means coming to its end. True flags on the
             // edges mean connecting to the ends of the other nodes.
             for (auto& e : edges_end(node.node)) {
                 create_edge(head_node->id(), e.first, false, e.second);
+                to_destroy.insert(get_edge(NodeSide(e.first, e.second),
+                                           NodeSide(node.node->id(), true)));
             }
         }
-
-        // Remember to estroy the node. We might come to the same node in two directions.
-        to_destroy.insert(node.node);
     }
 
     set<NodeTraversal> next;
@@ -8211,19 +8212,25 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
             // edges mean connecting to the end of the other nodes.
             for (auto& e : edges_end(node.node)) {
                 create_edge(tail_node->id(), e.first, false, e.second);
+                to_destroy.insert(get_edge(NodeSide(node.node->id(), true),
+                                           NodeSide(e.first, e.second)));
+                    
             }
         } else {
             // Going right into it means coming to its start. True flags on the
             // edges mean connecting to the starts of the other nodes.
             for (auto& e : edges_start(node.node)) {
                 create_edge(e.first, head_node->id(), e.second, true);
+                to_destroy.insert(get_edge(NodeSide(node.node->id(), false),
+                                           NodeSide(e.first, e.second)));
             }
         }
-
-        // Remember to estroy the node. We might come to the same node in two directions.
-        to_destroy.insert(node.node);
     }
 
+    for (Edge* e : to_destroy) {
+        destroy_edge(e);
+    }
+    /*
     for(Node* n : to_destroy) {
         // Destroy all the nodes we wanted to destroy.
         if(n == head_node || n == tail_node) {
@@ -8242,6 +8249,7 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
         // Actually destroy the node
         destroy_node(n);
     }
+    */
 
     for (auto* n : head_nodes()) {
         if (n != head_node) {
