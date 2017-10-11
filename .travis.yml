@@ -18,11 +18,14 @@ before_install:
   - mv deps_cached deps
   - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:maarten-fonville/protobuf -y; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then curl -OL https://github.com/google/protobuf/releases/download/v3.4.0/protoc-3.4.0-linux-x86_64.zip; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then unzip protoc-3.4.0-linux-x86_64.zip -d protoc3; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo mv protoc3/bin/* /usr/local/bin/; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo mv protoc3/include/* /usr/local/include/; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo rm /etc/apt/sources.list.d/google-chrome.list; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq gcc-4.9 g++-4.9 protobuf; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq gcc-4.9 g++-4.9; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-4.9; fi
   - gcc --version && g++ --version && protoc --version
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq bc rs jq samtools; fi
