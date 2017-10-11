@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <functional>
 #include <regex>
+#include <unordered_set>
 
 #include "types.hpp"
 #include "progressive.hpp"
