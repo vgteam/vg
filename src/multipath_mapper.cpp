@@ -22,6 +22,7 @@
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/topological_sort.hpp"
+#include "algorithms/weakly_connected_components.hpp"
 
 namespace vg {
     
@@ -866,7 +867,7 @@ namespace vg {
         
         size_t max_graph_idx = 0;
         for (const pair<size_t, VG*> cluster_graph : cluster_graphs) {
-            vector<unordered_set<id_t>> connected_components = cluster_graph.second->weakly_connected_components();
+            vector<unordered_set<id_t>> connected_components = algorithms::weakly_connected_components(cluster_graph.second);
             if (connected_components.size() > 1) {
                 multicomponent_graphs.emplace_back(cluster_graph.first, std::move(connected_components));
             }
