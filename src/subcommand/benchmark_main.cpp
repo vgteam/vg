@@ -18,6 +18,7 @@
 #include "../xg.hpp"
 #include "../algorithms/extract_connecting_graph.hpp"
 #include "../algorithms/topological_sort.hpp"
+#include "../algorithms/weakly_connected_components.hpp"
 
 
 
@@ -125,6 +126,23 @@ int main_benchmark(int argc, char** argv) {
         vg_mut = vg;
     }, [&]() {
         algorithms::orient_nodes_forward(&vg_mut);
+    }));
+    
+    
+    results.push_back(run_benchmark("vg::algorithms weakly_connected_components", 1000, [&]() {
+        vg_mut = vg;
+    }, [&]() {
+        auto components = algorithms::weakly_connected_components(&vg_mut);
+        assert(components.size() == 1);
+        assert(components.front().size() == vg_mut.node_size());
+    }));
+    
+    results.push_back(run_benchmark("VG builtin weakly_connected_components", 1000, [&]() {
+        vg_mut = vg;
+    }, [&]() {
+        auto components = vg_mut.weakly_connected_components();
+        assert(components.size() == 1);
+        assert(components.front().size() == vg_mut.node_size());
     }));
     
     results.push_back(run_benchmark("VG::get_node", 1000, [&]() {
