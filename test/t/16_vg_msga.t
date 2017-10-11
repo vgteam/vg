@@ -32,10 +32,10 @@ is $? 0 "even when banding the paths of the graph encode the original sequences 
 vg msga -f GRCh38_alts/FASTA/HLA/K-3138.fa -w 256 -W 64 -E 4 | vg validate -
 is $? 0 "HLA K-3138 correctly includes all input paths"
 
-vg msga -f msgas/cycle.fa -b s1 -w 32 -e 4 -P 0.95 -t 1 | vg validate -
+vg msga -f msgas/cycle.fa -b s1 -w 64 -k 8 -t 1 | vg validate -
 is $? 0 "a difficult cyclic path can be included to produce a valid graph"
 
-is $(vg msga -f msgas/inv.fa -w 23 | vg mod -X 1 - | vg stats -O - | tr '\t' ' ' | grep 'inv.fwd 76 135\|inv.fwd 100 111\|inv.fwd 99 112' | wc -l) 3 "a reference sequence set representing an inversion in it maybe msga'd and detected"
+is $(vg msga -f msgas/inv.fa -w 23 | vg mod -X 1 - | vg stats -O - | tr '\t' ' ' | grep 'inv____fwd 76 135\|inv____fwd 100 111\|inv____fwd 99 112' | wc -l) 3 "a reference sequence set representing an inversion in it maybe msga'd and detected"
 
 vg msga -f msgas/l.fa -b a1 -w 16 | vg validate -
 is $? 0 "edges in cycles with two nodes are correctly included"
