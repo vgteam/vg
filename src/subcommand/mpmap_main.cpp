@@ -633,14 +633,15 @@ int main_mpmap(int argc, char** argv) {
         if (buffer_size % 2 == 1) {
             buffer_size++;
         }
-        
+
         if (!std::isnan(frag_length_mean) && !std::isnan(frag_length_stddev)) {
             // Force a fragment length distribution
             multipath_mapper.force_fragment_length_distr(frag_length_mean, frag_length_stddev);
-        } else {
-            // ensure deterministic fragment length estimation by temporarily switching to single-threaded mode
+        }
+        else {
+            // choose the sample size and tail-fraction for estimating the fragment length distribution
             multipath_mapper.set_fragment_length_distr_params(frag_length_sample_size, frag_length_sample_size,
-                                                              frag_length_robustness_fraction, true);
+                                                              frag_length_robustness_fraction);
         }
     }
     
@@ -648,8 +649,10 @@ int main_mpmap(int argc, char** argv) {
     ofstream read_time_file(READ_TIME_FILE);
 #endif
     
-    // note: sufficient to have only one buffer because fragment length distribution enforces single threaded mode
-    // during distance estimation
+    // a buffer to hold read pairs that can't be unambiguously mapped before the fragment length distribution
+    // is estimated
+    // note: sufficient to have only one buffer because multithreading code enforces single threaded mode
+    // during distribution estimation
     vector<pair<Alignment, Alignment>> ambiguous_pair_buffer;
     
     vector<vector<Alignment> > single_path_output_buffer(thread_count);
@@ -771,16 +774,35 @@ int main_mpmap(int argc, char** argv) {
 #endif
     };
     
+    // for FASTQ input all but the first thread go into spinlock until the distribution is estimated or abandoned
+    bool input_finished = false;
+    function<bool(void)> distribution_spinlock = [&](void) {
+        return omp_get_thread_num() == 0 || multipath_mapper.has_fixed_fragment_length_distr() || input_finished;
+    };
+    
+    // mark the input as finished to get any remaining threads out of the spinlock
+    function<void(void)> abandon_distribution = [&](void) {
+        input_finished = true;
+    };
+    
+    // for GAM input, don't spawn new tasks unless this evalutes to true
+    function<bool(void)> multi_threaded_condition = [&](void) {
+        return multipath_mapper.has_fixed_fragment_length_distr();
+    };
+    
+    
     // FASTQ input
     if (!fastq_name_1.empty()) {
         if (interleaved_input) {
-            fastq_paired_interleaved_for_each_parallel(fastq_name_1, do_paired_alignments);
+            fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name_1, do_paired_alignments,
+                                                                  distribution_spinlock, abandon_distribution);
         }
         else if (fastq_name_2.empty()) {
             fastq_unpaired_for_each_parallel(fastq_name_1, do_unpaired_alignments);
         }
         else {
-            fastq_paired_two_files_for_each_parallel(fastq_name_1, fastq_name_2, do_paired_alignments);
+            fastq_paired_two_files_for_each_parallel_after_wait(fastq_name_1, fastq_name_2, do_paired_alignments,
+                                                                distribution_spinlock, abandon_distribution);
         }
     }
     
@@ -792,7 +814,8 @@ int main_mpmap(int argc, char** argv) {
                 exit(1);
             }
             if (interleaved_input) {
-                stream::for_each_interleaved_pair_parallel(gam_in, do_paired_alignments);
+                stream::for_each_interleaved_pair_parallel_after_wait(gam_in, do_paired_alignments,
+                                                                      multi_threaded_condition);
             }
             else {
                 stream::for_each_parallel(gam_in, do_unpaired_alignments);
@@ -820,9 +843,6 @@ int main_mpmap(int argc, char** argv) {
         }
         else {
             cerr << "warning:[vg mpmap] Could not find " << frag_length_sample_size << " unambiguous read pair mappings to estimate fragment length ditribution. Mapping read pairs as independent single ended reads. Consider decreasing sample size (-b)." << endl;
-            
-            // force reversion to multithreaded mode
-            multipath_mapper.abandon_fragment_length_distr();
             
 #pragma omp parallel for
             for (size_t i = 0; i < ambiguous_pair_buffer.size(); i++) {

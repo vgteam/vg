@@ -183,6 +183,13 @@ size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Al
 }
 
 size_t fastq_paired_interleaved_for_each_parallel(const string& filename, function<void(Alignment&, Alignment&)> lambda) {
+    return fastq_paired_interleaved_for_each_parallel_after_wait(filename, lambda, [](void) {return true;}, [](void) {});
+}
+    
+size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filename,
+                                                             function<void(Alignment&, Alignment&)> lambda,
+                                                             function<bool(void)> wait_until_true,
+                                                             function<void(void)> call_on_complete) {
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp) {
         cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
@@ -198,6 +205,9 @@ size_t fastq_paired_interleaved_for_each_parallel(const string& filename, functi
     bool more_data = true;
 #pragma omp parallel shared(fp, more_data, bufs)
     {
+        // spinlock until wait function evaluates to true
+        while (!wait_until_true()) {}
+        
         int tid = omp_get_thread_num();
         while (more_data) {
             Alignment mate1, mate2;
@@ -213,6 +223,9 @@ size_t fastq_paired_interleaved_for_each_parallel(const string& filename, functi
             if (got_anything) {
                 lambda(mate1, mate2);
             }
+            else {
+                call_on_complete();
+            }
         }
     }
     for (auto& buf : bufs) {
@@ -223,6 +236,13 @@ size_t fastq_paired_interleaved_for_each_parallel(const string& filename, functi
 }
 
 size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda) {
+    return fastq_paired_two_files_for_each_parallel_after_wait(file1, file2, lambda, [](void) {return true;}, [](void) {});
+}
+    
+size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, const string& file2,
+                                                           function<void(Alignment&, Alignment&)> lambda,
+                                                           function<bool(void)> wait_until_true,
+                                                           function<void(void)> call_on_complete) {
     gzFile fp1 = (file1 != "-") ? gzopen(file1.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp1) {
         cerr << "[vg::alignment.cpp] couldn't open " << file1 << endl; exit(1);
@@ -242,6 +262,9 @@ size_t fastq_paired_two_files_for_each_parallel(const string& file1, const strin
     bool more_data = true;
 #pragma omp parallel shared(fp1, fp2, more_data, bufs)
     {
+        // spinlock until wait function evaluates to true
+        while (!wait_until_true()) {}
+        
         int tid = omp_get_thread_num();
         while (more_data) {
             Alignment mate1, mate2;
@@ -256,6 +279,9 @@ size_t fastq_paired_two_files_for_each_parallel(const string& file1, const strin
             }
             if (got_anything) {
                 lambda(mate1, mate2);
+            }
+            else {
+                call_on_complete();
             }
         }
     }

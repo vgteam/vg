@@ -324,7 +324,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     mapper.max_mapping_quality = 10;
     // In case we're using compile time forced fragment length distribution, set a max sample
     // size
-    mapper.set_fragment_length_distr_params(10, 10, .95, true);
+    mapper.set_fragment_length_distr_params(10, 10, .95);
     
     SECTION( "MultipathMapper can map a short fake read" ) {
 
@@ -475,7 +475,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     mapper.max_mapping_quality = 10;
     // In case we're using compile time forced fragment length distribution, set a max sample
     // size
-    mapper.set_fragment_length_distr_params(10, 10, .95, true);
+    mapper.set_fragment_length_distr_params(10, 10, .95);
     
     SECTION( "topologically_order_subpaths works within a node" ) {
     
