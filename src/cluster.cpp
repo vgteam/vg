@@ -16,6 +16,7 @@ MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
     const vector<vector<MaximalExactMatch> >& matches,
     const function<int64_t(pos_t)>& approx_position,
+    const function<map<string, vector<size_t> >(pos_t)>& path_position,
     const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
     int band_width,
     int position_depth,
@@ -30,12 +31,14 @@ MEMChainModel::MEMChainModel(
             for (auto& node : mem.nodes) {
                 //model.emplace_back();
                 //auto m = model.back();
+                auto pos = make_pos_t(node);
                 MEMChainModelVertex m;
                 m.mem = mem;
                 m.weight = mem.length();
                 m.prev = nullptr;
                 m.score = 0;
-                m.approx_position = approx_position(make_pos_t(node));
+                m.mem.positions = path_position(pos);
+                m.mem.positions[""].push_back(approx_position(pos));
                 m.mem.nodes.clear();
                 m.mem.nodes.push_back(node);
                 m.mem.fragment = frag_n;
@@ -46,37 +49,46 @@ MEMChainModel::MEMChainModel(
     }
     // index the model with the positions
     for (vector<MEMChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
-        approx_positions[v->approx_position].push_back(v);
-    }
-    // sort the vertexes at each approx position by their matches and trim
-    for (auto& pos : approx_positions) {
-        std::sort(pos.second.begin(), pos.second.end(), [](const vector<MEMChainModelVertex>::iterator& v1,
-                                                           const vector<MEMChainModelVertex>::iterator& v2) {
-                      return v1->mem.length() > v2->mem.length();
-                  });
-        if (pos.second.size() > position_depth) {
-            for (int i = position_depth; i < pos.second.size(); ++i) {
-                redundant_vertexes.insert(pos.second[i]);
+        for (auto& chr : v->mem.positions) {
+            auto& chr_positions = positions[chr.first];
+            for (auto& pos : chr.second) {
+                chr_positions[pos].push_back(v);
             }
         }
-        pos.second.resize(min(pos.second.size(), (size_t)position_depth));
+    }
+    // sort the vertexes at each approx position by their matches and trim
+    for (auto& chr : positions) {
+        for (auto& p : chr.second) {
+            auto& pos = p.second;
+            std::sort(pos.begin(), pos.end(), [](const vector<MEMChainModelVertex>::iterator& v1,
+                                                 const vector<MEMChainModelVertex>::iterator& v2) {
+                          return v1->mem.length() > v2->mem.length();
+                      });
+            if (pos.size() > position_depth) {
+                for (int i = position_depth; i < pos.size(); ++i) {
+                    redundant_vertexes.insert(pos[i]);
+                }
+            }
+            pos.resize(min(pos.size(), (size_t)position_depth));
+        }
     }
     // for each vertex merge if we go equivalently forward in the positional space and forward in the read to the next position
     // scan forward
-    for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
-         p != approx_positions.end(); ++p) {
-        for (auto& v1 : p->second) {
-            if (redundant_vertexes.count(v1)) continue;
-            auto q = p;
-            while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
-                for (auto& v2 : q->second) {
-                    if (redundant_vertexes.count(v2)) continue;
-                    if (mems_overlap(v1->mem, v2->mem)
-                        && abs(v2->mem.begin - v1->mem.begin) == abs(q->first - p->first)) {
-                        if (v2->mem.length() < v1->mem.length()) {
-                            redundant_vertexes.insert(v2);
-                            if (v2->mem.end > v1->mem.end) {
-                                v1->weight += v2->mem.end - v1->mem.end;
+    for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
+        for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = c->second.begin(); p != c->second.end(); ++p) {
+            for (auto& v1 : p->second) {
+                if (redundant_vertexes.count(v1)) continue;
+                auto q = p;
+                while (++q != c->second.end() && abs(p->first - q->first) < band_width) {
+                    for (auto& v2 : q->second) {
+                        if (redundant_vertexes.count(v2)) continue;
+                        if (mems_overlap(v1->mem, v2->mem)
+                            && abs(v2->mem.begin - v1->mem.begin) == abs(q->first - p->first)) {
+                            if (v2->mem.length() < v1->mem.length()) {
+                                redundant_vertexes.insert(v2);
+                                if (v2->mem.end > v1->mem.end) {
+                                    v1->weight += v2->mem.end - v1->mem.end;
+                                }
                             }
                         }
                     }
@@ -85,20 +97,21 @@ MEMChainModel::MEMChainModel(
         }
     }
     // scan reverse
-    for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::reverse_iterator p = approx_positions.rbegin();
-         p != approx_positions.rend(); ++p) {
-        for (auto& v1 : p->second) {
-            if (redundant_vertexes.count(v1)) continue;
-            auto q = p;
-            while (++q != approx_positions.rend() && abs(p->first - q->first) < band_width) {
-                for (auto& v2 : q->second) {
-                    if (redundant_vertexes.count(v2)) continue;
-                    if (mems_overlap(v1->mem, v2->mem)
-                        && abs(v2->mem.begin - v1->mem.begin) == abs(p->first - q->first)) {
-                        if (v2->mem.length() < v1->mem.length()) {
-                            redundant_vertexes.insert(v2);
-                            if (v2->mem.end > v1->mem.end) {
-                                v1->weight += v2->mem.end - v1->mem.end;
+    for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
+        for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::reverse_iterator p = c->second.rbegin(); p != c->second.rend(); ++p) {
+            for (auto& v1 : p->second) {
+                if (redundant_vertexes.count(v1)) continue;
+                auto q = p;
+                while (++q != c->second.rend() && abs(p->first - q->first) < band_width) {
+                    for (auto& v2 : q->second) {
+                        if (redundant_vertexes.count(v2)) continue;
+                        if (mems_overlap(v1->mem, v2->mem)
+                            && abs(v2->mem.begin - v1->mem.begin) == abs(p->first - q->first)) {
+                            if (v2->mem.length() < v1->mem.length()) {
+                                redundant_vertexes.insert(v2);
+                                if (v2->mem.end > v1->mem.end) {
+                                    v1->weight += v2->mem.end - v1->mem.end;
+                                }
                             }
                         }
                     }
@@ -107,44 +120,43 @@ MEMChainModel::MEMChainModel(
         }
     }
     // now build up the model using the positional bandwidth
-    for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
-         p != approx_positions.end(); ++p) {
-        // look bandwidth before and bandwidth after in the approx positions
-        // after
-        for (auto& v1 : p->second) {
-            // For each vertex...
-            if (redundant_vertexes.count(v1)) continue;
-            // ...that isn't redundant
-            auto q = p;
-            while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
-                for (auto& v2 : q->second) {
-                    // For each other vertex...
+    for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
+        for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = c->second.begin(); p != c->second.end(); ++p) {
+            for (auto& v1 : p->second) {
+                // For each vertex...
+                if (redundant_vertexes.count(v1)) continue;
+                // ...that isn't redundant
+                auto q = p;
+                while (++q != c->second.end() && abs(p->first - q->first) < band_width) {
+                    for (auto& v2 : q->second) {
+                        // For each other vertex...
                     
-                    if (redundant_vertexes.count(v2)) continue;
-                    // ...that isn't redudnant
+                        if (redundant_vertexes.count(v2)) continue;
+                        // ...that isn't redudnant
                     
-                    // if this is an allowable transition, run the weighting function on it
-                    if (v1->next_cost.size() < max_connections
-                        && v2->prev_cost.size() < max_connections) {
-                        // There are not too many connections yet
+                        // if this is an allowable transition, run the weighting function on it
+                        if (v1->next_cost.size() < max_connections
+                            && v2->prev_cost.size() < max_connections) {
+                            // There are not too many connections yet
                         
-                        if (v1->mem.fragment < v2->mem.fragment
-                            || v1->mem.fragment == v2->mem.fragment && v1->mem.begin < v2->mem.begin) {
-                            // Transition is allowable because the first comes before the second
+                            if (v1->mem.fragment < v2->mem.fragment
+                                || v1->mem.fragment == v2->mem.fragment && v1->mem.begin < v2->mem.begin) {
+                                // Transition is allowable because the first comes before the second
                             
-                            double weight = transition_weight(v1->mem, v2->mem);
-                            if (weight > -std::numeric_limits<double>::max()) {
-                                v1->next_cost.push_back(make_pair(&*v2, weight));
-                                v2->prev_cost.push_back(make_pair(&*v1, weight));
-                            }
-                        } else if (v1->mem.fragment > v2->mem.fragment
-                                   || v1->mem.fragment == v2->mem.fragment && v1->mem.begin > v2->mem.begin) {
-                            // Really we want to think about the transition going the other way
+                                double weight = transition_weight(v1->mem, v2->mem);
+                                if (weight > -std::numeric_limits<double>::max()) {
+                                    v1->next_cost.push_back(make_pair(&*v2, weight));
+                                    v2->prev_cost.push_back(make_pair(&*v1, weight));
+                                }
+                            } else if (v1->mem.fragment > v2->mem.fragment
+                                       || v1->mem.fragment == v2->mem.fragment && v1->mem.begin > v2->mem.begin) {
+                                // Really we want to think about the transition going the other way
                             
-                            double weight = transition_weight(v2->mem, v1->mem);
-                            if (weight > -std::numeric_limits<double>::max()) {
-                                v2->next_cost.push_back(make_pair(&*v1, weight));
-                                v1->prev_cost.push_back(make_pair(&*v2, weight));
+                                double weight = transition_weight(v2->mem, v1->mem);
+                                if (weight > -std::numeric_limits<double>::max()) {
+                                    v2->next_cost.push_back(make_pair(&*v1, weight));
+                                    v1->prev_cost.push_back(make_pair(&*v2, weight));
+                                }
                             }
                         }
                     }

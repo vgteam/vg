@@ -116,7 +116,6 @@ public:
     vector<pair<MEMChainModelVertex*, double> > prev_cost; // for backward
     double weight;
     double score;
-    int64_t approx_position;
     MEMChainModelVertex* prev;
     MEMChainModelVertex(void) = default;                                      // Copy constructor
     MEMChainModelVertex(const MEMChainModelVertex&) = default;               // Copy constructor
@@ -129,12 +128,13 @@ public:
 class MEMChainModel {
 public:
     vector<MEMChainModelVertex> model;
-    map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > approx_positions;
+    map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > > positions;
     set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     MEMChainModel(
         const vector<size_t>& aln_lengths,
         const vector<vector<MaximalExactMatch> >& matches,
         const function<int64_t(pos_t)>& approx_position,
+        const function<map<string, vector<size_t> >(pos_t)>& path_position,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10,
         int position_depth = 1,

@@ -1852,7 +1852,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
             int64_t max_length = frag_stats.fragment_max;
-            int64_t approx_dist = graph_mixed_distance_estimate(m1_pos, m2_pos, 0); // use graph/path based estimate here
+            int64_t approx_dist = mem_min_distance(m1, m2); //graph_mixed_distance_estimate(m1_pos, m2_pos, 0); // use graph/path based estimate here
 #ifdef debug_mapper
 #pragma omp critical
             {
@@ -1927,7 +1927,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // find the difference in m1.end and m2.begin
             // find the positional difference in the graph between m1.end and m2.begin
             int duplicate_coverage = mems_overlap_length(m1, m2);
-            int64_t approx_dist = graph_mixed_distance_estimate(m1_pos, m2_pos, m1.length() + m2.length());
+            int64_t approx_dist = mem_min_distance(m1, m2); //graph_mixed_distance_estimate(m1_pos, m2_pos, m1.length() + m2.length());
 #ifdef debug_mapper
 #pragma omp critical
             {
@@ -1947,7 +1947,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 return -std::numeric_limits<double>::max();
             } else {
                 // we may want to switch back to exact measurement, although the approximate metric is simpler and more reliable despite being less precise
-                // int distance = graph_distance(m1_pos, m2_pos, max_length); // enable for exact distance calculation
+                //int64_t distance = min(approx_dist, graph_distance(m1_pos, m2_pos, m1.length())); // enable for exact distance calculation
                 int64_t distance = approx_dist;
 #ifdef debug_mapper
 #pragma omp critical
@@ -2023,6 +2023,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               { mems1, mems2 },
                               [&](pos_t n) -> int64_t {
                                   return approx_position(n);
+                              },
+                              [&](pos_t n) -> map<string, vector<size_t> > {
+                                  return xindex->position_in_paths(id(n), is_rev(n), offset(n));
                               },
                               transition_weight,
                               band_width);
@@ -2700,7 +2703,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
         int64_t max_length = aln.sequence().size();
-        int64_t approx_dist = graph_mixed_distance_estimate(m1_pos, m2_pos, m1.length() + m2.length());
+        int64_t approx_dist = mem_min_distance(m1, m2);
         
 #ifdef debug_mapper
 #pragma omp critical
@@ -2716,8 +2719,10 @@ Mapper::align_mem_multi(const Alignment& aln,
                 // disable inversions
                 return -std::numeric_limits<double>::max();
             } else {
+                //int64_t distance = min(approx_dist, graph_distance(m1_pos, m2_pos, m1.length())); // enable for exact distance calculation
+                int64_t distance = approx_dist;
                 // accepted transition
-                double jump = abs((m2.begin - m1.begin) - approx_dist);
+                double jump = abs((m2.begin - m1.begin) - distance);
                 if (jump) {
                     return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
                 } else {
@@ -2731,9 +2736,14 @@ Mapper::align_mem_multi(const Alignment& aln,
     vector<vector<MaximalExactMatch> > clusters;
     if (total_multimaps) {
         MEMChainModel chainer({ aln.sequence().size() }, { mems },
-            [&](pos_t n) {
-                return approx_position(n);
-            }, transition_weight, 10*aln.sequence().size());
+                              [&](pos_t n) {
+                                  return approx_position(n);
+                              },
+                              [&](pos_t n) -> map<string, vector<size_t> > {
+                                  return xindex->position_in_paths(id(n), is_rev(n), offset(n));
+                              },
+                              transition_weight,
+                              2*aln.sequence().size());
         clusters = chainer.traceback(total_multimaps, false, debug);
     }
     

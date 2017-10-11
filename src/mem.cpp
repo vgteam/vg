@@ -34,6 +34,23 @@ size_t MaximalExactMatch::count_Ns(void) const {
     return std::count(begin, end, 'N');
 }
 
+int64_t mem_min_distance(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
+    int64_t distance = std::numeric_limits<int64_t>::max();
+    for (auto& seq : m1.positions) {
+        auto& name = seq.first;
+        auto f = m2.positions.find(name);
+        if (f != m2.positions.end()) {
+            auto& pos1 = seq.second;
+            auto& pos2 = f->second;
+            for (auto& p1 : pos1) {
+                for (auto& p2 : pos2) {
+                    distance = min(abs((int64_t)p1 - (int64_t)p2), distance);
+                }
+            }
+        }
+    }
+    return distance;
+}
 
 bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
     return m1.begin == m2.begin && m1.end == m2.end && m1.nodes == m2.nodes;
