@@ -222,7 +222,7 @@ class VGCITest(TestCase):
         
         
     def _toil_vg_run(self, sample_name, chrom, graph_path, xg_path, gcsa_path, fq_path,
-                     true_vcf_path, fasta_path, interleaved, misc_opts, tag):
+                     true_vcf_path, fasta_path, interleaved, multipath, misc_opts, tag):
         """ Wrap toil-vg run as a shell command.  Expects reads to be in single fastq
         inputs can be None if toil-vg supports not having them (ie don't need to 
         include gcsa_path if want to reindex)
@@ -251,11 +251,14 @@ class VGCITest(TestCase):
             opts += '--vcfeval_opts \" --ref-overlap\" '
         if interleaved:
             opts += '--interleaved '
+        if multipath:
+            opts += '--multipath '
         if misc_opts:
             opts += ' {} '.format(misc_opts)
         opts += '--gcsa_index_cores {} --kmers_cores {} \
-        --alignment_cores {} --calling_cores {} --vcfeval_cores {} '.format(
-            self.cores, self.cores, self.cores, self.cores, self.cores)
+        --alignment_cores {} --calling_cores {} --call_chunk_cores {} --vcfeval_cores {} '.format(
+            self.cores, self.cores, self.cores, max(1, self.cores / 4),
+            max(1, self.cores / 2), self.cores)
         
         cmd = 'toil-vg run {} {} {} {}'.format(job_store, sample_name, out_store, opts)
         
@@ -389,30 +392,35 @@ class VGCITest(TestCase):
 
         self.assertGreaterEqual(f1_score, baseline_f1 - threshold)
 
-    def _test_bakeoff(self, region, graph, skip_indexing):
+    def _test_bakeoff(self, region, graph, skip_indexing, multipath=False, tag_ext='', misc_opts=None):
         """ Run bakeoff F1 test for NA12878 """
-        tag = '{}-{}'.format(region, graph)
+        assert not tag_ext or tag_ext.startswith('-')
+        tag = '{}-{}{}'.format(region, graph, tag_ext)
         chrom, offset = self._bakeoff_coords(region)        
         if skip_indexing:
             xg_path = None
             gcsa_path = self._input('{}-{}.gcsa'.format(graph, region))
         else:
             xg_path = None
-            gcsa_path = None            
+            gcsa_path = None
+        extra_opts = '--vcf_offsets {}'.format(offset)
+        if misc_opts:
+            extra_opts += ' {}'.format(misc_opts)
+        
         self._toil_vg_run('NA12878', chrom,
                           self._input('{}-{}.vg'.format(graph, region)),
                           xg_path, gcsa_path,
                           self._input('platinum_NA12878_{}.fq.gz'.format(region)),
                           self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
-                          self._input('chr{}.fa.gz'.format(chrom)), True,
-                          '--vcf_offsets {}'.format(offset), tag)
+                          self._input('chr{}.fa.gz'.format(chrom)), True, multipath,
+                          extra_opts, tag)
 
         if self.verify:
             self._verify_f1('NA12878', tag)
 
     def _mapeval_vg_run(self, reads, base_xg_path, sim_xg_paths, fasta_path,
                         test_index_bases, test_names, score_baseline_name,
-                        multipath, sim_opts, sim_fastq, tag):
+                        multipath, paired_only, sim_opts, sim_fastq, tag):
         """ Wrap toil-vg mapeval. 
         
         Evaluates realignments (to the linear reference and to a set of graphs)
@@ -492,8 +500,7 @@ class VGCITest(TestCase):
         # things as file IDs?
         mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
         mapeval_options.bwa = True
-        mapeval_options.bwa_paired = True
-        mapeval_options.vg_paired = True
+        mapeval_options.paired_only = paired_only        
         mapeval_options.fasta = make_url(fasta_path)
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
@@ -857,6 +864,7 @@ class VGCITest(TestCase):
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
                       positive_control=None, negative_control=None, sample=None, multipath=False,
+                      paired_only=False,
                       assembly="hg38", tag_ext="", acc_threshold=0, auc_threshold=0,
                       sim_opts='-l 150 -p 500 -v 50 -e 0.05 -i 0.01', sim_fastq=None):
         """ Run simulation on a bakeoff graph
@@ -916,7 +924,7 @@ class VGCITest(TestCase):
             test_tag = '{}-{}'.format(test_graph, region)
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
         self._mapeval_vg_run(reads, xg_path, sim_xg_paths, fasta_path, test_index_bases,
-                             test_graphs, score_baseline_graph, multipath, sim_opts, sim_fastq, tag)
+                             test_graphs, score_baseline_graph, multipath, paired_only, sim_opts, sim_fastq, tag)
         if self.verify:
             self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
                                  positive_control, negative_control, tag,
@@ -936,7 +944,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
                            
-    #@skip("skipping test to keep runtime down")
+    @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """
@@ -959,6 +967,20 @@ class VGCITest(TestCase):
                            acc_threshold=0.0075, auc_threshold=0.075, multipath=True,
                            sim_opts='-l 150 -p 500 -v 50 -e 0.01 -i 0.002')
 
+    @timeout_decorator.timeout(16000)        
+    def test_sim_chr21_snp1kg_trained(self):
+        self._test_mapeval(100000, 'CHR21', 'snp1kg',
+                           ['primary', 'snp1kg'],
+                           #score_baseline_graph='primary',
+                           sample='HG00096',
+                           assembly="hg19",
+                           acc_threshold=0.0075, auc_threshold=0.075, multipath=True, paired_only=True,
+                           tag_ext='-trained',
+                           sim_opts='-p 500 -v 50 -S 4 -i 0.002',
+                           # 800k 148bp reads from Genome in a Bottle NA12878 library
+                           # (placeholder while finding something better)
+                           sim_fastq='ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz')
+
     @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg_mpmap(self):
@@ -974,6 +996,20 @@ class VGCITest(TestCase):
                            acc_threshold=0.02, auc_threshold=0.02)
 
     @skip("skipping test to keep runtime down")        
+    @timeout_decorator.timeout(7200)
+    def test_sim_chr21_snp1kg_mpmap(self):
+        """ multipath mapper test, which is a smaller version of above.  we catch all errors
+        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        and off.
+        """
+        self._test_mapeval(100000, 'CHR21', 'snp1kg',
+                           ['primary', 'snp1kg'],
+                           score_baseline_graph='primary',
+                           sample='HG00096', multipath=True, tag_ext='-mpmap',
+                           acc_threshold=0.02,
+                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5',
+                           sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
+
     @timeout_decorator.timeout(7200)
     def test_sim_mhc_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
@@ -1000,6 +1036,15 @@ class VGCITest(TestCase):
         """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'snp1kg', True)
+        
+    @timeout_decorator.timeout(600)
+    def test_map_brca1_snp1kg_mpmap(self):
+        """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph on mpmap.  
+        The filter_opts are the defaults minus the identity filter because mpmap doesn't 
+        write identities.
+        """
+        self._test_bakeoff('BRCA1', 'snp1kg', True, multipath=True, tag_ext='-mpmap',
+                           misc_opts='--filter_opts \"-q 15 -m 1 -D 999 -s 1000\"')
 
     @timeout_decorator.timeout(200)        
     def test_map_brca1_cactus(self):

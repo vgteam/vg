@@ -505,7 +505,7 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     }
 }
 
-int32_t BaseAligner::compute_mapping_quality(vector<int32_t> scores, bool fast_approximation) {
+int32_t BaseAligner::compute_mapping_quality(vector<double>& scores, bool fast_approximation) {
     
     vector<double> scaled_scores(scores.size(), 0.0);
     for (size_t i = 0; i < scores.size(); i++) {

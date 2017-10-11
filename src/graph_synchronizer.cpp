@@ -128,7 +128,7 @@ void GraphSynchronizer::Lock::lock() {
             
             // Extract paths out to the length we need to connect the ends, or a bit further.
             // TODO: be sure to extract really big indels somehow...
-            auto duplications = algorithms::extract_connecting_graph(synchronizer.graph,
+            auto duplications = algorithms::extract_connecting_graph(&synchronizer.graph,
                 context_graph,
                 (past_end - start) * 2,
                 left_pos,

@@ -13,6 +13,7 @@
 #include "../vg.hpp"
 #include "../stream.hpp"
 #include "../utility.hpp"
+#include "../algorithms/topological_sort.hpp"
 
 using namespace std;
 using namespace vg;
@@ -674,8 +675,7 @@ int main_mod(int argc, char** argv) {
     }
 
     if (orient_forward) {
-        set<int64_t> flipped;
-        graph->orient_nodes_forward(flipped);
+        algorithms::orient_nodes_forward(graph);
     }
 
     if (flip_doubly_reversed_edges) {
@@ -703,7 +703,7 @@ int main_mod(int argc, char** argv) {
     }
 
     if (sort_graph) {
-        graph->sort();
+        algorithms::sort(graph);
     }
 
     if (break_cycles) {
@@ -795,7 +795,7 @@ int main_mod(int argc, char** argv) {
 
     // and optionally compact ids
     if (compact_ids) {
-        graph->sort();
+        algorithms::sort(graph);
         graph->compact_ids();
     }
 
@@ -840,7 +840,7 @@ int main_mod(int argc, char** argv) {
 
     if (cactus) {
         // ensure we're sorted
-        graph->sort();
+        algorithms::sort(graph);
         *graph = cactusify(*graph);
         // no paths survive, make sure they are erased
         graph->paths = Paths();

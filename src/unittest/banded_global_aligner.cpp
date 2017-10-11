@@ -3408,6 +3408,35 @@ namespace vg {
                 REQUIRE(found_first_opt);
                 REQUIRE(found_second_opt);
             }
+            
+            
+            
+            SECTION( "Banded global aligner does not produce empty edits when there is an insertion an empty node") {
+                string graph_json = R"({"edge": [{"to_end": true, "from_start": true, "to": 22, "from": 20}, {"to": 26, "from": 20}, {"to": 24, "from": 20}, {"to_end": true, "from_start": true, "to": 26, "from": 4}, {"to_end": true, "from_start": true, "to": 24, "from": 4}], "node": [{"sequence": "C", "id": 24}, {"sequence": "GAGA", "id": 20}, {"sequence": "T", "id": 26}, {"sequence": "GGAGTCT", "id": 4}, {"id": 22}]})";
+                
+                Graph graph;
+                json2pb(graph, graph_json.c_str(), graph_json.size());
+                
+                Aligner aligner;
+                
+                string read = "TTTTGATGGAGGCC";
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int band_width = 1;
+                bool permissive_banding = true;
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
+                
+                const Path& p = aln.path();
+                for (int i = 0; i < p.mapping_size();i++) {
+                    const auto& m = p.mapping(i);
+                    for (int j = 0; j < m.edit_size(); j++) {
+                        const auto& e = m.edit(j);
+                        bool empty = e.to_length() == 0 && e.from_length() == 0;
+                        REQUIRE(!empty);
+                    }
+                }
+            }
         }
     }
 }

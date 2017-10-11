@@ -1,6 +1,7 @@
 #include "vg.hpp"
 #include "stream.hpp"
 #include "gssw_aligner.hpp"
+#include "algorithms/topological_sort.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
 
@@ -140,6 +141,170 @@ void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     }
 }
 
+void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
+    for (id_t i = 0; i < graph.node_size(); ++i) {
+        // For each node in the backing graph
+        // Get its ID and make a handle to it forward
+        // And pass it to the iteratee
+        if (!iteratee(get_handle(graph.node(i).id(), false))) {
+            // Iteratee stopped
+            return;
+        }
+    }
+}
+
+size_t VG::node_size() const {
+    return graph.node_size();
+}
+
+handle_t VG::create_handle(const string& sequence) {
+    Node* node = create_node(sequence);
+    return get_handle(node->id(), false);
+}
+
+void VG::destroy_handle(const handle_t& handle) {
+    destroy_node(get_id(handle));
+    // TODO: does destroy_node update paths?
+}
+
+void VG::create_edge(const handle_t& left, const handle_t& right) {
+    create_edge(get_node(get_id(left)), get_node(get_id(right)),
+        get_is_reverse(left), get_is_reverse(right));
+}
+    
+void VG::destroy_edge(const handle_t& left, const handle_t& right) {
+    // Convert to NodeSides and find the edge between them
+    Edge* found = get_edge(NodeSide(get_id(left), !get_is_reverse(left)),
+        NodeSide(get_id(right), get_is_reverse(right)));
+    if (found != nullptr) {
+        // If there is one, destroy it.
+        destroy_edge(found);
+        // TODO: does destroy_edge update paths?
+    }
+}
+
+void VG::swap_handles(const handle_t& a, const handle_t& b) {
+    swap_nodes(get_node(get_id(a)), get_node(get_id(b)));
+}
+
+handle_t VG::apply_orientation(const handle_t& handle) {
+    if (!get_is_reverse(handle)) {
+        // Nothing to do!
+        return handle;
+    }
+    
+    // Otherwise we need to reverse it
+
+    // Grab a handle to the reverse version that exists now.
+    handle_t rev_handle = flip(handle);
+    
+    // Find all the edges (including self loops)
+    
+    // We represent self loops with the (soon to be invalidated) forward and
+    // reverse handles to the node we're flipping.
+    vector<handle_t> left_nodes;
+    vector<handle_t> right_nodes;
+    
+    follow_edges(handle, false, [&](const handle_t& other) -> void {
+        right_nodes.push_back(other);
+        return;
+    });
+    
+    follow_edges(handle, true, [&](const handle_t& other) -> void {
+        left_nodes.push_back(other);
+        return;
+    });
+    
+    // Remove them
+    for (auto& left : left_nodes) {
+        destroy_edge(left, handle);
+    }
+    for (auto& right : right_nodes) {
+        destroy_edge(handle, right);
+    }
+    
+    // Copy the sequence from the reverse view of the node to become its locally
+    // forward sequence.
+    string new_sequence = get_sequence(handle);
+    
+    // Save the ID to reuse
+    id_t id = get_id(handle);
+    
+    // Remove the old node (without destroying the paths???)
+    destroy_handle(handle);
+    
+    // Create a new node, re-using the ID
+    Node* new_node = create_node(new_sequence, id);
+    handle_t new_handle = get_handle(id, false);
+    
+    // Connect up the new node
+    for (handle_t left : left_nodes) {
+        if (left == handle) {
+            // Actually go to the reverse of the new handle
+            left = flip(new_handle);
+        } else if (left == rev_handle) {
+            // Actually go to the new handle forward
+            left = new_handle;
+        }
+        
+        create_edge(left, new_handle);
+    }
+    
+    for (handle_t right : right_nodes) {
+        if (right == handle) {
+            // Actually go to the reverse of the new handle
+            right = flip(new_handle);
+        } else if (right == rev_handle) {
+            // Actually go to the new handle forward
+            right = new_handle;
+        }
+        
+        create_edge(new_handle, right);
+    }
+    
+    // TODO: Fix up the paths
+    return new_handle;
+    
+}
+
+vector<handle_t> VG::divide_handle(const handle_t& handle, const vector<size_t>& offsets) {
+    Node* node = get_node(get_id(handle));
+    bool reverse = get_is_reverse(handle);
+    
+    // We need to convert vector types
+    vector<int> int_offsets;
+    if (reverse) {
+        // We need to fill in the vector of offsets from the end of the node.
+        
+        auto node_size = get_length(handle);
+        
+        for (auto it = offsets.rbegin(); it != offsets.rend(); ++it) {
+            // Flip the order around, and also measure from the other end
+            int_offsets.push_back(node_size - *it);
+        }
+    } else {
+        // Just blit over the offsets
+        int_offsets = vector<int>(offsets.begin(), offsets.end());
+    }
+    
+    // Populate this parts vector by doing the division
+    vector<Node*> parts;
+    divide_node( node, int_offsets, parts);
+    
+    vector<handle_t> to_return;
+    for (Node* n : parts) {
+        // Copy the nodes into handles in their final orientation
+        to_return.push_back(get_handle(n->id(), reverse));
+    }
+    if (reverse) {
+        // And make sure they are in the right order
+        std::reverse(to_return.begin(), to_return.end());
+    }
+    
+    return to_return;
+    
+}
+
 void VG::clear_paths(void) {
     paths.clear();
     graph.clear_path(); // paths.clear() should do this too
@@ -248,7 +413,7 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
     init();
     add_nodes(nodes);
     add_edges(edges);
-    sort();
+    algorithms::sort(this);
 }
 
 
@@ -325,7 +490,7 @@ vector<pair<id_t, id_t> > VG::get_superbubbles(void){
 map<pair<id_t, id_t>, vector<id_t> > VG::superbubbles(void) {
     map<pair<id_t, id_t>, vector<id_t> > bubbles;
     // ensure we're sorted
-    sort();
+    algorithms::sort(this);
     // if we have a DAG, then we can find all the nodes in each superbubble
     // in constant time as they lie in the range between the entry and exit node
     auto supbubs = get_superbubbles();
@@ -424,11 +589,11 @@ void VG::circularize(vector<string> pathnames){
     }
 }
 
-id_t VG::node_count(void) {
+size_t VG::node_count(void) const {
     return graph.node_size();
 }
 
-id_t VG::edge_count(void) {
+size_t VG::edge_count(void) const {
     return graph.edge_size();
 }
 
@@ -3017,22 +3182,6 @@ void VG::print_edges(void) {
     cerr << endl;
 }
 
-void VG::sort(void) {
-    if (size() <= 1) return;
-    // Join heads to a root to ensure stable topo sort
-    Node* root = join_heads();
-    // Topologically sort, which orders and orients all the nodes.
-    vector<NodeTraversal> sorted_nodes;
-    topological_sort(sorted_nodes);
-    // destroy the root node
-    destroy_node(root->id());
-    // organize the nodes in the order from the topological sort
-    for (size_t i = 0 ; i < graph.node_size(); ++i) {
-        // Put the nodes in the order we got
-        swap_nodes(graph.mutable_node(i), sorted_nodes[i + 1].node);
-    }
-}
-
 // depth first search across node traversals with interface to traversal tree via callback
 void VG::dfs(
     const function<void(NodeTraversal)>& node_begin_fn, // called when node orientation is first encountered
@@ -3310,7 +3459,7 @@ int VG::node_rank(id_t id) {
 
 vector<Edge> VG::break_cycles(void) {
     // ensure we are sorted
-    sort();
+    algorithms::sort(this);
     // remove any edge whose from has a higher index than its to
     vector<Edge*> to_remove;
     for_each_edge([&](Edge* e) {
@@ -3325,8 +3474,101 @@ vector<Edge> VG::break_cycles(void) {
         removed.push_back(*edge);
         destroy_edge(edge);
     }
-    sort();
+    algorithms::sort(this);
     return removed;
+}
+    
+bool VG::is_directed_acyclic(void) {
+    unordered_map<id_t, pair<int64_t, int64_t>> degrees(graph.node_size());
+    for (size_t i = 0; i < graph.node_size(); i++) {
+        Node* node = graph.mutable_node(i);
+        degrees[node->id()] = make_pair(start_degree(node), end_degree(node));
+    }
+    
+    vector<NodeTraversal> stack;
+    for (size_t i = 0; i < graph.node_size(); i++) {
+        Node* node = graph.mutable_node(i);
+        pair<int64_t, int64_t> node_degrees = degrees[node->id()];
+        if (node_degrees.first == 0) {
+            stack.emplace_back(node, false);
+        }
+        if (node_degrees.second == 0) {
+            stack.emplace_back(node, true);
+        }
+    }
+    
+    while (!stack.empty()) {
+        NodeTraversal here = stack.back();
+        stack.pop_back();
+        
+        auto iter = degrees.find(here.node->id());
+        if (iter == degrees.end()) {
+            continue;
+        }
+        
+        degrees.erase(iter);
+        
+        vector<NodeTraversal> nexts;
+        nodes_next(here, nexts);
+        for (NodeTraversal next : nexts) {
+            auto next_iter = degrees.find(next.node->id());
+            if (next_iter != degrees.end()) {
+                int64_t& in_degree = next.backward ? next_iter->second.second : next_iter->second.first;
+                in_degree--;
+                if (in_degree == 0) {
+                    stack.push_back(next);
+                }
+            }
+        }
+    }
+    return degrees.empty();
+}
+    
+void VG::lazy_sort(void) {
+    // a map to the degrees on the left and right sides of nodes
+    unordered_map<id_t, pair<int64_t, int64_t>> side_degrees;
+    for (size_t i = 0; i < graph.node_size(); i++) {
+        id_t id = graph.node(i).id();
+        side_degrees[id] = make_pair(start_degree(get_node(id)), end_degree(get_node(id)));
+    }
+    
+    // find the nodes with 0 in degree an initialize the queue with them
+    vector<NodeTraversal> stack;
+    for (const auto& degree_record : side_degrees) {
+        if (degree_record.second.first == 0) {
+            stack.emplace_back(get_node(degree_record.first));
+        }
+    }
+    
+    vector<id_t> order;
+    order.reserve(graph.node_size());
+    
+    while (!stack.empty()) {
+        // get a head node off the queue
+        NodeTraversal head_trav = stack.back();
+        stack.pop_back();
+        
+        // add it to the topological order
+        order.push_back(head_trav.node->id());
+        
+        // remove its outgoing edges
+        vector<NodeTraversal> nexts;
+        nodes_next(head_trav, nexts);
+        for (NodeTraversal& next : nexts) {
+            // reduce the degree of the appropriate side
+            int64_t& inward_degree = next.backward ? side_degrees[next.node->id()].second : side_degrees[next.node->id()].first;
+            inward_degree--;
+            if (inward_degree == 0) {
+                // after removing this edge, the node is now a head, add it to the queue
+                stack.push_back(next);
+            }
+        }
+    }
+    
+    for (size_t i = 0; i < order.size(); i++) {
+        // Put the nodes in the order we got
+        swap_nodes(get_node(order[i]), graph.mutable_node(i));
+    }
 }
 
 bool VG::is_acyclic(void) {
@@ -4748,7 +4990,7 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
         });
 
     // execute a semi partial order sort on the nodes
-    sort();
+    algorithms::sort(this);
 
     // make the translation
     return make_translation(node_translation, added_nodes, orig_node_sizes);
@@ -6802,10 +7044,17 @@ Alignment VG::align(const Alignment& alignment,
 
     if ((acyclic || is_acyclic()) && !has_inverting_edges()) {
         // graph is a non-inverting DAG, so we just need to sort
-        sort();
+#ifdef debug
+        cerr << "Graph is a non-inverting DAG, so just sort and align" << endl;
+#endif
+        algorithms::sort(this);
         // run the alignment
         do_align(this->graph);
     } else {
+#ifdef debug
+        cerr << "Graph is complex, so dagify and unfold before alignment" << endl;
+#endif
+        
         unordered_map<id_t, pair<id_t, bool> > unfold_trans;
         unordered_map<id_t, pair<id_t, bool> > dagify_trans;
         // Work out how long we could possibly span with an alignment.
@@ -6825,7 +7074,7 @@ Alignment VG::align(const Alignment& alignment,
         // Join to a common root, so alignment covers the entire graph
         // Put the nodes in sort order within the graph
         // and break any remaining cycles
-        dag.sort();
+        algorithms::sort(&dag);
         
         // run the alignment
         do_align(dag.graph);
@@ -8475,256 +8724,6 @@ void VG::wrap_with_null_nodes(void) {
     }
 }
 
-/**
-Order and orient the nodes in the graph using a topological sort.
-
-We use a bidirected adaptation of Kahn's topological sort (1962), which can handle components with no heads or tails.
-
-L ← Empty list that will contain the sorted and oriented elements
-S ← Set of nodes which have been oriented, but which have not had their downstream edges examined
-N ← Set of all nodes that have not yet been put into S
-
-while N is nonempty do
-    remove a node from N, orient it arbitrarily, and add it to S
-        (In practice, we use "seeds": the heads and any nodes we have seen that had too many incoming edges)
-    while S is non-empty do
-        remove an oriented node n from S
-        add n to tail of L
-        for each node m with an edge e from n to m do
-            remove edge e from the graph
-            if m has no other edges to that side then
-                orient m such that the side the edge comes to is first
-                remove m from N
-                insert m into S
-            otherwise
-                put an oriented m on the list of arbitrary places to start when S is empty
-                    (This helps start at natural entry points to cycles)
-    return L (a topologically sorted order and orientation)
-*/
-void VG::topological_sort(vector<NodeTraversal>& l) {
-    //assert(is_valid());
-
-#ifdef debug
-#pragma omp critical (cerr)
-    cerr << "=====================STARTING SORT==========================" << endl;
-#endif
-    
-    l.clear();
-    l.reserve(graph.node_size());
-
-    // using a map instead of a set ensures a stable sort across different systems
-    map<id_t, NodeTraversal> s;
-
-    // We find the head and tails, if there are any
-    vector<Node*> heads;
-    head_nodes(heads);
-    vector<Node*> tails;
-    tail_nodes(tails);
-
-    // We'll fill this in with the heads, so we can orient things according to
-    // them first, and then arbitrarily. We ignore tails since we only orient
-    // right from nodes we pick.
-    // Maps from node ID to first orientation we suggested for it.
-    map<id_t, NodeTraversal> seeds;
-    for(Node* head : heads) {
-        seeds[head->id()] = NodeTraversal(head, false);
-    }
-
-    // We will use a std::map copy of node_by_id as our set of unvisited nodes,
-    // and remove index entries from it when we visit nodes. It will be rebuilt
-    // when we rebuild the indexes later. We know its order will be fixed across
-    // systems.
-    map<id_t, Node*> unvisited;
-    // Fill it in, we can't use the copy constructor since std::map doesn't speak vg::hash_map
-    // TODO: is the vg::hash_map order fixed across systems?
-    for_each_node([&](Node* node) {
-            unvisited[node->id()] = node;
-        });
-
-    // How many nodes have we ordered and oriented?
-    id_t seen = 0;
-
-    while(!unvisited.empty()) {
-
-        // Put something in s. First go through seeds until we can find one
-        // that's not already oriented.
-        while(s.empty() && !seeds.empty()) {
-            // Look at the first seed
-            NodeTraversal first_seed = (*seeds.begin()).second;
-
-            if(unvisited.count(first_seed.node->id())) {
-                // We have an unvisited seed. Use it
-#ifdef debug
-#pragma omp critical (cerr)
-                cerr << "Starting from seed " << first_seed.node->id() << " orientation " << first_seed.backward << endl;
-#endif
-
-                s[first_seed.node->id()] = first_seed;
-                unvisited.erase(first_seed.node->id());
-            }
-            // Whether we used the seed or not, don't keep it around
-            seeds.erase(seeds.begin());
-        }
-
-        if(s.empty()) {
-            // If we couldn't find a seed, just grab any old node.
-            // Since map order is stable across systems, we can take the first node by id and put it locally forward.
-#ifdef debug
-#pragma omp critical (cerr)
-            cerr << "Starting from arbitrary node " << unvisited.begin()->first << " locally forward" << endl;
-#endif
-
-            s[unvisited.begin()->first] = NodeTraversal(unvisited.begin()->second, false);
-            unvisited.erase(unvisited.begin()->first);
-        }
-
-        while (!s.empty()) {
-            // Grab an oriented node
-            NodeTraversal n = s.begin()->second;
-            s.erase(n.node->id());
-            l.push_back(n);
-            ++seen;
-#ifdef debug
-#pragma omp critical (cerr)
-            cerr << "Using oriented node " << n.node->id() << " orientation " << n.backward << endl;
-#endif
-
-            // See if it has an edge from its start to the start of some node
-            // where both were picked as places to break into cycles. A
-            // reversing self loop on a cycle entry point is a special case of
-            // this.
-            vector<NodeTraversal> prev;
-            nodes_prev(n, prev);
-            for(NodeTraversal& prev_node : prev) {
-                if(!unvisited.count(prev_node.node->id())) {
-#ifdef debug
-#pragma omp critical (cerr)
-                    cerr << "\tHas left-side edge to cycle entry point " << prev_node.node->id()
-                         << " orientation " << prev_node.backward << endl;
-#endif
-
-                    // Unindex it
-                    Edge* bad_edge = get_edge(prev_node, n);
-#ifdef debug
-#pragma omp critical (cerr)
-                    cerr << "\t\tEdge: " << bad_edge << endl;
-#endif
-                    unindex_edge_by_node_sides(bad_edge);
-                }
-            }
-
-            // All other connections and self loops are handled by looking off the right side.
-
-            // See what all comes next, minus deleted edges.
-            vector<NodeTraversal> next;
-            nodes_next(n, next);
-            for(NodeTraversal& next_node : next) {
-
-#ifdef debug
-#pragma omp critical (cerr)
-                cerr << "\tHas edge to " << next_node.node->id() << " orientation " << next_node.backward << endl;
-#endif
-
-                // Unindex the edge connecting these nodes in this order and
-                // relative orientation, so we can't traverse it with
-                // nodes_next/nodes_prev.
-
-                // Grab the edge
-                Edge* edge = get_edge(n, next_node);
-
-#ifdef debug
-#pragma omp critical (cerr)
-                cerr << "\t\tEdge: " << edge << endl;
-#endif
-
-                // Unindex it
-                unindex_edge_by_node_sides(edge);
-
-                if(unvisited.count(next_node.node->id())) {
-                    // We haven't already started here as an arbitrary cycle entry point
-
-#ifdef debug
-#pragma omp critical (cerr)
-                    cerr << "\t\tAnd node hasn't been visited yet" << endl;
-#endif
-
-                    if(node_count_prev(next_node) == 0) {
-
-#ifdef debug
-#pragma omp critical (cerr)
-                        cerr << "\t\t\tIs last incoming edge" << endl;
-#endif
-                        // Keep this orientation and put it here
-                        s[next_node.node->id()] = next_node;
-                        // Remember that we've visited and oriented this node, so we
-                        // don't need to use it as a seed.
-                        unvisited.erase(next_node.node->id());
-
-                    } else if(!seeds.count(next_node.node->id())) {
-                        // We came to this node in this orientation; when we need a
-                        // new node and orientation to start from (i.e. an entry
-                        // point to the node's cycle), we might as well pick this
-                        // one.
-                        // Only take it if we don't already know of an orientation for this node.
-                        seeds[next_node.node->id()] = next_node;
-
-#ifdef debug
-#pragma omp critical (cerr)
-                        cerr << "\t\t\tSuggests seed " << next_node.node->id() << " orientation " << next_node.backward << endl;
-#endif
-                    }
-                } else {
-#ifdef debug
-#pragma omp critical (cerr)
-                    cerr << "\t\tAnd node was already visited (to break a cycle)" << endl;
-#endif
-                }
-            }
-
-            // The caller may put us in a progress context with the denominator
-            // being the number of nodes in the graph.
-            update_progress(seen);
-        }
-    }
-
-    // There should be no edges left in the index
-    if(!edges_on_start.empty() || !edges_on_end.empty()) {
-#pragma omp critical (cerr)
-        {
-            cerr << "Error: edges remaining after topological sort and cycle breaking" << endl;
-
-            // Dump the edges in question
-            for(auto& on_start : edges_on_start) {
-                cerr << "start: " << on_start.first << endl;
-                for(auto& other_end : on_start.second) {
-                    cerr << "\t" << other_end.first << " " << other_end.second << endl;
-                }
-            }
-            for(auto& on_end : edges_on_end) {
-                cerr << "end: " << on_end.first << endl;
-                for(auto& other_end : on_end.second) {
-                    cerr << "\t" << other_end.first << " " << other_end.second << endl;
-                }
-            }
-            cerr << "By Sides:" << endl;
-            for(auto& sides_and_edge : edge_by_sides) {
-                cerr << sides_and_edge.first.first << "<->" << sides_and_edge.first.second << endl;
-            }
-
-            // Dump the whole graph if possible. May crash due to bad index.
-            cerr << "Dumping to fail.vg" << endl;
-            std::ofstream out("fail.vg");
-            serialize_to_ostream(out);
-            out.close();
-        }
-        exit(1);
-    }
-
-    // we have destroyed the graph's edge and node index to ensure its order
-    // rebuild the indexes
-    rebuild_indexes();
-}
-
 void VG::force_path_match(void) {
     for_each_node([&](Node* n) {
             Edit match;
@@ -8967,7 +8966,7 @@ VG VG::unfold(uint32_t max_length,
             unfolded.create_edge(reversed_nodes[init_next.node->id()], main_orientation[init_trav.node->id()].first);
         }
 #ifdef debug
-        cerr << "[unfold] adding edge to unfold graph as " << pb2json(edge) << endl;
+        cerr << "[unfold] adding edge to unfold graph" << endl;
 #endif
         
         if (!queued.count(make_pair(init_next.node->id(), init_next.backward))) {
@@ -9031,7 +9030,7 @@ VG VG::unfold(uint32_t max_length,
                     }
                     reversed_edges.insert(edge);
 #ifdef debug
-                    cerr << "[unfold] edge has not been observed on reverse strand, adding reverse edge " << pb2json(new_edge) << endl;
+                    cerr << "[unfold] edge has not been observed on reverse strand, adding reverse edge" << endl;
 #endif
                 }
                 
@@ -9616,7 +9615,7 @@ VG VG::backtracking_unroll(uint32_t max_length, uint32_t max_branch,
                 stable = true;
             }
             // sort the graph
-            dag.sort();
+            algorithms::sort(&dag);
         } while (!stable);
     }
 
@@ -9741,148 +9740,6 @@ VG VG::backtracking_unroll(uint32_t max_length, uint32_t max_branch,
     }
 
     return unrolled;
-}
-
-void VG::orient_nodes_forward(set<id_t>& nodes_flipped) {
-    // TODO: update paths in the graph when you do this!
-
-    // Clear the flipped nodes set.
-    nodes_flipped.clear();
-
-    // First do the topological sort to order and orient
-    vector<NodeTraversal> order_and_orientation;
-    topological_sort(order_and_orientation);
-#ifdef debug
-#pragma omp critical (cerr)
-    cerr << "+++++++++++++++++++++DOING REORIENTATION+++++++++++++++++++++++" << endl;
-#endif
-
-    // These are the node IDs we've visited so far
-    set<id_t> visited;
-
-    for(auto& traversal : order_and_orientation) {
-        // Say we visited this node
-#ifdef debug
-#pragma omp critical (cerr)
-        cerr << "Visiting " << traversal.node->id() << endl;
-#endif
-        visited.insert(traversal.node->id());
-
-        // Make sure this node is the "from" in all its edges with un-visited nodes.
-
-        if(traversal.backward) {
-            // We need to flip this node around.
-#ifdef debug
-#pragma omp critical (cerr)
-            cerr << "Flipped node " << traversal.node->id() << endl;
-#endif
-            // Say we flipped it
-            nodes_flipped.insert(traversal.node->id());
-
-            // Flip the sequence
-            traversal.node->set_sequence(reverse_complement(traversal.node->sequence()));
-
-        }
-
-        // Get all the edges
-        vector<Edge*> node_edges;
-        edges_of_node(traversal.node, node_edges);
-
-        // We need to unindex all the edges we're going to change before any of
-        // them get re-indexed. Otherwise, we might have to try to hold two of
-        // the same edge in the index at the same time, if one edge is fixed up
-        // to be equal to another original edge before the other original edge
-        // is fixed.
-
-        // Edges that go from unvisited things to here need to be flipped from/to.
-        vector<Edge*> edges_to_flip;
-        copy_if(node_edges.begin(), node_edges.end(), back_inserter(edges_to_flip), [&](Edge* edge) {
-            // We only need to flip the edges that are from things we haven't visited yet to here.
-            return edge->to() == traversal.node->id() && visited.count(edge->from()) == 0;
-        });
-
-        for(Edge* edge : (traversal.backward ? node_edges : edges_to_flip)) {
-            // Unindex every edge if we flipped the node, or only the edges we are flipping otherwise
-            unindex_edge_by_node_sides(edge);
-
-#ifdef debug
-#pragma omp critical (cerr)
-            cerr << "Unindexed edge " << edge->from() << (edge->from_start() ? " start" : " end")
-                 << " -> " << edge->to() << (edge->to_end() ? " end" : " start") << endl;
-#endif
-        }
-
-        for(Edge* edge : edges_to_flip) {
-            // Flip around all the edges that need flipping
-            // Flip the nodes
-            id_t temp_id = edge->from();
-            edge->set_from(edge->to());
-            edge->set_to(temp_id);
-
-            // Move the directionality flags, but invert both.
-            bool temp_orientation = !edge->from_start();
-            edge->set_from_start(!edge->to_end());
-            edge->set_to_end(temp_orientation);
-#ifdef debug
-#pragma omp critical (cerr)
-            cerr << "Reversed edge direction to " << edge->from() << (edge->from_start() ? " start" : " end")
-                 << " -> " << edge->to() << (edge->to_end() ? " end" : " start") << endl;
-#endif
-        }
-
-        if(traversal.backward) {
-            for(Edge* edge : node_edges) {
-                // Now that all the edges have the correct to and from, flip the
-                // appropriate from_start and to_end flags for the end(s) on this
-                // node, since we flipped the node.
-
-                if(edge->to() == traversal.node->id()) {
-                    edge->set_to_end(!edge->to_end());
-                }
-                if(edge->from() == traversal.node->id()) {
-                    edge->set_from_start(!edge->from_start());
-                }
-            }
-        }
-
-        for(Edge* edge : (traversal.backward ? node_edges : edges_to_flip)) {
-            // Reindex exactly what was unindexed
-            index_edge_by_node_sides(edge);
-
-#ifdef debug
-#pragma omp critical (cerr)
-            cerr << "Reindexed edge " << edge->from() << (edge->from_start() ? " start" : " end")
-                 << " -> " << edge->to() << (edge->to_end() ? " end" : " start") << endl;
-#endif
-        }
-
-        // It should always work out that the edges are from end to
-        // start when we are done, but right now they might not be,
-        // because the nodes at the other ends may still need to be
-        // flipped themselves.
-    }
-
-    // We now know there are no edges from later nodes to earlier nodes. But
-    // edges that are reversing, or "from" earlier nodes and "to" later nodes
-    // with both end flags set, will cause problems. So remove those.
-    // This works out to just clearing any edges with from_start or to_end set.
-    // We also need to clear otherwise-normal-looking self loops here.
-    vector<Edge*> to_remove;
-    for_each_edge([&](Edge* e) {
-        if(e->from_start() || e->to_end() || e->from() == e->to()) {
-            // gssw won't know how to read this. Get rid of it.
-            to_remove.push_back(e);
-        }
-    });
-
-    for(Edge* edge : to_remove) {
-#ifdef debug
-#pragma omp critical (cerr)
-        cerr << "Removed cycle edge " << edge->from() << "->" << edge->to() << endl;
-#endif
-        destroy_edge(edge);
-    }
-
 }
 
 } // end namespace

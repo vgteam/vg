@@ -1,5 +1,5 @@
-#ifndef VG_NODETRAVERSAL_HPP
-#define VG_NODETRAVERSAL_HPP
+#ifndef VG_NODETRAVERSAL_HPP_INCLUDED
+#define VG_NODETRAVERSAL_HPP_INCLUDED
 
 #include "vg.pb.h"
 #include "hash_map.hpp"

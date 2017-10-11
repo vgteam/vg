@@ -3,6 +3,7 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../stream.hpp"
+#include "../algorithms/topological_sort.hpp"
 
 using namespace vg;
 using namespace vg::subcommand;
@@ -446,7 +447,7 @@ int main_msga(int argc, char** argv) {
         auto build_graph = [&graph,&node_max](const string& seq, const string& name) {
             graph->create_node(seq);
             graph->dice_nodes(node_max);
-            graph->sort();
+            algorithms::sort(graph);
             graph->compact_ids();
             // the graph will have a single embedded path in it
             Path& path = *graph->graph.add_path();
@@ -493,7 +494,7 @@ int main_msga(int argc, char** argv) {
         if (lcpidx) delete lcpidx;
     
         //stringstream s; s << iter++ << ".vg";
-        graph->sort();
+        algorithms::sort(graph);
         graph->sync_paths();
         graph->graph.clear_path();
         graph->paths.to_graph(graph->graph);
@@ -629,7 +630,7 @@ int main_msga(int argc, char** argv) {
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
-            graph->sort();
+            algorithms::sort(graph);
             //if (!graph->is_valid()) cerr << "invalid after sort" << endl;
             graph->compact_ids(); // xg can't work unless IDs are compacted.
             //if (!graph->is_valid()) cerr << "invalid after compact" << endl;
@@ -698,6 +699,17 @@ int main_msga(int argc, char** argv) {
     //          }
     //      };
 
+    if (normalize) {
+        if (debug) cerr << "normalizing graph" << endl;
+        graph->remove_non_path();
+        graph->normalize();
+        graph->dice_nodes(node_max);
+        algorithms::sort(graph);
+        graph->compact_ids();
+        if (!graph->is_valid()) {
+            cerr << "[vg msga] warning! graph is not valid after normalization" << endl;
+        }
+    }
 
     // finally, validate the included paths
     set<string> failures;

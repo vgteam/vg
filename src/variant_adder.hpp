@@ -1,5 +1,5 @@
-#ifndef VG_VARIANT_ADDER_HPP
-#define VG_VARIANT_ADDER_HPP
+#ifndef VG_VARIANT_ADDER_HPP_INCLUDED
+#define VG_VARIANT_ADDER_HPP_INCLUDED
 
 /** \file
  * variant_adder.hpp: defines a tool class used for adding variants from VCF
