@@ -5,11 +5,10 @@ namespace algorithms {
 
 using namespace std;
 
-vector<unordered_set<handle_t>> weakly_connected_components(const HandleGraph* graph) {
-    // This only holds locally forward handles
-    vector<unordered_set<handle_t>> to_return;
+vector<unordered_set<id_t>> weakly_connected_components(const HandleGraph* graph) {
+    vector<unordered_set<id_t>> to_return;
     
-    // This only holds locally forward handles too
+    // This only holds locally forward handles
     unordered_set<handle_t> traversed;
     
     graph->for_each_handle([&](const handle_t& handle) {
@@ -30,7 +29,7 @@ vector<unordered_set<handle_t>> weakly_connected_components(const HandleGraph* g
             stack.pop_back();
             
             traversed.insert(here);
-            to_return.back().insert(here);
+            to_return.back().insert(graph->get_id(here));
             
             // We have a function to handle all connected handles
             auto handle_other = [&](const handle_t& other) {

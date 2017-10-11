@@ -18,9 +18,8 @@ namespace algorithms {
 using namespace std;
 
 /// Returns sets of handles defining components that are connected by any series
-/// of nodes and edges, even if it is not a valid bidirected walk. All handles
-/// returned are in the local forward orientation.
-vector<unordered_set<handle_t>> weakly_connected_components(const HandleGraph* graph);
+/// of nodes and edges, even if it is not a valid bidirected walk.
+vector<unordered_set<id_t>> weakly_connected_components(const HandleGraph* graph);
 
 
 }
