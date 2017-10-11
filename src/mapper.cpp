@@ -1845,15 +1845,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // set up positions for distance query
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
-        //double uniqueness = 2.0 / (m1.match_count + m2.match_count);
-
-        // approximate distance by node lengths
-        int64_t approx_dist = abs(approx_distance(m1_pos, m2_pos));
 
         // are the two mems in a different fragment?
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
             int64_t max_length = frag_stats.fragment_max;
+            int64_t approx_dist = graph_mixed_distance_estimate(m1_pos, m2_pos, 0); // use graph/path based estimate here
 #ifdef debug_mapper
 #pragma omp critical
             {
@@ -1928,6 +1925,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // find the difference in m1.end and m2.begin
             // find the positional difference in the graph between m1.end and m2.begin
             int duplicate_coverage = mems_overlap_length(m1, m2);
+            int64_t approx_dist = graph_mixed_distance_estimate(m1_pos, m2_pos, m1.length() + m2.length());
 #ifdef debug_mapper
 #pragma omp critical
             {
@@ -2700,7 +2698,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
         int64_t max_length = aln.sequence().size();
-        int64_t approx_dist = abs(approx_distance(m1_pos, m2_pos));
+        int64_t approx_dist = graph_mixed_distance_estimate(m1_pos, m2_pos, m1.length() + m2.length());
         
 #ifdef debug_mapper
 #pragma omp critical
@@ -2733,7 +2731,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         MEMChainModel chainer({ aln.sequence().size() }, { mems },
             [&](pos_t n) {
                 return approx_position(n);
-            }, transition_weight, aln.sequence().size());
+            }, transition_weight, 10*aln.sequence().size());
         clusters = chainer.traceback(total_multimaps, false, debug);
     }
     
