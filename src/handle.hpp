@@ -11,6 +11,7 @@
 #include "types.hpp"
 #include <functional>
 #include <cstdint>
+#include <vector>
 
 namespace vg {
 
