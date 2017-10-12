@@ -2361,8 +2361,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                         aln2 = align_cluster(read2, *cluster_ptr.second, true);
                     }
                 }
-                assert(aln1.score() >= s1);
-                assert(aln2.score() >= s2);
+                //assert(aln1.score() >= s1);
+                //assert(aln2.score() >= s2);
                 if (aln1.score() > s1 || aln2.score() > s2) rescored = true;
                 // we can reassign based on paths to get a more accurate fragment estimate
                 aln1.clear_fragment();
