@@ -255,6 +255,8 @@ class VGCITest(TestCase):
             opts += '--multipath '
         if misc_opts:
             opts += ' {} '.format(misc_opts)
+        # don't waste time sharding reads since we only run on one node
+        opts += '--single_reads_chunk '
         opts += '--gcsa_index_cores {} --kmers_cores {} \
         --alignment_cores {} --calling_cores {} --call_chunk_cores {} --vcfeval_cores {} '.format(
             self.cores, self.cores, self.cores, max(1, self.cores / 4),
@@ -486,7 +488,10 @@ class VGCITest(TestCase):
             # Toil options
             realTimeLogging = True,
             logLevel = "INFO",
-            maxCores = self.cores
+            maxCores = self.cores,
+            # toil-vg map options
+            # don't waste time sharding reads since we only run on one node
+            single_reads_chunk = True
         )
         
         # Make the context
