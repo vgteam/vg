@@ -120,7 +120,7 @@ MEMChainModel::MEMChainModel(
         }
     }
     // now build up the model using the positional bandwidth
-    unordered_set<pair<vector<MEMChainModelVertex>::iterator, vector<MEMChainModelVertex>::iterator> > seen;
+    set<pair<vector<MEMChainModelVertex>::iterator, vector<MEMChainModelVertex>::iterator> > seen;
     for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
         for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = c->second.begin(); p != c->second.end(); ++p) {
             for (auto& v1 : p->second) {
