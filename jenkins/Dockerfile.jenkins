@@ -30,6 +30,7 @@ RUN apt-get -qq update && apt-get -qq install -y \
     zlib1g-dev \
     libbz2-dev \
     liblz4-dev \
+    libsnappy-dev \
     libncurses5-dev \
     libgoogle-perftools-dev \
     libjansson-dev \

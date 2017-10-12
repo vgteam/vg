@@ -74,7 +74,6 @@ RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
 GPERF_DIR:=deps/gperftools
 SDSL_DIR:=deps/sdsl-lite
-SNAPPY_DIR:=deps/snappy
 ROCKSDB_DIR:=deps/rocksdb
 GCSA2_DIR:=deps/gcsa2
 PROGRESS_BAR_DIR:=deps/progress_bar
@@ -94,7 +93,6 @@ LIB_DEPS =
 LIB_DEPS += $(LIB_DIR)/libprotobuf.a
 LIB_DEPS += $(LIB_DIR)/libsdsl.a
 LIB_DEPS += $(LIB_DIR)/libssw.a
-LIB_DEPS += $(LIB_DIR)/libsnappy.a
 LIB_DEPS += $(LIB_DIR)/librocksdb.a
 LIB_DEPS += $(LIB_DIR)/libgcsa2.a
 LIB_DEPS += $(OBJ_DIR)/Fasta.o
@@ -141,7 +139,7 @@ $(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(DEP_OBJ) $(DEPS)
 
 # We have system-level deps to install
 get-deps:
-	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex libgoogle-perftools-dev liblz4-dev liblzma-dev
+	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex libgoogle-perftools-dev liblz4-dev liblzma-dev libsnappy-dev
 
 # And we have submodule deps to build
 deps: $(DEPS)
@@ -190,10 +188,7 @@ $(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 $(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.h
 	+. ./source_me.sh && cd $(SSW_DIR) && $(MAKE) && ar rs $(CWD)/$(LIB_DIR)/libssw.a ssw.o ssw_cpp.o && cp ssw_cpp.h ssw.h $(CWD)/$(LIB_DIR)
 
-$(LIB_DIR)/libsnappy.a: $(SNAPPY_DIR)/*.cc $(SNAPPY_DIR)/*.h
-	+. ./source_me.sh && cd $(SNAPPY_DIR) && ./autogen.sh && ./configure --prefix=$(CWD) && $(MAKE) && $(MAKE) install
-
-$(LIB_DIR)/librocksdb.a: $(LIB_DIR)/libtcmalloc_minimal.a $(LIB_DIR)/libsnappy.a $(ROCKSDB_DIR)/db/*.cc $(ROCKSDB_DIR)/db/*.h
+$(LIB_DIR)/librocksdb.a: $(LIB_DIR)/libtcmalloc_minimal.a $(ROCKSDB_DIR)/db/*.cc $(ROCKSDB_DIR)/db/*.h
 	+. ./source_me.sh && cd $(ROCKSDB_DIR) && $(ROCKSDB_PORTABLE) DISABLE_JEMALLOC=1 $(MAKE) static_lib && mv librocksdb.a $(CWD)/${LIB_DIR}/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/gcsa/gcsa.h: $(LIB_DIR)/libgcsa2.a
