@@ -120,6 +120,7 @@ MEMChainModel::MEMChainModel(
         }
     }
     // now build up the model using the positional bandwidth
+    unordered_set<pair<vector<MEMChainModelVertex>::iterator, vector<MEMChainModelVertex>::iterator> > seen;
     for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
         for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = c->second.begin(); p != c->second.end(); ++p) {
             for (auto& v1 : p->second) {
@@ -135,10 +136,11 @@ MEMChainModel::MEMChainModel(
                         // ...that isn't redudnant
                     
                         // if this is an allowable transition, run the weighting function on it
-                        if (v1->next_cost.size() < max_connections
+                        if (!seen.count(make_pair(v1, v2))
+                            && v1->next_cost.size() < max_connections
                             && v2->prev_cost.size() < max_connections) {
                             // There are not too many connections yet
-                        
+                            seen.insert(make_pair(v1, v2));
                             if (v1->mem.fragment < v2->mem.fragment
                                 || v1->mem.fragment == v2->mem.fragment && v1->mem.begin < v2->mem.begin) {
                                 // Transition is allowable because the first comes before the second
