@@ -1323,7 +1323,6 @@ Mapper::Mapper(xg::XG* xidex,
     , max_softclip_iterations(10)
     , min_identity(0)
     , debug(false)
-    , mem_chaining(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
     , extra_multimaps(512)
@@ -1782,16 +1781,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      fraction_filtered1,
                                                      max_mem_length,
                                                      min_mem_length,
-                                                     mem_reseed_length,
-                                                     false);
+                                                     mem_reseed_length);
     vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
                                                      read2.sequence().end(),
                                                      longest_lcp2,
                                                      fraction_filtered2,
                                                      max_mem_length,
                                                      min_mem_length,
-                                                     mem_reseed_length,
-                                                     false);
+                                                     mem_reseed_length);
 
     double mq_cap1, mq_cap2;
     mq_cap1 = mq_cap2 = max_mapping_quality;
@@ -2691,7 +2688,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     }
     // TODO: why should we limit our number of MEM chains to examine to max_multimaps / max estimated mapping quality?
     total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_mq));
-    if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " longest LCP: " << longest_lcp << endl;
+    if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " min mem length: " << min_mem_length << " longest LCP: " << longest_lcp << endl;
 
     double avg_node_len = average_node_length();
     // go through the ordered single-hit MEMs
@@ -3588,7 +3585,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         //cerr << "aligning band " << i << endl;
         vector<Alignment>& malns = multi_alns[i];
         double cluster_mq = 0;
-        malns = align_multi_internal(true, bands[i], kmer_size, stride, max_mem_length, band_width, cluster_mq, band_multimaps, extra_multimaps, nullptr);
+        malns = align_multi_internal(true, bands[i], kmer_size, stride, max_mem_length, bands[i].sequence().size(), cluster_mq, band_multimaps, extra_multimaps, nullptr);
         // always include an unaligned mapping
         malns.push_back(bands[i]);
         for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
@@ -3990,8 +3987,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         fraction_filtered,
                                                         max_mem_length,
                                                         min_mem_length,
-                                                        mem_reseed_length,
-                                                        false);
+                                                        mem_reseed_length);
         // query mem hits
         alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }

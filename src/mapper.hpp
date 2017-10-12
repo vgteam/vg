@@ -200,7 +200,7 @@ public:
                    int max_mem_length = 0,
                    int min_mem_length = 1,
                    int reseed_length = 0,
-                   bool use_lcp_reseed_heuristic = true,
+                   bool use_lcp_reseed_heuristic = false,
                    bool use_diff_based_fast_reseed = false,
                    bool include_parent_in_sub_mem_count = false);
     
@@ -593,7 +593,6 @@ public:
     //
     //int max_mem_length; // a mem must be <= this length
     int min_cluster_length; // a cluster needs this much sequence in it for us to consider it
-    bool mem_chaining; // whether to use the mem threading mapper or not
     int context_depth; // how deeply the mapper will extend out the subgraph prior to alignment
     int max_attempts;  // maximum number of times to try to increase sensitivity or use a lower-hit subgraph
     int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph

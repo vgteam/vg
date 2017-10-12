@@ -98,7 +98,6 @@ int main_msga(int argc, char** argv) {
     int subgraph_prune = 0;
     bool normalize = false;
     int iter_max = 1;
-    bool mem_chaining = true;
     int max_mem_length = 0;
     int min_mem_length = 0;
     int max_target_factor = 100;
@@ -543,7 +542,6 @@ int main_msga(int argc, char** argv) {
                      << ", min_cluster_length = " << mapper->min_cluster_length << endl;
             }
             mapper->fast_reseed = use_fast_reseed;
-            mapper->mem_chaining = mem_chaining;
             mapper->max_target_factor = max_target_factor;
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
             //mapper->adjust_alignments_for_base_quality = qual_adjust_alignments;
