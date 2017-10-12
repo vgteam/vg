@@ -43,7 +43,7 @@ public:
     vector<pair<AlignmentChainModelVertex*, double> > prev_cost; // for backward
     double weight;
     double score;
-    int64_t approx_position;
+    map<string, double> positions;
     int band_begin;
     int band_idx;
     AlignmentChainModelVertex* prev;
@@ -58,13 +58,13 @@ public:
 class AlignmentChainModel {
 public:
     vector<AlignmentChainModelVertex> model;
-    map<int64_t, vector<vector<AlignmentChainModelVertex>::iterator> > approx_positions;
+    map<string, map<int64_t, vector<vector<AlignmentChainModelVertex>::iterator> > > positions;
     set<vector<AlignmentChainModelVertex>::iterator> redundant_vertexes;
     vector<Alignment> unaligned_bands;
     AlignmentChainModel(
         vector<vector<Alignment> >& bands,
         Mapper* mapper,
-        const function<double(const Alignment&, const Alignment&)>& transition_weight,
+        const function<double(const Alignment&, const Alignment&, const map<string, double>&, const map<string, double>&)>& transition_weight,
         int vertex_width = 10,
         int position_depth = 1,
         int max_connections = 30);

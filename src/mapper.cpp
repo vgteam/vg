@@ -2743,7 +2743,7 @@ Mapper::align_mem_multi(const Alignment& aln,
                                   return xindex->position_in_paths(id(n), is_rev(n), offset(n));
                               },
                               transition_weight,
-                              2*aln.sequence().size());
+                              aln.sequence().size());
         clusters = chainer.traceback(total_multimaps, false, debug);
     }
     
@@ -3623,14 +3623,24 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     }
 
     // cost function
-    auto transition_weight = [&](const Alignment& aln1, const Alignment& aln2) {
+    auto transition_weight = [&](const Alignment& aln1, const Alignment& aln2,
+                                 const map<string, double>& pos1, const map<string, double>& pos2) {
         // scoring scheme for unaligned reads
         if (!aln1.has_path() || !aln2.has_path()) {
             return -(double)(10*(aln1.sequence().size() + aln2.sequence().size()) * gap_extension + gap_open);
         }
         auto aln1_end = make_pos_t(path_end(aln1.path()));
         auto aln2_begin = make_pos_t(path_start(aln2.path()));
-        auto dist = graph_mixed_distance_estimate(aln1_end, aln2_begin, 32);
+        //auto dist = graph_mixed_distance_estimate(aln1_end, aln2_begin, 32);
+        int64_t graph_dist = graph_distance(aln1_end, aln2_begin, 32);
+        int64_t dist = -std::numeric_limits<int64_t>::max();
+        dist = min(graph_dist, dist);
+        for (auto& p : pos1) {
+            auto f = pos2.find(p.first);
+            if (f != pos2.end()) {
+                dist = min((int64_t)round(abs(f->second - p.second)), dist);
+            }
+        }
         if (debug) cerr << "dist " << dist << endl;
         return -((double)gap_open + (double)dist * (double)gap_extension);
     };
@@ -4753,7 +4763,7 @@ const vector<string> balanced_kmers(const string& seq, const int kmer_size, cons
 AlignmentChainModel::AlignmentChainModel(
     vector<vector<Alignment> >& bands,
     Mapper* mapper,
-    const function<double(const Alignment&, const Alignment&)>& transition_weight,
+    const function<double(const Alignment&, const Alignment&, const map<string, double>&, const map<string, double>&)>& transition_weight,
     int vertex_band_width,
     int position_depth,
     int max_connections) {
@@ -4769,7 +4779,8 @@ AlignmentChainModel::AlignmentChainModel(
             v.weight = aln.sequence().size() + aln.score() + aln.mapping_quality();
             v.prev = nullptr;
             v.score = 0;
-            v.approx_position = mapper->approx_alignment_position(aln);
+            v.positions = mapper->alignment_mean_path_positions(aln);
+            v.positions[""] = mapper->approx_alignment_position(aln);
             model.push_back(v);
         }
         assert(!band.empty());
@@ -4780,34 +4791,44 @@ AlignmentChainModel::AlignmentChainModel(
         offset += band.front().sequence().length();
         ++idx;
     }
+    /*
     // index the model with the positions
     for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
-        approx_positions[v->approx_position].push_back(v);
+        for (auto& seq : v->positions) {
+            auto& name = seq.first;
+            positions[name][seq.second].push_back(v);
+        }
     }
     // sort the vertexes at each approx position by their matches and trim
-    for (auto& pos : approx_positions) {
-        std::sort(pos.second.begin(), pos.second.end(), [](const vector<AlignmentChainModelVertex>::iterator& v1,
-                                                           const vector<AlignmentChainModelVertex>::iterator& v2) {
-                      return v1->aln->score() > v2->aln->score();
-                  });
-        if (pos.second.size() > position_depth) {
-            for (int i = position_depth; i < pos.second.size(); ++i) {
-                redundant_vertexes.insert(pos.second[i]);
+    for (auto& seq : positions) {
+        auto& name = seq.first;
+        auto& seq_positions = positions[name];
+        for (auto& p : seq_positions) {
+            auto& pos = p.second;
+            std::sort(pos.begin(), pos.end(), [](const vector<AlignmentChainModelVertex>::iterator& v1,
+                                                 const vector<AlignmentChainModelVertex>::iterator& v2) {
+                          return v1->aln->score() > v2->aln->score();
+                      });
+            if (pos.size() > position_depth) {
+                for (int i = position_depth; i < pos.size(); ++i) {
+                    redundant_vertexes.insert(pos[i]);
+                }
             }
+            pos.resize(min(pos.size(), (size_t)position_depth));
         }
-        pos.second.resize(min(pos.second.size(), (size_t)position_depth));
     }
+    */
     for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
         for (auto u = v+1; u != model.end(); ++u) {
             if (v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
                 if (v->band_idx + vertex_band_width <= u->band_idx) {
-                    double weight = transition_weight(*v->aln, *u->aln);
+                    double weight = transition_weight(*v->aln, *u->aln, v->positions, u->positions);
                     if (weight > -std::numeric_limits<double>::max()) {
                         v->next_cost.push_back(make_pair(&*u, weight));
                         u->prev_cost.push_back(make_pair(&*v, weight));
                     }
                 } else if (u->band_idx + vertex_band_width <= v->band_idx) {
-                    double weight = transition_weight(*u->aln, *v->aln);
+                    double weight = transition_weight(*u->aln, *v->aln, u->positions, v->positions);
                     if (weight > -std::numeric_limits<double>::max()) {
                         u->next_cost.push_back(make_pair(&*v, weight));
                         v->prev_cost.push_back(make_pair(&*u, weight));
