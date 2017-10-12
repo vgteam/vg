@@ -761,7 +761,7 @@ public:
     rrr_vector<> members;
     rrr_vector<>::rank_1_type members_rank;
     rrr_vector<>::select_1_type members_select;
-    wt_int<> ids;
+    wt_gmr<> ids;
     sd_vector<> directions; // forward or backward through nodes
     int_vector<> positions;
     int_vector<> ranks;

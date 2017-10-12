@@ -1066,7 +1066,14 @@ void XG::build(map<id_t, string>& node_label,
             
             cerr << path_name(i + 1) << endl;
             cerr << path->members << endl;
-            cerr << path->ids << endl;
+            // manually print IDs because simplified wavelet tree doesn't support ostream for some reason
+            for (size_t j = 0; j + 1 < path->ids.size(); j++) {
+                cerr << path->ids[j] << " ";
+            }
+            if (path->ids.size() > 0) {
+                cerr << path->ids[path->ids.size() - 1];
+            }
+            cerr << endl;
             cerr << path->ranks << endl;
             cerr << path->directions << endl;
             cerr << path->positions << endl;
@@ -3031,7 +3038,6 @@ vector<size_t> XG::node_ranks_in_path(int64_t id, size_t rank) const {
     size_t occs = node_occs_in_path(id, rank);
     for (size_t i = 1; i <= occs; ++i) {
         ranks.push_back(paths[p]->ids.select(i, id));
-        auto m = paths[p]->mapping(ranks.back());
     }
     return ranks;
 }
