@@ -643,6 +643,7 @@ int main_mpmap(int argc, char** argv) {
             multipath_mapper.set_fragment_length_distr_params(frag_length_sample_size, frag_length_sample_size,
                                                               frag_length_robustness_fraction);
         }
+
     }
     
 #ifdef record_read_run_times
