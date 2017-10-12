@@ -2515,7 +2515,7 @@ int64_t XG::min_approx_path_distance(const vector<string>& names,
 void XG::memoized_oriented_paths_of_node(int64_t id,
                                          vector<pair<size_t, vector<pair<size_t, bool>>>>& local_paths_var,
                                          vector<pair<size_t, vector<pair<size_t, bool>>>>*& paths_of_node_ptr_out,
-                                         unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo) const {
+                                         unordered_map<int64_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo) const {
     if (paths_of_node_memo) {
         auto iter = paths_of_node_memo->find(id);
         if (iter != paths_of_node_memo->end()) {
@@ -2532,10 +2532,28 @@ void XG::memoized_oriented_paths_of_node(int64_t id,
     }
 }
     
+handle_t XG::memoized_get_handle(int64_t id, bool rev, unordered_map<pair<int64_t, bool>, handle_t>* handle_memo) const {
+    if (handle_memo) {
+        auto iter = handle_memo->find(make_pair(id, rev));
+        if (iter != handle_memo->end()) {
+            return iter->second;
+        }
+        else {
+            handle_t handle = get_handle(id, rev);
+            (*handle_memo)[make_pair(id, rev)] = handle;
+            return handle;
+        }
+    }
+    else {
+        return get_handle(id, rev);
+    }
+}
+    
 int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, bool rev1,
                                                   int64_t id2, size_t offset2, bool rev2,
                                                   size_t max_search_dist,
-                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo) const {
+                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo,
+                                                  unordered_map<pair<int64_t, bool>, handle_t>* handle_memo) const {
     
 #ifdef debug_algorithms
     cerr << "[XG] estimating oriented distance between " << id1 << "[" << offset1 << "]" << (rev1 ? "-" : "+") << " and " << id2 << "[" << offset2 << "]" << (rev2 ? "-" : "+") << " with max search distance of " << max_search_dist << endl;
@@ -2615,8 +2633,8 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
         cerr << "[XG] getting handles for search starts" << endl;
 #endif
         // get handles to the starting positions
-        handle_t handle1 = get_handle(id1, rev1);
-        handle_t handle2 = get_handle(id2, rev2);
+        handle_t handle1 = memoized_get_handle(id1, rev1, handle_memo);
+        handle_t handle2 = memoized_get_handle(id2, rev2, handle_memo);
         
 #ifdef debug_algorithms
         cerr << "[XG] initializing queues" << endl;
@@ -2781,7 +2799,8 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
 }
     
 vector<tuple<int64_t, bool, size_t>> XG::jump_along_closest_path(int64_t id, bool is_rev, size_t offset, int64_t jump_dist, size_t max_search_dist,
-                                                                 unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo) const {
+                                                                 unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo,
+                                                                 unordered_map<pair<int64_t, bool>, handle_t>* handle_memo) const {
     
 #ifdef debug_algorithms
     cerr << "[XG] jumping " << jump_dist << " from position " << id << (is_rev ? " rev:" : " fwd:") << offset << " with a max search dist of " << max_search_dist << endl;
@@ -2878,7 +2897,7 @@ vector<tuple<int64_t, bool, size_t>> XG::jump_along_closest_path(int64_t id, boo
     priority_queue<Traversal> queue;
     unordered_set<handle_t> traversed;
     
-    handle_t handle = get_handle(id, is_rev);
+    handle_t handle = memoized_get_handle(id, is_rev, handle_memo);
     
     // add in the initial traversals in both directions from the start position
     queue.emplace(offset, handle, true);
