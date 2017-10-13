@@ -18,10 +18,8 @@ before_install:
   - mv deps_cached deps
   - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then curl -OL https://github.com/google/protobuf/releases/download/v3.4.0/protoc-3.4.0-linux-x86_64.zip; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then unzip protoc-3.4.0-linux-x86_64.zip -d protoc3; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo mv protoc3/bin/* /usr/local/bin/; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo mv protoc3/include/* /usr/local/include/; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget https://github.com/google/protobuf/releases/download/v3.4.1/protobuf-cpp-3.4.1.tar.gz; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -xf protobuf-cpp-3.4.1.tar.gz && cd protobuf-cpp-3.4.1 && ./configure && make -j4 && sudo make install && sudo ldconfig && cd ..; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo rm /etc/apt/sources.list.d/google-chrome.list; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update; fi
