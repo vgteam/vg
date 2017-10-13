@@ -19,7 +19,7 @@ before_install:
   - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget https://github.com/google/protobuf/releases/download/v3.4.1/protobuf-cpp-3.4.1.tar.gz; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -xf protobuf-cpp-3.4.1.tar.gz && cd protobuf-cpp-3.4.1 && ./configure && make -j4 && sudo make install && sudo ldconfig && cd ..; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar -xf protobuf-cpp-3.4.1.tar.gz && cd protobuf-3.4.1 && export DIST_LANG=cpp && ./configure && make -j4 && sudo make install && sudo ldconfig && cd ..; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo rm /etc/apt/sources.list.d/google-chrome.list; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update; fi
