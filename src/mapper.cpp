@@ -292,10 +292,9 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         exit(1);
     }
     vector<MaximalExactMatch> mems;
-    vector<pair<MaximalExactMatch, vector<size_t> > > sub_mems;
     
     gcsa::range_type full_range = gcsa::range_type(0, gcsa->size() - 1);
-    
+
     // an empty sequence matches the entire bwt
     if (seq_begin == seq_end) {
         mems.push_back(MaximalExactMatch(seq_begin, seq_end, full_range));
@@ -334,44 +333,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     size_t mem_length = 0;
     vector<int> lcp_maxima;
     
-    bool reseed_mem = false;
-    
-    auto should_reseed = [&]() {
-        if (use_lcp_reseed_heuristic) {
-            return (reseed_length
-                    && mem_length >= min_mem_length
-                    && max_lcp >= reseed_length);
-        }
-        else {
-            return (reseed_length
-                    && mem_length >= min_mem_length
-                    && mem_length >= reseed_length);
-        }
-    };
-    
-    auto do_reseed = [&]() {
-        if (fast_reseed) {
-            if (use_diff_based_fast_reseed) {
-                find_sub_mems_fast(mems,
-                                   match.begin,
-                                   max<int>(ceil(fast_reseed_length_diff * mem_length),
-                                            min_mem_length),
-                                   sub_mems);
-            }
-            else {
-                find_sub_mems_fast(mems,
-                                   match.begin,
-                                   min_mem_length,
-                                   sub_mems);
-            }
-        } else {
-            find_sub_mems(mems,
-                          match.begin,
-                          min_mem_length,
-                          sub_mems);
-        }
-    };
-    
     // loop maintains invariant that match.range contains the hits for seq[cursor+1:match.end]
     while (cursor >= seq_begin) {
         
@@ -403,9 +364,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             match.end = cursor;
             match.range = full_range;
             --cursor;
-            
-            // are we reseeding?
-            if (should_reseed()) do_reseed();
             
             prev_iter_jumped_lcp = false;
             lcp_maxima.push_back(max_lcp);
@@ -478,18 +436,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 // and set up the next MEM using the parent node range
                 match.range = parent.range();
                 // record our max lcp
-                //max_lcp = max(max_lcp, (int)parent.lcp());
                 max_lcp = (int)parent.lcp();
                 
-                // only reseed if we didn't already look for sub-MEMs inside a longer MEM with the same
-                // start position on the read (in which case we would have already found all of the sub-MEMs
-                // of this MEM we're interested in, including this MEM itself)
-                if (!prev_iter_jumped_lcp) {
-                    // are we reseeding?
-                    if ((reseed_mem && use_lcp_reseed_heuristic) || should_reseed()) do_reseed();
-                }
-                
-                reseed_mem = false;
                 prev_iter_jumped_lcp = true;
                 lcp_maxima.push_back(max_lcp);
                 max_lcp = 0;
@@ -499,7 +447,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             prev_iter_jumped_lcp = false;
             max_lcp = (int)lcp->parent(match.range).lcp();
             ++mem_length;
-            if (should_reseed()) reseed_mem = true;
             lcp_maxima.push_back(max_lcp);
             // just step to the next position
             --cursor;
@@ -513,7 +460,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     match.begin = seq_begin;
     mem_length = match.end - match.begin;
     if (mem_length >= min_mem_length) {
-        //max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
         max_lcp = (int)lcp->parent(match.range).lcp();
         mems.push_back(match);
         
@@ -529,17 +475,17 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             cerr << endl;
         }
 #endif
-        
-        // are we reseeding?
-        if (should_reseed()
-            || (mems.size() == 1 && sub_mems.empty()
-                && mem_length >= reseed_length)) do_reseed();
-        
     }
 
     lcp_maxima.push_back(max_lcp);
     longest_lcp = *max_element(lcp_maxima.begin(), lcp_maxima.end());
-    
+
+    // filter weird MEMs ** that seem to occur when the input dBG to GCSA2 is made from path-only kmers
+    mems.erase(std::remove_if(mems.begin(), mems.end(),
+                              [&seq_begin, &seq_end](const MaximalExactMatch& mem)
+                              { return mem.begin < seq_begin || mem.end > seq_end; }),
+               mems.end());
+
     // fill the MEMs' node lists and indicate they are primary MEMs
     for (MaximalExactMatch& mem : mems) {
         mem.match_count = gcsa->count(mem.range);
@@ -557,26 +503,19 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         }
     }
 
-    // we didn't manage to get enough hits, so boost our sensitivity by re-running whith shorter MEM length constraints
-    /*
-    int total_mem_length = 0;
-    for (auto& mem : mems) total_mem_length += mem.length() * mem.nodes.size();
-    if (total_mem_length < (seq_end - seq_begin) * 0.5) {
-        if (min_mem_length > 11) {
-            return find_mems_deep(seq_begin,
-                                  seq_end,
-                                  longest_lcp,
-                                  fraction_filtered,
-                                  max(16.0, max_mem_length * 0.66),
-                                  max(11.0, min_mem_length * 0.66),
-                                  max(12.0, reseed_length * 0.66),
-                                  use_lcp_reseed_heuristic,
-                                  use_diff_based_fast_reseed);
-        }
-    }
-    */
-
     if (reseed_length) {
+        // get the sub_mem_and_parents
+        vector<pair<MaximalExactMatch, vector<size_t> > > sub_mems;
+        for (int i = 0; i < mems.size(); ++i) {
+            auto& mem = mems[i];
+            if (mem.length() >= min_mem_length && mem.length() >= reseed_length) {
+                // reseed when we have one or two alternatives, but not when we've exceeded our hit_max
+                if (mem.nodes.size() && mem.nodes.size() <= 2) {
+                    find_sub_mems_fast(mems, i, (i == 0 ? seq_begin : mems[i-1].begin), min_mem_length, sub_mems);
+                }
+            }
+        }
+
         // determine counts of matches
         for (pair<MaximalExactMatch, vector<size_t> >& sub_mem_and_parents : sub_mems) {
             // count in entire range, including parents
@@ -608,7 +547,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         for (auto iter = sub_mems.begin(); iter != sub_mems.end(); iter++) {
             mems.push_back(std::move(iter->first));
         }
-        
     }
     
     // return the MEMs in order along the read
@@ -778,21 +716,22 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
 // goal is to get to roughly a linear number of LFs an parent()s per MEM we reseed
 
 void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
+                                    int mem_idx,
                                     string::const_iterator next_mem_end,
                                     int min_sub_mem_length,
                                     vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out) {
+
+    // get the most recently added MEM
+    const MaximalExactMatch& mem = mems[mem_idx];
     
 #ifdef debug_mapper
 #pragma omp critical
     cerr << "find_sub_mems_fast: mem ";
-    for (auto iter = mems.back().begin; iter != mems.back().end; iter++) {
+    for (auto iter = mem.begin; iter != mem.end; iter++) {
         cerr << *iter;
     }
     cerr << ", min_sub_mem_length " << min_sub_mem_length << endl;
 #endif
-    
-    // get the most recently added MEM
-    const MaximalExactMatch& mem = mems.back();
     
     // how many times does the parent MEM occur in the index?
     size_t parent_range_length = gcsa::Range::length(mem.range);
@@ -879,11 +818,13 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 
 #ifdef debug_mapper
 #pragma omp critical
-                cerr << "checking extension mem[" << probe_string_begin - mem.begin << ":" << middle - mem.begin << "] ";
-                for (auto iter = probe_string_begin; iter != middle; iter++) {
-                    cerr << *iter;
+                {
+                    cerr << "checking extension mem[" << probe_string_begin - mem.begin << ":" << middle - mem.begin << "] ";
+                    for (auto iter = probe_string_begin; iter != middle; iter++) {
+                        cerr << *iter;
+                    }
+                    cerr << endl;
                 }
-                cerr << endl;
 #endif
                 
                 // set up LF searching
@@ -893,7 +834,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 // check if there is an independent occurrence of this substring outside of the SMEM
                 bool contained_in_independent_match = true;
                 while (cursor >= probe_string_begin) {
-                    
+
                     range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                     
                     if (gcsa::Range::length(range) <= parent_range_length) {
@@ -930,10 +871,10 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             
             // record the sub-MEM
             sub_mems_out.push_back(make_pair(MaximalExactMatch(probe_string_begin, right_search_bound, sub_mem_range),
-                                             vector<size_t>{mems.size() - 1}));
+                                             vector<size_t>{(uint64_t)mem_idx}));
             
             // identify all previous MEMs that also contain this sub-MEM
-            for (int64_t i = ((int64_t) mems.size()) - 2; i >= 0; i--) {
+            for (int64_t i = mem_idx - 1; i >= 0; --i) { //((int64_t) mems.size()) - 2; i >= 0; i--) {
                 if (probe_string_begin >= mems[i].begin) {
                     // contained in next MEM, add its index to sub MEM's list of parents
                     sub_mems_out.back().second.push_back(i);

@@ -239,6 +239,7 @@ protected:
     /// min_mem_length as a pruning tool instead of the LCP index. It can be expected to be faster when both
     /// the min_mem_length reasonably large relative to the reseed_length (e.g. 1/2 of SMEM size or similar).
     void find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
+                            int mem_idx,
                             string::const_iterator next_mem_end,
                             int min_sub_mem_length,
                             vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
