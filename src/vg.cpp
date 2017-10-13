@@ -3616,38 +3616,6 @@ set<set<id_t> > VG::multinode_strongly_connected_components(void) {
     return components;
 }
     
-vector<unordered_set<id_t>> VG::weakly_connected_components(void) {
-    vector<unordered_set<id_t>> to_return;
-    
-    unordered_set<id_t> traversed;
-    
-    for (size_t i = 0; i < graph.node_size(); i++) {
-        id_t node_id = graph.node(i).id();
-        if (traversed.count(node_id)) {
-            continue;
-        }
-        
-        vector<id_t> stack{node_id};
-        to_return.emplace_back();
-        while (!stack.empty()) {
-            id_t id_here = stack.back();
-            stack.pop_back();
-            
-            traversed.insert(id_here);
-            to_return.back().insert(id_here);
-            for (Edge* edge : edges_of(get_node(id_here))) {
-                if (!traversed.count(edge->to())) {
-                    stack.push_back(edge->to());
-                }
-                if (!traversed.count(edge->from())) {
-                    stack.push_back(edge->from());
-                }
-            }
-        }
-    }
-    return to_return;
-}
-
 // keeping all components would be redundant, as every node is a self-component
 void VG::keep_multinode_strongly_connected_components(void) {
     unordered_set<id_t> keep;
