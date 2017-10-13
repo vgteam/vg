@@ -378,7 +378,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         // execute one step of LF mapping
         match.range = gcsa->LF(match.range, gcsa->alpha.char2comp[*cursor]);
         
-        if (gcsa::Range::empty(match.range) || (max_mem_length && match.end - cursor > max_mem_length)) {
+        if (gcsa::Range::empty(match.range)
+            || (max_mem_length && match.end - cursor > max_mem_length)) {
             
             // we've exhausted our BWT range, so the last match range was maximal
             // or: we have exceeded the order of the graph (FPs if we go further)
@@ -2922,7 +2923,7 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
         }
     }
     // get the graph with cluster.hpp's cluster_subgraph
-    Graph graph = cluster_subgraph(*xindex, aln, mems);
+    Graph graph = cluster_subgraph(*xindex, aln, mems, 1);
     // and test each direction for which we have MEM hits
     Alignment aln_fwd;
     Alignment aln_rev;
@@ -3569,7 +3570,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         auto aln2_begin = make_pos_t(path_start(aln2.path()));
         //auto dist = graph_mixed_distance_estimate(aln1_end, aln2_begin, 32);
         int64_t graph_dist = graph_distance(aln1_end, aln2_begin, 32);
-        int64_t dist = -std::numeric_limits<int64_t>::max();
+        int64_t dist = std::numeric_limits<int64_t>::max();
         dist = min(graph_dist, dist);
         for (auto& p : pos1) {
             auto f = pos2.find(p.first);
