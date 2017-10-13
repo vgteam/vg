@@ -3710,13 +3710,7 @@ Edge* VG::get_edge(const NodeTraversal& left, const NodeTraversal& right) {
 }
 
 void VG::set_edge(Edge* edge) {
-    // Note: there must not be an edge between these sides of these nodes already.
-    if (!has_edge(edge)) {
-        // Note that we might add edges to nonexistent nodes (like in VG::node_context()). That's just fine.
-
-        // Add the edge to the index by node side (edges_on_start, edges_on_end, and edge_by_sides)
-        index_edge_by_node_sides(edge);
-    }
+    index_edge_by_node_sides(edge);
 }
 
 void VG::for_each_edge_parallel(function<void(Edge*)> lambda) {
@@ -8717,14 +8711,26 @@ VG VG::split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation) {
     
     VG split;
     
+    split.current_id = 1;
+    
     unordered_map<id_t, id_t> forward_node;
     unordered_map<id_t, id_t> reverse_node;
+    
     for (int64_t i = 0; i < graph.node_size(); i++) {
         const Node& node = graph.node(i);
-        Node* fwd_node = split.create_node(node.sequence());
-        Node* rev_node = split.create_node(reverse_complement(node.sequence()));
+        Node* fwd_node = split.graph.add_node();
+        fwd_node->set_sequence(node.sequence());
+        fwd_node->set_id(split.current_id);
+        split.current_id++;
+        
+        Node* rev_node = split.graph.add_node();
+        rev_node->set_sequence(reverse_complement(node.sequence()));
+        rev_node->set_id(split.current_id);
+        split.current_id++;
+        
         forward_node[node.id()] = fwd_node->id();
         reverse_node[node.id()] = rev_node->id();
+        
         node_translation[fwd_node->id()] = make_pair(node.id(), false);
         node_translation[rev_node->id()] = make_pair(node.id(), true);
     }
@@ -8732,22 +8738,51 @@ VG VG::split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation) {
     for (int64_t i = 0; i < graph.edge_size(); i++) {
         const Edge& edge = graph.edge(i);
         if (!edge.from_start() && !edge.to_end()) {
-            split.create_edge(forward_node[edge.from()], forward_node[edge.to()]);
-            split.create_edge(reverse_node[edge.to()], reverse_node[edge.from()]);
+            Edge* fwd_edge = split.graph.add_edge();
+            fwd_edge->set_from(forward_node[edge.from()]);
+            fwd_edge->set_to(forward_node[edge.to()]);
+            
+            Edge* rev_edge = split.graph.add_edge();
+            rev_edge->set_from(reverse_node[edge.to()]);
+            rev_edge->set_to(reverse_node[edge.from()]);
         }
         else if (edge.from_start() && edge.to_end()) {
-            split.create_edge(reverse_node[edge.from()], reverse_node[edge.to()]);
-            split.create_edge(forward_node[edge.to()], forward_node[edge.from()]);
+            Edge* fwd_edge = split.graph.add_edge();
+            fwd_edge->set_from(reverse_node[edge.from()]);
+            fwd_edge->set_to(reverse_node[edge.to()]);
+            
+            Edge* rev_edge = split.graph.add_edge();
+            rev_edge->set_from(forward_node[edge.to()]);
+            rev_edge->set_to(forward_node[edge.from()]);
         }
         else if (edge.from_start()) {
-            split.create_edge(reverse_node[edge.from()], forward_node[edge.to()]);
-            split.create_edge(reverse_node[edge.to()], forward_node[edge.from()]);
+            Edge* fwd_edge = split.graph.add_edge();
+            fwd_edge->set_from(reverse_node[edge.from()]);
+            fwd_edge->set_to(forward_node[edge.to()]);
+            
+            Edge* rev_edge = split.graph.add_edge();
+            rev_edge->set_from(reverse_node[edge.to()]);
+            rev_edge->set_to(forward_node[edge.from()]);
         }
         else {
-            split.create_edge(forward_node[edge.from()], reverse_node[edge.to()]);
-            split.create_edge(forward_node[edge.to()], reverse_node[edge.from()]);
+            Edge* fwd_edge = split.graph.add_edge();
+            fwd_edge->set_from(forward_node[edge.from()]);
+            fwd_edge->set_to(reverse_node[edge.to()]);
+            
+            Edge* rev_edge = split.graph.add_edge();
+            rev_edge->set_from(forward_node[edge.to()]);
+            rev_edge->set_to(reverse_node[edge.from()]);
         }
     }
+    
+    split.node_by_id.resize(split.graph.node_size());
+    split.node_index.resize(split.graph.node_size());
+    split.edges_on_start.resize(split.graph.node_size());
+    split.edges_on_end.resize(split.graph.node_size());
+    split.edge_by_sides.resize(split.graph.edge_size());
+    
+    split.build_node_indexes();
+    split.build_edge_indexes();
     
     return split;
 }
