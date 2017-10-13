@@ -40,18 +40,22 @@ public:
     // If set, only sample positions/start reads on the forward strands of their
     // nodes.
     bool forward_only;
-    // A flag that we set if we don't want to generate sequences with Ns (on by dfault)
+    // A flag that we set if we don't want to generate sequences with Ns (on by default)
     bool no_Ns;
-    Sampler(xg::XG* x,
+    // A string which, if nonempty, gives the name of the path to restrict simulated reads to.
+    string source_path;
+    inline Sampler(xg::XG* x,
             int seed = 0,
             bool forward_only = false,
-            bool allow_Ns = false)
+            bool allow_Ns = false,
+            const string& source_path = "")
         : xgidx(x),
           node_cache(100),
           edge_cache(100),
           forward_only(forward_only),
           no_Ns(!allow_Ns),
-          nonce(0) {
+          nonce(0),
+          source_path(source_path) {
         if (!seed) {
             seed = time(NULL);
         }

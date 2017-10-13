@@ -5,13 +5,17 @@
 namespace vg {
 
 pos_t Sampler::position(void) {
+    // We sample either from the entire graph sequence, or the selected path.
+    size_t max_pos = source_path.empty() ? xgidx->seq_length : xgidx->path_length(source_path);
     uniform_int_distribution<size_t> xdist(1, xgidx->seq_length);
     size_t offset = xdist(rng);
-    id_t id = xgidx->node_at_seq_pos(offset);
+    id_t id = source_path.empty() ? xgidx->node_at_seq_pos(offset) : xgidx->node_at_path_position(source_path, offset);
     uniform_int_distribution<size_t> flip(0, 1);
     bool rev = forward_only ? false : flip(rng);
     // 1-0 base conversion
-    size_t node_offset = offset - xgidx->node_start(id) - 1;
+    size_t node_offset = offset - (source_path.empty() ?
+        xgidx->node_start(id) :
+        xgidx->node_start_at_path_position(source_path, offset)) - 1;
     return make_pos_t(id, rev, node_offset);
 }
 
@@ -397,7 +401,14 @@ char Sampler::pos_char(pos_t pos) {
 }
 
 map<pos_t, char> Sampler::next_pos_chars(pos_t pos) {
-    return xg_cached_next_pos_chars(pos, xgidx, node_cache, edge_cache);
+    map<pos_t, char> possible = xg_cached_next_pos_chars(pos, xgidx, node_cache, edge_cache);
+    
+    if (!source_path.empty()) {
+        // Subset to only the positions available within nodes/across edges that are on the path.
+        // TODO: we can't actually constrain to the *path*, buts to the graph it touches.
+    }
+    
+    return possible;
 }
 
 bool Sampler::is_valid(const Alignment& aln) {
