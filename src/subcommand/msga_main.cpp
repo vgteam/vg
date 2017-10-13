@@ -509,7 +509,32 @@ int main_msga(int argc, char** argv) {
         // Configure its temp directory to the system temp directory
         gcsa::TempFile::setDirectory(find_temp_dir());
 
-        if (edge_max) {
+        if (idx_path_only) {
+            // make the index from only the kmers in the embedded paths
+            vector<string> tmpfiles;
+            // these must be compacted for this to work
+            vg::id_t head_id = graph->node_count() * 2;
+            vg::id_t tail_id = head_id+1;
+            graph->paths.for_each_name([&](const string& name) {
+                    VG path_graph = *graph;
+                    if (edge_max) path_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
+                    path_graph.keep_path(name);
+                    tmpfiles.push_back(
+                            path_graph.write_gcsa_kmers_to_tmpfile(idx_kmer_size, false, false, head_id, tail_id));
+                });
+            // Make the index with the kmers
+            gcsa::InputGraph input_graph(tmpfiles, true);
+            gcsa::ConstructionParameters params;
+            params.setSteps(doubling_steps);
+            // build the GCSA index
+            gcsaidx = new gcsa::GCSA(input_graph, params);
+            // build the LCP array
+            lcpidx = new gcsa::LCPArray(input_graph, params);
+            // clean up the tmp files for the path kmers
+            for (auto& tfn : tmpfiles) {
+                remove(tfn.c_str());
+            }
+        } else if (edge_max) {
             VG gcsa_graph = *graph; // copy the graph
             // remove complex components
             gcsa_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);

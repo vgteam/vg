@@ -4205,7 +4205,7 @@ void VG::keep_paths(set<string>& path_names, set<string>& kept_names) {
     paths.keep_paths(path_names);
 }
 
-void VG::keep_path(string& path_name) {
+void VG::keep_path(const string& path_name) {
     set<string> s,k; s.insert(path_name);
     keep_paths(s, k);
 }
