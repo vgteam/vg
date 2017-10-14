@@ -2127,8 +2127,8 @@ void VG::build_node_indexes_no_init_size(void) {
 
 void VG::build_node_indexes(void) {
 #ifdef USE_DENSE_HASH
-    node_by_id.resize(node_by_id.min_load_factor() * graph.node_size() + 1);
-    node_index.resize(node_index.min_load_factor() * graph.node_size() + 1);
+    node_by_id.resize(graph.node_size());
+    node_index.resize(graph.node_size());
 #endif
     build_node_indexes_no_init_size();
 }
@@ -2143,9 +2143,9 @@ void VG::build_edge_indexes_no_init_size(void) {
 
 void VG::build_edge_indexes(void) {
 #ifdef USE_DENSE_HASH
-    edges_on_start.resize(edges_on_start.min_load_factor() * graph.node_size());
-    edges_on_end.resize(edges_on_end.min_load_factor() * graph.node_size());
-    edge_by_sides.resize(edge_by_sides.min_load_factor() * graph.edge_size());
+    edges_on_start.resize(graph.node_size());
+    edges_on_end.resize(graph.node_size());
+    edge_by_sides.resize(graph.edge_size());
 #endif
     build_edge_indexes_no_init_size();
 }
