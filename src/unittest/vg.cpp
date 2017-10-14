@@ -1867,5 +1867,71 @@ TEST_CASE("lazy_sort() should put a DAG in topological order", "[vg][sort]") {
     }
 }
 
+TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
+    
+    SECTION("reverse_complement_graph() works") {
+        
+        VG vg;
+        
+        Node* n0 = vg.create_node("AA");
+        Node* n1 = vg.create_node("AC");
+        Node* n2 = vg.create_node("AG");
+        Node* n3 = vg.create_node("AT");
+        Node* n4 = vg.create_node("CA");
+        Node* n5 = vg.create_node("CC");
+        Node* n6 = vg.create_node("CG");
+        
+        vg.create_edge(n1, n0, true, true);
+        vg.create_edge(n0, n2, false, true);
+        vg.create_edge(n2, n3, true, false);
+        vg.create_edge(n3, n1, true, true);
+        vg.create_edge(n4, n3, true, true);
+        vg.create_edge(n0, n4);
+        vg.create_edge(n4, n5, false, true);
+        vg.create_edge(n0, n5, false, true);
+        vg.create_edge(n6, n4, true, true);
+        vg.create_edge(n3, n6);
+        
+        unordered_map<int64_t, pair<int64_t, bool>> trans;
+        
+        VG rev = vg.reverse_complement_graph(trans);
+        
+        REQUIRE(trans.size() == rev.graph.node_size());
+        REQUIRE(rev.graph.node_size() == vg.graph.node_size());
+        
+        for (size_t i = 0; i < rev.graph.node_size(); i++) {
+            const Node& node = rev.graph.node(i);
+            Node* orig_node = vg.get_node(trans[node.id()].first);
+            REQUIRE(reverse_complement(node.sequence()) == orig_node->sequence());
+            
+            vector<pair<int64_t, bool>> start_edges = vg.edges_start(orig_node);
+            vector<pair<int64_t, bool>> end_edges = vg.edges_end(orig_node);
+            
+            vector<pair<int64_t, bool>> rev_start_edges = rev.edges_start(node.id());
+            vector<pair<int64_t, bool>> rev_end_edges = rev.edges_end(node.id());
+            
+            REQUIRE(start_edges.size() == rev_end_edges.size());
+            REQUIRE(end_edges.size() == rev_start_edges.size());
+            
+            for (auto re : rev_start_edges) {
+                bool found = false;
+                for (auto e : end_edges) {
+                    found = found || re.first == e.first;
+                }
+                REQUIRE(found);
+            }
+            for (auto re : rev_end_edges) {
+                bool found = false;
+                for (auto e : start_edges) {
+                    found = found || re.first == e.first;
+                }
+                REQUIRE(found);
+            }
+            
+        }
+    }
+    
+}
+    
 }
 }

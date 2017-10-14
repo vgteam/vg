@@ -2137,7 +2137,7 @@ void VG::build_edge_indexes_no_init_size(void) {
     for (id_t i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         edge_index[e] = i;
-        set_edge(e);
+        index_edge_by_node_sides(e);
     }
 }
 
@@ -3498,6 +3498,52 @@ vector<Edge> VG::break_cycles(void) {
     }
     algorithms::sort(this);
     return removed;
+}
+
+bool VG::is_single_stranded(void) {
+    for (size_t i = 0; i < graph.edge_size(); i++) {
+        const Edge& edge = graph.edge(i);
+        if (edge.from_start() != edge.to_end()) {
+            return false;
+        }
+    }
+    return true;
+}
+    
+void VG::identity_translation(unordered_map<id_t, pair<id_t, bool>>& node_translation) {
+    node_translation.clear();
+    for (size_t i = 0; i < graph.node_size(); i++) {
+        id_t id = graph.node(i).id();
+        node_translation[id] = make_pair(id, false);
+    }
+}
+    
+VG VG::reverse_complement_graph(unordered_map<id_t, pair<id_t, bool>>& node_translation) {
+    id_t max_id = 0;
+    VG rev_comp;
+    for (size_t i = 0; i < graph.node_size(); i++) {
+        const Node& node = graph.node(i);
+        Node* rev_node = rev_comp.graph.add_node();
+        rev_node->set_sequence(reverse_complement(node.sequence()));
+        rev_node->set_id(node.id());
+        max_id = max<id_t>(max_id, node.id());
+        
+        node_translation[node.id()] = make_pair(node.id(), true);
+    }
+    rev_comp.current_id = max_id + 1;
+    
+    for (size_t i = 0; i < graph.edge_size(); i++) {
+        const Edge& edge = graph.edge(i);
+        Edge* rev_edge = rev_comp.graph.add_edge();
+        rev_edge->set_from(edge.to());
+        rev_edge->set_from_start(edge.to_end());
+        rev_edge->set_to(edge.from());
+        rev_edge->set_to_end(edge.from_start());
+    }
+    
+    rev_comp.build_indexes();
+    
+    return rev_comp;
 }
     
 bool VG::is_directed_acyclic(void) {
