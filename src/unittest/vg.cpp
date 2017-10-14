@@ -1183,6 +1183,8 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         VG graph = string_to_graph(graph_json);
         graph.bluntify();
         
+        cerr << "finishes blutifying 2" << endl;
+        
         SECTION("the bluntified graph should have 3 nodes") {
             REQUIRE(graph.node_count() == 3);
             
@@ -1228,6 +1230,7 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
     }
     
     SECTION("an overlap across a reversing edge should be resolved") {
+        cerr << "section 2" << endl;
         const string graph_json = R"(
         
         {
@@ -1244,6 +1247,8 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         
         VG graph = string_to_graph(graph_json);
         graph.bluntify();
+        
+        cerr << "finishes blutifying 2" << endl;
         
         SECTION("the bluntified graph should have 3 nodes") {
             REQUIRE(graph.node_count() == 3);
@@ -1295,6 +1300,7 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
     }
     
     SECTION("extraneous overlap should be pruned back") {
+        cerr << "section 3" << endl;
         const string graph_json = R"(
         
         {
@@ -1311,6 +1317,8 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         
         VG graph = string_to_graph(graph_json);
         graph.bluntify();
+        
+        cerr << "finishes blutifying 3" << endl;
         
         SECTION("the bluntified graph should have 3 nodes") {
             REQUIRE(graph.node_count() == 3);
@@ -1357,6 +1365,7 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
     }
     
     SECTION("overlaps should be able to overlap in the middle") {
+        cerr << "section 4" << endl;
         const string graph_json = R"(
         
         {
@@ -1375,6 +1384,8 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         
         VG graph = string_to_graph(graph_json);
         graph.bluntify();
+        
+        cerr << "finishes blutifying 4" << endl;
         
         SECTION("the bluntified graph should have 3 nodes") {
             REQUIRE(graph.node_count() == 3);
@@ -1421,6 +1432,7 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
     }
     
     SECTION("overlaps should be able to overlap in the middle across reversing edges") {
+        cerr << "section 5" << endl;
         const string graph_json = R"(
         
         {
@@ -1439,6 +1451,8 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         
         VG graph = string_to_graph(graph_json);
         graph.bluntify();
+        
+        cerr << "finishes blutifying 5" << endl;
         
         SECTION("the bluntified graph should have 3 nodes") {
             REQUIRE(graph.node_count() == 3);
@@ -1490,6 +1504,7 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
     }
     
     SECTION("non-overlapping edges should be preserved") {
+        cerr << "section 6" << endl;
         const string graph_json = R"(
         
         {
@@ -1511,6 +1526,8 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         VG graph = string_to_graph(graph_json);
         graph.bluntify();
         graph.unchop();
+        
+        cerr << "finishes blutifying 6" << endl;
         
         SECTION("the unchopped bluntified graph should have one node") {
             REQUIRE(graph.node_count() == 1);

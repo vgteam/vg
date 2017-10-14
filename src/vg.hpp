@@ -407,6 +407,9 @@ public:
     void build_indexes(void);
     void build_node_indexes(void);
     void build_edge_indexes(void);
+    void build_indexes_no_init_size(void);
+    void build_node_indexes_no_init_size(void);
+    void build_edge_indexes_no_init_size(void);
     void index_paths(void);
     void clear_node_indexes(void);
     void clear_node_indexes_no_resize(void);

@@ -2116,8 +2116,8 @@ id_t VG::total_length_of_nodes(void) {
     }
     return length;
 }
-
-void VG::build_node_indexes(void) {
+    
+void VG::build_node_indexes_no_init_size(void) {
     for (id_t i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         node_index[n] = i;
@@ -2125,7 +2125,15 @@ void VG::build_node_indexes(void) {
     }
 }
 
-void VG::build_edge_indexes(void) {
+void VG::build_node_indexes(void) {
+#ifdef USE_DENSE_HASH
+    node_by_id.resize(node_by_id.min_load_factor() * graph.node_size() + 1);
+    node_index.resize(node_index.min_load_factor() * graph.node_size() + 1);
+#endif
+    build_node_indexes_no_init_size();
+}
+
+void VG::build_edge_indexes_no_init_size(void) {
     for (id_t i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         edge_index[e] = i;
@@ -2133,9 +2141,23 @@ void VG::build_edge_indexes(void) {
     }
 }
 
+void VG::build_edge_indexes(void) {
+#ifdef USE_DENSE_HASH
+    edges_on_start.resize(edges_on_start.min_load_factor() * graph.node_size());
+    edges_on_end.resize(edges_on_end.min_load_factor() * graph.node_size());
+    edge_by_sides.resize(edge_by_sides.min_load_factor() * graph.edge_size());
+#endif
+    build_edge_indexes_no_init_size();
+}
+    
 void VG::build_indexes(void) {
     build_node_indexes();
     build_edge_indexes();
+}
+    
+void VG::build_indexes_no_init_size(void) {
+    build_node_indexes_no_init_size();
+    build_edge_indexes_no_init_size();
 }
 
 void VG::clear_node_indexes(void) {
@@ -2189,19 +2211,19 @@ void VG::resize_indexes(void) {
     node_by_id.resize(graph.node_size());
     edge_by_sides.resize(graph.edge_size());
     edge_index.resize(graph.edge_size());
-    edges_on_start.resize(graph.edge_size());
-    edges_on_end.resize(graph.edge_size());
+    edges_on_start.resize(graph.node_size());
+    edges_on_end.resize(graph.node_size());
 }
 
 void VG::rebuild_indexes(void) {
     clear_indexes_no_resize();
-    build_indexes();
+    build_indexes_no_init_size();
     paths.rebuild_node_mapping();
 }
 
 void VG::rebuild_edge_indexes(void) {
     clear_edge_indexes_no_resize();
-    build_edge_indexes();
+    build_edge_indexes_no_init_size();
 }
 
 bool VG::empty(void) {
@@ -8777,16 +8799,9 @@ VG VG::split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation) {
         }
     }
     
-    split.node_by_id.resize(split.graph.node_size());
-    split.node_index.resize(split.graph.node_size());
-    split.edges_on_start.resize(split.graph.node_size());
-    split.edges_on_end.resize(split.graph.node_size());
-    split.edge_by_sides.resize(split.graph.edge_size());
+    split.build_indexes();
     
-    split.build_node_indexes();
-    split.build_edge_indexes();
-    
-    return split;
+    return std::move(split);
 }
 
 VG VG::unfold(uint32_t max_length,
