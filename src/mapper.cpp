@@ -269,7 +269,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                                                      int reseed_length,
                                                      bool use_lcp_reseed_heuristic,
                                                      bool use_diff_based_fast_reseed,
-                                                     bool include_parent_in_sub_mem_count) {
+                                                     bool include_parent_in_sub_mem_count,
+                                                     int reseed_below) {
 #ifdef debug_mapper
 #pragma omp critical
     {
@@ -379,7 +380,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         match.range = gcsa->LF(match.range, gcsa->alpha.char2comp[*cursor]);
         
         if (gcsa::Range::empty(match.range)
-            || (max_mem_length && match.end - cursor > max_mem_length)) {
+            || (max_mem_length && match.end - cursor > max_mem_length)
+            || match.end - cursor > gcsa->order()) {
             
             // we've exhausted our BWT range, so the last match range was maximal
             // or: we have exceeded the order of the graph (FPs if we go further)
@@ -508,8 +510,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         for (int i = 0; i < mems.size(); ++i) {
             auto& mem = mems[i];
             if (mem.length() >= min_mem_length && mem.length() >= reseed_length) {
-                // reseed when we have one or two alternatives, but not when we've exceeded our hit_max
-                if (mem.nodes.size() && mem.nodes.size() <= 2) {
+                // reseed when we have <= reseed_below hits, but not when we've exceeded our hit_max
+                if (mem.nodes.size() && (reseed_below > 0 ? mem.nodes.size() <= reseed_below : true)) {
                     find_sub_mems_fast(mems, i, (i == 0 ? seq_begin : mems[i-1].begin), min_mem_length, sub_mems);
                 }
             }
@@ -1278,8 +1280,8 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.7)
-    , pair_rescue_retry_threshold(0.5)
+    , pair_rescue_hang_threshold(0.5)
+    , pair_rescue_retry_threshold(0)
 {
     
 }
@@ -1513,7 +1515,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     //cerr << "---------------------------" << endl;
     //if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
     //if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
-    if (mate1_id > mate2_id && mate1_id > hang_threshold && mate2_id < retry_threshold && !consistent) {
+    if (mate1_id > mate2_id && mate1_id > hang_threshold && mate2_id <= retry_threshold && !consistent) {
         // retry off mate1
 #ifdef debug_mapper
 #pragma omp critical
@@ -1524,7 +1526,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         rescue_off_first = true;
         // record id and direction to second mate
         mate_pos = likely_mate_position(mate1, true);
-    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && mate1_id < retry_threshold && !consistent) {
+    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && mate1_id <= retry_threshold && !consistent) {
         // retry off mate2
 #ifdef debug_mapper
 #pragma omp critical
@@ -1721,14 +1723,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      fraction_filtered1,
                                                      max_mem_length,
                                                      min_mem_length,
-                                                     mem_reseed_length);
+                                                     mem_reseed_length,
+                                                     false, false, false, 2);
     vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
                                                      read2.sequence().end(),
                                                      longest_lcp2,
                                                      fraction_filtered2,
                                                      max_mem_length,
                                                      min_mem_length,
-                                                     mem_reseed_length);
+                                                     mem_reseed_length,
+                                                     false, false, false, 2);
 
     double mq_cap1, mq_cap2;
     mq_cap1 = mq_cap2 = max_mapping_quality;
@@ -3927,7 +3931,8 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         fraction_filtered,
                                                         max_mem_length,
                                                         min_mem_length,
-                                                        mem_reseed_length);
+                                                        mem_reseed_length,
+                                                        false, false, false, 2);
         // query mem hits
         alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }

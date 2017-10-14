@@ -202,7 +202,8 @@ public:
                    int reseed_length = 0,
                    bool use_lcp_reseed_heuristic = false,
                    bool use_diff_based_fast_reseed = false,
-                   bool include_parent_in_sub_mem_count = false);
+                   bool include_parent_in_sub_mem_count = false,
+                   int reseed_below_count = 0);
     
     // Use the GCSA2 index to find super-maximal exact matches.
     vector<MaximalExactMatch>
