@@ -380,7 +380,7 @@ public:
             graph = other.graph;
             paths = other.paths;
             // re-index
-            rebuild_indexes();
+            build_indexes();
         }
     }
 
