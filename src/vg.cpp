@@ -3710,7 +3710,9 @@ Edge* VG::get_edge(const NodeTraversal& left, const NodeTraversal& right) {
 }
 
 void VG::set_edge(Edge* edge) {
-    index_edge_by_node_sides(edge);
+    if (!has_edge(edge)) {
+        index_edge_by_node_sides(edge);
+    }
 }
 
 void VG::for_each_edge_parallel(function<void(Edge*)> lambda) {
