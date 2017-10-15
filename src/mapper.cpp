@@ -380,8 +380,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         match.range = gcsa->LF(match.range, gcsa->alpha.char2comp[*cursor]);
         
         if (gcsa::Range::empty(match.range)
-            || (max_mem_length && match.end - cursor > max_mem_length)
-            || match.end - cursor > gcsa->order()) {
+            || (max_mem_length && match.end - cursor > max_mem_length)) {
             
             // we've exhausted our BWT range, so the last match range was maximal
             // or: we have exceeded the order of the graph (FPs if we go further)
