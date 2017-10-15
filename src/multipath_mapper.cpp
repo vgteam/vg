@@ -1003,7 +1003,29 @@ namespace vg {
         
         // convert from bidirected to directed
         unordered_map<id_t, pair<id_t, bool> > node_trans;
-        VG align_graph = vg->split_strands(node_trans);
+        
+        // check if we can get away with using only one strand of the graph
+        bool use_single_stranded = vg->is_single_stranded();
+        bool mem_strand = false;
+        if (use_single_stranded) {
+            mem_strand = is_rev(graph_mems[0].second);
+            for (size_t i = 1; i < graph_mems.size(); i++) {
+                if (is_rev(graph_mems[i].second) != mem_strand) {
+                    use_single_stranded = false;
+                    break;
+                }
+            }
+        }
+        
+        // make the graph we need to align to
+        VG align_graph = use_single_stranded ? (mem_strand ? vg->reverse_complement_graph(node_trans) : *vg) : vg->split_strands(node_trans);
+        
+        // if we are using only the forward strand of the current graph, a make trivial node translation so
+        // the later code's expectations are met
+        if (use_single_stranded && !mem_strand) {
+            vg->identity_translation(node_trans);
+        }
+        
         // if necessary, convert from cyclic to acylic
         if (!vg->is_directed_acyclic()) {
             unordered_map<id_t, pair<id_t, bool> > dagify_trans;
