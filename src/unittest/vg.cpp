@@ -1312,6 +1312,7 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         VG graph = string_to_graph(graph_json);
         graph.bluntify();
         
+        
         SECTION("the bluntified graph should have 3 nodes") {
             REQUIRE(graph.node_count() == 3);
             

@@ -348,7 +348,7 @@ namespace vg {
         // pull out the graph around the position(s) we jumped to
         VG rescue_graph;
         algorithms::extract_containing_graph(xindex, rescue_graph.graph, jump_positions, backward_dist, forward_dist);
-        rescue_graph.rebuild_indexes();
+        rescue_graph.build_indexes();
         
 #ifdef debug_multipath_mapper
         cerr << "got rescue graph " << pb2json(rescue_graph.graph) << endl;
@@ -814,7 +814,7 @@ namespace vg {
                 
                 // now that we know we're going to save the graph, manually trigger the index building since
                 // we circumvented the constructors
-                cluster_graph->rebuild_indexes();
+                cluster_graph->build_indexes();
             }
             else {
                 // this graph overlaps at least one other graph, so we merge them into one
