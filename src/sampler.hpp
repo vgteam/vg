@@ -64,7 +64,17 @@ public:
 
     pos_t position(void);
     string sequence(size_t length);
+    
+    /// Get an alignment against the whole graph, or against the source path if
+    /// one is selected.
     Alignment alignment(size_t length);
+    
+    /// Get an alignment against the whole graph.
+    Alignment alignment_to_graph(size_t length);
+    
+    /// Get an alignment against the currently set source_path.
+    Alignment alignment_to_path(size_t length);
+    
     Alignment alignment_with_error(size_t length,
                                    double base_error,
                                    double indel_error);

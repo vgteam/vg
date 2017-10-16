@@ -295,8 +295,93 @@ vector<Alignment> Sampler::alignment_pair(size_t read_length, size_t fragment_le
     return fragments;
 }
 
-// generates a perfect alignment from the graph
+// generates a perfect alignment from the graph or the selected source path if one exists
 Alignment Sampler::alignment(size_t length) {
+    if (source_path.empty()) {
+        return alignment_to_graph(length);
+    } else {
+        return alignment_to_path(length);
+    }
+}
+
+// generates a perfect alignment from the graph
+Alignment Sampler::alignment_to_path(size_t length) {
+    
+    // Pick a starting point along the path and an orientation
+    // Should be 1-based for now.
+    uniform_int_distribution<size_t> xdist(0, xgidx->path_length(source_path) - 1);
+    size_t path_offset = xdist(rng);
+    uniform_int_distribution<size_t> flip(0, 1);
+    bool rev = forward_only ? false : flip(rng);
+    
+    // We will fill in this string
+    string seq;
+    // And this Alignment
+    Alignment aln;
+    Path* path = aln.mutable_path();
+    pos_t pos = position();
+    char c = pos_char(pos);
+    
+    while (seq.size() < length) {
+        // Get the mapping here, encoding the node and its orientation.
+        // TODO: should this be given a 0-based or 1-based coordinate?
+        Mapping path_mapping = xgidx->mapping_at_path_position(source_path, path_offset);
+        id_t id = xgidx->node_at_path_position(source_path, path_offset);
+        
+        // Work out where in that mapping we should be.
+        size_t node_offset = path_offset - (xgidx->node_start_at_path_position(source_path, id));
+
+        // Make a pos_t for where we are, on the appropriate strand
+        pos_t pos = make_pos_t(path_mapping.position().node_id(), path_mapping.position().is_reverse() != rev, node_offset);
+
+        // Add that character to the sequence
+        seq.push_back(pos_char(pos));
+        
+        // Add a perfect match edit for 1 base
+        Mapping* mapping = path->add_mapping();
+        *mapping->mutable_position() = make_position(pos);
+        Edit* edit = mapping->add_edit();
+        edit->set_from_length(1);
+        edit->set_to_length(1);
+        
+        // Advance along the path in the appropriate direction
+        if (rev) {
+            if (path_offset == 0) {
+                // Out of path!
+                break;
+            }
+            path_offset--;
+        } else {
+            if (path_offset == xgidx->path_length(source_path) - 1) {
+                // Out of path!
+                break;
+            }
+            path_offset++;
+        }
+    }
+    
+    // save our sequence in the alignment
+    aln.set_sequence(seq);
+    // Simplify the alignment to merge redundant mappings. There are no deletions to get removed.
+    aln = simplify(aln); 
+    
+    { // name the alignment
+        string data;
+        aln.SerializeToString(&data);
+        int n;
+#pragma omp critical(nonce)
+        n = nonce++;
+        data += std::to_string(n);
+        const string hash = sha1head(data, 16);
+        aln.set_name(hash);
+    }
+    // And set its identity
+    aln.set_identity(identity(aln.path()));
+    return aln;
+}
+
+// generates a perfect alignment from the graph
+Alignment Sampler::alignment_to_graph(size_t length) {
     string seq;
     Alignment aln;
     Path* path = aln.mutable_path();

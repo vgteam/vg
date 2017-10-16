@@ -142,6 +142,7 @@ public:
     size_t id_to_rank(int64_t id) const;
     int64_t rank_to_id(size_t rank) const;
     size_t max_node_rank(void) const;
+    /// Get the node ID at the given sequence position. Works in 1-based coordinates.
     int64_t node_at_seq_pos(size_t pos) const;
     size_t node_start(int64_t id) const;
     Node node(int64_t id) const; // gets node sequence
@@ -300,8 +301,11 @@ public:
                                                    int64_t id2, bool is_rev2, size_t offset2) const;
     int64_t min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                   int64_t id2, bool is_rev2, size_t offset2) const;
+    /// Get the ID of the node that covers the given 0-based position along the path.
     int64_t node_at_path_position(const string& name, size_t pos) const;
+    /// Get the Mapping that covers the given 0-based position along the path.
     Mapping mapping_at_path_position(const string& name, size_t pos) const;
+    /// Get the 0-based start position in the path that covers the given 0-based position along the path.
     size_t node_start_at_path_position(const string& name, size_t pos) const;
     Alignment target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature) const;
     size_t path_length(const string& name) const;
