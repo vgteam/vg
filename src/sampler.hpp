@@ -126,6 +126,7 @@ public:
     /// read, whereas errors are distributed as indicated by the learned distribution.
     NGSSimulator(xg::XG& xg_index,
                  const string& ngs_fastq_file,
+                 const string& source_path = "",
                  double substition_polymorphism_rate = 0.001,
                  double indel_polymorphism_rate = 0.0002,
                  double indel_error_proportion = 0.01,
@@ -158,12 +159,39 @@ private:
     /// Get a quality string that mimics the training data
     string sample_read_quality();
     
-    /// Internal method called by paired and unpaired samplers
-    void sample_read_internal(Alignment& aln, pos_t& curr_pos);
+    /// Internal method called by paired and unpaired samplers for both whole-
+    /// graph and path sources. Offset and is_reverse are only used (and drive
+    /// the iteration and update of curr_pos) in path node. Otherwise, in whole
+    /// graph mode, they are ignored and curr_pos is used to traverse the graph
+    /// directly.
+    void sample_read_internal(Alignment& aln, size_t& offset, bool& is_reverse, pos_t& curr_pos);
+    
+    /// Sample an appropriate starting position according to the mode. Updates the arguments.
+    void sample_start_pos(size_t& offset, bool& is_reverse, pos_t& pos);
+    
     /// Get a random position in the graph
-    pos_t sample_start_pos();
+    pos_t sample_start_graph_pos();
+    /// Get a random position along the source path
+    tuple<size_t, bool, pos_t> sample_start_path_pos();
+    
     /// Get an unclashing read name
     string get_read_name();
+    
+    /// Move forward one position in either the source path or the graph,
+    /// depending on mode. Update the arguments. Return true if we can't because
+    /// we hit a tip or false otherwise
+    bool advance(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char);
+    /// Move forward a certain distance in either the source path or the graph,
+    /// depending on mode. Update the arguments. Return true if we can't because
+    /// we hit a tip or false otherwise
+    bool advance_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance);
+    
+    /// Move forward one position in the source path, return true if we can't
+    /// because we hit a tip or false otherwise
+    bool advance_on_path(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char);
+    /// Move forward a certain distance in the source path, return true if we
+    /// can't because we hit a tip or false otherwise
+    bool advance_on_path_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance);
     
     /// Move forward one position in the graph along a random path, return true if we can't
     /// because we hit a tip or false otherwise
@@ -171,6 +199,8 @@ private:
     /// Move forward a certain distance in the graph along a random path, return true if we
     /// can't because we hit a tip or false otherwise
     bool advance_on_graph_by_distance(pos_t& pos, size_t distance);
+    
+    
     /// Returns the position a given distance from the end of the path, walking backwards
     pos_t walk_backwards(const Path& path, size_t distance);
     /// Add a deletion to the alignment
@@ -209,6 +239,9 @@ private:
     size_t seed;
     
     const bool retry_on_Ns;
+    
+    /// Restrict reads to just this path (path-only mode) if nonempty.
+    string source_path;
 };
     
 /**

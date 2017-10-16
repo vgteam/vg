@@ -27,7 +27,7 @@ void help_sim(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE          use the xg index in FILE" << endl
-         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f,-P)" << endl
+         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f)" << endl
          << "    -P, --path PATH             simulate from the given names path" << endl
          << "    -l, --read-length N         write reads of length N" << endl
          << "    -n, --num-reads N           simulate N reads or read pairs" << endl
@@ -309,7 +309,7 @@ int main_sim(int argc, char** argv) {
         
         Aligner aligner(default_match, default_mismatch, default_gap_open, default_gap_extension, 5);
         
-        NGSSimulator sampler(*xgidx, fastq_name, base_error, indel_error, indel_prop,
+        NGSSimulator sampler(*xgidx, fastq_name, path_name, base_error, indel_error, indel_prop,
                              fragment_length ? fragment_length : std::numeric_limits<double>::max(), // suppresses warnings about fragment length
                              fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
                              error_scale_factor, !reads_may_contain_Ns, seed_val);
