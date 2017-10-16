@@ -87,6 +87,8 @@ ln -s g++-4.9 /usr/local/bin/g++
 export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH;
 export LIBRARY_PATH=$LD_LIBRARY_PATH;
 
+git clone --recursive https://github.com/vgteam/vg.git  
+cd vg/  
 . ./source_me.sh && make
 ```
 
