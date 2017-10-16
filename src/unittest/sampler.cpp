@@ -91,6 +91,66 @@ TEST_CASE( "Sampler can sample from a 1-node graph", "[sampler]" ) {
     
 }
 
+TEST_CASE( "Sampler can sample from a loop-containing path", "[sampler]" ) {
+    
+    string graph_json = R"({
+        "node": [
+            {"id": 1, "sequence": "GA"},
+            {"id": 2, "sequence": "T"},
+            {"id": 3, "sequence": "ACA"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 2, "to": 2},
+            {"from": 2, "to": 3}
+        ],
+        "path": [
+            {"name": "ref", "mapping": [
+                {"rank": 1, "position": {"node_id": 1}, "edit": [{"from_length": 2, "to_length": 2}]},
+                {"rank": 2, "position": {"node_id": 2}, "edit": [{"from_length": 1, "to_length": 1}]},
+                {"rank": 3, "position": {"node_id": 2}, "edit": [{"from_length": 1, "to_length": 1}]},
+                {"rank": 4, "position": {"node_id": 3}, "edit": [{"from_length": 3, "to_length": 3}]}
+            ]}
+        ]
+    })";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
+    // Build the xg index
+    xg::XG xg_index(proto_graph);
+    
+    // Define a sampler    
+    Sampler sampler(&xg_index, 1337);
+    
+    SECTION( "Can sample entire path" ) {
+        
+        // Same as above except we do this
+        sampler.source_path = "ref";
+        
+        unordered_set<string> found;
+        
+        for (size_t i = 0; i < 100; i++) {
+            // Sample a bunch of alignments of up to 7 bases
+            Alignment aln = sampler.alignment(7);
+            found.insert(aln.sequence());
+        }
+        
+        // We need to see the proper ref path all the way through.
+        REQUIRE(found.count("GATTACA") == 1);
+        
+        // And that we don't have the version that skips the loop
+        REQUIRE(found.count("GATACA") == 0);
+        
+        
+    }
+}
+
 }
 
 }

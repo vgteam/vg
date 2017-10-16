@@ -27,7 +27,8 @@ void help_sim(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE          use the xg index in FILE" << endl
-         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f)" << endl
+         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f,-P)" << endl
+         << "    -P, --path PATH             simulate from the given names path" << endl
          << "    -l, --read-length N         write reads of length N" << endl
          << "    -n, --num-reads N           simulate N reads or read pairs" << endl
          << "    -s, --random-seed N         use this specific seed for the PRNG" << endl
@@ -66,6 +67,8 @@ int main_sim(int argc, char** argv) {
     double indel_prop = 0.0;
     double error_scale_factor = 1.0;
     string fastq_name;
+    // What path should we sample from? Empty string = the whole graph.
+    string path_name;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -75,6 +78,7 @@ int main_sim(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
             {"fastq", required_argument, 0, 'F'},
+            {"path", required_argument, 0, 'P'},
             {"read-length", required_argument, 0, 'l'},
             {"num-reads", required_argument, 0, 'n'},
             {"random-seed", required_argument, 0, 's'},
@@ -92,7 +96,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:S:",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:P:S:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -108,6 +112,10 @@ int main_sim(int argc, char** argv) {
             
         case 'F':
             fastq_name = optarg;
+            break;
+            
+        case 'P':
+            path_name = optarg;
             break;
 
         case 'l':
@@ -207,7 +215,7 @@ int main_sim(int argc, char** argv) {
         // Use the fixed error rate sampler
         
         // Make a sample to sample reads with
-        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns);
+        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_name);
         
         // Make a Mapper to score reads, with the default parameters
         Mapper rescorer(xgidx, nullptr, nullptr);

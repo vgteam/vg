@@ -13,6 +13,7 @@ pos_t Sampler::position(void) {
     bool rev = forward_only ? false : flip(rng);
     // 1-0 base conversion
     size_t node_offset = offset - xgidx->node_start(id) - 1;
+    // Ignore flipping the node offset because we're uniform over both strands
     return make_pos_t(id, rev, node_offset);
 }
 
@@ -327,7 +328,12 @@ Alignment Sampler::alignment_to_path(size_t length) {
         id_t id = xgidx->node_at_path_position(source_path, path_offset);
         
         // Work out where in that mapping we should be.
-        size_t node_offset = path_offset - (xgidx->node_start_at_path_position(source_path, id));
+        size_t node_offset = path_offset - (xgidx->node_start_at_path_position(source_path, path_offset));
+
+        if (path_mapping.position().is_reverse() != rev) {
+            // Flip the node offset around to be from the end and not the start
+            node_offset = xgidx->node_length(id) - node_offset - 1;
+        }
 
         // Make a pos_t for where we are, on the appropriate strand
         pos_t pos = make_pos_t(path_mapping.position().node_id(), path_mapping.position().is_reverse() != rev, node_offset);
