@@ -107,6 +107,17 @@ namespace vg {
         // actually perform the alignments and post-process to meeth MultipathAlignment invariants
         align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, max_alt_mappings);
         
+        
+        if (multipath_alns_out.empty()) {
+            // add a null alignment so we know it wasn't mapped
+            multipath_alns_out.emplace_back();
+            to_multipath_alignment(alignment1, multipath_alns_out.back());
+            
+            // in case we're realigning GAMs that have paths already
+            multipath_alns_out.back().clear_subpath();
+            multipath_alns_out.back().clear_start();
+        }
+        
         // clean up the cluster graphs
         for (auto cluster_graph : cluster_graphs) {
             delete get<0>(cluster_graph);
@@ -626,6 +637,19 @@ namespace vg {
             align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
                                          multipath_aln_pairs_out, max_alt_mappings);
             
+        }
+        
+        if (multipath_aln_pairs_out.empty()) {
+            // add a null alignment so we know it wasn't mapped
+            multipath_aln_pairs_out.emplace_back();
+            to_multipath_alignment(alignment1, multipath_aln_pairs_out.back().first);
+            to_multipath_alignment(alignment2, multipath_aln_pairs_out.back().second);
+            
+            // in case we're realigning GAMs that have paths already
+            multipath_aln_pairs_out.back().first.clear_subpath();
+            multipath_aln_pairs_out.back().first.clear_start();
+            multipath_aln_pairs_out.back().second.clear_subpath();
+            multipath_aln_pairs_out.back().second.clear_start();
         }
         
         // clean up the VG objects on the heap
