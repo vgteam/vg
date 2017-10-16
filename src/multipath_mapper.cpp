@@ -7,14 +7,6 @@
 //#define debug_multipath_mapper
 //#define debug_validate_multipath_alignments
 //#define debug_report_frag_distr
-//#define debug_force_frag_distr
-
-
-// for debugging: choose a fixed fragment length distribution at compile time here
-#ifdef debug_force_frag_distr
-#define MEAN 903.446
-#define SD 75.2968
-#endif
 
 #include "multipath_mapper.hpp"
 
@@ -332,14 +324,8 @@ namespace vg {
     bool MultipathMapper::attempt_rescue(const MultipathAlignment& multipath_aln, const Alignment& other_aln,
                                          bool rescue_forward, MultipathAlignment& rescue_multipath_aln) {
         
-        
-#ifdef debug_force_frag_distr
-        double mean = MEAN;
-        double stdev = SD;
-#else
         double mean = fragment_length_distr.mean();
         double stdev = fragment_length_distr.stdev();
-#endif
         
 #ifdef debug_multipath_mapper
         cerr << "attemping pair rescue in " << (rescue_forward ? "forward" : "backward") << " direction from " << pb2json(multipath_aln) << endl;
@@ -421,7 +407,6 @@ namespace vg {
 #endif
         
         if (!fragment_length_distr.is_finalized()) {
-#ifndef debug_force_frag_distr
             // we have not estimated a fragment length distribution yet, so we revert to single ended mode and look
             // for unambiguous pairings
             
@@ -432,14 +417,6 @@ namespace vg {
             attempt_unpaired_multipath_map_of_pair(alignment1, alignment2, multipath_aln_pairs_out, ambiguous_pair_buffer);
             
             return;
-#else
-            // when we're using a compile-time forced distribution, add dummy observations until we unlock determinization
-            double dummy = 1.0;
-            while (!fragment_length_distr.is_finalized()) {
-                fragment_length_distr.register_fragment_length(dummy);
-                dummy += 1.0;
-            }
-#endif
         }
         
         // the fragment length distribution has been estimated, so we can do full-fledged paired mode
@@ -525,13 +502,8 @@ namespace vg {
         // for debugging:
         // we can circumvent the fragment estimation code at compile time so we can map individual reads with a
         // known fragment length distribution without mapping all of the reads used to estimate the distribution
-#ifndef debug_force_frag_distr
         double mean = fragment_length_distr.mean();
         double stdev = fragment_length_distr.stdev();
-#else
-        double mean = MEAN;
-        double stdev = SD;
-#endif
         
         // Chebyshev bound for 99% of all fragments regardless of distribution
         int64_t max_separation = (int64_t) ceil(mean + 10.0 * stdev);
@@ -1876,13 +1848,8 @@ namespace vg {
     }
             
     double MultipathMapper::fragment_length_log_likelihood(int64_t length) const {
-#ifndef debug_force_frag_distr
         double mean = fragment_length_distr.mean();
         double stdev = fragment_length_distr.stdev();
-#else
-        double mean = MEAN;
-        double stdev = SD;
-#endif
         double dev = length - mean;
         return -dev * dev / (2.0 * stdev * stdev);
     }
