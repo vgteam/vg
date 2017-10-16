@@ -5,7 +5,7 @@
 namespace vg {
 
 pos_t Sampler::position(void) {
-    // We sample from the entire graph sequence
+    // We sample from the entire graph sequence, 1-based.
     uniform_int_distribution<size_t> xdist(1, xgidx->seq_length);
     size_t offset = xdist(rng);
     id_t id = xgidx->node_at_seq_pos(offset);
@@ -308,7 +308,6 @@ Alignment Sampler::alignment(size_t length) {
 Alignment Sampler::alignment_to_path(size_t length) {
     
     // Pick a starting point along the path and an orientation
-    // Should be 1-based for now.
     uniform_int_distribution<size_t> xdist(0, xgidx->path_length(source_path) - 1);
     size_t path_offset = xdist(rng);
     uniform_int_distribution<size_t> flip(0, 1);
@@ -324,7 +323,6 @@ Alignment Sampler::alignment_to_path(size_t length) {
     
     while (seq.size() < length) {
         // Get the mapping here, encoding the node and its orientation.
-        // TODO: should this be given a 0-based or 1-based coordinate?
         Mapping path_mapping = xgidx->mapping_at_path_position(source_path, path_offset);
         id_t id = xgidx->node_at_path_position(source_path, path_offset);
         
