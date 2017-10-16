@@ -511,7 +511,29 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             if (mem.length() >= min_mem_length && mem.length() >= reseed_length) {
                 // reseed when we have <= reseed_below hits, but not when we've exceeded our hit_max
                 if (mem.nodes.size() && (reseed_below > 0 ? mem.nodes.size() <= reseed_below : true)) {
-                    find_sub_mems_fast(mems, i, (i == 0 ? seq_begin : mems[i-1].begin), min_mem_length, sub_mems);
+                    if (fast_reseed) {
+                        if (use_diff_based_fast_reseed) {
+                            find_sub_mems_fast(mems,
+                                               i,
+                                               match.begin,
+                                               max<int>(ceil(fast_reseed_length_diff * mem_length),
+                                                        min_mem_length),
+                                               sub_mems);
+                        }
+                        else {
+                            find_sub_mems_fast(mems,
+                                               i,
+                                               (i+1 == mems.size() ? seq_end : mems[i+1].begin),
+                                               min_mem_length,
+                                               sub_mems);
+                        }
+                    } else {
+                        find_sub_mems(mems,
+                                      i,
+                                      match.begin,
+                                      min_mem_length,
+                                      sub_mems);
+                    }
                 }
             }
         }
@@ -567,6 +589,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
 }
 
 void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
+                               int mem_idx,
                                string::const_iterator next_mem_end,
                                int min_mem_length,
                                vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out) {
@@ -618,7 +641,7 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
             
             if (sub_mem_end - sub_mem_begin >= min_mem_length && !prev_iter_jumped_lcp) {
                 sub_mems_out.push_back(make_pair(MaximalExactMatch(sub_mem_begin, sub_mem_end, last_range),
-                                                 vector<size_t>{mems.size() - 1}));
+                                                 vector<size_t>{(uint64_t)mem_idx}));
 #ifdef debug_mapper
 #pragma omp critical
                 {
@@ -637,7 +660,7 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
                 }
 #endif
                 // identify all previous MEMs that also contain this sub-MEM
-                for (int64_t i = ((int64_t) mems.size()) - 2; i >= 0; i--) {
+                for (int64_t i = mem_idx - 1; i >= 0; --i) {
                     if (sub_mem_begin >= mems[i].begin) {
                         // contined in next MEM, add its index to sub MEM's list of parents
                         sub_mems_out.back().second.push_back(i);
@@ -679,7 +702,7 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
     // add a final sub MEM if there is one and it is not contained in the next parent MEM
     if (sub_mem_end > next_mem_end && sub_mem_end - mem.begin >= min_mem_length && !prev_iter_jumped_lcp) {
         sub_mems_out.push_back(make_pair(MaximalExactMatch(mem.begin, sub_mem_end, range),
-                                         vector<size_t>{mems.size() - 1}));
+                                         vector<size_t>{(uint64_t)mem_idx}));
 #ifdef debug_mapper
 #pragma omp critical
         {

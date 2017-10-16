@@ -232,6 +232,7 @@ protected:
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
     /// that contain it
     void find_sub_mems(const vector<MaximalExactMatch>& mems,
+                       int mem_idx,
                        string::const_iterator next_mem_end,
                        int min_mem_length,
                        vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
