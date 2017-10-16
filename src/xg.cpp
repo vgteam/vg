@@ -158,7 +158,6 @@ void XG::load(istream& in) {
         ////////////////////////////////////////////////////////////////////////
         switch (file_version) {
         
-        case 3:
         case 4:
             {
                 sdsl::read_member(seq_length, in);
