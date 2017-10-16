@@ -1018,6 +1018,7 @@ namespace vg {
         }
         
         // make the graph we need to align to
+        // TODO: I do this without the copy constructor for the forward strand?
         VG align_graph = use_single_stranded ? (mem_strand ? vg->reverse_complement_graph(node_trans) : *vg) : vg->split_strands(node_trans);
         
         // if we are using only the forward strand of the current graph, a make trivial node translation so
@@ -1036,23 +1037,13 @@ namespace vg {
             node_trans = align_graph.overlay_node_translations(dagify_trans, node_trans);
         }
         
-        // create the injection translator, which maps a node in the original graph to every one of its occurrences
-        // in the dagified graph
-        unordered_multimap<id_t, pair<id_t, bool> > rev_trans;
-        for (const auto& trans_record : node_trans) {
-#ifdef debug_multipath_mapper
-            cerr << trans_record.second.first << "->" << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
-#endif
-            rev_trans.insert(make_pair(trans_record.second.first,
-                                       make_pair(trans_record.first, trans_record.second.second)));
-        }
         
 #ifdef debug_multipath_mapper
         cerr << "making multipath alignment MEM graph" << endl;
 #endif
         
         // construct a graph that summarizes reachability between MEMs
-        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, rev_trans, node_trans, snarl_manager, max_snarl_cut_size);
+        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, snarl_manager, max_snarl_cut_size);
         
         vector<size_t> topological_order;
         multi_aln_graph.topological_sort(topological_order);
@@ -2185,9 +2176,20 @@ namespace vg {
     }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
-                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                      SnarlManager* cutting_snarls, int64_t max_snarl_cut_size) {
+
+        // create the injection translator, which maps a node in the original graph to every one of its occurrences
+        // in the dagified graph
+        unordered_multimap<id_t, pair<id_t, bool> > injection_trans;
+        for (const auto& trans_record : projection_trans) {
+#ifdef debug_multipath_mapper
+            cerr << trans_record.second.first << "->" << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
+#endif
+            injection_trans.insert(make_pair(trans_record.second.first,
+                                             make_pair(trans_record.first, trans_record.second.second)));
+        }
+        
 #ifdef debug_multipath_mapper
         cerr << "walking out MEMs in graph" << endl;
 #endif
