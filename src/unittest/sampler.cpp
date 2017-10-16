@@ -143,9 +143,12 @@ TEST_CASE( "Sampler can sample from a loop-containing path", "[sampler]" ) {
         
         // We need to see the proper ref path all the way through.
         REQUIRE(found.count("GATTACA") == 1);
+        // In both orientations
+        REQUIRE(found.count("TGTAATC") == 1);
         
         // And that we don't have the version that skips the loop
         REQUIRE(found.count("GATACA") == 0);
+        REQUIRE(found.count("TGTATC") == 0);
         
         
     }
