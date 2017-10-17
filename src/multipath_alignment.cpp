@@ -324,7 +324,7 @@ namespace vg {
         multipath_aln_out.set_mapping_quality(aln.mapping_quality());
         
         // transfer alignment and score
-        if (aln.has_path() || aln.has_score()) {
+        if (aln.has_path() || aln.score()) {
             Subpath* subpath = multipath_aln_out.add_subpath();
             subpath->set_score(aln.score());
             *(subpath->mutable_path()) = aln.path();
@@ -341,10 +341,10 @@ namespace vg {
         
         // no difference in these fields for MultipathAlignments
         if (from.has_fragment_prev()) {
-            to.set_paired_read_name(from.fragment_prev());
+            to.set_paired_read_name(from.fragment_prev().name());
         }
         else {
-            to.set_paired_read_name(from.fragment_next());
+            to.set_paired_read_name(from.fragment_next().name());
         }
     }
     

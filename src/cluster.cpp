@@ -613,7 +613,7 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     
     // a second pass that tries fill in the tree by traversing to the nearest shared path
     size_t nlogn = ceil(num_items * log(num_items));
-    extend_dist_tree_by_permutations(2, 50, nlogn, num_possible_merges_remaining,component_union_find, recorded_finite_dists,
+    extend_dist_tree_by_permutations(2, 50, nlogn, num_possible_merges_remaining, component_union_find, recorded_finite_dists,
                                      num_items, xgindex, get_position, get_offset, node_path_memo, handle_memo);
     
     return recorded_finite_dists;
@@ -793,7 +793,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(int64_t max_fai
                 direct_merges_remaining += groups[i].size() * groups[j].size();
             }
         }
-        cerr << "checked " << pairs_checked << " pairs with directly calculated merges " << direct_merges_remaining << " and maintained merges " << num_possible_merges_remaining << endl;
+        cerr << "checked " << pairs_checked << " pairs with max probes " << current_max_num_probes << ", decrement frequency " << decrement_frequency << ", directly calculated merges " << direct_merges_remaining << " and maintained merges " << num_possible_merges_remaining << endl;
 #endif
         
         if (pairs_checked % decrement_frequency == 0 && pairs_checked != 0) {
