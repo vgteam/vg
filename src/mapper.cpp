@@ -510,12 +510,12 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             auto& mem = mems[i];
             if (mem.length() >= min_mem_length && mem.length() >= reseed_length) {
                 // reseed when we have <= reseed_below hits, but not when we've exceeded our hit_max
-                if (mem.nodes.size() && (reseed_below > 0 ? mem.nodes.size() <= reseed_below : true)) {
+                if (mem.nodes.size() && (reseed_below == 0 || mem.nodes.size() <= reseed_below)) {
                     if (fast_reseed) {
                         if (use_diff_based_fast_reseed) {
                             find_sub_mems_fast(mems,
                                                i,
-                                               (i+1 == mems.size() ? seq_end : mems[i+1].begin),
+                                               (i == 0 ? seq_begin : mems[i-1].end),
                                                max<int>(ceil(fast_reseed_length_diff * mem_length),
                                                         min_mem_length),
                                                sub_mems);
@@ -523,14 +523,16 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                         else {
                             find_sub_mems_fast(mems,
                                                i,
-                                               (i+1 == mems.size() ? seq_end : mems[i+1].begin),
+                                               (i == 0 ? seq_begin : mems[i-1].end),
+                                               //(i+1 == mems.size() ? seq_end : mems[i+1].end),
                                                min_mem_length,
                                                sub_mems);
                         }
                     } else {
                         find_sub_mems(mems,
                                       i,
-                                      (i+1 == mems.size() ? seq_end : mems[i+1].begin),
+                                      (i == 0 ? seq_begin : mems[i-1].end),
+                                      //(i+1 == mems.size() ? seq_end : mems[i+1].end),
                                       min_mem_length,
                                       sub_mems);
                     }
