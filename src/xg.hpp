@@ -555,37 +555,6 @@ private:
     int_vector<> r_iv; // ids-id_min is the rank
 
     ////////////////////////////////////////////////////////////////////////////
-    // This is the Old Way that should be extirpated and of which we shall not speak
-    ////////////////////////////////////////////////////////////////////////////
-    /*
-    // maintain forward links
-    int_vector<> f_iv;
-    bit_vector f_bv;
-    rank_support_v<1> f_bv_rank;
-    bit_vector::select_1_type f_bv_select;
-    bit_vector f_from_start_bv;
-    bit_vector f_to_end_bv;
-    sd_vector<> f_from_start_cbv;
-    sd_vector<> f_to_end_cbv;
-
-    // and the same data in the reverse direction
-    int_vector<> t_iv;
-    bit_vector t_bv;
-    rank_support_v<1> t_bv_rank;
-    bit_vector::select_1_type t_bv_select;
-    // these bit vectors are only used during construction
-    // perhaps they should be moved?
-    bit_vector t_from_start_bv;
-    bit_vector t_to_end_bv;
-    // used at runtime
-    sd_vector<> t_from_start_cbv;
-    sd_vector<> t_to_end_cbv;
-
-    // edge table, allows o(1) determination of edge existence
-    int_vector<> e_iv;
-    */
-
-    ////////////////////////////////////////////////////////////////////////////
     // Here is path storage
     ////////////////////////////////////////////////////////////////////////////
 
@@ -632,7 +601,8 @@ private:
     // directions are the same, while we're inserting a thread in one direction
     // and not (yet) the other, the usage counts in both directions will be
     // different.
-    int_vector<> h_iv;
+    int_vector<> h_iv;  // only used in construction
+    vlc_vector<> h_civ;
 
     // This (as an extension to the algorithm described in the paper) holds the
     // number of threads beginning at each node. This isn't any extra
@@ -640,7 +610,8 @@ private:
     // (probably) to maintain this rather than to scan through all the edges on
     // a side every time.
     // ts stands for "thread start"
-    int_vector<> ts_iv;
+    int_vector<> ts_iv;  // only used in construction
+    vlc_vector<> ts_civ;
     
 #if GPBWT_MODE == MODE_SDSL
     // We use this for creating the sub-parts of the uncompressed B_s arrays.
