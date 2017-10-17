@@ -959,8 +959,8 @@ class VGCITest(TestCase):
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
                            
     @timeout_decorator.timeout(3600)
-    def test_sim_mhc_snp1kg(self):
-        """ Mapping and calling bakeoff F1 test for MHC primary graph """
+    def test_sim_mhc_cactus(self):
+        """ Mapping test for MHC cactus graph """
         log.info("Test start at {}".format(datetime.now()))        
         self._test_mapeval(10000, 'MHC', 'cactus',
                            ['snp1kg', 'cactus'],
