@@ -515,7 +515,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                         if (use_diff_based_fast_reseed) {
                             find_sub_mems_fast(mems,
                                                i,
-                                               match.begin,
+                                               (i+1 == mems.size() ? seq_end : mems[i+1].begin),
                                                max<int>(ceil(fast_reseed_length_diff * mem_length),
                                                         min_mem_length),
                                                sub_mems);
@@ -530,7 +530,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                     } else {
                         find_sub_mems(mems,
                                       i,
-                                      match.begin,
+                                      (i+1 == mems.size() ? seq_end : mems[i+1].begin),
                                       min_mem_length,
                                       sub_mems);
                     }
@@ -1180,10 +1180,6 @@ void BaseMapper::set_alignment_threads(int new_thread_count) {
 bool BaseMapper::has_fixed_fragment_length_distr() {
     return fragment_length_distr.is_finalized();
 }
-    
-void BaseMapper::abandon_fragment_length_distr() {
-    fragment_length_distr.unlock_determinization();
-}
 
 void BaseMapper::force_fragment_length_distr(double mean, double stddev) {
     fragment_length_distr.force_parameters(mean, stddev);
@@ -1260,7 +1256,7 @@ void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_
 }
     
 void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, size_t reestimation_frequency,
-                                                  double robust_estimation_fraction, bool deterministic) {
+                                                  double robust_estimation_fraction) {
     
     if (fragment_length_distr.is_finalized()) {
         cerr << "warning:[vg::Mapper] overwriting a fragment length distribution that has already been estimated" << endl;
@@ -1268,9 +1264,6 @@ void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, si
     
     fragment_length_distr = FragmentLengthDistribution(maximum_sample_size, reestimation_frequency,
                                                        robust_estimation_fraction);
-    if (deterministic) {
-        fragment_length_distr.determinize_estimation();
-    }
 }
     
 Mapper::Mapper(xg::XG* xidex,
@@ -3627,132 +3620,6 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     return alignments;
 }
 
-vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_alns) {
-    // use a basic dynamic programming to score the path through the multi mapping
-    // we add the score as long as our alignments are within a bandwidth, subtracting the distance
-    // otherwise we add nothing
-    // alignments that are < the minimum alignment score threshold are dropped
-
-    // a vector of
-    // score, current alignment, parent alignment (direction)
-    typedef tuple<int, Alignment*, size_t> score_t;
-    vector<vector<score_t>> scores;
-    scores.resize(multi_alns.size());
-    // start with the scores for the first alignments
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "resolving banded multi over:" << endl;
-            for (auto& alns : multi_alns) {
-                for (auto& aln : alns) {
-                    if (aln.has_path()) {
-                        cerr << aln.score() << "@ " << make_pos_t(aln.path().mapping(0).position()) <<", ";
-                    }
-                }
-                cerr << endl;
-            }
-        }
-    }
-#endif
-    for (auto& aln : multi_alns[0]) {
-        scores.front().push_back(make_tuple(aln.score(), &aln, 0));
-    }
-    for (size_t i = 1; i < multi_alns.size(); ++i) {
-        auto& curr_alns = multi_alns[i];
-        vector<score_t>& curr_scores = scores[i];
-        auto& prev_scores = scores[i-1];
-        // find the best previous score
-        score_t best_prev = prev_scores.front();
-        size_t best_idx = 0;
-        score_t unmapped_prev = prev_scores.front();
-        size_t unmapped_idx = 0;
-        size_t j = 0;
-        for (auto& t : prev_scores) {
-            if (get<0>(t) > get<0>(best_prev)) {
-                best_prev = t;
-                best_idx = j;
-            }
-            if (get<0>(t) == 0) {
-                unmapped_idx = j;
-                unmapped_prev = t;
-            }
-            ++j;
-        }
-        // for each alignment
-        for (auto& aln : curr_alns) {
-            // if it's not mapped, take the best previous score
-            if (!aln.score()) {
-                //assert(aln.path().mapping_size() == 1);
-                aln.clear_path();
-                curr_scores.push_back(make_tuple(get<0>(best_prev), &aln, best_idx));
-            } else {
-                // determine our start
-                auto& curr_start = aln.path().mapping(0).position();
-                // accumulate candidate alignments, sort by score
-                map<int, vector<pair<score_t, size_t>>> candidates;
-                // for each previous alignment
-                size_t k = 0;
-                for (auto& score : prev_scores) {
-                    auto old = get<1>(score);
-                    if (!old->score()) continue; // unmapped
-                    auto prev_end = path_end(old->path());
-                    // save it as a candidate if the two are adjacent
-                    // and in the same orientation
-                    int64_t dist = xindex->min_approx_path_distance({}, prev_end.node_id(), curr_start.node_id());
-                    if (dist < max_band_jump || max_band_jump == 0) {
-                        dist = graph_distance(make_pos_t(prev_end), make_pos_t(curr_start), max_band_jump);
-                        if (dist < max_band_jump || max_band_jump == 0) {
-                            auto adj = score;
-                            get<0>(adj) -= dist;
-                            candidates[get<0>(adj)].push_back(make_pair(adj, k));
-                        }
-                    }
-                    ++k;
-                }
-                if (candidates.size()) {
-                    // take the best one (at least the first best one we saw)
-                    auto& opt = candidates.rbegin()->second.front();
-                    // DP scoring step: add scores when we match head to tail
-                    curr_scores.push_back(make_tuple(get<0>(opt.first) + aln.score(), &aln, opt.second));
-                } else {
-                    // if there are no alignments matching our start, set this alignment as unmapped
-                    auto best_prev_aln = get<1>(prev_scores[best_idx]);
-                    if (best_prev_aln->has_path()) {
-                        curr_scores.push_back(make_tuple(get<0>(best_prev), &aln, best_idx));
-                    } else {
-                        curr_scores.push_back(make_tuple(get<0>(unmapped_prev), &aln, unmapped_idx));
-                    }
-                }
-            }
-        }
-        std::sort(curr_scores.begin(), curr_scores.end());
-        std::reverse(curr_scores.begin(), curr_scores.end());
-    }
-    // find the best score at the end
-    score_t best_last = scores.back().front();
-    size_t best_last_idx = 0;
-    size_t j = 0;
-    for (auto& s : scores.back()) {
-        if (get<0>(s) > get<0>(best_last)) {
-            best_last = s;
-            best_last_idx = j;
-        }
-        ++j;
-    }
-    // accumulate the alignments in the optimal path
-    vector<Alignment> alns; alns.resize(multi_alns.size());
-    size_t prev_best_idx = best_last_idx;
-    for (int i = scores.size()-1; i >= 0; --i) {
-        assert(scores[i].size());
-        auto& score = scores[i][prev_best_idx];
-        alns[i] = *get<1>(score); // save the alignment
-        prev_best_idx = get<2>(score); // and where we go next
-    }
-    cerr << "returning from align banded" << endl;
-    return alns;
-}
-
 bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
     // are they the same id, with offset differing by 1?
     if (pos1.node_id() == pos2.node_id()
@@ -4016,7 +3883,7 @@ int64_t Mapper::graph_mixed_distance_estimate(pos_t pos1, pos_t pos2, int64_t ma
         int64_t graph_dist = graph_distance(pos1, pos2, maximum);
         if (graph_dist < maximum) return graph_dist;
     }
-    int64_t path_dist = xindex->min_approx_path_distance({}, id(pos1), id(pos2));
+    int64_t path_dist = xindex->min_approx_path_distance(id(pos1), id(pos2));
     int64_t approx_dist = abs(approx_distance(pos1, pos2));
     return min(path_dist, approx_dist);
 }
@@ -4957,10 +4824,9 @@ FragmentLengthDistribution::~FragmentLengthDistribution() {
 }
 
 void FragmentLengthDistribution::force_parameters(double mean, double stddev) {
-    is_fixed = true;
     mu = mean;
     sigma = stddev;
-    unlock_determinization();
+    is_fixed = true;
 }
 
 void FragmentLengthDistribution::register_fragment_length(int64_t length) {
@@ -4979,8 +4845,6 @@ void FragmentLengthDistribution::register_fragment_length(int64_t length) {
                 // we've reached the maximum sample we wanted, so fix the estimation
                 estimate_distribution();
                 is_fixed = true;
-                // switch back to multithreaded mode if necessary
-                unlock_determinization();
             }
             else if (lengths.size() % reestimation_frequency == 0) {
                 estimate_distribution();
@@ -4988,23 +4852,7 @@ void FragmentLengthDistribution::register_fragment_length(int64_t length) {
         }
     }
 }
-
-void FragmentLengthDistribution::determinize_estimation() {
-    if (multithread_reset || is_fixed) {
-        return;
-    }
-    multithread_reset = get_thread_count();
-    omp_set_num_threads(1);
-}
-
-void FragmentLengthDistribution::unlock_determinization() {
-    if (!multithread_reset) {
-        return;
-    }
-    omp_set_num_threads(multithread_reset);
-    multithread_reset = 0;
-}
-
+    
 void FragmentLengthDistribution::estimate_distribution() {
     // remove the tails from the estimation
     size_t to_skip = (size_t) (lengths.size() * (1.0 - robust_estimation_fraction) * 0.5);

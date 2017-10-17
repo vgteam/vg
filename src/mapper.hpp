@@ -98,14 +98,6 @@ public:
     /// Instead of estimating anything, just use these parameters.
     void force_parameters(double mean, double stddev);
     
-    /// Switches the entire program to single-threaded mode until reaching the maximum
-    /// sample size so that estimation is deterministic. After reaching the maximum, the
-    /// thread count is automatically switched back.
-    void determinize_estimation();
-    
-    /// Manually switches back to multithreaded mode
-    void unlock_determinization();
-    
     /// Record an observed fragment length
     void register_fragment_length(int64_t length);
 
@@ -145,8 +137,6 @@ private:
     double mu = 0.0;
     double sigma = 1.0;
     
-    int multithread_reset = 0;
-    
     void estimate_distribution();
 };
     
@@ -166,7 +156,7 @@ public:
     
     // TODO: setting alignment threads could mess up the internal memory for how many threads to reset to
     void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
-                                          double robust_estimation_fraction = 0.95, bool deterministic = true);
+                                          double robust_estimation_fraction = 0.95);
     
     /// Set the alignment thread count, updating internal data structures that
     /// are per thread. Note that this resets aligner scores to their default values!
@@ -176,9 +166,6 @@ public:
     
     /// Returns true if fragment length distribution has been fixed
     bool has_fixed_fragment_length_distr();
-    
-    /// Gives up on deterministic estimation regardless of whether the distribution has been fixed
-    void abandon_fragment_length_distr();
     
     /// Use the given fragment length distribution parameters instead of
     /// estimating them.
@@ -463,7 +450,6 @@ public:
     /// assuming the read has only been score-aligned, realign from the end position backwards
     Alignment realign_from_start_position(const Alignment& aln, int extra, int iteration);
     
-    vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
                                                 vector<MaximalExactMatch>& mems2);
 

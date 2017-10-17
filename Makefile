@@ -285,7 +285,7 @@ $(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h
 $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc $(SRC_DIR)/vg.proto
 	+. ./source_me.sh && ./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	+cp $@ $(INC_DIR)
-	
+
 $(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(INC_DIR)/vg_git_version.hpp
 
 ########################

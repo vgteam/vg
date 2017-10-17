@@ -223,9 +223,10 @@ void for_each(std::istream& in,
 // last element of the stream, if any.
 template <typename T>
 void for_each_parallel_impl(std::istream& in,
-                              const std::function<void(T&,T&)>& lambda2,
-                              const std::function<void(T&)>& lambda1,
-                              const std::function<void(uint64_t)>& handle_count) {
+                            const std::function<void(T&,T&)>& lambda2,
+                            const std::function<void(T&)>& lambda1,
+                            const std::function<void(uint64_t)>& handle_count,
+                            const std::function<bool(void)>& single_threaded_until_true) {
 
     // objects will be handed off to worker threads in batches of this many
     const uint64_t batch_size = 256;
@@ -237,7 +238,7 @@ void for_each_parallel_impl(std::istream& in,
 
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    #pragma omp parallel default(none) shared(in, lambda1, lambda2, handle_count, batches_outstanding)
+    #pragma omp parallel default(none) shared(in, lambda1, lambda2, handle_count, batches_outstanding, single_threaded_until_true)
     #pragma omp single
     {
         auto handle = [](bool retval) -> void {
@@ -249,7 +250,7 @@ void for_each_parallel_impl(std::istream& in,
         ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
 
         std::vector<std::string> *batch = nullptr;
-
+        
         // process chunks prefixed by message count
         uint64_t count;
         while (coded_in.ReadVarint64((::google::protobuf::uint64*) &count)) {
@@ -295,9 +296,26 @@ void for_each_parallel_impl(std::istream& in,
                         #pragma omp atomic read
                         b = batches_outstanding;
                     }
-                    // spawn task to process this batch
-                    #pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda2, handle)
-                    {
+                    if (single_threaded_until_true()) {
+                        // spawn a task in another thread to process this batch
+#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda2, handle, single_threaded_until_true)
+                        {
+                            {
+                                T obj1, obj2;
+                                for (int i = 0; i<batch_size; i+=2) {
+                                    // parse protobuf objects and invoke lambda on the pair
+                                    handle(obj1.ParseFromString(batch->at(i)));
+                                    handle(obj2.ParseFromString(batch->at(i+1)));
+                                    lambda2(obj1,obj2);
+                                }
+                            } // scope obj1 & obj2
+                            delete batch;
+#pragma omp atomic update
+                            batches_outstanding--;
+                        }
+                    }
+                    else {
+                        // process this batch in the current thread
                         {
                             T obj1, obj2;
                             for (int i = 0; i<batch_size; i+=2) {
@@ -308,7 +326,6 @@ void for_each_parallel_impl(std::istream& in,
                             }
                         } // scope obj1 & obj2
                         delete batch;
-                        #pragma omp atomic update
                         batches_outstanding--;
                     }
 
@@ -345,7 +362,20 @@ void for_each_interleaved_pair_parallel(std::istream& in,
     std::function<void(T&)> err1 = [](T&){
         throw std::runtime_error("stream::for_each_interleaved_pair_parallel: expected input stream of interleaved pairs, but it had odd number of elements");
     };
-    for_each_parallel_impl(in, lambda2, err1, [](uint64_t) { });
+    std::function<void(uint64_t)> no_count = [](uint64_t i) {};
+    std::function<bool(void)> no_wait = [](void) {return true;};
+    for_each_parallel_impl(in, lambda2, err1, no_count, no_wait);
+}
+    
+template <typename T>
+void for_each_interleaved_pair_parallel_after_wait(std::istream& in,
+                                                   const std::function<void(T&,T&)>& lambda2,
+                                                   const std::function<bool(void)>& single_threaded_until_true) {
+    std::function<void(T&)> err1 = [](T&){
+        throw std::runtime_error("stream::for_each_interleaved_pair_parallel: expected input stream of interleaved pairs, but it had odd number of elements");
+    };
+    std::function<void(uint64_t)> no_count = [](uint64_t i) {};
+    for_each_parallel_impl(in, lambda2, err1, no_count, single_threaded_until_true);
 }
 
 // parallelized for each individual element
@@ -354,7 +384,8 @@ void for_each_parallel(std::istream& in,
                        const std::function<void(T&)>& lambda1,
                        const std::function<void(uint64_t)>& handle_count) {
     std::function<void(T&,T&)> lambda2 = [&lambda1](T& o1, T& o2) { lambda1(o1); lambda1(o2); };
-    for_each_parallel_impl(in, lambda2, lambda1, handle_count);
+    std::function<bool(void)> no_wait = [](void) {return true;};
+    for_each_parallel_impl(in, lambda2, lambda1, handle_count, no_wait);
 }
 
 template <typename T>

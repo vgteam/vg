@@ -68,10 +68,8 @@ void Vectorizer::add_name(string n){
     my_names.push_back(n);
 }
 
-
-
 vector<int> Vectorizer::alignment_to_a_hot(Alignment a){
-    int64_t entity_size = my_xg->node_count + my_xg->edge_count;
+    int64_t entity_size = my_xg->node_count;
     vector<int> ret(entity_size, 0);
     Path path = a.path();
     for (int i = 0; i < path.mapping_size(); i++){
@@ -81,33 +79,7 @@ vector<int> Vectorizer::alignment_to_a_hot(Alignment a){
         }
         Position pos = mapping.position();
         int64_t node_id = pos.node_id();
-        int64_t key = my_xg->node_rank_as_entity(node_id);
-        // Okay, solved the previous out of range errors:
-        // We have to use an entity-space that is |nodes + edges + 1|
-        // as nodes are indexed from 1, not from 0.
-        //TODO: this means we may one day have to do the same bump up
-        // by one for edges, as I assume they are also indexed starting at 1.
-        //cerr << key << " - " << entity_size << endl;
-
-        //Find edge by current / previous node ID
-        // we can check the orientation, though it shouldn't **really** matter
-        // whether we catch them in the forward or reverse direction.
-        if (i > 0){
-            Mapping prev_mapping = path.mapping(i - 1);
-            Position prev_pos = prev_mapping.position();
-            int64_t prev_node_id = prev_pos.node_id();
-            if (my_xg->has_edge(prev_node_id, false, node_id, false)){
-                int64_t edge_key = my_xg->edge_rank_as_entity(prev_node_id, false, node_id, false);
-                vector<size_t> edge_paths = my_xg->paths_of_entity(edge_key);
-                if (edge_paths.size() > 0){
-                    ret[edge_key - 1] = 1;
-                }
-                else{
-                    ret[edge_key - 1] = 2;
-                }
-            }
-        }
-        //Check if the node of interest is on a path
+        int64_t key = my_xg->id_to_rank(node_id);
         vector<size_t> node_paths = my_xg->paths_of_node(node_id);
         if (node_paths.size() > 0){
             ret[key - 1] = 2;
@@ -115,17 +87,13 @@ vector<int> Vectorizer::alignment_to_a_hot(Alignment a){
         else{
             ret[key - 1] = 1;
         }
-
     }
-
     return ret;
-
 }
 
 vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
-    int64_t entity_size = my_xg->node_count + my_xg->edge_count;
+    int64_t entity_size = my_xg->node_count;
     vector<double> ret(entity_size, 0.0);
-
     Path path = a.path();
     for (int i = 0; i < path.mapping_size(); i ++){
         Mapping mapping = path.mapping(i);
@@ -134,7 +102,7 @@ vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
         }
         Position pos = mapping.position();
         int64_t node_id = pos.node_id();
-        int64_t key = my_xg->node_rank_as_entity(node_id);
+        int64_t key = my_xg->id_to_rank(node_id);
 
         //Calculate % identity by walking the edits and counting matches.
         double pct_id = 0.0;
@@ -158,24 +126,12 @@ vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
         }
         pct_id = (match_len == 0.0 && total_len == 0.0) ? 0.0 : (match_len / total_len);
         ret[key - 1] = pct_id;
-
-        if (i > 0){
-            Mapping prev_mapping = path.mapping(i - 1);
-            Position prev_pos = prev_mapping.position();
-            int64_t prev_node_id = prev_pos.node_id();
-            if (my_xg->has_edge(prev_node_id, false, node_id, false)){
-                int64_t edge_key = my_xg->edge_rank_as_entity(prev_node_id, false, node_id, false);
-                ret[edge_key - 1] = 1.0;
-            }
-        }
     }
     return ret;
 }
 
 bit_vector Vectorizer::alignment_to_onehot(Alignment a){
-    // Make a vector as large as the | |nodes| + |edges| | space
-    // TODO handle edges
-    int64_t entity_size = my_xg->node_count + my_xg->edge_count;
+    int64_t entity_size = my_xg->node_count;
     bit_vector ret(entity_size, 0);
     Path path = a.path();
     for (int i = 0; i < path.mapping_size(); i++){
@@ -183,34 +139,12 @@ bit_vector Vectorizer::alignment_to_onehot(Alignment a){
         if(! mapping.has_position()){
             continue;
         }
-
         Position pos = mapping.position();
         int64_t node_id = pos.node_id();
-        int64_t key = my_xg->node_rank_as_entity(node_id);
-        // Okay, solved the previous out of range errors:
-        // We have to use an entity-space that is |nodes + edges + 1|
-        // as nodes are indexed from 1, not from 0.
-        //TODO: this means we may one day have to do the same bump up
-        // by one for edges, as I assume they are also indexed starting at 1.
-        //cerr << key << " - " << entity_size << endl;
-
-        //Find edge by current / previous node ID
-        // we can check the orientation, though it shouldn't **really** matter
-        // whether we catch them in the forward or reverse direction.
-        if (i > 0){
-            Mapping prev_mapping = path.mapping(i - 1);
-            Position prev_pos = prev_mapping.position();
-            int64_t prev_node_id = prev_pos.node_id();
-            if (my_xg->has_edge(prev_node_id, false, node_id, false)){
-                int64_t edge_key = my_xg->edge_rank_as_entity(prev_node_id, false, node_id, false);
-                ret[edge_key - 1] = 1;
-            }
-        }
+        int64_t key = my_xg->id_to_rank(node_id);
         //Find entity rank of edge
-
         ret[key - 1] = 1;
     }
-
     return ret;
 }
 

@@ -116,9 +116,9 @@ public:
                bool is_sorted_dag);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 4;
+    const static uint32_t MAX_INPUT_VERSION = 5;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 4;
+    const static uint32_t OUTPUT_VERSION = 5;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -151,15 +151,14 @@ public:
     size_t node_length(int64_t id) const;
     char pos_char(int64_t id, bool is_rev, size_t off) const; // character at position
     string pos_substr(int64_t id, bool is_rev, size_t off, size_t len = 0) const; // substring in range
-    
+    size_t node_graph_idx(int64_t id) const;
+    size_t edge_graph_idx(const Edge& edge) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Here is the old low-level API that needs to be restated in terms of the 
     // locally traversable graph API and then removed.
     ////////////////////////////////////////////////////////////////////////////
 
-    bool entity_is_node(size_t rank) const;
-    size_t entity_rank_as_node_rank(size_t rank) const;
     /// Returns true if the given edge is present in the given orientation, and false otherwise.
     bool has_edge(int64_t id1, bool is_start, int64_t id2, bool is_end) const;
     /// Returns true if the given edge is present in either orientation, and false otherwise.
@@ -171,14 +170,7 @@ public:
     vector<Edge> edges_on_start(int64_t id) const;
     vector<Edge> edges_on_end(int64_t id) const;
     
-    // TODO: get rid of these entity-based things
-    size_t node_rank_as_entity(int64_t id) const;
-    Edge edge_for_entity(size_t rank) const;
     /// Get the rank of the edge, or numeric_limits<size_t>.max() if no such edge exists.
-    /// Edge must be specified in canonical orientation.
-    size_t edge_rank_as_entity(int64_t id1, bool from_start, int64_t id2, bool to_end) const;
-    /// Supports the edge articulated in any orientation.
-    size_t edge_rank_as_entity(const Edge& edge) const;
     // Given an edge which is in the graph in some orientation, return the edge
     // oriented as it actually appears.
     Edge canonicalize(const Edge& edge) const;
@@ -205,6 +197,7 @@ public:
     void idify_graph(Graph& graph) const;
     
     /// a numerical code for the edge type (based on the two reversal flags)
+    int edge_type(bool from_start, bool to_end) const;
     int edge_type(const Edge& edge) const;
     
     ////////////////////////////////////////////////////////////////////////////
@@ -279,17 +272,9 @@ public:
     size_t max_path_rank(void) const;
     // Get the name of the path at the given rank. Ranks begin at 1.
     string path_name(size_t rank) const;
-    // TODO: remove this entity-based thing
-    vector<size_t> paths_of_entity(size_t rank) const;
     vector<size_t> paths_of_node(int64_t id) const;
-    vector<size_t> paths_of_edge(int64_t id1, bool from_start, int64_t id2, bool to_end) const;
     map<string, vector<Mapping>> node_mappings(int64_t id) const;
     bool path_contains_node(const string& name, int64_t id) const;
-    bool path_contains_edge(const string& name,
-                            int64_t id1, bool from_start,
-                            int64_t id2, bool to_end) const;
-    // TODO: remove this entity-based thing
-    bool path_contains_entity(const string& name, size_t rank) const;
     void add_paths_to_graph(map<int64_t, Node*>& nodes, Graph& g) const;
     size_t node_occs_in_path(int64_t id, const string& name) const;
     size_t node_occs_in_path(int64_t id, size_t rank) const;
@@ -308,20 +293,9 @@ public:
     Alignment target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature) const;
     size_t path_length(const string& name) const;
     size_t path_length(size_t rank) const;
-    // if node is on path, return it.  otherwise, return next node (in id space)
-    // that is on path.  if none exists, return 0
-    int64_t next_path_node_by_id(size_t path_rank, int64_t id) const;
     // nearest node (in steps) that is in a path, and the paths
     pair<int64_t, vector<size_t> > nearest_path_node(int64_t id, int max_steps = 16) const;
-    // if node is on path, return it.  otherwise, return previous node (in id space)
-    // that is on path.  if none exists, return 0
-    int64_t prev_path_node_by_id(size_t path_rank, int64_t id) const;
-    // estimate distance (in bp) between two nodes along a path.
-    // if a nodes isn't on the path, the nearest node on the path (using id space)
-    // is used as a proxy.  
-    int64_t approx_path_distance(const string& name, int64_t id1, int64_t id2) const;
-    // like above, but find minumum over list of paths.  if names is empty, do all paths
-    int64_t min_approx_path_distance(const vector<string>& names, int64_t id1, int64_t id2) const;
+    int64_t min_approx_path_distance(int64_t id1, int64_t id2) const;
     
     /// returns all of the paths that a node traversal occurs on, the rank of these occurrences on the path
     /// and the orientation of the occurrences. false indicates that the traversal occurs in the same
@@ -335,6 +309,10 @@ public:
                                          vector<pair<size_t, vector<pair<size_t, bool>>>>*& paths_of_node_ptr_out,
                                          unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr) const;
     
+    /// returns a the memoized result from get_handle if a memo is provided that the result has been queried previously
+    /// otherwise, returns the result of get_handle directly and stores it in the memo if one is provided
+    handle_t memoized_get_handle(int64_t id, bool rev, unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
+    
     /// the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative)
     /// estimated by the distance along the nearest shared path to the two positions plus the distance
     /// to traverse to that path. returns numeric_limits<int64_t>::max() if no pair of nodes that occur same
@@ -343,14 +321,16 @@ public:
     int64_t closest_shared_path_oriented_distance(int64_t id1, size_t offset1, bool rev1,
                                                   int64_t id2, size_t offset2, bool rev2,
                                                   size_t max_search_dist = 100,
-                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr) const;
+                                                  unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr,
+                                                  unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
     
     /// returns a vector of (node id, is reverse, offset) tuples that are found by jumping a fixed oriented distance
     /// along path(s) from the given position. if the position is not on a path, searches from the position to a path
     /// and adds/subtracts the search distance to the jump depending on the search direction. returns an empty vector
     /// if there is no path within the max search distance or if the jump distance goes past the end of the path
     vector<tuple<int64_t, bool, size_t>> jump_along_closest_path(int64_t id, bool is_rev, size_t offset, int64_t jump_dist, size_t max_search_dist,
-                                                                 unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr) const;
+                                                                 unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>* paths_of_node_memo = nullptr,
+                                                                 unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // gPBWT API
@@ -577,7 +557,7 @@ private:
     ////////////////////////////////////////////////////////////////////////////
     // This is the Old Way that should be extirpated and of which we shall not speak
     ////////////////////////////////////////////////////////////////////////////
-
+    /*
     // maintain forward links
     int_vector<> f_iv;
     bit_vector f_bv;
@@ -603,6 +583,7 @@ private:
 
     // edge table, allows o(1) determination of edge existence
     int_vector<> e_iv;
+    */
 
     ////////////////////////////////////////////////////////////////////////////
     // Here is path storage
@@ -620,12 +601,11 @@ private:
     // the growth in required memory is quadratic but the stored matrix is sparse
     vector<XGPath*> paths; // path entity membership
 
-    // TODO: Entities are going away so this needs to change too
-    // entity->path membership
-    int_vector<> ep_iv;
-    bit_vector ep_bv; // entity delimiters in ep_iv
-    rank_support_v<1> ep_bv_rank;
-    bit_vector::select_1_type ep_bv_select;
+    // node->path membership
+    int_vector<> np_iv;
+    bit_vector np_bv; // entity delimiters in ep_iv
+    rank_support_v<1> np_bv_rank;
+    bit_vector::select_1_type np_bv_select;
 
     ////////////////////////////////////////////////////////////////////////////
     // Succinct thread storage (the gPBWT)
@@ -643,7 +623,7 @@ private:
     // per-side array run separator, respectively.
     
     // This holds, for each node and edge, in each direction (with indexes as in
-    // the entity vector f_iv, *2, and +1 for reverse), the usage count (i.e.
+    // the entity vector g_iv, *2, and +1 for reverse), the usage count (i.e.
     // the number of times it is visited by encoded threads). This doesn't have
     // to be dynamic since the length will never change. Remember that entity
     // ranks are 1-based, so if you have an entity rank you have to subtract 1
@@ -653,7 +633,7 @@ private:
     // and not (yet) the other, the usage counts in both directions will be
     // different.
     int_vector<> h_iv;
-    
+
     // This (as an extension to the algorithm described in the paper) holds the
     // number of threads beginning at each node. This isn't any extra
     // information relative to what's in the usage count array, but it's cheaper
@@ -736,7 +716,7 @@ public:
     // because in here is the most efficient place to count them.
     XGPath(const string& path_name,
            const vector<trav_t>& path,
-           size_t entity_count,
+           size_t node_count,
            XG& graph,
            size_t* unique_member_count_out = nullptr);
     // Path names are stored in the XG object, in a compressed fashion, and are
@@ -749,10 +729,10 @@ public:
     XGPath& operator=(const XGPath& other) = delete;
     XGPath& operator=(XGPath&& other) = delete;
     
-    bit_vector members;
-    bit_vector::rank_1_type members_rank;
-    bit_vector::select_1_type members_select;
-    wt_int<> ids;
+    rrr_vector<> nodes;
+    rrr_vector<>::rank_1_type nodes_rank;
+    rrr_vector<>::select_1_type nodes_select;
+    wt_gmr<> ids;
     sd_vector<> directions; // forward or backward through nodes
     int_vector<> positions;
     int_vector<> ranks;
