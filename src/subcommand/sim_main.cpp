@@ -199,6 +199,11 @@ int main_sim(int argc, char** argv) {
         cerr << "[vg sim] error: could not open xg index" << endl;
         return 1;
     }
+    
+    if (!path_name.empty() && xgidx->path_rank(path_name) == 0) {
+        cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
+        return 1;
+    }
 
     // Make a sample to sample reads with
     Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns);
