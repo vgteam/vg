@@ -394,7 +394,7 @@ namespace vg {
         
         // TODO: get rid of magic numbers
         int32_t max_score = get_aligner()->match * other_aln.sequence().size() + get_aligner()->full_length_bonus * 2;
-        return raw_mapq > min(25, max_mapping_quality) && score.front() > .5 * max_score;
+        return raw_mapq >= min(25, max_mapping_quality) && score.front() > .5 * max_score;
     }
     
     void MultipathMapper::multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
@@ -562,7 +562,6 @@ namespace vg {
             align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
                                     cluster_graphs2, multipath_alns_2, max_alt_mappings);
             
-            
             // attempt rescue if we found a good mapping for one read in the pair but not the other
             // TODO: get rid of magic numbers
             auto should_rescue = [&](const vector<MultipathAlignment>& rescuer, const vector<MultipathAlignment>& rescuee) {
@@ -573,9 +572,7 @@ namespace vg {
                     }
                     else {
                         const MultipathAlignment& rescuee_mp_aln = rescuee.front();
-                        return (rescuer_mp_aln.mapping_quality() >= rescuee_mp_aln.mapping_quality() + 30 ||
-                                (rescuer_mp_aln.mapping_quality() >= min(max_mapping_quality, 40) &&
-                                 rescuee_mp_aln.mapping_quality() <= min(max_mapping_quality, 20)));
+                        return rescuer_mp_aln.mapping_quality() >= rescuee_mp_aln.mapping_quality() + 20;
                     }
                 }
                 return false;
@@ -624,7 +621,6 @@ namespace vg {
                         to_multipath_alignment(alignment1, multipath_aln_pairs_out.back().first);
                         multipath_aln_pairs_out.back().first.clear_subpath();
                         multipath_aln_pairs_out.back().first.clear_start();
-                        
                     }
                 }
             }
