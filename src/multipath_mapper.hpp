@@ -192,7 +192,6 @@ namespace vg {
     public:
         // removes duplicate sub-MEMs contained in parent MEMs
         MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
-                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
         

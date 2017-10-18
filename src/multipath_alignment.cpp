@@ -324,9 +324,11 @@ namespace vg {
         multipath_aln_out.set_mapping_quality(aln.mapping_quality());
         
         // transfer alignment and score
-        Subpath* subpath = multipath_aln_out.add_subpath();
-        subpath->set_score(aln.score());
-        *(subpath->mutable_path()) = aln.path();
+        if (aln.has_path() || aln.score()) {
+            Subpath* subpath = multipath_aln_out.add_subpath();
+            subpath->set_score(aln.score());
+            *(subpath->mutable_path()) = aln.path();
+        }
         
     }
     
@@ -336,6 +338,14 @@ namespace vg {
         to.set_read_group(from.read_group());
         to.set_name(from.name());
         to.set_sample_name(from.sample_name());
+        
+        // no difference in these fields for MultipathAlignments
+        if (from.has_fragment_prev()) {
+            to.set_paired_read_name(from.fragment_prev().name());
+        }
+        else {
+            to.set_paired_read_name(from.fragment_next().name());
+        }
     }
     
     void transfer_read_metadata(const MultipathAlignment& from, Alignment& to) {
@@ -344,6 +354,9 @@ namespace vg {
         to.set_read_group(from.read_group());
         to.set_name(from.name());
         to.set_sample_name(from.sample_name());
+        
+        // note: not transferring paired_read_name because it is unclear whether
+        // it should go into fragment_prev or fragment_next
     }
 }
 
