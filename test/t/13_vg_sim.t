@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 11
+plan tests 12
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -28,6 +28,8 @@ is $(vg sim -l 100 -n 100 -x x.xg -aJ | jq 'select(.path.mapping[0].is_reverse)'
    
 vg view -j x.vg | jq -r '.path[].mapping[].position.node_id' | sort > path.txt
 is $(vg sim -s 1337 -l 100 -n 100 -x x.xg -P "x" -aJ | jq -r '.path.mapping[].position.node_id' | sort | uniq | comm -23 - path.txt | wc -l) "0" "vg sim can simulate from just a path"
+
+is $(vg sim -s 1337 -F reads/grch38_lrc_kir_paired.fq -n 100 -x x.xg -P "x" -aJ | jq -r '.path.mapping[].position.node_id' | sort | uniq | comm -23 - path.txt | wc -l) "0" "vg sim can simulate from just a path in FASTQ mode"
 
 rm -f path.txt
 

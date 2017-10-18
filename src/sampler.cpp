@@ -13,7 +13,7 @@ pos_t position_at(xg::XG* xgidx, const string& path_name, const size_t& path_off
     // Work out where in that mapping we should be.
     size_t node_offset = path_offset - (xgidx->node_start_at_path_position(path_name, path_offset));
 
-    if (path_mapping.position().is_reverse() != is_reverse) {
+    if (is_reverse) {
         // Flip the node offset around to be from the end and not the start
         node_offset = xgidx->node_length(id) - node_offset - 1;
     }
