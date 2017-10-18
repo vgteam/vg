@@ -4,6 +4,9 @@
 #include "../mapper.hpp"
 #include "../stream.hpp"
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace vg;
 using namespace vg::subcommand;
 

@@ -41,10 +41,6 @@
 #include "types.hpp"
 #include "gfakluge.hpp"
 
-#include "globalDefs.hpp"
-#include "Graph.hpp"
-#include "helperDefs.hpp"
-
 #include "bubbles.hpp"
 
 #include "nodetraversal.hpp"

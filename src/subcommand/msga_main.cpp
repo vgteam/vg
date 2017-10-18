@@ -5,6 +5,9 @@
 #include "../stream.hpp"
 #include "../algorithms/topological_sort.hpp"
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace vg;
 using namespace vg::subcommand;
 
