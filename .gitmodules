@@ -40,9 +40,6 @@
 [submodule "gfakluge"]
     path = deps/gfakluge
     url = https://github.com/edawson/gfakluge.git
-[submodule "deps/superbubbles"]
-	path = deps/superbubbles
-	url = https://github.com/vgteam/Superbubbles.git
 [submodule "deps/DYNAMIC"]
 	path = deps/DYNAMIC
 	url = https://github.com/vgteam/DYNAMIC
