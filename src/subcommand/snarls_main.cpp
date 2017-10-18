@@ -23,7 +23,6 @@ void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph.vg > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
-         << "    -b, --superbubbles    describe (in text) the superbubbles of the graph" << endl
          << "    -u, --ultrabubbles    describe (in text) the ultrabubbles of the graph" << endl
          << "traversals:" << endl
          << "    -p, --pathnames       output variant paths as SnarlTraversals to STDOUT" << endl
@@ -48,7 +47,6 @@ int main_snarl(int argc, char** argv) {
     bool leaf_only = false;
     bool top_level_only = false;
     int max_nodes = 10;
-    bool legacy_superbubbles = false;
     bool legacy_ultrabubbles = false;
     bool filter_trivial_bubbles = false;
     bool sort_snarls = false;
@@ -59,7 +57,6 @@ int main_snarl(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
-                {"superbubbles", no_argument, 0, 'b'},
                 {"ultrabubbles", no_argument, 0, 'u'},
                 {"traversals", required_argument, 0, 'r'},
 		        {"pathnames", no_argument, 0, 'p'},
@@ -73,7 +70,7 @@ int main_snarl(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "bsur:ltopm:h?",
+        c = getopt_long (argc, argv, "sur:ltopm:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -83,10 +80,6 @@ int main_snarl(int argc, char** argv) {
         switch (c)
         {
             
-        case 'b':
-            legacy_superbubbles = true;
-            break;
-
         case 'u':
             legacy_ultrabubbles = true;
             break;
@@ -131,9 +124,8 @@ int main_snarl(int argc, char** argv) {
         }
     }
 
-    if (legacy_ultrabubbles || legacy_superbubbles) {
-        if (!traversal_file.empty() ||
-            legacy_ultrabubbles == legacy_superbubbles) {
+    if (legacy_ultrabubbles) {
+        if (!traversal_file.empty()) {
             cerr << "error:[vg snarl]: -u and -s options must be used alone" << endl;
             return 1;
         }
@@ -162,8 +154,8 @@ int main_snarl(int argc, char** argv) {
     }
 
     // old code from vg stats
-    if (legacy_superbubbles || legacy_ultrabubbles) {
-        auto bubbles = legacy_superbubbles ? vg::superbubbles(*graph) : vg::ultrabubbles(*graph);
+    if (legacy_ultrabubbles) {
+        auto bubbles = vg::ultrabubbles(*graph);
         for (auto& i : bubbles) {
             auto b = i.first;
             auto v = i.second;
