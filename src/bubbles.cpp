@@ -324,7 +324,7 @@ static void ultrabubble_recurse(VG& graph, stList* chains_list,
             out_node->children.push_back(new_node);
             new_node->parent = out_node;
             
-            stUltraBubble* child_bubble = (stUltraBubble*)stList_get(cactus_chain, j);
+            stSnarl* child_bubble = (stSnarl*)stList_get(cactus_chain, j);
 
             // scrape the vg coordinate information out of the cactus ends where we stuck
             // it during cactus construction
@@ -356,17 +356,26 @@ BubbleTree* ultrabubble_tree(VG& graph) {
 
     BubbleTree* out_tree = new BubbleTree(new BubbleTree::Node());
 
-    // get the bubble decomposition as a C struct
-    // should we pass a start node? 
-    stList* cactus_chains_list = stCactusGraph_getUltraBubbles(cactus_graph, root_node);
+    // Define a list of telomeres
+    // TODO: do we have to actually supply any?
+    stList *telomeres = stList_construct();
 
+    // get the snarl decomposition as a C struct
+    stSnarlDecomposition *snarls = stCactusGraph_getSnarlDecomposition(cactus_graph, telomeres);
+    
+    // Get a non-owning pointer to the list of chains (which are themselves lists of snarls).
+    stList* cactus_chains_list = snarls->topLevelChains;
+    
     // copy back to our C++ tree interface (ultrabubble as added to child_list of out_node)
     // in to new ultrabubble code, we no longer have tree root.  instead, we shoehorn
     // dummy root onto tree just to preserve old interface for now.
     ultrabubble_recurse(graph, cactus_chains_list, NodeSide(), NodeSide(), out_tree->root);
-
-    // free the C bubbles
-    stList_destruct(cactus_chains_list);
+    
+    // Free the decomposition
+    stSnarlDecomposition_destruct(snarls);
+    
+    // Free the telomeres
+    stList_destruct(telomeres);
 
     // free the cactus graph
     stCactusGraph_destruct(cactus_graph);
