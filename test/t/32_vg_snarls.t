@@ -20,8 +20,5 @@ vg view -J -v snarls/snarls.json > snarls.vg
 is $(vg snarls snarls.vg -r st.pb | vg view -R - | wc -l) 3 "vg snarls made right number of protobuf Snarls"
 is $(vg view -E st.pb | wc -l) 6 "vg snarls made right number of protobuf SnarlTraversals"
 
-rm -f snarls.vg sb.txt cb.txt st.pb 
+rm -f snarls.vg st.pb 
 
-vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg mod -X 1 - > tiny.vg
-
-rm sb.txt cb.txt tiny.vg
