@@ -515,7 +515,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                         if (use_diff_based_fast_reseed) {
                             find_sub_mems_fast(mems,
                                                i,
-                                               mems[i].begin,
+                                               (i+1 < mems.size() ? mems[i+1].begin : seq_begin),
                                                max<int>(ceil(fast_reseed_length_diff * mem_length),
                                                         min_mem_length),
                                                sub_mems);
@@ -523,14 +523,14 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                         else {
                             find_sub_mems_fast(mems,
                                                i,
-                                               mems[i].begin,
+                                               (i+1 < mems.size() ? mems[i+1].begin : seq_begin),
                                                min_mem_length,
                                                sub_mems);
                         }
                     } else {
                         find_sub_mems(mems,
                                       i,
-                                      mems[i].begin,
+                                      (i+1 < mems.size() ? mems[i+1].begin : seq_begin),
                                       min_mem_length,
                                       sub_mems);
                     }
