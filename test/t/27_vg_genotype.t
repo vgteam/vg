@@ -29,9 +29,9 @@ vg sim -s 1337 -n 0 -x tiny.vg.xg -l 30 > reads.txt
 vg map -r reads.txt -g tiny.vg.gcsa -x tiny.vg.xg > tiny.gam
 vg index -d tiny.gam.index -N tiny.gam
 
-is "$(vg genotype tiny.vg tiny.gam.index -Sp --ref notARealPath 2>&1 | grep 'Found 0 superbubbles' | wc -l)" "1" "vg genotype finds no superbubbles for an empty subset"
+is "$(vg genotype tiny.vg tiny.gam.index -Sp --ref notARealPath 2>&1 | grep 'Found 0 ultrabubbles' | wc -l)" "1" "vg genotype finds no ultrabubbles for an empty subset"
 
-is "$(vg genotype tiny.vg tiny.gam.index -vSp 2>&1 | grep 'Found 9 superbubbles' | wc -l)" "1" "vg genotype finds few superbubbles for a subset of just the reference"
+is "$(vg genotype tiny.vg tiny.gam.index -vSp 2>&1 | grep 'Found 9 ultrabubbles' | wc -l)" "1" "vg genotype finds few ultrabubbles for a subset of just the reference"
 
 rm -Rf tiny.vg tiny.vg.xg tiny.vg.gcsa tiny.gam.index tiny.gam reads.txt
 
