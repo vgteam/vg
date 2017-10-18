@@ -9,10 +9,13 @@
 #include "utility.hpp"
 #include "nodeside.hpp"
 
+#include "sonLib.h"
+
 #include "DetectSuperBubble.hpp"
 extern "C" {
     typedef struct _stCactusGraph stCactusGraph;
-    typedef struct _stCactusNode stCactusNode;;
+    typedef struct _stCactusNode stCactusNode;
+    typedef struct _stList stList;
 }
 
 using namespace std;
@@ -56,8 +59,8 @@ typedef Tree<Bubble> BubbleTree;
 // Convert VG to Cactus Graph
 // Notes:
 //  - returned cactus graph needs to be freed by stCactusGraph_destruct
-//  - returns "root" node as well as graph
-pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph);
+//  - returns a Cactus graph, and a list of stCactusEdgeEnd* telomeres, in pairs of adjacent items.
+pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph);
 
 // Return the hierchical cactus decomposition
 // The root node is meaningless.  Its children are the top level chains.

@@ -166,8 +166,99 @@ void* mergeNodeObjects(void* a, void* b) {
     return (void*)to_return;
 }
 
-// Step 2) Make a Cactus Graph
-pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph) {
+/**
+ * Get the bridge ends that form boundary pairs with edgeEnd1, using the given
+ * getBridgeEdgeEndsToBridgeNodes hash map. Duplicated from the pinchesAndCacti
+ * tests.
+ */
+void getReachableBridges2(stCactusEdgeEnd *edgeEnd1,
+        stHash *bridgeEndsToBridgeNodes, stList *bridgeEnds) {
+    assert(edgeEnd1->link == NULL); // is a bridge
+
+    // The node in the bridge graph incident with edgeEnd1
+    stBridgeNode *bNode = (stBridgeNode*)stHash_search(bridgeEndsToBridgeNodes, edgeEnd1);
+
+    // Walk from bNode to all the reachable nodes
+    stSetIterator *endIt = stSet_getIterator(bNode->bridgeEnds);
+    stCactusEdgeEnd *edgeEnd2;
+    while((edgeEnd2 = (stCactusEdgeEnd*)stSet_getNext(endIt)) != NULL) {
+        if(edgeEnd2 != edgeEnd1) {
+            stList_append(bridgeEnds, edgeEnd2);
+            getReachableBridges2(edgeEnd2->otherEdgeEnd, bridgeEndsToBridgeNodes, bridgeEnds);
+        }
+    }
+    stSet_destructIterator(endIt);
+}
+
+/**
+ * Get the bridge ends that form boundary pairs with edgeEnd1.
+ * Duplicated from the pinchesAndCacti tests.
+ */
+void getReachableBridges(stCactusEdgeEnd *edgeEnd1, stList *bridgeEnds) {
+
+    // Get bridge graph and map of bridge ends to bridge nodes in the bridge graph
+    stBridgeGraph *bGraph = stBridgeGraph_getBridgeGraph(edgeEnd1->node);
+    stHash *bridgeEndsToBridgeNodes = stBridgeGraph_getBridgeEdgeEndsToBridgeNodesHash(bGraph);
+
+    // Do DFS to get reachable bridges
+    getReachableBridges2(edgeEnd1, bridgeEndsToBridgeNodes, bridgeEnds);
+
+    // Cleanup
+    stHash_destruct(bridgeEndsToBridgeNodes);
+    stBridgeGraph_destruct(bGraph);
+}
+
+/**
+ * Finds an arbitrary pair of telomeres in a Cactus graph, which are are either
+ * a pair of bridge edge ends or a pair of chain edge ends, oriented such that
+ * they form a pair of boundaries.
+ *
+ * Mostly copied from the pinchesAndCacti unit tests.
+ */
+void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) {
+
+    // If empty graph, print warning and exit
+    if(ends.empty()) {
+        throw runtime_error("Empty graph, no telomeres to select");
+    }
+
+    // Pick an arbitrary edge end
+    stCactusEdgeEnd *edgeEnd1 = ends.front();
+
+    // Now find a compatible end
+    stCactusEdgeEnd *edgeEnd2;
+
+    // If a chain end
+    if(edgeEnd1->link != NULL) {
+        // Get another elligible edge end in the chain that forms a pair of boundaries
+        edgeEnd2 = edgeEnd1->link;
+        
+        // TODO: we could also follow edgeEnd2->otherEdgeEnd->link and get another
+        // valid option, until we start to circle around and repeat.
+    } else {
+        // Else, is a bridge end.
+        // Get the other bridges in the subtree.
+        stList *bridgeEnds = stList_construct();
+        getReachableBridges(edgeEnd1, bridgeEnds);
+        stList_append(bridgeEnds, edgeEnd1); // Case it is a unary top-level snarl
+
+        // Get an arbitrary list member
+        edgeEnd2 = (stCactusEdgeEnd*)stList_get(bridgeEnds, 0);
+
+        // Cleanup
+        stList_destruct(bridgeEnds);
+    }
+
+    // Add to telomeres
+    stList_append(telomeres, edgeEnd1);
+    stList_append(telomeres, edgeEnd2);
+}
+
+
+// Step 2) Make a Cactus Graph. Returns the graph and a list of paired
+// cactusEdgeEnd telomeres, one after the other. Both members of the return
+// value must be destroyed.
+pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
 
     // in a cactus graph, every node is an adjacency component.
     // every edge is a *vg* node connecting the component
@@ -179,6 +270,9 @@ pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph) {
 
     // map cactus nodes back to components
     vector<stCactusNode*> cactus_nodes(components.size());
+    
+    // Keep track of all the edge ends
+    vector<stCactusEdgeEnd*> edge_ends;
 
     // create cactus graph
     stCactusGraph* cactus_graph = stCactusGraph_construct2(free, free);
@@ -186,7 +280,7 @@ pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph) {
     // copy each component into cactus node
     for (int i = 0; i < components.size(); ++i) {
 #ifdef debug
-        cout << "Creating cactus node for compontnet " << i << " with size " << components[i].size() << endl;
+        cout << "Creating cactus node for component " << i << " with size " << components[i].size() << endl;
 #endif
         id_t* cactus_node_id = (id_t*)malloc(sizeof(id_t));
         *cactus_node_id = i;
@@ -220,6 +314,8 @@ pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph) {
                     cac_side1,
                     cac_side2);
                 created_edges.insert(side.node);
+                // Remember the edge end so we can potentially use it to find telomeres
+                edge_ends.push_back(cactus_edge);
             }
         }
     }
@@ -227,8 +323,14 @@ pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph) {
     // collapse 3-edge connected components to make actual cactus graph. 
     stCactusGraph_collapseToCactus(
         cactus_graph, mergeNodeObjects, cactus_nodes[0]);
+        
+    // Define a list of telomeres
+    stList *telomeres = stList_construct();
+        
+    // Find arbitrary telomeres
+    addArbitraryTelomerePair(edge_ends, telomeres);
 
-    return make_pair(cactus_graph, cactus_nodes[0]);
+    return make_pair(cactus_graph, telomeres);
 }
 
 // fill in the "acyclic" and "contents" field of a bubble by doing a depth first search
@@ -350,15 +452,11 @@ BubbleTree* ultrabubble_tree(VG& graph) {
         return new BubbleTree(new BubbleTree::Node());
     }
     // convert to cactus
-    pair<stCactusGraph*, stCactusNode*> cac_pair = vg_to_cactus(graph);
+    pair<stCactusGraph*, stList*> cac_pair = vg_to_cactus(graph);
     stCactusGraph* cactus_graph = cac_pair.first;
-    stCactusNode* root_node = cac_pair.second;
+    stList* telomeres = cac_pair.second;
 
     BubbleTree* out_tree = new BubbleTree(new BubbleTree::Node());
-
-    // Define a list of telomeres
-    // TODO: do we have to actually supply any?
-    stList *telomeres = stList_construct();
 
     // get the snarl decomposition as a C struct
     stSnarlDecomposition *snarls = stCactusGraph_getSnarlDecomposition(cactus_graph, telomeres);
@@ -449,7 +547,9 @@ VG cactusify(VG& graph) {
     if (graph.size() == 0) {
         return VG();
     }
-    stCactusGraph* cactus_graph = vg_to_cactus(graph).first;
+    auto parts = vg_to_cactus(graph);
+    stList_destruct(parts.second);
+    stCactusGraph* cactus_graph = parts.first;
     VG out_graph = cactus_to_vg(cactus_graph);
     stCactusGraph_destruct(cactus_graph);
     return out_graph;
