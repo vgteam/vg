@@ -2,6 +2,7 @@
 #include "bubbles.hpp"
 #include "vg.hpp"
 #include "algorithms/topological_sort.hpp"
+#include "algorithms/weakly_connected_components.hpp"
 
 extern "C" {
 #include "sonLib.h"
@@ -324,29 +325,26 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     stList *telomeres = stList_construct();
     
     // Now we decide on telomere pairs.
-    // We need one for each (strongly?) component in the graph, so first we break into connected components.
-    auto components_set = graph.strongly_connected_components();
-    
-    // We need them in an order
-    vector<set<id_t>> strong_components{components_set.begin(), components_set.end()};
+    // We need one for each weakly connected component in the graph, so first we break into connected components.
+    vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components(&graph);
        
     // Then we find the heads and tails
     auto all_heads = algorithms::head_nodes(&graph);
     auto all_tails = algorithms::tail_nodes(&graph);
     
     // Alot them to components
-    vector<pair<vector<handle_t>, vector<handle_t>>> component_heads_and_tails(strong_components.size());
+    vector<pair<vector<handle_t>, vector<handle_t>>> component_heads_and_tails(weak_components.size());
     for (auto& head : all_heads) {
-        for (size_t i = 0; i < strong_components.size(); i++) {
-            if (strong_components[i].count(graph.get_id(head))) {
+        for (size_t i = 0; i < weak_components.size(); i++) {
+            if (weak_components[i].count(graph.get_id(head))) {
                 component_heads_and_tails[i].first.push_back(head);
                 cerr << "Found head " << graph.get_id(head) << " in component " << i << endl;
             }
         }
     }
     for (auto& tail : all_tails) {
-        for (size_t i = 0; i < strong_components.size(); i++) {
-            if (strong_components[i].count(graph.get_id(tail))) {
+        for (size_t i = 0; i < weak_components.size(); i++) {
+            if (weak_components[i].count(graph.get_id(tail))) {
                 component_heads_and_tails[i].second.push_back(tail);
                 cerr << "Found tail " << graph.get_id(tail) << " in component " << i << endl;
             }
@@ -356,8 +354,19 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     for (auto& heads_and_tails : component_heads_and_tails) {
         if (!heads_and_tails.first.empty() && !heads_and_tails.second.empty()) {
             // If we have both a head and a tail, we add an arbitrary pairing of them
-            stList_append(telomeres, edge_ends[graph.get_id(heads_and_tails.first.front())]);
-            stList_append(telomeres, edge_ends[graph.get_id(heads_and_tails.second.front())]);
+            stCactusEdgeEnd* end1 = edge_ends[graph.get_id(heads_and_tails.first.front())];
+            // Make sure to flip the head around so it points the right way for it and the tail to oppose each other.
+            stList_append(telomeres, end1->otherEdgeEnd);
+            cerr << "Feed in " << end1->otherEdgeEnd << " opposite " << end1->otherEdgeEnd->otherEdgeEnd << " and linked with "
+                << end1->otherEdgeEnd->link << " orientation " << end1->otherEdgeEnd->linkOrientation << " and chain end " << end1->otherEdgeEnd->isChainEnd << endl;
+            cerr << "Opposite is " << end1 << " opposite " << end1->otherEdgeEnd << " and linked with "
+                << end1->link << " orientation " << end1->linkOrientation << " and chain end " << end1->isChainEnd << endl;
+            stCactusEdgeEnd* end2 = edge_ends[graph.get_id(heads_and_tails.second.front())];
+            stList_append(telomeres, end2);
+            cerr << "Feed in " << end2 << " opposite " << end2->otherEdgeEnd << " and linked with "
+                << end2->link << " orientation " << end2->linkOrientation << " and chain end " << end2->isChainEnd << endl;
+             cerr << "Opposite is " << end2->otherEdgeEnd << " opposite " << end2->otherEdgeEnd->otherEdgeEnd << " and linked with "
+                << end2->otherEdgeEnd->link << " orientation " << end2->otherEdgeEnd->linkOrientation << " and chain end " << end2->otherEdgeEnd->isChainEnd << endl;
         } else {
             // Otherwise, we explode?
             throw runtime_error("Could not find both a head and a tail in a connected component");
