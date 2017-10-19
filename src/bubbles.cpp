@@ -306,6 +306,8 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
                 cout << "Creating cactus edge for sides " << side << " -- " << other_side << ": "
                      << i << " -> " << j << endl;
 #endif
+
+                // We get the cactusEdgeEnd corresponding to the local left (start) of the node.
                 stCactusEdgeEnd* cactus_edge = stCactusEdgeEnd_construct(
                     cactus_graph,
                     cactus_nodes[i],
@@ -350,6 +352,23 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
             }
         }
     }
+    
+    // TODO: Combine head and tail into tips.
+    
+    // TODO: For each weakly connected component
+    
+    // TODO: Pick a pair of tips that appear at the ends of the longest named
+    // path
+    
+    // TODO: Otherwise, compute tip reachability and distance by Dijkstra's
+    // Algorithm and pick the pair of reachable tips with the longest shortest
+    // paths
+    
+    // TODO: Otherwise, we have to be cyclic, so find the biggest cycle
+    // (strongly connected component) in the weakly connected component, pick an
+    // arbitrary node, and pick the outward-facing ends of the node.
+
+    // TODO: For now we just pick an arbitrary head and tail in each component.
 
     for (auto& heads_and_tails : component_heads_and_tails) {
         if (!heads_and_tails.first.empty() && !heads_and_tails.second.empty()) {
@@ -357,16 +376,10 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
             stCactusEdgeEnd* end1 = edge_ends[graph.get_id(heads_and_tails.first.front())];
             // Make sure to flip the head around so it points the right way for it and the tail to oppose each other.
             stList_append(telomeres, end1->otherEdgeEnd);
-            cerr << "Feed in " << end1->otherEdgeEnd << " opposite " << end1->otherEdgeEnd->otherEdgeEnd << " and linked with "
-                << end1->otherEdgeEnd->link << " orientation " << end1->otherEdgeEnd->linkOrientation << " and chain end " << end1->otherEdgeEnd->isChainEnd << endl;
-            cerr << "Opposite is " << end1 << " opposite " << end1->otherEdgeEnd << " and linked with "
-                << end1->link << " orientation " << end1->linkOrientation << " and chain end " << end1->isChainEnd << endl;
+            
             stCactusEdgeEnd* end2 = edge_ends[graph.get_id(heads_and_tails.second.front())];
             stList_append(telomeres, end2);
-            cerr << "Feed in " << end2 << " opposite " << end2->otherEdgeEnd << " and linked with "
-                << end2->link << " orientation " << end2->linkOrientation << " and chain end " << end2->isChainEnd << endl;
-             cerr << "Opposite is " << end2->otherEdgeEnd << " opposite " << end2->otherEdgeEnd->otherEdgeEnd << " and linked with "
-                << end2->otherEdgeEnd->link << " orientation " << end2->otherEdgeEnd->linkOrientation << " and chain end " << end2->otherEdgeEnd->isChainEnd << endl;
+            
         } else {
             // Otherwise, we explode?
             throw runtime_error("Could not find both a head and a tail in a connected component");
