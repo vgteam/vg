@@ -10,7 +10,7 @@ namespace vg {
     // genotyper:
     // use graph and reads to:
     // - Augment graph
-    // - Find superbubbles or cactus branches to determine sites
+    // - Find ultrabubbles or cactus branches to determine sites
     // - Generate proposals for paths through each site (from reads?)
     // - Compute affinities of each read for each proposed path through a site
     // - Compute diploid genotypes for each site
@@ -728,7 +728,7 @@ namespace vg {
                 cerr << "Looking at subset of " << subset.size() << " nodes" << endl;
             }
 
-            // Unfold/unroll, find the superbubbles, and translate back. Note that
+            // Unfold/unroll, find the ultrabubbles, and translate back. Note that
             // we can only use Cactus with the ref path if it survived the
             // subsetting.
 
@@ -754,7 +754,7 @@ namespace vg {
                 cerr << "Looking at graph of " << graph.size() << " nodes" << endl;
             }
 
-            // Unfold/unroll, find the superbubbles, and translate back.
+            // Unfold/unroll, find the ultrabubbles, and translate back.
             algorithms::sort(&graph);
             sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
             : find_sites_with_supbub(graph);
@@ -792,7 +792,7 @@ namespace vg {
         if(show_progress) {
 #pragma omp critical (cerr)
             {
-                cerr << "Found " << sites.size() << " superbubbles" << endl;
+                cerr << "Found " << sites.size() << " ultrabubbles" << endl;
                 // for (auto x : sites){
                 //     cout << x.start.node->id() << " ";
                 //     for (auto y : x.contents){
@@ -903,7 +903,7 @@ namespace vg {
                         // not have passed the min recurrence filter. So we can't
                         // skip things yet.
                         if(paths.empty()) {
-                            // Don't do anything for superbubbles with no routes through
+                            // Don't do anything for ultrabubbles with no routes through
                             if(show_progress) {
 #pragma omp critical (cerr)
                                 cerr << "Site " << site.start << " - " << site.end << " has " << paths.size() <<
@@ -1021,7 +1021,7 @@ namespace vg {
                             // Get a genotyped locus in the original frame
                             Locus genotyped = genotype_site(graph, site, paths, affinities);
                             if (output_vcf) {
-                                // Get 0 or more variants from the superbubble
+                                // Get 0 or more variants from the ultrabubble
                                 vector<vcflib::Variant> variants =
                                     locus_to_variant(graph, site, *reference_index, *vcf, genotyped, sample_name);
                                 for(auto& variant : variants) {
@@ -1220,17 +1220,17 @@ namespace vg {
         dag_translation.clear();
         unfold_translation.clear();
 
-        // Find the superbubbles in the DAG
-        map<pair<id_t, id_t>, vector<id_t>> superbubbles = vg::superbubbles(transformed);
+        // Find the ultrabubbles in the DAG
+        map<pair<id_t, id_t>, vector<id_t>> ultrabubbles = vg::ultrabubbles(transformed);
 
-        for(auto& superbubble : superbubbles) {
+        for(auto& ultrabubble : ultrabubbles) {
 
-            // Translate the superbubble coordinates into NodeTraversals.
+            // Translate the ultrabubble coordinates into NodeTraversals.
             // This is coming from a DAG so we only need to look at the translation for orientation.
-            auto& start_translation = overall_translation[superbubble.first.first];
+            auto& start_translation = overall_translation[ultrabubble.first.first];
             NodeTraversal start(graph.get_node(start_translation.first), start_translation.second);
 
-            auto& end_translation = overall_translation[superbubble.first.second];
+            auto& end_translation = overall_translation[ultrabubble.first.second];
             NodeTraversal end(graph.get_node(end_translation.first), end_translation.second);
 
             // Make a Site and tell it where to start and end
@@ -1238,7 +1238,7 @@ namespace vg {
             site.start = start;
             site.end = end;
 
-            for(auto id : superbubble.second) {
+            for(auto id : ultrabubble.second) {
                 // Translate each ID and put it in the set
                 Node* node = graph.get_node(overall_translation[id].first);
             }
@@ -1265,7 +1265,7 @@ namespace vg {
 
         bubble_tree->for_each_preorder([&](BubbleTree::Node* node) {
                 Bubble& bubble = node->v;
-                // cut root to be consistent with superbubbles()
+                // cut root to be consistent with ultrabubbles()
                 if (node != bubble_tree->root) {
                 set<id_t> nodes{bubble.contents.begin(), bubble.contents.end()};
                 NodeTraversal start(graph.get_node(bubble.start.node), !bubble.start.is_end);
@@ -1475,10 +1475,10 @@ namespace vg {
     }
 
 
-    // TODO properly handle cycles inside superbubble by including multiplicity of an edge in a path
+    // TODO properly handle cycles inside ultrabubble by including multiplicity of an edge in a path
     void Genotyper::edge_allele_labels(const VG& graph,
             const Site& site,
-            const vector<list<NodeTraversal>>& superbubble_paths,
+            const vector<list<NodeTraversal>>& ultrabubble_paths,
             unordered_map<pair<NodeTraversal, NodeTraversal>,
             unordered_set<size_t>,
             hash_oriented_edge>* out_edge_allele_sets)
@@ -1488,8 +1488,8 @@ namespace vg {
         *out_edge_allele_sets = unordered_map<pair<NodeTraversal, NodeTraversal>, unordered_set<size_t>, hash_oriented_edge>();
         unordered_map<pair<NodeTraversal, NodeTraversal>, unordered_set<size_t>, hash_oriented_edge>& edge_allele_sets = *out_edge_allele_sets;
 
-        for (size_t i = 0; i < superbubble_paths.size(); i++) {
-            list<NodeTraversal> path = superbubble_paths[i];
+        for (size_t i = 0; i < ultrabubble_paths.size(); i++) {
+            list<NodeTraversal> path = ultrabubble_paths[i];
             // start at second node so we can look at edge leading into it
             auto iter = path.begin();
             iter++;
@@ -1520,7 +1520,7 @@ namespace vg {
     // find the log conditional probability of each ambiguous allele set given each true allele
     void Genotyper::allele_ambiguity_log_probs(const VG& graph,
             const Site& site,
-            const vector<list<NodeTraversal>>& superbubble_paths,
+            const vector<list<NodeTraversal>>& ultrabubble_paths,
             const unordered_map<pair<NodeTraversal, NodeTraversal>,
             unordered_set<size_t>,
             hash_oriented_edge>& edge_allele_sets,
@@ -1528,14 +1528,14 @@ namespace vg {
     {
         *out_allele_ambiguity_probs = vector<unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>>();
         vector<unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>>& ambiguous_allele_probs = *out_allele_ambiguity_probs;
-        ambiguous_allele_probs.reserve(superbubble_paths.size());
+        ambiguous_allele_probs.reserve(ultrabubble_paths.size());
 
-        for (size_t i = 0; i < superbubble_paths.size(); i++) {
+        for (size_t i = 0; i < ultrabubble_paths.size(); i++) {
             ambiguous_allele_probs[i] = unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>();
             unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>& allele_probs = ambiguous_allele_probs[i];
-            list<NodeTraversal> path = superbubble_paths[i];
+            list<NodeTraversal> path = ultrabubble_paths[i];
 
-            // consider both prefixes and suffixes that partially cross the superbubble
+            // consider both prefixes and suffixes that partially cross the ultrabubble
             for (bool forward : {true, false}) {
                 // the set of alleles that this prefix of the current allele is consistent with
                 unordered_set<size_t> prefix_allele_set;
@@ -1545,13 +1545,13 @@ namespace vg {
                 list<NodeTraversal>::iterator iter;
                 list<NodeTraversal>::iterator final;
                 if (forward) {
-                    // extend prefix forward through the superbubble
+                    // extend prefix forward through the ultrabubble
                     iter = path.begin();
                     final = path.end();
                     final--;
                 }
                 else {
-                    // extend suffix backward through the superbubble
+                    // extend suffix backward through the ultrabubble
                     iter = path.end();
                     iter--;
                     final = path.begin();
@@ -1634,7 +1634,7 @@ namespace vg {
         Genotyper::get_affinities(VG& graph,
                 const map<string, Alignment*>& reads_by_name,
                 const Site& site,
-                const vector<list<NodeTraversal>>& superbubble_paths) {
+                const vector<list<NodeTraversal>>& ultrabubble_paths) {
 
             // Grab our thread ID, which determines which aligner we get.
             int tid = omp_get_thread_num();
@@ -1642,16 +1642,16 @@ namespace vg {
             // We're going to build this up gradually, appending to all the vectors.
             map<Alignment*, vector<Affinity>> to_return;
 
-            // What reads are relevant to this superbubble?
+            // What reads are relevant to this ultrabubble?
             set<string> relevant_read_names;
 
 #ifdef debug
 #pragma omp critical (cerr)
-            cerr << "Superbubble contains " << site.contents.size() << " nodes" << endl;
+            cerr << "Ultrabubble contains " << site.contents.size() << " nodes" << endl;
 #endif
 
             for(auto id : site.contents) {
-                // For every node in the superbubble, what paths visit it?
+                // For every node in the ultrabubble, what paths visit it?
                 if(graph.paths.has_node_mapping(id)) {
                     auto& mappings_by_name = graph.paths.get_node_mapping(id);
                     for(auto& name_and_mappings : mappings_by_name) {
@@ -1678,7 +1678,7 @@ namespace vg {
             }
 
             for(auto id : site.contents) {
-                // Throw out all the IDs that are also used in the superbubble itself
+                // Throw out all the IDs that are also used in the ultrabubble itself
                 relevant_ids.erase(id);
             }
 
@@ -1688,7 +1688,7 @@ namespace vg {
 #endif
 
             // Make a vg graph with all the nodes used by the reads relevant to the
-            // superbubble, but outside the superbubble itself.
+            // ultrabubble, but outside the ultrabubble itself.
             VG surrounding;
             for(auto id : relevant_ids) {
                 // For all the IDs in the surrounding material
@@ -1703,13 +1703,13 @@ namespace vg {
                 }
 
                 // Add each node and its edges to the new graph. Ignore dangling edges.
-                // We'll keep edges dangling to the superbubble anchor nodes.
+                // We'll keep edges dangling to the ultrabubble anchor nodes.
                 surrounding.add_node(*graph.get_node(id));
                 surrounding.add_edges(graph.edges_of(graph.get_node(id)));
             }
 
-            for(auto& path : superbubble_paths) {
-                // Now for each superbubble path, make a copy of that graph with it in
+            for(auto& path : ultrabubble_paths) {
+                // Now for each ultrabubble path, make a copy of that graph with it in
                 VG allele_graph(surrounding);
 
                 for(auto it = path.begin(); it != path.end(); ++it) {
@@ -1751,12 +1751,12 @@ namespace vg {
                 auto path_seq = traversals_to_string(path);
 
                 for(auto& name : relevant_read_names) {
-                    // For every read that touched the superbubble, grab its original
+                    // For every read that touched the ultrabubble, grab its original
                     // Alignment pointer.
                     Alignment* read = reads_by_name.at(name);
 
                     // Look to make sure it touches more than one node actually in the
-                    // superbubble, or a non-start, non-end node. If it just touches the
+                    // ultrabubble, or a non-start, non-end node. If it just touches the
                     // start or just touches the end, it can't be informative.
                     set<id_t> touched_set;
                     // Will this read be informative?
@@ -1765,7 +1765,7 @@ namespace vg {
                         // Look at every node the read touches
                         id_t touched = read->path().mapping(i).position().node_id();
                         if(site.contents.count(touched)) {
-                            // If it's in the superbubble, keep it
+                            // If it's in the ultrabubble, keep it
                             touched_set.insert(touched);
                         }
                     }
@@ -1784,12 +1784,12 @@ namespace vg {
                     }
 
                     if(!informative) {
-                        // We only touch one of the start and end nodes, and can say nothing about the superbubble. Try the next read.
+                        // We only touch one of the start and end nodes, and can say nothing about the ultrabubble. Try the next read.
                         // TODO: mark these as ambiguous/consistent with everything (but strand?)
                         continue;
                     }
 
-                    // If we get here, we know this read is informative as to the internal status of this superbubble.
+                    // If we get here, we know this read is informative as to the internal status of this ultrabubble.
                     Alignment aligned_fwd;
                     Alignment aligned_rev;
                     // We need a way to get graph node sizes to reverse these alignments
@@ -1890,14 +1890,14 @@ namespace vg {
                         affinity.consistent = false;
                     }
 
-                    // Grab the identity and save it for this read and superbubble path
+                    // Grab the identity and save it for this read and ultrabubble path
                     to_return[read].push_back(affinity);
 
                 }
             }
 
             for(auto& name : relevant_read_names) {
-                // For every read that touched the superbubble, mark it consistent only
+                // For every read that touched the ultrabubble, mark it consistent only
                 // with its best-score alleles that don't mismatch in the allele.
 
                 // So basically make everything that isn't normalized affinity 1.0
@@ -1940,7 +1940,7 @@ namespace vg {
 
             }
 
-            // After scoring all the reads against all the versions of the superbubble,
+            // After scoring all the reads against all the versions of the ultrabubble,
             // return the affinities
             return to_return;
         }
@@ -1977,29 +1977,29 @@ namespace vg {
         Genotyper::get_affinities_fast(VG& graph,
                 const map<string, Alignment*>& reads_by_name,
                 const Site& site,
-                const vector<list<NodeTraversal> >& superbubble_paths,
+                const vector<list<NodeTraversal> >& ultrabubble_paths,
                 bool allow_internal_alignments) {
 
             // We're going to build this up gradually, appending to all the vectors.
             map<Alignment*, vector<Affinity>> to_return;
 
-            // What reads are relevant to this superbubble?
+            // What reads are relevant to this ultrabubble?
             set<string> relevant_read_names;
 
 #ifdef debug
 #pragma omp critical (cerr)
-            cerr << "Superbubble contains " << site.contents.size() << " nodes" << endl;
+            cerr << "Ultrabubble contains " << site.contents.size() << " nodes" << endl;
 #endif
 
             // Convert all the Paths used for alleles back to their strings.
             vector<string> allele_strings;
-            for(auto& path : superbubble_paths) {
+            for(auto& path : ultrabubble_paths) {
                 // Convert all the Paths used for alleles back to their strings.
                 allele_strings.push_back(traversals_to_string(path));
             }
 
             for(auto id : site.contents) {
-                // For every node in the superbubble, what paths visit it?
+                // For every node in the ultrabubble, what paths visit it?
                 if(graph.paths.has_node_mapping(id)) {
                     auto& mappings_by_name = graph.paths.get_node_mapping(id);
                     for(auto& name_and_mappings : mappings_by_name) {
@@ -2014,7 +2014,7 @@ namespace vg {
             }
 
             for(auto name : relevant_read_names) {
-                // For each relevant read, work out a string for the superbubble and whether
+                // For each relevant read, work out a string for the ultrabubble and whether
                 // it's anchored on each end.
 
                 // Make an Affinity to fill in
@@ -2105,7 +2105,7 @@ namespace vg {
             }
 
 
-            // After scoring all the reads against all the versions of the superbubble,
+            // After scoring all the reads against all the versions of the ultrabubble,
             // return the affinities
             return to_return;
         }
@@ -2445,7 +2445,7 @@ namespace vg {
 
     Locus Genotyper::genotype_site(VG& graph,
             const Site& site,
-            const vector<list<NodeTraversal>>& superbubble_paths,
+            const vector<list<NodeTraversal>>& ultrabubble_paths,
             const map<Alignment*, vector<Affinity>>& affinities) {
 
         // Freebayes way (improved with multi-support)
@@ -2453,7 +2453,7 @@ namespace vg {
         // We're going to populate this locus
         Locus to_return;
 
-        for(auto& path : superbubble_paths) {
+        for(auto& path : ultrabubble_paths) {
             // Convert each allele to a Path and put it in the locus
             *to_return.add_allele() = path_from_node_traversals(path);
         }
@@ -2467,9 +2467,9 @@ namespace vg {
         vector<pair<Alignment*, vector<Affinity>>> alignment_consistency;
 
         // We fill this in with totals of reads supporting alleles
-        vector<int> reads_consistent_with_allele(superbubble_paths.size(), 0);
+        vector<int> reads_consistent_with_allele(ultrabubble_paths.size(), 0);
         // And this with the same thing split out by forward and reverse strand
-        vector<pair<int, int>> strand_support_for_allele(superbubble_paths.size(), make_pair(0, 0));
+        vector<pair<int, int>> strand_support_for_allele(ultrabubble_paths.size(), make_pair(0, 0));
 
         // We'll store affinities by read name and allele here, for printing later.
         map<string, vector<Affinity>> debug_affinities;
@@ -2537,10 +2537,10 @@ namespace vg {
         }
 
 #ifdef debug
-        for(int i = 0; i < superbubble_paths.size(); i++) {
+        for(int i = 0; i < ultrabubble_paths.size(); i++) {
             // Build a useful name for the allele
             stringstream allele_name;
-            for(auto& traversal : superbubble_paths[i]) {
+            for(auto& traversal : ultrabubble_paths[i]) {
                 allele_name << traversal.node->id() << ",";
             }
 #pragma omp critical (cerr)
@@ -2562,7 +2562,7 @@ namespace vg {
         // in here, and then sort them to find the best.
         vector<Genotype> genotypes_sorted;
 
-        for(int allele1 = 0; allele1 < superbubble_paths.size(); allele1++) {
+        for(int allele1 = 0; allele1 < ultrabubble_paths.size(); allele1++) {
             // For each first allele in the genotype
             for(int allele2 = 0; allele2 <= allele1; allele2++) {
                 // For each second allele so we get all order-independent combinations
@@ -2612,7 +2612,7 @@ namespace vg {
                 return a.log_posterior() > b.log_posterior();
                 });
 
-        for(size_t i = 0; i < superbubble_paths.size(); i++) {
+        for(size_t i = 0; i < ultrabubble_paths.size(); i++) {
             // For each allele, make a support
             Support* support = to_return.add_support();
             // Set forward and reverse depth
@@ -2638,8 +2638,8 @@ namespace vg {
         stream << "##fileformat=VCFv4.2" << std::endl;
         stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << std::endl;
         stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << std::endl;
-        stream << "##INFO=<ID=XSBB,Number=1,Type=Integer,Description=\"Superbubble Bases\">" << std::endl;
-        stream << "##INFO=<ID=XSBN,Number=1,Type=Integer,Description=\"Superbubble Nodes\">" << std::endl;
+        stream << "##INFO=<ID=XSBB,Number=1,Type=Integer,Description=\"Ultrabubble Bases\">" << std::endl;
+        stream << "##INFO=<ID=XSBN,Number=1,Type=Integer,Description=\"Ultrabubble Nodes\">" << std::endl;
         stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << std::endl;
         stream << "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">" << std::endl;
         stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
@@ -2701,14 +2701,14 @@ namespace vg {
                 throw runtime_error("Can't turn an empty allele into VCF");
             }
 
-            // Get the superbubble    
+            // Get the ultrabubble    
             auto first_id = site.start.node->id();
             auto last_id = site.end.node->id();
 
             if(!index.by_id.count(first_id) || !index.by_id.count(last_id)) {
                 // We need to be anchored to the primary path to make a variant
 #pragma omp critical (cerr)
-                cerr << "Warning: Superbubble endpoints not on reference!" << endl;
+                cerr << "Warning: Ultrabubble endpoints not on reference!" << endl;
                 // If not return no variant
                 return to_return;
             }
@@ -2904,13 +2904,13 @@ namespace vg {
             variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
 
             // Also the site statistics
-            // Superbubble bases
-            size_t superbubble_bases = 0;
+            // Ultrabubble bases
+            size_t ultrabubble_bases = 0;
             for(auto& node_id : site.contents) {
-                superbubble_bases += graph.get_node(node_id)->sequence().size();
+                ultrabubble_bases += graph.get_node(node_id)->sequence().size();
             }
-            variant.info["XSBB"].push_back(to_string(superbubble_bases));
-            // Superbubble nodes
+            variant.info["XSBB"].push_back(to_string(ultrabubble_bases));
+            // Ultrabubble nodes
             variant.info["XSBN"].push_back(to_string(site.contents.size()));
 
             variant.format.push_back("GQ");
