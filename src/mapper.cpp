@@ -2978,79 +2978,6 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     }
 }
 
-/*
-void Mapper::cached_graph_context(VG& graph,
-                                  const pos_t& pos,
-                                  int length,
-                                  LRUCache<id_t, Node>& node_cache,
-                                  LRUCache<id_t, vector<Edge> >& edge_cache) {
-    // walk the graph from this position forward
-    // adding the nodes we run into to the graph
-    set<pos_t> seen;
-    set<pos_t> nexts;
-    nexts.insert(pos);
-    int64_t distance = -offset(pos); // don't count what we won't traverse
-    while (!nexts.empty()) {
-        set<pos_t> todo;
-        int nextd = 0;
-        for (auto& next : nexts) {
-            if (!seen.count(next)) {
-                seen.insert(next);
-                // add the node and its edges to the graph
-                Node node = xg_cached_node(id(next), xindex, node_cache);
-                nextd = nextd == 0 ? node.sequence().size() : min(nextd, (int)node.sequence().size());
-                //distance += node.sequence().size();
-                graph.add_node(node);
-                for (auto& edge : xg_cached_edges_of(id(next), xindex, edge_cache)) {
-                    graph.add_edge(edge);
-                }
-                // where to next
-                for (auto& x : xg_cached_next_pos(next, true, xindex, node_cache, edge_cache)) {
-                    todo.insert(x);
-                }
-            }
-        }
-        distance += nextd;
-        if (distance > length) {
-            break;
-        }
-        nexts = todo;
-    }
-    graph.remove_orphan_edges();
-    return;
-}
-*/
-
-/*
-VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion) {
-    auto& node_cache = get_node_cache();
-    auto& edge_cache = get_edge_cache();
-    assert(mems.size());
-    auto& start_mem = mems.front();
-    auto start_pos = make_pos_t(start_mem.nodes.front());
-    auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
-    // Even if the MEM is right up against the start of the read, it may not be
-    // part of the best alignment. Make sure to have some padding.
-    // TODO: how much padding?
-    int padding = 5;
-    int get_before = padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
-    VG graph;
-    if (get_before) {
-        cached_graph_context(graph, rev_start_pos, get_before, node_cache, edge_cache);
-    }
-    for (int i = 0; i < mems.size(); ++i) {
-        auto& mem = mems[i];
-        auto pos = make_pos_t(mem.nodes.front());
-        int get_after = padding + (i+1 == mems.size() ?
-                                   expansion * (int)(aln.sequence().end() - mem.begin)
-                                   : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
-        cached_graph_context(graph, pos, get_after, node_cache, edge_cache);
-    }
-    graph.remove_orphan_edges();
-    return graph;
-}
-*/
-
 VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
 #ifdef debug_mapper
 #pragma omp critical
@@ -4631,33 +4558,6 @@ AlignmentChainModel::AlignmentChainModel(
         offset += band.front().sequence().length();
         ++idx;
     }
-    /*
-    // index the model with the positions
-    for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
-        for (auto& seq : v->positions) {
-            auto& name = seq.first;
-            positions[name][seq.second].push_back(v);
-        }
-    }
-    // sort the vertexes at each approx position by their matches and trim
-    for (auto& seq : positions) {
-        auto& name = seq.first;
-        auto& seq_positions = positions[name];
-        for (auto& p : seq_positions) {
-            auto& pos = p.second;
-            std::sort(pos.begin(), pos.end(), [](const vector<AlignmentChainModelVertex>::iterator& v1,
-                                                 const vector<AlignmentChainModelVertex>::iterator& v2) {
-                          return v1->aln->score() > v2->aln->score();
-                      });
-            if (pos.size() > position_depth) {
-                for (int i = position_depth; i < pos.size(); ++i) {
-                    redundant_vertexes.insert(pos[i]);
-                }
-            }
-            pos.resize(min(pos.size(), (size_t)position_depth));
-        }
-    }
-    */
     for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
         for (auto u = v+1; u != model.end(); ++u) {
             if (v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
