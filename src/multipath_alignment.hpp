@@ -91,6 +91,10 @@ namespace vg {
     ///
     void transfer_read_metadata(const MultipathAlignment& from, Alignment& to);
     
+    /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
+    /// each connected component
+    vector<vector<int64_t>> connected_components(const MultipathAlignment& multipath_aln);
+    
     // TODO: function for adding a graph augmentation to an existing multipath alignment
 }
 

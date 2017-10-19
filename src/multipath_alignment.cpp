@@ -358,10 +358,57 @@ namespace vg {
         // note: not transferring paired_read_name because it is unclear whether
         // it should go into fragment_prev or fragment_next
     }
+    
+    vector<vector<int64_t>> connected_components(const MultipathAlignment& multipath_aln) {
+        int64_t comps = 0;
+        
+        vector<vector<int64_t>> reverse_edge_lists(multipath_aln.subpath_size());
+        
+        for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            const Subpath& subpath = multipath_aln.subpath(i);
+            // collect edges by their target
+            for (size_t j = 0; j < subpath.next_size(); j++) {
+                reverse_edge_lists[subpath.next(j)].push_back(i);
+            }
+        }
+        
+        vector<bool> collected(multipath_aln.subpath_size(), false);
+        
+        vector<vector<int64_t>> components;
+        
+        for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            if (collected[i]) {
+                continue;
+            }
+            
+            components.emplace_back();
+            
+            vector<int64_t> stack(1, i);
+            while (!stack.empty()) {
+                int64_t at = stack.back();
+                stack.pop_back();
+                
+                components.back().push_back(at);
+                
+                const Subpath& subpath = multipath_aln.subpath(at);
+                for (int64_t j = 0; j < subpath.next_size(); j++) {
+                    if (!collected[j]) {
+                        collected[j] = true;
+                        stack.push_back(j);
+                    }
+                }
+                for (int64_t j : reverse_edge_lists[at]) {
+                    if (!collected[j]) {
+                        collected[j] = true;
+                        stack.push_back(j);
+                    }
+                }
+            }
+        }
+        
+        return std::move(components);
+    }
 }
-
-
-
 
 
 

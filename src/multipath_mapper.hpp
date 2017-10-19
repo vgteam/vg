@@ -130,6 +130,11 @@ namespace vg {
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                           size_t max_alt_mappings);
         
+        bool align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
+                                                 vector<clustergraph_t>& cluster_graphs1,
+                                                 vector<clustergraph_t>& cluster_graphs2,
+                                                 vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                 size_t max_alt_mappings);
         
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable (according to the Mapper's aligner) with
@@ -169,6 +174,17 @@ namespace vg {
         
         /// Computes the number of read bases a cluster of MEM hits covers.
         static int64_t read_coverage(const memcluster_t& mem_hits);
+        
+        bool likely_mismapping(const MultipathAlignment& multipath_aln) const;
+        
+        double random_match_p_value(size_t match_length) const;
+        
+        int64_t distance_between(const MultipathAlignment& multipath_aln_1,
+                                 const MultipathAlignment& multipath_aln_2) const;
+        
+        bool are_consistent(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
+        
+        bool is_consistent(int64_t distance) const;
         
         /// Computes the Z-score of the number of matches against an equal length random DNA string.
         double read_coverage_z_score(int64_t coverage, const Alignment& alignment) const;
