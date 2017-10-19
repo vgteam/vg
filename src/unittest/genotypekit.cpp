@@ -3,8 +3,8 @@
  */
 
 #include "catch.hpp"
-#include "genotypekit.hpp"
-#include "snarls.hpp"
+#include "../genotypekit.hpp"
+#include "../snarls.hpp"
 
 namespace Catch {
 

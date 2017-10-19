@@ -271,9 +271,6 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     // map cactus nodes back to components
     vector<stCactusNode*> cactus_nodes(components.size());
     
-    // Keep track of all the edge ends
-    vector<stCactusEdgeEnd*> edge_ends;
-
     // create cactus graph
     stCactusGraph* cactus_graph = stCactusGraph_construct2(free, free);
     
@@ -287,14 +284,15 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
         cactus_nodes[i] = stCactusNode_construct(cactus_graph, cactus_node_id);
     }
 
-    // make edge for each vg node connecting two components
-    // they are undirected, so we use this set to keep track
-    unordered_set<id_t> created_edges;
+    // Make edge for each vg node connecting two adjacency components. We also
+    // keep track of the main cactusEdgeEnd we get for each node in its local
+    // forward orientation.
+    unordered_map<id_t, stCactusEdgeEnd*> edge_ends;
     for (int i = 0; i < components.size(); ++i) {
         for (auto side : components[i]) {
             NodeSide other_side(side.node, !side.is_end);
             int j = side_to_component[other_side];
-            if (created_edges.find(side.node) == created_edges.end()) {
+            if (!edge_ends.count(side.node)) {
                 // afraid to try to get C++ NodeSide class into C, so we copy to
                 // equivalent struct
                 CactusSide* cac_side1 = (CactusSide*)malloc(sizeof(CactusSide));
@@ -313,9 +311,7 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
                     cactus_nodes[j],
                     cac_side1,
                     cac_side2);
-                created_edges.insert(side.node);
-                // Remember the edge end so we can potentially use it to find telomeres
-                edge_ends.push_back(cactus_edge);
+                edge_ends[side.node] = cactus_edge;
             }
         }
     }
@@ -326,9 +322,47 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
         
     // Define a list of telomeres
     stList *telomeres = stList_construct();
-        
-    // Find arbitrary telomeres
-    addArbitraryTelomerePair(edge_ends, telomeres);
+    
+    // Now we decide on telomere pairs.
+    // We need one for each (strongly?) component in the graph, so first we break into connected components.
+    auto components_set = graph.strongly_connected_components();
+    
+    // We need them in an order
+    vector<set<id_t>> strong_components{components_set.begin(), components_set.end()};
+       
+    // Then we find the heads and tails
+    auto all_heads = algorithms::head_nodes(&graph);
+    auto all_tails = algorithms::tail_nodes(&graph);
+    
+    // Alot them to components
+    vector<pair<vector<handle_t>, vector<handle_t>>> component_heads_and_tails(strong_components.size());
+    for (auto& head : all_heads) {
+        for (size_t i = 0; i < strong_components.size(); i++) {
+            if (strong_components[i].count(graph.get_id(head))) {
+                component_heads_and_tails[i].first.push_back(head);
+                cerr << "Found head " << graph.get_id(head) << " in component " << i << endl;
+            }
+        }
+    }
+    for (auto& tail : all_tails) {
+        for (size_t i = 0; i < strong_components.size(); i++) {
+            if (strong_components[i].count(graph.get_id(tail))) {
+                component_heads_and_tails[i].second.push_back(tail);
+                cerr << "Found tail " << graph.get_id(tail) << " in component " << i << endl;
+            }
+        }
+    }
+
+    for (auto& heads_and_tails : component_heads_and_tails) {
+        if (!heads_and_tails.first.empty() && !heads_and_tails.second.empty()) {
+            // If we have both a head and a tail, we add an arbitrary pairing of them
+            stList_append(telomeres, edge_ends[graph.get_id(heads_and_tails.first.front())]);
+            stList_append(telomeres, edge_ends[graph.get_id(heads_and_tails.second.front())]);
+        } else {
+            // Otherwise, we explode?
+            throw runtime_error("Could not find both a head and a tail in a connected component");
+        }
+    }
 
     return make_pair(cactus_graph, telomeres);
 }

@@ -16,7 +16,7 @@
 namespace vg {
     namespace unittest {
         TEST_CASE( "SnarlManager functions return expected answers",
-                  "[sites][bubbles][snarls]" ) {
+                  "[sites][snarls]" ) {
             
             SECTION( "SnarlManager can be constructed with cactus ultrabubbles") {
                 
