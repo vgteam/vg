@@ -130,6 +130,8 @@ namespace vg {
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                           size_t max_alt_mappings);
         
+        /// Align the read ends independently, but also try to form rescue alignments for each from
+        /// the other. Return true if output obeys pair consistency and false otherwise.
         bool align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
                                                  vector<clustergraph_t>& cluster_graphs1,
                                                  vector<clustergraph_t>& cluster_graphs2,
@@ -175,15 +177,20 @@ namespace vg {
         /// Computes the number of read bases a cluster of MEM hits covers.
         static int64_t read_coverage(const memcluster_t& mem_hits);
         
+        /// Would an alignment this good be expected against a graph this big by chance alone
         bool likely_mismapping(const MultipathAlignment& multipath_aln) const;
         
-        double random_match_p_value(size_t match_length) const;
+        /// The approximate p-value for a match length of the given size against the current graph
+        double random_match_p_value(size_t match_length, size_t read_length) const;
         
+        /// Compute the approximate distance between two multipath alignments
         int64_t distance_between(const MultipathAlignment& multipath_aln_1,
                                  const MultipathAlignment& multipath_aln_2) const;
         
+        /// Are two multipath alignments consistently placed based on the learned fragment length distribution?
         bool are_consistent(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
+        /// Is this a consistent inter-pair distance based on the learned fragment length distribution?
         bool is_consistent(int64_t distance) const;
         
         /// Computes the Z-score of the number of matches against an equal length random DNA string.

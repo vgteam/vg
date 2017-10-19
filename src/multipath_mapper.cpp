@@ -393,20 +393,20 @@ namespace vg {
 #endif
         
         return (raw_mapq >= min(25, max_mapping_quality)
-                && random_match_p_value(aln.score() / (get_aligner()->match * 2)) < 0.005);
+                && random_match_p_value(aln.score() / (get_aligner()->match * 2), multipath_aln.sequence().size()) < 0.005);
     }
     
     bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) const {
 #ifdef debug_multipath_mapper
-        cerr << "effective match length of " << multipath_aln.name() << " is " << (optimal_alignment_score(multipath_aln)) / (get_aligner()->match * 2) << ", yielding p-value " << random_match_p_value(optimal_alignment_score(multipath_aln) / (get_aligner()->match * 2)) << endl;
+        cerr << "effective match length of " << multipath_aln.name() << " is " << optimal_alignment_score(multipath_aln) / (get_aligner()->match * 2) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(optimal_alignment_score(multipath_aln) / (get_aligner()->match * 2), multipath_aln.sequence().size()) << endl;
 #endif
         
         // a "pseudo-length" based on the score, empirically, scaling it down seems to give better results
-        return random_match_p_value(optimal_alignment_score(multipath_aln) / (get_aligner()->match * 2)) > 0.05;
+        return random_match_p_value(optimal_alignment_score(multipath_aln) / (get_aligner()->match * 2), multipath_aln.sequence().size()) > 0.05;
     }
     
-    double MultipathMapper::random_match_p_value(size_t match_length) const {
-        return 1.0 - pow(1.0 - pow(0.25, match_length), xindex->seq_length);
+    double MultipathMapper::random_match_p_value(size_t match_length, size_t read_length) const {
+        return 1.0 - pow(1.0 - pow(0.25, match_length), xindex->seq_length * read_length);
     }
     
     int64_t MultipathMapper::distance_between(const MultipathAlignment& multipath_aln_1,
