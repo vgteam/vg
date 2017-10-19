@@ -506,35 +506,44 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     if (reseed_length) {
         // get the sub_mem_and_parents
         vector<pair<MaximalExactMatch, vector<size_t> > > sub_mems;
+
+        // a function that will implement the reseed according to various flags
+        auto do_reseed = [&](int i) {
+            if (fast_reseed) {
+                if (use_diff_based_fast_reseed) {
+                    find_sub_mems_fast(mems,
+                                       i,
+                                       (i+1 < mems.size() ? mems[i+1].begin : seq_begin),
+                                       max<int>(ceil(fast_reseed_length_diff * mem_length),
+                                                min_mem_length),
+                                       sub_mems);
+                }
+                else {
+                    find_sub_mems_fast(mems,
+                                       i,
+                                       (i+1 < mems.size() ? mems[i+1].begin : seq_begin),
+                                       min_mem_length,
+                                       sub_mems);
+                }
+            } else {
+                find_sub_mems(mems,
+                              i,
+                              (i+1 < mems.size() ? mems[i+1].begin : seq_begin),
+                              min_mem_length,
+                              sub_mems);
+            }
+        };
+
+        // run the reseeding
         for (int i = 0; i < mems.size(); ++i) {
             auto& mem = mems[i];
-            if (mem.length() >= min_mem_length && mem.length() >= reseed_length) {
-                // reseed when we have <= reseed_below hits, but not when we've exceeded our hit_max
-                if (mem.nodes.size() && (reseed_below == 0 || mem.nodes.size() <= reseed_below)) {
-                    if (fast_reseed) {
-                        if (use_diff_based_fast_reseed) {
-                            find_sub_mems_fast(mems,
-                                               i,
-                                               (i+1 < mems.size() ? mems[i+1].begin : seq_begin),
-                                               max<int>(ceil(fast_reseed_length_diff * mem_length),
-                                                        min_mem_length),
-                                               sub_mems);
-                        }
-                        else {
-                            find_sub_mems_fast(mems,
-                                               i,
-                                               (i+1 < mems.size() ? mems[i+1].begin : seq_begin),
-                                               min_mem_length,
-                                               sub_mems);
-                        }
-                    } else {
-                        find_sub_mems(mems,
-                                      i,
-                                      (i+1 < mems.size() ? mems[i+1].begin : seq_begin),
-                                      min_mem_length,
-                                      sub_mems);
-                    }
-                }
+            // reseed when...
+            if (mem.length() >= min_mem_length // our mem is greater than the min mem length (should be by default)
+                && mem.length() >= reseed_length // is the right length to reseed
+                && mem.nodes.size() // and wasn't filtered
+                && (reseed_below == 0  // and has fewer hits than our threshold for reseeding, if there is a threshold
+                    || mem.nodes.size() <= reseed_below)) {
+                    do_reseed(i); // reseed the ith MEM
             }
         }
 
