@@ -22,6 +22,12 @@ namespace vg {
 
 using namespace std;
 
+/// We have a utility function for turning positions along paths, with
+/// orientations, into pos_ts. Remember that pos_t counts offset from the start
+/// of the reoriented node, while here we count offset from the beginning of the
+/// forward version of the path.
+pos_t position_at(xg::XG* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse);
+
 /**
  * Generate Alignments (with or without mutations, and in pairs or alone) from
  * an XG index.

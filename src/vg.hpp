@@ -41,10 +41,6 @@
 #include "types.hpp"
 #include "gfakluge.hpp"
 
-#include "globalDefs.hpp"
-#include "Graph.hpp"
-#include "helperDefs.hpp"
-
 #include "bubbles.hpp"
 
 #include "nodetraversal.hpp"
@@ -797,15 +793,6 @@ public:
     /// Get the sequence of a NodeTraversal.
     string trav_sequence(const NodeTraversal& trav);
 
-    /// Convert a VG graph to superbubble algorithm input format.
-    SB_Input vg_to_sb_input();
-    /// Find the superbubbles in the given input graph.
-    vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
-    /// Find the superbubbles in this graph.
-    vector<pair<id_t, id_t> > get_superbubbles();
-
-    //map<pair<id_t, id_t>, vector<id_t> > superbubbles(void);
-
     /// Takes in a pathname and the nucleotide position (like from a vcf) and
     /// returns the node id which contains that position.
     id_t get_node_at_nucleotide(string pathname, int nuc);
@@ -914,8 +901,6 @@ public:
                 bool simple_mode = false,
                 bool invert_edge_ports = false,
                 bool color_variants = false,
-                bool superbubble_ranking = false,
-                bool superbubble_labeling = false,
                 bool ultrabubble_labeling = false,
                 bool skip_missing_nodes = false,
                 bool ascii_labels = false,

@@ -417,19 +417,6 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
 }
 
 
-SB_Input VG::vg_to_sb_input(){
-	//cout << this->edge_count() << endl;
-  SB_Input sbi;
-  sbi.num_vertices = this->edge_count();
-	function<void(Edge*)> lambda = [&sbi](Edge* e){
-		//cout << e->from() << " " << e->to() << endl;
-    pair<id_t, id_t> dat = make_pair(e->from(), e->to() );
-    sbi.edges.push_back(dat);
-	};
-	this->for_each_edge(lambda);
-  return sbi;
-}
-
 id_t VG::get_node_at_nucleotide(string pathname, int nuc){
     Path p = paths.path(pathname);
 
@@ -452,61 +439,6 @@ id_t VG::get_node_at_nucleotide(string pathname, int nuc){
 
 }
 
-vector<pair<id_t, id_t> > VG::get_superbubbles(SB_Input sbi){
-    vector<pair<id_t, id_t> > ret;
-    supbub::Graph sbg (sbi.num_vertices);
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST superBubblesList{};
-    supbub::DetectSuperBubble dsb;
-    dsb.find(sbg, superBubblesList);
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST::iterator it;
-    for (it = superBubblesList.begin(); it != superBubblesList.end(); ++it) {
-        ret.push_back(make_pair((*it).entrance, (*it).exit));
-    }
-    return ret;
-}
-vector<pair<id_t, id_t> > VG::get_superbubbles(void){
-    vector<pair<id_t, id_t> > ret;
-    supbub::Graph sbg (this->edge_count());
-    //load up the sbgraph with edges
-    function<void(Edge*)> lambda = [&sbg](Edge* e){
-            //cout << e->from() << " " << e->to() << endl;
-        sbg.addEdge(e->from(), e->to());
-    };
-
-    this->for_each_edge(lambda);
-
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST superBubblesList{};
-
-    supbub::DetectSuperBubble dsb;
-    dsb.find(sbg, superBubblesList);
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST::iterator it;
-    for (it = superBubblesList.begin(); it != superBubblesList.end(); ++it) {
-        ret.push_back(make_pair((*it).entrance, (*it).exit));
-    }
-    return ret;
-}
-// check for conflict (duplicate nodes and edges) occurs within add_* functions
-/*
-map<pair<id_t, id_t>, vector<id_t> > VG::superbubbles(void) {
-    map<pair<id_t, id_t>, vector<id_t> > bubbles;
-    // ensure we're sorted
-    algorithms::sort(this);
-    // if we have a DAG, then we can find all the nodes in each superbubble
-    // in constant time as they lie in the range between the entry and exit node
-    auto supbubs = get_superbubbles();
-    //     hash_map<Node*, int> node_index;
-    for (auto& bub : supbubs) {
-        auto start = node_index[get_node(bub.first)];
-        auto end = node_index[get_node(bub.second)];
-        // get the nodes in the range
-        auto& b = bubbles[bub];
-        for (int i = start; i <= end; ++i) {
-            b.push_back(graph.node(i).id());
-        }
-    }
-    return bubbles;
-}
-*/
 void VG::add_nodes(const set<Node*>& nodes) {
     for (auto node : nodes) {
         add_node(*node);
@@ -6159,8 +6091,6 @@ void VG::to_dot(ostream& out,
                 bool simple_mode,
                 bool invert_edge_ports,
                 bool color_variants,
-                bool superbubble_ranking,
-                bool superbubble_labeling,
                 bool ultrabubble_labeling,
                 bool skip_missing_nodes,
                 bool ascii_labels,
@@ -6178,11 +6108,10 @@ void VG::to_dot(ostream& out,
 
     //map<id_t, vector<
     map<id_t, set<pair<string, string>>> symbols_for_node;
-    if (superbubble_labeling || ultrabubble_labeling) {
+    if (ultrabubble_labeling) {
         Pictographs picts(random_seed);
         Colors colors(random_seed);
-        map<pair<id_t, id_t>, vector<id_t> > sb =
-            (ultrabubble_labeling ? ultrabubbles(*this) : superbubbles(*this));
+        map<pair<id_t, id_t>, vector<id_t> > sb = ultrabubbles(*this);
         for (auto& bub : sb) {
             auto start_node = bub.first.first;
             auto end_node = bub.first.second;
@@ -6204,7 +6133,7 @@ void VG::to_dot(ostream& out,
         auto node_paths = paths.of_node(n->id());
 
         stringstream inner_label;
-        if (superbubble_labeling || ultrabubble_labeling) {
+        if (ultrabubble_labeling) {
             inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
             inner_label << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
             for(auto& string_and_color : symbols_for_node[n->id()]) {
@@ -6235,7 +6164,7 @@ void VG::to_dot(ostream& out,
 
         if (simple_mode) {
             out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";
-        } else if (superbubble_labeling || ultrabubble_labeling) {
+        } else if (ultrabubble_labeling) {
             //out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
             out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";
         } else {
@@ -6374,46 +6303,6 @@ void VG::to_dot(ostream& out,
         if(is_backward) {
             // We don't need this duplicate edge
             delete e;
-        }
-    }
-
-    if (superbubble_ranking) {
-        map<pair<id_t, id_t>, vector<id_t> > sb = superbubbles(*this);
-        for (auto& bub : sb) {
-            vector<id_t> in_bubble;
-            vector<id_t> bubble_head;
-            vector<id_t> bubble_tail;
-            auto start_node = bub.first.first;
-            auto end_node = bub.first.second;
-            for (auto& i : bub.second) {
-                if (i != start_node && i != end_node) {
-                    // if we connect to the start node, add to the head
-                    in_bubble.push_back(i);
-                    if (has_edge(NodeSide(start_node,true), NodeSide(i,false))) {
-                        bubble_head.push_back(i);
-                    }
-                    if (has_edge(NodeSide(i,true), NodeSide(end_node,false))) {
-                        bubble_tail.push_back(i);
-                    }
-                    // if we connect to the end node, add to the tail
-                }
-            }
-            if (in_bubble.size() > 1) {
-                if (bubble_head.size() > 0) {
-                    out << "    { rank = same; ";
-                    for (auto& i : bubble_head) {
-                        out << i << "; ";
-                    }
-                    out << "}" << endl;
-                }
-                if (bubble_tail.size() > 0) {
-                    out << "    { rank = same; ";
-                    for (auto& i : bubble_tail) {
-                        out << i << "; ";
-                    }
-                    out << "}" << endl;
-                }
-            }
         }
     }
 

@@ -5,6 +5,9 @@
 #include "../stream.hpp"
 #include "../alignment.hpp"
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace vg;
 using namespace vg::subcommand;
 
