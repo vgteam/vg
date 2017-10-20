@@ -255,7 +255,6 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
     stList_append(telomeres, edgeEnd2);
 }
 
-#define debug
 // Step 2) Make a Cactus Graph. Returns the graph and a list of paired
 // cactusEdgeEnd telomeres, one after the other. Both members of the return
 // value must be destroyed.
@@ -279,9 +278,6 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     for (int i = 0; i < components.size(); ++i) {
 #ifdef debug
         cout << "Creating cactus node for component " << i << " with size " << components[i].size() << endl;
-        for (auto& content : components[i]) {
-            cout << "\tContains: " << content << endl;
-        }
 #endif
         id_t* cactus_node_id = (id_t*)malloc(sizeof(id_t));
         *cactus_node_id = i;
@@ -359,11 +355,15 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     vector<unordered_set<handle_t>> component_tips(weak_components.size());
     for (auto& head : all_heads) {
         component_tips[node_to_component[graph.get_id(head)]].insert(head);
+#ifdef debug
         cerr << "Found head " << graph.get_id(head) << " in component " << node_to_component[graph.get_id(head)] << endl;
+#endif
     }
     for (auto& tail : all_tails) {
         component_tips[node_to_component[graph.get_id(tail)]].insert(graph.flip(tail));
+#ifdef debug
         cerr << "Found tail " << graph.get_id(tail) << " in component " << node_to_component[graph.get_id(tail)] << endl;
+#endif
     }
     
     // Assign path names to components
@@ -379,7 +379,9 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
         auto component = node_to_component[path_mappings.front().position().node_id()];
         component_paths[component].push_back(name);
         
+#ifdef debug
         cerr << "Path " << name << " belongs to component " << component << endl;
+#endif
         
         for (auto& mapping : graph.paths.get_path(name)) {
             // Total up the length. We could use from length on the mapping, but
@@ -388,7 +390,9 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
             path_length[name] += graph.get_length(graph.get_handle(mapping.position().node_id(), false));
         }
         
+#ifdef debug
         cerr << "\tPath " << name << " has length " << path_length[name] << endl;
+#endif
     });
     
     
@@ -397,8 +401,10 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     
     // This function adds as telomeres a pair of inward-facing handles.
     auto add_telomeres = [&](const handle_t& left, const handle_t& right) {
+#ifdef debug
         cerr << "Selected " << graph.get_id(left) << " " << graph.get_is_reverse(left) << " and "
             << graph.get_id(right) << " " << graph.get_is_reverse(right) << " as tips" << endl;
+#endif
         
         stCactusEdgeEnd* end1 = edge_ends[graph.get_id(left)];
         // We need to add the interior side of the node, and our handle is reading inwards.
@@ -418,12 +424,16 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
             // This is going to hold inward-facing handles to the tips we find.
             pair<handle_t, handle_t> longest_path_tips;
             size_t longest_path_length = 0;
+#ifdef debug
             cerr << "Consider " << component_paths[i].size() << " paths for component " << i << endl;
+#endif
             for (auto& path_name : component_paths[i]) {
                 // Look at each path
                 auto& path_mappings = graph.paths.get_path(path_name);
                 
+#ifdef debug
                 cerr << "\tPath " << path_name << " has " << path_mappings.size() << " mappings" << endl;
+#endif
                 
                 // See if I can get two tips on its ends.
                 // Get the inward-facing start and end handles.
@@ -440,25 +450,35 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
                         longest_path = path_name;
                         longest_path_tips = make_pair(path_start, path_end);
                         longest_path_length = path_length[path_name];
+#ifdef debug
                         cerr << "\t\tNew longest path!" << endl;
+#endif
                     } else {
+#ifdef debug
                         cerr << "\t\tPath length of " << path_length[path_name] << " not longer than path "
                             << longest_path << " with " << longest_path_length << endl;
+#endif
                     } 
                     
                 } else {
+#ifdef debug
                     cerr << "\t\tPath " << path_name << " does not start and end with tips" << endl;
+#endif
                 }
             }
             
             if (!longest_path.empty()) {
+#ifdef debug
                 cerr << "Longest tip path is " << longest_path << endl;
+#endif
                 // We found something!
                 add_telomeres(longest_path_tips.first, longest_path_tips.second);
                 // Work on the next component.
                 continue;
             } else {
+#ifdef debug
                 cerr << "No longest path found between tips" << endl;
+#endif
             }
         }
         
@@ -480,7 +500,6 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     
     return make_pair(cactus_graph, telomeres);
 }
-#undef debug
 
 // fill in the "acyclic" and "contents" field of a bubble by doing a depth first search
 // between its bounding sides (start and end)
