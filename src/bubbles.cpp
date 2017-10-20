@@ -9,6 +9,7 @@ extern "C" {
 #include "stCactusGraphs.h"
 }
 
+#define debug
 namespace vg {
 
 using namespace std;
@@ -494,6 +495,7 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
 
         // TODO: For now we just pick two arbitrary tips in each component.
         vector<handle_t> tips{component_tips[i].begin(), component_tips[i].end()};
+        assert(tips.size() >= 2);
         add_telomeres(tips.front(), tips.back());
         
     }
