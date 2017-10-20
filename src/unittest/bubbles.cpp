@@ -681,16 +681,35 @@ TEST_CASE("bubbles are created based on most distant connected tips", "[bubbles]
         REQUIRE(bubble_tree->root->v.start.node == 0);
         REQUIRE(bubble_tree->root->v.end.node == 0);
         
-        SECTION("Root should have one child actual bubble") {
-            REQUIRE(bubble_tree->root->children.size() == 1);
+        SECTION("Root should have three child actual bubbles") {
+            REQUIRE(bubble_tree->root->children.size() == 3);
             
             TreeNode<Bubble>* child1 = bubble_tree->root->children[0];
+            TreeNode<Bubble>* child2 = bubble_tree->root->children[1];
+            TreeNode<Bubble>* child3 = bubble_tree->root->children[2];
             
-            SECTION("First child is from 5 end to 6 start") {
-                REQUIRE(child1->v.start.node == 5);
-                REQUIRE(child1->v.start.is_end == true);
-                REQUIRE(child1->v.end.node == 6);
-                REQUIRE(child1->v.end.is_end == false);
+            SECTION("First child is trivail snarl from 2 start to 5 end") {
+                // Not 5 end to 2 start because we seem to be sorting by node ID.
+                REQUIRE(child1->v.start.node == 2);
+                REQUIRE(child1->v.start.is_end == false);
+                REQUIRE(child1->v.end.node == 5);
+                REQUIRE(child1->v.end.is_end == true);
+                
+            }
+            
+            SECTION("Second child is tip-containing snarl from 2 end to 3 start") {
+                REQUIRE(child2->v.start.node == 2);
+                REQUIRE(child2->v.start.is_end == true);
+                REQUIRE(child2->v.end.node == 3);
+                REQUIRE(child2->v.end.is_end == false);
+                
+            }
+            
+            SECTION("Third child is trivial snarl from 3 end to 6 start") {
+                REQUIRE(child3->v.start.node == 3);
+                REQUIRE(child3->v.start.is_end == true);
+                REQUIRE(child3->v.end.node == 6);
+                REQUIRE(child3->v.end.is_end == false);
                 
             }
             

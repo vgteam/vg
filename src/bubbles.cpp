@@ -3,12 +3,14 @@
 #include "vg.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/weakly_connected_components.hpp"
+#include "algorithms/find_shortest_paths.hpp"
 
 extern "C" {
 #include "sonLib.h"
 #include "stCactusGraphs.h"
 }
 
+#define debug
 namespace vg {
 
 using namespace std;
@@ -487,28 +489,112 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
                 continue;
             } else {
 #ifdef debug
-                cerr << "No longest path found between tips" << endl;
+                cerr << "No longest named path found between tips" << endl;
 #endif
             }
         }
         
-        // Second priority is Dijkstra traversal tip selection
-        
-        // TODO: Otherwise, compute tip reachability and distance by Dijkstra's
+        // Otherwise, compute tip reachability and distance by Dijkstra's
         // Algorithm and pick the pair of reachable tips with the longest shortest
         // paths
+        
         {
-            if (component_tips[i].size() >= 2) {
-                // TODO: For now we just pick two arbitrary tips in each component.
-                vector<handle_t> tips{component_tips[i].begin(), component_tips[i].end()};
-                add_telomeres(tips.front(), tips.back());
+            // Track the distances between pairs of tips (or numeric_limits<size_t>::max() for unreachable).
+            // Pairs are stored lowest-node-and-orientation first. Really we want a hashable unordered_pair...
+            unordered_map<pair<handle_t, handle_t>, size_t> tip_distances;
+            
+            // Track the best pair of handles
+            pair<handle_t, handle_t> furthest;
+            // And their distance
+            size_t furthest_distance = numeric_limits<size_t>::max();
+
+            for (auto& tip1 : component_tips[i]) {
+                for (auto& tip2 : component_tips[i]) {
+                    if (tip1 == tip2) {
+                        continue;
+                    }
+                    // For each pair of distinct tips
+           
+                    // Make a pair to be the key
+                    pair<handle_t, handle_t> key = make_pair(tip1, tip2);
+                    if (graph.get_id(key.second) < graph.get_id(key.first) ||
+                        (graph.get_id(key.second) == graph.get_id(key.first) &&
+                        graph.get_is_reverse(key.second) < graph.get_is_reverse(key.first))) {
+                        
+                        // We need to put these tips the other way around
+                        std::swap(key.first, key.second);
+                    }
+           
+                    if (!tip_distances.count(key)) {
+                        // If we don't know the distance, do a search out from one handle
+                        
+#ifdef debug
+                        cerr << "Do Dijkstra traversal out from "
+                            << graph.get_id(tip1) << " " << graph.get_is_reverse(tip1) << endl;
+#endif
+                        
+                        unordered_map<handle_t, size_t> distances = algorithms::find_shortest_paths(&graph, tip1);
+                        
+                        for (auto& other_tip : component_tips[i]) {
+                            // And save the distances for everything reachable or unreachable.
+                            // This minimizes the number of searches we need to do.
+                            
+                            pair<handle_t, handle_t> other_key = make_pair(tip1, other_tip);
+                            
+                            if (graph.get_id(other_key.second) < graph.get_id(other_key.first) ||
+                                (graph.get_id(other_key.second) == graph.get_id(other_key.first) &&
+                                graph.get_is_reverse(other_key.second) < graph.get_is_reverse(other_key.first))) {
+                                
+                                // We need to put these tips the other way around
+                                std::swap(other_key.first, other_key.second);
+                            }
+                                    
+                            if (distances.count(graph.flip(other_tip))) {
+                                // Can get from tip 1 to this tip.
+                                // We need to flip the tip because Dijkstra will be reading out of the graph and into the tip.
+                                tip_distances[other_key] = distances[graph.flip(other_tip)];
+                            } else {
+                                // This tip is completely unreachable from tip 1
+                                tip_distances[other_key] = numeric_limits<size_t>::max();
+                            }
+                        }
+                    }
+                    
+                    // Now either we can reach this tip or we can't
+                    assert(tip_distances.count(key));
+                    auto& tip_distance = tip_distances[key];
+                    
+                    if (tip_distance != numeric_limits<size_t>::max() &&
+                        (tip_distance > furthest_distance || furthest_distance == numeric_limits<size_t>::max())) {
+                        // If it's a new longer distance (but not infinite), keep it
+                        furthest_distance = tip_distance;
+                        furthest = key;
+                    }
+                    
+                }
+            }
+            
+            if (furthest_distance != numeric_limits<size_t>::max()) {
+                // We found something!
+                
+#ifdef debug
+                cerr << "Furthest Dijkstra shortest path between tips: " << furthest_distance << " bp" << endl;
+#endif
+                
+                // Use the furthest-apart pair of tips as our telomeres
+                add_telomeres(furthest.first, furthest.second);
                 continue;
+            } else {
+#ifdef debug
+                cerr << "No Dijkstra path found between any two tips." << endl;
+#endif
             }
         }
         
-        // TODO: Otherwise, we have to be cyclic, so find the biggest cycle
-        // (strongly connected component) in the weakly connected component, pick an
-        // arbitrary node, and pick the outward-facing ends of the node.
+        // Otherwise, we have no tips reachable from any other tips. We have to
+        // be cyclic, so find the biggest cycle (strongly connected component)
+        // in the weakly connected component, pick an arbitrary node, and pick
+        // the outward-facing ends of the node.
         
         {
             // What strongly connected components do we have?
