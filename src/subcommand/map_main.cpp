@@ -985,7 +985,11 @@ int main_map(int argc, char** argv) {
                 std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
                 if(alignments.empty()) {
-                    alignments.push_back(alignment);
+                    Alignment out_aln;
+                    out_aln.set_name(alignment.name());
+                    out_aln.set_sequence(alignment.sequence());
+                    out_aln.set_quality(alignment.quality());
+                    alignments.push_back(out_aln);
                 }
                 // Output the alignments in JSON or protobuf as appropriate.
                 if (compare_gam) {
