@@ -185,7 +185,7 @@ void getReachableBridges2(stCactusEdgeEnd *edgeEnd1,
     while((edgeEnd2 = (stCactusEdgeEnd*)stSet_getNext(endIt)) != NULL) {
         if(edgeEnd2 != edgeEnd1) {
             stList_append(bridgeEnds, edgeEnd2);
-            getReachableBridges2(edgeEnd2->otherEdgeEnd, bridgeEndsToBridgeNodes, bridgeEnds);
+            getReachableBridges2(stCactusEdgeEnd_getOtherEdgeEnd(edgeEnd2), bridgeEndsToBridgeNodes, bridgeEnds);
         }
     }
     stSet_destructIterator(endIt);
@@ -327,7 +327,7 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
                     cac_side1,
                     cac_side2);
                 // Save the cactusEdgeEnd for the left side of the node.
-                edge_ends[side.node] = side.is_end ? cactus_edge->otherEdgeEnd : cactus_edge;
+                edge_ends[side.node] = side.is_end ? stCactusEdgeEnd_getOtherEdgeEnd(cactus_edge) : cactus_edge;
             }
         }
     }
@@ -403,9 +403,9 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
         stCactusEdgeEnd* end1 = edge_ends[graph.get_id(left)];
         // We need to add the interior side of the node, and our handle is reading inwards.
         // If we're reverse, add the node's local left. Otherwise, add the node's local right.
-        stList_append(telomeres, graph.get_is_reverse(left) ? end1 : end1->otherEdgeEnd);
+        stList_append(telomeres, graph.get_is_reverse(left) ? end1 : stCactusEdgeEnd_getOtherEdgeEnd(end1));
         stCactusEdgeEnd* end2 = edge_ends[graph.get_id(right)];
-        stList_append(telomeres, graph.get_is_reverse(right) ? end2 : end2->otherEdgeEnd);
+        stList_append(telomeres, graph.get_is_reverse(right) ? end2 : stCactusEdgeEnd_getOtherEdgeEnd(end2));
     };
     
     for (size_t i = 0; i < weak_components.size(); i++) {
