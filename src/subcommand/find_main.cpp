@@ -484,11 +484,7 @@ int main_find(int argc, char** argv) {
                 cerr << "[vg find] error, exactly 2 nodes (-n) required with -D" << endl;
                 exit(1);
             }
-            if (!path_name.empty()) {
-                cout << xindex.approx_path_distance(path_name, node_ids[0], node_ids[1]) << endl;
-            } else {
-                cout << xindex.min_approx_path_distance(vector<string>(), node_ids[0], node_ids[1]) << endl;
-            }
+            cout << xindex.min_approx_path_distance(node_ids[0], node_ids[1]) << endl;
             return 0;
         }
         if (approx_id != 0) {

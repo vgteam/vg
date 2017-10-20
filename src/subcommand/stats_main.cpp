@@ -314,26 +314,38 @@ int main_stats(int argc, char** argv) {
                 p2_ranks[mapping.position().node_id()].push_back(mapping.rank());
             }
             // intersect
+            set<pair<int64_t, int64_t> > seen;
             for (auto& p : p1_ranks) {
                 auto f = p2_ranks.find(p.first);
                 if (f != p2_ranks.end()) {
                     for (auto& id1 : p.second) {
                         for (auto& id2 : f->second) {
-                            cout << p1.name() << "." << p2.name() << "\t" << id1 << "\t" << id2 << endl;
+                            if (seen.count(make_pair(id1, id2))) continue;
+                            cout << p1.name() << "____" << p2.name() << "\t" << id1 << "\t" << id2 << endl;
+                            seen.insert(make_pair(id1, id2));
                         }
+                    }
+                } else {
+                    // non-overlap
+                    for (auto& id1 : p.second) {
+                        if (seen.count(make_pair(id1, 0))) continue;
+                        cout << p1.name() << "____" << p2.name() << "\t" << id1 << "\t" << 0 << endl;
+                        seen.insert(make_pair(id1, 0));
                     }
                 }
             }
+            // get the non-overlapping bits of the second sequence
             for (auto& p : p2_ranks) {
                 auto f = p1_ranks.find(p.first);
                 if (f != p1_ranks.end()) {
-                    for (auto& id1 : p.second) {
-                        for (auto& id2 : f->second) {
-                            cout << p1.name() << "." << p2.name() << "\t" << id2 << "\t" << id1 << endl;
-                        }
+                    for (auto& id2 : p.second) {
+                        if (seen.count(make_pair(0, id2))) continue;
+                        cout << p1.name() << "____" << p2.name() << "\t" << 0 << "\t" << id2 << endl;
+                        seen.insert(make_pair(0, id2));
                     }
                 }
             }
+
         };
         cout << "comparison" << "\t" << "x" << "\t" << "y" << endl;
         vector<string> path_names;

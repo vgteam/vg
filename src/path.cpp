@@ -1382,7 +1382,7 @@ const string mapping_sequence(const Mapping& mp, const string& node_seq) {
 }
 
 const string mapping_sequence(const Mapping& mp, const Node& n) {
-    if (!mp.has_position()) {
+    if (!mp.has_position() || !mp.position().node_id()) {
         assert(mp.edit_size()==1);
         return mp.edit(0).sequence();
     }

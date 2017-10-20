@@ -754,8 +754,6 @@ namespace vg {
         
         // Figure out the aligner to use
         BaseAligner* aligner = get_aligner();
-        // And the node cache
-        LRUCache<id_t, vg::Node>& node_cache = get_node_cache();
         
         // We populate this with all the cluster graphs.
         vector<clustergraph_t> cluster_graphs_out;

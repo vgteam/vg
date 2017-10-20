@@ -78,6 +78,10 @@ bool clusters_overlap_in_graph(const vector<MaximalExactMatch>& cluster1,
                                const vector<MaximalExactMatch>& cluster2);
 vector<pos_t> cluster_nodes(const vector<MaximalExactMatch>& cluster);
 
+// returns the min distance implied by the position annotations on the mems
+int64_t mem_min_distance(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
+
+
 }
 
 #endif

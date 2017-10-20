@@ -52,6 +52,7 @@ void help_view(char** argv) {
 
          << "    -d, --dot                  output dot format" << endl
          << "    -S, --simple-dot           simplify the dot output; remove node labels, simplify alignments" << endl
+         << "    -e, --ascii-labels         use labels for paths or superbubbles with char/colors rather than emoji" << endl
          << "    -Y, --ultra-label          label nodes with emoji/colors that correspond to ultrabubbles" << endl
          << "    -m, --skip-missing         skip mappings to nodes not in the graph when drawing alignments" << endl
          << "    -C, --color                color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
@@ -122,6 +123,7 @@ int main_view(int argc, char** argv) {
     bool ultrabubble_labeling = false;
     bool skip_missing_nodes = false;
     bool expect_duplicates = false;
+    bool ascii_labels = false;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -169,11 +171,12 @@ int main_view(int argc, char** argv) {
                 {"expect-duplicates", no_argument, 0, 'D'},
                 {"multipath", no_argument, 0, 'k'},
                 {"multipath-in", no_argument, 0, 'K'},
+                {"ascii-labels", no_argument, 0, 'e'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZYmqQ:zXREDkK",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZYmqQ:zXREDkKe",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -196,6 +199,10 @@ int main_view(int argc, char** argv) {
 
         case 'Y':
             ultrabubble_labeling = true;
+            break;
+
+        case 'e':
+            ascii_labels = true;
             break;
 
         case 'm':
@@ -806,6 +813,7 @@ int main_view(int argc, char** argv) {
                       color_variants,
                       ultrabubble_labeling,
                       skip_missing_nodes,
+                      ascii_labels,
                       seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;

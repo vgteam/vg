@@ -316,7 +316,7 @@ public:
     /// Use the orientation of the first node as the basis.
     Node* merge_nodes(const list<Node*>& nodes);
     /// Use unchop and sibling merging to simplify the graph into a normalized form.
-    void normalize(int max_iter = 1);
+    void normalize(int max_iter = 1, bool debug = false);
     /// Remove redundant overlaps.
     void bluntify(void);
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
@@ -769,7 +769,7 @@ public:
     /// Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep.
     /// The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths.
     void keep_paths(set<string>& path_names, set<string>& kept_names);
-    void keep_path(string& path_name);
+    void keep_path(const string& path_name);
 
     /// Path stats.
     /// Starting from offset in the first node, how many edges do we cross?
@@ -903,6 +903,7 @@ public:
                 bool color_variants = false,
                 bool ultrabubble_labeling = false,
                 bool skip_missing_nodes = false,
+                bool ascii_labels = false,
                 int random_seed = 0);
 
     /// Convert the graph to Dot format.
