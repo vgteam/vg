@@ -204,6 +204,8 @@ public:
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
     bool fast_reseed; // use the fast reseed algorithm
     double fast_reseed_length_diff; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
+    bool adaptive_reseed_diff; // use an adaptive length difference algorithm in reseed algorithm
+    double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
     
     bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
@@ -258,6 +260,9 @@ protected:
     // Use the GCSA index to look up the sequence
     set<pos_t> sequence_positions(const string& seq);
     
+    // Algorithm for choosing an adaptive reseed length based on the length of the parent MEM
+    size_t get_adaptive_min_reseed_length(size_t parent_mem_length);
+    
     // debugging, checking of mems using find interface to gcsa
     void check_mems(const vector<MaximalExactMatch>& mems);
     
@@ -285,6 +290,8 @@ protected:
     
     void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
     void clear_aligners(void);
+    
+    unordered_map<size_t, size_t> adaptive_reseed_length_memo;
     
     // xg index
     xg::XG* xindex = nullptr;

@@ -55,7 +55,7 @@ void help_mpmap(char** argv) {
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [64]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [32]" << endl
-    << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.4]" << endl
+    << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.33]" << endl
     << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
     << "  -K, --clust-length INT    minimum MEM length form clusters [automatic]" << endl
     << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
@@ -104,7 +104,9 @@ int main_mpmap(int argc, char** argv) {
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
     int reseed_length = 32;
-    double reseed_diff = 0.4;
+    double reseed_diff = 0.33;
+    double reseed_exp = 0.05;
+    bool use_adaptive_reseed = true;
     double cluster_ratio = 0.2;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
@@ -466,8 +468,13 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if ((reseed_diff < 0 || reseed_diff > 1.0) && reseed_length != 0) {
+    if ((reseed_diff <= 0 || reseed_diff >= 1.0) && reseed_length != 0) {
         cerr << "error:[vg mpmap] Reseeding length difference (-W) set to " << reseed_diff << ", must set to a number between 0.0 and 1.0." << endl;
+        exit(1);
+    }
+    
+    if (reseed_exp < 0 && reseed_length != 0 && use_adaptive_reseed) {
+        cerr << "error:[vg mpmap] Reseeding exponent set to " << reseed_exp << ",  must set to a nonnegative number." << endl;
         exit(1);
     }
     
@@ -601,6 +608,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
     multipath_mapper.min_mem_length = min_mem_length;
+    multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
+    multipath_mapper.adaptive_diff_exponent = reseed_exp;
     if (min_clustering_mem_length) {
         multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
     }
