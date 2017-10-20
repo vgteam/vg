@@ -9,7 +9,6 @@ extern "C" {
 #include "stCactusGraphs.h"
 }
 
-#define debug
 namespace vg {
 
 using namespace std;

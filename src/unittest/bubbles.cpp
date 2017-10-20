@@ -627,6 +627,83 @@ TEST_CASE("bubbles can be found in a graph with no heads or tails or paths", "[b
     
 }
 
+TEST_CASE("bubbles are created based on most distant connected tips", "[bubbles]") {
+    
+    // Build a toy graph
+    // Looks like:
+    //
+    //       1\
+    //  5--2---3--6
+    //      \4  
+    //
+    // The head is 1, the tail is 4, 2 and 3 have self loops, and the graph is connected.
+    // But the head cannot reach the tail.
+    const string graph_json = R"(
+    
+    {
+        "node": [
+            {"id": 1, "sequence": "A"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "A"},
+            {"id": 4, "sequence": "A"},
+            {"id": 5, "sequence": "A"},
+            {"id": 6, "sequence": "A"}
+        ],
+        "edge": [
+            {"from": 1, "to": 3},
+            {"from": 2, "to": 4},
+            {"from": 2, "to": 3},
+            {"from": 5, "to": 2},
+            {"from": 3, "to": 6}
+        ]
+    }
+    
+    )";
+    
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.extend(chunk);
+    
+    BubbleTree* bubble_tree = ultrabubble_tree(graph);
+    
+    bubble_tree->for_each_preorder([&](const TreeNode<Bubble>* node) {
+        cerr << "Found bubble " << node->v.start << " to " << node->v.end << " containing ";
+        for (auto& id : node->v.contents) {
+            cerr << id << " ";
+        }
+        cerr << endl;
+    });
+    
+    SECTION("Tree contains a root node that is a fake global bubble") {
+        REQUIRE(bubble_tree->root != nullptr);
+        REQUIRE(bubble_tree->root->v.start.node == 0);
+        REQUIRE(bubble_tree->root->v.end.node == 0);
+        
+        SECTION("Root should have one child actual bubble") {
+            REQUIRE(bubble_tree->root->children.size() == 1);
+            
+            TreeNode<Bubble>* child1 = bubble_tree->root->children[0];
+            
+            SECTION("First child is from 5 end to 6 start") {
+                REQUIRE(child1->v.start.node == 5);
+                REQUIRE(child1->v.start.is_end == true);
+                REQUIRE(child1->v.end.node == 6);
+                REQUIRE(child1->v.end.is_end == false);
+                
+            }
+            
+        }
+        
+        
+        
+    }
+    
+    delete bubble_tree;
+    
+}
+
 
 }
 }
