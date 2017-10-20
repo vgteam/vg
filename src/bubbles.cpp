@@ -591,6 +591,20 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
             }
         }
         
+        // TODO: For now, try even with disconnected tips before breaking into
+        // cycles. This is because our cycle-breaking code can't tell the
+        // difference between a 1-node cycle (strong component size 1) and a
+        // node that can't reach itself (strong component size 1).
+        /*{
+            if (component_tips[i].size() >= 2) {
+                // TODO: For now we just pick two arbitrary tips in each component.
+                vector<handle_t> tips{component_tips[i].begin(), component_tips[i].end()};
+                add_telomeres(tips.front(), tips.back());
+                continue;
+            }
+        }*/
+
+        
         // Otherwise, we have no tips reachable from any other tips. We have to
         // be cyclic, so find the biggest cycle (strongly connected component)
         // in the weakly connected component, pick an arbitrary node, and pick
@@ -603,23 +617,60 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
             assert(!strong_components.empty());
             
             // Find the largest in node size
+            // Start out with no component selected
             size_t largest_component = 0;
-            size_t largest_component_nodes = strong_components[0].size();
-            for (size_t j = 1; j < strong_components.size(); j++) {
+            size_t largest_component_nodes = 0;
+            for (size_t j = 0; j < strong_components.size(); j++) {
                 // For each other strong component
                 if (strong_components[j].size() > largest_component_nodes) {
                     // If it has more nodes, take it.
+                    
+                    if (strong_components[j].size() == 1) {
+                        // Special check: Is this a real cycle? Nodes not in any
+                        // cycle also get a strongly connected component size of
+                        // 1.
+                        
+                        // Get the node we care about
+                        handle_t member = graph.get_handle(*strong_components[j].begin(), false);
+                        
+                        // See if it cycles around.
+                        // TODO: can we poll for the edge more cheaply?
+                        bool saw_self = false;
+                        graph.follow_edges(member, false, [&](const handle_t& next) {
+                            if (next == member) {
+                                saw_self = true;
+                                return false;
+                            }
+                            return true;
+                        });
+                        
+                        if (!saw_self) {
+                            // This isn't really a 1-node cycle
+#ifdef debug
+                            cerr << "Component " << j << " is really a non-cyclic node and not a 1-node cycle" << endl;
+#endif
+                            continue;
+                        }
+                    }
+                    
                     largest_component = j;
                     largest_component_nodes = strong_components[j].size();
                 }
             }
             
-            // Pick some arbitrary node in the largest component
-            assert(!strong_components[largest_component].empty());
+            // Pick some arbitrary node in the largest component.
+            // Also, assert we found one.
+            assert(largest_component_nodes != 0);
             id_t break_node = *strong_components[largest_component].begin();
+            
+#ifdef debug
+            cerr << "Elect to break at node " << break_node
+                << " in largest strongly connected component with size " << largest_component_nodes << endl;
+#endif
             
             // Break on it
             add_telomeres(graph.get_handle(break_node, false), graph.get_handle(break_node, true));
+            continue;
         }
         
     }
