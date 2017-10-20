@@ -55,7 +55,7 @@ void help_mpmap(char** argv) {
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [64]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [32]" << endl
-    << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.6]" << endl
+    << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.4]" << endl
     << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
     << "  -K, --clust-length INT    minimum MEM length form clusters [automatic]" << endl
     << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
@@ -104,7 +104,7 @@ int main_mpmap(int argc, char** argv) {
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
     int reseed_length = 32;
-    double reseed_diff = 0.6;
+    double reseed_diff = 0.4;
     double cluster_ratio = 0.2;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;

@@ -572,6 +572,16 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 mem.nodes.clear();
             }
         }
+#ifdef debug_mapper
+#pragma omp critical
+        {
+            cerr << "MEM " << mem.sequence() << " has " << mem.match_count << " hits: ";
+            for (auto nt : mem.nodes) {
+                cerr << make_pos_t(nt) << ", ";
+            }
+            cerr << endl;
+        }
+#endif
     }
 
     // we didn't manage to get enough hits, so boost our sensitivity by re-running whith shorter MEM length constraints
@@ -619,6 +629,16 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                     mem.nodes.clear();
                 }
             }
+#ifdef debug_mapper
+#pragma omp critical
+            {
+                cerr << "sub-MEM " << mem.sequence() << " has " << mem.match_count << " hits: ";
+                for (auto nt : mem.nodes) {
+                    cerr << make_pos_t(nt) << ", ";
+                }
+                cerr << endl;
+            }
+#endif
         }
         
         // combine the MEM and sub-MEM lists
