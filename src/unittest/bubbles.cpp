@@ -99,7 +99,7 @@ TEST_CASE("bubbles can be found", "[bubbles]") {
                     REQUIRE(subchild->v.end.node == 5);
                     REQUIRE(subchild->v.end.is_end == false);
                     
-                    SECTION("Subchild child has no children") {
+                    SECTION("Subchild has no children") {
                         REQUIRE(subchild->children.size() == 0);
                     }
                         
@@ -182,7 +182,7 @@ TEST_CASE("bubbles can be found in graphs with only heads", "[bubbles]") {
                 REQUIRE(child1->v.end.node == 2);
                 REQUIRE(child1->v.end.is_end == true);
                 
-                SECTION("First child child has no children") {
+                SECTION("First child has no children") {
                     REQUIRE(child1->children.size() == 0);
                 }
                 
@@ -283,7 +283,7 @@ TEST_CASE("bubbles can be found in bigger graphs with only heads", "[bubbles]") 
                     REQUIRE(subchild->v.end.node == 5);
                     REQUIRE(subchild->v.end.is_end == false);
                     
-                    SECTION("Subchild child has no children") {
+                    SECTION("Subchild has no children") {
                         REQUIRE(subchild->children.size() == 0);
                     }
                         
@@ -396,7 +396,7 @@ TEST_CASE("bubbles can be found in graphs with only tails", "[bubbles]") {
                     REQUIRE(subchild->v.end.node == 5);
                     REQUIRE(subchild->v.end.is_end == false);
                     
-                    SECTION("Subchild child has no children") {
+                    SECTION("Subchild has no children") {
                         REQUIRE(subchild->children.size() == 0);
                     }
                         
@@ -535,19 +535,32 @@ TEST_CASE("bubbles can be found in a graph with no heads or tails", "[bubbles]")
         REQUIRE(bubble_tree->root->v.start.node == 0);
         REQUIRE(bubble_tree->root->v.end.node == 0);
         
-        SECTION("Root node has 1 child bubble") {
-            REQUIRE(bubble_tree->root->children.size() == 1);
+        SECTION("Root node has 2 child bubbles") {
+            REQUIRE(bubble_tree->root->children.size() == 2);
             
             TreeNode<Bubble>* child1 = bubble_tree->root->children[0];
+            TreeNode<Bubble>* child2 = bubble_tree->root->children[1];
             
-            SECTION("First child is from 1 end to 2 end") {
+            SECTION("First child is from 1 end to 2 start") {
                 REQUIRE(child1->v.start.node == 1);
                 REQUIRE(child1->v.start.is_end == true);
                 REQUIRE(child1->v.end.node == 2);
-                REQUIRE(child1->v.end.is_end == true);
+                REQUIRE(child1->v.end.is_end == false);
                 
-                SECTION("First child child has no children") {
+                SECTION("First child has no children") {
                     REQUIRE(child1->children.size() == 0);
+                }
+                
+            }
+            
+            SECTION("Second child is from 1 start to 2 end") {
+                REQUIRE(child2->v.start.node == 1);
+                REQUIRE(child2->v.start.is_end == false);
+                REQUIRE(child2->v.end.node == 2);
+                REQUIRE(child2->v.end.is_end == true);
+                
+                SECTION("Second child has no children") {
+                    REQUIRE(child2->children.size() == 0);
                 }
                 
             }
@@ -600,9 +613,10 @@ TEST_CASE("bubbles can be found in a graph with no heads or tails or paths", "[b
         REQUIRE(bubble_tree->root->v.start.node == 0);
         REQUIRE(bubble_tree->root->v.end.node == 0);
         
-        SECTION("Root node has 1 child bubble") {
-            REQUIRE(bubble_tree->root->children.size() == 1);
+        SECTION("Root node has 2 child bubbles") {
+            REQUIRE(bubble_tree->root->children.size() == 2);
             
+            // We should have 2 bubbles, one looking around the cycle in each direction.
             // TODO: can't really say much about its contents.
             
         }

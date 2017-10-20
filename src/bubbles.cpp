@@ -396,6 +396,16 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
 #endif
     });
     
+    // We'll also need the strongly connected components, in case the graph is cyclic.
+    // This holds all the strongly connected components that live in each weakly connected component.
+    vector<vector<set<id_t>>> component_strong_components(weak_components.size());
+    for (auto& strong_component : graph.strongly_connected_components()) {
+        // For each strongly connected component
+        assert(!strong_component.empty());
+        // Assign it to the weak comnponent that some node in it belongs to
+        component_strong_components[node_to_component[*strong_component.begin()]].push_back(strong_component);
+    }
+    
     
     // OK, now we need to fill in the telomeres list with two telomeres per
     // component.
@@ -488,15 +498,44 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
         // TODO: Otherwise, compute tip reachability and distance by Dijkstra's
         // Algorithm and pick the pair of reachable tips with the longest shortest
         // paths
+        {
+            if (component_tips[i].size() >= 2) {
+                // TODO: For now we just pick two arbitrary tips in each component.
+                vector<handle_t> tips{component_tips[i].begin(), component_tips[i].end()};
+                add_telomeres(tips.front(), tips.back());
+                continue;
+            }
+        }
         
         // TODO: Otherwise, we have to be cyclic, so find the biggest cycle
         // (strongly connected component) in the weakly connected component, pick an
         // arbitrary node, and pick the outward-facing ends of the node.
-
-        // TODO: For now we just pick two arbitrary tips in each component.
-        vector<handle_t> tips{component_tips[i].begin(), component_tips[i].end()};
-        assert(tips.size() >= 2);
-        add_telomeres(tips.front(), tips.back());
+        
+        {
+            // What strongly connected components do we have?
+            auto& strong_components = component_strong_components[i];
+            
+            assert(!strong_components.empty());
+            
+            // Find the largest in node size
+            size_t largest_component = 0;
+            size_t largest_component_nodes = strong_components[0].size();
+            for (size_t j = 1; j < strong_components.size(); j++) {
+                // For each other strong component
+                if (strong_components[j].size() > largest_component_nodes) {
+                    // If it has more nodes, take it.
+                    largest_component = j;
+                    largest_component_nodes = strong_components[j].size();
+                }
+            }
+            
+            // Pick some arbitrary node in the largest component
+            assert(!strong_components[largest_component].empty());
+            id_t break_node = *strong_components[largest_component].begin();
+            
+            // Break on it
+            add_telomeres(graph.get_handle(break_node, false), graph.get_handle(break_node, true));
+        }
         
     }
     
