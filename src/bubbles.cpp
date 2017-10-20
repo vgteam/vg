@@ -330,62 +330,141 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     // We need one for each weakly connected component in the graph, so first we break into connected components.
     vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components(&graph);
        
+    // We also want a map so we can efficiently find which component a node lives in.
+    unordered_map<id_t, size_t> node_to_component;
+    for (size_t i = 0; i < weak_components.size(); i++) {
+        for (auto& id : weak_components[i]) {
+            node_to_component[id] = i;
+        }
+    }
+       
     // Then we find the heads and tails
     auto all_heads = algorithms::head_nodes(&graph);
     auto all_tails = algorithms::tail_nodes(&graph);
     
-    // Alot them to components
-    vector<pair<vector<handle_t>, vector<handle_t>>> component_heads_and_tails(weak_components.size());
+    // Alot them to components. We store tips in an inward-facing direction
+    vector<unordered_set<handle_t>> component_tips(weak_components.size());
     for (auto& head : all_heads) {
-        for (size_t i = 0; i < weak_components.size(); i++) {
-            if (weak_components[i].count(graph.get_id(head))) {
-                component_heads_and_tails[i].first.push_back(head);
-                cerr << "Found head " << graph.get_id(head) << " in component " << i << endl;
-            }
-        }
+        component_tips[node_to_component[graph.get_id(head)]].insert(head);
+        cerr << "Found head " << graph.get_id(head) << " in component " << node_to_component[graph.get_id(head)] << endl;
     }
     for (auto& tail : all_tails) {
-        for (size_t i = 0; i < weak_components.size(); i++) {
-            if (weak_components[i].count(graph.get_id(tail))) {
-                component_heads_and_tails[i].second.push_back(tail);
-                cerr << "Found tail " << graph.get_id(tail) << " in component " << i << endl;
+        component_tips[node_to_component[graph.get_id(tail)]].insert(graph.flip(tail));
+        cerr << "Found tail " << graph.get_id(tail) << " in component " << node_to_component[graph.get_id(tail)] << endl;
+    }
+    
+    // Assign path names to components
+    vector<vector<string>> component_paths(weak_components.size());
+    // Also get the path length.
+    unordered_map<string, size_t> path_length;
+    
+    graph.paths.for_each_name([&](const std::string& name) {
+        // For every path
+        auto& path_mappings = graph.paths.get_path(name);
+        
+        // Save the path under the component
+        auto component = node_to_component[path_mappings.front().position().node_id()];
+        component_paths[component].push_back(name);
+        
+        cerr << "Path " << name << " belongs to component " << component << endl;
+        
+        for (auto& mapping : graph.paths.get_path(name)) {
+            // Total up the length. We could use from length on the mapping, but
+            // sometimes (like in the tests) the mapping edits haven't been
+            // populated.
+            path_length[name] += graph.get_length(graph.get_handle(mapping.position().node_id(), false));
+        }
+        
+        cerr << "\tPath " << name << " has length " << path_length[name] << endl;
+    });
+    
+    
+    // OK, now we need to fill in the telomeres list with two telomeres per
+    // component.
+    
+    // This function adds as telomeres a pair of inward-facing handles.
+    auto add_telomeres = [&](const handle_t& left, const handle_t& right) {
+        cerr << "Selected " << graph.get_id(left) << " " << graph.get_is_reverse(left) << " and "
+            << graph.get_id(right) << " " << graph.get_is_reverse(right) << " as tips" << endl;
+        
+        stCactusEdgeEnd* end1 = edge_ends[graph.get_id(left)];
+        // We need to add the interior side of the node, and our handle is reading inwards.
+        // If we're reverse, add the node's local left. Otherwise, add the node's local right.
+        stList_append(telomeres, graph.get_is_reverse(left) ? end1 : end1->otherEdgeEnd);
+        stCactusEdgeEnd* end2 = edge_ends[graph.get_id(right)];
+        stList_append(telomeres, graph.get_is_reverse(right) ? end2 : end2->otherEdgeEnd);
+    };
+    
+    for (size_t i = 0; i < weak_components.size(); i++) {
+        // For each weakly connected component
+        
+        // First priority is two tips at the ends of the longest path that has
+        // two tips at its ends.
+        {
+            string longest_path;
+            // This is going to hold inward-facing handles to the tips we find.
+            pair<handle_t, handle_t> longest_path_tips;
+            size_t longest_path_length = 0;
+            cerr << "Consider " << component_paths[i].size() << " paths for component " << i << endl;
+            for (auto& path_name : component_paths[i]) {
+                // Look at each path
+                auto& path_mappings = graph.paths.get_path(path_name);
+                
+                cerr << "\tPath " << path_name << " has " << path_mappings.size() << " mappings" << endl;
+                
+                // See if I can get two tips on its ends.
+                // Get the inward-facing start and end handles.
+                handle_t path_start = graph.get_handle(path_mappings.front().position().node_id(),
+                    path_mappings.front().position().is_reverse());
+                handle_t path_end = graph.get_handle(path_mappings.back().position().node_id(),
+                    !path_mappings.back().position().is_reverse());
+                
+                if (component_tips[i].count(path_start) && component_tips[i].count(path_end)) {
+                    // This path ends in two tips so we can consider it
+                    
+                    if (path_length[path_name] > longest_path_length) {
+                        // This is our new longest path between tips.
+                        longest_path = path_name;
+                        longest_path_tips = make_pair(path_start, path_end);
+                        longest_path_length = path_length[path_name];
+                        cerr << "\t\tNew longest path!" << endl;
+                    } else {
+                        cerr << "\t\tPath length of " << path_length[path_name] << " not longer than path "
+                            << longest_path << " with " << longest_path_length << endl;
+                    } 
+                    
+                } else {
+                    cerr << "\t\tPath " << path_name << " does not start and end with tips" << endl;
+                }
+            }
+            
+            if (!longest_path.empty()) {
+                cerr << "Longest tip path is " << longest_path << endl;
+                // We found something!
+                add_telomeres(longest_path_tips.first, longest_path_tips.second);
+                // Work on the next component.
+                continue;
+            } else {
+                cerr << "No longest path found between tips" << endl;
             }
         }
+        
+        // Second priority is Dijkstra traversal tip selection
+        
+        // TODO: Otherwise, compute tip reachability and distance by Dijkstra's
+        // Algorithm and pick the pair of reachable tips with the longest shortest
+        // paths
+        
+        // TODO: Otherwise, we have to be cyclic, so find the biggest cycle
+        // (strongly connected component) in the weakly connected component, pick an
+        // arbitrary node, and pick the outward-facing ends of the node.
+
+        // TODO: For now we just pick two arbitrary tips in each component.
+        vector<handle_t> tips{component_tips[i].begin(), component_tips[i].end()};
+        add_telomeres(tips.front(), tips.back());
+        
     }
     
-    // TODO: Combine head and tail into tips.
-    
-    // TODO: For each weakly connected component
-    
-    // TODO: Pick a pair of tips that appear at the ends of the longest named
-    // path
-    
-    // TODO: Otherwise, compute tip reachability and distance by Dijkstra's
-    // Algorithm and pick the pair of reachable tips with the longest shortest
-    // paths
-    
-    // TODO: Otherwise, we have to be cyclic, so find the biggest cycle
-    // (strongly connected component) in the weakly connected component, pick an
-    // arbitrary node, and pick the outward-facing ends of the node.
-
-    // TODO: For now we just pick an arbitrary head and tail in each component.
-
-    for (auto& heads_and_tails : component_heads_and_tails) {
-        if (!heads_and_tails.first.empty() && !heads_and_tails.second.empty()) {
-            // If we have both a head and a tail, we add an arbitrary pairing of them
-            stCactusEdgeEnd* end1 = edge_ends[graph.get_id(heads_and_tails.first.front())];
-            // Make sure to flip the head around so it points the right way for it and the tail to oppose each other.
-            stList_append(telomeres, end1->otherEdgeEnd);
-            
-            stCactusEdgeEnd* end2 = edge_ends[graph.get_id(heads_and_tails.second.front())];
-            stList_append(telomeres, end2);
-            
-        } else {
-            // Otherwise, we explode?
-            throw runtime_error("Could not find both a head and a tail in a connected component");
-        }
-    }
-
     return make_pair(cactus_graph, telomeres);
 }
 

@@ -57,7 +57,10 @@ TEST_CASE("bubbles can be found", "[bubbles]") {
     VG graph;
     Graph chunk;
     json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    graph.extend(chunk);
+    
+    // We need to see the path.
+    REQUIRE(graph.paths.size() == 1);
     
     BubbleTree* bubble_tree = ultrabubble_tree(graph);
     
@@ -158,7 +161,7 @@ TEST_CASE("bubbles can be found when heads cannot reach tails", "[bubbles]") {
     VG graph;
     Graph chunk;
     json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    graph.extend(chunk);
     
     BubbleTree* bubble_tree = ultrabubble_tree(graph);
     
@@ -236,7 +239,7 @@ TEST_CASE("bubbles can be found in graphs without easy heads and tails", "[bubbl
     VG graph;
     Graph chunk;
     json2pb(chunk, graph_json.c_str(), graph_json.size());
-    graph.merge(chunk);
+    graph.extend(chunk);
     
     BubbleTree* bubble_tree = ultrabubble_tree(graph);
     
