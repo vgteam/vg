@@ -63,11 +63,6 @@ MEMChainModel::MEMChainModel(
                                                  const vector<MEMChainModelVertex>::iterator& v2) {
                           return v1->mem.length() > v2->mem.length();
                       });
-            if (pos.size() > position_depth) {
-                for (int i = position_depth; i < pos.size(); ++i) {
-                    redundant_vertexes.insert(pos[i]);
-                }
-            }
             pos.resize(min(pos.size(), (size_t)position_depth));
         }
     }
