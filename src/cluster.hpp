@@ -116,7 +116,6 @@ public:
     vector<pair<MEMChainModelVertex*, double> > prev_cost; // for backward
     double weight;
     double score;
-    int64_t approx_position;
     MEMChainModelVertex* prev;
     MEMChainModelVertex(void) = default;                                      // Copy constructor
     MEMChainModelVertex(const MEMChainModelVertex&) = default;               // Copy constructor
@@ -129,12 +128,13 @@ public:
 class MEMChainModel {
 public:
     vector<MEMChainModelVertex> model;
-    map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > approx_positions;
+    map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > > positions;
     set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     MEMChainModel(
         const vector<size_t>& aln_lengths,
         const vector<vector<MaximalExactMatch> >& matches,
         const function<int64_t(pos_t)>& approx_position,
+        const function<map<string, vector<size_t> >(pos_t)>& path_position,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10,
         int position_depth = 1,
@@ -148,19 +148,6 @@ public:
     
 class OrientedDistanceClusterer {
 public:
-    OrientedDistanceClusterer(const Alignment& alignment,
-                              const vector<MaximalExactMatch>& mems,
-                              const QualAdjAligner& aligner,
-                              xg::XG* xgindex,
-                              size_t max_expected_dist_approx_error = 8,
-                              size_t min_mem_length = 1);
-    
-    OrientedDistanceClusterer(const Alignment& alignment,
-                              const vector<MaximalExactMatch>& mems,
-                              const Aligner& aligner,
-                              xg::XG* xgindex,
-                              size_t max_expected_dist_approx_error = 8,
-                              size_t min_mem_length = 1);
     
     /// Each hit contains a pointer to the original MEM and the position of that
     /// particular hit in the graph.
@@ -169,21 +156,50 @@ public:
     /// Each cluster is a vector of hits.
     using cluster_t = vector<hit_t>;
     
+    /// A memo for the results of XG::oriented_paths_of_node
+    using node_occurrence_on_paths_memo_t = unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>;
+    
+    /// A memo for the results of XG::get_handle
+    using handle_memo_t = unordered_map<pair<int64_t, bool>, handle_t>;
+    
+    /// Constructor using QualAdjAligner, optionally memoizing succinct data structure operations
+    OrientedDistanceClusterer(const Alignment& alignment,
+                              const vector<MaximalExactMatch>& mems,
+                              const QualAdjAligner& aligner,
+                              xg::XG* xgindex,
+                              size_t max_expected_dist_approx_error = 8,
+                              size_t min_mem_length = 1,
+                              node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
+                              handle_memo_t* handle_memo = nullptr);
+    
+    /// Constructor using Aligner, optionally memoizing succinct data structure operations
+    OrientedDistanceClusterer(const Alignment& alignment,
+                              const vector<MaximalExactMatch>& mems,
+                              const Aligner& aligner,
+                              xg::XG* xgindex,
+                              size_t max_expected_dist_approx_error = 8,
+                              size_t min_mem_length = 1,
+                              node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
+                              handle_memo_t* handle_memo = nullptr);
+    
     /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
     /// contains a pointer to the original MEM and the position of that particular hit in the graph.
     vector<cluster_t> clusters(int32_t max_qual_score = 60, int32_t log_likelihood_approx_factor = 0);
     
     /**
-     * Given two vectors of clusters, an xg index, and a maximum separation,
-     * returns a vector of pairs of cluster numbers (one in each vector) that
-     * are in opposite orientations (as would be expected of read pairs) and
-     * within the specified distance.
+     * Given two vectors of clusters, an xg index, an bounds on the distance between clusters,
+     * returns a vector of pairs of cluster numbers (one in each vector) matched with the estimated
+     * distance
      */
-    static vector<pair<size_t, size_t>> pair_clusters(const vector<cluster_t*>& left_clusters,
-                                                      const vector<cluster_t*>& right_clusters,
-                                                      xg::XG* xgindex,
-                                                      int64_t min_inter_cluster_distance,
-                                                      int64_t max_inter_cluster_distance);
+    static vector<pair<pair<size_t, size_t>, int64_t>> pair_clusters(const Alignment& alignment_1,
+                                                                     const Alignment& alignment_2,
+                                                                     const vector<cluster_t*>& left_clusters,
+                                                                     const vector<cluster_t*>& right_clusters,
+                                                                     xg::XG* xgindex,
+                                                                     int64_t min_inter_cluster_distance,
+                                                                     int64_t max_inter_cluster_distance,
+                                                                     node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
+                                                                     handle_memo_t* handle_memo = nullptr);
     
     //static size_t PRUNE_COUNTER;
     //static size_t CLUSTER_TOTAL;
@@ -202,11 +218,14 @@ private:
                               const QualAdjAligner* qual_adj_aligner,
                               xg::XG* xgindex,
                               size_t max_expected_dist_approx_error,
-                              size_t min_mem_length);
+                              size_t min_mem_length,
+                              node_occurrence_on_paths_memo_t* paths_of_node_memo,
+                              handle_memo_t* handle_memo);
     
     /**
      * Given a certain number of items, and a callback to get each item's
-     * position, build a distance forrest with trees for items that we can
+     * position, and a callback to a fixed offset from that position
+     * build a distance forest with trees for items that we can
      * verify are on the same strand of the same molecule.
      *
      * We use the distance approximation to cluster the MEM hits according to
@@ -218,7 +237,43 @@ private:
      * strand.
      */
     static unordered_map<pair<size_t, size_t>, int64_t> get_on_strand_distance_tree(size_t num_items, xg::XG* xgindex,
-                                                                                    const function<pos_t(size_t)>& get_position);
+                                                                                    const function<pos_t(size_t)>& get_position,
+                                                                                    const function<int64_t(size_t)>& get_offset,
+                                                                                    node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
+                                                                                    handle_memo_t* handle_memo = nullptr);
+    
+    /**
+     * Adds edges into the distance tree by estimating the distance between pairs
+     * generated by a high entropy deterministic permutation
+     */
+    static void extend_dist_tree_by_permutations(int64_t max_failed_distance_probes,
+                                                 int64_t max_search_distance_to_path,
+                                                 size_t decrement_frequency,
+                                                 size_t& num_possible_merges_remaining,
+                                                 UnionFind& component_union_find,
+                                                 unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                                 size_t num_items,
+                                                 xg::XG* xgindex,
+                                                 const function<pos_t(size_t)>& get_position,
+                                                 const function<int64_t(size_t)>& get_offset,
+                                                 node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
+                                                 handle_memo_t* handle_memo = nullptr);
+    
+    
+    /**
+     * Adds edges into the distance tree by estimating the distance only between pairs
+     * of items that can be directly inferred to share a path based on the memo of
+     * node occurrences on paths
+     */
+    static void extend_dist_tree_by_path_buckets(size_t& num_possible_merges_remaining,
+                                                 UnionFind& component_union_find,
+                                                 unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                                 size_t num_items,
+                                                 xg::XG* xgindex,
+                                                 const function<pos_t(size_t)>& get_position,
+                                                 const function<int64_t(size_t)>& get_offset,
+                                                 node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
+                                                 handle_memo_t* handle_memo = nullptr);
     
     /**
      * Given a number of nodes, and a map from node pair to signed relative

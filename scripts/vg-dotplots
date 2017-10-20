@@ -18,5 +18,5 @@ do
    echo $cmp
    cat $outdir/pathoverlaps.tsv \
        | grep "^comparison\|$cmp" \
-       | Rscript -e 'require(tidyverse); y <- read.delim("stdin"); ggplot(subset(y, comparison == "'$cmp'"), aes(x=x, y=y)) + geom_point(size=0.01) + theme_bw() + labs(title="'$cmp'"); ggsave("'$outdir'/'$cmp'.pdf")'
+       | Rscript -e 'require(tidyverse); y <- read.delim("stdin"); c <- "'$cmp'"; d <- subset(y, comparison == c); m <- max(max(d$x),max(d$y)); ggplot(subset(d,x>0&y>0), aes(x=x, y=y)) + geom_point(size=0.01) + theme_bw() + labs(title=c) + scale_x_continuous(strsplit(c, "____")[[1]][1], limits=c(0,m)) + scale_y_continuous(strsplit(c, "____")[[1]][2], limits=c(0,m)) ; ggsave("'$outdir'/'$cmp'.pdf", width=6.99, height=7.07)'
 done

@@ -1,5 +1,5 @@
-#ifndef VG_EDIT_HPP
-#define VG_EDIT_HPP
+#ifndef VG_EDIT_HPP_INCLUDED
+#define VG_EDIT_HPP_INCLUDED
 
 #include "vg.pb.h"
 #include <utility>

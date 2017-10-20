@@ -102,8 +102,15 @@ namespace vg {
         /// the pair, if we don't find one, add the read pair to a buffer instead of the output vector.
         void attempt_unpaired_multipath_map_of_pair(const Alignment& alignment1, const Alignment& alignment2,
                                                     vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                    vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
-                                                    size_t max_alt_mappings);
+                                                    vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer);
+        
+        /// Extracts a section of graph at a distance from the MultipathAlignment based on the fragment length
+        /// distribution and attempts to align the other paired read to it. If rescuing forward, assumes the
+        /// provided MultipathAlignment is the first read and vice versa if rescuing backward. Rescue constructs
+        /// a conventional local alignment with gssw and converts the Alignment to a MultipathAlignment. The
+        /// MultipathAlignment will be stored in the object passed by reference as an argument.
+        bool attempt_rescue(const MultipathAlignment& multipath_aln, const Alignment& other_aln,
+                            bool rescue_forward, MultipathAlignment& rescue_multipath_aln);
         
         /// After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform
         /// multipath alignment
@@ -119,7 +126,7 @@ namespace vg {
         void align_to_cluster_graph_pairs(const Alignment& alignment1, const Alignment& alignment2,
                                           vector<clustergraph_t>& cluster_graphs1,
                                           vector<clustergraph_t>& cluster_graphs2,
-                                          vector<pair<size_t, size_t>>& cluster_pairs,
+                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                           size_t max_alt_mappings);
         
@@ -152,7 +159,13 @@ namespace vg {
         void sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns, MappingQualityMethod mapq_method) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
-        void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs) const;
+        /// If there are ties between scores, breaks them by the expected distance between pairs as computed by the
+        /// OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector)
+        void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
+                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
+        
+        /// Computes the log-likelihood of a given fragment length in the trained distribution
+        double fragment_length_log_likelihood(int64_t length) const;
         
         /// Computes the number of read bases a cluster of MEM hits covers.
         static int64_t read_coverage(const memcluster_t& mem_hits);
@@ -179,7 +192,6 @@ namespace vg {
     public:
         // removes duplicate sub-MEMs contained in parent MEMs
         MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
-                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
         

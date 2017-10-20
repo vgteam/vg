@@ -52,8 +52,8 @@ void help_view(char** argv) {
 
          << "    -d, --dot                  output dot format" << endl
          << "    -S, --simple-dot           simplify the dot output; remove node labels, simplify alignments" << endl
-         << "    -B, --bubble-label         label nodes with emoji/colors that correspond to superbubbles" << endl
-         << "    -Y, --ultra-label          same as -Y but using ultrabubbles" << endl
+         << "    -e, --ascii-labels         use labels for paths or superbubbles with char/colors rather than emoji" << endl
+         << "    -Y, --ultra-label          label nodes with emoji/colors that correspond to ultrabubbles" << endl
          << "    -m, --skip-missing         skip mappings to nodes not in the graph when drawing alignments" << endl
          << "    -C, --color                color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths           show paths in dot output" << endl
@@ -120,11 +120,10 @@ int main_view(int argc, char** argv) {
     bool simple_dot = false;
     int seed_val = time(NULL);
     bool color_variants = false;
-    bool superbubble_ranking = false;
-    bool superbubble_labeling = false;
     bool ultrabubble_labeling = false;
     bool skip_missing_nodes = false;
     bool expect_duplicates = false;
+    bool ascii_labels = false;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -163,7 +162,6 @@ int main_view(int argc, char** argv) {
                 {"color", no_argument, 0, 'C'},
                 {"translation-in", no_argument, 0, 'Z'},
                 {"ultra-label", no_argument, 0, 'Y'},
-                {"bubble-label", no_argument, 0, 'B'},
                 {"skip-missing", no_argument, 0, 'm'},
                 {"locus-in", no_argument, 0, 'q'},
                 {"loci", no_argument, 0, 'Q'},
@@ -173,11 +171,12 @@ int main_view(int argc, char** argv) {
                 {"expect-duplicates", no_argument, 0, 'D'},
                 {"multipath", no_argument, 0, 'k'},
                 {"multipath-in", no_argument, 0, 'K'},
+                {"ascii-labels", no_argument, 0, 'e'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zXREDkK",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZYmqQ:zXREDkKe",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -202,8 +201,8 @@ int main_view(int argc, char** argv) {
             ultrabubble_labeling = true;
             break;
 
-        case 'B':
-            superbubble_labeling = true;
+        case 'e':
+            ascii_labels = true;
             break;
 
         case 'm':
@@ -812,10 +811,9 @@ int main_view(int argc, char** argv) {
                       simple_dot,
                       invert_edge_ports_in_dot,
                       color_variants,
-                      superbubble_ranking,
-                      superbubble_labeling,
                       ultrabubble_labeling,
                       skip_missing_nodes,
+                      ascii_labels,
                       seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;

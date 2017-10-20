@@ -41,10 +41,6 @@
 #include "types.hpp"
 #include "gfakluge.hpp"
 
-#include "globalDefs.hpp"
-#include "Graph.hpp"
-#include "helperDefs.hpp"
-
 #include "bubbles.hpp"
 
 #include "nodetraversal.hpp"
@@ -83,7 +79,7 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public HandleGraph {
+class VG : public Progressive, public MutableHandleGraph {
 
 public:
 
@@ -114,6 +110,56 @@ public:
     /// them to a callback which returns false to stop iterating and true to
     /// continue.
     virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
+    
+    // Copy over the template for nice calls
+    using HandleGraph::follow_edges;
+    
+    /// Loop over all the nodes in the graph in their local forward
+    /// orientations, in their internal stored order. Stop if the iteratee returns false.
+    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const;
+    
+    // Copy over the template for nice calls
+    using HandleGraph::for_each_handle;
+    
+    /// Return the number of nodes in the graph
+    virtual size_t node_size() const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Mutable handle-based interface
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Create a new node with the given sequence and return the handle.
+    virtual handle_t create_handle(const string& sequence);
+    
+    /// Remove the node belonging to the given handle and all of its edges.
+    virtual void destroy_handle(const handle_t& handle);
+    
+    /// Create an edge connecting the given handles in the given order and orientations.
+    virtual void create_edge(const handle_t& left, const handle_t& right);
+    
+    /// Remove the edge connecting the given handles in the given order and orientations.
+    virtual void destroy_edge(const handle_t& left, const handle_t& right);
+    
+    /// Swap the nodes corresponding to the given handles, in the ordering used
+    /// by for_each_handle when looping over the graph. Other handles to the
+    /// nodes being swapped must not be invalidated.
+    virtual void swap_handles(const handle_t& a, const handle_t& b);
+    
+    /// Alter the node that the given handle corresponds to so the orientation
+    /// indicated by the handle becomes the node's local forward orientation.
+    /// Rewrites all edges pointing to the node and the node's sequence to
+    /// reflect this. Invalidates all handles to the node (including the one
+    /// passed). Returns a new, valid handle to the node in its new forward
+    /// orientation. Note that it is possible for the node's ID to change.
+    virtual handle_t apply_orientation(const handle_t& handle);
+    
+    /// Split a handle's underlying node at the given offsets in the handle's
+    /// orientation. Returns all of the handles to the parts. Other handles to
+    /// the node being split may be invalidated. The split pieces stay in the
+    /// same local forward orientation as the original node, but the returned
+    /// handles come in the order and orientation appropriate for the handle
+    /// passed in.
+    virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets);
     
 private:
     // We have some masks for cramming things into handles
@@ -250,11 +296,12 @@ public:
     set<set<id_t> > strongly_connected_components(void);
     /// Get only multi-node strongly connected components.
     set<set<id_t> > multinode_strongly_connected_components(void);
-    /// Returns the IDs of components that are connected by any series of nodes and edges,
-    /// even if it is not a valid bidirected walk.
-    vector<unordered_set<id_t>> weakly_connected_components(void);
     /// Returns true if the graph does not contain cycles.
     bool is_acyclic(void);
+    /// Returns true if the graph does not contain a directed cycle (but it may contain a reversing cycle)
+    bool is_directed_acyclic(void);
+    /// Return true if there are no reversing edges in the graph
+    bool is_single_stranded(void);
     /// Remove all elements which are not in a strongly connected component.
     void keep_multinode_strongly_connected_components(void);
     /// Does the specified node have any self-loops?
@@ -269,7 +316,7 @@ public:
     /// Use the orientation of the first node as the basis.
     Node* merge_nodes(const list<Node*>& nodes);
     /// Use unchop and sibling merging to simplify the graph into a normalized form.
-    void normalize(int max_iter = 1);
+    void normalize(int max_iter = 1, bool debug = false);
     /// Remove redundant overlaps.
     void bluntify(void);
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
@@ -290,6 +337,10 @@ public:
     /// Create reverse complement nodes and edges for the entire graph. Doubles the size. Converts all inverting
     /// edges into non-inverting edges.
     VG split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation);
+    /// Create the reverse complemented graph with topology preserved. Record translation in provided map.
+    VG reverse_complement_graph(unordered_map<id_t, pair<id_t, bool>>& node_translation);
+    /// Record the translation of this graph into itself in the provided map.
+    void identity_translation(unordered_map<id_t, pair<id_t, bool>>& node_translation);
     
     /// Assume two node translations, the over is based on the under; merge them.
     unordered_map<id_t, pair<id_t, bool> > overlay_node_translations(const unordered_map<id_t, pair<id_t, bool> >& over,
@@ -325,7 +376,7 @@ public:
             graph = other.graph;
             paths = other.paths;
             // re-index
-            rebuild_indexes();
+            build_indexes();
         }
     }
 
@@ -358,6 +409,9 @@ public:
     void build_indexes(void);
     void build_node_indexes(void);
     void build_edge_indexes(void);
+    void build_indexes_no_init_size(void);
+    void build_node_indexes_no_init_size(void);
+    void build_edge_indexes_no_init_size(void);
     void index_paths(void);
     void clear_node_indexes(void);
     void clear_node_indexes_no_resize(void);
@@ -533,10 +587,11 @@ public:
     /// Add in the given edges, by value.
     void add_edges(const set<Edge*>& edges);
 
-    /// Count the number of nodes in the graph.
-    id_t node_count(void);
+    
+    /// Return the number of nodes in the graph
+    size_t node_count(void) const;
     /// Count the number of edges in the graph.
-    id_t edge_count(void);
+    size_t edge_count(void) const;
     /// Get the total sequence length of nodes in the graph.
     /// TODO: redundant with length().
     id_t total_length_of_nodes(void);
@@ -714,7 +769,7 @@ public:
     /// Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep.
     /// The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths.
     void keep_paths(set<string>& path_names, set<string>& kept_names);
-    void keep_path(string& path_name);
+    void keep_path(const string& path_name);
 
     /// Path stats.
     /// Starting from offset in the first node, how many edges do we cross?
@@ -737,15 +792,6 @@ public:
     double path_identity(const Path& path1, const Path& path2);
     /// Get the sequence of a NodeTraversal.
     string trav_sequence(const NodeTraversal& trav);
-
-    /// Convert a VG graph to superbubble algorithm input format.
-    SB_Input vg_to_sb_input();
-    /// Find the superbubbles in the given input graph.
-    vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
-    /// Find the superbubbles in this graph.
-    vector<pair<id_t, id_t> > get_superbubbles();
-
-    //map<pair<id_t, id_t>, vector<id_t> > superbubbles(void);
 
     /// Takes in a pathname and the nucleotide position (like from a vcf) and
     /// returns the node id which contains that position.
@@ -777,7 +823,7 @@ public:
     Edge* get_edge(const pair<NodeSide, NodeSide>& sides);
     /// Get the edge connecting the given oriented nodes in the given order.
     Edge* get_edge(const NodeTraversal& left, const NodeTraversal& right);
-    /// Festroy the edge at the given pointer. This pointer must point to an edge owned by the graph.
+    /// Destroy the edge at the given pointer. This pointer must point to an edge owned by the graph.
     void destroy_edge(Edge* edge);
     /// Destroy the edge between the given sides of nodes. These can be in either order.
     void destroy_edge(const NodeSide& side1, const NodeSide& side2);
@@ -855,10 +901,9 @@ public:
                 bool simple_mode = false,
                 bool invert_edge_ports = false,
                 bool color_variants = false,
-                bool superbubble_ranking = false,
-                bool superbubble_labeling = false,
                 bool ultrabubble_labeling = false,
                 bool skip_missing_nodes = false,
+                bool ascii_labels = false,
                 int random_seed = 0);
 
     /// Convert the graph to Dot format.
@@ -875,20 +920,12 @@ public:
                   bool check_paths = true,
                   bool check_orphans = true);
 
-    /// Topologically order nodes.
-    /// Makes sure that Nodes appear in the Protobuf Graph object in their topological sort order.
-    void sort(void);
-    /// Topological sort helper function, not really meant for external use.
-    void topological_sort(vector<NodeTraversal>& order);
+    /// Topologically order the nodes in the Protobuf graph. Only valid if the graph is a DAG with all
+    /// no reversing edges or doubly reversing edges. No guarantee of system independent behavior, but
+    /// significantly faster than VG::sort().
+    void lazy_sort(void);
     /// Swap the given nodes. TODO: what does that mean?
     void swap_nodes(Node* a, Node* b);
-
-    /// Use a topological sort to order and orient the nodes, and then flip some
-    /// nodes around so that they are oriented the way they are in the sort.
-    /// Populates nodes_flipped with the ids of the nodes that have had their
-    /// orientations changed. TODO: update the paths that touch nodes that
-    /// flipped around
-    void orient_nodes_forward(set<id_t>& nodes_flipped);
 
     /// For each path, assign edits that describe a total match of the mapping to the node.
     void force_path_match(void);

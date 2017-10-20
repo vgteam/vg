@@ -4,6 +4,9 @@
 #include "../mapper.hpp"
 #include "../stream.hpp"
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace vg;
 using namespace vg::subcommand;
 
@@ -106,7 +109,6 @@ int main_map(int argc, char** argv) {
     int min_mem_length = -1;
     int min_cluster_length = 0;
     float mem_reseed_factor = 1.5;
-    bool mem_chaining = true;
     int max_target_factor = 100;
     int buffer_size = 100;
     int8_t match = 1;
@@ -612,7 +614,6 @@ int main_map(int argc, char** argv) {
                  << ", min_cluster_length = " << m->min_cluster_length << endl;
         }
         m->fast_reseed = use_fast_reseed;
-        m->mem_chaining = mem_chaining;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
         m->strip_bonuses = strip_bonuses;

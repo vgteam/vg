@@ -30,9 +30,24 @@ size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)
 size_t fastq_paired_interleaved_for_each(const string& filename, function<void(Alignment&, Alignment&)> lambda);
 size_t fastq_paired_two_files_for_each(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda);
 // parallel versions of above
-size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Alignment&)> lambda);
-size_t fastq_paired_interleaved_for_each_parallel(const string& filename, function<void(Alignment&, Alignment&)> lambda);
-size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda);
+size_t fastq_unpaired_for_each_parallel(const string& filename,
+                                        function<void(Alignment&)> lambda);
+    
+size_t fastq_paired_interleaved_for_each_parallel(const string& filename,
+                                                  function<void(Alignment&, Alignment&)> lambda);
+    
+size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filename,
+                                                             function<void(Alignment&, Alignment&)> lambda,
+                                                             function<bool(void)> wait_until_true,
+                                                             function<void(void)> call_on_complete);
+    
+size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2,
+                                                function<void(Alignment&, Alignment&)> lambda);
+    
+size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, const string& file2,
+                                                           function<void(Alignment&, Alignment&)> lambda,
+                                                           function<bool(void)> wait_until_true,
+                                                           function<void(void)> call_on_complete);
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,

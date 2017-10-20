@@ -222,7 +222,7 @@ class VGCITest(TestCase):
         
         
     def _toil_vg_run(self, sample_name, chrom, graph_path, xg_path, gcsa_path, fq_path,
-                     true_vcf_path, fasta_path, interleaved, misc_opts, tag):
+                     true_vcf_path, fasta_path, interleaved, multipath, misc_opts, tag):
         """ Wrap toil-vg run as a shell command.  Expects reads to be in single fastq
         inputs can be None if toil-vg supports not having them (ie don't need to 
         include gcsa_path if want to reindex)
@@ -251,11 +251,16 @@ class VGCITest(TestCase):
             opts += '--vcfeval_opts \" --ref-overlap\" '
         if interleaved:
             opts += '--interleaved '
+        if multipath:
+            opts += '--multipath '
         if misc_opts:
             opts += ' {} '.format(misc_opts)
+        # don't waste time sharding reads since we only run on one node
+        opts += '--single_reads_chunk '
         opts += '--gcsa_index_cores {} --kmers_cores {} \
-        --alignment_cores {} --calling_cores {} --vcfeval_cores {} '.format(
-            self.cores, self.cores, self.cores, self.cores, self.cores)
+        --alignment_cores {} --calling_cores {} --call_chunk_cores {} --vcfeval_cores {} '.format(
+            self.cores, self.cores, self.cores, max(1, self.cores / 4),
+            max(1, self.cores / 2), self.cores)
         
         cmd = 'toil-vg run {} {} {} {}'.format(job_store, sample_name, out_store, opts)
         
@@ -389,30 +394,36 @@ class VGCITest(TestCase):
 
         self.assertGreaterEqual(f1_score, baseline_f1 - threshold)
 
-    def _test_bakeoff(self, region, graph, skip_indexing):
+    def _test_bakeoff(self, region, graph, skip_indexing, multipath=False, tag_ext='', misc_opts=None):
         """ Run bakeoff F1 test for NA12878 """
-        tag = '{}-{}'.format(region, graph)
+        assert not tag_ext or tag_ext.startswith('-')
+        tag = '{}-{}{}'.format(region, graph, tag_ext)
         chrom, offset = self._bakeoff_coords(region)        
         if skip_indexing:
             xg_path = None
             gcsa_path = self._input('{}-{}.gcsa'.format(graph, region))
         else:
             xg_path = None
-            gcsa_path = None            
+            gcsa_path = None
+        extra_opts = '--vcf_offsets {}'.format(offset)
+        if misc_opts:
+            extra_opts += ' {}'.format(misc_opts)
+        
         self._toil_vg_run('NA12878', chrom,
                           self._input('{}-{}.vg'.format(graph, region)),
                           xg_path, gcsa_path,
                           self._input('platinum_NA12878_{}.fq.gz'.format(region)),
                           self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
-                          self._input('chr{}.fa.gz'.format(chrom)), True,
-                          '--vcf_offsets {}'.format(offset), tag)
+                          self._input('chr{}.fa.gz'.format(chrom)), True, multipath,
+                          extra_opts, tag)
 
         if self.verify:
             self._verify_f1('NA12878', tag)
 
-    def _mapeval_vg_run(self, reads, base_xg_path, sim_xg_paths, fasta_path,
-                        test_index_bases, test_names, score_baseline_name,
-                        multipath, sim_opts, sim_fastq, tag):
+    def _mapeval_vg_run(self, reads, base_xg_path, sim_xg_paths,
+                        source_path_names, fasta_path, test_index_bases,
+                        test_names, score_baseline_name,  multipath,
+                        paired_only, sim_opts, sim_fastq, tag):
         """ Wrap toil-vg mapeval. 
         
         Evaluates realignments (to the linear reference and to a set of graphs)
@@ -420,14 +431,16 @@ class VGCITest(TestCase):
         evaluated based on how close the realignments are to the original
         simulated source position. Simulations are done inside this function.
 
-        sim_xg_paths are used for simulation. base_xg_path is used for everything
-        else like annotation and mapping.  sim_xg_paths can be [base_xg_path]
+        sim_xg_paths are xg filenames used for simulation. base_xg_path is an xg
+        filename used for everything else like annotation and mapping.
+        sim_xg_paths can be [base_xg_path]
         
-        Simulates the given number of reads (reads), from the given XG file
-        (base_xg_path). Uses the given FASTA (fasta_path) as a BWA reference for
-        comparing vg and BWA alignments within mapeval. (Basically, BWA against
-        the linear reference functions as a negative control "graph" to compare
-        against the real test graphs.)
+        Simulates the given number of reads (reads), from the given XG files
+        (sim_xg_paths), optionally restricted to a set of named embedded paths
+        (source_path_namess). Uses the given FASTA (fasta_path) as a BWA
+        reference for comparing vg and BWA alignments within mapeval.
+        (Basically, BWA against the linear reference functions as a negative
+        control "graph" to compare against the real test graphs.)
         
         test_index_bases specifies a list of basenames (without extension) for a
         .xg, .gcsa, and .gcsa.lcp file set, one per of graph that is to be
@@ -463,6 +476,8 @@ class VGCITest(TestCase):
         if sim_fastq:
             opts += '--fastq {} '.format(sim_fastq)
         opts += '--annotate_xg {} '.format(base_xg_path)
+        for source_path_name in source_path_names:
+            opts += '--path {} '.format(source_path_name)
         cmd = 'toil-vg sim {} {} {} {} --gam {}'.format(
             job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
         subprocess.check_call(cmd, shell=True)
@@ -478,7 +493,10 @@ class VGCITest(TestCase):
             # Toil options
             realTimeLogging = True,
             logLevel = "INFO",
-            maxCores = self.cores
+            maxCores = self.cores,
+            # toil-vg map options
+            # don't waste time sharding reads since we only run on one node
+            single_reads_chunk = True
         )
         
         # Make the context
@@ -492,8 +510,7 @@ class VGCITest(TestCase):
         # things as file IDs?
         mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
         mapeval_options.bwa = True
-        mapeval_options.bwa_paired = True
-        mapeval_options.vg_paired = True
+        mapeval_options.paired_only = paired_only        
         mapeval_options.fasta = make_url(fasta_path)
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
@@ -856,7 +873,8 @@ class VGCITest(TestCase):
 
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
-                      positive_control=None, negative_control=None, sample=None, multipath=False,
+                      positive_control=None, negative_control=None, sample=None,
+                      source_path_names=set(), multipath=False, paired_only=False,
                       assembly="hg38", tag_ext="", acc_threshold=0, auc_threshold=0,
                       sim_opts='-l 150 -p 500 -v 50 -e 0.05 -i 0.01', sim_fastq=None):
         """ Run simulation on a bakeoff graph
@@ -868,6 +886,10 @@ class VGCITest(TestCase):
         If a sample is specified, baseline_graph must be a graph with allele
         paths in it (--alt_paths passed to toil-vg construct) so that the subset
         of the graph for that sample can be used for read simulation.
+        
+        If instead source_path_names is specified, it must be a collection of
+        path names that exist in baseline_graph. Reads will be simulated evenly
+        across the named paths (not weighted according to path length).
         
         Needs to know the bekeoff region that is being run, in order to look up
         the actual graphs files for each graph type.
@@ -897,6 +919,10 @@ class VGCITest(TestCase):
 
         # compute the haplotype graphs to simulate from
         if sample:
+            # Can't use source paths with a sample
+            assert(len(source_path_names) == 0)
+            
+            # We need to make one XG per sample haplotype
             if sample in self.bakeoff_removed_samples:
                 # Unlike the other bakeoff graphs (snp1kg-region.vg), this one contains NA12878 and family
                 vg_path = self._input('{}_all_samples-{}.vg'.format(baseline_graph, region))
@@ -907,6 +933,7 @@ class VGCITest(TestCase):
                 sample, vg_path, vcf_path, region, tag)
             sim_xg_paths = [thread1_xg_path, thread2_xg_path]
         else:
+            # Just use the one XG, and maybe restrict to paths in it.
             xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')
             sim_xg_paths = [xg_path]            
             
@@ -915,8 +942,8 @@ class VGCITest(TestCase):
         for test_graph in test_graphs:
             test_tag = '{}-{}'.format(test_graph, region)
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
-        self._mapeval_vg_run(reads, xg_path, sim_xg_paths, fasta_path, test_index_bases,
-                             test_graphs, score_baseline_graph, multipath, sim_opts, sim_fastq, tag)
+        self._mapeval_vg_run(reads, xg_path, sim_xg_paths, source_path_names, fasta_path, test_index_bases,
+                             test_graphs, score_baseline_graph, multipath, paired_only, sim_opts, sim_fastq, tag)
         if self.verify:
             self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
                                  positive_control, negative_control, tag,
@@ -936,17 +963,14 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
                            
-    #@skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
-    def test_sim_mhc_snp1kg(self):
-        """ Mapping and calling bakeoff F1 test for MHC primary graph """
+    def test_sim_mhc_cactus(self):
+        """ Mapping test for MHC cactus graph """
         log.info("Test start at {}".format(datetime.now()))        
-        self._test_mapeval(100000, 'MHC', 'snp1kg',
-                           ['primary', 'snp1kg', 'common1kg'],
-                           score_baseline_graph='primary',
-                           positive_control='snp1kg_HG00096',
-                           negative_control='snp1kg_minus_HG00096',
-                           sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
+        self._test_mapeval(10000, 'MHC', 'cactus',
+                           ['snp1kg', 'cactus'],
+                           multipath=True,
+                           source_path_names=['GI568335986', 'GI568335994'], acc_threshold=0.02, auc_threshold=0.02)
 
     @timeout_decorator.timeout(16000)        
     def test_sim_chr21_snp1kg(self):
@@ -958,6 +982,20 @@ class VGCITest(TestCase):
                            assembly="hg19",
                            acc_threshold=0.0075, auc_threshold=0.075, multipath=True,
                            sim_opts='-l 150 -p 500 -v 50 -e 0.01 -i 0.002')
+
+    @timeout_decorator.timeout(16000)        
+    def test_sim_chr21_snp1kg_trained(self):
+        self._test_mapeval(100000, 'CHR21', 'snp1kg',
+                           ['primary', 'snp1kg'],
+                           #score_baseline_graph='primary',
+                           sample='HG00096',
+                           assembly="hg19",
+                           acc_threshold=0.0075, auc_threshold=0.075, multipath=True, paired_only=True,
+                           tag_ext='-trained',
+                           sim_opts='-p 500 -v 50 -S 4 -i 0.002',
+                           # 800k 148bp reads from Genome in a Bottle NA12878 library
+                           # (placeholder while finding something better)
+                           sim_fastq='ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz')
 
     @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(3600)
@@ -974,6 +1012,20 @@ class VGCITest(TestCase):
                            acc_threshold=0.02, auc_threshold=0.02)
 
     @skip("skipping test to keep runtime down")        
+    @timeout_decorator.timeout(7200)
+    def test_sim_chr21_snp1kg_mpmap(self):
+        """ multipath mapper test, which is a smaller version of above.  we catch all errors
+        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        and off.
+        """
+        self._test_mapeval(100000, 'CHR21', 'snp1kg',
+                           ['primary', 'snp1kg'],
+                           score_baseline_graph='primary',
+                           sample='HG00096', multipath=True, tag_ext='-mpmap',
+                           acc_threshold=0.02,
+                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5',
+                           sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
+
     @timeout_decorator.timeout(7200)
     def test_sim_mhc_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
@@ -1000,6 +1052,15 @@ class VGCITest(TestCase):
         """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'snp1kg', True)
+        
+    @timeout_decorator.timeout(600)
+    def test_map_brca1_snp1kg_mpmap(self):
+        """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph on mpmap.  
+        The filter_opts are the defaults minus the identity filter because mpmap doesn't 
+        write identities.
+        """
+        self._test_bakeoff('BRCA1', 'snp1kg', True, multipath=True, tag_ext='-mpmap',
+                           misc_opts='--filter_opts \"-q 15 -m 1 -D 999 -s 1000\"')
 
     @timeout_decorator.timeout(200)        
     def test_map_brca1_cactus(self):

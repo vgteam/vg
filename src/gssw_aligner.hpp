@@ -154,7 +154,7 @@ namespace vg {
                                             double identity_weight);
         
         /// Computes mapping quality for the optimal score in a vector of scores
-        int32_t compute_mapping_quality(vector<int32_t> scores, bool fast_approximation);
+        int32_t compute_mapping_quality(vector<double>& scores, bool fast_approximation);
         
         /// Returns the  difference between an optimal and second-best alignment scores that would
         /// result in this mapping quality using the fast mapping quality approximation

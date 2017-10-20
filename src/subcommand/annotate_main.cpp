@@ -5,6 +5,9 @@
 #include "../stream.hpp"
 #include "../alignment.hpp"
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace vg;
 using namespace vg::subcommand;
 
@@ -17,7 +20,8 @@ void help_annotate(char** argv) {
          << "    -g, --gcsa FILE        a GCSA2 index file base name" << endl
          << "    -a, --gam FILE         alignments to annotate" << endl
          << "    -p, --positions        annotate alignments with reference positions" << endl
-         << "    -i, --init-pos         use initial position of alignment instead of mean" << endl;
+         << "    -i, --init-pos         use initial position of alignment instead of mean" << endl
+         << "    -n, --novelty          table for each read: name, bp not in xg, nodes not in xg" << endl;
 }
 
 int main_annotate(int argc, char** argv) {
@@ -35,6 +39,7 @@ int main_annotate(int argc, char** argv) {
     string gam_name;
     bool add_positions = false;
     bool init_pos = false;
+    bool novelty = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -49,11 +54,12 @@ int main_annotate(int argc, char** argv) {
             {"bed-name", required_argument, 0, 'b'},
             {"db-name", required_argument, 0, 'd'},
             {"init-pos", no_argument, 0, 'i'},
+            {"novelty", no_argument, 0, 'n'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:d:v:g:a:pib:",
+        c = getopt_long (argc, argv, "hx:d:v:g:a:pib:n",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -92,6 +98,10 @@ int main_annotate(int argc, char** argv) {
             
         case 'i':
             init_pos = true;
+            break;
+
+        case 'n':
+            novelty = true;
             break;
 
         case 'h':
@@ -137,6 +147,41 @@ int main_annotate(int argc, char** argv) {
                     stream::for_each(in, lambda);
                 });
             stream::write_buffered(cout, buffer, 0); // flush
+        } else if (novelty) {
+            cout << "name\tlength.bp\tunaligned.bp\tknown.nodes\tknown.bp\tnovel.nodes\tnovel.bp" << endl;
+            function<void(Alignment&)> lambda = [&](Alignment& aln) {
+                // count the number of positions in the alignment that aren't in the graph
+                int total_bp = aln.sequence().size();
+                int unaligned_bp = 0;
+                int known_nodes = 0;
+                int known_bp = 0;
+                int novel_nodes = 0;
+                int novel_bp = 0;
+                for (auto& mapping : aln.path().mapping()) {
+                    if (mapping.has_position()) {
+                        auto& pos = mapping.position();
+                        if (xg_index->has_node(pos.node_id())) {
+                            ++known_nodes;
+                            known_bp += mapping_to_length(mapping);
+                        } else {
+                            ++novel_nodes;
+                            novel_bp += mapping_to_length(mapping);
+                        }
+                    } else {
+                        unaligned_bp += mapping_to_length(mapping);
+                    }
+                }
+                cout << aln.name() << "\t"
+                << total_bp << "\t"
+                << unaligned_bp << "\t"
+                << known_nodes << "\t"
+                << known_bp << "\t"
+                << novel_nodes << "\t"
+                << novel_bp << endl;
+            };
+            get_input_file(gam_name, [&](istream& in) {
+                    stream::for_each(in, lambda);
+                });
         }
     } else if (!bed_name.empty()) {
         vector<Alignment> buffer;

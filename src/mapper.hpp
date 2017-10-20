@@ -14,7 +14,7 @@
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
-#include "cached_position.hpp"
+#include "xg_position.hpp"
 #include "lru_cache.h"
 #include "json2pb.h"
 #include "entropy.hpp"
@@ -43,7 +43,7 @@ public:
     vector<pair<AlignmentChainModelVertex*, double> > prev_cost; // for backward
     double weight;
     double score;
-    int64_t approx_position;
+    map<string, double> positions;
     int band_begin;
     int band_idx;
     AlignmentChainModelVertex* prev;
@@ -58,16 +58,16 @@ public:
 class AlignmentChainModel {
 public:
     vector<AlignmentChainModelVertex> model;
-    map<int64_t, vector<vector<AlignmentChainModelVertex>::iterator> > approx_positions;
+    map<string, map<int64_t, vector<vector<AlignmentChainModelVertex>::iterator> > > positions;
     set<vector<AlignmentChainModelVertex>::iterator> redundant_vertexes;
     vector<Alignment> unaligned_bands;
     AlignmentChainModel(
         vector<vector<Alignment> >& bands,
         Mapper* mapper,
-        const function<double(const Alignment&, const Alignment&)>& transition_weight,
-        int band_width = 10,
+        const function<double(const Alignment&, const Alignment&, const map<string, double>&, const map<string, double>&)>& transition_weight,
+        int vertex_width = 10,
         int position_depth = 1,
-        int max_connections = 10);
+        int max_connections = 30);
     void score(const set<AlignmentChainModelVertex*>& exclude);
     AlignmentChainModelVertex* max_vertex(void);
     vector<Alignment> traceback(const Alignment& read, int alt_alns, bool paired, bool debug);
@@ -98,30 +98,33 @@ public:
     /// Instead of estimating anything, just use these parameters.
     void force_parameters(double mean, double stddev);
     
-    /// Switches the entire program to single-threaded mode until reaching the maximum
-    /// sample size so that estimation is deterministic. After reaching the maximum, the
-    /// thread count is automatically switched back.
-    void determinize_estimation();
-    
-    /// Manually switches back to multithreaded mode
-    void unlock_determinization();
-    
     /// Record an observed fragment length
     void register_fragment_length(int64_t length);
 
     /// Robust mean of the distribution observed so far
-    double mean();
+    double mean() const;
     
     /// Robust standard deviation of the distribution observed so far
-    double stdev();
+    double stdev() const;
     
     /// Returns true if the maximum sample size has been reached, which finalizes the
     /// distribution estimate
-    bool is_finalized();
+    bool is_finalized() const;
     
     /// Returns the max sample size up to which the distribution will continue to reestimate
     /// parameters
-    size_t max_sample_size();
+    size_t max_sample_size() const;
+    
+    /// Returns the number of samples that have been collected so far
+    size_t curr_sample_size() const;
+    
+    /// Begin iterator to the measurements that the distribution has used to estimate the
+    /// parameters
+    multiset<double>::const_iterator measurements_begin() const;
+    
+    /// End iterator to the measurements that the distribution has used to estimate the
+    /// parameters
+    multiset<double>::const_iterator measurements_end() const;
     
 private:
     multiset<double> lengths;
@@ -133,8 +136,6 @@ private:
     
     double mu = 0.0;
     double sigma = 1.0;
-    
-    int multithread_reset = 0;
     
     void estimate_distribution();
 };
@@ -155,7 +156,7 @@ public:
     
     // TODO: setting alignment threads could mess up the internal memory for how many threads to reset to
     void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
-                                          double robust_estimation_fraction = 0.95, bool deterministic = true);
+                                          double robust_estimation_fraction = 0.95);
     
     /// Set the alignment thread count, updating internal data structures that
     /// are per thread. Note that this resets aligner scores to their default values!
@@ -165,9 +166,6 @@ public:
     
     /// Returns true if fragment length distribution has been fixed
     bool has_fixed_fragment_length_distr();
-    
-    /// Gives up on deterministic estimation regardless of whether the distribution has been fixed
-    void abandon_fragment_length_distr();
     
     /// Use the given fragment length distribution parameters instead of
     /// estimating them.
@@ -189,8 +187,10 @@ public:
                    int max_mem_length = 0,
                    int min_mem_length = 1,
                    int reseed_length = 0,
-                   bool use_lcp_reseed_heuristic = true,
-                   bool use_diff_based_fast_reseed = false);
+                   bool use_lcp_reseed_heuristic = false,
+                   bool use_diff_based_fast_reseed = false,
+                   bool include_parent_in_sub_mem_count = false,
+                   int reseed_below_count = 0);
     
     // Use the GCSA2 index to find super-maximal exact matches.
     vector<MaximalExactMatch>
@@ -219,6 +219,7 @@ protected:
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
     /// that contain it
     void find_sub_mems(const vector<MaximalExactMatch>& mems,
+                       int mem_idx,
                        string::const_iterator next_mem_end,
                        int min_mem_length,
                        vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
@@ -227,6 +228,7 @@ protected:
     /// min_mem_length as a pruning tool instead of the LCP index. It can be expected to be faster when both
     /// the min_mem_length reasonably large relative to the reseed_length (e.g. 1/2 of SMEM size or similar).
     void find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
+                            int mem_idx,
                             string::const_iterator next_mem_end,
                             int min_sub_mem_length,
                             vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
@@ -263,6 +265,7 @@ protected:
     void check_mems(const vector<MaximalExactMatch>& mems);
     
     int alignment_threads; // how many threads will *this* mapper use. Should not be set directly.
+    /*
     int cache_size;
     
     // match walking support to prevent repeated calls to the xg index for the same node
@@ -283,6 +286,7 @@ protected:
     vector<LRUCache<id_t, vector<Edge> >* > edge_cache;
     LRUCache<id_t, vector<Edge> >& get_edge_cache(void);
     void init_edge_cache(void);
+    */
     
     void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
     void clear_aligners(void);
@@ -446,7 +450,6 @@ public:
     /// assuming the read has only been score-aligned, realign from the end position backwards
     Alignment realign_from_start_position(const Alignment& aln, int extra, int iteration);
     
-    vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
                                                 vector<MaximalExactMatch>& mems2);
 
@@ -545,6 +548,8 @@ public:
     double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
     // walks the graph one base at a time from pos1 until we find pos2
     int64_t graph_distance(pos_t pos1, pos_t pos2, int64_t maximum = 1e3);
+    // takes the min of graph_distance, approx_distance, and xindex->min_approx_path_distance()
+    int64_t graph_mixed_distance_estimate(pos_t pos1, pos_t pos2, int64_t maximum);
     // use the offset in the sequence array to give an approximate distance
     int64_t approx_distance(pos_t pos1, pos_t pos2);
     // use the offset in the sequence array to get an approximate position
@@ -577,7 +582,6 @@ public:
     //
     //int max_mem_length; // a mem must be <= this length
     int min_cluster_length; // a cluster needs this much sequence in it for us to consider it
-    bool mem_chaining; // whether to use the mem threading mapper or not
     int context_depth; // how deeply the mapper will extend out the subgraph prior to alignment
     int max_attempts;  // maximum number of times to try to increase sensitivity or use a lower-hit subgraph
     int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
