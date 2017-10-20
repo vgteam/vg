@@ -171,8 +171,23 @@ TEST_CASE("bubbles can be found in graphs with only heads", "[bubbles]") {
         REQUIRE(bubble_tree->root->v.start.node == 0);
         REQUIRE(bubble_tree->root->v.end.node == 0);
         
-        SECTION("Root node has 0 child bubbles") {
-            REQUIRE(bubble_tree->root->children.size() == 0);
+        SECTION("Root node has 1 child bubble") {
+            REQUIRE(bubble_tree->root->children.size() == 1);
+            
+            TreeNode<Bubble>* child1 = bubble_tree->root->children[0];
+            
+            SECTION("First child is from 1 end to 2 end") {
+                REQUIRE(child1->v.start.node == 1);
+                REQUIRE(child1->v.start.is_end == true);
+                REQUIRE(child1->v.end.node == 2);
+                REQUIRE(child1->v.end.is_end == true);
+                
+                SECTION("First child child has no children") {
+                    REQUIRE(child1->children.size() == 0);
+                }
+                
+            }
+            
         }
         
     }
