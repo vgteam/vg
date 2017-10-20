@@ -255,7 +255,7 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
     stList_append(telomeres, edgeEnd2);
 }
 
-
+#define debug
 // Step 2) Make a Cactus Graph. Returns the graph and a list of paired
 // cactusEdgeEnd telomeres, one after the other. Both members of the return
 // value must be destroyed.
@@ -279,6 +279,9 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     for (int i = 0; i < components.size(); ++i) {
 #ifdef debug
         cout << "Creating cactus node for component " << i << " with size " << components[i].size() << endl;
+        for (auto& content : components[i]) {
+            cout << "\tContains: " << content << endl;
+        }
 #endif
         id_t* cactus_node_id = (id_t*)malloc(sizeof(id_t));
         *cactus_node_id = i;
@@ -290,10 +293,18 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     // forward orientation.
     unordered_map<id_t, stCactusEdgeEnd*> edge_ends;
     for (int i = 0; i < components.size(); ++i) {
+        // For each adjacency component
         for (auto side : components[i]) {
+            // For every side in it
+            
+            // Work out the other side of that node
             NodeSide other_side(side.node, !side.is_end);
+            // And what component it is in
             int j = side_to_component[other_side];
+            
             if (!edge_ends.count(side.node)) {
+                // If we haven't made the Cactus edge for this graph node yet
+            
                 // afraid to try to get C++ NodeSide class into C, so we copy to
                 // equivalent struct
                 CactusSide* cac_side1 = (CactusSide*)malloc(sizeof(CactusSide));
@@ -307,14 +318,16 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
                      << i << " -> " << j << endl;
 #endif
 
-                // We get the cactusEdgeEnd corresponding to the local left (start) of the node.
+                // We get the cactusEdgeEnd corresponding to the side stored in side.
+                // This may be either the left (if that NodeSide is a start), or the right (if that NodeSide is an end).
                 stCactusEdgeEnd* cactus_edge = stCactusEdgeEnd_construct(
                     cactus_graph,
                     cactus_nodes[i],
                     cactus_nodes[j],
                     cac_side1,
                     cac_side2);
-                edge_ends[side.node] = cactus_edge;
+                // Save the cactusEdgeEnd for the left side of the node.
+                edge_ends[side.node] = side.is_end ? cactus_edge->otherEdgeEnd : cactus_edge;
             }
         }
     }
@@ -467,6 +480,7 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     
     return make_pair(cactus_graph, telomeres);
 }
+#undef debug
 
 // fill in the "acyclic" and "contents" field of a bubble by doing a depth first search
 // between its bounding sides (start and end)
