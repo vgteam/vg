@@ -137,7 +137,7 @@ public:
         const function<map<string, vector<size_t> >(pos_t)>& path_position,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10,
-        int position_depth = 1,
+        int position_depth = 2,
         int max_connections = 20);
     void score(const set<MEMChainModelVertex*>& exclude);
     MEMChainModelVertex* max_vertex(void);
