@@ -1447,15 +1447,6 @@ map<string, size_t> Mapper::alignment_initial_path_positions(const Alignment& al
     return to_return;
 }
 
-void Mapper::annotate_with_initial_path_positions(Alignment& aln) {
-    map<string, size_t> init_path_positions = alignment_initial_path_positions(aln);
-    for (const pair<string, size_t>& pos_record : init_path_positions) {
-        Position* refpos = aln.add_refpos();
-        refpos->set_name(pos_record.first);
-        refpos->set_offset(pos_record.second);
-    }
-}
-
 pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     bool aln_is_rev = aln.path().mapping(0).position().is_reverse();
     int64_t aln_pos = approx_alignment_position(aln);
@@ -1502,19 +1493,69 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     } else {
         return make_pos_t(target, !aln_is_rev, 0);
     }
-    /*
-        && !aln_is_rev) {
-    } else if (!same_direction && aln_is_rev) {
-        target = (is_first_mate ? node_approximately_at(aln_pos + delta)
-                  : node_approximately_at(aln_pos - delta));
-    } else if (same_direction && aln_is_rev
-               || !same_direction && !aln_is_rev) {
-        target = (is_first_mate ? node_approximately_at(aln_pos - delta)
-                  : node_approximately_at(aln_pos + delta));
+}
+
+vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_mate) {
+    map<string, vector<pair<size_t, bool> > > offsets;
+    for (auto& mapping : aln.path().mapping()) {
+        auto pos_offs = xindex->offsets_in_paths(make_pos_t(mapping.position()));
+        for (auto& p : pos_offs) {
+            if (offsets.find(p.first)  == offsets.end()) {
+                offsets[p.first] = p.second;
+            }
+        }
+        if (offsets.size()) break; // find a single node that has a path position
     }
-    */
-    //bool target_is_rev = (same_orientation ? aln_is_rev : !aln_is_rev);
-    //return make_pos_t(target, target_is_rev, 0);
+    // get our fragment model on the stack
+    bool same_orientation = frag_stats.cached_fragment_orientation;
+    bool forward_direction = frag_stats.cached_fragment_direction;
+    int64_t delta = frag_stats.cached_fragment_length_mean;
+    vector<pos_t> likely;
+    for (auto& seq : offsets) {
+        // find the likely position
+        // then direction
+        auto& seq_name = seq.first;
+        for (auto& p : seq.second) { 
+            size_t path_pos = p.first;
+            bool on_reverse_path = p.second;
+            size_t mate_pos = 0;
+            if (forward_direction) {
+                if (is_first_mate) {
+                    if (!on_reverse_path) {
+                        mate_pos = path_pos + delta;
+                    } else {
+                        mate_pos = path_pos - delta;
+                    }
+                } else {
+                    if (!on_reverse_path) {
+                        mate_pos = path_pos + delta;
+                    } else {
+                        mate_pos = path_pos - delta;
+                    }
+                }
+            } else {
+                if (is_first_mate) {
+                    if (!on_reverse_path) {
+                        mate_pos = path_pos - delta;
+                    } else {
+                        mate_pos = path_pos + delta;
+                    }
+                } else {
+                    if (!on_reverse_path) {
+                        mate_pos = path_pos - delta;
+                    } else {
+                        mate_pos = path_pos + delta;
+                    }
+                }
+            }
+            pos_t target = xindex->graph_pos_at_path_position(seq_name, mate_pos);
+            if (!same_orientation) {
+                target = reverse(target, get_node_length(id(target)));
+            }
+            likely.push_back(target);
+        }
+    }
+    return likely;
 }
 
 pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, int full_length_bonus, bool traceback) {
@@ -1540,6 +1581,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     //cerr << "---------------------------" << endl;
     //if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
     //if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
+    vector<pos_t> mate_positions;
     if (mate1_id > mate2_id && mate1_id > hang_threshold && mate2_id <= retry_threshold && !consistent) {
         // retry off mate1
 #ifdef debug_mapper
@@ -1550,7 +1592,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
 #endif
         rescue_off_first = true;
         // record id and direction to second mate
-        mate_pos = likely_mate_position(mate1, true);
+        mate_positions = likely_mate_positions(mate1, true);
     } else if (mate2_id > mate1_id && mate2_id > hang_threshold && mate1_id <= retry_threshold && !consistent) {
         // retry off mate2
 #ifdef debug_mapper
@@ -1561,7 +1603,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
 #endif
         rescue_off_second = true;
         // record id and direction to second mate
-        mate_pos = likely_mate_position(mate2, false);
+        mate_positions = likely_mate_positions(mate2, false);
     } else {
         return make_pair(false, false);
     }
@@ -1571,47 +1613,49 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         if (debug) cerr << "aiming for " << mate_pos << endl;
     }
 #endif
-    if (id(mate_pos) == 0) return make_pair(false, false); // can't rescue because the selected mate is unaligned
-    int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
-                        : max((int)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
-                              mate1.sequence().size() * 4));
-    Graph graph = xindex->graph_context_id(mate_pos, get_at_least/2);
-    graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
-    sort_by_id_dedup_and_clean(graph);
-    //if (debug) cerr << "rescue got graph " << pb2json(graph.graph) << endl;
-    // if we're reversed, align the reverse sequence and flip it back
-    // align against it
-    if (rescue_off_first) {
-        Alignment aln2 = align_maybe_flip(mate2, graph, is_rev(mate_pos), traceback);
+    if (mate_positions.empty()) return make_pair(false, false); // can't rescue because the selected mate is unaligned
+    int max_mate1_score = mate1.score();
+    int max_mate2_score = mate2.score();
+    for (auto& mate_pos : mate_positions) {
+        int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
+                            : max((int)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
+                                  mate1.sequence().size() * 4));
+        Graph graph = xindex->graph_context_id(mate_pos, get_at_least/2);
+        graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
+        sort_by_id_dedup_and_clean(graph);
+        //if (debug) cerr << "rescue got graph " << pb2json(graph.graph) << endl;
+        // if we're reversed, align the reverse sequence and flip it back
+        // align against it
+        if (rescue_off_first) {
+            Alignment aln2 = align_maybe_flip(mate2, graph, is_rev(mate_pos), traceback);
 #ifdef debug_mapper
 #pragma omp critical
-        {
-            if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
-                            << " vs " << mate2.score() << "/" << mate2.identity() << endl;
-        }
+            {
+                if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
+                                << " vs " << mate2.score() << "/" << mate2.identity() << endl;
+            }
 #endif
-        if (aln2.score() > mate2.score() && (double)aln2.score()/perfect_score > retry_threshold && pair_consistent(mate1, aln2, 0.0001)) {
-            //cerr << "rescued aln2" << endl;
-            mate2 = aln2;
-            rescued2 = true;
-        } else {
-            return make_pair(false, false);
-        }
-    } else if (rescue_off_second) {
-        Alignment aln1 = align_maybe_flip(mate1, graph, is_rev(mate_pos), traceback);
+            if (aln2.score() > max_mate2_score && (double)aln2.score()/perfect_score > retry_threshold && pair_consistent(mate1, aln2, 0.0001)) {
+                //cerr << "rescued aln2" << endl;
+                mate2 = aln2;
+                max_mate2_score = mate2.score();
+                rescued2 = true;
+            }
+        } else if (rescue_off_second) {
+            Alignment aln1 = align_maybe_flip(mate1, graph, is_rev(mate_pos), traceback);
 #ifdef debug_mapper
 #pragma omp critical
-        {
-            if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
-                            << " vs " << mate1.score() << "/" << mate1.identity() << endl;
-        }
+            {
+                if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
+                                << " vs " << mate1.score() << "/" << mate1.identity() << endl;
+            }
 #endif
-        if (aln1.score() > mate1.score() && (double)aln1.score()/perfect_score > retry_threshold && pair_consistent(aln1, mate2, 0.0001)) {
-            //cerr << "rescued aln1" << endl;
-            mate1 = aln1;
-            rescued1 = true;
-        } else {
-            return make_pair(false, false);
+            if (aln1.score() > max_mate1_score && (double)aln1.score()/perfect_score > retry_threshold && pair_consistent(aln1, mate2, 0.0001)) {
+                //cerr << "rescued aln1" << endl;
+                mate1 = aln1;
+                max_mate1_score = mate1.score();
+                rescued1 = true;
+            }
         }
     }
     // if the new alignment is better
@@ -2508,6 +2552,17 @@ void Mapper::annotate_with_mean_path_positions(vector<Alignment>& alns) {
         }
     }
 }
+
+void Mapper::annotate_with_initial_path_positions(Alignment& aln) {
+    map<string, size_t> init_path_positions = alignment_initial_path_positions(aln);
+    for (const pair<string, size_t>& pos_record : init_path_positions) {
+        Position* refpos = aln.add_refpos();
+        refpos->set_name(pos_record.first);
+        refpos->set_offset(pos_record.second);
+    }
+}
+
+
 double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters,
                                                int read_length) {
     if (clusters.size() == 0) {

@@ -265,6 +265,7 @@ public:
 
     // Pull out the path with the given name.
     Path path(const string& name) const;
+    const XGPath& get_path(const string& name) const;
     // Returns the rank of the path with the given name, or 0 if no such path
     // exists.
     size_t path_rank(const string& name) const;
@@ -284,6 +285,7 @@ public:
     vector<size_t> position_in_path(int64_t id, const string& name) const;
     vector<size_t> position_in_path(int64_t id, size_t rank) const;
     map<string, vector<size_t> > position_in_paths(int64_t id, bool is_rev = false, size_t offset = 0) const;
+    map<string, vector<pair<size_t, bool> > > offsets_in_paths(pos_t pos) const;
     map<string, vector<size_t> > distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                                    int64_t id2, bool is_rev2, size_t offset2) const;
     int64_t min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
@@ -294,6 +296,8 @@ public:
     Mapping mapping_at_path_position(const string& name, size_t pos) const;
     /// Get the 0-based start position in the path that covers the given 0-based position along the path.
     size_t node_start_at_path_position(const string& name, size_t pos) const;
+    /// Get the graph position at the given 0-based path position
+    pos_t graph_pos_at_path_position(const string& name, size_t pos) const;
     Alignment target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature) const;
     size_t path_length(const string& name) const;
     size_t path_length(size_t rank) const;

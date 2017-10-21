@@ -562,6 +562,8 @@ public:
     int64_t approx_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // use the cached fragment model to estimate the likely place we'll find the mate
     pos_t likely_mate_position(const Alignment& aln, bool is_first);
+    // get a set of positions that are likely based on the fragment model and the embedded paths
+    vector<pos_t> likely_mate_positions(const Alignment& aln, bool is_first);
     // get the node approximately at the given offset relative to our position (offset may be negative)
     id_t node_approximately_at(int64_t approx_pos);
     // convert a single MEM hit into an alignment (by definition, a perfect one)

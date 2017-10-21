@@ -1863,6 +1863,10 @@ Path XG::path(const string& name) const {
     
 }
 
+const XGPath& XG::get_path(const string& name) const {
+    return *paths[path_rank(name)-1];
+}
+
 size_t XG::path_rank(const string& name) const {
     // find the name in the csa
     string query = start_marker + name + end_marker;
@@ -2883,6 +2887,22 @@ map<string, vector<size_t> > XG::position_in_paths(int64_t id, bool is_rev, size
     return positions;
 }
 
+map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const {
+    map<string, vector<pair<size_t, bool> > > positions;
+    id_t node_id = id(pos);
+    for (auto& prank : paths_of_node(node_id)) {
+        auto& path = *paths[prank-1];
+        auto& pos_in_path = positions[path_name(prank)];
+        for (auto i : node_ranks_in_path(node_id, prank)) {
+            size_t off = path.positions[i] + offset(pos);
+            // relative direction to this traversal
+            bool dir = path.directions[i] != is_rev(pos);
+            pos_in_path.push_back(make_pair(off, dir));
+        }
+    }
+    return positions;
+}
+
 map<string, vector<size_t> > XG::distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                                    int64_t id2, bool is_rev2, size_t offset2) const {
     auto pos1 = position_in_paths(id1, is_rev1, offset1);
@@ -2936,6 +2956,15 @@ size_t XG::node_start_at_path_position(const string& name, size_t pos) const {
     size_t p = path_rank(name)-1;
     size_t position_rank = paths[p]->offsets_rank(pos+1);
     return paths[p]->offsets_select(position_rank);
+}
+
+pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const {
+    auto& path = get_path(name);
+    size_t trav_idx = path.offsets_rank(path_pos+1)-1;
+    int64_t offset = path_pos - path.positions[trav_idx];
+    id_t node_id = path.ids[trav_idx];
+    bool is_rev = path.directions[trav_idx];
+    return make_pos_t(node_id, offset, is_rev);
 }
 
 Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature) const {
