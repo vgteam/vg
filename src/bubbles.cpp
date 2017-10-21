@@ -669,7 +669,8 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
 #endif
             
             // Break on it
-            add_telomeres(graph.get_handle(break_node, false), graph.get_handle(break_node, true));
+            // Make sure to feed in telomeres facing out
+            add_telomeres(graph.get_handle(break_node, true), graph.get_handle(break_node, false));
             continue;
         }
         

@@ -477,12 +477,13 @@ TEST_CASE("bubbles can be found when heads cannot reach tails", "[bubbles]") {
         
         SECTION("Root should have one child actual bubble") {
             REQUIRE(bubble_tree->root->children.size() == 1);
+            
+            TreeNode<Bubble>* child1 = bubble_tree->root->children[0];
+            
+            SECTION("The child should contain the whole graph") {
+                REQUIRE(child1->v.contents.size() == 4);
+            }
         }
-        
-        // TODO: The bubble ought to be 1 end to 4 start and contain 1, 2, 3, and 4
-        // But right now pinchesAndCacti doesn't give us that.
-        // This is probably a pinchesAndCacti bug and I should report it.
-        
     }
     
     delete bubble_tree;
@@ -541,11 +542,10 @@ TEST_CASE("bubbles can be found in a graph with no heads or tails", "[bubbles]")
             TreeNode<Bubble>* child1 = bubble_tree->root->children[0];
             TreeNode<Bubble>* child2 = bubble_tree->root->children[1];
             
-            SECTION("First child is from 1 end to 2 start") {
+            SECTION("First child is from 1 start/end to 2 end/start") {
                 REQUIRE(child1->v.start.node == 1);
-                REQUIRE(child1->v.start.is_end == true);
                 REQUIRE(child1->v.end.node == 2);
-                REQUIRE(child1->v.end.is_end == false);
+                REQUIRE(child1->v.start.is_end != child1->v.end.is_end);
                 
                 SECTION("First child has no children") {
                     REQUIRE(child1->children.size() == 0);
@@ -553,11 +553,10 @@ TEST_CASE("bubbles can be found in a graph with no heads or tails", "[bubbles]")
                 
             }
             
-            SECTION("Second child is from 1 start to 2 end") {
+            SECTION("Second child is from 1 start/end to 2 end/start") {
                 REQUIRE(child2->v.start.node == 1);
-                REQUIRE(child2->v.start.is_end == false);
                 REQUIRE(child2->v.end.node == 2);
-                REQUIRE(child2->v.end.is_end == true);
+                REQUIRE(child1->v.start.is_end != child1->v.end.is_end);
                 
                 SECTION("Second child has no children") {
                     REQUIRE(child2->children.size() == 0);
