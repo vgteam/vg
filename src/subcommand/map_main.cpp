@@ -687,9 +687,6 @@ int main_map(int argc, char** argv) {
                     unaligned.set_sequence(line);
 
                     vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width);
-                    if(alignments.empty()) {
-                        alignments.push_back(unaligned);
-                    }
 
                     for(auto& alignment : alignments) {
                         // Set the alignment metadata
@@ -723,9 +720,6 @@ int main_map(int argc, char** argv) {
 
                     int tid = omp_get_thread_num();
                     vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
-                    if(alignments.empty()) {
-                        alignments.push_back(alignment);
-                    }
 
                     // Output the alignments in JSON or protobuf as appropriate.
                     output_alignments(alignments);
@@ -815,12 +809,6 @@ int main_map(int argc, char** argv) {
 
                         int tid = omp_get_thread_num();
                         vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
-
-                        if(alignments.empty()) {
-                            // Make sure we have a "no alignment" alignment
-                            alignments.push_back(alignment);
-                        }
-
                         //cerr << "This is just before output_alignments" << alignment.DebugString() << endl;
                         output_alignments(alignments);
                     };
@@ -984,9 +972,6 @@ int main_map(int argc, char** argv) {
                 vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
                 std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
-                if(alignments.empty()) {
-                    alignments.push_back(alignment);
-                }
                 // Output the alignments in JSON or protobuf as appropriate.
                 if (compare_gam) {
                     alignments.front().set_correct(overlap(alignment.path(), alignments.front().path()));

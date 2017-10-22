@@ -2875,6 +2875,15 @@ Mapper::align_mem_multi(const Alignment& aln,
     // final filter step
     filter_and_process_multimaps(alns, keep_multimaps);
 
+    // if we didn't get anything, return an unaligned version of our input
+    if (alns.empty()) {
+        alns.push_back(aln);
+        auto& unaligned = alns.back();
+        unaligned.clear_path();
+        unaligned.clear_score();
+        unaligned.clear_identity();
+    }
+
     return alns;
 }
 
