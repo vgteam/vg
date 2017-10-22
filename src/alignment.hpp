@@ -54,7 +54,7 @@ bam_hdr_t* hts_string_header(string& header,
                              map<string, int64_t>& path_length,
                              map<string, string>& rg_sample);
 void write_alignments(std::ostream& out, vector<Alignment>& buf);
-void write_alignment_to_file(const string& file, const Alignment& aln);
+void write_alignment_to_file(const Alignment& aln, const string& filename);
 
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
 string cigar_string(vector<pair<int, char> >& cigar);
@@ -138,7 +138,6 @@ void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_
 /// the start and end of Mappings, so code that handles simplified Alignments
 /// needs to handle offsets on internal Mappings.
 Alignment simplify(const Alignment& a);
-void write_alignment_to_file(const Alignment& aln, const string& filename);
 
 // quality information; a kind of poor man's pileup
 map<id_t, int> alignment_quality_per_node(const Alignment& aln);

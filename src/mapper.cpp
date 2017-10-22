@@ -1306,7 +1306,7 @@ Mapper::Mapper(xg::XG* xidex,
     , max_band_jump(0)
     , identity_weight(2)
     , pair_rescue_hang_threshold(0.7)
-    , pair_rescue_retry_threshold(0.5)
+    , pair_rescue_retry_threshold(0.7)
 {
     
 }
@@ -1518,7 +1518,7 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
         for (auto& p : seq.second) { 
             size_t path_pos = p.first;
             bool on_reverse_path = p.second;
-            size_t mate_pos = 0;
+            int64_t mate_pos = 0;
             if (forward_direction) {
                 if (is_first_mate) {
                     if (!on_reverse_path) {
@@ -1548,6 +1548,7 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
                     }
                 }
             }
+            mate_pos = max((int64_t)0, mate_pos);
             pos_t target = xindex->graph_pos_at_path_position(seq_name, mate_pos);
             if (!same_orientation) {
                 target = reverse(target, get_node_length(id(target)));
@@ -1559,6 +1560,7 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
 }
 
 pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, int full_length_bonus, bool traceback) {
+    //traceback = true;
     auto pair_sig = signature(mate1, mate2);
     // bail out if we can't figure out how far to go
     bool rescued1 = false;
@@ -1566,8 +1568,8 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     if (!frag_stats.fragment_size) return make_pair(false, false);
     double hang_threshold = pair_rescue_hang_threshold;
     double retry_threshold = pair_rescue_retry_threshold;
-    double perfect_score = mate1.sequence().size() * match_score + full_length_bonus;
-    bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.0001));
+    double perfect_score = mate1.sequence().size() * match_score + full_length_bonus * 2;
+    bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.01));
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     // based on our statistics about the alignments
     // get the subgraph overlapping the likely candidate position of the second alignment
@@ -1577,12 +1579,12 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     double mate2_id = (double) mate2.score() / perfect_score;
     pos_t mate_pos;
     //cerr << "---------------------------" << pb2json(mate1) << endl << pb2json(mate2) << endl;
-    //if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
     //cerr << "---------------------------" << endl;
+    if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
     //if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
     //if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
     vector<pos_t> mate_positions;
-    if (mate1_id > mate2_id && mate1_id > hang_threshold && mate2_id <= retry_threshold && !consistent) {
+    if (mate1_id > mate2_id && mate1_id > hang_threshold && (mate2_id <= retry_threshold || !consistent)) {
         // retry off mate1
 #ifdef debug_mapper
 #pragma omp critical
@@ -1593,7 +1595,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         rescue_off_first = true;
         // record id and direction to second mate
         mate_positions = likely_mate_positions(mate1, true);
-    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && mate1_id <= retry_threshold && !consistent) {
+    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && (mate1_id <= retry_threshold || !consistent)) {
         // retry off mate2
 #ifdef debug_mapper
 #pragma omp critical
@@ -1614,48 +1616,57 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     }
 #endif
     if (mate_positions.empty()) return make_pair(false, false); // can't rescue because the selected mate is unaligned
-    int max_mate1_score = mate1.score();
-    int max_mate2_score = mate2.score();
+    Graph graph;
+    if (debug) cerr << "got " << mate_positions.size() << " mate positions" << endl;
     for (auto& mate_pos : mate_positions) {
         int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
-                            : max((int)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
-                                  mate1.sequence().size() * 4));
-        Graph graph = xindex->graph_context_id(mate_pos, get_at_least/2);
+                            : round(max((double)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
+                                        mate1.sequence().size() * 1.61803)));
+        //cerr << "Getting at least " << get_at_least << endl;
+        graph.MergeFrom(xindex->graph_context_id(mate_pos, get_at_least/2));
         graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
-        sort_by_id_dedup_and_clean(graph);
-        //if (debug) cerr << "rescue got graph " << pb2json(graph.graph) << endl;
+        //if (debug) cerr << "rescue got graph " << pb2json(graph) << endl;
+        //VG g; g.extend(graph); string h = g.hash();
+        //g.serialize_to_file("rescue-" + h + ".vg");
         // if we're reversed, align the reverse sequence and flip it back
         // align against it
-        if (rescue_off_first) {
-            Alignment aln2 = align_maybe_flip(mate2, graph, is_rev(mate_pos), traceback);
+    }
+    sort_by_id_dedup_and_clean(graph);
+    int max_mate1_score = mate1.score();
+    int max_mate2_score = mate2.score();
+    if (rescue_off_first) {
+        Alignment aln2 = align_maybe_flip(mate2, graph, is_rev(mate_pos), traceback);
+        //write_alignment_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_mapper
 #pragma omp critical
-            {
-                if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
-                                << " vs " << mate2.score() << "/" << mate2.identity() << endl;
-            }
+        {
+            if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
+                            << " vs " << mate2.score() << "/" << mate2.identity() << endl;
+        }
 #endif
-            if (aln2.score() > max_mate2_score && (double)aln2.score()/perfect_score > retry_threshold && pair_consistent(mate1, aln2, 0.0001)) {
-                //cerr << "rescued aln2" << endl;
-                mate2 = aln2;
-                max_mate2_score = mate2.score();
-                rescued2 = true;
-            }
-        } else if (rescue_off_second) {
-            Alignment aln1 = align_maybe_flip(mate1, graph, is_rev(mate_pos), traceback);
+        if (aln2.score() > max_mate2_score && (double)aln2.score()/perfect_score > retry_threshold && pair_consistent(mate1, aln2, 0.0001)) {
+            //cerr << "rescued aln2" << endl;
+            //cerr << pb2json(aln2) << endl;
+            mate2 = aln2;
+            max_mate2_score = mate2.score();
+            rescued2 = true;
+        }
+    } else if (rescue_off_second) {
+        Alignment aln1 = align_maybe_flip(mate1, graph, is_rev(mate_pos), traceback);
+        //write_alignment_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_mapper
 #pragma omp critical
-            {
-                if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
-                                << " vs " << mate1.score() << "/" << mate1.identity() << endl;
-            }
+        {
+            if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
+                            << " vs " << mate1.score() << "/" << mate1.identity() << endl;
+        }
 #endif
-            if (aln1.score() > max_mate1_score && (double)aln1.score()/perfect_score > retry_threshold && pair_consistent(aln1, mate2, 0.0001)) {
-                //cerr << "rescued aln1" << endl;
-                mate1 = aln1;
-                max_mate1_score = mate1.score();
-                rescued1 = true;
-            }
+        if (aln1.score() > max_mate1_score && (double)aln1.score()/perfect_score > retry_threshold && pair_consistent(aln1, mate2, 0.0001)) {
+            //cerr << "rescued aln1" << endl;
+            //cerr << pb2json(aln1) << endl;
+            mate1 = aln1;
+            max_mate1_score = mate1.score();
+            rescued1 = true;
         }
     }
     // if the new alignment is better
@@ -2262,7 +2273,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     double max_possible_score = read1.sequence().size() * match + 2*full_length_bonus;
 
-    // now add back in single-ended versions of everything
+    // now add back in single-ended versions of everything that we can use for rescue
+    /*
     vector<pair<Alignment, Alignment> > se_alns;
     vector<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*> > se_cluster_ptrs;
     for (auto& p : aln_ptrs) {
@@ -2297,6 +2309,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     update_aln_ptrs();
     sort_and_dedup();
     show_alignments("singles");
+    */
 
     map<Alignment*, bool> rescued_aln;
     if (mate_rescues && frag_stats.fragment_size) {
