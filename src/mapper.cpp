@@ -286,7 +286,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                                                      int max_mem_length,
                                                      int min_mem_length,
                                                      int reseed_length,
-                                                     bool use_lcp_reseed_heuristic,
+                                                     bool x`,
                                                      bool use_diff_based_fast_reseed,
                                                      bool include_parent_in_sub_mem_count) {
 #ifdef debug_mapper
@@ -373,14 +373,14 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             if (use_diff_based_fast_reseed) {
                 if (adaptive_reseed_diff) {
                     find_sub_mems_fast(mems,
-                                       match.begin,
+                                       match.end,
                                        max<int>(get_adaptive_min_reseed_length(mem_length),
                                                 min_mem_length),
                                        sub_mems);
                 }
                 else {
                     find_sub_mems_fast(mems,
-                                       match.begin,
+                                       match.end,
                                        max<int>(ceil(fast_reseed_length_diff * mem_length),
                                                 min_mem_length),
                                        sub_mems);
@@ -388,13 +388,13 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             }
             else {
                 find_sub_mems_fast(mems,
-                                   match.begin,
+                                   match.end,
                                    min_mem_length,
                                    sub_mems);
             }
         } else {
             find_sub_mems(mems,
-                          match.begin,
+                          match.end,
                           min_mem_length,
                           sub_mems);
         }
