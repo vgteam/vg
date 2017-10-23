@@ -325,8 +325,8 @@ private:
 class FragmentLengthStatistics {
 public:
 
-    void record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2);
-    
+    void record_fragment_configuration(int64_t length, const Alignment& aln1, const Alignment& aln2);
+
     string fragment_model_str(void);
     void save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2, const map<string, int64_t>& approx_frag_lengths, bool is_consistent);
     
@@ -556,6 +556,8 @@ public:
     int64_t approx_position(pos_t pos);
     // get the approximate position of the alignment or return -1 if it can't be had
     int64_t approx_alignment_position(const Alignment& aln);
+    // get the full path offsets for the alignment, considering every mapping if just_first is not set
+    map<string, vector<pair<size_t, bool> > > alignment_path_offsets(const Alignment& aln, bool just_first);
     // get the end position of the alignment
     Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined

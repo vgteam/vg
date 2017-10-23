@@ -1499,6 +1499,21 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     }
 }
 
+map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_first) {
+    map<string, vector<pair<size_t, bool> > > offsets;
+    for (auto& mapping : aln.path().mapping()) {
+        auto pos_offs = xindex->offsets_in_paths(make_pos_t(mapping.position()));
+        for (auto& p : pos_offs) {
+            if (offsets.find(p.first)  == offsets.end()) {
+                offsets[p.first] = p.second;
+            }
+        }
+        if (just_first && offsets.size()) break; // find a single node that has a path position
+    }
+    return offsets;
+}
+
+
 vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_mate) {
     // fallback to approx when we don't have paths
     if (xindex->path_count == 0) {
@@ -1714,7 +1729,7 @@ bool Mapper::pair_consistent(const Alignment& aln1,
                              double pval) {
     if (!(aln1.score() && aln2.score())) return false;
     bool length_ok = false;
-    if (aln1.fragment_size() == 0 || aln2.fragment_size() == 0 || aln1.fragment_size() != aln2.fragment_size()) {
+    if (xindex->path_count == 0) {
         // use the approximate distance
         //cerr << "using approx distance" << endl;
         int len = approx_fragment_length(aln1, aln2);
@@ -1723,26 +1738,53 @@ bool Mapper::pair_consistent(const Alignment& aln1,
             || !frag_stats.fragment_size && len > 0 && len < frag_stats.fragment_max) {
             length_ok = true;
         }
+        bool aln1_is_rev = aln1.path().mapping(0).position().is_reverse();
+        bool aln2_is_rev = aln2.path().mapping(0).position().is_reverse();
+        bool same_orientation = frag_stats.cached_fragment_orientation;
+        // XXX todo
+        //bool direction_ok = frag_stats.cached_fragment_direction && 
+        bool orientation_ok = same_orientation && aln1_is_rev == aln2_is_rev
+            || !same_orientation && aln1_is_rev != aln2_is_rev;
+        return length_ok && orientation_ok;
     } else {
         // use the distance induced by the graph paths
-        assert(aln1.fragment_size() == aln2.fragment_size());
-        for (size_t i = 0; i < aln1.fragment_size(); ++i) {
-            //cerr << "found length " << aln1.fragment(i).length() << endl;
-            int len = abs(aln1.fragment(i).length());
-            if (frag_stats.fragment_size && len > 0 && (pval > 0 && frag_stats.fragment_length_pval(len) > pval
-                                             || len < frag_stats.fragment_size)
-                || !frag_stats.fragment_size && len > 0 && len < frag_stats.fragment_max) {
-                length_ok = true;
-                break;
+        //assert(aln1.fragment_size() == aln2.fragment_size());
+        map<string, vector<pair<size_t, bool> > > offsets1 = alignment_path_offsets(aln1, true);
+        map<string, vector<pair<size_t, bool> > > offsets2 = alignment_path_offsets(aln2, true);
+        auto pos_consistent =
+            [&](const pair<size_t, bool>& p1, const pair<size_t, bool>& p2) {
+            int64_t pos1 = p1.first;
+            int64_t pos2 = p2.first;
+            bool fwd1 = p1.second;
+            bool fwd2 = p2.second;
+            int64_t len = pos2 - pos1;
+            if (frag_stats.fragment_size) {
+                bool orientation_ok = frag_stats.cached_fragment_orientation && fwd1 == fwd2 || fwd1 != fwd2;
+                bool direction_ok = frag_stats.cached_fragment_direction && (!fwd1 && len > 0 || fwd1 && len < 0)
+                    || (fwd1 && len > 0 || !fwd1 && len < 0);
+                bool length_ok = pval > 0 && frag_stats.fragment_length_pval(abs(len)) < pval;
+                return orientation_ok && direction_ok && length_ok;
+            } else {
+                return abs(len) < frag_stats.fragment_max;
+            }
+        };
+        for (auto& path : offsets1) {
+            // see if the other alignment has it
+            auto f = offsets2.find(path.first);
+            if (f != offsets2.end()) {
+                auto& pos1s = path.second;
+                auto& pos2s = f->second;
+                // in the cartesian product of the mapping positions is there one pair that would match our model?
+                // TODO linearize this as it could get bad if we have lots of paths!
+                for (auto& pos1 : pos1s) {
+                    for (auto& pos2 : pos2s) {
+                        if (pos_consistent(pos1, pos2)) return true;
+                    }
+                }
             }
         }
     }
-    bool aln1_is_rev = aln1.path().mapping(0).position().is_reverse();
-    bool aln2_is_rev = aln2.path().mapping(0).position().is_reverse();
-    bool same_orientation = frag_stats.cached_fragment_orientation;
-    bool orientation_ok = same_orientation && aln1_is_rev == aln2_is_rev
-        || !same_orientation && aln1_is_rev != aln2_is_rev;
-    return length_ok && orientation_ok;
+    return false;
 }
 
 pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
@@ -2425,7 +2467,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
         && (fraction_filtered1 < 0.1 && fraction_filtered2 < 0.1 && maybe_mq1 > 1 && maybe_mq2 > 1 && max_first && (mem_read_ratio1 > 0.5 || mem_read_ratio2 > 0.5) || possible_pairs > 1) // may help in human context
-        && pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
+        && pair_consistent(results.first.front(), results.second.front(), 0.01)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, mqmax1, mqmax2);
     } else {
         // through filtering of candidate hits we've ended up with only one possible pair
@@ -2487,7 +2529,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         auto& aln1 = results.first.at(i);
         auto& aln2 = results.second.at(i);
         for (int j = 0; j < aln1.fragment_size(); ++j) {
-            int length = aln1.fragment(j).length();
+            int64_t length = aln1.fragment(j).length();
+            //bool mate_is_reversed = aln1.fragment(j).is_rev();
             // if we have a perfect mapping, and we're under our hard fragment length cutoff
             // push the result into our deque of fragment lengths
             if (results.first.size() == 1
@@ -3185,7 +3228,8 @@ void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment
     }
 }
 
-void FragmentLengthStatistics::record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2) {
+// XXX TODO this is busted because it doesn't respect the actual paths in the graph and assumes the alignment mapping position provides relative direction
+void FragmentLengthStatistics::record_fragment_configuration(int64_t length, const Alignment& aln1, const Alignment& aln2) {
     if (fixed_fragment_model) return;
     // record the relative orientations
     assert(aln1.path().mapping(0).has_position() && aln2.path().mapping(0).has_position());
