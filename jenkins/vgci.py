@@ -470,7 +470,7 @@ class VGCITest(TestCase):
             opts += '--container {} '.format(self.container)
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
-        opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, 8, 8)
+        opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, 8, 1)
         if sim_opts:
             opts += '--sim_opts \'{}\' '.format(sim_opts)
         if sim_fastq:
