@@ -1305,8 +1305,8 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.7)
-    , pair_rescue_retry_threshold(0.7)
+    , pair_rescue_hang_threshold(0.9)
+    , pair_rescue_retry_threshold(0.9)
 {
     
 }
@@ -2880,7 +2880,6 @@ Mapper::align_mem_multi(const Alignment& aln,
             used_clusters.push_back(&cluster);
             seen_alignments.insert(sig);
         }
-
     }
     
     assert(alns.size() == used_clusters.size());
