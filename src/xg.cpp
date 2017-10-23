@@ -2960,12 +2960,12 @@ size_t XG::node_start_at_path_position(const string& name, size_t pos) const {
 
 pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const {
     auto& path = get_path(name);
-    path_pos = min(path.offsets.size()-1, path_pos);
+    path_pos = min((size_t)path.offsets.size()-1, path_pos);
     size_t trav_idx = path.offsets_rank(path_pos+1)-1;
     int64_t offset = path_pos - path.positions[trav_idx];
     id_t node_id = path.ids[trav_idx];
     bool is_rev = path.directions[trav_idx];
-    return make_pos_t(node_id, offset, is_rev);
+    return make_pos_t(node_id, is_rev, offset);
 }
 
 Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature) const {
