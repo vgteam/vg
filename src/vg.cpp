@@ -8847,7 +8847,7 @@ VG VG::split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation) {
     
     split.build_indexes();
     
-    return std::move(split);
+    return split;
 }
 
 VG VG::unfold(uint32_t max_length,

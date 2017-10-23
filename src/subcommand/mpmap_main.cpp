@@ -54,15 +54,15 @@ void help_mpmap(char** argv) {
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [64]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
-    << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [32]" << endl
-    << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.33]" << endl
+    << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
+    << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
     << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
     << "  -K, --clust-length INT    minimum MEM length form clusters [automatic]" << endl
     << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
     << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
-    << "  -R, --prune-ratio FLOAT   prune MEM anchors if their approximate likelihood is this ratio less than the optimal anchors [10000.0]" << endl
+    << "  -R, --prune-exp FLOAT     prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [2.0]" << endl
     << "scoring:" << endl
     << "  -q, --match INT           use this match score [1]" << endl
     << "  -z, --mismatch INT        use this mismatch penalty [4]" << endl
@@ -103,8 +103,8 @@ int main_mpmap(int argc, char** argv) {
     int hit_max = 128;
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
-    int reseed_length = 32;
-    double reseed_diff = 0.33;
+    int reseed_length = 28;
+    double reseed_diff = 0.45;
     double reseed_exp = 0.05;
     bool use_adaptive_reseed = true;
     double cluster_ratio = 0.2;
@@ -114,7 +114,7 @@ int main_mpmap(int argc, char** argv) {
     int band_padding = 2;
     int max_dist_error = 8;
     int num_alt_alns = 4;
-    double suboptimal_path_ratio = 10000.0;
+    double suboptimal_path_exponent = 2.0;
     double likelihood_approx_exp = 6.5;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
@@ -333,7 +333,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'R':
-                suboptimal_path_ratio = atof(optarg);
+                suboptimal_path_exponent = atof(optarg);
                 break;
                 
             case 'q':
@@ -498,8 +498,8 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (suboptimal_path_ratio < 1.0) {
-        cerr << "error:[vg mpmap] Suboptimal path likelihood ratio (-R) set to " << suboptimal_path_ratio << ", must set to at least 1.0." << endl;
+    if (suboptimal_path_exponent < 1.0) {
+        cerr << "error:[vg mpmap] Suboptimal path likelihood root (-R) set to " << suboptimal_path_exponent << ", must set to at least 1.0." << endl;
         exit(1);
     }
     
@@ -630,7 +630,7 @@ int main_mpmap(int argc, char** argv) {
     // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;
     multipath_mapper.num_alt_alns = num_alt_alns;
-    multipath_mapper.set_suboptimal_path_likelihood_ratio(suboptimal_path_ratio); // note: do this after choosing whether qual adj alignments
+    multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
     
     // set computational paramters
     int thread_count = get_thread_count();

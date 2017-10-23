@@ -194,6 +194,9 @@ namespace vg {
             topologically_order_subpaths(multipath_aln);
         }
         
+        // split up any alignments that ended up being disconnected
+        split_multicomponent_alignments(multipath_alns_out);
+        
 #ifdef debug_multipath_mapper
         cerr << "computing mapping quality and sorting mappings" << endl;
 #endif
@@ -432,6 +435,22 @@ namespace vg {
                                          const MultipathAlignment& multipath_aln_2) const {
         
         return is_consistent(distance_between(multipath_aln_1, multipath_aln_2));
+    }
+    
+    bool MultipathMapper::share_start_position(const MultipathAlignment& multipath_aln_1,
+                                               const MultipathAlignment& multipath_aln_2) const {
+        
+        unordered_set<pos_t> starts;
+        for (size_t i = 0; i < multipath_aln_1.start_size(); i++) {
+            starts.insert(make_pos_t(multipath_aln_1.subpath(multipath_aln_1.start(i)).path().mapping(0).position()));
+        }
+        
+        for (size_t i = 0; i < multipath_aln_2.start_size(); i++) {
+            if (starts.count(make_pos_t(multipath_aln_2.subpath(multipath_aln_2.start(i)).path().mapping(0).position()))) {
+                return true;
+            }
+        }
+        return false;
     }
     
     bool MultipathMapper::align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
@@ -926,6 +945,165 @@ namespace vg {
         }
     }
     
+    void MultipathMapper::split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out) const {
+        
+        for (size_t i = 0; i < multipath_alns_out.size(); i++) {
+            
+            vector<vector<int64_t>> comps = connected_components(multipath_alns_out[i]);
+            
+            if (comps.size() > 1) {
+#ifdef debug_multipath_mapper
+                cerr << "splitting multicomponent alignment " << pb2json(multipath_alns_out[i]) << endl;
+#endif
+                // split this multipath alignment into its connected components
+                for (size_t j = 1; j < comps.size(); j++) {
+                    multipath_alns_out.emplace_back();
+                    extract_sub_multipath_alignment(multipath_alns_out[i], comps[j],
+                                                    multipath_alns_out.back());;
+                }
+                // put the first component into the original location
+                MultipathAlignment last_component;
+                extract_sub_multipath_alignment(multipath_alns_out[i], comps[0], last_component);
+                multipath_alns_out[i] = last_component;
+            }
+        }
+    }
+    
+    void MultipathMapper::split_multicomponent_alignments(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const {
+        
+        for (size_t i = 0; i < multipath_aln_pairs_out.size(); i++) {
+            vector<vector<int64_t>> connected_components_1 = connected_components(multipath_aln_pairs_out[i].first);
+            vector<vector<int64_t>> connected_components_2 = connected_components(multipath_aln_pairs_out[i].second);
+            
+#ifdef debug_multipath_mapper
+            cerr << "finding connected components for mapping:" << endl;
+            cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
+            cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
+            cerr << "read 1 connected components:" << endl;
+            for (vector<int64_t>& comp : connected_components_1) {
+                cerr << "\t";
+                for (int64_t j : comp) {
+                    cerr << j << " ";
+                }
+                cerr << endl;
+            }
+            cerr << "read 2 connected components:" << endl;
+            for (vector<int64_t>& comp : connected_components_2) {
+                cerr << "\t";
+                for (int64_t j : comp) {
+                    cerr << j << " ";
+                }
+                cerr << endl;
+            }
+#endif
+            
+            
+            if (connected_components_1.size() > 1 && connected_components_2.size() > 1) {
+#ifdef debug_multipath_mapper
+                cerr << "splitting both multicomponent alignments" << endl;
+#endif
+                // need to split both ends
+                for (size_t j = 0; j < connected_components_1.size(); j++) {
+                    for (size_t k = 0; k < connected_components_2.size(); k++) {
+                        if (j == 0 && k == 0) {
+                            // save the first component to go back into the original index in the return vector
+                            continue;
+                        }
+                        multipath_aln_pairs_out.emplace_back();
+                        extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[j],
+                                                        multipath_aln_pairs_out.back().first);
+                        extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[k],
+                                                        multipath_aln_pairs_out.back().second);
+                        // add a distance for scoring purposes
+                        cluster_pairs.emplace_back(cluster_pairs[i].first,
+                                                   distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+#ifdef debug_multipath_mapper
+                        cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
+                        cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
+                        cerr  << pb2json(multipath_aln_pairs_out.back().second) << endl;
+#endif                    
+                    }
+                }
+                // put the first component pair into the original location
+                MultipathAlignment last_component;
+                extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[0], last_component);
+                multipath_aln_pairs_out[i].first = last_component;
+                last_component.Clear();
+                extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[0], last_component);
+                multipath_aln_pairs_out[i].second = last_component;
+                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second);
+                
+#ifdef debug_multipath_mapper
+                cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
+                cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
+                cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
+#endif
+                
+            }
+            else if (connected_components_1.size() > 1) {
+#ifdef debug_multipath_mapper
+                cerr << "splitting read 1 multicomponent alignments" << endl;
+#endif
+                // only need to split first end
+                for (size_t j = 1; j < connected_components_1.size(); j++) {
+                    multipath_aln_pairs_out.emplace_back(MultipathAlignment(), multipath_aln_pairs_out[i].second);
+                    extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[j],
+                                                    multipath_aln_pairs_out.back().first);
+                    // add a distance for scoring purposes
+                    cluster_pairs.emplace_back(cluster_pairs[i].first,
+                                               distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+#ifdef debug_multipath_mapper
+                    cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
+                    cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
+                    cerr  << pb2json(multipath_aln_pairs_out.back().second) << endl;
+#endif
+                }
+                // put the first component into the original location
+                MultipathAlignment last_component;
+                extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[0], last_component);
+                multipath_aln_pairs_out[i].first = last_component;
+                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second);
+                
+#ifdef debug_multipath_mapper
+                cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
+                cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
+                cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
+#endif
+            }
+            else if (connected_components_2.size() > 1) {
+#ifdef debug_multipath_mapper
+                cerr << "splitting read 2 multicomponent alignments" << endl;
+#endif
+                // only need to split second end
+                for (size_t j = 1; j < connected_components_2.size(); j++) {
+                    multipath_aln_pairs_out.emplace_back(multipath_aln_pairs_out[i].first, MultipathAlignment());
+                    extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[j],
+                                                    multipath_aln_pairs_out.back().second);
+                    // add a distance for scoring purposes
+                    cluster_pairs.emplace_back(cluster_pairs[i].first,
+                                               distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+#ifdef debug_multipath_mapper
+                    cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
+                    cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
+                    cerr  << pb2json(multipath_aln_pairs_out.back().second) << endl;
+#endif
+                }
+                // put the first component into the original location
+                MultipathAlignment last_component;
+                extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[0], last_component);
+                multipath_aln_pairs_out[i].second = last_component;
+                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second);
+                
+#ifdef debug_multipath_mapper
+                cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
+                cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
+                cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
+#endif
+            }
+        }
+    }
+    
     void MultipathMapper::align_to_cluster_graph_pairs(const Alignment& alignment1, const Alignment& alignment2,
                                                        vector<clustergraph_t>& cluster_graphs1,
                                                        vector<clustergraph_t>& cluster_graphs2,
@@ -995,6 +1173,9 @@ namespace vg {
             topologically_order_subpaths(multipath_aln_pair.first);
             topologically_order_subpaths(multipath_aln_pair.second);
         }
+        
+        // split up any multi-component multipath alignments
+        split_multicomponent_alignments(multipath_aln_pairs_out, cluster_pairs);
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score
         sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs);
@@ -1364,7 +1545,7 @@ namespace vg {
         
         // prune this graph down the paths that have reasonably high likelihood
         multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
-                                                    max_suboptimal_path_score_diff, topological_order);
+                                                    max_suboptimal_path_score_ratio, topological_order);
         
 #ifdef debug_multipath_mapper
         cerr << "pruned to high scoring paths, topology is:" << endl;
@@ -1897,71 +2078,6 @@ namespace vg {
         
     }
     
-    void MultipathMapper::topologically_order_subpaths(MultipathAlignment& multipath_aln) const {
-        // Kahn's algorithm
-        
-        vector<size_t> index(multipath_aln.subpath_size(), 0);
-        size_t order_idx = 0;
-        
-        vector<size_t> stack;
-        vector<size_t> in_degree(multipath_aln.subpath_size(), 0);
-        
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            const Subpath& subpath = multipath_aln.subpath(i);
-            for (size_t j = 0; j < subpath.next_size(); j++) {
-                in_degree[subpath.next(j)]++;
-            }
-        }
-        
-        // identify the source nodes and add them to the stack
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            if (!in_degree[i]) {
-                stack.push_back(i);
-            }
-        }
-        
-        while (!stack.empty()) {
-            // pop a source node and add it to the topological order
-            size_t here = stack.back();
-            stack.pop_back();
-            
-            index[here] = order_idx;
-            order_idx++;
-            
-            // remove the node's edges
-            const Subpath& subpath = multipath_aln.subpath(here);
-            for (size_t i = 0; i < subpath.next_size(); i++) {
-                size_t next = subpath.next(i);
-                in_degree[next]--;
-                // if a node is now a source, stack it up
-                if (!in_degree[next]) {
-                    stack.push_back(next);
-                }
-            }
-        }
-        
-        // translate the edges to the new indices
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            Subpath* subpath = multipath_aln.mutable_subpath(i);
-            for (size_t j = 0; j < subpath->next_size(); j++) {
-                subpath->set_next(j, index[subpath->next(j)]);
-            }
-        }
-        
-        // translate the start nodes
-        for (size_t i = 0; i < multipath_aln.start_size(); i++) {
-            multipath_aln.set_start(i, index[multipath_aln.start(i)]);
-        }
-        
-        // in place permutation according to the topological order
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            while (index[i] != i) {
-                std::swap(*multipath_aln.mutable_subpath(i), *multipath_aln.mutable_subpath(index[i]));
-                std::swap(index[i], index[index[i]]);
-            }
-        }
-    }
-    
     int64_t MultipathMapper::read_coverage(const memcluster_t& mem_hits) {
         if (mem_hits.empty()) {
             return 0;
@@ -2124,6 +2240,7 @@ namespace vg {
 #endif
         
         if (mapping_quality_method != None) {
+            
             int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
 #ifdef debug_multipath_mapper
             cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
@@ -2131,6 +2248,76 @@ namespace vg {
             int32_t mapq = min<int32_t>(raw_mapq, max_mapping_quality);
             multipath_aln_pairs.front().first.set_mapping_quality(mapq);
             multipath_aln_pairs.front().second.set_mapping_quality(mapq);
+            
+            if (multipath_aln_pairs.size() > 1) {
+                // detect duplicate alignments that arise from breaking up clusters whose MultipathAlignments turned
+                // out to be disconnected
+                
+                // TODO: technically should do this method whenever any of the sides of any alignment is a duplicate,
+                // but it should work fine for the fast approximate MAPQ method to only look at the first two
+                bool duplicate_1 = share_start_position(multipath_aln_pairs[0].first, multipath_aln_pairs[1].first);
+                bool duplicate_2 = share_start_position(multipath_aln_pairs[0].second, multipath_aln_pairs[1].second);
+                // if we got duplicates of both ends, pop them until we don't
+                while (duplicate_1 && duplicate_2) {
+                    multipath_aln_pairs.erase(multipath_aln_pairs.begin() + 1);
+                    scores.erase(scores.begin() + 1);
+                    cluster_pairs.erase(cluster_pairs.begin() + 1);
+                    
+                    // TODO: wasteful to recompute these in the inner loop, but I expect this condition to be very
+                    // rare or non-existent in the current code
+                    int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
+#ifdef debug_multipath_mapper
+                    cerr << "deduplicated scores yield a raw MAPQ of " << raw_mapq << endl;
+#endif
+                    int32_t mapq = min<int32_t>(raw_mapq, max_mapping_quality);
+                    multipath_aln_pairs.front().first.set_mapping_quality(mapq);
+                    multipath_aln_pairs.front().second.set_mapping_quality(mapq);
+                    
+                    if (multipath_aln_pairs.size() <= 1) {
+                        duplicate_1 = false;
+                        duplicate_2 = false;
+                    }
+                    else {
+                        duplicate_1 = share_start_position(multipath_aln_pairs[0].first, multipath_aln_pairs[1].first);
+                        duplicate_2 = share_start_position(multipath_aln_pairs[0].second, multipath_aln_pairs[1].second);
+                    }
+                }
+                
+                // set the mapping quality of the duplicated side to the maximum of what it is now and what it would
+                // be if the duplicates were removed
+                // TODO: in some ways this is unfair to this side, which actually has at least two very good mappings,
+                // which arguably should increase its MAPQ even more
+                if (duplicate_1) {
+                    vector<double> non_duplicate_scores{scores[0]};
+                    for (size_t i = 2; i < multipath_aln_pairs.size(); i++) {
+                        if (!share_start_position(multipath_aln_pairs[0].first, multipath_aln_pairs[i].first)) {
+                            non_duplicate_scores.push_back(scores[i]);
+                        }
+                    }
+                    int32_t raw_non_dup_mapq = get_aligner()->compute_mapping_quality(non_duplicate_scores,
+                                                                                      mapping_quality_method == Approx);
+                    
+                    int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
+                    
+                    multipath_aln_pairs[0].first.set_mapping_quality(max<int32_t>(non_dup_mapq,
+                                                                                  multipath_aln_pairs[0].first.mapping_quality()));
+                }
+                else if (duplicate_2) {
+                    vector<double> non_duplicate_scores{scores[0]};
+                    for (size_t i = 2; i < multipath_aln_pairs.size(); i++) {
+                        if (!share_start_position(multipath_aln_pairs[0].second, multipath_aln_pairs[i].second)) {
+                            non_duplicate_scores.push_back(scores[i]);
+                        }
+                    }
+                    int32_t raw_non_dup_mapq = get_aligner()->compute_mapping_quality(non_duplicate_scores,
+                                                                                      mapping_quality_method == Approx);
+                    
+                    int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
+                    
+                    multipath_aln_pairs[0].second.set_mapping_quality(max<int32_t>(non_dup_mapq,
+                                                                                   multipath_aln_pairs[0].second.mapping_quality()));
+                }
+            }
         }
     }
             
@@ -2139,11 +2326,6 @@ namespace vg {
         double stdev = fragment_length_distr.stdev();
         double dev = length - mean;
         return -dev * dev / (2.0 * stdev * stdev);
-    }
-    
-    void MultipathMapper::set_suboptimal_path_likelihood_ratio(double maximum_acceptable_ratio) {
-        double log_base = get_aligner()->log_base;
-        max_suboptimal_path_score_diff = (int32_t) ceil(log(maximum_acceptable_ratio) / log_base);
     }
     
     void MultipathMapper::set_automatic_min_clustering_length(double random_mem_probability) {
@@ -4168,8 +4350,12 @@ namespace vg {
         }
     }
     
+    MultipathAlignmentGraph::~MultipathAlignmentGraph() {
+        
+    }
+    
     void MultipathAlignmentGraph::prune_to_high_scoring_paths(const Alignment& alignment, const BaseAligner* aligner,
-                                                              int32_t max_suboptimal_score_diff, const vector<size_t>& topological_order) {
+                                                              double max_suboptimal_score_ratio, const vector<size_t>& topological_order) {
         
         if (match_nodes.empty()) {
             return;
@@ -4239,7 +4425,7 @@ namespace vg {
         }
         
         // compute the minimum score we will require of a node or edge
-        int32_t min_path_score = *std::max_element(forward_scores.begin(), forward_scores.end()) - max_suboptimal_score_diff;
+        int32_t min_path_score = *std::max_element(forward_scores.begin(), forward_scores.end()) / max_suboptimal_score_ratio;
         
         // use forward-backward to find nodes/edges on some path with a score above the minimum
         unordered_set<size_t> keep_nodes;
@@ -4287,23 +4473,6 @@ namespace vg {
             }
         }
         match_nodes.resize(next);
-        
-#ifdef debug_multipath_mapper
-        cerr << "mem graph after pruning:" << endl;
-        for (size_t i = 0; i < match_nodes.size(); i++) {
-            ExactMatchNode& match_node = match_nodes[i];
-            cerr << i << " " << pb2json(match_node.path) << " ";
-            for (auto iter = match_node.begin; iter != match_node.end; iter++) {
-                cerr << *iter;
-            }
-            cerr << endl;
-            cerr << "\t";
-            for (auto edge : match_node.edges) {
-                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (match_nodes[edge.first].begin - match_node.end) << ") ";
-            }
-            cerr << endl;
-        }
-#endif
     }
 }
 

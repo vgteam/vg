@@ -21,7 +21,6 @@ public:
     using MultipathMapper::align_to_cluster_graph_pairs;
     using MultipathMapper::query_cluster_graphs;
     using MultipathMapper::multipath_align;
-    using MultipathMapper::topologically_order_subpaths;
     using MultipathMapper::strip_full_length_bonuses;
     using MultipathMapper::sort_and_compute_mapping_quality;
     using MultipathMapper::read_coverage;
@@ -495,7 +494,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
         MultipathAlignment disordered;
         json2pb(disordered, aln_json.c_str(), aln_json.size());
         
-        mapper.topologically_order_subpaths(disordered);
+        topologically_order_subpaths(disordered);
         
         REQUIRE(disordered.subpath_size() == 2);
         // First subpath (used to be last) first
@@ -528,7 +527,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
         MultipathAlignment disordered;
         json2pb(disordered, aln_json.c_str(), aln_json.size());
         
-        mapper.topologically_order_subpaths(disordered);
+        topologically_order_subpaths(disordered);
         
         REQUIRE(disordered.subpath_size() == 3);
         // First subpath (used to be last) first

@@ -7,6 +7,71 @@
 using namespace std;
 namespace vg {
     
+    void topologically_order_subpaths(MultipathAlignment& multipath_aln) {
+        // Kahn's algorithm
+        
+        vector<size_t> index(multipath_aln.subpath_size(), 0);
+        size_t order_idx = 0;
+        
+        vector<size_t> stack;
+        vector<size_t> in_degree(multipath_aln.subpath_size(), 0);
+        
+        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            const Subpath& subpath = multipath_aln.subpath(i);
+            for (size_t j = 0; j < subpath.next_size(); j++) {
+                in_degree[subpath.next(j)]++;
+            }
+        }
+        
+        // identify the source nodes and add them to the stack
+        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            if (!in_degree[i]) {
+                stack.push_back(i);
+            }
+        }
+        
+        while (!stack.empty()) {
+            // pop a source node and add it to the topological order
+            size_t here = stack.back();
+            stack.pop_back();
+            
+            index[here] = order_idx;
+            order_idx++;
+            
+            // remove the node's edges
+            const Subpath& subpath = multipath_aln.subpath(here);
+            for (size_t i = 0; i < subpath.next_size(); i++) {
+                size_t next = subpath.next(i);
+                in_degree[next]--;
+                // if a node is now a source, stack it up
+                if (!in_degree[next]) {
+                    stack.push_back(next);
+                }
+            }
+        }
+        
+        // translate the edges to the new indices
+        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            Subpath* subpath = multipath_aln.mutable_subpath(i);
+            for (size_t j = 0; j < subpath->next_size(); j++) {
+                subpath->set_next(j, index[subpath->next(j)]);
+            }
+        }
+        
+        // translate the start nodes
+        for (size_t i = 0; i < multipath_aln.start_size(); i++) {
+            multipath_aln.set_start(i, index[multipath_aln.start(i)]);
+        }
+        
+        // in place permutation according to the topological order
+        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            while (index[i] != i) {
+                std::swap(*multipath_aln.mutable_subpath(i), *multipath_aln.mutable_subpath(index[i]));
+                std::swap(index[i], index[index[i]]);
+            }
+        }
+    }
+    
     void identify_start_subpaths(MultipathAlignment& multipath_aln) {
         
         // remove start nodes if there are any (avoids doubling them if this function is used liberally)
@@ -33,15 +98,9 @@ namespace vg {
         // initialize DP structures
                 
         // score of the optimal alignment ending in this subpath
-        vector<int32_t> prefix_score(multipath_aln.subpath_size(), numeric_limits<int32_t>::min());
+        vector<int32_t> prefix_score(multipath_aln.subpath_size(), 0);
         // previous subpath for traceback (we refer to subpaths by their index)
-        vector<int64_t> prev_subpath(multipath_aln.subpath_size());
-        
-        // add sentinel for alignment start as base case
-        for (size_t i = 0; i < multipath_aln.start_size(); i++) {
-            prev_subpath[multipath_aln.start(i)] = -1;
-            prefix_score[multipath_aln.start(i)] = 0;
-        }
+        vector<int64_t> prev_subpath(multipath_aln.subpath_size(), -1);
         
         int32_t opt_score = 0;
         int64_t opt_subpath = -1; // we refer to subpaths by their index
@@ -49,23 +108,18 @@ namespace vg {
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             const Subpath& subpath = multipath_aln.subpath(i);
             int32_t extended_score = prefix_score[i] + subpath.score();
-            // are there outgoing subpaths?
-            if (subpath.next_size() > 0) {
-                for (size_t j = 0; j < subpath.next_size(); j++) {
-                    int next = subpath.next(j);
-                    // can we improve prefix score on following subpath through this one?
-                    if (extended_score > prefix_score[next]) {
-                        prev_subpath[next] = i;
-                        prefix_score[next] = extended_score;
-                    }
+            for (size_t j = 0; j < subpath.next_size(); j++) {
+                int64_t next = subpath.next(j);
+                // can we improve prefix score on following subpath through this one?
+                if (extended_score > prefix_score[next]) {
+                    prev_subpath[next] = i;
+                    prefix_score[next] = extended_score;
                 }
             }
-            else {
-                // check if optimal alignment ends here
-                if (extended_score > opt_score) {
-                    opt_score = extended_score;
-                    opt_subpath = i;
-                }
+            // check if optimal alignment ends here
+            if (extended_score > opt_score) {
+                opt_score = extended_score;
+                opt_subpath = i;
             }
         }
         
@@ -332,6 +386,15 @@ namespace vg {
         
     }
     
+    void transfer_read_metadata(const MultipathAlignment& from, MultipathAlignment& to) {
+        to.set_sequence(from.sequence());
+        to.set_quality(from.quality());
+        to.set_read_group(from.read_group());
+        to.set_name(from.name());
+        to.set_sample_name(from.sample_name());
+        to.set_paired_read_name(from.paired_read_name());
+    }
+    
     void transfer_read_metadata(const Alignment& from, MultipathAlignment& to) {
         to.set_sequence(from.sequence());
         to.set_quality(from.quality());
@@ -360,6 +423,7 @@ namespace vg {
     }
     
     vector<vector<int64_t>> connected_components(const MultipathAlignment& multipath_aln) {
+        
         int64_t comps = 0;
         
         vector<vector<int64_t>> reverse_edge_lists(multipath_aln.subpath_size());
@@ -383,7 +447,8 @@ namespace vg {
             
             components.emplace_back();
             
-            vector<int64_t> stack(1, i);
+            vector<int64_t> stack{i};
+            collected[i] = true;
             while (!stack.empty()) {
                 int64_t at = stack.back();
                 stack.pop_back();
@@ -392,21 +457,58 @@ namespace vg {
                 
                 const Subpath& subpath = multipath_aln.subpath(at);
                 for (int64_t j = 0; j < subpath.next_size(); j++) {
-                    if (!collected[j]) {
-                        collected[j] = true;
-                        stack.push_back(j);
+                    int64_t idx = subpath.next(j);
+                    if (!collected[idx]) {
+                        collected[idx] = true;
+                        stack.push_back(idx);
                     }
                 }
-                for (int64_t j : reverse_edge_lists[at]) {
-                    if (!collected[j]) {
-                        collected[j] = true;
-                        stack.push_back(j);
+                for (int64_t idx : reverse_edge_lists[at]) {
+                    if (!collected[idx]) {
+                        collected[idx] = true;
+                        stack.push_back(idx);
                     }
                 }
             }
         }
         
         return std::move(components);
+    }
+    
+    void extract_sub_multipath_alignment(const MultipathAlignment& multipath_aln,
+                                         const vector<int64_t>& subpath_indexes,
+                                         MultipathAlignment& sub_multipath_aln) {
+        sub_multipath_aln.Clear();
+        transfer_read_metadata(multipath_aln, sub_multipath_aln);
+        
+        // create subpaths for each of the ones we're retaining and record the translation
+        unordered_map<int64_t, int64_t> new_index;
+        for (int64_t i = 0; i < subpath_indexes.size(); i++) {
+            int64_t old_idx = subpath_indexes[i];
+            const Subpath& old_subpath = multipath_aln.subpath(old_idx);
+            
+            Subpath* subpath = sub_multipath_aln.add_subpath();
+            *subpath->mutable_path() = old_subpath.path();
+            subpath->set_score(old_subpath.score());
+            
+            new_index[old_idx] = i;
+        }
+        
+        // add edges according to the translation
+        for (int64_t i = 0; i < subpath_indexes.size(); i++) {
+            const Subpath& old_subpath = multipath_aln.subpath(subpath_indexes[i]);
+            Subpath* new_subpath = sub_multipath_aln.mutable_subpath(i);
+            for (int64_t j = 0; j < old_subpath.next_size(); j++) {
+                if (new_index.count(old_subpath.next(j))) {
+                    new_subpath->add_next(new_index[old_subpath.next(j)]);
+                }
+            }
+        }
+        
+        // assume that if we had starts labeled before, we want them again
+        if (multipath_aln.start_size() > 0) {
+            identify_start_subpaths(sub_multipath_aln);
+        }
     }
 }
 
