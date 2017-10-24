@@ -591,21 +591,20 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
             }
         }
         
-        // TODO: For now, try even with disconnected tips before breaking into
-        // cycles. This is because our cycle-breaking code can't tell the
-        // difference between a 1-node cycle (strong component size 1) and a
-        // node that can't reach itself (strong component size 1).
-        /*{
+        // Try even with disconnected tips before breaking into cycles. TODO:
+        // Should we do this in preference to cycle breaking? We may eventually
+        // want to try it both ways and compare.
+        {
             if (component_tips[i].size() >= 2) {
                 // TODO: For now we just pick two arbitrary tips in each component.
                 vector<handle_t> tips{component_tips[i].begin(), component_tips[i].end()};
                 add_telomeres(tips.front(), tips.back());
                 continue;
             }
-        }*/
+        }
 
         
-        // Otherwise, we have no tips reachable from any other tips. We have to
+        // Otherwise, we have no pair of tips. We have to
         // be cyclic, so find the biggest cycle (strongly connected component)
         // in the weakly connected component, pick an arbitrary node, and pick
         // the outward-facing ends of the node.
@@ -679,68 +678,85 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     return make_pair(cactus_graph, telomeres);
 }
 
-// fill in the "acyclic" and "contents" field of a bubble by doing a depth first search
+// fill in the "dag", "tips", and "contents" field of a bubble by doing a search
 // between its bounding sides (start and end)
 static void fill_ultrabubble_contents(VG& graph, Bubble& bubble) {
 
-    // orient out from source
-    NodeTraversal source(graph.get_node(bubble.start.node), !bubble.start.is_end);
-    vector<NodeTraversal> sources = {source};
-    // but never walk "through" sink in any direction
-    // note we treat the source in the opposite direction as a sink here to prevent leaving
-    // the bubble in a loop
-    id_t sink_id = bubble.end.node;
-    unordered_set<NodeTraversal> sinks = {NodeTraversal(graph.get_node(bubble.start.node), bubble.start.is_end),
-                                          NodeTraversal(graph.get_node(sink_id), !bubble.start.is_end),
-                                          NodeTraversal(graph.get_node(sink_id), bubble.start.is_end)};
-
+    // The bubble contents are a flood fill rightward from this handle
+    // (make sure we flip is_end because if we got the end we want to depart from the end)
+    handle_t start_handle = graph.get_handle(bubble.start.node, !bubble.start.is_end);
+    
+    // Except we don't go right off the end node (just left off of it)
+    // (make sure we don't flip it because we want rightward for the end to be out of the snarl)
+    handle_t end_handle = graph.get_handle(bubble.end.node, bubble.end.is_end);
+    
     // remember unique node ids we've visited 
-    unordered_set<id_t> contents_set;
-    
-    // the acyclic logic derived from vg::is_acyclic()
-    // but changed to make sure we only ever touch the ends of the
-    // source and sink (never loop over body of the node)
-    // and to look for directed (as opposed to bidirected) cycles
-    unordered_set<vg::id_t> seen;
+    unordered_set<id_t> contents_set{graph.get_id(start_handle)};
+    // And if the graph is a DAG or not
     bubble.dag = true;
+    // And if the graph has tips or not
+    bubble.tips = false;
+    // And the queue of handles to keep searching from
+    list<handle_t> queue{start_handle};
     
-    graph.dfs([&](NodeTraversal trav) {
-
-            // self loops on bubble end points considered degenerate
-            if (trav.node->id() != source.node->id() && trav.node->id() != sink_id &&
-                graph.is_self_looping(trav.node)) {
-                bubble.dag = false;
+    // Really we have to do two traversals. The first selects the subgraph, and
+    // the second evaluates the absence of directed cycles anywhere, not just in
+    // the part reachable from the boundaries on directed walks.
+    
+    while (!queue.empty()) {
+        // For each handle to expand off of in the queue
+        handle_t here = queue.front();
+        queue.pop_front();
+        
+        // We use this for counting edges and detecting tips.
+        size_t edges_found;
+        
+        auto handle_connected = [&](const handle_t& other) {
+            // For each attached handle
+            
+            edges_found++;
+            
+            id_t other_id = graph.get_id(other);
+            
+            if (contents_set.count(other_id)) {
+                // Skip nodes we've visited
+                return;
             }
-            // don't step past the sink once we've reached it
-            if (sinks.count(trav) == false) {
-                for (auto& next : graph.travs_from(trav)) {
-                    // filter out self loop on bubble endpoints like above
-                    if (trav.node->id() != source.node->id() && next.node->id() != trav.node->id() &&
-                        seen.count(next.node->id())) {
-                        bubble.dag = false;
-                        break;
-                    }
-                }
+            queue.push_back(other);
+            contents_set.insert(other_id);
+        };
+        
+        if (here != end_handle && graph.flip(here) != start_handle) {
+            // We can look right from here
+            edges_found = 0;
+            graph.follow_edges(here, false, handle_connected);
+            if (edges_found == 0) {
+                // A tip!
+                bubble.tips = true;
             }
-            if (bubble.dag) {
-                seen.insert(trav.node->id());
+        }
+        if (here != start_handle && graph.flip(here) != end_handle) {
+            // We can look left from here
+            edges_found = 0;
+            graph.follow_edges(here, true, handle_connected);
+            if (edges_found == 0) {
+                // A tip!
+                bubble.tips = true;
             }
-
-            contents_set.insert(trav.node->id());
-        },
-        [&](NodeTraversal trav) {
-            seen.erase(trav.node->id());
-        },
-        &sources,
-        &sinks);
-
-    bubble.contents.clear();
-    bubble.contents.insert(bubble.contents.begin(), contents_set.begin(), contents_set.end());
+        }
+    }
+     
+    // Now we know the contents and the tips. We just need to check for cycles within the bubble.
+    
+    // TODO: implement!
+    
+    // Copy over the bubble contents
+    bubble.contents = {contents_set.begin(), contents_set.end()};
 }
 
 // cactus C data to C++ tree interface (ultrabubble as added to child_list of out_node)
-// filling in the internace bubble nodes as well as acyclicity using the original graph
-static void ultrabubble_recurse(VG& graph, stList* chains_list,
+// filling in the internal bubble nodes as well as acyclicity using the original graph
+static void ultrabubble_recurse(VG& graph, stList* chains_list, stList* unary_snarls_list,
                                 NodeSide side1, NodeSide side2, BubbleTree::Node* out_node) {
 
     // add the Tree node
@@ -751,7 +767,9 @@ static void ultrabubble_recurse(VG& graph, stList* chains_list,
     if (side1.node != 0) {
         assert(side2.node != 0);
         fill_ultrabubble_contents(graph, out_node->v);
-
+        // TODO: this is going to be O(N^2) in the depth of our bubble tree,
+        // because we search through all the childrens' nodes when processing
+        // the parent.
     } 
         
     int chain_offset = 0;
@@ -786,7 +804,7 @@ static void ultrabubble_recurse(VG& graph, stList* chains_list,
                 std::swap(child_side1, child_side2);
             }
                 
-            ultrabubble_recurse(graph, child_bubble->chains, child_side1, child_side2, new_node);
+            ultrabubble_recurse(graph, child_bubble->chains, child_bubble->unarySnarls, child_side1, child_side2, new_node);
                 
             ++chain_offset;
         }
@@ -810,10 +828,13 @@ BubbleTree* ultrabubble_tree(VG& graph) {
     // Get a non-owning pointer to the list of chains (which are themselves lists of snarls).
     stList* cactus_chains_list = snarls->topLevelChains;
     
+    // And one to the list of top-level unary snarls
+    stList* cactus_unary_snarls_list = snarls->topLevelUnarySnarls;
+    
     // copy back to our C++ tree interface (ultrabubble as added to child_list of out_node)
     // in to new ultrabubble code, we no longer have tree root.  instead, we shoehorn
     // dummy root onto tree just to preserve old interface for now.
-    ultrabubble_recurse(graph, cactus_chains_list, NodeSide(), NodeSide(), out_tree->root);
+    ultrabubble_recurse(graph, cactus_chains_list, cactus_unary_snarls_list, NodeSide(), NodeSide(), out_tree->root);
     
     // Free the decomposition
     stSnarlDecomposition_destruct(snarls);

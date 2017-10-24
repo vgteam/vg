@@ -386,6 +386,10 @@ TEST_CASE("bubbles can be found in graphs with only tails", "[bubbles]") {
                 REQUIRE(child1->v.end.node == 6);
                 REQUIRE(child1->v.end.is_end == false);
                 
+                SECTION("First child should have all the contained nodes in its contents, including contents of its children") {
+                    REQUIRE(child1->v.contents.size() == 6);
+                };
+                
                 SECTION("First child has a child from 2 end to 5 start") {
                     REQUIRE(child1->children.size() == 1);
                     
@@ -480,9 +484,11 @@ TEST_CASE("bubbles can be found when heads cannot reach tails", "[bubbles]") {
             
             TreeNode<Bubble>* child1 = bubble_tree->root->children[0];
             
-            SECTION("The child should contain the whole graph") {
+            SECTION("The child should contain all the nodes as contents") {
                 REQUIRE(child1->v.contents.size() == 4);
             }
+            
+            // TODO: When unary snarls are exposed, make sure we have unary children.
         }
     }
     
