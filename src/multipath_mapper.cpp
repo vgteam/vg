@@ -4,7 +4,7 @@
 //
 //
 
-//#define debug_multipath_mapper
+#//define debug_multipath_mapper
 //#define debug_validate_multipath_alignments
 //#define debug_report_frag_distr
 
@@ -115,21 +115,6 @@ namespace vg {
         for (auto cluster_graph : cluster_graphs) {
             delete get<0>(cluster_graph);
         }
-        
-        // for debugging: an expensive check for invariant validity that can be turned on
-        // with a preprocessor flag
-#ifdef debug_validate_multipath_alignments
-        for (MultipathAlignment& multipath_aln : multipath_alns_out) {
-#ifdef debug_multipath_mapper
-            cerr << "validating multipath alignment:" << endl;
-            cerr << pb2json(multipath_aln) << endl;
-#endif
-            if (!validate_multipath_alignment(multipath_aln)) {
-                cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln.name() << " failed to validate" << endl;
-            }
-        }
-#endif
     }
     
     void MultipathMapper::align_to_cluster_graphs(const Alignment& alignment,
@@ -202,6 +187,21 @@ namespace vg {
         cerr << "computing mapping quality and sorting mappings" << endl;
 #endif
         sort_and_compute_mapping_quality(multipath_alns_out, mapq_method);
+        
+        // for debugging: an expensive check for invariant validity that can be turned on
+        // with a preprocessor flag
+#ifdef debug_validate_multipath_alignments
+        for (MultipathAlignment& multipath_aln : multipath_alns_out) {
+#ifdef debug_multipath_mapper
+            cerr << "validating multipath alignment:" << endl;
+            cerr << pb2json(multipath_aln) << endl;
+#endif
+            if (!validate_multipath_alignment(multipath_aln)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln.name() << " failed to validate" << endl;
+            }
+        }
+#endif
         
         // if we computed extra alignments to get a mapping quality, remove them
         while (multipath_alns_out.size() > max_alt_mappings) {
@@ -690,6 +690,24 @@ namespace vg {
             }
         }
         
+#ifdef debug_validate_multipath_alignments
+        for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
+#ifdef debug_multipath_mapper
+            cerr << "validating multipath alignments:" << endl;
+            cerr << pb2json(multipath_aln_pair.first) << endl;
+            cerr << pb2json(multipath_aln_pair.second) << endl;
+#endif
+            if (!validate_multipath_alignment(multipath_aln_pair.first)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
+            }
+            if (!validate_multipath_alignment(multipath_aln_pair.second)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
+            }
+        }
+#endif
+        
         if (multipath_aln_pairs_out.size() > max_alt_mappings) {
             multipath_aln_pairs_out.resize(max_alt_mappings);
         }
@@ -951,6 +969,7 @@ namespace vg {
             multipath_aln_pair.first.set_paired_read_name(multipath_aln_pair.second.name());
             multipath_aln_pair.second.set_paired_read_name(multipath_aln_pair.first.name());
         }
+        
     }
     
     void MultipathMapper::split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out) const {
@@ -1187,6 +1206,24 @@ namespace vg {
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score
         sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs);
+        
+#ifdef debug_validate_multipath_alignments
+        for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
+#ifdef debug_multipath_mapper
+            cerr << "validating multipath alignments:" << endl;
+            cerr << pb2json(multipath_aln_pair.first) << endl;
+            cerr << pb2json(multipath_aln_pair.second) << endl;
+#endif
+            if (!validate_multipath_alignment(multipath_aln_pair.first)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
+            }
+            if (!validate_multipath_alignment(multipath_aln_pair.second)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
+            }
+        }
+#endif
         
         // if we computed extra alignments to get a mapping quality or investigate ambiguous clusters, remove them
         if (multipath_aln_pairs_out.size() > max_alt_mappings) {

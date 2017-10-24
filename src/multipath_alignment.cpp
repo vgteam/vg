@@ -95,8 +95,8 @@ namespace vg {
     }
     
     int32_t optimal_alignment_internal(const MultipathAlignment& multipath_aln, Alignment* aln_out) {
+        
         // initialize DP structures
-                
         // score of the optimal alignment ending in this subpath
         vector<int32_t> prefix_score(multipath_aln.subpath_size(), 0);
         // previous subpath for traceback (we refer to subpaths by their index)
@@ -111,13 +111,13 @@ namespace vg {
             for (size_t j = 0; j < subpath.next_size(); j++) {
                 int64_t next = subpath.next(j);
                 // can we improve prefix score on following subpath through this one?
-                if (extended_score > prefix_score[next]) {
+                if (extended_score >= prefix_score[next]) {
                     prev_subpath[next] = i;
                     prefix_score[next] = extended_score;
                 }
             }
             // check if optimal alignment ends here
-            if (extended_score > opt_score) {
+            if (extended_score >= opt_score) {
                 opt_score = extended_score;
                 opt_subpath = i;
             }
@@ -132,6 +132,7 @@ namespace vg {
                 optimal_path_chunks.push_back(&(multipath_aln.subpath(opt_subpath).path()));
                 opt_subpath = prev_subpath[opt_subpath];
             }
+            
             
             // merge the subpaths into one optimal path in the Alignment object
             auto iter = optimal_path_chunks.rbegin();
