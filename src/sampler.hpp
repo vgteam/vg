@@ -48,25 +48,29 @@ public:
     bool forward_only;
     // A flag that we set if we don't want to generate sequences with Ns (on by default)
     bool no_Ns;
-    // A string which, if nonempty, gives the name of the path to restrict simulated reads to.
-    string source_path;
+    // A vector which, if nonempty, gives the names of the paths to restrict simulated reads to.
+    vector<string> source_paths;
+    discrete_distribution<> path_sampler; // draw an index in source_paths
     inline Sampler(xg::XG* x,
             int seed = 0,
             bool forward_only = false,
             bool allow_Ns = false,
-            const string& source_path = "")
+            const vector<string>& source_paths = {})
         : xgidx(x),
           node_cache(100),
           edge_cache(100),
           forward_only(forward_only),
           no_Ns(!allow_Ns),
           nonce(0),
-          source_path(source_path) {
+          source_paths(source_paths) {
         if (!seed) {
             seed = time(NULL);
         }
         rng.seed(seed);
+        set_source_paths(source_paths);
     }
+
+    void set_source_paths(const vector<string>& source_paths);
 
     pos_t position(void);
     string sequence(size_t length);
@@ -79,7 +83,7 @@ public:
     Alignment alignment_to_graph(size_t length);
     
     /// Get an alignment against the currently set source_path.
-    Alignment alignment_to_path(size_t length);
+    Alignment alignment_to_path(const string& source_path, size_t length);
     
     Alignment alignment_with_error(size_t length,
                                    double base_error,
@@ -132,7 +136,7 @@ public:
     /// read, whereas errors are distributed as indicated by the learned distribution.
     NGSSimulator(xg::XG& xg_index,
                  const string& ngs_fastq_file,
-                 const string& source_path = "",
+                 const vector<string>& source_paths = {},
                  double substition_polymorphism_rate = 0.001,
                  double indel_polymorphism_rate = 0.0002,
                  double indel_error_proportion = 0.01,
@@ -170,15 +174,16 @@ private:
     /// the iteration and update of curr_pos) in path node. Otherwise, in whole
     /// graph mode, they are ignored and curr_pos is used to traverse the graph
     /// directly.
-    void sample_read_internal(Alignment& aln, size_t& offset, bool& is_reverse, pos_t& curr_pos);
+    void sample_read_internal(Alignment& aln, size_t& offset, bool& is_reverse, pos_t& curr_pos,
+                              const string& source_path);
     
     /// Sample an appropriate starting position according to the mode. Updates the arguments.
-    void sample_start_pos(size_t& offset, bool& is_reverse, pos_t& pos);
+    void sample_start_pos(size_t& offset, bool& is_reverse, pos_t& pos, string& source_path);
     
     /// Get a random position in the graph
     pos_t sample_start_graph_pos();
     /// Get a random position along the source path
-    tuple<size_t, bool, pos_t> sample_start_path_pos();
+    tuple<size_t, bool, pos_t, string> sample_start_path_pos();
     
     /// Get an unclashing read name
     string get_read_name();
@@ -186,18 +191,21 @@ private:
     /// Move forward one position in either the source path or the graph,
     /// depending on mode. Update the arguments. Return true if we can't because
     /// we hit a tip or false otherwise
-    bool advance(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char);
+    bool advance(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char, const string& source_path);
     /// Move forward a certain distance in either the source path or the graph,
     /// depending on mode. Update the arguments. Return true if we can't because
     /// we hit a tip or false otherwise
-    bool advance_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance);
+    bool advance_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance,
+                             const string& source_path);
     
     /// Move forward one position in the source path, return true if we can't
     /// because we hit a tip or false otherwise
-    bool advance_on_path(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char);
+    bool advance_on_path(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char,
+                         const string& source_path);
     /// Move forward a certain distance in the source path, return true if we
     /// can't because we hit a tip or false otherwise
-    bool advance_on_path_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance);
+    bool advance_on_path_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance,
+        const string& source_path);
     
     /// Move forward one position in the graph along a random path, return true if we can't
     /// because we hit a tip or false otherwise
@@ -228,7 +236,8 @@ private:
     LRUCache<id_t, vector<Edge> > edge_cache;
     
     default_random_engine prng;
-    uniform_int_distribution<size_t> start_pos_sampler;
+    discrete_distribution<> path_sampler;
+    vector<uniform_int_distribution<size_t> > start_pos_samplers;
     uniform_int_distribution<uint8_t> strand_sampler;
     uniform_int_distribution<size_t> background_sampler;
     uniform_int_distribution<size_t> mut_sampler;
@@ -246,8 +255,8 @@ private:
     
     const bool retry_on_Ns;
     
-    /// Restrict reads to just this path (path-only mode) if nonempty.
-    string source_path;
+    /// Restrict reads to just these paths (path-only mode) if nonempty.
+    vector<string> source_paths;
 };
     
 /**
