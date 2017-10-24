@@ -328,9 +328,6 @@ namespace vg {
     bool MultipathMapper::attempt_rescue(const MultipathAlignment& multipath_aln, const Alignment& other_aln,
                                          bool rescue_forward, MultipathAlignment& rescue_multipath_aln) {
         
-        double mean = fragment_length_distr.mean();
-        double stdev = fragment_length_distr.stdev();
-        
 #ifdef debug_multipath_mapper
         cerr << "attemping pair rescue in " << (rescue_forward ? "forward" : "backward") << " direction from " << pb2json(multipath_aln) << endl;
 #endif
@@ -339,15 +336,25 @@ namespace vg {
         Alignment opt_anchoring_aln;
         optimal_alignment(multipath_aln, opt_anchoring_aln);
         pos_t pos_from = initial_position(opt_anchoring_aln.path());
-        int64_t jump_dist = rescue_forward ? mean : -mean;
+        int64_t jump_dist = rescue_forward ? fragment_length_distr.mean() : -fragment_length_distr.mean();
         
         // get the seed position(s) for the rescue by jumping along paths
         vector<pos_t> jump_positions = xindex->jump_along_closest_path(id(pos_from), is_rev(pos_from), offset(pos_from), jump_dist, 250);
-        vector<size_t> backward_dist(jump_positions.size(), 4 * stdev);
-        vector<size_t> forward_dist(jump_positions.size(), 4 * stdev + other_aln.sequence().size());
+        
+#ifdef debug_multipath_mapper
+        cerr << "found jump positions:" << endl;
+        for (pos_t& pos : jump_positions) {
+            cerr << "\t" << pos << endl;
+        }
+#endif
+        if (jump_positions.empty()) {
+            return false;
+        }
         
         // pull out the graph around the position(s) we jumped to
         VG rescue_graph;
+        vector<size_t> backward_dist(jump_positions.size(), 4 * fragment_length_distr.stdev());
+        vector<size_t> forward_dist(jump_positions.size(), 4 * fragment_length_distr.stdev() + other_aln.sequence().size());
         algorithms::extract_containing_graph(xindex, rescue_graph.graph, jump_positions, backward_dist, forward_dist);
         rescue_graph.build_indexes();
         

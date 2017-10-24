@@ -105,7 +105,7 @@ int main_mpmap(int argc, char** argv) {
     int min_clustering_mem_length = 0;
     int reseed_length = 28;
     double reseed_diff = 0.45;
-    double reseed_exp = 0.05;
+    double reseed_exp = 0.065;
     bool use_adaptive_reseed = true;
     double cluster_ratio = 0.2;
     bool qual_adjusted = true;
