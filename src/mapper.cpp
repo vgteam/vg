@@ -545,22 +545,19 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 && (reseed_below == 0  // and has fewer hits than our threshold for reseeding, if there is a threshold
                     || mem.nodes.size() <= reseed_below)) {
                     
-                    
                 // reseed using the technique indicated by the mapper's parameters
                 if (fast_reseed) {
                     if (use_diff_based_fast_reseed) {
                         if (adaptive_reseed_diff) {
                             find_sub_mems_fast(mems, i,
                                                i+1 < mems.size() ? mems[i+1].end : seq_begin,
-                                               max<int>(get_adaptive_min_reseed_length(mem_length),
-                                                        min_mem_length),
+                                               max<int>(get_adaptive_min_reseed_length(mem.length()), min_mem_length),
                                                sub_mems);
                         }
                         else {
                             find_sub_mems_fast(mems, i,
                                                i+1 < mems.size() ? mems[i+1].end : seq_begin,
-                                               max<int>(ceil(fast_reseed_length_diff * mem_length),
-                                                        min_mem_length),
+                                               max<int>(ceil(fast_reseed_length_diff * mem.length()), min_mem_length),
                                                sub_mems);
                         }
                     }
