@@ -52,7 +52,8 @@ namespace vg {
         // query MEMs using GCSA2
         double dummy1; double dummy2;
         vector<MaximalExactMatch> mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(),
-                                                        dummy1, dummy2, 0, min_mem_length, mem_reseed_length, false, true);
+                                                        dummy1, dummy2, 0, min_mem_length, mem_reseed_length,
+                                                        false, true, true, false);
         
 #ifdef debug_multipath_mapper
         cerr << "obtained MEMs:" << endl;
@@ -722,10 +723,10 @@ namespace vg {
     
         // query MEMs using GCSA2
         double dummy1, dummy2;
-        vector<MaximalExactMatch> mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(),
-                                                         dummy1, dummy2, 0, min_mem_length, mem_reseed_length, false, true, true);
-        vector<MaximalExactMatch> mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(),
-                                                         dummy1, dummy2, 0, min_mem_length, mem_reseed_length, false, true, true);
+        vector<MaximalExactMatch> mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(), dummy1, dummy2,
+                                                         0, min_mem_length, mem_reseed_length, false, true, true, false);
+        vector<MaximalExactMatch> mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(), dummy1, dummy2,
+                                                         0, min_mem_length, mem_reseed_length, false, true, true, false);
         
 #ifdef debug_multipath_mapper
         cerr << "obtained read1 MEMs:" << endl;
@@ -1200,8 +1201,6 @@ namespace vg {
         
         // Figure out the aligner to use
         BaseAligner* aligner = get_aligner();
-        // And the node cache
-        LRUCache<id_t, vg::Node>& node_cache = get_node_cache();
         
         // We populate this with all the cluster graphs.
         vector<clustergraph_t> cluster_graphs_out;

@@ -30,9 +30,9 @@ is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg 
 rm t.vg
 rm -rf t.idx.xg t.idx.gcsa
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg view -g - | sort | md5sum | awk '{ print $1 }') ce5d5ffaa71fea6a25cb4a5b836ccb89 "graph complexity reduction works as expected"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg stats -E - ) 287 "graph complexity reduction works as expected"
 
-is $( vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 -t 16 - | vg mod -S -l 200 - | vg view - | grep ^S | wc -l) 186 "short subgraph pruning works"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 -t 16 - | vg mod -S -l 200 - | vg stats -l - | cut -f 2) 983 "short subgraph pruning works"
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa >t.vg
 vg align -s GGGGGGGAAATTTTCTGGAGTTCTATTATATTCCAAAAAAAAAA t.vg >t.gam
@@ -107,9 +107,9 @@ is $? 0 "dagify unrolls the un-unrollable graph"
 vg mod -s graphs/not-simple.vg | vg validate -
 is $? 0 "sibling simplification does not disrupt paths"
 
-vg msga -f msgas/cycle.fa -b s1 -w 32 -t 1 | vg mod -N - | vg mod -D -| vg mod -U 10 - | vg mod -c - >c.vg
-is $(cat c.vg | vg mod -w 100 - | vg stats -N -) 18 "dagify correctly calculates the minimum distance through the unrolled component"
-is $(cat c.vg | vg mod -X 10 - | vg mod -w 50 -L 400 - | vg stats -l - | cut -f 2) 425 "dagify only takes one step past our component length limit"
+vg msga -f msgas/cycle.fa -b s1 -w 50 -t 1 -N | vg mod -D -| vg mod -U 10 - | vg mod -c - >c.vg
+is $(cat c.vg | vg mod -w 100 - | vg stats -N -) 4 "dagify correctly calculates the minimum distance through the unrolled component"
+is $(cat c.vg | vg mod -w 100 - | vg stats -l - | cut -f 2) 200 "dagify produces a graph of the correct size"
 rm -f c.vg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg

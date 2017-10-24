@@ -158,7 +158,7 @@ void XG::load(istream& in) {
         ////////////////////////////////////////////////////////////////////////
         switch (file_version) {
         
-        case 4:
+        case 5:
             {
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
@@ -173,28 +173,14 @@ void XG::load(istream& in) {
                 r_iv.load(in);
 
                 g_iv.load(in);
-                g_cbv.load(in);
-                g_cbv_rank.load(in, &g_cbv);
-                g_cbv_select.load(in, &g_cbv);
+                g_bv.load(in);
+                g_bv_rank.load(in, &g_bv);
+                g_bv_select.load(in, &g_bv);
 
                 s_iv.load(in);
-                s_cbv.load(in);
-                s_cbv_rank.load(in, &s_cbv);
-                s_cbv_select.load(in, &s_cbv);
-
-                f_iv.load(in);
-                f_bv.load(in);
-                f_bv_rank.load(in, &f_bv);
-                f_bv_select.load(in, &f_bv);
-                f_from_start_cbv.load(in);
-                f_to_end_cbv.load(in);
-
-                t_iv.load(in);
-                t_bv.load(in);
-                t_bv_rank.load(in, &t_bv);
-                t_bv_select.load(in, &t_bv);
-                t_to_end_cbv.load(in);
-                t_from_start_cbv.load(in);
+                s_bv.load(in);
+                s_bv_rank.load(in, &s_bv);
+                s_bv_select.load(in, &s_bv);
 
                 tn_csa.load(in);
                 tn_cbv.load(in);
@@ -216,13 +202,13 @@ void XG::load(istream& in) {
                     path->load(in);
                     paths.push_back(path);
                 }
-                ep_iv.load(in);
-                ep_bv.load(in);
-                ep_bv_rank.load(in, &ep_bv);
-                ep_bv_select.load(in, &ep_bv);
+                np_iv.load(in);
+                np_bv.load(in);
+                np_bv_rank.load(in, &np_bv);
+                np_bv_select.load(in, &np_bv);
                 
-                h_iv.load(in);
-                ts_iv.load(in);
+                h_civ.load(in);
+                ts_civ.load(in);
 
                 // Load all the B_s arrays for sides.
                 // Baking required before serialization.
@@ -247,9 +233,9 @@ void XG::load(istream& in) {
 }
 
 void XGPath::load(istream& in) {
-    members.load(in);
-    members_rank.load(in, &members);
-    members_select.load(in, &members);
+    nodes.load(in);
+    nodes_rank.load(in, &nodes);
+    nodes_select.load(in, &nodes);
     ids.load(in);
     directions.load(in);
     ranks.load(in);
@@ -264,9 +250,9 @@ size_t XGPath::serialize(std::ostream& out,
                          std::string name) const {
     sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
     size_t written = 0;
-    written += members.serialize(out, child, "path_membership_" + name);
-    written += members_rank.serialize(out, child, "path_membership_rank_" + name);
-    written += members_select.serialize(out, child, "path_membership_select_" + name);
+    written += nodes.serialize(out, child, "path_membership_" + name);
+    written += nodes_rank.serialize(out, child, "path_membership_rank_" + name);
+    written += nodes_select.serialize(out, child, "path_membership_select_" + name);
     written += ids.serialize(out, child, "path_node_ids_" + name);
     written += directions.serialize(out, child, "path_node_directions_" + name);
     written += ranks.serialize(out, child, "path_mapping_ranks_" + name);
@@ -282,13 +268,13 @@ size_t XGPath::serialize(std::ostream& out,
 
 XGPath::XGPath(const string& path_name,
                const vector<trav_t>& path,
-               size_t entity_count,
+               size_t node_count,
                XG& graph,
                size_t* unique_member_count_out) {
 
-    // path members (of nodes and edges ordered as per f_bv)
-    bit_vector members_bv;
-    util::assign(members_bv, bit_vector(entity_count));
+    // nodes in the path
+    bit_vector nodes_bv;
+    util::assign(nodes_bv, bit_vector(node_count));
     // node ids, the literal path
     int_vector<> ids_iv;
     util::assign(ids_iv, int_vector<>(path.size()));
@@ -316,7 +302,6 @@ XGPath::XGPath(const string& path_name,
     // make the bitvector for path offsets
     util::assign(offsets, bit_vector(path_length));
     set<int64_t> uniq_nodes;
-    set<pair<pair<int64_t, bool>, pair<int64_t, bool>>> uniq_edges;
     //cerr << "path " << path_name << " has " << path.size() << endl;
     for (size_t i = 0; i < path.size(); ++i) {
         //cerr << i << endl;
@@ -325,7 +310,7 @@ XGPath::XGPath(const string& path_name,
         bool is_reverse = trav_is_rev(trav);
         //cerr << node_id << endl;
         // record node
-        members_bv[graph.node_rank_as_entity(node_id)-1] = 1;
+        nodes_bv[graph.id_to_rank(node_id)-1] = 1;
         // record direction of passage through node
         directions_bv[i] = is_reverse;
         // and the external rank of the mapping
@@ -338,54 +323,17 @@ XGPath::XGPath(const string& path_name,
         offsets[path_off] = 1;
         // and update the offset counter
         path_off += graph.node_length(node_id);
-
-        // find the next edge in the path, and record it
-        if (i+1 < path.size()) { // but only if there is a next node
-            auto next_node_id = trav_id(path[i+1]);
-            bool next_is_reverse = trav_is_rev(path[i+1]);
-            //cerr << "checking if we have the edge" << endl;
-            int64_t id1, id2;
-            bool rev1, rev2;
-            if (is_reverse && next_is_reverse) {
-                id1 = next_node_id; id2 = node_id;
-                rev1 = false; rev2 = false;
-            } else {
-                id1 = node_id; id2 = next_node_id;
-                rev1 = is_reverse; rev2 = next_is_reverse;
-            }
-            if (graph.has_edge(id1, rev1, id2, rev2)) {
-                members_bv[graph.edge_rank_as_entity(id1, rev1, id2, rev2)-1] = 1;
-                uniq_edges.insert(
-                    make_pair(
-                        make_pair(id1, rev1),
-                        make_pair(id2, rev2)));
-            } else if (graph.has_edge(id2, !rev2, id1, !rev1)) {
-                members_bv[graph.edge_rank_as_entity(id2, !rev2, id1, !rev1)-1] = 1;
-                uniq_edges.insert(
-                    make_pair(
-                        make_pair(id2, !rev2),
-                        make_pair(id1, !rev1)
-                        ));
-            } else {
-                cerr << "[xg] warning: graph does not have edge from "
-                     << node_id << (trav_is_rev(path[i])?"+":"-")
-                     << " to "
-                     << next_node_id << (trav_is_rev(path[i+1])?"-":"+")
-                     << " for path " << path_name
-                     << endl;
-            }
-        }
     }
     //cerr << uniq_nodes.size() << " vs " << path.size() << endl;
     if(unique_member_count_out) {
         // set member count as the unique entities that are in the path
         // We don't need it but our caller might
-        *unique_member_count_out = uniq_nodes.size() + uniq_edges.size();
+        *unique_member_count_out = uniq_nodes.size();
     }
     // compress path membership vectors
-    util::assign(members, rrr_vector<>(members_bv));
-    util::assign(members_rank, rrr_vector<>::rank_1_type(&members));
-    util::assign(members_select, rrr_vector<>::select_1_type(&members));
+    util::assign(nodes, nodes_bv);
+    util::assign(nodes_rank, rrr_vector<>::rank_1_type(&nodes));
+    util::assign(nodes_select, rrr_vector<>::select_1_type(&nodes));
     // and traversal information
     util::assign(directions, sd_vector<>(directions_bv));
     // handle entity lookup structure (wavelet tree)
@@ -435,7 +383,7 @@ size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string nam
 
     written += sdsl::write_member(s_iv.size(), out, child, "sequence_length");
     written += sdsl::write_member(i_iv.size(), out, child, "node_count");
-    written += sdsl::write_member(f_iv.size()-i_iv.size(), out, child, "edge_count");
+    written += sdsl::write_member(edge_count, out, child, "edge_count");
     written += sdsl::write_member(path_count, out, child, "path_count");
     written += sdsl::write_member(min_id, out, child, "min_id");
     written += sdsl::write_member(max_id, out, child, "max_id");
@@ -444,28 +392,14 @@ size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string nam
     written += r_iv.serialize(out, child, "rank_id_vector");
 
     written += g_iv.serialize(out, child, "graph_vector");
-    written += g_cbv.serialize(out, child, "graph_bit_vector");
-    written += g_cbv_rank.serialize(out, child, "graph_bit_vector_rank");
-    written += g_cbv_select.serialize(out, child, "graph_bit_vector_select");
+    written += g_bv.serialize(out, child, "graph_bit_vector");
+    written += g_bv_rank.serialize(out, child, "graph_bit_vector_rank");
+    written += g_bv_select.serialize(out, child, "graph_bit_vector_select");
     
     written += s_iv.serialize(out, child, "seq_vector");
-    written += s_cbv.serialize(out, child, "seq_node_starts");
-    written += s_cbv_rank.serialize(out, child, "seq_node_starts_rank");
-    written += s_cbv_select.serialize(out, child, "seq_node_starts_select");
-
-    written += f_iv.serialize(out, child, "from_vector");
-    written += f_bv.serialize(out, child, "from_node");
-    written += f_bv_rank.serialize(out, child, "from_node_rank");
-    written += f_bv_select.serialize(out, child, "from_node_select");
-    written += f_from_start_cbv.serialize(out, child, "from_is_from_start");
-    written += f_to_end_cbv.serialize(out, child, "from_is_to_end");
-    
-    written += t_iv.serialize(out, child, "to_vector");
-    written += t_bv.serialize(out, child, "to_node");
-    written += t_bv_rank.serialize(out, child, "to_node_rank");
-    written += t_bv_select.serialize(out, child, "to_node_select");
-    written += t_to_end_cbv.serialize(out, child, "to_is_to_end");
-    written += t_from_start_cbv.serialize(out, child, "to_is_from_start");
+    written += s_bv.serialize(out, child, "seq_node_starts");
+    written += s_bv_rank.serialize(out, child, "seq_node_starts_rank");
+    written += s_bv_select.serialize(out, child, "seq_node_starts_select");
 
     // save the thread name index
     written += tn_csa.serialize(out, child, "thread_name_csa");
@@ -492,10 +426,10 @@ size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string nam
         paths_written += path->serialize(out, paths_child, "path:" + path_name(i + 1));
     }
     
-    paths_written += ep_iv.serialize(out, paths_child, "entity_path_mapping");
-    paths_written += ep_bv.serialize(out, paths_child, "entity_path_mapping_starts");
-    paths_written += ep_bv_rank.serialize(out, paths_child, "entity_path_mapping_starts_rank");
-    paths_written += ep_bv_select.serialize(out, paths_child, "entity_path_mapping_starts_select");
+    paths_written += np_iv.serialize(out, paths_child, "node_path_mapping");
+    paths_written += np_bv.serialize(out, paths_child, "node_path_mapping_starts");
+    paths_written += np_bv_rank.serialize(out, paths_child, "node_path_mapping_starts_rank");
+    paths_written += np_bv_select.serialize(out, paths_child, "node_path_mapping_starts_select");
     
     sdsl::structure_tree::add_size(paths_child, paths_written);
     written += paths_written;
@@ -505,8 +439,8 @@ size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string nam
     auto threads_child = sdsl::structure_tree::add_child(child, "threads", sdsl::util::class_name(*this));
     
     size_t threads_written = 0;
-    threads_written += h_iv.serialize(out, threads_child, "thread_usage_count");
-    threads_written += ts_iv.serialize(out, threads_child, "thread_start_count");
+    threads_written += h_civ.serialize(out, threads_child, "thread_usage_count");
+    threads_written += ts_civ.serialize(out, threads_child, "thread_start_count");
     // Stick all the B_s arrays in together. Must be baked.
     threads_written += xg::serialize(bs_single_array, out, threads_child, "bs_single_array");
     
@@ -542,10 +476,10 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
     bool validate_graph, bool print_graph, bool store_threads, bool is_sorted_dag) {
 
     // temporaries for construction
-    map<id_t, string> node_label;
+    vector<pair<id_t, string> > node_label;
     // need to store node sides
-    map<side_t, set<side_t> > from_to;
-    map<side_t, set<side_t> > to_from;
+    unordered_map<side_t, vector<side_t> > from_to;
+    unordered_map<side_t, vector<side_t> > to_from;
     map<string, vector<trav_t> > path_nodes;
 
     // This takes in graph chunks and adds them into our temporary storage.
@@ -557,20 +491,23 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
 
         for (int64_t i = 0; i < graph.node_size(); ++i) {
             const Node& n = graph.node(i);
-            if (node_label.find(n.id()) == node_label.end()) {
-                ++node_count;
-                seq_length += n.sequence().size();
-                node_label[n.id()] = n.sequence();
-            }
+            node_label.push_back(make_pair(n.id(), n.sequence()));
         }
         for (int64_t i = 0; i < graph.edge_size(); ++i) {
             // Canonicalize every edge, so only canonical edges are in the index.
             Edge e = canonicalize(graph.edge(i));
-            if (from_to.find(make_side(e.from(), e.from_start())) == from_to.end()
-                || from_to[make_side(e.from(), e.from_start())].count(make_side(e.to(), e.to_end())) == 0) {
+            bool new_from = from_to.find(make_side(e.from(), e.from_start())) == from_to.end();
+            bool new_edge = true;
+            if (!new_from) {
+                side_t to_add = make_side(e.to(), e.to_end());
+                for (auto& side : from_to[make_side(e.from(), e.from_start())]) {
+                    if (side == to_add) { new_edge = false; break; }
+                }
+            }
+            if (new_edge) {
                 ++edge_count;
-                from_to[make_side(e.from(), e.from_start())].insert(make_side(e.to(), e.to_end()));
-                to_from[make_side(e.to(), e.to_end())].insert(make_side(e.from(), e.from_start()));
+                from_to[make_side(e.from(), e.from_start())].push_back(make_side(e.to(), e.to_end()));
+                to_from[make_side(e.to(), e.to_end())].push_back(make_side(e.from(), e.from_start()));
             }
         }
 
@@ -599,7 +536,15 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
     // Get all the chunks via the callback, and have them called back to us.
     // The other end handles figuring out how much to loop.
     get_chunks(lambda);
-    
+
+    // sort the node labels and remove any duplicates
+    std::sort(node_label.begin(), node_label.end());
+    node_label.erase(std::unique(node_label.begin(), node_label.end()), node_label.end());
+    for (auto& p : node_label) {
+        ++node_count;
+        seq_length += p.second.size();
+    }
+
     path_count = path_nodes.size();
     
     // sort the paths using mapping rank
@@ -628,9 +573,9 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
     
 }
 
-void XG::build(map<id_t, string>& node_label,
-               map<side_t, set<side_t> >& from_to,
-               map<side_t, set<side_t> >& to_from,
+void XG::build(vector<pair<id_t, string> >& node_label,
+               unordered_map<side_t, vector<side_t> >& from_to,
+               unordered_map<side_t, vector<side_t> >& to_from,
                map<string, vector<trav_t> >& path_nodes,
                bool validate_graph,
                bool print_graph,
@@ -638,6 +583,7 @@ void XG::build(map<id_t, string>& node_label,
                bool is_sorted_dag) {
 
     size_t entity_count = node_count + edge_count;
+
 #ifdef VERBOSE_DEBUG
     cerr << "graph has " << seq_length << "bp in sequence, "
          << node_count << " nodes, "
@@ -655,14 +601,6 @@ void XG::build(map<id_t, string>& node_label,
     util::assign(s_bv, bit_vector(seq_length));
     util::assign(i_iv, int_vector<>(node_count));
     util::assign(r_iv, int_vector<>(max_id-min_id+1)); // note possibly discontiguous
-    util::assign(f_iv, int_vector<>(entity_count));
-    util::assign(f_bv, bit_vector(entity_count));
-    util::assign(f_from_start_bv, bit_vector(entity_count));
-    util::assign(f_to_end_bv, bit_vector(entity_count));
-    util::assign(t_iv, int_vector<>(entity_count));
-    util::assign(t_bv, bit_vector(entity_count));
-    util::assign(t_to_end_bv, bit_vector(entity_count));
-    util::assign(t_from_start_bv, bit_vector(entity_count));
     
     // for each node in the sequence
     // concatenate the labels into the s_iv
@@ -692,6 +630,7 @@ void XG::build(map<id_t, string>& node_label,
     util::bit_compress(i_iv);
     util::bit_compress(r_iv);
 
+    /*
 #ifdef VERBOSE_DEBUG    
     cerr << "storing forward edges and adjacency table" << endl;
 #endif
@@ -761,24 +700,13 @@ void XG::build(map<id_t, string>& node_label,
     // compress the reverse direction side information
     util::assign(t_to_end_cbv, sd_vector<>(t_to_end_bv));
     util::assign(t_from_start_cbv, sd_vector<>(t_from_start_bv));
+    */
 
     // to label the paths we'll need to compress and index our vectors
     util::bit_compress(s_iv);
-    util::bit_compress(f_iv);
-    util::bit_compress(t_iv);
-
     util::assign(s_bv_rank, rank_support_v<1>(&s_bv));
     util::assign(s_bv_select, bit_vector::select_1_type(&s_bv));
-    util::assign(f_bv_rank, rank_support_v<1>(&f_bv));
-    util::assign(f_bv_select, bit_vector::select_1_type(&f_bv));
-    util::assign(t_bv_rank, rank_support_v<1>(&t_bv));
-    util::assign(t_bv_select, bit_vector::select_1_type(&t_bv));
     
-    // compressed vectors of the above
-    util::assign(s_cbv, rrr_vector<>(s_bv));
-    util::assign(s_cbv_rank, rrr_vector<>::rank_1_type(&s_cbv));
-    util::assign(s_cbv_select, rrr_vector<>::select_1_type(&s_cbv));
-
     // now that we've set up our sequence indexes, we can build the locally traversable graph storage
     // calculate g_iv size
     size_t g_iv_size =
@@ -790,61 +718,63 @@ void XG::build(map<id_t, string>& node_label,
     // for each node
     for (int64_t i = 0; i < i_iv.size(); ++i) {
         Node n = node(i_iv[i]);
-        auto to_edges = edges_to(n.id());
-        auto from_edges = edges_from(n.id());
         // now build up the record
         g_bv[g] = 1; // mark record start for later query
         g_iv[g++] = n.id(); // save id
         g_iv[g++] = node_start(n.id());
         g_iv[g++] = n.sequence().size(); // sequence length
-        g_iv[g++] = to_edges.size(); // edges_to
-        g_iv[g++] = from_edges.size(); // edges_from
+        size_t to_edge_count = 0;
+        size_t from_edge_count = 0;
+        size_t to_edge_count_idx = g++;
+        size_t from_edge_count_idx = g++;
         // write the edges in id-based format
         // we will next convert these into relative format
-        for (auto& e : to_edges) {
-            g_iv[g++] = e.from();
-            g_iv[g++] = edge_type(e);
+        for (auto end : { false, true }) {
+            auto& to_sides = to_from[make_side(n.id(), end)];
+            for (auto& e : to_sides) {
+                g_iv[g++] = side_id(e);
+                g_iv[g++] = edge_type(side_is_end(e), end);
+                ++to_edge_count;
+            }
         }
-        for (auto& e : from_edges) {
-            g_iv[g++] = e.to();
-            g_iv[g++] = edge_type(e);
+        g_iv[to_edge_count_idx] = to_edge_count;
+        for (auto end : { false, true }) {
+            auto& from_sides = from_to[make_side(n.id(), end)];
+            for (auto& e : from_sides) {
+                g_iv[g++] = side_id(e);
+                g_iv[g++] = edge_type(end, side_is_end(e));
+                ++from_edge_count;
+            }
         }
+        g_iv[from_edge_count_idx] = from_edge_count;
     }
 
     // set up rank and select supports on g_bv so we can locate nodes in g_iv
-    util::assign(g_cbv, rrr_vector<>(g_bv));
-    util::assign(g_cbv_rank, rrr_vector<>::rank_1_type(&g_cbv));
-    util::assign(g_cbv_select, rrr_vector<>::select_1_type(&g_cbv));
-    
+    util::assign(g_bv_rank, rank_support_v<1>(&g_bv));
+    util::assign(g_bv_select, bit_vector::select_1_type(&g_bv));
+
     // convert the edges in g_iv to relativistic form
     for (int64_t i = 0; i < i_iv.size(); ++i) {
         int64_t id = i_iv[i];
         // find the start of the node's record in g_iv
-        int64_t g = g_cbv_select(id_to_rank(id));
+        int64_t g = g_bv_select(id_to_rank(id));
         // get to the edges to
         int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
         int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
         int64_t t = g + G_NODE_HEADER_LENGTH;
         int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
         for (int64_t j = t; j < f; ) {
-            g_iv[j] = g_cbv_select(id_to_rank(g_iv[j])) - g;
+            g_iv[j] = g_bv_select(id_to_rank(g_iv[j])) - g;
             j += 2;
         }
         for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
-            g_iv[j] = g_cbv_select(id_to_rank(g_iv[j])) - g;
+            g_iv[j] = g_bv_select(id_to_rank(g_iv[j])) - g;
             j += 2;
         }
     }
 
     util::bit_compress(g_iv);
 
-// Prepare empty vectors for path indexing
-#ifdef VERBOSE_DEBUG
-    cerr << "creating empty succinct thread store" << endl;
-#endif
-    util::assign(h_iv, int_vector<>(entity_count * 2, 0));
-    util::assign(ts_iv, int_vector<>((node_count + 1) * 2, 0));
-    
 #if GPBWT_MODE == MODE_SDSL
     // We have one B_s array for every side, but the first 2 numbers for sides
     // are unused. But max node rank is inclusive, so it evens out...
@@ -855,9 +785,8 @@ void XG::build(map<id_t, string>& node_label,
     cerr << "storing paths" << endl;
 #endif
     // paths
-    //path_nodes[name].push_back(m.position().node_id());
     string path_names;
-    size_t path_entities = 0; // count of nodes and edges
+    size_t path_node_count = 0; // count of node path memberships
     for (auto& pathpair : path_nodes) {
         // add path name
         const string& path_name = pathpair.first;
@@ -865,9 +794,9 @@ void XG::build(map<id_t, string>& node_label,
         path_names += start_marker + path_name + end_marker;
         // The path constructor helpfully counts unique path members for us
         size_t unique_member_count;
-        XGPath* path = new XGPath(path_name, pathpair.second, entity_count, *this, &unique_member_count);
+        XGPath* path = new XGPath(path_name, pathpair.second, node_count, *this, &unique_member_count);
         paths.push_back(path);
-        path_entities += unique_member_count;
+        path_node_count += unique_member_count;
     }
 
     // handle path names
@@ -888,29 +817,37 @@ void XG::build(map<id_t, string>& node_label,
     store_to_file((const char*)path_names.c_str(), path_name_file);
     construct(pn_csa, path_name_file, 1);
 
-    // entity -> paths
-    util::assign(ep_iv, int_vector<>(path_entities+entity_count));
-    util::assign(ep_bv, bit_vector(path_entities+entity_count));
-    size_t ep_off = 0;
-    for (size_t i = 0; i < entity_count; ++i) {
-        ep_bv[ep_off] = 1;
-        ep_iv[ep_off] = 0; // null so we can detect entities with no path membership
-        ++ep_off;
+    // node -> paths
+    util::assign(np_iv, int_vector<>(path_node_count+node_count));
+    util::assign(np_bv, bit_vector(path_node_count+node_count));
+    size_t np_off = 0;
+    for (size_t i = 0; i < node_count; ++i) {
+        np_bv[np_off] = 1;
+        np_iv[np_off] = 0; // null so we can detect entities with no path membership
+        ++np_off;
         for (size_t j = 0; j < paths.size(); ++j) {
-            if (paths[j]->members[i] == 1) {
-                ep_iv[ep_off++] = j+1;
+            if (paths[j]->nodes[i] == 1) {
+                np_iv[np_off++] = j+1;
             }
         }
     }
 
-    util::bit_compress(ep_iv);
+    util::bit_compress(np_iv);
     //cerr << ep_off << " " << path_entities << " " << entity_count << endl;
-    assert(ep_off <= path_entities+entity_count);
-    util::assign(ep_bv_rank, rank_support_v<1>(&ep_bv));
-    util::assign(ep_bv_select, bit_vector::select_1_type(&ep_bv));
+    assert(np_off <= path_node_count+node_count);
+    util::assign(np_bv_rank, rank_support_v<1>(&np_bv));
+    util::assign(np_bv_select, bit_vector::select_1_type(&np_bv));
 
     if(store_threads) {
 
+// Prepare empty vectors for path indexing
+#ifdef VERBOSE_DEBUG
+        cerr << "creating empty succinct thread store" << endl;
+#endif
+
+        util::assign(h_iv, int_vector<>(g_iv.size() * 2, 0));
+        util::assign(ts_iv, int_vector<>((node_count + 1) * 2, 0));
+        
 #ifdef VERBOSE_DEBUG
         cerr << "storing threads" << endl;
 #endif
@@ -954,12 +891,14 @@ void XG::build(map<id_t, string>& node_label,
         }
         // TODO: else case!
 #endif
+        util::assign(h_civ, h_iv);
+        util::assign(ts_civ, ts_iv);
     }
     
 
 #ifdef DEBUG_CONSTRUCTION
     cerr << "|g_iv| = " << size_in_mega_bytes(g_iv) << endl;
-    cerr << "|g_cbv| = " << size_in_mega_bytes(g_cbv) << endl;
+    cerr << "|g_bv| = " << size_in_mega_bytes(g_bv) << endl;
     cerr << "|s_iv| = " << size_in_mega_bytes(s_iv) << endl;
     cerr << "|f_iv| = " << size_in_mega_bytes(f_iv) << endl;
     cerr << "|t_iv| = " << size_in_mega_bytes(t_iv) << endl;
@@ -973,10 +912,10 @@ void XG::build(map<id_t, string>& node_label,
     cerr << "|i_iv| = " << size_in_mega_bytes(i_iv) << endl;
     //cerr << "|i_wt| = " << size_in_mega_bytes(i_wt) << endl;
 
-    cerr << "|s_cbv| = " << size_in_mega_bytes(s_cbv) << endl;
+    cerr << "|s_bv| = " << size_in_mega_bytes(s_bv) << endl;
     
-    cerr << "|h_iv| = " << size_in_mega_bytes(h_iv) << endl;
-    cerr << "|ts_iv| = " << size_in_mega_bytes(ts_iv) << endl;
+    cerr << "|h_civ| = " << size_in_mega_bytes(h_civ) << endl;
+    cerr << "|ts_civ| = " << size_in_mega_bytes(ts_civ) << endl;
 
     long double paths_mb_size = 0;
     cerr << "|pn_iv| = " << size_in_mega_bytes(pn_iv) << endl;
@@ -988,12 +927,12 @@ void XG::build(map<id_t, string>& node_label,
     paths_mb_size += size_in_mega_bytes(pn_bv_rank);
     paths_mb_size += size_in_mega_bytes(pn_bv_select);
     paths_mb_size += size_in_mega_bytes(pi_iv);
-    cerr << "|ep_iv| = " << size_in_mega_bytes(ep_iv) << endl;
-    paths_mb_size += size_in_mega_bytes(ep_iv);
-    cerr << "|ep_bv| = " << size_in_mega_bytes(ep_bv) << endl;
-    paths_mb_size += size_in_mega_bytes(ep_bv);
-    paths_mb_size += size_in_mega_bytes(ep_bv_rank);
-    paths_mb_size += size_in_mega_bytes(ep_bv_select);
+    cerr << "|np_iv| = " << size_in_mega_bytes(np_iv) << endl;
+    paths_mb_size += size_in_mega_bytes(np_iv);
+    cerr << "|np_bv| = " << size_in_mega_bytes(np_bv) << endl;
+    paths_mb_size += size_in_mega_bytes(np_bv);
+    paths_mb_size += size_in_mega_bytes(np_bv_rank);
+    paths_mb_size += size_in_mega_bytes(np_bv_select);
     cerr << "total paths size " << paths_mb_size << endl;
     // TODO you are missing the rest of the paths size in xg::paths
     // but this fragment should be factored into a function anyway
@@ -1007,9 +946,9 @@ void XG::build(map<id_t, string>& node_label,
         + size_in_mega_bytes(t_bv)
         + size_in_mega_bytes(i_iv)
         //+ size_in_mega_bytes(i_wt)
-        + size_in_mega_bytes(s_cbv)
-        + size_in_mega_bytes(h_iv)
-        + size_in_mega_bytes(ts_iv)
+        + size_in_mega_bytes(s_bv)
+        + size_in_mega_bytes(h_civ)
+        + size_in_mega_bytes(ts_civ)
         // TODO: add in size of the bs_arrays in a loop
         + paths_mb_size
         ) << endl;
@@ -1020,12 +959,12 @@ void XG::build(map<id_t, string>& node_label,
         cerr << "printing graph" << endl;
         // we have to print the relativistic graph manually because the default sdsl printer assumes unsigned integers are stored in it
         for (size_t i = 0; i < g_iv.size(); ++i) {
-            cerr << " " << (int64_t)g_iv[i];
+            cerr << (int64_t)g_iv[i] << " ";
         } cerr << endl;
         for (int64_t i = 0; i < i_iv.size(); ++i) {
             int64_t id = i_iv[i];
             // find the start of the node's record in g_iv
-            int64_t g = g_cbv_select(id_to_rank(id));
+            int64_t g = g_bv_select(id_to_rank(id));
             // get to the edges to
             int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
             int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
@@ -1039,12 +978,12 @@ void XG::build(map<id_t, string>& node_label,
             int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
             cerr << " from ";
             for (int64_t j = t; j < f; ) {
-                cerr << i_iv[g_cbv_rank(g+g_iv[j])] << " ";
+                cerr << i_iv[g_bv_rank(g+g_iv[j])] << " ";
                 j += 2;
             }
             cerr << "to ";
             for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
-                cerr << i_iv[g_cbv_rank(g+g_iv[j])] << " ";
+                cerr << i_iv[g_bv_rank(g+g_iv[j])] << " ";
                 j += 2;
             }
             cerr << endl;
@@ -1055,17 +994,13 @@ void XG::build(map<id_t, string>& node_label,
         } cerr << endl;
         cerr << s_bv << endl;
         cerr << i_iv << endl;
-        cerr << f_iv << endl;
-        cerr << f_bv << endl;
-        cerr << t_iv << endl;
-        cerr << t_bv << endl;
-        cerr << "paths" << endl;
+        cerr << "paths (" << paths.size() << ")" << endl;
         for (size_t i = 0; i < paths.size(); i++) {
             // Go through paths by number, so we can determine rank
             XGPath* path = paths[i];
             
             cerr << path_name(i + 1) << endl;
-            cerr << path->members << endl;
+            cerr << path->nodes << endl;
             // manually print IDs because simplified wavelet tree doesn't support ostream for some reason
             for (size_t j = 0; j + 1 < path->ids.size(); j++) {
                 cerr << path->ids[j] << " ";
@@ -1079,13 +1014,13 @@ void XG::build(map<id_t, string>& node_label,
             cerr << path->positions << endl;
             cerr << path->offsets << endl;
         }
-        cerr << ep_bv << endl;
-        cerr << ep_iv << endl;
+        cerr << np_bv << endl;
+        cerr << np_iv << endl;
     }
 
     if (validate_graph) {
         cerr << "validating graph sequence" << endl;
-        int max_id = s_cbv_rank(s_cbv.size());
+        int max_id = s_bv_rank(s_bv.size());
         for (auto& p : node_label) {
             int64_t id = p.first;
             const string& l = p.second;
@@ -1093,10 +1028,10 @@ void XG::build(map<id_t, string>& node_label,
             size_t rank = id_to_rank(id);
             //cerr << rank << endl;
             // find the node in the array
-            //cerr << "id = " << id << " rank = " << s_cbv_select(rank) << endl;
+            //cerr << "id = " << id << " rank = " << s_bv_select(rank) << endl;
             // this should be true given how we constructed things
-            if (rank != s_cbv_rank(s_cbv_select(rank)+1)) {
-                cerr << rank << " != " << s_cbv_rank(s_cbv_select(rank)+1) << " for node " << id << endl;
+            if (rank != s_bv_rank(s_bv_select(rank)+1)) {
+                cerr << rank << " != " << s_bv_rank(s_bv_select(rank)+1) << " for node " << id << endl;
                 assert(false);
             }
             // get the sequence from the s_iv
@@ -1120,6 +1055,7 @@ void XG::build(map<id_t, string>& node_label,
 
         // -1 here seems weird
         // what?
+        /*
         cerr << "validating forward edge table" << endl;
         for (size_t j = 0; j < f_iv.size()-1; ++j) {
             if (f_bv[j] == 1) continue;
@@ -1135,7 +1071,11 @@ void XG::build(map<id_t, string>& node_label,
                     to_end = side_is_end(side);
                 }
             }
-            if (from_to[make_side(fid, from_start)].count(make_side(tid, to_end)) == 0) {
+            bool has_edge = false;
+            for (auto& side : from_to[make_side(fid, from_start)]) {
+                if (side == make_side(tid, to_end)) { has_edge = true; break; }
+            }
+            if (!has_edge) {
                 cerr << "could not find edge (f) "
                      << fid << (from_start ? "+" : "-")
                      << " -> "
@@ -1163,7 +1103,11 @@ void XG::build(map<id_t, string>& node_label,
                     from_start = side_is_end(side);
                 }
             }
-            if (to_from[make_side(tid, to_end)].count(make_side(fid, from_start)) == 0) {
+            bool has_edge = false;
+            for (auto& side : to_from[make_side(tid, to_end)]) {
+                if (side == make_side(fid, from_start)) { has_edge = true; break; }
+            }
+            if (!has_edge) {
                 cerr << "could not find edge (t) "
                      << fid << (from_start ? "+" : "-")
                      << " -> "
@@ -1172,7 +1116,9 @@ void XG::build(map<id_t, string>& node_label,
                 assert(false);
             }
         }
-    
+        */
+
+        /*
         cerr << "validating paths" << endl;
         for (auto& pathpair : path_nodes) {
             const string& name = pathpair.first;
@@ -1180,7 +1126,7 @@ void XG::build(map<id_t, string>& node_label,
             size_t prank = path_rank(name);
             //cerr << path_name(prank) << endl;
             assert(path_name(prank) == name);
-            rrr_vector<>& pe_bv = paths[prank-1]->members;
+            rrr_vector<>& pe_bv = paths[prank-1]->nodes;
             int_vector<>& pp_iv = paths[prank-1]->positions;
             sd_vector<>& dir_bv = paths[prank-1]->directions;
             // check each entity in the nodes is present
@@ -1208,6 +1154,7 @@ void XG::build(map<id_t, string>& node_label,
             //cerr << path_name << " rank = " << prank << endl;
             // check membership now for each entity in the path
         }
+        */
         
 #if GPBWT_MODE == MODE_SDSL
         if(store_threads && is_sorted_dag) {
@@ -1281,6 +1228,10 @@ const size_t XG::sequence_bit_size(void) const {
     return s_iv.bit_size();
 }
 
+bool XG::has_node(int64_t id) const {
+    return id_to_rank(id) != 0;
+}
+
 Node XG::node(int64_t id) const {
     Node n;
     n.set_id(id);
@@ -1292,10 +1243,10 @@ Node XG::node(int64_t id) const {
 string XG::node_sequence(int64_t id) const {
     size_t rank = id_to_rank(id);
     assert(rank != 0); // We can crash if we try to look up rank 0.
-    size_t start = s_cbv_select(rank);
-    size_t end = rank == node_count ? s_cbv.size() : s_cbv_select(rank+1);
+    size_t start = s_bv_select(rank);
+    size_t end = rank == node_count ? s_bv.size() : s_bv_select(rank+1);
     string s; s.resize(end-start);
-    for (size_t i = start; i < s_cbv.size() && i < end; ++i) {
+    for (size_t i = start; i < s_bv.size() && i < end; ++i) {
         s[i-start] = revdna3bit(s_iv[i]);
     }
     return s;
@@ -1303,8 +1254,8 @@ string XG::node_sequence(int64_t id) const {
 
 size_t XG::node_length(int64_t id) const {
     size_t rank = id_to_rank(id);
-    size_t start = s_cbv_select(rank);
-    size_t end = rank == node_count ? s_cbv.size() : s_cbv_select(rank+1);
+    size_t start = s_bv_select(rank);
+    size_t end = rank == node_count ? s_bv.size() : s_bv_select(rank+1);
     return end-start;
 }
 
@@ -1312,13 +1263,13 @@ char XG::pos_char(int64_t id, bool is_rev, size_t off) const {
     assert(off < node_length(id));
     if (!is_rev) {
         size_t rank = id_to_rank(id);
-        size_t pos = s_cbv_select(rank) + off;
+        size_t pos = s_bv_select(rank) + off;
         assert(pos < s_iv.size());
         char c = revdna3bit(s_iv[pos]);
         return c;
     } else {
         size_t rank = id_to_rank(id);
-        size_t pos = s_cbv_select(rank+1) - (off+1);
+        size_t pos = s_bv_select(rank+1) - (off+1);
         assert(pos < s_iv.size());
         char c = revdna3bit(s_iv[pos]);
         return reverse_complement(c);
@@ -1328,35 +1279,35 @@ char XG::pos_char(int64_t id, bool is_rev, size_t off) const {
 string XG::pos_substr(int64_t id, bool is_rev, size_t off, size_t len) const {
     if (!is_rev) {
         size_t rank = id_to_rank(id);
-        size_t start = s_cbv_select(rank) + off;
+        size_t start = s_bv_select(rank) + off;
         assert(start < s_iv.size());
         // get until the end position, or the end of the node, which ever is first
         size_t end;
         if (!len) {
-            end = s_cbv_select(rank+1);
+            end = s_bv_select(rank+1);
         } else {
-            end = min(start + len, (size_t)s_cbv_select(rank+1));
+            end = min(start + len, (size_t)s_bv_select(rank+1));
         }
         assert(end < s_iv.size());
         string s; s.resize(end-start);
-        for (size_t i = start; i < s_cbv.size() && i < end; ++i) {
+        for (size_t i = start; i < s_bv.size() && i < end; ++i) {
             s[i-start] = revdna3bit(s_iv[i]);
         }
         return s;
     } else {
         size_t rank = id_to_rank(id);
-        size_t end = s_cbv_select(rank+1) - off;
+        size_t end = s_bv_select(rank+1) - off;
         assert(end < s_iv.size());
         // get until the end position, or the end of the node, which ever is first
         size_t start;
         if (len > end || !len) {
-            start = s_cbv_select(rank);
+            start = s_bv_select(rank);
         } else {
-            start = max(end - len, (size_t)s_cbv_select(rank));
+            start = max(end - len, (size_t)s_bv_select(rank));
         }
         assert(end < s_iv.size());
         string s; s.resize(end-start);
-        for (size_t i = start; i < s_cbv.size() && i < end; ++i) {
+        for (size_t i = start; i < s_bv.size() && i < end; ++i) {
             s[i-start] = revdna3bit(s_iv[i]);
         }
         return reverse_complement(s);
@@ -1364,6 +1315,8 @@ string XG::pos_substr(int64_t id, bool is_rev, size_t off, size_t len) const {
 }
 
 size_t XG::id_to_rank(int64_t id) const {
+    size_t x = id-min_id;
+    if (x < 0 || x >= r_iv.size()) return 0;
     return r_iv[id-min_id];
 }
 
@@ -1379,15 +1332,16 @@ int64_t XG::rank_to_id(size_t rank) const {
     return i_iv[rank-1];
 }
 
-Edge XG::edge_for_entity(size_t rank) const {
-    Edge edge;
-    if (!entity_is_node(rank)) {
-        edge.set_from(rank_to_id(t_iv[rank]));
-        edge.set_to(rank_to_id(f_iv[rank]));
-        edge.set_from_start(f_from_start_cbv[rank]);
-        edge.set_to_end(f_to_end_cbv[rank]);
+int XG::edge_type(bool from_start, bool to_end) const {
+    if (from_start && to_end) {
+        return 4;
+    } else if (from_start) {
+        return 3;
+    } else if (to_end) {
+        return 2;
+    } else {
+        return 1;
     }
-    return edge;
 }
 
 int XG::edge_type(const Edge& edge) const {
@@ -1438,7 +1392,7 @@ void XG::idify_graph(Graph& graph) const {
 }
 
 Graph XG::node_subgraph_id(int64_t id) const {
-    Graph graph = node_subgraph_g(g_cbv_select(id_to_rank(id)));
+    Graph graph = node_subgraph_g(g_bv_select(id_to_rank(id)));
     idify_graph(graph);
     return graph;
 }
@@ -1475,7 +1429,7 @@ Graph XG::node_subgraph_g(int64_t g) const {
 
 Graph XG::graph_context_id(const pos_t& pos, int64_t length) const {
     pos_t g = pos;
-    vg::get_id(g) = g_cbv_select(id_to_rank(id(pos)));
+    vg::get_id(g) = g_bv_select(id_to_rank(id(pos)));
     Graph graph = graph_context_g(g, length);
     idify_graph(graph);
     return graph;
@@ -1544,7 +1498,7 @@ handle_t XG::get_handle(const id_t& node_id, bool is_reverse) const {
     // Handles will be g vector index with is_reverse in the high bit
     
     // Where in the g vector do we need to be
-    size_t handle = g_cbv_select(id_to_rank(node_id));
+    size_t handle = g_bv_select(id_to_rank(node_id));
     // And set the high bit if it's reverse
     if (is_reverse) handle |= HIGH_BIT;
     return as_handle(handle);
@@ -1711,51 +1665,64 @@ size_t XG::node_size() const {
 }
 
 vector<Edge> XG::edges_of(int64_t id) const {
-    auto e1 = edges_to(id);
-    auto e2 = edges_from(id);
-    e1.reserve(e1.size() + distance(e2.begin(), e2.end()));
-    e1.insert(e1.end(), e2.begin(), e2.end());
-    // now get rid of duplicates
-    vector<Edge> e3;
-    set<string> seen;
-    for (auto& edge : e1) {
-        string s; edge.SerializeToString(&s);
-        if (!seen.count(s)) {
-            e3.push_back(edge);
-            seen.insert(s);
-        }
+    size_t g = g_bv_select(id_to_rank(id));
+    int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
+    int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
+    int64_t t = g + G_NODE_HEADER_LENGTH;
+    int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
+    vector<Edge> edges;
+    for (int64_t j = t; j < f; ) {
+        int64_t from = g+g_iv[j++];
+        int type = g_iv[j++];
+        edges.push_back(edge_from_encoding(from, g, type));
     }
-    return e3;
+    for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
+        int64_t to = g+g_iv[j++];
+        int type = g_iv[j++];
+        edges.push_back(edge_from_encoding(g, to, type));
+    }
+    for (auto& edge : edges) { 
+        edge.set_from(g_iv[edge.from()+G_NODE_ID_OFFSET]);
+        edge.set_to(g_iv[edge.to()+G_NODE_ID_OFFSET]);
+    }
+    return edges;
 }
 
 vector<Edge> XG::edges_to(int64_t id) const {
+    size_t g = g_bv_select(id_to_rank(id));
+    int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
+    int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
+    int64_t t = g + G_NODE_HEADER_LENGTH;
+    int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
     vector<Edge> edges;
-    size_t rank = id_to_rank(id);
-    size_t t_start = t_bv_select(rank)+1;
-    size_t t_end = rank == node_count ? t_bv.size() : t_bv_select(rank+1);
-    for (size_t i = t_start; i < t_end; ++i) {
-        Edge edge;
-        edge.set_to(id);
-        edge.set_from(rank_to_id(t_iv[i]));
-        edge.set_from_start(t_from_start_cbv[i]);
-        edge.set_to_end(t_to_end_cbv[i]);
-        edges.push_back(edge);
+    for (int64_t j = t; j < f; ) {
+        int64_t from = g+g_iv[j++];
+        int type = g_iv[j++];
+        edges.push_back(edge_from_encoding(from, g, type));
+    }
+    for (auto& edge : edges) { 
+        edge.set_from(g_iv[edge.from()+G_NODE_ID_OFFSET]);
+        edge.set_to(g_iv[edge.to()+G_NODE_ID_OFFSET]);
     }
     return edges;
 }
 
 vector<Edge> XG::edges_from(int64_t id) const {
+    size_t g = g_bv_select(id_to_rank(id));
+    int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
+    int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
+    //int64_t t = g + G_NODE_HEADER_LENGTH;
+    int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
+    int64_t e = f + G_EDGE_LENGTH * edges_from_count;
     vector<Edge> edges;
-    size_t rank = id_to_rank(id);
-    size_t f_start = f_bv_select(rank)+1;
-    size_t f_end = rank == node_count ? f_bv.size() : f_bv_select(rank+1);
-    for (size_t i = f_start; i < f_end; ++i) {
-        Edge edge;
-        edge.set_from(id);
-        edge.set_to(rank_to_id(f_iv[i]));
-        edge.set_from_start(f_from_start_cbv[i]);
-        edge.set_to_end(f_to_end_cbv[i]);
-        edges.push_back(edge);
+    for (int64_t j = f; j < e; ) {
+        int64_t to = g+g_iv[j++];
+        int type = g_iv[j++];
+        edges.push_back(edge_from_encoding(g, to, type));
+    }
+    for (auto& edge : edges) { 
+        edge.set_from(g_iv[edge.from()+G_NODE_ID_OFFSET]);
+        edge.set_to(g_iv[edge.to()+G_NODE_ID_OFFSET]);
     }
     return edges;
 }
@@ -1781,15 +1748,15 @@ vector<Edge> XG::edges_on_end(int64_t id) const {
 }
 
 size_t XG::max_node_rank(void) const {
-    return s_cbv_rank(s_cbv.size());
+    return s_bv_rank(s_bv.size());
 }
 
 int64_t XG::node_at_seq_pos(size_t pos) const {
-    return rank_to_id(s_cbv_rank(pos));
+    return rank_to_id(s_bv_rank(pos));
 }
 
 size_t XG::node_start(int64_t id) const {
-    return s_cbv_select(id_to_rank(id));
+    return s_bv_select(id_to_rank(id));
 }
 
 size_t XG::max_path_rank(void) const {
@@ -1798,41 +1765,20 @@ size_t XG::max_path_rank(void) const {
     return pn_bv_rank(pn_bv.size());
 }
 
-size_t XG::node_rank_as_entity(int64_t id) const {
-    return f_bv_select(id_to_rank(id))+1;
-}
-
-bool XG::entity_is_node(size_t rank) const {
-    return 1 == f_bv[rank-1];
-}
-
-size_t XG::entity_rank_as_node_rank(size_t rank) const {
-    return !entity_is_node(rank) ? 0 : f_iv[rank-1];
-}
-
 // snoop through the forward table to check if the edge exists
 bool XG::has_edge(int64_t id1, bool from_start, int64_t id2, bool to_end) const {
-    // invert the edge if we are doubly-reversed
-    // this has the same meaning
-    // ...confused
-    /*
-    if (from_start && to_end) {
-        int64_t tmp = id1;
-        id1 = id2; id2 = tmp;
-        from_start = false;
-        to_end = false;
-    }
-    */
-    size_t rank1 = id_to_rank(id1);
-    size_t rank2 = id_to_rank(id2);
-    // Start looking after the value that corresponds to the node itself.
-    // Otherwise we'll think every self loop exists.
-    size_t f_start = f_bv_select(rank1) + 1;
-    size_t f_end = rank1 == node_count ? f_bv.size() : f_bv_select(rank1+1);
-    for (size_t i = f_start; i < f_end; ++i) {
-        if (rank2 == f_iv[i]
-            && f_from_start_cbv[i] == from_start
-            && f_to_end_cbv[i] == to_end) {
+    Edge query;
+    query.set_from(id1);
+    query.set_from_start(from_start);
+    query.set_to(id2);
+    query.set_to_end(to_end);
+    query = canonicalize(query);
+    Graph node_graph = node_subgraph_id(id1);
+    for (auto& edge : node_graph.edge()) {
+        if (edge.from() == query.from()
+            && edge.from_start() == query.from_start()
+            && edge.to() == query.to()
+            && edge.to_end() == query.to_end()) {
             return true;
         }
     }
@@ -1844,39 +1790,35 @@ bool XG::has_edge(const Edge& edge) const {
     return has_edge(fixed.from(), fixed.from_start(), fixed.to(), fixed.to_end());
 }
 
-size_t XG::edge_rank_as_entity(int64_t id1, bool from_start, int64_t id2, bool to_end) const {
-    size_t rank1 = id_to_rank(id1);
-    size_t rank2 = id_to_rank(id2);
-#ifdef VERBOSE_DEBUG
-    cerr << "Finding rank for "
-         << id1 << (from_start?"+":"-") << " (" << rank1 << ") " << " -> "
-         << id2 << (to_end?"-":"+") << " (" << rank2 << ")"<< endl;
-#endif
-    size_t f_start = f_bv_select(rank1) + 1;
-    size_t f_end = rank1 == node_count ? f_bv.size() : f_bv_select(rank1+1);
-#ifdef VERBOSE_DEBUG
-    cerr << f_start << " to " << f_end << endl;
-#endif
-    for (size_t i = f_start; i < f_end; ++i) {
-#ifdef VERBOSE_DEBUG
-        cerr << f_iv[i] << endl;
-#endif
-        if (rank2 == f_iv[i]
-            && f_from_start_cbv[i] == from_start
-            && f_to_end_cbv[i] == to_end) {
-#ifdef VERBOSE_DEBUG
-            cerr << i << endl;
-#endif
-            return i+1;
-        }
-    }
-    // Otherwise the edge doesn't exist.
-    return numeric_limits<size_t>::max();
+size_t XG::node_graph_idx(int64_t id) const {
+    return g_bv_select(id_to_rank(id));
 }
 
-size_t XG::edge_rank_as_entity(const Edge& edge) const {
-    auto fixed = canonicalize(edge);
-    return edge_rank_as_entity(fixed.from(), fixed.from_start(), fixed.to(), fixed.to_end());
+size_t XG::edge_graph_idx(const Edge& edge_in) const {
+    auto edge = canonicalize(edge_in);
+    int64_t id = edge.from();
+    size_t g = g_bv_select(id_to_rank(id));
+    int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
+    int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
+    //int64_t t = g + G_NODE_HEADER_LENGTH;
+    int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
+    int64_t e = f + G_EDGE_LENGTH * edges_from_count;
+    vector<Edge> edges;
+    int i = 1;
+    for (int64_t j = f; j < e; ++i) {
+        int64_t to = g+g_iv[j++];
+        int type = g_iv[j++];
+        Edge curr = edge_from_encoding(g, to, type);
+        curr.set_from(g_iv[curr.from()+G_NODE_ID_OFFSET]);
+        curr.set_to(g_iv[curr.to()+G_NODE_ID_OFFSET]);
+        if (curr.to() == edge.to()
+            && curr.from_start() == edge.from_start()
+            && curr.to_end() == edge.to_end()) {
+            return g + i;
+        }
+    }
+    assert(false);
+    return 0;
 }
 
 Edge XG::canonicalize(const Edge& edge) const {
@@ -1949,32 +1891,20 @@ string XG::path_name(size_t rank) const {
     return name;
 }
 
-bool XG::path_contains_entity(const string& name, size_t rank) const {
-    return 1 == paths[path_rank(name)-1]->members[rank-1];
-}
-
 bool XG::path_contains_node(const string& name, int64_t id) const {
-    return path_contains_entity(name, node_rank_as_entity(id));
+    return 1 == paths[path_rank(name)-1]->nodes[id_to_rank(id)-1];
 }
 
-bool XG::path_contains_edge(const string& name, int64_t id1, bool from_start, int64_t id2, bool to_end) const {
-    return path_contains_entity(name, edge_rank_as_entity(id1, from_start, id2, to_end));
-}
-
-vector<size_t> XG::paths_of_entity(size_t rank) const {
-    size_t off = ep_bv_select(rank);
-    assert(ep_bv[off++]);
+vector<size_t> XG::paths_of_node(int64_t id) const {
+    size_t off = np_bv_select(id_to_rank(id));
+    assert(np_bv[off++]);
     vector<size_t> path_ranks;
-    while (off < ep_bv.size() ? ep_bv[off] == 0 : false) {
-        path_ranks.push_back(ep_iv[off++]);
+    while (off < np_bv.size() ? np_bv[off] == 0 : false) {
+        path_ranks.push_back(np_iv[off++]);
     }
     return path_ranks;
 }
 
-vector<size_t> XG::paths_of_node(int64_t id) const {
-    return paths_of_entity(node_rank_as_entity(id));
-}
-    
 vector<pair<size_t, vector<pair<size_t, bool>>>> XG::oriented_paths_of_node(int64_t id) const {
     vector<pair<size_t, vector<pair<size_t, bool>>>> path_occurrences;
     for (size_t path_rank : paths_of_node(id)) {
@@ -1987,14 +1917,10 @@ vector<pair<size_t, vector<pair<size_t, bool>>>> XG::oriented_paths_of_node(int6
     return path_occurrences;
 }
     
-vector<size_t> XG::paths_of_edge(int64_t id1, bool from_start, int64_t id2, bool to_end) const {
-    return paths_of_entity(edge_rank_as_entity(id1, from_start, id2, to_end));
-}
-
 map<string, vector<Mapping>> XG::node_mappings(int64_t id) const {
     map<string, vector<Mapping>> mappings;
     // for each time the node crosses the path
-    for (auto i : paths_of_entity(node_rank_as_entity(id))) {
+    for (auto i : paths_of_node(id)) {
         // get the path name
         string name = path_name(i);
         // get reference to the offset of the mapping in the path
@@ -2322,13 +2248,13 @@ void XG::get_id_range(int64_t id1, int64_t id2, Graph& g) const {
 void XG::get_id_range_by_length(int64_t id, int64_t length, Graph& g, bool forward) const {
     // find out first base of node's position in the sequence vector
     size_t rank = id_to_rank(id);
-    size_t start = s_cbv_select(rank);
+    size_t start = s_bv_select(rank);
     size_t end;
     // jump by length, checking to make sure we stay in bounds
     if (forward) {
-        end = s_cbv_rank(min(s_cbv.size() - 1, start + node_length(id) + length));
+        end = s_bv_rank(min(s_bv.size() - 1, start + node_length(id) + length));
     } else {
-        end = s_cbv_rank(1 + max((int64_t)0, (int64_t)(start  - length)));
+        end = s_bv_rank(1 + max((int64_t)0, (int64_t)(start  - length)));
     }
     // convert back to id
     int64_t id2 = rank_to_id(end);
@@ -2380,123 +2306,10 @@ pair<int64_t, vector<size_t> > XG::nearest_path_node(int64_t id, int max_steps) 
     return make_pair(id, vector<size_t>());
 }
 
-// if node is on path, return it.  otherwise, return next node (in id space)
-// that is on path.  if none exists, return 0
-int64_t XG::next_path_node_by_id(size_t path_rank, int64_t id) const {
-
-    // find our node in the members bit vector of the xgpath
-    const XGPath* path = paths[path_rank - 1];
-    size_t node_rank = id_to_rank(id);
-    size_t entity_rank = node_rank_as_entity(node_rank);
-    // if it's a path member, we're done
-    if (path->members[entity_rank - 1] == 1) {
-        return id;
-    }
-
-    // note: rank select in members sd_vector is O(log[|graph| / |path|])
-    // so this will be relatively slow on tiny paths (but so will alternatives
-    // like checking path->members on every node):
-
-    // find number of members before our node in the path
-    size_t members_rank_at_node = path->members_rank(entity_rank - 1);
-    // next member doesn't exist
-    if (members_rank_at_node == path->members.size()) {
-        return 0;
-    }
-    // hop to the next member
-    int64_t i = path->members_select(members_rank_at_node + 1);
-
-    // if we're at an edge, get the node we link to
-    if (!entity_is_node(i)) {
-        //node_rank = id_to_rank();
-        Edge edge = edge_for_entity(i);
-        return edge.to();
-    } else {
-        return rank_to_id(node_rank);
-    }
-
-}
-
-// if node is on path, return it.  otherwise, return previous node (in id space)
-// that is on path.  if none exists, return 0
-int64_t XG::prev_path_node_by_id(size_t path_rank, int64_t id) const {
-
-    // find our node in the members bit vector of the xgpath
-    XGPath* path = paths[path_rank - 1];
-    size_t node_rank = id_to_rank(id);
-    size_t entity_rank = node_rank_as_entity(node_rank);
-    // if it's a path member, we're done
-    if (path->members[entity_rank - 1] == 1) {
-        return id;
-    }
-
-    // note: rank select in members sd_vector is O(log[|graph| / |path|])
-    // so this will be relatively slow on tiny paths (but so will alternatives
-    // like checking path->members on every node):
-
-    // find number of members before our node in the path
-    size_t members_rank_at_node = path->members_rank(entity_rank - 1);
-    // previous member doesn't exist
-    if (members_rank_at_node == 0) {
-        return 0;
-    }
-    // hop to the previous member
-    int64_t i = path->members_select(members_rank_at_node);
-
-    // if we're at an edge, get the node we link to
-    if (!entity_is_node(i)) {
-        //node_rank = id_to_rank();
-        Edge edge = edge_for_entity(i);
-        return edge.from();
-    } else {
-        return rank_to_id(node_rank);
-    }
-
-}
-
-// estimate distance (in bp) between two nodes along a path.
-// if a nodes isn't on the path, the nearest node on the path (using id space)
-// is used as a proxy.  In this case, the distance may not be exact
-// due to this heuristic, but should be sufficient for our purposese (evaluating
-// pair consistency).
-// returns -1 if couldn't find distance
-int64_t XG::approx_path_distance(const string& name, int64_t id1, int64_t id2) const {
-    // simplifying assumption: id1 lies before id2 on path (and id space)
-    if (id1 > id2) {
-        swap(id1, id2);
-    }
-    size_t path_rank = this->path_rank(name);
-    int64_t next1 = next_path_node_by_id(path_rank, id1);
-    int64_t prev2 = prev_path_node_by_id(path_rank, id2);
-
-    // fail
-    if (next1 == 0 || prev2 == 0) {
-        return numeric_limits<int64_t>::max();
-    }
-
-    // find our positions on the path
-    vector<size_t> positions1 = position_in_path(next1, name);
-    vector<size_t> positions2 = position_in_path(prev2, name);
-    // use the last node1 position and first node2 position.
-    if (positions1.empty()
-        || positions2.empty()) {
-        return numeric_limits<int64_t>::max();
-    }
-    int64_t pos1 = (int64_t)positions1.back();
-    int64_t pos2 = (int64_t)positions2[0];
-    // shift over to the right of the left node if it's unchanged, and distinct from the right node.
-    if (next1 == id1 && next1 != prev2) {
-        pos1 += node_length(next1);
-    }
-
-    return abs(pos2 - pos1);
-}
-
 // like above, but find minumum over list of paths.  if names is empty, do all paths
 // don't actually take strict minumum over all paths.  rather, prefer paths that
 // contain the nodes when possible. 
-int64_t XG::min_approx_path_distance(const vector<string>& names,
-                                     int64_t id1, int64_t id2) const {
+int64_t XG::min_approx_path_distance(int64_t id1, int64_t id2) const {
 
     int64_t min_distance = numeric_limits<int64_t>::max();
     pair<int64_t, vector<size_t> > near1 = nearest_path_node(id1);
@@ -3011,7 +2824,7 @@ void XG::get_path_range(const string& name, int64_t start, int64_t stop, Graph& 
     for (auto& e : edges) {
         Edge edge;
         edge.set_from(side_id(e.first));
-        edge.set_from_start(side_is_end(e.first));
+        edge.set_from_start(!side_is_end(e.first));
         edge.set_to(side_id(e.second));
         edge.set_to_end(side_is_end(e.second));
         *g.add_edge() = edge;
@@ -3233,7 +3046,7 @@ int64_t XG::where_to(int64_t current_side, int64_t visit_offset, int64_t new_sid
 }
 
 int64_t XG::node_height(XG::ThreadMapping node) const {
-  return h_iv[(node_rank_as_entity(node.node_id) - 1) * 2 + node.is_reverse];
+  return h_civ[node_graph_idx(node.node_id) * 2 + node.is_reverse];
 }
 
 int64_t XG::where_to(int64_t current_side, int64_t visit_offset, int64_t new_side, vector<Edge>& edges_into_new, vector<Edge>& edges_out_of_old) const {
@@ -3274,9 +3087,9 @@ int64_t XG::where_to(int64_t current_side, int64_t visit_offset, int64_t new_sid
         // are following and so doesn't involve old_node_anything). We only
         // treat it as reverse if the reverse direction is the only direction we
         // can take to get here.
-        int64_t edge_orientation_number = ((edge_rank_as_entity(edge) - 1) * 2) + arrive_by_reverse(edge, new_node_id, new_node_is_reverse);
+        int64_t edge_orientation_number = (edge_graph_idx(edge) * 2) + arrive_by_reverse(edge, new_node_id, new_node_is_reverse);
 
-        int64_t contribution = h_iv[edge_orientation_number];
+        int64_t contribution = h_civ[edge_orientation_number];
 #ifdef VERBOSE_DEBUG
         cerr << contribution << " (from prev edge " << edge.from() << (edge.from_start() ? "L" : "R") << "-" << edge.to() << (edge.to_end() ? "R" : "L") << " at " << edge_orientation_number << ") + ";
 #endif
@@ -3310,7 +3123,7 @@ int64_t XG::where_to(int64_t current_side, int64_t visit_offset, int64_t new_sid
     new_visit_offset += contribution;
 
     // Get the number of threads starting at the new side and add that in.
-    contribution = ts_iv[new_side];
+    contribution = ts_civ[new_side];
 #ifdef VERBOSE_DEBUG
     cerr << contribution << " (starting here) = ";
 #endif
@@ -3371,6 +3184,8 @@ XG::thread_t XG::extract_thread(xg::XG::ThreadMapping node, int64_t offset = 0, 
 
 void XG::insert_threads_into_dag(const vector<thread_t>& t, const vector<string>& names) {
 
+    util::assign(h_iv, int_vector<>(g_iv.size() * 2, 0));
+    util::assign(ts_iv, int_vector<>((node_count + 1) * 2, 0));
     // Store the names
     for (auto& name : names) {
         names_str.append("$" + name);
@@ -3398,7 +3213,7 @@ void XG::insert_threads_into_dag(const vector<thread_t>& t, const vector<string>
         bs_set(node_side, destinations);
         
         // Set the number of total visits to this side.
-        h_iv[(node_rank_as_entity(node_id) - 1) * 2 + is_reverse] = destinations.size();
+        h_iv[node_graph_idx(node_id) * 2 + is_reverse] = destinations.size();
     
 #ifdef VERBOSE_DEBUG
         cerr << "Found " << destinations.size() << " visits total to node " << node_id << (is_reverse ? "-" : "+") << endl;
@@ -3413,11 +3228,11 @@ void XG::insert_threads_into_dag(const vector<thread_t>& t, const vector<string>
         
         // We're departing along this edge, so our orientation cares about
         // whether we have to take the edge forward or backward when departing.
-        auto edge_rank = edge_rank_as_entity(canonical);
-        assert(edge_rank != numeric_limits<size_t>::max()); // We must actually have the edge
-        int64_t edge_orientation_number = (edge_rank - 1) * 2 +
+        auto edge_idx = edge_graph_idx(canonical);
+        assert(edge_idx != numeric_limits<size_t>::max()); // We must actually have the edge
+        int64_t edge_orientation_number = edge_idx * 2 +
             depart_by_reverse(canonical, node_id, from_start);
-                
+
 #ifdef VERBOSE_DEBUG
         cerr << "We need to add 1 to the traversals of oriented edge " << edge_orientation_number << endl;
 #endif
@@ -3513,14 +3328,14 @@ void XG::insert_threads_into_dag(const vector<thread_t>& t, const vector<string>
             for(Edge& in_edge : edges_of(node_id)) {
                 // Look at all the edges on the node. Messages will only exist on
                 // the incoming ones.
-                auto edge_rank = edge_rank_as_entity(in_edge);
-                if(edge_to_ordered_threads.count(edge_rank)) {
+                auto edge_idx = edge_graph_idx(in_edge);
+                if(edge_to_ordered_threads.count(edge_idx)) {
                     // We have messages coming along this edge on our start
                     
                     // These threads come in next. Splice them in because they
                     // already have the right mapping indices.
-                    threads_visiting.splice(threads_visiting.end(), edge_to_ordered_threads[edge_rank]);
-                    edge_to_ordered_threads.erase(edge_rank);
+                    threads_visiting.splice(threads_visiting.end(), edge_to_ordered_threads[edge_idx]);
+                    edge_to_ordered_threads.erase(edge_idx);
                 }
             }
             
@@ -3545,11 +3360,11 @@ void XG::insert_threads_into_dag(const vector<thread_t>& t, const vector<string>
             // Make a map from outgoing edge rank to the B_s array number (0 for
             // stop here, 1 reserved as a separator, and 2 through n corresponding
             // to outgoing edges in order) for this node's outgoing side.
-            map<size_t, size_t> edge_rank_to_local_edge_number;
+            map<size_t, size_t> edge_idx_to_local_edge_number;
             auto outgoing_edges = node_is_reverse ? edges_on_start(node_id) : edges_on_end(node_id);
             for(size_t i = 0; i < outgoing_edges.size(); i++) {
-                size_t edge_rank = edge_rank_as_entity(outgoing_edges[i]);
-                edge_rank_to_local_edge_number[edge_rank] = i + 2;
+                size_t edge_idx = edge_graph_idx(outgoing_edges[i]);
+                edge_idx_to_local_edge_number[edge_idx] = i + 2;
             }
             
             // Make a vector we'll fill in with all the B array values (0 for stop,
@@ -3576,14 +3391,14 @@ void XG::insert_threads_into_dag(const vector<thread_t>& t, const vector<string>
                     // there. Note that we need to make sure we can handle going
                     // forward and backward over edges.
                     Edge canonical = canonicalize(make_edge(node_id, node_is_reverse, next_node_id, next_is_reverse));
-                    size_t next_edge_rank = edge_rank_as_entity(canonical);
+                    size_t next_edge_idx = edge_graph_idx(canonical);
                     
                     // Look up what local edge number that edge gets and say we follow it.
-                    destinations.push_back(edge_rank_to_local_edge_number.at(next_edge_rank));
+                    destinations.push_back(edge_idx_to_local_edge_number.at(next_edge_idx));
                     
                     // Send the new mapping along the edge after all the other ones
                     // we've sent along the edge
-                    edge_to_ordered_threads[next_edge_rank].push_back(next_visit);
+                    edge_to_ordered_threads[next_edge_idx].push_back(next_visit);
                     
                     // Say we traverse an edge going from this node in this
                     // orientation to that node in that orientation.
@@ -3629,7 +3444,9 @@ void XG::insert_threads_into_dag(const vector<thread_t>& t, const vector<string>
     cerr << "Creating final compressed array..." << endl;
 #endif
     bs_bake();
-    
+    // compress the visit counts
+    util::assign(h_civ, h_iv);
+    util::assign(ts_civ, ts_iv);
     // compress the starts for the threads
     util::assign(tin_civ, int_vector<>(tin_iv));
     util::assign(tio_civ, int_vector<>(tio_iv));
@@ -3702,7 +3519,7 @@ void XG::insert_thread(const thread_t& t, const string& name) {
                     // out in. We know we have this edge, so we just see if we
                     // have to depart in reveres and if so take the edge in
                     // reverse.
-                    int64_t edge_orientation_number = (edge_rank_as_entity(edges_out[j]) - 1) * 2 + depart_by_reverse(edges_out[j], node_id, node_is_reverse);
+                    int64_t edge_orientation_number = edge_graph_idx(edges_out[j]) * 2 + depart_by_reverse(edges_out[j], node_id, node_is_reverse);
                     
                     cerr << "\tOrientation rank: " << edge_orientation_number << endl;
 #endif
@@ -3756,7 +3573,7 @@ void XG::insert_thread(const thread_t& t, const string& name) {
                 // Update the usage count for the edge going form here to the next node
                 // Make sure that edge storage direction is correct.
                 // Which orientation of an edge are we crossing?
-                int64_t edge_orientation_number = (edge_rank_as_entity(edge_taken) - 1) * 2 + depart_by_reverse(edge_taken, node_id, node_is_reverse);
+                int64_t edge_orientation_number = edge_graph_idx(edge_taken) * 2 + depart_by_reverse(edge_taken, node_id, node_is_reverse);
                 
 #ifdef VERBOSE_DEBUG
                 cerr << "We need to add 1 to the traversals of oriented edge " << edge_orientation_number << endl;
@@ -3787,12 +3604,12 @@ void XG::insert_thread(const thread_t& t, const string& name) {
             
             cerr << "Node " << node_id << " orientation " << node_is_reverse <<
                 " has rank " <<
-                ((node_rank_as_entity(node_id) - 1) * 2 + node_is_reverse) <<
-                " of " << h_iv.size() << endl;
+                (node_graph_idx(node_id) * 2 + node_is_reverse) <<
+                " of " << h_civ.size() << endl;
 #endif
             
             // Increment the usage count of the node in this orientation
-            h_iv[(node_rank_as_entity(node_id) - 1) * 2 + node_is_reverse]++;
+            h_iv[node_graph_idx(node_id) * 2 + node_is_reverse]++;
             
             if(i == 0) {
                 // The thread starts here
@@ -3916,20 +3733,20 @@ auto XG::extract_threads(bool extract_reverse) const -> map<string, list<thread_
     // numbered sides of their nodes.
     // We know sides 0 and 1 are unused, so the smallest side is 2.
     int64_t begin = !extract_reverse ? 2 : 3;
-    int64_t end = !extract_reverse ? ts_iv.size()-1 : ts_iv.size();
+    int64_t end = !extract_reverse ? ts_civ.size()-1 : ts_civ.size();
     for(int64_t i = begin; i < end; i+=2) {
         // For every other real side
     
 #ifdef VERBOSE_DEBUG
-        cerr << ts_iv[i] << " threads start at side " << i << endl;
+        cerr << ts_civ[i] << " threads start at side " << i << endl;
 #endif
         // For each side
-        if(ts_iv[i] == 0) {
+        if(ts_civ[i] == 0) {
             // Skip it if no threads start at it
             continue;
         }
 
-        for(int64_t j = 0; j < ts_iv[i]; j++) {
+        for(int64_t j = 0; j < ts_civ[i]; j++) {
             // For every thread starting there
       
 #ifdef debug    
@@ -4324,16 +4141,16 @@ void XG::extend_search(ThreadSearchState& state, const thread_t& t) const {
             // really important unless we're going to search during a path
             // addition.
             state.range_start = 0;
-            state.range_end = h_iv[(node_rank_as_entity(next_id) - 1) * 2 + next_is_reverse];
+            state.range_end = h_civ[node_graph_idx(next_id) * 2 + next_is_reverse];
             
 #ifdef VERBOSE_DEBUG
             cerr << "\tFound " << state.range_end << " threads present here." << endl;
             
-            int64_t here = (node_rank_as_entity(next_id) - 1) * 2 + next_is_reverse;
+            int64_t here = node_graph_idx(next_id) * 2 + next_is_reverse;
             cerr << here << endl;
             for(int64_t i = here - 5; i < here + 5; i++) {
                 if(i >= 0) {
-                    cerr << "\t\t" << (i == here ? "*" : " ") << "h_iv[" << i << "] = " << h_iv[i] << endl;
+                    cerr << "\t\t" << (i == here ? "*" : " ") << "h_civ[" << i << "] = " << h_civ[i] << endl;
                 }
             }
             
@@ -4407,7 +4224,7 @@ XG::ThreadSearchState XG::select_starting(const ThreadMapping& start) const {
     // Threads starting at a node come first, so select from 0 to the number of
     // threads that start there.
     state.range_start = 0;
-    state.range_end = ts_iv[state.current_side];
+    state.range_end = ts_civ[state.current_side];
     
     return state;
 }
@@ -4432,8 +4249,8 @@ XG::ThreadSearchState XG::select_continuing(const ThreadMapping& start) const {
     
     // Threads starting at a node come first, so select from past them to the
     // number of threads total on the node.
-    state.range_start = ts_iv[state.current_side];
-    state.range_end = h_iv[state.current_side];
+    state.range_start = ts_civ[state.current_side];
+    state.range_end = h_civ[state.current_side];
     
     return state;
 }

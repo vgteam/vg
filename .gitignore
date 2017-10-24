@@ -21,6 +21,7 @@ test/*.lcp
 test/*/*.lcp
 test/**/*.index/
 trash
+src/*.gch
 # Ignore a bunch of files people might dump in the root when testing
 /*.vg
 /*.gcsa

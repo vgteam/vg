@@ -417,19 +417,6 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
 }
 
 
-SB_Input VG::vg_to_sb_input(){
-	//cout << this->edge_count() << endl;
-  SB_Input sbi;
-  sbi.num_vertices = this->edge_count();
-	function<void(Edge*)> lambda = [&sbi](Edge* e){
-		//cout << e->from() << " " << e->to() << endl;
-    pair<id_t, id_t> dat = make_pair(e->from(), e->to() );
-    sbi.edges.push_back(dat);
-	};
-	this->for_each_edge(lambda);
-  return sbi;
-}
-
 id_t VG::get_node_at_nucleotide(string pathname, int nuc){
     Path p = paths.path(pathname);
 
@@ -452,61 +439,6 @@ id_t VG::get_node_at_nucleotide(string pathname, int nuc){
 
 }
 
-vector<pair<id_t, id_t> > VG::get_superbubbles(SB_Input sbi){
-    vector<pair<id_t, id_t> > ret;
-    supbub::Graph sbg (sbi.num_vertices);
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST superBubblesList{};
-    supbub::DetectSuperBubble dsb;
-    dsb.find(sbg, superBubblesList);
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST::iterator it;
-    for (it = superBubblesList.begin(); it != superBubblesList.end(); ++it) {
-        ret.push_back(make_pair((*it).entrance, (*it).exit));
-    }
-    return ret;
-}
-vector<pair<id_t, id_t> > VG::get_superbubbles(void){
-    vector<pair<id_t, id_t> > ret;
-    supbub::Graph sbg (this->edge_count());
-    //load up the sbgraph with edges
-    function<void(Edge*)> lambda = [&sbg](Edge* e){
-            //cout << e->from() << " " << e->to() << endl;
-        sbg.addEdge(e->from(), e->to());
-    };
-
-    this->for_each_edge(lambda);
-
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST superBubblesList{};
-
-    supbub::DetectSuperBubble dsb;
-    dsb.find(sbg, superBubblesList);
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST::iterator it;
-    for (it = superBubblesList.begin(); it != superBubblesList.end(); ++it) {
-        ret.push_back(make_pair((*it).entrance, (*it).exit));
-    }
-    return ret;
-}
-// check for conflict (duplicate nodes and edges) occurs within add_* functions
-/*
-map<pair<id_t, id_t>, vector<id_t> > VG::superbubbles(void) {
-    map<pair<id_t, id_t>, vector<id_t> > bubbles;
-    // ensure we're sorted
-    algorithms::sort(this);
-    // if we have a DAG, then we can find all the nodes in each superbubble
-    // in constant time as they lie in the range between the entry and exit node
-    auto supbubs = get_superbubbles();
-    //     hash_map<Node*, int> node_index;
-    for (auto& bub : supbubs) {
-        auto start = node_index[get_node(bub.first)];
-        auto end = node_index[get_node(bub.second)];
-        // get the nodes in the range
-        auto& b = bubbles[bub];
-        for (int i = start; i <= end; ++i) {
-            b.push_back(graph.node(i).id());
-        }
-    }
-    return bubbles;
-}
-*/
 void VG::add_nodes(const set<Node*>& nodes) {
     for (auto node : nodes) {
         add_node(*node);
@@ -1554,7 +1486,7 @@ void VG::unchop(void) {
     paths.compact_ranks();
 }
 
-void VG::normalize(int max_iter) {
+void VG::normalize(int max_iter, bool debug) {
     size_t last_len = 0;
     if (max_iter > 1) {
         last_len = length();
@@ -1581,13 +1513,13 @@ void VG::normalize(int max_iter) {
         //if (!is_valid()) cerr << "invalid after compact ranks two  " << endl;
         if (max_iter > 1) {
             size_t curr_len = length();
-            cerr << "[VG::normalize] iteration " << iter+1 << " current length " << curr_len << endl;
+            if (debug) cerr << "[VG::normalize] iteration " << iter+1 << " current length " << curr_len << endl;
             if (curr_len == last_len) break;
             last_len = curr_len;
         }
     } while (++iter < max_iter);
     if (max_iter > 1) {
-        cerr << "[VG::normalize] normalized in " << iter << " steps" << endl;
+        if (debug) cerr << "[VG::normalize] normalized in " << iter << " steps" << endl;
     }
 }
 
@@ -4237,7 +4169,7 @@ void VG::keep_paths(set<string>& path_names, set<string>& kept_names) {
     paths.keep_paths(path_names);
 }
 
-void VG::keep_path(string& path_name) {
+void VG::keep_path(const string& path_name) {
     set<string> s,k; s.insert(path_name);
     keep_paths(s, k);
 }
@@ -6159,10 +6091,9 @@ void VG::to_dot(ostream& out,
                 bool simple_mode,
                 bool invert_edge_ports,
                 bool color_variants,
-                bool superbubble_ranking,
-                bool superbubble_labeling,
                 bool ultrabubble_labeling,
                 bool skip_missing_nodes,
+                bool ascii_labels,
                 int random_seed) {
 
     // setup graphviz output
@@ -6177,11 +6108,10 @@ void VG::to_dot(ostream& out,
 
     //map<id_t, vector<
     map<id_t, set<pair<string, string>>> symbols_for_node;
-    if (superbubble_labeling || ultrabubble_labeling) {
+    if (ultrabubble_labeling) {
         Pictographs picts(random_seed);
         Colors colors(random_seed);
-        map<pair<id_t, id_t>, vector<id_t> > sb =
-            (ultrabubble_labeling ? ultrabubbles(*this) : superbubbles(*this));
+        map<pair<id_t, id_t>, vector<id_t> > sb = ultrabubbles(*this);
         for (auto& bub : sb) {
             auto start_node = bub.first.first;
             auto end_node = bub.first.second;
@@ -6190,7 +6120,7 @@ void VG::to_dot(ostream& out,
                 vb << i << ",";
             }
             auto repr = vb.str();
-            string emoji = picts.hashed(repr);
+            string emoji = ascii_labels ? picts.hashed_char(repr) : picts.hashed(repr);
             string color = colors.hashed(repr);
             auto label = make_pair(color, emoji);
             for (auto& i : bub.second) {
@@ -6203,7 +6133,7 @@ void VG::to_dot(ostream& out,
         auto node_paths = paths.of_node(n->id());
 
         stringstream inner_label;
-        if (superbubble_labeling || ultrabubble_labeling) {
+        if (ultrabubble_labeling) {
             inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
             inner_label << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
             for(auto& string_and_color : symbols_for_node[n->id()]) {
@@ -6234,7 +6164,7 @@ void VG::to_dot(ostream& out,
 
         if (simple_mode) {
             out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";
-        } else if (superbubble_labeling || ultrabubble_labeling) {
+        } else if (ultrabubble_labeling) {
             //out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
             out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";
         } else {
@@ -6267,9 +6197,9 @@ void VG::to_dot(ostream& out,
         Pictographs picts(random_seed);
         Colors colors(random_seed);
         // Work out what path symbols belong on what edges
-        function<void(const Path&)> lambda = [this, &picts, &colors, &symbols_for_edge](const Path& path) {
+        function<void(const Path&)> lambda = [this, &picts, &colors, &symbols_for_edge, &ascii_labels](const Path& path) {
             // Make up the path's label
-            string path_label = picts.hashed(path.name());
+            string path_label = ascii_labels ? picts.hashed_char(path.name()) : picts.hashed(path.name());
             string color = colors.hashed(path.name());
             for (int i = 0; i < path.mapping_size(); ++i) {
                 const Mapping& m1 = path.mapping(i);
@@ -6376,46 +6306,6 @@ void VG::to_dot(ostream& out,
         }
     }
 
-    if (superbubble_ranking) {
-        map<pair<id_t, id_t>, vector<id_t> > sb = superbubbles(*this);
-        for (auto& bub : sb) {
-            vector<id_t> in_bubble;
-            vector<id_t> bubble_head;
-            vector<id_t> bubble_tail;
-            auto start_node = bub.first.first;
-            auto end_node = bub.first.second;
-            for (auto& i : bub.second) {
-                if (i != start_node && i != end_node) {
-                    // if we connect to the start node, add to the head
-                    in_bubble.push_back(i);
-                    if (has_edge(NodeSide(start_node,true), NodeSide(i,false))) {
-                        bubble_head.push_back(i);
-                    }
-                    if (has_edge(NodeSide(i,true), NodeSide(end_node,false))) {
-                        bubble_tail.push_back(i);
-                    }
-                    // if we connect to the end node, add to the tail
-                }
-            }
-            if (in_bubble.size() > 1) {
-                if (bubble_head.size() > 0) {
-                    out << "    { rank = same; ";
-                    for (auto& i : bubble_head) {
-                        out << i << "; ";
-                    }
-                    out << "}" << endl;
-                }
-                if (bubble_tail.size() > 0) {
-                    out << "    { rank = same; ";
-                    for (auto& i : bubble_tail) {
-                        out << i << "; ";
-                    }
-                    out << "}" << endl;
-                }
-            }
-        }
-    }
-
     // add nodes for the alignments and link them to the nodes they match
     int alnid = max(max_node_id()+1, max_edge_id+1);
     for (auto& aln : alignments) {
@@ -6506,7 +6396,7 @@ void VG::to_dot(ostream& out,
         Colors colors(random_seed);
         for (auto& locus : loci) {
             // get the paths of the alleles
-            string path_label = picts.hashed(locus.name());
+            string path_label = ascii_labels ? picts.hashed_char(locus.name()) : picts.hashed(locus.name());
             string color = colors.hashed(locus.name());
             for (int j = 0; j < locus.allele_size(); ++j) {
                 auto& path = locus.allele(j);
@@ -6539,9 +6429,9 @@ void VG::to_dot(ostream& out,
         Colors colors(random_seed);
         map<string, int> path_starts;
         function<void(const Path&)> lambda =
-            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths,show_mappings,&path_starts]
+            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths,show_mappings,&path_starts,&ascii_labels]
             (const Path& path) {
-            string path_label = picts.hashed(path.name());
+            string path_label = ascii_labels ? picts.hashed_char(path.name()) : picts.hashed(path.name());
             string color = colors.hashed(path.name());
             path_starts[path.name()] = pathid;
             if (show_paths) {
@@ -8442,7 +8332,7 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
     for_each_kpath_parallel(path_length, false, edge_max, prev_maxed, next_maxed, noop);
 
     // What nodes will we destroy because we got into them with too much complexity?
-    set<Node*> to_destroy;
+    set<Edge*> to_destroy;
 
     set<NodeTraversal> prev;
     for (auto& p : prev_maxed_nodes) {
@@ -8461,17 +8351,18 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
             // edges mean connecting to the start of the other nodes.
             for (auto& e : edges_start(node.node)) {
                 create_edge(e.first, head_node->id(), e.second, true);
+                to_destroy.insert(get_edge(NodeSide(e.first, e.second),
+                                           NodeSide(node.node->id(), false)));
             }
         } else {
             // Going left into it means coming to its end. True flags on the
             // edges mean connecting to the ends of the other nodes.
             for (auto& e : edges_end(node.node)) {
                 create_edge(head_node->id(), e.first, false, e.second);
+                to_destroy.insert(get_edge(NodeSide(e.first, e.second),
+                                           NodeSide(node.node->id(), true)));
             }
         }
-
-        // Remember to estroy the node. We might come to the same node in two directions.
-        to_destroy.insert(node.node);
     }
 
     set<NodeTraversal> next;
@@ -8491,19 +8382,25 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
             // edges mean connecting to the end of the other nodes.
             for (auto& e : edges_end(node.node)) {
                 create_edge(tail_node->id(), e.first, false, e.second);
+                to_destroy.insert(get_edge(NodeSide(node.node->id(), true),
+                                           NodeSide(e.first, e.second)));
+                    
             }
         } else {
             // Going right into it means coming to its start. True flags on the
             // edges mean connecting to the starts of the other nodes.
             for (auto& e : edges_start(node.node)) {
                 create_edge(e.first, head_node->id(), e.second, true);
+                to_destroy.insert(get_edge(NodeSide(node.node->id(), false),
+                                           NodeSide(e.first, e.second)));
             }
         }
-
-        // Remember to estroy the node. We might come to the same node in two directions.
-        to_destroy.insert(node.node);
     }
 
+    for (Edge* e : to_destroy) {
+        destroy_edge(e);
+    }
+    /*
     for(Node* n : to_destroy) {
         // Destroy all the nodes we wanted to destroy.
         if(n == head_node || n == tail_node) {
@@ -8522,6 +8419,7 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
         // Actually destroy the node
         destroy_node(n);
     }
+    */
 
     for (auto* n : head_nodes()) {
         if (n != head_node) {
