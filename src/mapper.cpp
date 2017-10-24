@@ -1406,10 +1406,10 @@ map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, 
         // just get the first one
         if (first_hit_only && node_positions.size()) break;
     }
-    // get median mapping positions
-    int idscount = 0;
-    double idssum = 0;
+    // get mean mapping positions
     for (auto& ref : node_positions) {
+        int idscount = 0;
+        double idssum = 0;
         for (auto& p : ref.second) {
             for (auto& n : p.second) {
                 auto pos = p.first + get_node_length(n)/2;
