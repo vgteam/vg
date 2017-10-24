@@ -286,6 +286,7 @@ public:
     vector<size_t> position_in_path(int64_t id, size_t rank) const;
     map<string, vector<size_t> > position_in_paths(int64_t id, bool is_rev = false, size_t offset = 0) const;
     map<string, vector<pair<size_t, bool> > > offsets_in_paths(pos_t pos) const;
+    map<string, vector<pair<size_t, bool> > > nearest_offsets_in_paths(pos_t pos, int64_t max_search) const;
     map<string, vector<size_t> > distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                                    int64_t id2, bool is_rev2, size_t offset2) const;
     int64_t min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
@@ -304,6 +305,8 @@ public:
     // nearest node (in steps) that is in a path, and the paths
     pair<int64_t, vector<size_t> > nearest_path_node(int64_t id, int max_steps = 16) const;
     int64_t min_approx_path_distance(int64_t id1, int64_t id2) const;
+    /// nearest position that is in a path and the distance between it and the current position
+    pair<pos_t, int64_t> next_path_position(pos_t pos, int64_t max_search) const;
     
     /// returns all of the paths that a node traversal occurs on, the rank of these occurrences on the path
     /// and the orientation of the occurrences. false indicates that the traversal occurs in the same

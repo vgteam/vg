@@ -43,7 +43,7 @@ public:
     vector<pair<AlignmentChainModelVertex*, double> > prev_cost; // for backward
     double weight;
     double score;
-    map<string, double> positions;
+    map<string, vector<pair<size_t, bool> > > positions;
     int band_begin;
     int band_idx;
     AlignmentChainModelVertex* prev;
@@ -64,8 +64,8 @@ public:
     AlignmentChainModel(
         vector<vector<Alignment> >& bands,
         Mapper* mapper,
-        const function<double(const Alignment&, const Alignment&, const map<string, double>&, const map<string, double>&)>& transition_weight,
-        int vertex_width = 10,
+        const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&)>& transition_weight,
+        int vertex_band_width = 10,
         int position_depth = 1,
         int max_connections = 30);
     void score(const set<AlignmentChainModelVertex*>& exclude);
@@ -325,7 +325,7 @@ private:
 class FragmentLengthStatistics {
 public:
 
-    void record_fragment_configuration(int64_t length, const Alignment& aln1, const Alignment& aln2);
+    void record_fragment_configuration(const Alignment& aln1, const Alignment& aln2, Mapper* mapper);
 
     string fragment_model_str(void);
     void save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2, const map<string, int64_t>& approx_frag_lengths, bool is_consistent);
@@ -426,13 +426,10 @@ public:
 
     double graph_entropy(void);
 
-    // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
-    map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
-    void annotate_with_mean_path_positions(vector<Alignment>& alns);
-    
     // use the xg index to get the first position of an alignment on a reference path
-    map<string, size_t> alignment_initial_path_positions(const Alignment& aln);
+    map<string, vector<pair<size_t, bool> > > alignment_initial_path_positions(const Alignment& aln);
     void annotate_with_initial_path_positions(Alignment& aln);
+    void annotate_with_initial_path_positions(vector<Alignment>& alns);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
@@ -575,8 +572,7 @@ public:
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
 
     // fargment length estimation
-    map<string, int64_t> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
-    int64_t first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    map<string, int64_t> min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // uses the cached information about the graph in the xg index to get an approximate node length
     double average_node_length(void);
     

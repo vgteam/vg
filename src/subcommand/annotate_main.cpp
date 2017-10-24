@@ -134,10 +134,13 @@ int main_annotate(int argc, char** argv) {
                     mapper.annotate_with_initial_path_positions(aln);
                 }
                 else {
-                    for (auto& ref : mapper.alignment_mean_path_positions(aln)) {
-                        Position* refpos = aln.add_refpos();
-                        refpos->set_name(ref.first);
-                        refpos->set_offset(round(ref.second));
+                    for (auto& ref : mapper.alignment_path_offsets(aln, false)) {
+                        for (auto& pos : ref.second) {
+                            Position* refpos = aln.add_refpos();
+                            refpos->set_name(ref.first);
+                            refpos->set_offset(pos.first);
+                            refpos->set_is_reverse(pos.second);
+                        }
                     }
                 }
                 buffer.push_back(aln);

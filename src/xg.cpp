@@ -2270,18 +2270,47 @@ void XG::get_id_range_by_length(int64_t id, int64_t length, Graph& g, bool forwa
     get_id_range(id, id2, g);
 }
 
-
-/*
-void XG::get_connected_nodes(Graph& g) {
-}
-*/
-
 size_t XG::path_length(const string& name) const {
     return paths[path_rank(name)-1]->offsets.size();
 }
 
 size_t XG::path_length(size_t rank) const {
     return paths[rank-1]->offsets.size();
+}
+
+pair<pos_t, int64_t> XG::next_path_position(pos_t pos, int64_t max_search) const {
+    handle_t h_fwd = get_handle(id(pos), is_rev(pos));
+    handle_t h_rev = get_handle(id(pos), !is_rev(pos));
+    int64_t fwd_seen = offset(pos);
+    int64_t rev_seen = node_length(id(pos)) - offset(pos);
+    pair<pos_t, int64_t> fwd_next = make_pair(make_pos_t(0,false,0), numeric_limits<int64_t>::max());
+    pair<pos_t, int64_t> rev_next = make_pair(make_pos_t(0,false,0), numeric_limits<int64_t>::max());
+    follow_edges(h_fwd, false, [&](const handle_t& n) {
+            id_t id = get_id(n);
+            if (!paths_of_node(id).empty()) {
+                fwd_next = make_pair(make_pos_t(id, get_is_reverse(n), 0), fwd_seen);
+                return false;
+            } else {
+                fwd_seen += node_length(id);
+                return fwd_seen < max_search;
+            }
+        });
+    follow_edges(h_rev, false, [&](const handle_t& n) {
+            id_t id = get_id(n);
+            if (!paths_of_node(id).empty()) {
+                rev_next = make_pair(make_pos_t(id, !get_is_reverse(n), 0), rev_seen);
+                return false;
+            } else {
+                rev_seen += node_length(id);
+                return rev_seen < max_search;
+            }
+        });
+    if (fwd_next.second <= rev_next.second) {
+        return fwd_next;
+    } else {
+        rev_next.second = -rev_next.second;
+        return rev_next;
+    }
 }
 
 pair<int64_t, vector<size_t> > XG::nearest_path_node(int64_t id, int max_steps) const {
@@ -2901,6 +2930,17 @@ map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const 
         }
     }
     return positions;
+}
+
+map<string, vector<pair<size_t, bool> > > XG::nearest_offsets_in_paths(pos_t pos, int64_t max_search) const {
+    pair<pos_t, int64_t> path_pos = next_path_position(pos, max_search);
+    if (id(path_pos.first)) {
+        // TODO apply approximate offset, second in pair returned by next_path_position
+        return offsets_in_paths(path_pos.first);
+    } else {
+        map<string, vector<pair<size_t, bool> > > empty;
+        return empty;
+    }
 }
 
 map<string, vector<size_t> > XG::distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
