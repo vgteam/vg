@@ -28,7 +28,7 @@ void help_sim(char** argv) {
          << "options:" << endl
          << "    -x, --xg-name FILE          use the xg index in FILE" << endl
          << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f)" << endl
-         << "    -P, --path PATH             simulate from the given names path" << endl
+         << "    -P, --path PATH             simulate from the given names path (multiple allowed)" << endl
          << "    -l, --read-length N         write reads of length N" << endl
          << "    -n, --num-reads N           simulate N reads or read pairs" << endl
          << "    -s, --random-seed N         use this specific seed for the PRNG" << endl
@@ -68,7 +68,7 @@ int main_sim(int argc, char** argv) {
     double error_scale_factor = 1.0;
     string fastq_name;
     // What path should we sample from? Empty string = the whole graph.
-    string path_name;
+    vector<string> path_names;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -115,7 +115,7 @@ int main_sim(int argc, char** argv) {
             break;
             
         case 'P':
-            path_name = optarg;
+            path_names.push_back(optarg);
             break;
 
         case 'l':
@@ -199,10 +199,12 @@ int main_sim(int argc, char** argv) {
         cerr << "[vg sim] error: could not open xg index" << endl;
         return 1;
     }
-    
-    if (!path_name.empty() && xgidx->path_rank(path_name) == 0) {
-        cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
-        return 1;
+
+    for (auto& path_name : path_names) {
+        if (xgidx->path_rank(path_name) == 0) {
+            cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
+            return 1;
+        }
     }
 
     // Make a sample to sample reads with
@@ -220,7 +222,7 @@ int main_sim(int argc, char** argv) {
         // Use the fixed error rate sampler
         
         // Make a sample to sample reads with
-        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_name);
+        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names);
         
         // Make a Mapper to score reads, with the default parameters
         Mapper rescorer(xgidx, nullptr, nullptr);
@@ -314,7 +316,7 @@ int main_sim(int argc, char** argv) {
         
         Aligner aligner(default_match, default_mismatch, default_gap_open, default_gap_extension, 5);
         
-        NGSSimulator sampler(*xgidx, fastq_name, path_name, base_error, indel_error, indel_prop,
+        NGSSimulator sampler(*xgidx, fastq_name, path_names, base_error, indel_error, indel_prop,
                              fragment_length ? fragment_length : std::numeric_limits<double>::max(), // suppresses warnings about fragment length
                              fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
                              error_scale_factor, !reads_may_contain_Ns, seed_val);
