@@ -5,6 +5,9 @@
 #include "../stream.hpp"
 #include "../algorithms/topological_sort.hpp"
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace vg;
 using namespace vg::subcommand;
 
@@ -22,23 +25,24 @@ void help_msga(char** argv) {
          << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
          << "    -s, --seq SEQUENCE      literally include this sequence" << endl
          << "    -g, --graph FILE        include this graph" << endl
+         << "    -a, --fasta-order       build the graph in the order the sequences are seen in the FASTA (default: bigger first)" << endl
          << "alignment:" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length [estimated given -e]" << endl
-         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [512]" << endl
+         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [1024]" << endl
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
-         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [4]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
-         << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [2*{-w}]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
-         << "    -M, --max-multimaps INT when set > 1, thread an optimal alignment through the multimappings of each band [1]" << endl
+         << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [10*{-w}]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [64]" << endl
+         << "    -M, --max-multimaps INT consider this many alternate alignments for the entire sequence [1]" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -80,16 +84,14 @@ int main_msga(int argc, char** argv) {
     vector<string> graph_files;
     string base_seq_name;
     int idx_kmer_size = 16;
-    int idx_doublings = 2;
-    int hit_max = 100;
-    int max_attempts = 10;
+    int hit_max = 1024;
     // if we set this above 1, we use a dynamic programming process to determine the
     // optimal alignment through a series of bands based on a proximity metric
     int max_multimaps = 1;
     float min_identity = 0.0;
     int band_width = 256;
     int max_band_jump = -1;
-    int band_multimaps = 4;
+    int band_multimaps = 64;
     size_t doubling_steps = 3;
     bool debug = false;
     bool debug_align = false;
@@ -99,7 +101,6 @@ int main_msga(int argc, char** argv) {
     int subgraph_prune = 0;
     bool normalize = false;
     int iter_max = 1;
-    bool mem_chaining = true;
     int max_mem_length = 0;
     int min_mem_length = 0;
     int max_target_factor = 100;
@@ -115,15 +116,16 @@ int main_msga(int argc, char** argv) {
     int min_cluster_length = 0;
     float mem_reseed_factor = 1.5;
     float random_match_chance = 0.05;
-    int extra_multimaps = 64;
-    int min_multimaps = 4;
-    float drop_chain = 0.4;
+    int extra_multimaps = 512;
+    int min_multimaps = 64;
+    float drop_chain = 0.5;
     int max_mapping_quality = 60;
     int method_code = 1;
-    int maybe_mq_threshold = 60;
+    int maybe_mq_threshold = 0;
     int min_banded_mq = 0;
     bool use_fast_reseed = true;
     bool show_align_progress = false;
+    bool bigger_first = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -171,11 +173,12 @@ int main_msga(int argc, char** argv) {
                 {"try-at-least", required_argument, 0, 'l'},
                 {"drop-chain", required_argument, 0, 'C'},
                 {"align-progress", no_argument, 0, 'S'},
+                {"bigger-first", no_argument, 0, 'a'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:a",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -344,6 +347,10 @@ int main_msga(int argc, char** argv) {
             full_length_bonus = atoi(optarg);
             break;
 
+        case 'a':
+            bigger_first = false;
+            break;
+
         case 'h':
         case '?':
             help_msga(argv);
@@ -422,10 +429,12 @@ int main_msga(int argc, char** argv) {
         names_in_order.push_back(name);
     }
 
-    // always go from biggest to smallest in progression
-    sort(names_in_order.begin(), names_in_order.end(),
-         [&strings](const string& s1, const string& s2) {
-             return strings[s1].size() > strings[s2].size(); });
+    // by default we from biggest to smallest in progression
+    if (bigger_first) {
+        sort(names_in_order.begin(), names_in_order.end(),
+             [&strings](const string& s1, const string& s2) {
+                 return strings[s1].size() > strings[s2].size(); });
+    }
 
     // align, include, repeat
 
@@ -503,7 +512,32 @@ int main_msga(int argc, char** argv) {
         // Configure its temp directory to the system temp directory
         gcsa::TempFile::setDirectory(find_temp_dir());
 
-        if (edge_max) {
+        if (idx_path_only) {
+            // make the index from only the kmers in the embedded paths
+            vector<string> tmpfiles;
+            // these must be compacted for this to work
+            vg::id_t head_id = graph->node_count() * 2;
+            vg::id_t tail_id = head_id+1;
+            graph->paths.for_each_name([&](const string& name) {
+                    VG path_graph = *graph;
+                    if (edge_max) path_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
+                    path_graph.keep_path(name);
+                    tmpfiles.push_back(
+                            path_graph.write_gcsa_kmers_to_tmpfile(idx_kmer_size, false, false, head_id, tail_id));
+                });
+            // Make the index with the kmers
+            gcsa::InputGraph input_graph(tmpfiles, true);
+            gcsa::ConstructionParameters params;
+            params.setSteps(doubling_steps);
+            // build the GCSA index
+            gcsaidx = new gcsa::GCSA(input_graph, params);
+            // build the LCP array
+            lcpidx = new gcsa::LCPArray(input_graph, params);
+            // clean up the tmp files for the path kmers
+            for (auto& tfn : tmpfiles) {
+                remove(tfn.c_str());
+            }
+        } else if (edge_max) {
             VG gcsa_graph = *graph; // copy the graph
             // remove complex components
             gcsa_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
@@ -523,7 +557,7 @@ int main_msga(int argc, char** argv) {
             mapper->debug = debug_align;
             mapper->min_identity = min_identity;
             mapper->min_banded_mq = min_banded_mq;
-            mapper->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
+            mapper->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width * 10;
             mapper->band_multimaps = band_multimaps;
             mapper->drop_chain = drop_chain;
             mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length
@@ -536,7 +570,6 @@ int main_msga(int argc, char** argv) {
                      << ", min_cluster_length = " << mapper->min_cluster_length << endl;
             }
             mapper->fast_reseed = use_fast_reseed;
-            mapper->mem_chaining = mem_chaining;
             mapper->max_target_factor = max_target_factor;
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
             //mapper->adjust_alignments_for_base_quality = qual_adjust_alignments;
@@ -554,7 +587,9 @@ int main_msga(int argc, char** argv) {
 
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
+    int i = 0;
     for (auto& name : names_in_order) {
+        ++i;
         //cerr << "do... " << name << " ?" << endl;
         if (!base_seq_name.empty() && name == base_seq_name) continue; // already embedded
         bool incomplete = true; // complete when we've fully included the sequence set
@@ -571,12 +606,14 @@ int main_msga(int argc, char** argv) {
 #endif
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
-            if (debug) cerr << name << ": adding to graph" << iter << endl;
+            if (debug) cerr << name << ": adding to graph " << i << "/" << names_in_order.size() << endl;
             vector<Path> paths;
             int j = 0;
             // align to the graph
-            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
-                graph->node_count() << " nodes" << endl;
+            if (debug) cerr << name << ": aligning " << seq.size() << "bp -> g:"
+                            << graph->length() << "bp "
+                            << "n:" << graph->node_count() << " "
+                            << "e:" << graph->edge_count() << endl;
             Alignment aln = simplify(mapper->align(seq, 0, 0, 0, band_width));
             aln.set_name(name);
             if (aln.path().mapping_size()) {
@@ -614,6 +651,7 @@ int main_msga(int argc, char** argv) {
             graph->edit(paths);
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
+            if (normalize) graph->normalize(10, debug);
             graph->dice_nodes(node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");

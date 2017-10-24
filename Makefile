@@ -27,7 +27,7 @@ CXXFLAGS:=-O3 -msse4.1 -fopenmp -std=c++11 -ggdb -g -MMD -MP
 
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib -I$(CWD)/$(INC_DIR)/gcsa
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -llzma
+LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -llzma
 
 ifeq ($(shell uname -s),Darwin)
 	# We may need libraries from Macports
@@ -103,7 +103,6 @@ LIB_DEPS += $(LIB_DIR)/libvcflib.a
 LIB_DEPS += $(LIB_DIR)/libgssw.a
 LIB_DEPS += $(LIB_DIR)/libvcfh.a
 LIB_DEPS += $(LIB_DIR)/libgfakluge.a
-LIB_DEPS += $(LIB_DIR)/libsupbub.a
 LIB_DEPS += $(LIB_DIR)/libsonlib.a
 LIB_DEPS += $(LIB_DIR)/libpinchesandcacti.a
 LIB_DEPS += $(LIB_DIR)/libraptor2.a
@@ -117,7 +116,6 @@ DEPS += $(INC_DIR)/lru_cache.h
 DEPS += $(INC_DIR)/dynamic.hpp
 DEPS += $(INC_DIR)/sparsehash/sparse_hash_map
 DEPS += $(INC_DIR)/gfakluge.hpp
-DEPS += $(INC_DIR)/globalDefs.hpp
 DEPS += $(INC_DIR)/sha1.hpp
 DEPS += $(INC_DIR)/progress_bar.hpp
 
@@ -237,17 +235,11 @@ $(LIB_DIR)/libgfakluge.a: $(INC_DIR)/gfakluge.hpp $(DEP_DIR)/gfakluge/src/*.hpp 
 $(INC_DIR)/gfakluge.hpp: $(DEP_DIR)/gfakluge/src/gfakluge.hpp
 	cp $(DEP_DIR)/gfakluge/src/gfakluge.hpp $(CWD)/$(INC_DIR)/
 
-$(LIB_DIR)/libsupbub.a: $(LIB_DIR)/libsdsl.a $(INC_DIR)/globalDefs.hpp $(DEP_DIR)/superbubbles/*.cpp $(DEP_DIR)/superbubbles/*.hpp
-	+. ./source_me.sh && cd $(DEP_DIR)/superbubbles && $(MAKE) && cp libsupbub.a $(CWD)/$(LIB_DIR)/
-
 $(LIB_DIR)/libsonlib.a: $(CWD)/$(DEP_DIR)/sonLib/C/inc/*.h $(CWD)/$(DEP_DIR)/sonLib/C/impl/*.c
 	+cd $(DEP_DIR)/sonLib && kyotoTycoonLib="" $(MAKE) && cp lib/sonLib.a $(CWD)/$(LIB_DIR)/libsonlib.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
 
 $(LIB_DIR)/libpinchesandcacti.a: $(LIB_DIR)/libsonlib.a $(CWD)/$(DEP_DIR)/pinchesAndCacti/inc/*.h $(CWD)/$(DEP_DIR)/pinchesAndCacti/impl/*.c
 	+cd $(DEP_DIR)/pinchesAndCacti && $(MAKE) && cd $(CWD)/$(DEP_DIR)/sonLib && cp lib/stPinchesAndCacti.a $(CWD)/$(LIB_DIR)/libpinchesandcacti.a && cp lib/3EdgeConnected.a $(CWD)/$(LIB_DIR)/lib3edgeconnected.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
-
-$(INC_DIR)/globalDefs.hpp: $(LIB_DIR)/libsdsl.a $(DEP_DIR)/superbubbles/*.hpp
-	cp $(DEP_DIR)/superbubbles/*.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/*.c $(RAPTOR_DIR)/src/*.h
 	+cd $(RAPTOR_DIR)/build && cmake .. && $(MAKE) && cp src/libraptor2.a $(CWD)/$(LIB_DIR) && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
@@ -285,7 +277,7 @@ $(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h
 $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc $(SRC_DIR)/vg.proto
 	+. ./source_me.sh && ./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	+cp $@ $(INC_DIR)
-	
+
 $(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(INC_DIR)/vg_git_version.hpp
 
 ########################
@@ -366,7 +358,6 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd progress_bar && $(MAKE) clean
 	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
-	cd $(DEP_DIR) && cd superbubbles && $(MAKE) clean
 	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	rm -Rf $(RAPTOR_DIR)/build/*

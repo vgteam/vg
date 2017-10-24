@@ -41,10 +41,6 @@
 #include "types.hpp"
 #include "gfakluge.hpp"
 
-#include "globalDefs.hpp"
-#include "Graph.hpp"
-#include "helperDefs.hpp"
-
 #include "bubbles.hpp"
 
 #include "nodetraversal.hpp"
@@ -320,7 +316,7 @@ public:
     /// Use the orientation of the first node as the basis.
     Node* merge_nodes(const list<Node*>& nodes);
     /// Use unchop and sibling merging to simplify the graph into a normalized form.
-    void normalize(int max_iter = 1);
+    void normalize(int max_iter = 1, bool debug = false);
     /// Remove redundant overlaps.
     void bluntify(void);
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
@@ -773,7 +769,7 @@ public:
     /// Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep.
     /// The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths.
     void keep_paths(set<string>& path_names, set<string>& kept_names);
-    void keep_path(string& path_name);
+    void keep_path(const string& path_name);
 
     /// Path stats.
     /// Starting from offset in the first node, how many edges do we cross?
@@ -796,15 +792,6 @@ public:
     double path_identity(const Path& path1, const Path& path2);
     /// Get the sequence of a NodeTraversal.
     string trav_sequence(const NodeTraversal& trav);
-
-    /// Convert a VG graph to superbubble algorithm input format.
-    SB_Input vg_to_sb_input();
-    /// Find the superbubbles in the given input graph.
-    vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
-    /// Find the superbubbles in this graph.
-    vector<pair<id_t, id_t> > get_superbubbles();
-
-    //map<pair<id_t, id_t>, vector<id_t> > superbubbles(void);
 
     /// Takes in a pathname and the nucleotide position (like from a vcf) and
     /// returns the node id which contains that position.
@@ -914,10 +901,9 @@ public:
                 bool simple_mode = false,
                 bool invert_edge_ports = false,
                 bool color_variants = false,
-                bool superbubble_ranking = false,
-                bool superbubble_labeling = false,
                 bool ultrabubble_labeling = false,
                 bool skip_missing_nodes = false,
+                bool ascii_labels = false,
                 int random_seed = 0);
 
     /// Convert the graph to Dot format.
