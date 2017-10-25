@@ -1309,7 +1309,7 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.9)
+    , pair_rescue_hang_threshold(0.8)
     , pair_rescue_retry_threshold(0.1)
 {
     
@@ -1505,9 +1505,9 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
                     }
                 } else {
                     if (!on_reverse_path) {
-                        mate_pos = path_pos - delta;
-                    } else {
                         mate_pos = path_pos + delta;
+                    } else {
+                        mate_pos = path_pos - delta;
                     }
                 }
             } else {
@@ -1519,9 +1519,9 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
                     }
                 } else {
                     if (!on_reverse_path) {
-                        mate_pos = path_pos + delta;
-                    } else {
                         mate_pos = path_pos - delta;
+                    } else {
+                        mate_pos = path_pos + delta;
                     }
                 }
             }
@@ -2414,7 +2414,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double mqmax2 = max_mapping_quality;
     // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
-        && (fraction_filtered1 < 0.1 && fraction_filtered2 < 0.1 && maybe_mq1 > 1 && maybe_mq2 > 1 && max_first && (mem_read_ratio1 > 0.5 || mem_read_ratio2 > 0.5) || possible_pairs > 1) // may help in human context
         && pair_consistent(results.first.front(), results.second.front(), 1e-6)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, mqmax1, mqmax2);
     } else {
