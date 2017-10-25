@@ -4,13 +4,16 @@
 set -ex
 
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@7defead1d6418c1313e4a163cf57f788f0e51445"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@3cf10b35715712ea554b13ce1a5e7b4b109df71d"
 
 # What Toil should we use?
-TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:3.10.1
+TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:3.11.0
 
 # What vg should we use?
 VG_DOCKER_OPTS=()
+
+# How many nodes should we use at most?
+MAX_NODES=6
 
 # What's our unique run ID? Should be lower-case and start with a letter for maximum compatibility.
 # See <https://gist.github.com/earthgecko/3089509>
@@ -48,10 +51,11 @@ usage() {
     printf "\t-R RUN_ID\tUse or restart the given run ID.\n"
     printf "\t-k \tKeep the out store and job store in case of error.\n"
     printf "\t-s \tRestart a failed run.\n"
+    printf "\t-3 \tUse S3 instead of HTTP (much faster)\n"
     exit 1
 }
 
-while getopts "hp:t:c:v:r:R:ks" o; do
+while getopts "hp:t:c:v:r:R:ks3" o; do
     case "${o}" in
         p)
             TOIL_VG_PACKAGE="${OPTARG}"
@@ -79,6 +83,9 @@ while getopts "hp:t:c:v:r:R:ks" o; do
             ;;
         k)
             RESTART_ARG="--restart"
+            ;;
+          3)
+            USE_S3=1
             ;;
         *)
             usage
@@ -108,7 +115,16 @@ while [[ "$#" -gt "0" ]]; do
 done
 
 # Where do we keep our input files
-INPUT_STORE="https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/bakeoff"
+if [ "$REGION_NAME" == "B37" ]; then
+     STORE_TAG="B37"
+else
+     STORE_TAG="bakeoff"
+fi
+if [[ "${USE_S3}" -eq "1" ]]; then
+     INPUT_STORE="s3://cgl-pipeline-inputs/vg_cgl/${STORE_TAG}"
+else
+     INPUT_STORE="https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/${STORE_TAG}"     
+fi
 
 # Where do we save our results from the various jobs responsible for writing them?
 OUTPUT_STORE="aws:us-west-2:cgl-pipeline-inputs/vg_cgl/comparison-script/runs/${RUN_ID}"
@@ -163,7 +179,7 @@ for GRAPH_STEM in "${GRAPH_NAMES[@]}"; do
 done
 
 if [[ "${MANAGE_CLUSTER}" == "1" ]]; then
-    TOIL_APPLIANCE_SELF="${TOIL_APPLIANCE_SELF}" $PREFIX toil launch-cluster "${CLUSTER_NAME}" --nodeType=t2.medium -z us-west-2a "--keyPairName=${KEYPAIR_NAME}"
+    TOIL_APPLIANCE_SELF="${TOIL_APPLIANCE_SELF}" $PREFIX toil launch-cluster "${CLUSTER_NAME}" --leaderNodeType=t2.medium -z us-west-2a "--keyPairName=${KEYPAIR_NAME}"
 fi
 
 # We need to manually install git to make pip + git work...
@@ -182,11 +198,11 @@ $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install scikit-learn
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install "${TOIL_VG_PACKAGE}"
 
-# Make a config so that we use lots of cores for alignments
-$PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/toil-vg generate-config --whole_genome --config vg.conf
-
 # We need the master's IP to make Mesos go
-MASTER_IP="$($PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" hostname -i)"
+MASTER_IP="$($PREFIX toil ssh-cluster --insecure --zone=us-west-2a --logOff "${CLUSTER_NAME}" hostname -i)"
+
+# Strip some garbage from MASTER_IP
+MASTER_IP="${MASTER_IP//[$'\t\r\n ']}"
 
 # Make sure we download the outstore whether we break now or not
 set +e
@@ -195,20 +211,22 @@ set +e
 READ_SET="${READ_STEM}-${REGION_NAME}"
 
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/toil-vg mapeval \
-    --config vg.conf \
+    --whole_genome_config \
     ${RESTART_ARG} \
     "${VG_DOCKER_OPTS[@]}" \
     --fasta `get_input_url "${REGION_NAME}.fa"` \
     --index-bases "${GRAPH_URLS[@]}" \
     --gam-names "${GRAPH_NAMES[@]}" \
     --gam_input_reads `get_input_url "${READ_SET}.gam"` \
-    --bwa --bwa-paired --vg-paired \
+    --bwa \
+    --multipath --ignore-quals \
     --mapeval-threshold 200 \
     --realTimeLogging --logInfo \
     "${JOB_TREE}" \
     "${OUTPUT_STORE}" \
     `get_input_url "${READ_SET}.pos"` \
-    --batchSystem mesos --provisioner=aws "--mesosMaster=${MASTER_IP}:5050" --nodeType=r3.8xlarge \
+    --batchSystem mesos --provisioner=aws "--mesosMaster=${MASTER_IP}:5050" \
+    --nodeTypes=r3.8xlarge:0.85 --defaultPreemptable --maxNodes=${MAX_NODES}\
     --alphaPacking 2.0
 TOIL_ERROR="$?"
     
