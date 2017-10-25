@@ -249,6 +249,9 @@ message Snarl {
     
     // Indicate whether the start of the Snarl is connected through to the end.
     bool start_end_reachable = 8;
+    
+    // Indicate whether the snarl's net graph is free of directed cycles
+    bool directed_acyclic_net_graph = 9;
 }
 
 // Describes a step of a walk through a Snarl either on a node or through a child Snarl

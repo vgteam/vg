@@ -626,12 +626,17 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         net_graph.follow_edges(here, false, handle_edge);
     }
     
-    // Save the connectivity info
+    // Save the connectivity info. TODO: should the connectivity flags be
+    // calculated based on just the net graph, or based on actual connectivity
+    // within child snarls.
     snarl.set_start_self_reachable(connected_start_start);
     snarl.set_end_self_reachable(connected_end_end);
     snarl.set_start_end_reachable(connected_start_end);
     
     cerr << "Connectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
+
+    // This definitely should be calculated based on the internal-connectivity-ignoring net graph.
+    snarl.set_directed_acyclic_net_graph(algorithms::is_directed_acyclic(&net_graph));
 
     // Now we need to work out if the snarl can be a unary snarl or an ultrabubble or what.
     if (start.node_id() == end.node_id()) {
@@ -646,7 +651,10 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         // Can't be an ultrabubble if we're not connected through.
         snarl.set_type(UNCLASSIFIED);
         cerr << "Snarl is UNCLASSIFIED because it doesn't connect through" << endl;
-        // We *can* be an ultrabubble if we can go out the start or end in reverse, though.
+    } else if (connected_start_start || connected_end_end) {
+        // Can't be an ultrabubble if we have these cycles
+        snarl.set_type(UNCLASSIFIED);
+        cerr << "Snarl is UNCLASSIFIED because it allows turning around, creating a directed cycle" << endl;
     } else {
         // See if we have all ultrabubble children
         bool all_ultrabubble_children = true;
@@ -668,7 +676,7 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
             // If we have non-ultrabubble children, we can't be an ultrabubble.
             snarl.set_type(UNCLASSIFIED);
             cerr << "Snarl is UNCLASSIFIED because it has non-ultrabubble children" << endl;
-        } else if (!algorithms::is_directed_acyclic(&net_graph)) {
+        } else if (!snarl.directed_acyclic_net_graph()) {
             // If all our children are ultrabubbles but we ourselves are cyclic, we can't be an ultrabubble
             snarl.set_type(UNCLASSIFIED);
             cerr << "Snarl is UNCLASSIFIED because it is not directed-acyclic" << endl;
