@@ -1436,20 +1436,37 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     }
 }
 
-map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_first) {
+map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby) {
     map<string, vector<pair<size_t, bool> > > offsets;
     for (auto& mapping : aln.path().mapping()) {
-        auto pos_offs = xindex->nearest_offsets_in_paths(make_pos_t(mapping.position()), aln.sequence().size());
+        auto pos_offs = (nearby ?
+                         xindex->nearest_offsets_in_paths(make_pos_t(mapping.position()), aln.sequence().size())
+                         : xindex->offsets_in_paths(make_pos_t(mapping.position())));
         for (auto& p : pos_offs) {
-            if (offsets.find(p.first)  == offsets.end()) {
-                offsets[p.first] = p.second;
-            }
+            auto& v = offsets[p.first];
+            auto& y = p.second;
+            v.reserve(v.size() + distance(y.begin(),y.end()));
+            v.insert(v.end(),y.begin(),y.end());
         }
-        if (just_first && offsets.size()) break; // find a single node that has a path position
+        //if (just_first && offsets.size()) break; // find a single node that has a path position
+    }
+    if (!nearby && offsets.empty()) { // find the nearest if we couldn't find any before
+        return alignment_path_offsets(aln, just_min, true);
+    }
+    if (just_min) {
+        // take the min offset in each path
+        for (auto& p : offsets) {
+            auto& v = p.second;
+            auto m = *min_element(v.begin(), v.end(),
+                                  [](const pair<size_t, bool>& a,
+                                     const pair<size_t, bool>& b)
+                                  { return a.first < b.first; });
+            v.clear();
+            v.push_back(m);
+        }
     }
     return offsets;
 }
-
 
 vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_mate) {
     // fallback to approx when we don't have paths
@@ -1548,38 +1565,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
     if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
     vector<pos_t> mate_positions;
-    if (mate1_id > 0 && mate1_id == mate2_id && mate1_id > hang_threshold && (mate2_id <= retry_threshold || !consistent)) {
-        if (debug) cerr << "special case: double rescue" << endl;
-        // special case: we could rescue off either
-        Alignment mate1a = mate1;
-        Alignment mate2a = mate2;
-        Alignment mate1b = mate1;
-        Alignment mate2b = mate2;
-        mate2a.set_score(0);
-        mate1b.set_score(0);
-        // rescue off first
-        if (debug) cerr << "attempting double rescue of second off first" << endl;
-        pair<bool, bool> rescueA = pair_rescue(mate1a, mate2a, match_score, full_length_bonus, traceback);
-        // rescue off second
-        if (debug) cerr << "attempting double rescue of first off second" << endl;
-        pair<bool, bool> rescueB = pair_rescue(mate1b, mate2b, match_score, full_length_bonus, traceback);
-        if (rescueA.first || rescueA.second || rescueB.first || rescueB.second) {
-            // some rescuing happened
-            if (mate1.score() + mate2a.score() >= mate1b.score() + mate2.score()) {
-                if (mate2a.score() > mate2.score() && (double)mate2a.score()/perfect_score > min_threshold && pair_consistent(mate1, mate2a, accept_pval)) {
-                    if (debug) cerr << "double rescued aln2 " << pb2json(mate2a) << endl;
-                    mate2 = mate2a;
-                    return make_pair(false, true);
-                }
-            } else {
-                if (mate1b.score() > mate1.score() && (double)mate1b.score()/perfect_score > min_threshold && pair_consistent(mate1b, mate2, accept_pval)) {
-                    if (debug) cerr << "double rescued aln1 " << pb2json(mate1b) << endl;
-                    mate1 = mate1b;
-                    return make_pair(true, false);
-                }
-            }
-        }
-    } else if (mate1_id > mate2_id && mate1_id > hang_threshold && (mate2_id <= retry_threshold || !consistent)) {
+    if (mate1_id > mate2_id && mate1_id > hang_threshold && (mate2_id <= retry_threshold || !consistent)) {
         // retry off mate1
         if (debug) cerr << "Rescue read 2 off of read 1" << endl;
         rescue_off_first = true;
@@ -1712,8 +1698,8 @@ bool Mapper::pair_consistent(const Alignment& aln1,
     } else {
         // use the distance induced by the graph paths
         //assert(aln1.fragment_size() == aln2.fragment_size());
-        map<string, vector<pair<size_t, bool> > > offsets1 = alignment_path_offsets(aln1, true);
-        map<string, vector<pair<size_t, bool> > > offsets2 = alignment_path_offsets(aln2, true);
+        map<string, vector<pair<size_t, bool> > > offsets1 = alignment_path_offsets(aln1);
+        map<string, vector<pair<size_t, bool> > > offsets2 = alignment_path_offsets(aln2);
         auto pos_consistent =
             [&](const pair<size_t, bool>& p1, const pair<size_t, bool>& p2) {
             int64_t pos1 = p1.first;
@@ -1903,6 +1889,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 #endif
                     return -std::numeric_limits<double>::max();
                 } else if (frag_stats.fragment_size) {
+                    // TODO correctly use directionality information provided by path positions
                     // exclude cases that don't match our model
                     if (!frag_stats.cached_fragment_orientation
                         && is_rev(m1_pos) == is_rev(m2_pos)
@@ -2275,9 +2262,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     show_alignments("dedup");
 
     // now add back in single-ended versions of everything that we can use for rescue
-    /*
     vector<pair<Alignment, Alignment> > se_alns;
     vector<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*> > se_cluster_ptrs;
+    double max_possible_score = read1.sequence().size() * match + 2*full_length_bonus;
     double hang_threshold = max_possible_score * pair_rescue_hang_threshold;
     double retry_threshold = max_possible_score * pair_rescue_retry_threshold;
     for (auto& p : aln_ptrs) {
@@ -2287,14 +2274,18 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         if (aln1.score() && aln2.score()) {
             auto cluster_ptr = cluster_ptrs[aln_index[p]];
             // if these can be used for rescue
-            if (aln1.score() > hang_threshold && aln2.score() > retry_threshold) {
+            if (aln1.score() > 0
+                && aln1.score() == aln2.score() // same score case
+                && aln1.score() > hang_threshold
+                && (aln1.score() <= retry_threshold || !pair_consistent(aln1, aln2, 1e-2))) {
+                //if (aln1.score() > hang_threshold && aln2.score() > retry_threshold) {
                 se_alns.emplace_back();
                 auto& p = se_alns.back();
                 p.first = aln1;
                 p.second = read2;
                 se_cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
-            }
-            if (aln2.score() > hang_threshold && aln1.score() > retry_threshold) {
+                //}
+                //if (aln2.score() > hang_threshold && aln1.score() > retry_threshold) {
                 se_alns.emplace_back();
                 auto& q = se_alns.back();
                 q.first = read1;
@@ -2312,7 +2303,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     update_aln_ptrs();
     sort_and_dedup();
     show_alignments("singles");
-    */
 
     map<Alignment*, bool> rescued_aln;
     if (mate_rescues && frag_stats.fragment_size) {
@@ -2492,7 +2482,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         if (retrying) break;
         auto& aln1 = results.first.at(i);
         auto& aln2 = results.second.at(i);
-        //double max_possible_score = aln1.sequence().size() * match + 2*full_length_bonus;
         //double ident1 = (double) aln1.score() / max_possible_score;
         //double ident2 = (double) aln2.score() / max_possible_score;
         int64_t length = std::numeric_limits<int64_t>::max();
@@ -2565,7 +2554,7 @@ void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) {
 }
 
 void Mapper::annotate_with_initial_path_positions(Alignment& aln) {
-    auto init_path_positions = alignment_path_offsets(aln, false);
+    auto init_path_positions = alignment_path_offsets(aln);
     for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
         for (auto& pos : pos_record.second) {
             Position* refpos = aln.add_refpos();
@@ -3104,8 +3093,8 @@ VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
 // estimate the fragment length as the difference in mean positions of both alignments
 map<string, int64_t> Mapper::min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
     map<string, int64_t> lengths;
-    auto pos1 = alignment_path_offsets(aln1, false);
-    auto pos2 = alignment_path_offsets(aln2, false);
+    auto pos1 = alignment_path_offsets(aln1);
+    auto pos2 = alignment_path_offsets(aln2);
     for (auto& p : pos1) {
         auto x = pos2.find(p.first);
         if (x != pos2.end()) {
@@ -3165,8 +3154,8 @@ void FragmentLengthStatistics::record_fragment_configuration(const Alignment& al
     if (fixed_fragment_model) return;
     assert(aln1.path().mapping(0).has_position() && aln2.path().mapping(0).has_position());    
     map<string, tuple<int64_t, bool, bool> > lengths;
-    auto pos1 = mapper->alignment_path_offsets(aln1, false);
-    auto pos2 = mapper->alignment_path_offsets(aln2, false);
+    auto pos1 = mapper->alignment_path_offsets(aln1);
+    auto pos2 = mapper->alignment_path_offsets(aln2);
     for (auto& p : pos1) {
         auto x = pos2.find(p.first);
         if (x != pos2.end()) {
@@ -4623,7 +4612,7 @@ AlignmentChainModel::AlignmentChainModel(
             v.weight = aln.sequence().size() + aln.score() + aln.mapping_quality();
             v.prev = nullptr;
             v.score = 0;
-            v.positions = mapper->alignment_path_offsets(aln, false);
+            v.positions = mapper->alignment_path_offsets(aln);
             v.positions[""].push_back(make_pair(mapper->approx_alignment_position(aln), false));
             model.push_back(v);
         }

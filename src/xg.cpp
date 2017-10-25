@@ -2933,10 +2933,18 @@ map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const 
 }
 
 map<string, vector<pair<size_t, bool> > > XG::nearest_offsets_in_paths(pos_t pos, int64_t max_search) const {
-    pair<pos_t, int64_t> path_pos = next_path_position(pos, max_search);
-    if (id(path_pos.first)) {
+    pair<pos_t, int64_t> pz = next_path_position(pos, max_search);
+    auto& path_pos = pz.first;
+    auto& diff = pz.second;
+    if (id(path_pos)) {
         // TODO apply approximate offset, second in pair returned by next_path_position
-        return offsets_in_paths(path_pos.first);
+        auto offsets = offsets_in_paths(path_pos);
+        for (auto& o : offsets) {
+            for (auto& p : o.second) {
+                p.first += diff;
+            }
+        }
+        return offsets;
     } else {
         map<string, vector<pair<size_t, bool> > > empty;
         return empty;

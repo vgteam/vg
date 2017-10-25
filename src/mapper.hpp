@@ -554,7 +554,7 @@ public:
     // get the approximate position of the alignment or return -1 if it can't be had
     int64_t approx_alignment_position(const Alignment& aln);
     // get the full path offsets for the alignment, considering every mapping if just_first is not set
-    map<string, vector<pair<size_t, bool> > > alignment_path_offsets(const Alignment& aln, bool just_first);
+    map<string, vector<pair<size_t, bool> > > alignment_path_offsets(const Alignment& aln, bool just_min = true, bool nearby = false);
     // get the end position of the alignment
     Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined
