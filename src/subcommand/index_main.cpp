@@ -17,8 +17,8 @@
 #include "../utility.hpp"
 #include "../path_index.hpp"
 
-#include "gcsa/gcsa.h"
-#include "gcsa/algorithms.h"
+#include <gcsa/gcsa.h>
+#include <gcsa/algorithms.h>
 
 using namespace std;
 using namespace vg;
