@@ -358,7 +358,7 @@ public:
                        // if consistent pairs should be reported; dynamically estimated at runtime
     double fragment_sigma = 10; // the number of times the standard deviation above the mean to set the fragment_size
     int64_t fragment_length_cache_size = 1000;
-    float perfect_pair_identity_threshold = 0.95;
+    float perfect_pair_identity_threshold = 0.9;
     bool fixed_fragment_model = true;
     
     

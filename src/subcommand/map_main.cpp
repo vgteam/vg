@@ -22,11 +22,11 @@ void help_map(char** argv) {
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
          << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [1024]" << endl
-         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [0.05]" << endl
+         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [1e-5]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
-         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [64]" << endl
+         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [2]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than INT [0]" << endl
          << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
@@ -119,7 +119,7 @@ int main_map(int argc, char** argv) {
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
-    int min_multimaps = 64;
+    int min_multimaps = 2;
     int max_mapping_quality = 60;
     int maybe_mq_threshold = 0;
     double identity_weight = 2;
@@ -133,7 +133,7 @@ int main_map(int argc, char** argv) {
     bool fragment_orientation = false;
     bool fragment_direction = true;
     bool use_cluster_mq = false;
-    float chance_match = 0.05;
+    float chance_match = 1e-5;
     bool use_fast_reseed = true;
     float drop_chain = 0.5;
     float mq_overlap = 0.5;
