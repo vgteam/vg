@@ -1310,7 +1310,7 @@ Mapper::Mapper(xg::XG* xidex,
     , max_band_jump(0)
     , identity_weight(2)
     , pair_rescue_hang_threshold(0.9)
-    , pair_rescue_retry_threshold(0.95)
+    , pair_rescue_retry_threshold(0.1)
 {
     
 }
@@ -1588,7 +1588,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         if (debug) cerr << "aiming for " << mate_pos << endl;
         orientations.insert(is_rev(mate_pos));
         int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
-                            : round(max((double)frag_stats.cached_fragment_length_stdev * 10 + mate1.sequence().size(),
+                            : round(max((double)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
                                         mate1.sequence().size() * 1.61803)));
         //cerr << "Getting at least " << get_at_least << endl;
         graph.MergeFrom(xindex->graph_context_id(mate_pos, get_at_least/2));
@@ -1820,7 +1820,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                              read2.sequence().size()/max(1.0, (double)mem_max_length2),
                                                              read2.sequence().size()/longest_lcp2);
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
-    double maybe_pair_mq = min(maybe_mq1, maybe_mq2);
+    double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
     if (maybe_pair_mq < maybe_mq_threshold) {
         mq_cap1 = maybe_pair_mq;
         mq_cap2 = maybe_pair_mq;
@@ -2270,28 +2270,22 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     for (auto& p : aln_ptrs) {
         auto& aln1 = p->first;
         auto& aln2 = p->second;
+        auto cluster_ptr = cluster_ptrs[aln_index[p]];
+        bool consistent = aln1.score() && aln2.score() && pair_consistent(aln1, aln2, 1e-2);
         // if both mates are aligned, add each single end into the mix
-        if (aln1.score() && aln2.score()) {
-            auto cluster_ptr = cluster_ptrs[aln_index[p]];
-            // if these can be used for rescue
-            if (aln1.score() > 0
-                && aln1.score() == aln2.score() // same score case
-                && aln1.score() > hang_threshold
-                && (aln1.score() <= retry_threshold || !pair_consistent(aln1, aln2, 1e-2))) {
-                //if (aln1.score() > hang_threshold && aln2.score() > retry_threshold) {
-                se_alns.emplace_back();
-                auto& p = se_alns.back();
-                p.first = aln1;
-                p.second = read2;
-                se_cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
-                //}
-                //if (aln2.score() > hang_threshold && aln1.score() > retry_threshold) {
-                se_alns.emplace_back();
-                auto& q = se_alns.back();
-                q.first = read1;
-                q.second = aln2;
-                se_cluster_ptrs.push_back(make_pair(nullptr, cluster_ptr.second));
-            }
+        if (aln1.score() > hang_threshold && (aln2.score() <= retry_threshold || !consistent)) {
+            se_alns.emplace_back();
+            auto& p = se_alns.back();
+            p.first = aln1;
+            p.second = read2;
+            se_cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
+        }
+        if (aln2.score() > hang_threshold && (aln1.score() <= retry_threshold || !consistent)) {
+            se_alns.emplace_back();
+            auto& q = se_alns.back();
+            q.first = read1;
+            q.second = aln2;
+            se_cluster_ptrs.push_back(make_pair(nullptr, cluster_ptr.second));
         }
     }
     int k = 0;
