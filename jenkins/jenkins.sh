@@ -143,7 +143,7 @@ export PATH=$PATH:${PWD}/bin
 # Dependencies for running tests.  Need numpy, scipy and sklearn
 # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
 pip install numpy
-pip install scipy
+pip install scipy==1.0.0rc2
 pip install sklearn
 pip install dateutils
 pip install requests
