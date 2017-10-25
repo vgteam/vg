@@ -1826,7 +1826,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         mq_cap2 = maybe_pair_mq;
     }
     if (maybe_pair_mq > max_mapping_quality) {
-        total_multimaps = max(min_multimaps, (int)round(min_multimaps*ceil(total_multimaps/maybe_pair_mq)));
+        total_multimaps = max(max(min_multimaps, max_multimaps), (int)round(min_multimaps*ceil(total_multimaps/maybe_pair_mq)));
     }
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << endl;
     if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << endl;
@@ -2686,7 +2686,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     // treat the case where we have > our max mapping quality slightly differently
     //total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_mq));
     if (maybe_mq > max_mapping_quality) {
-        total_multimaps = max(min_multimaps, (int)round(min_multimaps*ceil(total_multimaps/maybe_mq)));
+        total_multimaps = max(max(min_multimaps, max_multimaps), (int)round(min_multimaps*ceil(total_multimaps/maybe_mq)));
     }
     if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " min mem length: " << min_mem_length << " longest LCP: " << longest_lcp << endl;
 
