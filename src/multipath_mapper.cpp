@@ -4,7 +4,7 @@
 //
 //
 
-#//define debug_multipath_mapper
+//#define debug_multipath_mapper
 //#define debug_validate_multipath_alignments
 //#define debug_report_frag_distr
 

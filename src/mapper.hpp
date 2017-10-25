@@ -297,7 +297,8 @@ protected:
     void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
     void clear_aligners(void);
     
-    unordered_map<size_t, size_t> adaptive_reseed_length_memo;
+    // thread_local to allow alternating reads/writes
+    thread_local static vector<size_t> adaptive_reseed_length_memo;
     
     // xg index
     xg::XG* xindex = nullptr;

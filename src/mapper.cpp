@@ -6,6 +6,9 @@
 
 namespace vg {
 
+// init the static memo
+thread_local vector<size_t> BaseMapper::adaptive_reseed_length_memo;
+
 BaseMapper::BaseMapper(xg::XG* xidex,
                        gcsa::GCSA* g,
                        gcsa::LCPArray* a) :
@@ -978,19 +981,15 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
 }
     
 size_t BaseMapper::get_adaptive_min_reseed_length(size_t parent_mem_length) {
-    auto iter = adaptive_reseed_length_memo.find(parent_mem_length);
-    if (iter != adaptive_reseed_length_memo.end()) {
-        return iter->second;
+    // extend memo until it contains this parent MEM length
+    while (adaptive_reseed_length_memo.size() <= parent_mem_length) {
+        size_t length = adaptive_reseed_length_memo.size();
+        // a factor that decreases with longer MEMs but saturates
+        double factor = (1.0 - fast_reseed_length_diff) * exp(-adaptive_diff_exponent * (length - mem_reseed_length + 1))
+                         + fast_reseed_length_diff;
+        adaptive_reseed_length_memo.push_back(length * factor);
     }
-    // a factor that decreases with longer MEMs but saturates
-//    double factor = pow(parent_mem_length - (reseed_length - 1.0 - pow(1.0 - fast_reseed_length_diff,
-//                                                                       -1.0 / adaptive_diff_exponent)),
-//                        -adaptive_diff_exponent)
-//                    + fast_reseed_length_diff;
-    double factor = (1.0 - fast_reseed_length_diff) * exp(-adaptive_diff_exponent * (parent_mem_length - mem_reseed_length + 1)) + fast_reseed_length_diff;
-    size_t min_reseed_length = parent_mem_length * factor;
-    adaptive_reseed_length_memo[parent_mem_length] = min_reseed_length;
-    return min_reseed_length;
+    return adaptive_reseed_length_memo[parent_mem_length];
 }
 
 void BaseMapper::first_hit_positions_by_index(MaximalExactMatch& mem,
