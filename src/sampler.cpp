@@ -4,6 +4,20 @@
 
 namespace vg {
 
+/// Make a path sampling distribution based on relative lengths
+void Sampler::set_source_paths(const vector<string>& source_paths) {
+    this->source_paths = source_paths;
+    if (!source_paths.empty()) {
+        vector<size_t> path_lengths;
+        for (auto& source_path : source_paths) {
+            path_lengths.push_back(xgidx->path_length(source_path));
+        }
+        path_sampler = discrete_distribution<>(path_lengths.begin(), path_lengths.end());
+    } else {
+        path_sampler = discrete_distribution<>();
+    }
+}
+
 /// We have a helper function to convert path positions and orientations to
 /// pos_t values.
 pos_t position_at(xg::XG* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse) {
@@ -318,16 +332,16 @@ vector<Alignment> Sampler::alignment_pair(size_t read_length, size_t fragment_le
 
 // generates a perfect alignment from the graph or the selected source path if one exists
 Alignment Sampler::alignment(size_t length) {
-    if (source_path.empty()) {
+    if (source_paths.empty()) {
         return alignment_to_graph(length);
     } else {
-        return alignment_to_path(length);
+        return alignment_to_path(source_paths[path_sampler(rng)], length);
     }
 }
 
 // generates a perfect alignment from the graph
-Alignment Sampler::alignment_to_path(size_t length) {
-    
+Alignment Sampler::alignment_to_path(const string& source_path, size_t length) {
+
     // Pick a starting point along the path and an orientation
     uniform_int_distribution<size_t> xdist(0, xgidx->path_length(source_path) - 1);
     size_t path_offset = xdist(rng);
@@ -531,7 +545,7 @@ const string NGSSimulator::alphabet = "ACGT";
     
 NGSSimulator::NGSSimulator(xg::XG& xg_index,
                            const string& ngs_fastq_file,
-                           const string& source_path,
+                           const vector<string>& source_paths,
                            double substition_polymorphism_rate,
                            double indel_polymorphism_rate,
                            double indel_error_proportion,
@@ -550,16 +564,25 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
     , insert_sd(insert_length_stdev)
     , retry_on_Ns(retry_on_Ns)
     , prng(seed ? seed : random_device()())
-    , start_pos_sampler(source_path.empty() ? 1 : 0,
-        source_path.empty() ? xg_index.seq_length : (xg_index.path_length(source_path) - 1))
     , strand_sampler(0, 1)
     , background_sampler(0, alphabet.size() - 1)
     , mut_sampler(0, alphabet.size() - 2)
     , prob_sampler(0.0, 1.0)
     , insert_sampler(insert_length_mean, insert_length_stdev)
     , seed(seed)
-    , source_path(source_path)
+    , source_paths(source_paths)
 {
+    if (source_paths.empty()) {
+        start_pos_samplers.emplace_back(1, xg_index.seq_length);
+    } else {
+        vector<size_t> path_sizes;
+        for (const auto& source_path : source_paths) {
+            path_sizes.push_back(xg_index.path_length(source_path));
+            start_pos_samplers.emplace_back(0, path_sizes.back() - 1);
+        }
+        path_sampler = discrete_distribution<>(path_sizes.begin(), path_sizes.end());
+    }
+    
     if (substition_polymorphism_rate < 0.0 || substition_polymorphism_rate > 1.0
         || indel_polymorphism_rate < 0.0 || indel_polymorphism_rate > 1.0
         || indel_error_proportion < 0.0 || indel_error_proportion > 1.0) {
@@ -657,10 +680,12 @@ Alignment NGSSimulator::sample_read() {
         bool is_reverse;
         // And our position in the graph, which we use whether there's a source path or not.
         pos_t pos;
+        // And our path (if dealing with source_paths)
+        string source_path;
         // Populate them
-        sample_start_pos(offset, is_reverse, pos);
+        sample_start_pos(offset, is_reverse, pos, source_path);
         // align the first end at this position on the source path or graph
-        sample_read_internal(aln, offset, is_reverse, pos);
+        sample_read_internal(aln, offset, is_reverse, pos, source_path);
         
         // make sure we didn't sample sequence from
         if (retry_on_Ns) {
@@ -700,10 +725,12 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         bool is_reverse;
         // And our position in the graph, which we use whether there's a source path or not.
         pos_t pos;
+        // And our path (if dealing with source_paths)
+        string source_path;
         // Populate them
-        sample_start_pos(offset, is_reverse, pos);
+        sample_start_pos(offset, is_reverse, pos, source_path);
         // align the first end at this position on the source path or graph
-        sample_read_internal(aln_pair.first, offset, is_reverse, pos);
+        sample_read_internal(aln_pair.first, offset, is_reverse, pos, source_path);
         
         if (retry_on_Ns) {
             if (aln_pair.first.sequence().find('N') != string::npos) {
@@ -720,7 +747,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         int64_t remaining_length = insert_length - 2 * transition_distrs.size();
         if (remaining_length >= 0) {
             // we need to move forward from the end of the first read
-            if (advance_by_distance(offset, is_reverse, pos, remaining_length)) {
+            if (advance_by_distance(offset, is_reverse, pos, remaining_length, source_path)) {
                 // we hit the end of the graph trying to walk
                 continue;
             }
@@ -736,7 +763,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         
         
         // align the second end starting at the walked position
-        sample_read_internal(aln_pair.second, offset, is_reverse, pos);
+        sample_read_internal(aln_pair.second, offset, is_reverse, pos, source_path);
         
         if (retry_on_Ns) {
             if (aln_pair.second.sequence().find('N') != string::npos) {
@@ -758,7 +785,8 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     return aln_pair;
 }
 
-void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is_reverse, pos_t& curr_pos) {
+void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is_reverse, pos_t& curr_pos,
+                                        const string& source_path) {
     
     aln.clear_path();
     aln.clear_sequence();
@@ -804,7 +832,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
 #endif
                 // deletion error
                 apply_deletion(aln, curr_pos);
-                hit_end = advance(offset, is_reverse, curr_pos, graph_char);
+                hit_end = advance(offset, is_reverse, curr_pos, graph_char, source_path);
             }
             
             err_sample = prob_sampler(prng);
@@ -835,7 +863,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
         
         // add an aligned base (allowing errors to mask polymorphisms)
         apply_aligned_base(aln, curr_pos, graph_char, read_char);
-        hit_end = advance(offset, is_reverse, curr_pos, graph_char);
+        hit_end = advance(offset, is_reverse, curr_pos, graph_char, source_path);
         
         if (aln.sequence().size() >= aln.quality().size() || hit_end) {
             break;
@@ -848,7 +876,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
 #endif
             
             apply_deletion(aln, curr_pos);
-            hit_end = advance(offset, is_reverse, curr_pos, graph_char);
+            hit_end = advance(offset, is_reverse, curr_pos, graph_char, source_path);
         }
     }
     
@@ -864,11 +892,11 @@ void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is
 #endif
 }
 
-bool NGSSimulator::advance(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char) {
+bool NGSSimulator::advance(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char, const string& source_path) {
     if (source_path.empty()) {
         return advance_on_graph(pos, graph_char);
     } else {
-        return advance_on_path(offset, is_reverse, pos, graph_char);
+        return advance_on_path(offset, is_reverse, pos, graph_char, source_path);
     }
 }
 
@@ -895,7 +923,7 @@ bool NGSSimulator::advance_on_graph(pos_t& pos, char& graph_char) {
     return false;
 }
 
-bool NGSSimulator::advance_on_path(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char) {
+bool NGSSimulator::advance_on_path(size_t& offset, bool& is_reverse, pos_t& pos, char& graph_char, const string& source_path) {
     
     if (is_reverse) {
         // Go left on the path
@@ -922,11 +950,12 @@ bool NGSSimulator::advance_on_path(size_t& offset, bool& is_reverse, pos_t& pos,
     return false;
 }
 
-bool NGSSimulator::advance_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance) {
+bool NGSSimulator::advance_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance,
+                                       const string& source_path) {
     if (source_path.empty()) {
         return advance_on_graph_by_distance(pos, distance);
     } else {
-        return advance_on_path_by_distance(offset, is_reverse, pos, distance);
+        return advance_on_path_by_distance(offset, is_reverse, pos, distance, source_path);
     }
 }
 
@@ -959,7 +988,8 @@ bool NGSSimulator::advance_on_graph_by_distance(pos_t& pos, size_t distance) {
     return false;
 }
 
-bool NGSSimulator::advance_on_path_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance) {
+bool NGSSimulator::advance_on_path_by_distance(size_t& offset, bool& is_reverse, pos_t& pos, size_t distance,
+                                               const string& source_path) {
     
     if (is_reverse) {
         // Go left on the path
@@ -1158,19 +1188,21 @@ void NGSSimulator::apply_insertion(Alignment& aln, const pos_t& pos) {
     }
 }
 
-void NGSSimulator::sample_start_pos(size_t& offset, bool& is_reverse, pos_t& pos) {
-    if (source_path.empty()) {
+void NGSSimulator::sample_start_pos(size_t& offset, bool& is_reverse, pos_t& pos, string& source_path) {
+    if (source_paths.empty()) {
         pos = sample_start_graph_pos();
         offset = 0;
         is_reverse = false;
+        source_path = "";
     } else {
-        tie(offset, is_reverse, pos) = sample_start_path_pos();
+        tie(offset, is_reverse, pos, source_path) = sample_start_path_pos();
     }
 }
 
 pos_t NGSSimulator::sample_start_graph_pos() {
     // The start pos sampler has been set up in graph space, 1-based
-    size_t idx = start_pos_sampler(prng);
+    assert(start_pos_samplers.size() == 1);
+    size_t idx = start_pos_samplers[0](prng);
     
     id_t id = xg_index.node_at_seq_pos(idx);
     bool rev = strand_sampler(prng);
@@ -1179,13 +1211,16 @@ pos_t NGSSimulator::sample_start_graph_pos() {
     return make_pos_t(id, rev, node_offset);
 }
 
-tuple<size_t, bool, pos_t> NGSSimulator::sample_start_path_pos() {
+tuple<size_t, bool, pos_t, string> NGSSimulator::sample_start_path_pos() {
+    // choose a path
+    size_t source_path_idx = path_sampler(prng);
+    string source_path = source_paths[source_path_idx];
     // The start pos sampler hasd been set up in path space, 0-based
-    size_t offset = start_pos_sampler(prng);
+    size_t offset = start_pos_samplers[source_path_idx](prng);
     bool rev = strand_sampler(prng);
     pos_t pos = position_at(&xg_index, source_path, offset, rev);
     
-    return make_tuple(offset, rev, pos);
+    return make_tuple(offset, rev, pos, source_path);
 }
 
 string NGSSimulator::get_read_name() {

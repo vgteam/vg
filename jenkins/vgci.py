@@ -124,6 +124,7 @@ class VGCITest(TestCase):
             return 6, 28510119
         elif 'CHR' in region:
             return int(region.replace('CHR', '')), 0
+        return None, None
         
     def _read_baseline_file(self, tag, path):
         """ read a (small) text file from the baseline store """
@@ -618,7 +619,7 @@ class VGCITest(TestCase):
         context = Context(out_store, overrides)
         with context.get_toil(job_store) as toil:
             try:
-                for rscript in ['pr', 'qq']:
+                for rscript in ['pr', 'qq', 'roc']:
                     # pull the scripts from where we expect them relative to being in vg/
                     # and put them in the work directory.  This is ugly but keeps the
                     # docker interfacing simple.
@@ -914,7 +915,7 @@ class VGCITest(TestCase):
         for graph in set([baseline_graph] + test_graphs):
             chrom, offset = self._bakeoff_coords(region)        
             vg_path = self._input('{}-{}.vg'.format(graph, region))
-            self._toil_vg_index(chrom, vg_path, None, self._input('{}-{}.gcsa'.format(graph, region)),
+            self._toil_vg_index(str(chrom), vg_path, None, self._input('{}-{}.gcsa'.format(graph, region)),
                                 None, tag, '{}-{}'.format(graph, region))
 
         # compute the haplotype graphs to simulate from
@@ -1041,6 +1042,27 @@ class VGCITest(TestCase):
                            sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5',
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
 
+    @timeout_decorator.timeout(7200)
+    def test_sim_yeast_cactus(self):
+        """ Yeast test based on the cactus graphs.  Reads are simulated from the SK1 path
+        of the full graph.  The other graphs are made from this graph using vg mod:
+        cactus_drop_SK1 : remove all elements that are only on SK1 path
+        cactus_SK1 : keep only SK1 path
+        cactus_S288c : keep only S288c (reference) path
+        """
+        self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/cactus_yeast'
+        log.info("Test start at {}".format(datetime.now()))
+        self._test_mapeval(100000, 'YEAST', 'cactus',
+                           ['cactus', 'cactus_drop_SK1', 'cactus_SK1', 'cactus_S288c'],
+                           #score_baseline_graph='cactus_S288c',
+                           source_path_names=['SK1.chr{}'.format(i) for i in [
+                               'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
+                               'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI']],
+                           #multipath=True,
+                           #paired_only=True,
+                           acc_threshold=0.02, auc_threshold=0.02,
+                           sim_opts='-p 500 -v 50 -S 4 -i 0.002')
+    
     @timeout_decorator.timeout(200)
     def test_map_brca1_primary(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
