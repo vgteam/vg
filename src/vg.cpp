@@ -119,7 +119,7 @@ string VG::get_sequence(const handle_t& handle) const {
     
 }
 
-void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+bool VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
     // Are we reverse?
     bool is_reverse = get_is_reverse(handle);
     
@@ -135,10 +135,12 @@ void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
             bool new_reverse = (is_reverse != id_and_flip.second);
             if (!iteratee(get_handle(id_and_flip.first, new_reverse))) {
                 // Iteratee said to stop
-                return;
+                return false;
             }
         }
     }
+    
+    return true;
 }
 
 void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {

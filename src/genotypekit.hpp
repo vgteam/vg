@@ -26,6 +26,10 @@
 #include "snarls.hpp"
 #include "path_index.hpp"
 
+extern "C" {
+#include "sonLib.h"
+}
+
 namespace vg {
 
 using namespace std;
@@ -272,15 +276,45 @@ class CactusUltrabubbleFinder : public SnarlFinder {
     
 public:
     /**
-     * Make a new CactusSiteFinder to find sites in the given graph.
+     * Make a new CactusUltrabubbleFinder to find sites in the given graph.
      */
     CactusUltrabubbleFinder(VG& graph,
                             const string& hint_path_name = "",
                             bool filter_trivial_bubbles = false);
     
     /**
-     * Find all the sites in parallel with Cactus, make the site tree, and call
-     * the given function on all the top-level sites.
+     * Find all the sites in parallel with Cactus, and put them into a SnarlManager.
+     */
+    virtual SnarlManager find_snarls();
+    
+};
+
+/**
+ * Class for finding all snarls using the base-level Cactus snarl decomposition
+ * interface.
+ */
+class CactusSnarlFinder : public SnarlFinder {
+    
+    /// Holds the vg graph we are looking for sites in.
+    VG& graph;
+    
+    /// Create a snarl in the given list with the given start and end,
+    /// containing the given child snarls in the list of chains of children and
+    /// the given list of unary children. Recursively creates snarls in the list
+    /// for the children. Returns a reference to the finished snarl in the list.
+    /// Start and end may be empty visits, in which case a fake root snarl is
+    /// created.
+    const Snarl& recursively_emit_snarls(const Visit& start, const Visit& end, const Snarl* parent,
+        stList* chains_list, stList* unary_snarls_list, list<Snarl>& destination);
+    
+public:
+    /**
+     * Make a new CactusSnarlFinder to find snarls in the given graph.
+     */
+    CactusSnarlFinder(VG& graph);
+    
+    /**
+     * Find all the snarls with Cactus, and put them into a SnarlManager.
      */
     virtual SnarlManager find_snarls();
     

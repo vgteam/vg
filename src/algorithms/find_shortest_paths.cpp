@@ -6,8 +6,6 @@
  
 #include "find_shortest_paths.hpp"
 
-#define debug_vg_algorithms
-
 namespace vg {
 namespace algorithms {
 

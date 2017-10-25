@@ -21,6 +21,12 @@ namespace vg {
 
 class VG;
 
+// We use this when talking to Cactus.
+struct CactusSide {
+    int64_t node;
+    bool is_end;
+};
+
 // Consolidate bubble finding code here to keep vg class size from getting even
 // more out of hand
 

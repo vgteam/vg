@@ -105,10 +105,10 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
     json2pb(chunk, graph_json.c_str(), graph_json.size());
     graph.merge(chunk);
     
-    // Make a CactusUltrabubbleFinder
-    SnarlFinder* finder = new CactusUltrabubbleFinder(graph, "hint");
+    // Make a CactusSnarlFinder
+    SnarlFinder* finder = new CactusSnarlFinder(graph);
     
-    SECTION("CactusUltrabubbleFinder should find two top-level sites") {
+    SECTION("CactusSnarlFinder should find two top-level sites") {
         
         SnarlManager manager = finder->find_snarls();
         
@@ -393,7 +393,7 @@ TEST_CASE("SiteFinder can differntiate ultrabubbles from snarls", "[genotype]") 
         graph.merge(chunk);
 
         // Find the snarls
-        CactusUltrabubbleFinder cubs(graph);
+        CactusSnarlFinder cubs(graph);
         SnarlManager snarl_manager = cubs.find_snarls();
         const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
 
@@ -444,7 +444,7 @@ TEST_CASE("SiteFinder can differntiate ultrabubbles from snarls", "[genotype]") 
         graph.merge(chunk);
 
         // Find the snarls
-        CactusUltrabubbleFinder cubs(graph);
+        CactusSnarlFinder cubs(graph);
         SnarlManager snarl_manager = cubs.find_snarls();
         const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
 
@@ -498,7 +498,7 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
         graph.merge(chunk);
 
         // Find the snarls
-        CactusUltrabubbleFinder cubs(graph);
+        CactusSnarlFinder cubs(graph);
         SnarlManager snarl_manager = cubs.find_snarls();
         const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
 

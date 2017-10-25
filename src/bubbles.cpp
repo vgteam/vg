@@ -10,7 +10,6 @@ extern "C" {
 #include "stCactusGraphs.h"
 }
 
-#define debug
 namespace vg {
 
 using namespace std;
@@ -63,11 +62,6 @@ static void compute_side_components(VG& graph,
             add_node_side(NodeSide(n->id(), true));
         });
 }
-
-struct CactusSide {
-    int64_t node;
-    bool is_end;
-};
 
 void* mergeNodeObjects(void* a, void* b) {
     // One of the objects is going to get returned, and the other one is going
