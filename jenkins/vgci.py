@@ -523,7 +523,7 @@ class VGCITest(TestCase):
         if score_baseline_name is not None:
             mapeval_options.compare_gam_scores = score_baseline_name
         mapeval_options.multipath = multipath
-            
+        mapeval_options.ignore_quals = multipath and not sim_fastq            
         
         # Make Toil
         with context.get_toil(job_store) as toil:
