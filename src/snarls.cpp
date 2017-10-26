@@ -1026,8 +1026,9 @@ namespace vg {
         list<handle_t> queue;
         unordered_set<id_t> queued;
         
+        // TODO: this should never happen
         if (chain_end_rewrites.count(start)) {
-            // The start is actually the end of a chins, which needs to be represented by its start in reverse.
+            // The start is actually the end of a chain, which needs to be represented by its start in reverse.
             queue.push_back(chain_end_rewrites.at(start));
             queued.insert(graph->get_id(chain_end_rewrites.at(start)));
             

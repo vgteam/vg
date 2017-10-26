@@ -803,6 +803,111 @@ namespace vg {
             }
             
         }
+        
+        TEST_CASE( "NetGraph can find hard-to-reach snarl contents",
+                  "[snarls][netgraph]" ) {
+        
+        
+            // This graph will have a snarl from 1 to 8, a nested unary snarl on 2, and a nested unary snarl on 4.
+            // Node 3 will be attached only through these non-traversable unary snarls.
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n4);
+            Edge* e3 = graph.create_edge(n1, n8);
+            Edge* e4 = graph.create_edge(n3, n2);
+            Edge* e5 = graph.create_edge(n4, n5);
+            Edge* e6 = graph.create_edge(n4, n6);
+            Edge* e7 = graph.create_edge(n5, n7);
+            Edge* e8 = graph.create_edge(n6, n7);
+            Edge* e9 = graph.create_edge(n8, n4, true, false);
+            Edge* e10 = graph.create_edge(n3, n4);
+            
+            // Define the snarls for the top level
+            Snarl top_snarl;
+            top_snarl.mutable_start()->set_node_id(n1->id());
+            top_snarl.mutable_end()->set_node_id(n8->id());
+            
+            // We have no chains
+            vector<vector<Snarl>> top_chains;
+            
+            // We havetwo child unary snarls.
+            vector<Snarl> top_unary_snarls;
+
+            top_unary_snarls.emplace_back();
+            auto& nested_snarl1 = top_unary_snarls.back(); 
+            
+            // The first one is a tip of just node 2, based at node 2
+            nested_snarl1.mutable_start()->set_node_id(n2->id());
+            nested_snarl1.mutable_end()->set_node_id(n2->id());
+            nested_snarl1.mutable_end()->set_backward(true);
+            nested_snarl1.set_type(UNARY);
+            *nested_snarl1.mutable_parent() = top_snarl;
+            nested_snarl1.set_directed_acyclic_net_graph(true);
+            // We aren't actually traversable at all
+            nested_snarl1.set_start_self_reachable(false);
+            nested_snarl1.set_end_self_reachable(false);
+            nested_snarl1.set_start_end_reachable(false);
+            
+            top_unary_snarls.emplace_back();
+            auto& nested_snarl2 = top_unary_snarls.back(); 
+            
+            // The second one is a big assemblage rooted at 4 that also isn't traversable
+            nested_snarl2.mutable_start()->set_node_id(n4->id());
+            nested_snarl2.mutable_end()->set_node_id(n4->id());
+            nested_snarl2.mutable_end()->set_backward(true);
+            nested_snarl2.set_type(UNARY);
+            *nested_snarl2.mutable_parent() = top_snarl;
+            nested_snarl2.set_directed_acyclic_net_graph(true);
+            // We aren't actually traversable at all
+            nested_snarl2.set_start_self_reachable(false);
+            nested_snarl2.set_end_self_reachable(false);
+            nested_snarl2.set_start_end_reachable(false);
+            
+            SECTION( "A connectivity-ignoring net graph lets you find all the nodes" ) {
+            
+                // Make a net graph
+                NetGraph net_graph(top_snarl.start(), top_snarl.end(), top_chains, top_unary_snarls, &graph, false);
+                
+                SECTION( "The top-level NetGraph has 5 nodes" ) {
+                    unordered_set<handle_t> nodes;
+                    net_graph.for_each_handle([&](const handle_t& handle) {
+                        nodes.insert(handle);
+                    });
+                    
+                    REQUIRE(nodes.size() == 5);
+                    
+                }
+                
+            }
+            
+            SECTION( "A connectivity-respecting net graph still lets you find all the nodes" ) {
+            
+                // Make a net graph
+                NetGraph net_graph(top_snarl.start(), top_snarl.end(), top_chains, top_unary_snarls, &graph, true);
+                
+                SECTION( "The top-level NetGraph has 5 nodes" ) {
+                    unordered_set<handle_t> nodes;
+                    net_graph.for_each_handle([&](const handle_t& handle) {
+                        nodes.insert(handle);
+                    });
+                    
+                    REQUIRE(nodes.size() == 5);
+                    
+                }
+                
+            }
+            
+        }
     
         TEST_CASE( "SnarlManager functions return expected answers",
                   "[sites][snarls]" ) {
