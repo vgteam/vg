@@ -665,7 +665,7 @@ namespace vg {
                     auto& child = *it;
                     
                     if (child.start_self_reachable()) {
-                        // We found a turnaround
+                        // We found a turnaround from the left
                         connected_left_left = true;
                     }
                     
@@ -682,8 +682,8 @@ namespace vg {
                     auto& child = *it;
                     
                      if (child.end_self_reachable()) {
-                        // We found a turnaround
-                        connected_left_left = true;
+                        // We found a turnaround from the right
+                        connected_right_right = true;
                         break;
                     }
                     
@@ -737,6 +737,7 @@ namespace vg {
         throw runtime_error("Cannot expose sequences via NetGraph");
     }
     
+#define debug
     bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
         // Now we do the real work.
         
@@ -754,36 +755,73 @@ namespace vg {
         // visits to the ends of chains as visits to the start, which we use to
         // represent the whole chain.
         auto handle_edge = [&](const handle_t& other) -> bool {
-            // If this is the end of a chain reading inward, we rewrite it to be
-            // the start of that chain in a reverse direction.
-            handle_t real_handle = chain_end_rewrites.count(other) ? chain_end_rewrites.at(other) : other;
+            
+            handle_t real_handle = other;
+            if (chain_end_rewrites.count(other)) {
+                // We're reading into the end of a chain.
+                // Warp to the start.
+                real_handle = chain_end_rewrites.at(other);
+            } else if (chain_end_rewrites.count(graph->flip(other))) {
+                // We're backing into the end of a chain.
+                // Warp to the start.
+                real_handle = graph->flip(chain_end_rewrites.at(graph->flip(other)));
+            }
             
 #ifdef debug
-            cerr << "Found edge to " << graph->get_id(other) << " " << graph->get_is_reverse(other) << endl;
+            cerr << "Found edge " << (go_left ? "from " : "to ") << graph->get_id(other) << " " << graph->get_is_reverse(other) << endl;
 #endif
             
             if (!seen.count(real_handle)) {
                 seen.insert(real_handle);
-                // If we were going left, everything is flipped.
-                handle_t to_report = go_left ? graph->flip(real_handle) : real_handle;
-                
 #ifdef debug
-                cerr << "Report as " << graph->get_id(to_report) << " " << graph->get_is_reverse(to_report) << endl;
+                cerr << "Report as " << graph->get_id(real_handle) << " " << graph->get_is_reverse(real_handle) << endl;
 #endif
                 
-                return iteratee(to_report);
+                return iteratee(real_handle);
             } else {
                 cerr << "Edge has been seen" << endl;
                 return true;
             }
         };
         
-        // Make a handle that's oriented a consistent way. We know we will look right from here.
-        // But if we were really supposed to go left we'll have to flip the results.
-        handle_t here = go_left ? graph->flip(handle) : handle;
+        // This does the same as handle_edge, but flips the real handle
+        auto flip_and_handle_edge = [&](const handle_t& other) -> bool {
+            
+            handle_t real_handle = other;
+            if (chain_end_rewrites.count(other)) {
+                // We're reading into the end of a chain.
+                // Warp to the start.
+                real_handle = chain_end_rewrites.at(other);
+            } else if (chain_end_rewrites.count(graph->flip(other))) {
+                // We're backing into the end of a chain.
+                // Warp to the start.
+                real_handle = graph->flip(chain_end_rewrites.at(graph->flip(other)));
+            }
+            
+            real_handle = graph->flip(real_handle);
+            
+#ifdef debug
+            cerr << "Found edge " << (go_left ? "from " : "to ") << graph->get_id(other) << " " << graph->get_is_reverse(other) << endl;
+#endif
+            
+            if (!seen.count(real_handle)) {
+                seen.insert(real_handle);
+#ifdef debug
+                cerr << "Report as " << graph->get_id(real_handle) << " " << graph->get_is_reverse(real_handle) << endl;
+#endif
+                
+                return iteratee(real_handle);
+            } else {
+                cerr << "Edge has been seen" << endl;
+                return true;
+            }
+        };
         
-        if (here == end || here == graph->flip(start)) {
-            // If the handle is the end, or the reverse of the start, don't admit to having any rightward edges.
+        // Each way of doing things needs to support going either left or right
+        
+        if ((handle == end && !go_left) || (handle == graph->flip(end) && go_left) ||
+            (handle == graph->flip(start) && !go_left) || (handle == start && go_left)) {
+            // If we're looking outside of the snarl this is the net graph for, don't admit to having any edges.
             
 #ifdef debug
             cerr << "We are at the bound of the graph so don't say anything" << endl;
@@ -791,124 +829,191 @@ namespace vg {
             return true;
         }
         
-        if (chain_ends_by_start.count(here)) {
+        if (chain_ends_by_start.count(handle) || chain_ends_by_start.count(graph->flip(handle))) {
             // If we have an associated chain end for this start, we have to use chain connectivity to decide what to do.
             
 #ifdef debug
-            cerr << "We are at the end of a chain" << endl;
+            cerr << "We are a chain node" << endl;
 #endif
             
             bool connected_start_start;
             bool connected_end_end;
             bool connected_start_end;
-            tie(connected_start_start, connected_end_end, connected_start_end) = connectivity.at(graph->get_id(here));
+            tie(connected_start_start, connected_end_end, connected_start_end) = connectivity.at(graph->get_id(handle));
             
-            if (connected_start_start) {
-                // Look backward out of the start of the chain
-                if (!graph->follow_edges(graph->flip(here), false, handle_edge)) {
-                    // Iteratee is done
-                    return false;
-                }
-            }
+            cerr << "Connectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
             
-            if (connected_start_end) {
-                // Look right out of the end of the chain
-                if (!graph->follow_edges(chain_ends_by_start.at(here), false, handle_edge)) {
-                    // Iteratee is done
-                    return false;
+            if (chain_ends_by_start.count(handle)) {
+                // We visit the chain in its forward orientation
+                cerr << "Looking at chain forward" << endl;
+                if (go_left) {
+                    // We want predecessors.
+                    // So we care about end-end connectivity (how could we have left our end?)
+                    
+                    cerr << "Looking left" << endl;
+                    
+                    if (connected_end_end) {
+                        cerr << "Looking right off end" << endl;
+                    
+                        // Anything after us but in its reverse orientation could be our predecessor
+                        // But a thing after us may be a chain, in which case we need to find its head before flipping.
+                        if (!graph->follow_edges(chain_ends_by_start.at(handle), false, flip_and_handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                    if (connected_start_end) {
+                        cerr << "Looking actually left" << endl;
+                    
+                        // Look left out of the start of the chain (which is the handle we really are on)
+                        if (!graph->follow_edges(handle, true, handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                } else {
+                    // We want our successors
+                    
+                    cerr << "Looking right" << endl;
+                    
+                    if (connected_start_start) {
+                        cerr << "Looking left off start" << endl;
+                    
+                        // Anything before us but in its reverse orientation could be our successor
+                        // But a thing before us may be a chain, in which case we need to find its head before flipping.
+                        if (!graph->follow_edges(handle, true, flip_and_handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                    if (connected_start_end) {
+                        cerr << "Looking actually right" << endl;
+                    
+                        // Look right out of the end of the chain (which is the handle we really are on)
+                        if (!graph->follow_edges(chain_ends_by_start.at(handle), false, handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
                 }
+                
+            } else {
+                // We visit the chain in its reverse orientation.
+                // Just flip the cases of above and reverse all the emitted orientations.
+                
+                cerr << "Looking at chain reverse" << endl;
+                
+                if (go_left) {
+                    // We want predecessors of the reverse version (successors, but flipped)
+                    
+                    cerr << "Looking (reverse) left" << endl;
+                    
+                    if (connected_start_start) {
+                        if (!graph->follow_edges(handle, true, handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                    if (connected_start_end) {
+                        if (!graph->follow_edges(chain_ends_by_start.at(handle), false, flip_and_handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                } else {
+                    // We want successors of the reverse version (predecessors, but flipped)
+                    
+                    cerr << "Looking (reverse) right" << endl;
+                    
+                    if (connected_end_end) {
+                        if (!graph->follow_edges(chain_ends_by_start.at(handle), false, handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                    if (connected_start_end) {
+                        if (!graph->follow_edges(handle, true, flip_and_handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                }
+                
             }
             
             return true;
         }
         
-        if (chain_ends_by_start.count(graph->flip(here))) {
-            // We are at the start of the chain, but reading out of the chain.
-            // Basically we came to the chain's end, got warped to the start, and now we want to continue.
+        if (unary_boundaries.count(handle) || unary_boundaries.count(graph->flip(handle))) {
+            // We are dealign with a node representing a unary child snarl.
             
 #ifdef debug
-            cerr << "We are at the start of a chain" << endl;
+            cerr << "We are looking at a unary snarl" << endl;
 #endif
             
             // We have to use chain connectivity to decide what to do.
             bool connected_start_start;
             bool connected_end_end;
             bool connected_start_end;
-            tie(connected_start_start, connected_end_end, connected_start_end) = connectivity.at(graph->get_id(here));
+            tie(connected_start_start, connected_end_end, connected_start_end) = connectivity.at(graph->get_id(handle));
             
-            if (connected_end_end) {
-                // Look forward out of the end of the chain
-                if (!graph->follow_edges(chain_ends_by_start.at(graph->flip(here)), false, handle_edge)) {
-                    // Iteratee is done
-                    return false;
-                }
-            }
-            
-            // TODO: reflecting off a chain that's not connected through is a
-            // bit weird. We can't really remember which disconnected half of
-            // the chain you were in. You can go into a chain and then not see
-            // your edge back out again.
-            
-            // TODO: for a completely disconnected chain we have no way to reflect off of it!
-            
-            if (connected_start_end) {
-                // Look left out of the start of the chain (which is the handle we really are on)
-                if (!graph->follow_edges(here, false, handle_edge)) {
-                    // Iteratee is done
-                    return false;
-                }
-            }
-            
-            return true;
-            
-        }
-        
-        if (unary_boundaries.count(here)) {
-            // We are reading into a unary snarl
-            
-#ifdef debug
-            cerr << "We are looking into a unary snarl" << endl;
-#endif
-            
-            // We have to use chain connectivity to decide what to do.
-            bool connected_start_start;
-            bool connected_end_end;
-            bool connected_start_end;
-            tie(connected_start_start, connected_end_end, connected_start_end) = connectivity.at(graph->get_id(here));
-            
-            if ((connected_start_start || connected_end_end || connected_start_end) && here != start && here != graph->flip(end)) {
-                // All of the connectivity flags are the same thing for a unary snarl, because the start is an end.
-                
-                // We read into this unary snarl and we want the connectivity out the right of this node.
-                // So we get the connectivity out the left.
-                
-                if (!graph->follow_edges(here, true, handle_edge)) {
-                    // Iteratee is done
-                    return false;
+            if (unary_boundaries.count(handle)) {
+                // We point into a unary snarl
+                if (go_left) {
+                    // We want the predecessors
+                    
+                    // Get the real predecessors
+                    if (!graph->follow_edges(handle, true, handle_edge)) {
+                        // Iteratee is done
+                        return false;
+                    }
+                    
+                    // Can't read a forward oriented unary boundary as a
+                    // predecessor, so no need to support read through.
+                    
+                } else {
+                    // We want the successors
+                    
+                    // No real successors
+                    
+                    if (connected_start_start || connected_end_end || connected_start_end) {
+                        // Successors also include our predecessors but backward
+                        if (!graph->follow_edges(handle, true, flip_and_handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                        
+                    }
                 }
             } else {
-                // No way through (a tip)
-                return true;
+                // We point out of a unary snarl.
+                // Reverse of above. Sort of.
+                if (go_left) {
+                    if (connected_start_start || connected_end_end || connected_start_end) {
+                        if (!graph->follow_edges(handle, false, handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                        
+                    }
+                    
+                } else {
+                    if (!graph->follow_edges(handle, false, flip_and_handle_edge)) {
+                        // Iteratee is done
+                        return false;
+                    }
+                }
+            
             }
             
-        }
-        
-        if (unary_boundaries.count(graph->flip(here))) {
-            // We are reading out of a unary snarl.
-            
-#ifdef debug
-            cerr << "We are looking out of a unary snarl" << endl;
-#endif
-            
-            // TODO: this is different than with normal snarls where reading out of = reading through the other way.
-            
-            // We already checked if we would be reading off the start or end of the graph.
-            
-            // We can just unconditionally return the edges connected to the snarl boundary, whether it's a tip or not.
-            if (!graph->follow_edges(here, false, handle_edge)) {
-                // Iteratee is done
-                return false;
-            }
             return true;
         }
         
@@ -917,8 +1022,9 @@ namespace vg {
 #endif
         
         // Otherwise, this is an ordinary snarl content node
-        return graph->follow_edges(here, false, handle_edge);
+        return graph->follow_edges(handle, go_left, handle_edge);
     }
+#undef debug
     
     void NetGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
         // Find all the handles by a traversal.
