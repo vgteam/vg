@@ -152,7 +152,7 @@ namespace vg {
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
             nested_snarl1.mutable_end()->set_node_id(n7->id());
-            nested_snarl1.set_type(ULTRABUBBLE);
+            nested_snarl1.set_type(UNCLASSIFIED);
             *nested_snarl1.mutable_parent() = top_snarl;
             nested_snarl1.set_directed_acyclic_net_graph(true);
             // Because we can reverse inside a child, we are start-start reachable
@@ -302,7 +302,7 @@ namespace vg {
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
             nested_snarl1.mutable_end()->set_node_id(n7->id());
-            nested_snarl1.set_type(ULTRABUBBLE);
+            nested_snarl1.set_type(UNCLASSIFIED);
             *nested_snarl1.mutable_parent() = top_snarl;
             nested_snarl1.set_directed_acyclic_net_graph(true);
             // Because we can reverse inside a child, we are end-end reachable
@@ -431,9 +431,9 @@ namespace vg {
             Edge* e5 = graph.create_edge(n3, n4);
             Edge* e6 = graph.create_edge(n3, n5);
             Edge* e7 = graph.create_edge(n4, n5);
-            // Make node 7 connect to what node 2 connects to, so the 2 to 7 snarl has two unary children.
-            Edge* e8 = graph.create_edge(n7, n3);
-            Edge* e9 = graph.create_edge(n7, n6);
+            // Make node 7's start connect to what node 2's end connects to, so the 2 to 7 snarl has two unary children.
+            Edge* e8 = graph.create_edge(n7, n3, true, false);
+            Edge* e9 = graph.create_edge(n7, n6, true, false);
             Edge* e10 = graph.create_edge(n7, n8);
             
             // Define the snarls for the top level
@@ -451,7 +451,7 @@ namespace vg {
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
             nested_snarl1.mutable_end()->set_node_id(n7->id());
-            nested_snarl1.set_type(ULTRABUBBLE);
+            nested_snarl1.set_type(UNCLASSIFIED);
             *nested_snarl1.mutable_parent() = top_snarl;
             nested_snarl1.set_directed_acyclic_net_graph(true);
             // We aren't actually traversable at all
@@ -574,6 +574,138 @@ namespace vg {
             
             }
         
+        }
+        
+        TEST_CASE( "NetGraph can handle nested unary snarls",
+                  "[snarls][netgraph]" ) {
+        
+        
+            // This graph will have a snarl from 1 to 8, a nested unary snarl on 2, and a nested unary snarl on 4.
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n4);
+            Edge* e3 = graph.create_edge(n1, n8);
+            Edge* e4 = graph.create_edge(n2, n3);
+            Edge* e5 = graph.create_edge(n4, n5);
+            Edge* e6 = graph.create_edge(n4, n6);
+            Edge* e7 = graph.create_edge(n5, n7);
+            Edge* e8 = graph.create_edge(n6, n7);
+            Edge* e9 = graph.create_edge(n7, n7, false, true);
+            Edge* e10 = graph.create_edge(n8, n4, true, false);
+            Edge* e11 = graph.create_edge(n8, n2, true, false);
+            
+            // Define the snarls for the top level
+            Snarl top_snarl;
+            top_snarl.mutable_start()->set_node_id(n1->id());
+            top_snarl.mutable_end()->set_node_id(n8->id());
+            
+            // We have no chains
+            vector<vector<Snarl>> top_chains;
+            
+            // We havetwo child unary snarls.
+            vector<Snarl> top_unary_snarls;
+
+            top_unary_snarls.emplace_back();
+            auto& nested_snarl1 = top_unary_snarls.back(); 
+            
+            // The first one is a tip of nodes 2 and 3, based at node 2
+            nested_snarl1.mutable_start()->set_node_id(n2->id());
+            nested_snarl1.mutable_end()->set_node_id(n2->id());
+            nested_snarl1.mutable_end()->set_backward(true);
+            nested_snarl1.set_type(UNARY);
+            *nested_snarl1.mutable_parent() = top_snarl;
+            nested_snarl1.set_directed_acyclic_net_graph(true);
+            // We aren't actually traversable at all
+            nested_snarl1.set_start_self_reachable(false);
+            nested_snarl1.set_end_self_reachable(false);
+            nested_snarl1.set_start_end_reachable(false);
+            
+            top_unary_snarls.emplace_back();
+            auto& nested_snarl2 = top_unary_snarls.back(); 
+            
+            // The second one is a big assemblage rooted at 4 with a child snarl and a reversing edge in it.
+            nested_snarl2.mutable_start()->set_node_id(n4->id());
+            nested_snarl2.mutable_end()->set_node_id(n4->id());
+            nested_snarl2.mutable_end()->set_backward(true);
+            nested_snarl2.set_type(UNARY);
+            *nested_snarl2.mutable_parent() = top_snarl;
+            // The reversal is actually in a child unary snarl.
+            nested_snarl2.set_directed_acyclic_net_graph(true);
+            // We are traversable in all directions
+            nested_snarl2.set_start_self_reachable(true);
+            nested_snarl2.set_end_self_reachable(true);
+            nested_snarl2.set_start_end_reachable(true);
+            
+            SECTION( "A connectivity-ignoring net graph ignores connectivity" ) {
+            
+                // Make a net graph
+                NetGraph net_graph(top_snarl.start(), top_snarl.end(), top_chains, top_unary_snarls, &graph, false);
+                
+                SECTION( "The top-level NetGraph has 4 nodes" ) {
+                    unordered_set<handle_t> nodes;
+                    net_graph.for_each_handle([&](const handle_t& handle) {
+                        nodes.insert(handle);
+                    });
+                    
+                    REQUIRE(nodes.size() == 4);
+                    
+                    SECTION( "The nodes are numbered 1, 2, 4, and 8" ) {
+                        REQUIRE(nodes.count(net_graph.get_handle(1, false)) == 1);
+                        REQUIRE(nodes.count(net_graph.get_handle(2, false)) == 1);
+                        REQUIRE(nodes.count(net_graph.get_handle(4, false)) == 1);
+                        REQUIRE(nodes.count(net_graph.get_handle(8, false)) == 1);
+                    }
+                }
+                
+                SECTION( "The top-level NetGraph has 5 edges" ) {
+                    unordered_set<pair<handle_t, handle_t>> edges;
+                    for (auto& id : {1, 2, 4, 8}) {
+                        // Go through the nodes we should have manually.
+                        handle_t handle = net_graph.get_handle(id, false);
+                    
+                        // Save all the edges off of each node
+                        net_graph.follow_edges(handle, false, [&](const handle_t& other) {
+                            edges.insert(net_graph.edge_handle(handle, other));
+                        });
+                        net_graph.follow_edges(handle, true, [&](const handle_t& other) {
+                            edges.insert(net_graph.edge_handle(other, handle));
+                        });
+                    }
+#ifdef debug
+                    for (auto& edge : edges) {
+                        cerr << net_graph.get_id(edge.first) << " " << net_graph.get_is_reverse(edge.first) << " -> "
+                            << net_graph.get_id(edge.second) << " " << net_graph.get_is_reverse(edge.second) << endl;
+                    }
+#endif
+                    
+                    REQUIRE(edges.size() == 5);
+                    
+                    // The edges are 1 to 8, 1 to 2, 1 to 4, 2 rev to 8, and 4 rev to 8.
+                    SECTION( "All of the expected edges exist" ) {
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(1, false),
+                            net_graph.get_handle(8, false))) == 1);
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(1, false),
+                            net_graph.get_handle(2, false))) == 1);
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(1, false),
+                            net_graph.get_handle(4, false))) == 1);
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(2, true),
+                            net_graph.get_handle(8, false))) == 1);
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(4, true),
+                            net_graph.get_handle(8, false))) == 1);
+                    }
+                }
+            }
+            
         }
     
         TEST_CASE( "SnarlManager functions return expected answers",

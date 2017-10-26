@@ -639,8 +639,11 @@ namespace vg {
                 connectivity[snarl_id] = make_tuple(unary.start_self_reachable(), unary.end_self_reachable(),
                     unary.start_end_reachable());
             } else {
-                // Use the connectivity of an ordinary node
-                connectivity[snarl_id] = make_tuple(false, false, true);
+                // Use the connectivity of an ordinary node that has a different
+                // other side. Don't set connected_start_end because, for a real
+                // unary snarl, the end and the start are the same, so that
+                // means you can turn aroiund.
+                connectivity[snarl_id] = make_tuple(false, false, false);
             }
         }
         
@@ -696,11 +699,8 @@ namespace vg {
                 // Save the connectivity
                 connectivity[graph->get_id(chain_start)] = tie(connected_left_left, connected_right_right, connected_left_right);
             } else {
-                // Use the connectivity of an ordinary node that has a different
-                // other side. Don't set connected_start_end because, for a real
-                // unary snarl, the end and the start are the same, so that
-                // means you can turn aroiund.
-                connectivity[graph->get_id(chain_start)] = make_tuple(false, false, false);
+                // Act like a normal connected-through node.
+                connectivity[graph->get_id(chain_start)] = make_tuple(false, false, true);
             }
         }
     }
@@ -737,6 +737,7 @@ namespace vg {
         throw runtime_error("Cannot expose sequences via NetGraph");
     }
     
+#define debug
     bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
         // Now we do the real work.
         
@@ -846,6 +847,11 @@ namespace vg {
             
             if (chain_ends_by_start.count(handle)) {
                 // We visit the chain in its forward orientation
+                
+#ifdef debug
+                cerr << "Visiting chain forward" << endl;
+#endif
+                
                 if (go_left) {
                     // We want predecessors.
                     // So we care about end-end connectivity (how could we have left our end?)
@@ -870,6 +876,10 @@ namespace vg {
                 } else {
                     // We want our successors
                     
+#ifdef debug
+                    cerr << "Going right from chain forward" << endl;
+#endif
+                    
                     if (connected_start_start) {
                         // Anything before us but in its reverse orientation could be our successor
                         // But a thing before us may be a chain, in which case we need to find its head before flipping.
@@ -880,6 +890,13 @@ namespace vg {
                     }
                     
                     if (connected_start_end) {
+                    
+#ifdef debug
+                        cerr << "Looking right off chain end " << graph->get_id(chain_ends_by_start.at(handle))
+                            << " " << graph->get_is_reverse(chain_ends_by_start.at(handle)) << endl;
+#endif
+                        
+                    
                         // Look right out of the end of the chain (which is the handle we really are on)
                         if (!graph->follow_edges(chain_ends_by_start.at(handle), false, handle_edge)) {
                             // Iteratee is done
@@ -892,6 +909,10 @@ namespace vg {
             } else {
                 // We visit the chain in its reverse orientation.
                 // Just flip the cases of above and reverse all the emitted orientations.
+                
+#ifdef debug
+                cerr << "Visiting chain backward" << endl;
+#endif
                 
                 if (go_left) {
                     // We want predecessors of the reverse version (successors, but flipped)
@@ -1006,6 +1027,7 @@ namespace vg {
         // Otherwise, this is an ordinary snarl content node
         return graph->follow_edges(handle, go_left, handle_edge);
     }
+#undef debug
     
     void NetGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
         // Find all the handles by a traversal.
