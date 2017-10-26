@@ -706,6 +706,102 @@ namespace vg {
                 }
             }
             
+             SECTION( "A connectivity-respecting net graph respects connectivity" ) {
+            
+                // Make a net graph
+                NetGraph net_graph(top_snarl.start(), top_snarl.end(), top_chains, top_unary_snarls, &graph, true);
+                
+                SECTION( "The top-level NetGraph has 4 nodes" ) {
+                    unordered_set<handle_t> nodes;
+                    net_graph.for_each_handle([&](const handle_t& handle) {
+                        nodes.insert(handle);
+                    });
+                    
+                    REQUIRE(nodes.size() == 4);
+                    
+                    SECTION( "The nodes are numbered 1, 2, 4, and 8" ) {
+                        REQUIRE(nodes.count(net_graph.get_handle(1, false)) == 1);
+                        REQUIRE(nodes.count(net_graph.get_handle(2, false)) == 1);
+                        REQUIRE(nodes.count(net_graph.get_handle(4, false)) == 1);
+                        REQUIRE(nodes.count(net_graph.get_handle(8, false)) == 1);
+                    }
+                }
+                
+                SECTION( "The top-level NetGraph has 5 edges when looking at its ends" ) {
+                    unordered_set<pair<handle_t, handle_t>> edges;
+                    for (auto& id : {1, 8}) {
+                        // Go through the nodes we should have manually.
+                        handle_t handle = net_graph.get_handle(id, false);
+                    
+                        // Save all the edges off of each node
+                        net_graph.follow_edges(handle, false, [&](const handle_t& other) {
+                            edges.insert(net_graph.edge_handle(handle, other));
+                        });
+                        net_graph.follow_edges(handle, true, [&](const handle_t& other) {
+                            edges.insert(net_graph.edge_handle(other, handle));
+                        });
+                    }
+#ifdef debug
+                    for (auto& edge : edges) {
+                        cerr << net_graph.get_id(edge.first) << " " << net_graph.get_is_reverse(edge.first) << " -> "
+                            << net_graph.get_id(edge.second) << " " << net_graph.get_is_reverse(edge.second) << endl;
+                    }
+#endif
+                    
+                    REQUIRE(edges.size() == 5);
+                    
+                    // The edges are 1 to 8, 1 to 2, 1 to 4, 2 rev to 8, and 4 rev to 8.
+                    SECTION( "All of the expected edges exist" ) {
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(1, false),
+                            net_graph.get_handle(8, false))) == 1);
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(1, false),
+                            net_graph.get_handle(2, false))) == 1);
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(1, false),
+                            net_graph.get_handle(4, false))) == 1);
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(2, true),
+                            net_graph.get_handle(8, false))) == 1);
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(4, true),
+                            net_graph.get_handle(8, false))) == 1);
+                    }
+                }
+                
+                SECTION( "The top-level NetGraph only has edges for the connected child when looking at its child snarls" ) {
+                    unordered_set<pair<handle_t, handle_t>> edges;
+                    for (auto& id : {2, 4}) {
+                        // Go through the nodes we should have manually.
+                        handle_t handle = net_graph.get_handle(id, false);
+                    
+                        // Save all the edges off of each node
+                        net_graph.follow_edges(handle, false, [&](const handle_t& other) {
+                            edges.insert(net_graph.edge_handle(handle, other));
+                        });
+                        net_graph.follow_edges(handle, true, [&](const handle_t& other) {
+                            edges.insert(net_graph.edge_handle(other, handle));
+                        });
+                    }
+#ifdef debug
+                    for (auto& edge : edges) {
+                        cerr << net_graph.get_id(edge.first) << " " << net_graph.get_is_reverse(edge.first) << " -> "
+                            << net_graph.get_id(edge.second) << " " << net_graph.get_is_reverse(edge.second) << endl;
+                    }
+#endif
+                    
+                    // We ignore the edges we would get if we could do a real
+                    // predecessor lookup. In this mode we only allow real
+                    // traversals, so looking left from entering the unary snarl
+                    // gives you nothing, not the edges you could have come from.
+                    REQUIRE(edges.size() == 2);
+                    
+                    // The edges are the fake traversal-allowing ones: 4 forward to 8 forward, and 4 forward to 1 reverse.
+                    SECTION( "All of the expected edges exist" ) {
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(4, false),
+                            net_graph.get_handle(8, false))) == 1);
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(4, false),
+                            net_graph.get_handle(1, true))) == 1);
+                    }
+                }
+            }
+            
         }
     
         TEST_CASE( "SnarlManager functions return expected answers",

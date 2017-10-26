@@ -737,7 +737,6 @@ namespace vg {
         throw runtime_error("Cannot expose sequences via NetGraph");
     }
     
-#define debug
     bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
         // Now we do the real work.
         
@@ -848,10 +847,6 @@ namespace vg {
             if (chain_ends_by_start.count(handle)) {
                 // We visit the chain in its forward orientation
                 
-#ifdef debug
-                cerr << "Visiting chain forward" << endl;
-#endif
-                
                 if (go_left) {
                     // We want predecessors.
                     // So we care about end-end connectivity (how could we have left our end?)
@@ -876,10 +871,6 @@ namespace vg {
                 } else {
                     // We want our successors
                     
-#ifdef debug
-                    cerr << "Going right from chain forward" << endl;
-#endif
-                    
                     if (connected_start_start) {
                         // Anything before us but in its reverse orientation could be our successor
                         // But a thing before us may be a chain, in which case we need to find its head before flipping.
@@ -890,12 +881,6 @@ namespace vg {
                     }
                     
                     if (connected_start_end) {
-                    
-#ifdef debug
-                        cerr << "Looking right off chain end " << graph->get_id(chain_ends_by_start.at(handle))
-                            << " " << graph->get_is_reverse(chain_ends_by_start.at(handle)) << endl;
-#endif
-                        
                     
                         // Look right out of the end of the chain (which is the handle we really are on)
                         if (!graph->follow_edges(chain_ends_by_start.at(handle), false, handle_edge)) {
@@ -909,10 +894,6 @@ namespace vg {
             } else {
                 // We visit the chain in its reverse orientation.
                 // Just flip the cases of above and reverse all the emitted orientations.
-                
-#ifdef debug
-                cerr << "Visiting chain backward" << endl;
-#endif
                 
                 if (go_left) {
                     // We want predecessors of the reverse version (successors, but flipped)
@@ -973,11 +954,15 @@ namespace vg {
                 if (go_left) {
                     // We want the predecessors
                     
-                    // Get the real predecessors
-                    if (!graph->follow_edges(handle, true, handle_edge)) {
-                        // Iteratee is done
-                        return false;
+                    if (!use_internal_connectivity) {
+                        // We treat this as a normal node
+                        // Get the real predecessors
+                        if (!graph->follow_edges(handle, true, handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
                     }
+                    // Otherwise just think about what we can traverse to (i.e. nothing)
                     
                     // Can't read a forward oriented unary boundary as a
                     // predecessor, so no need to support read through.
@@ -1009,9 +994,11 @@ namespace vg {
                     }
                     
                 } else {
-                    if (!graph->follow_edges(handle, false, flip_and_handle_edge)) {
-                        // Iteratee is done
-                        return false;
+                    if (!use_internal_connectivity) {
+                        if (!graph->follow_edges(handle, false, flip_and_handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
                     }
                 }
             
@@ -1027,7 +1014,6 @@ namespace vg {
         // Otherwise, this is an ordinary snarl content node
         return graph->follow_edges(handle, go_left, handle_edge);
     }
-#undef debug
     
     void NetGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
         // Find all the handles by a traversal.
