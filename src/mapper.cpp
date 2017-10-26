@@ -2413,12 +2413,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double mem_read_ratio2 = min(1.0, (double)total_mem_length2 / (double)read2.sequence().size());
     double mqmax1 = max_mapping_quality;
     double mqmax2 = max_mapping_quality;
-    // calculate paired end quality if the model assumptions are not obviously violated
+    // calculate paired end quality if the model assumptions are not seriously violated
     if (results.first.size() && results.second.size()
-        // catch a particular case where we've filtered out possible alternative alignments and we only have one candidate
-        && (fraction_filtered1 < 0.1 && fraction_filtered2 < 0.1 && maybe_mq1 > 1 && maybe_mq2 > 1
-            && max_first && (mem_read_ratio1 > 0.5 || mem_read_ratio2 > 0.5)
-            || possible_pairs > 1)
         && pair_consistent(results.first.front(), results.second.front(), 1e-6)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, mqmax1, mqmax2);
     } else {
