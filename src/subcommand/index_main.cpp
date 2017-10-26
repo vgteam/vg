@@ -1,4 +1,4 @@
-// index.cpp: define the "vg index" subcommand, which makes xg, GCSA2, and RocksDB indexes
+// index.cpp: define the "vg index" subcommand, which makes xg, GCSA2, GBWT, and RocksDB indexes
 
 #include <omp.h>
 #include <unistd.h>
@@ -19,6 +19,7 @@
 
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
+#include <gbwt/dynamic_gbwt.h>
 
 using namespace std;
 using namespace vg;
@@ -35,6 +36,7 @@ void help_index(char** argv) {
          << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
+         << "    -G, --gbwt-name FILE   write the paths generated from the VCF file as GBWT to FILE (don't write gPBWT)" << endl
          << "    -H, --write-haps FILE  write the paths generated from the VCF file in binary to FILE (don't write gPBWT)" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
@@ -96,6 +98,7 @@ int main_index(int argc, char** argv) {
 
     string rocksdb_name;
     string gcsa_name;
+    string gbwt_name;
     string xg_name;
     // Where should we import haplotype phasing paths from, if anywhere?
     string vcf_name;
@@ -163,12 +166,13 @@ int main_index(int argc, char** argv) {
             {"node-alignments", no_argument, 0, 'N'},
             {"dbg-in", required_argument, 0, 'i'},
             {"discard-overlaps", no_argument, 0, 'o'},
+            {"gbwt-name", required_argument, 0, 'G'},
             {"write-haps", required_argument, 0, 'H'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNoH:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNoG:H:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -187,6 +191,10 @@ int main_index(int argc, char** argv) {
 
         case 'v':
             vcf_name = optarg;
+            break;
+
+        case 'G':
+            gbwt_name = optarg;
             break;
 
         case 'H':
@@ -424,6 +432,16 @@ int main_index(int argc, char** argv) {
         // much as a real vg::Paths index or vector<Path> would)
         vector<xg::XG::thread_t> all_phase_threads;
 
+        // If we're going to build GBWT, we buffer the threads in a different
+        // structure and discard them after they have been inserted.
+        gbwt::DynamicGBWT gbwt_index;
+        std::vector<gbwt::node_type> gbwt_buffer; // FIXME gbwt::text_type would be smaller if we knew the size in advance.
+        if (!gbwt_name.empty()) {
+            // Configure GBWT verbosity so it doesn't spit out loads of extra info
+            if (!show_progress) { gbwt::Verbosity::set(gbwt::Verbosity::SILENT); }
+            gbwt_buffer.reserve(gbwt::DynamicGBWT::INSERT_BATCH_SIZE);
+        }
+
         if (variant_file.is_open()) {
             // Now go through and add the varaints.
 
@@ -492,7 +510,20 @@ int main_index(int argc, char** argv) {
                         // Copy the thread over to our batch that we GPBWT all
                         // at once, exploiting the fact that VCF-derived graphs
                         // are DAGs.
-                        all_phase_threads.push_back(to_save);
+                        // If we are building GBWT, we may have to insert the
+                        // batch if there is no space for the thread.
+                        if (gbwt_name.empty()) {
+                            all_phase_threads.push_back(to_save);
+                        } else {
+                            if (gbwt_buffer.size() + to_save.size() + 1 > gbwt_buffer.capacity()) {
+                                gbwt_index.insert(gbwt_buffer);
+                                gbwt_buffer.clear();
+                            }
+                            for (auto mapping : to_save) {
+                                gbwt_buffer.push_back(2 * mapping.node_id + mapping.is_reverse);
+                            }
+                            gbwt_buffer.push_back(gbwt::ENDMARKER);
+                        }
 
                         // Clear it out for re-use
                         to_save.clear();
@@ -890,6 +921,13 @@ int main_index(int argc, char** argv) {
                     cerr << "could not write binary haplotypes to " << binary_haplotype_output << endl;
                     return 1;
                 }
+            } else if (!gbwt_name.empty()) {
+                // FIXME We are ignoring thread names here.
+                if (!gbwt_buffer.empty()) {
+                    gbwt_index.insert(gbwt_buffer);
+                    gbwt_buffer.clear();
+                }
+                sdsl::store_to_file(gbwt_index, gbwt_name);
             } else {
                 // XXX todo make the names here
                 index.insert_threads_into_dag(all_phase_threads, thread_names);
