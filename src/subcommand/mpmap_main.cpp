@@ -852,7 +852,7 @@ int main_mpmap(int argc, char** argv) {
             }
         }
         else {
-            cerr << "warning:[vg mpmap] Could not find " << frag_length_sample_size << " unambiguous read pair mappings to estimate fragment length ditribution. Mapping read pairs as independent single ended reads. Consider decreasing sample size (-b)." << endl;
+            cerr << "warning:[vg mpmap] Could not find " << frag_length_sample_size << " unambiguous read pair mappings to estimate fragment length ditribution. Mapping read pairs as independent single-ended reads. Consider decreasing sample size (-b)." << endl;
             
 #pragma omp parallel for
             for (size_t i = 0; i < ambiguous_pair_buffer.size(); i++) {

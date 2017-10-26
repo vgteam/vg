@@ -402,18 +402,22 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "rescued alignment is " << pb2json(rescue_multipath_aln) << endl;
 #endif
-        
         return (raw_mapq >= min(25, max_mapping_quality)
-                && random_match_p_value(aln.score() / (get_aligner()->match * 2), multipath_aln.sequence().size()) < 0.005);
+                && random_match_p_value(score_pseudo_length(aln.score()), multipath_aln.sequence().size()) < 0.005);
     }
     
     bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) const {
 #ifdef debug_multipath_mapper
-        cerr << "effective match length of " << multipath_aln.name() << " is " << optimal_alignment_score(multipath_aln) / (get_aligner()->match * 2) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(optimal_alignment_score(multipath_aln) / (get_aligner()->match * 2), multipath_aln.sequence().size()) << endl;
+        cerr << "effective match length of " << multipath_aln.name() << " is " << score_pseudo_length(optimal_alignment_score(multipath_aln)) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(score_pseudo_length(optimal_alignment_score(multipath_aln)), multipath_aln.sequence().size()) << endl;
 #endif
         
-        // a "pseudo-length" based on the score, empirically, scaling it down seems to give better results
-        return random_match_p_value(optimal_alignment_score(multipath_aln) / (get_aligner()->match * 2), multipath_aln.sequence().size()) > 0.05;
+        return random_match_p_value(score_pseudo_length(optimal_alignment_score(multipath_aln)), multipath_aln.sequence().size()) > 0.05;
+    }
+    
+    size_t MultipathMapper::score_pseudo_length(int32_t score) const {
+        const BaseAligner* aligner = get_aligner();
+        // empirically, scaling it down seems to give better results
+        return score * aligner->log_base / (3 * aligner->match);
     }
     
     double MultipathMapper::random_match_p_value(size_t match_length, size_t read_length) const {
@@ -481,7 +485,6 @@ namespace vg {
             && multipath_alns_2.front().mapping_quality() >= min(25, max_mapping_quality)) {
             
             // we are able to obtain confident matches that satisfy the pairing constraints
-            
 #ifdef debug_multipath_mapper
             cerr << "found consistent, confident pair mapping from independent end mapping" << endl;
 #endif
@@ -501,10 +504,10 @@ namespace vg {
             MultipathAlignment rescue_multipath_aln_1, rescue_multipath_aln_2;
             bool rescued_forward = false;
             bool rescued_backward = false;
-            if (!multipath_alns_1.empty()) {
+            if (!multipath_alns_1.empty() && !likely_mismapping(multipath_alns_1.front())) {
                 rescued_forward = attempt_rescue(multipath_alns_1.front(), alignment2, true, rescue_multipath_aln_2);
             }
-            if (!multipath_alns_2.empty()) {
+            if (!multipath_alns_2.empty() && !likely_mismapping(multipath_alns_2.front())) {
                 rescued_backward = attempt_rescue(multipath_alns_2.front(), alignment1, false, rescue_multipath_aln_1);
             }
             
@@ -969,7 +972,6 @@ namespace vg {
             multipath_aln_pair.first.set_paired_read_name(multipath_aln_pair.second.name());
             multipath_aln_pair.second.set_paired_read_name(multipath_aln_pair.first.name());
         }
-        
     }
     
     void MultipathMapper::split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out) const {

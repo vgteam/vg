@@ -184,6 +184,9 @@ namespace vg {
         /// Would an alignment this good be expected against a graph this big by chance alone
         bool likely_mismapping(const MultipathAlignment& multipath_aln) const;
         
+        /// A scaling of a score so that it approximately follows the distribution of the longest match in p-value test
+        size_t score_pseudo_length(int32_t score) const;
+        
         /// The approximate p-value for a match length of the given size against the current graph
         double random_match_p_value(size_t match_length, size_t read_length) const;
         
