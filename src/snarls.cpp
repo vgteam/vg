@@ -740,6 +740,11 @@ namespace vg {
     bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
         // Now we do the real work.
         
+#ifdef debug
+        cerr << "Look for edges on " << graph->get_id(handle) << " " << graph->get_is_reverse(handle)
+            << " going " << (go_left ? "left" : "right") << endl;
+#endif
+        
         // We also need to deduplicate edges. Maybe the start and end of a chain
         // connect to the same next node, and we could read out both traversing
         // the chain.
@@ -753,24 +758,46 @@ namespace vg {
             // the start of that chain in a reverse direction.
             handle_t real_handle = chain_end_rewrites.count(other) ? chain_end_rewrites.at(other) : other;
             
+#ifdef debug
+            cerr << "Found edge to " << graph->get_id(other) << " " << graph->get_is_reverse(other) << endl;
+#endif
+            
             if (!seen.count(real_handle)) {
                 seen.insert(real_handle);
-                return iteratee(real_handle);
+                // If we were going left, everything is flipped.
+                handle_t to_report = go_left ? graph->flip(real_handle) : real_handle;
+                
+#ifdef debug
+                cerr << "Report as " << graph->get_id(to_report) << " " << graph->get_is_reverse(to_report) << endl;
+#endif
+                
+                return iteratee(to_report);
             } else {
+                cerr << "Edge has been seen" << endl;
                 return true;
             }
         };
         
         // Make a handle that's oriented a consistent way. We know we will look right from here.
+        // But if we were really supposed to go left we'll have to flip the results.
         handle_t here = go_left ? graph->flip(handle) : handle;
         
         if (here == end || here == graph->flip(start)) {
             // If the handle is the end, or the reverse of the start, don't admit to having any rightward edges.
+            
+#ifdef debug
+            cerr << "We are at the bound of the graph so don't say anything" << endl;
+#endif
             return true;
         }
         
         if (chain_ends_by_start.count(here)) {
             // If we have an associated chain end for this start, we have to use chain connectivity to decide what to do.
+            
+#ifdef debug
+            cerr << "We are at the end of a chain" << endl;
+#endif
+            
             bool connected_start_start;
             bool connected_end_end;
             bool connected_start_end;
@@ -798,6 +825,10 @@ namespace vg {
         if (chain_ends_by_start.count(graph->flip(here))) {
             // We are at the start of the chain, but reading out of the chain.
             // Basically we came to the chain's end, got warped to the start, and now we want to continue.
+            
+#ifdef debug
+            cerr << "We are at the start of a chain" << endl;
+#endif
             
             // We have to use chain connectivity to decide what to do.
             bool connected_start_start;
@@ -835,6 +866,10 @@ namespace vg {
         if (unary_boundaries.count(here)) {
             // We are reading into a unary snarl
             
+#ifdef debug
+            cerr << "We are looking into a unary snarl" << endl;
+#endif
+            
             // We have to use chain connectivity to decide what to do.
             bool connected_start_start;
             bool connected_end_end;
@@ -861,6 +896,10 @@ namespace vg {
         if (unary_boundaries.count(graph->flip(here))) {
             // We are reading out of a unary snarl.
             
+#ifdef debug
+            cerr << "We are looking out of a unary snarl" << endl;
+#endif
+            
             // TODO: this is different than with normal snarls where reading out of = reading through the other way.
             
             // We already checked if we would be reading off the start or end of the graph.
@@ -872,6 +911,10 @@ namespace vg {
             }
             return true;
         }
+        
+#ifdef debug
+        cerr << "We are an ordinary node" << endl;
+#endif
         
         // Otherwise, this is an ordinary snarl content node
         return graph->follow_edges(here, false, handle_edge);
