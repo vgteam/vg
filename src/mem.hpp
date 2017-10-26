@@ -34,7 +34,7 @@ public:
     int fragment;
     bool primary; // if not a sub-MEM
     std::vector<gcsa::node_type> nodes;
-    map<string, vector<size_t> > positions;
+    map<string, vector<pair<size_t, bool> > > positions;
     
     MaximalExactMatch(string::const_iterator b,
                       string::const_iterator e,
@@ -78,8 +78,8 @@ bool clusters_overlap_in_graph(const vector<MaximalExactMatch>& cluster1,
                                const vector<MaximalExactMatch>& cluster2);
 vector<pos_t> cluster_nodes(const vector<MaximalExactMatch>& cluster);
 
-// returns the min distance implied by the position annotations on the mems
-int64_t mem_min_distance(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
+// returns the min distance and the relative orientation implied by the position annotations on the mems
+pair<int64_t, bool> mem_min_distance(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
 
 
 }

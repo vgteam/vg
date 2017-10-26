@@ -15,7 +15,7 @@ MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
     const vector<vector<MaximalExactMatch> >& matches,
     const function<int64_t(pos_t)>& approx_position,
-    const function<map<string, vector<size_t> >(pos_t)>& path_position,
+    const function<map<string, vector<pair<size_t, bool> > >(pos_t)>& path_position,
     const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
     int band_width,
     int position_depth,
@@ -37,7 +37,7 @@ MEMChainModel::MEMChainModel(
                 m.prev = nullptr;
                 m.score = 0;
                 m.mem.positions = path_position(pos);
-                m.mem.positions[""].push_back(approx_position(pos));
+                m.mem.positions[""].push_back(make_pair(approx_position(pos), is_rev(pos)));
                 m.mem.nodes.clear();
                 m.mem.nodes.push_back(node);
                 m.mem.fragment = frag_n;
@@ -51,7 +51,7 @@ MEMChainModel::MEMChainModel(
         for (auto& chr : v->mem.positions) {
             auto& chr_positions = positions[chr.first];
             for (auto& pos : chr.second) {
-                chr_positions[pos].push_back(v);
+                chr_positions[pos.first].push_back(v);
             }
         }
     }

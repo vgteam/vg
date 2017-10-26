@@ -1830,9 +1830,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         mq_cap1 = maybe_pair_mq;
         mq_cap2 = maybe_pair_mq;
     }
-    if (maybe_pair_mq > max_mapping_quality) {
-        total_multimaps = max(max(min_multimaps, max_multimaps), (int)round(min_multimaps*ceil(total_multimaps/maybe_pair_mq)));
-    }
+    // scale our effort by our estimated mapping quality
+    total_multimaps = max(max(min_multimaps, max_multimaps), (int)round(min_multimaps*ceil(total_multimaps/maybe_pair_mq)));
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << endl;
     if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << endl;
 
@@ -1867,7 +1866,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
             int64_t max_length = frag_stats.fragment_max;
-            int64_t approx_dist = mem_min_distance(m1, m2); //graph_mixed_distance_estimate(m1_pos, m2_pos, 0); // use graph/path based estimate here
+            pair<int64_t, bool> d = mem_min_distance(m1, m2);
+            int64_t approx_dist = d.first;
+            bool same_orientation = d.second;
+            /*// could be expensive for pairs
+            if (approx_dist < max_length) {
+                approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
+            }
+            */
 #ifdef debug_mapper
 #pragma omp critical
             {
@@ -1896,10 +1902,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 } else if (frag_stats.fragment_size) {
                     // TODO correctly use directionality information provided by path positions
                     // exclude cases that don't match our model
-                    if (!frag_stats.cached_fragment_orientation
-                        && is_rev(m1_pos) == is_rev(m2_pos)
-                        || frag_stats.cached_fragment_orientation
-                        && is_rev(m1_pos) != is_rev(m2_pos)
+                    if (frag_stats.cached_fragment_orientation != same_orientation
                         || approx_dist > frag_stats.fragment_size) {
 #ifdef debug_mapper
 #pragma omp critical
@@ -1943,7 +1946,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // find the difference in m1.end and m2.begin
             // find the positional difference in the graph between m1.end and m2.begin
             int duplicate_coverage = mems_overlap_length(m1, m2);
-            int64_t approx_dist = mem_min_distance(m1, m2); //graph_mixed_distance_estimate(m1_pos, m2_pos, m1.length() + m2.length());
+            //int64_t approx_dist = mem_min_distance(m1, m2); //graph_mixed_distance_estimate(m1_pos, m2_pos, m1.length() + m2.length());
+            pair<int64_t, bool> d = mem_min_distance(m1, m2);
+            int64_t approx_dist = d.first;
+            bool same_orientation = d.second;
+            /*if (approx_dist < 32) {
+                approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
+                }*/
 #ifdef debug_mapper
 #pragma omp critical
             {
@@ -1980,7 +1989,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 #endif
                     return -std::numeric_limits<double>::max();
                 }
-                if (is_rev(m1_pos) != is_rev(m2_pos)) {
+                if (!same_orientation) {
                     // disable inversions
                     // TODO: shouldn't we be using cached_fragment_orientation like in the two-node case???
                     
@@ -2040,8 +2049,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               [&](pos_t n) -> int64_t {
                                   return approx_position(n);
                               },
-                              [&](pos_t n) -> map<string, vector<size_t> > {
-                                  return xindex->position_in_paths(id(n), is_rev(n), offset(n));
+                              [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
+                                  return xindex->offsets_in_paths(n);
                               },
                               transition_weight,
                               band_width);
@@ -2681,11 +2690,8 @@ Mapper::align_mem_multi(const Alignment& aln,
     if (maybe_mq < maybe_mq_threshold) {
         mq_cap = maybe_mq;
     }
-    // treat the case where we have > our max mapping quality slightly differently
-    //total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_mq));
-    if (maybe_mq > max_mapping_quality) {
-        total_multimaps = max(max(min_multimaps, max_multimaps), (int)round(min_multimaps*ceil(total_multimaps/maybe_mq)));
-    }
+    // scale our effort by our estimated mapping quality
+    total_multimaps = max(max(min_multimaps, max_multimaps), (int)round(min_multimaps*ceil(total_multimaps/maybe_mq)));
     if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " min mem length: " << min_mem_length << " longest LCP: " << longest_lcp << endl;
 
     double avg_node_len = average_node_length();
@@ -2698,8 +2704,12 @@ Mapper::align_mem_multi(const Alignment& aln,
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
         int64_t max_length = aln.sequence().size();
-        int64_t approx_dist = mem_min_distance(m1, m2);
-        
+        pair<int64_t, bool> d = mem_min_distance(m1, m2);
+        int64_t approx_dist = d.first;
+        bool same_orientation = d.second;
+        /*if (approx_dist < 32 && same_orientation) {
+            approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
+            }*/
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -2710,7 +2720,7 @@ Mapper::align_mem_multi(const Alignment& aln,
             // too far
             return -std::numeric_limits<double>::max();
         } else {
-            if (is_rev(m1_pos) != is_rev(m2_pos)) {
+            if (!same_orientation) {
                 // disable inversions
                 return -std::numeric_limits<double>::max();
             } else {
@@ -2734,8 +2744,8 @@ Mapper::align_mem_multi(const Alignment& aln,
                               [&](pos_t n) {
                                   return approx_position(n);
                               },
-                              [&](pos_t n) -> map<string, vector<size_t> > {
-                                  return xindex->position_in_paths(id(n), is_rev(n), offset(n));
+                              [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
+                                  return xindex->offsets_in_paths(n);
                               },
                               transition_weight,
                               aln.sequence().size());
