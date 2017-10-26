@@ -560,83 +560,94 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     
     // Otherwise, we care about type and connectivity.
 
-    cerr << "Determine connectivity and type with net graph" << endl;
+    {
 
-    // Make a net graph for the snarl.
-    NetGraph net_graph(start, end, child_chains, child_unary_snarls, &graph);
-    
-    // Evaluate connectivity
-    // A snarl is minimal, so we know out start and end will be normal nodes.
-    handle_t start_handle = net_graph.get_handle(start.node_id(), start.backward());
-    handle_t end_handle = net_graph.get_handle(end.node_id(), end.backward());
-    
-    // Start out by assuming we aren't connected
-    bool connected_start_start = false;
-    bool connected_end_end = false;
-    bool connected_start_end = false;
-    
-    // We do a couple of direcred walk searches to test connectivity.
-    list<handle_t> queue{start_handle};
-    unordered_set<handle_t> queued{start_handle};
-    auto handle_edge = [&](const handle_t& other) {
-        // Whenever we see a new node orientation, queue it.
-        if (!queued.count(other)) {
-            queue.push_back(other);
-            queued.insert(other);
-        }
-    };
-    
-    while (!queue.empty()) {
-        handle_t here = queue.front();
-        queue.pop_front();
+        // Make a net graph for the snarl that uses internal connectivity
+        NetGraph connectivity_net_graph(start, end, child_chains, child_unary_snarls, &graph, true);
         
-        if (here == end_handle) {
-            // Start can reach the end
-            connected_start_end = true;
+        // Evaluate connectivity
+        // A snarl is minimal, so we know out start and end will be normal nodes.
+        handle_t start_handle = connectivity_net_graph.get_handle(start.node_id(), start.backward());
+        handle_t end_handle = connectivity_net_graph.get_handle(end.node_id(), end.backward());
+        
+        // Start out by assuming we aren't connected
+        bool connected_start_start = false;
+        bool connected_end_end = false;
+        bool connected_start_end = false;
+        
+        // We do a couple of direcred walk searches to test connectivity.
+        list<handle_t> queue{start_handle};
+        unordered_set<handle_t> queued{start_handle};
+        auto handle_edge = [&](const handle_t& other) {
+            // Whenever we see a new node orientation, queue it.
+            if (!queued.count(other)) {
+                queue.push_back(other);
+                queued.insert(other);
+            }
+        };
+        
+        while (!queue.empty()) {
+            handle_t here = queue.front();
+            queue.pop_front();
+            
+            if (here == end_handle) {
+                // Start can reach the end
+                connected_start_end = true;
+            }
+            
+            if (here == connectivity_net_graph.flip(start_handle)) {
+                // Start can reach itself the other way around
+                connected_start_start = true;
+            }
+            
+            if (connected_start_end && connected_start_start) {
+                // No more searching needed
+                break;
+            }
+            
+            // Look at everything reachable on a proper rightward directed walk.
+            connectivity_net_graph.follow_edges(here, false, handle_edge);
         }
         
-        if (here == net_graph.flip(start_handle)) {
-            // Start can reach itself the other way around
-            connected_start_start = true;
+        // Reset and search the other way from the end to see if it can find itself.
+        queue = {connectivity_net_graph.flip(end_handle)};
+        queued = {connectivity_net_graph.flip(end_handle)};
+        while (!queue.empty()) {
+            handle_t here = queue.front();
+            queue.pop_front();
+            
+            if (here == end_handle) {
+                // End can reach itself the other way around
+                connected_end_end = true;
+                break;
+            }
+            
+            // Look at everything reachable on a proper rightward directed walk.
+            connectivity_net_graph.follow_edges(here, false, handle_edge);
         }
         
-        if (connected_start_end && connected_start_start) {
-            // No more searching needed
-            break;
-        }
+        // Save the connectivity info. TODO: should the connectivity flags be
+        // calculated based on just the net graph, or based on actual connectivity
+        // within child snarls.
+        snarl.set_start_self_reachable(connected_start_start);
+        snarl.set_end_self_reachable(connected_end_end);
+        snarl.set_start_end_reachable(connected_start_end);
         
-        // Look at everything reachable on a proper rightward directed walk.
-        net_graph.follow_edges(here, false, handle_edge);
+        cerr << "Connectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
+
+        
+    
     }
     
-    // Reset and search the other way from the end to see if it can find itself.
-    queue = {net_graph.flip(end_handle)};
-    queued = {net_graph.flip(end_handle)};
-    while (!queue.empty()) {
-        handle_t here = queue.front();
-        queue.pop_front();
+    {
+        // Determine cyclicity/acyclicity
+    
+        // Make a net graph that just pretends child snarls/chains are ordinary nodes
+        NetGraph flat_net_graph(start, end, child_chains, child_unary_snarls, &graph);
         
-        if (here == end_handle) {
-            // End can reach itself the other way around
-            connected_end_end = true;
-            break;
-        }
-        
-        // Look at everything reachable on a proper rightward directed walk.
-        net_graph.follow_edges(here, false, handle_edge);
+        // This definitely should be calculated based on the internal-connectivity-ignoring net graph.
+        snarl.set_directed_acyclic_net_graph(algorithms::is_directed_acyclic(&flat_net_graph));
     }
-    
-    // Save the connectivity info. TODO: should the connectivity flags be
-    // calculated based on just the net graph, or based on actual connectivity
-    // within child snarls.
-    snarl.set_start_self_reachable(connected_start_start);
-    snarl.set_end_self_reachable(connected_end_end);
-    snarl.set_start_end_reachable(connected_start_end);
-    
-    cerr << "Connectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
-
-    // This definitely should be calculated based on the internal-connectivity-ignoring net graph.
-    snarl.set_directed_acyclic_net_graph(algorithms::is_directed_acyclic(&net_graph));
 
     // Now we need to work out if the snarl can be a unary snarl or an ultrabubble or what.
     if (start.node_id() == end.node_id()) {
@@ -647,11 +658,11 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         // Can't be an ultrabubble if we have unary children
         snarl.set_type(UNCLASSIFIED);
         cerr << "Snarl is UNCLASSIFIED because it has unary children" << endl;
-    } else if (!connected_start_end) {
+    } else if (!snarl.start_end_reachable()) {
         // Can't be an ultrabubble if we're not connected through.
         snarl.set_type(UNCLASSIFIED);
         cerr << "Snarl is UNCLASSIFIED because it doesn't connect through" << endl;
-    } else if (connected_start_start || connected_end_end) {
+    } else if (snarl.start_self_reachable() || snarl.end_self_reachable()) {
         // Can't be an ultrabubble if we have these cycles
         snarl.set_type(UNCLASSIFIED);
         cerr << "Snarl is UNCLASSIFIED because it allows turning around, creating a directed cycle" << endl;

@@ -613,10 +613,12 @@ namespace vg {
     
     NetGraph::NetGraph(const Visit& start, const Visit& end,
         const vector<vector<Snarl>>& child_chains,
-        const vector<Snarl>& child_unary_snarls, const HandleGraph* graph) : 
+        const vector<Snarl>& child_unary_snarls, const HandleGraph* graph,
+        bool use_internal_connectivity) : 
+        graph(graph),
         start(graph->get_handle(start.node_id(), start.backward())),
         end(graph->get_handle(end.node_id(), end.backward())),
-        graph(graph) {
+        use_internal_connectivity(use_internal_connectivity) {
         
         for (auto& unary : child_unary_snarls) {
             // For each unary snarl, make its bounding handle
@@ -632,9 +634,14 @@ namespace vg {
             // Save it as a unary snarl
             unary_boundaries.insert(snarl_bound);
             
-            // Save its connectivity
-            connectivity[snarl_id] = make_tuple(unary.start_self_reachable(), unary.end_self_reachable(),
-                unary.start_end_reachable());
+            if (use_internal_connectivity) {
+                // Save its connectivity
+                connectivity[snarl_id] = make_tuple(unary.start_self_reachable(), unary.end_self_reachable(),
+                    unary.start_end_reachable());
+            } else {
+                // Use the connectivity of an ordinary node
+                connectivity[snarl_id] = make_tuple(false, false, true);
+            }
         }
         
         for (auto& chain : child_chains) {
@@ -646,46 +653,55 @@ namespace vg {
             chain_ends_by_start[chain_start] = chain_end;
             chain_end_rewrites[graph->flip(chain_end)] = graph->flip(chain_start);
             
-            // Determine child snarl connectivity.
-            bool connected_left_left = false;
-            bool connected_right_right = false;
-            bool connected_left_right = true;
+            if (use_internal_connectivity) {
             
-            for (auto it = chain.begin(); it != chain.end(); ++it) {
-                // Go through the child snarls from left to right
-                auto& child = *it;
+                // Determine child snarl connectivity.
+                bool connected_left_left = false;
+                bool connected_right_right = false;
+                bool connected_left_right = true;
                 
-                if (child.start_self_reachable()) {
-                    // We found a turnaround
-                    connected_left_left = true;
+                for (auto it = chain.begin(); it != chain.end(); ++it) {
+                    // Go through the child snarls from left to right
+                    auto& child = *it;
+                    
+                    if (child.start_self_reachable()) {
+                        // We found a turnaround
+                        connected_left_left = true;
+                    }
+                    
+                    if (!child.start_end_reachable()) {
+                        // There's an impediment to getting through.
+                        connected_left_right = false;
+                        // Don't keep looking for turnarounds
+                        break;
+                    }
                 }
                 
-                if (!child.start_end_reachable()) {
-                    // There's an impediment to getting through.
-                    connected_left_right = false;
-                    // Don't keep looking for turnarounds
-                    break;
+                for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+                    // Go through the child snarls from right to left
+                    auto& child = *it;
+                    
+                     if (child.end_self_reachable()) {
+                        // We found a turnaround
+                        connected_left_left = true;
+                        break;
+                    }
+                    
+                    if (!child.start_end_reachable()) {
+                        // Don't keep looking for turnarounds
+                        break;
+                    }
                 }
+                
+                // Save the connectivity
+                connectivity[graph->get_id(chain_start)] = tie(connected_left_left, connected_right_right, connected_left_right);
+            } else {
+                // Use the connectivity of an ordinary node that has a different
+                // other side. Don't set connected_start_end because, for a real
+                // unary snarl, the end and the start are the same, so that
+                // means you can turn aroiund.
+                connectivity[graph->get_id(chain_start)] = make_tuple(false, false, false);
             }
-            
-            for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
-                // Go through the child snarls from right to left
-                auto& child = *it;
-                
-                 if (child.end_self_reachable()) {
-                    // We found a turnaround
-                    connected_left_left = true;
-                    break;
-                }
-                
-                if (!child.start_end_reachable()) {
-                    // Don't keep looking for turnarounds
-                    break;
-                }
-            }
-            
-            // Save the connectivity
-            connectivity[graph->get_id(chain_start)] = tie(connected_left_left, connected_right_right, connected_left_right);
         }
     }
     
@@ -723,10 +739,6 @@ namespace vg {
     
     bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
         // Now we do the real work.
-        
-        // TODO: we should know that our start and end can never also be the
-        // start or end of a chain or child snarl, because of snarl minimality.
-        // So we can delete a bunch of checks for that.
         
         // We also need to deduplicate edges. Maybe the start and end of a chain
         // connect to the same next node, and we could read out both traversing
@@ -830,7 +842,7 @@ namespace vg {
             tie(connected_start_start, connected_end_end, connected_start_end) = connectivity.at(graph->get_id(here));
             
             if ((connected_start_start || connected_end_end || connected_start_end) && here != start && here != graph->flip(end)) {
-                // All of the connectivity flags are the same thing for a unary snarl.
+                // All of the connectivity flags are the same thing for a unary snarl, because the start is an end.
                 
                 // We read into this unary snarl and we want the connectivity out the right of this node.
                 // So we get the connectivity out the left.

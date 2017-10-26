@@ -156,20 +156,27 @@ namespace vg {
      * A chain node connects on its left to everything connected to its first
      * start and on its right to everything connected to its last end.
      *
+     * A unary snarl becomes a single node, too. It is identified by its
+     * boundary node's ID.
+     *
+     * If you're not using internal connectivity, a chain node or a unary snarl
+     * node behaves just like an ordinary node.
+     *
+     * If you are using internal connectivity, edges are slightly faked:
+     *
      * A chain node also sees out its right everything that is out its left if
      * it has a left-left connected snarl before any disconnected snarl.
      *
      * And similarly for the mirror case.
      *
-     * A unary child snarl becomes a node as well, identified by its boundary
-     * node's ID. All the edges on either side of the node are the same.
+     * All the edges on either side of a unary snarl node are the same.
      * 
      */
     class NetGraph : public HandleGraph {
     public:
         /// Make a new NetGraph from the given chains and unary snarls in the given backing graph.
         NetGraph(const Visit& start, const Visit& end, const vector<vector<Snarl>>& child_chains,
-            const vector<Snarl>& child_unary_snarls, const HandleGraph* graph);
+            const vector<Snarl>& child_unary_snarls, const HandleGraph* graph, bool use_internal_connectivity = false);
     
         /// Look up the handle for the node with the given ID in the given orientation
         virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
@@ -217,6 +224,10 @@ namespace vg {
         // And the start and end handles that bound the snarl we are working on.
         handle_t start;
         handle_t end;
+        
+        // Should we use the internal connectivity of chain nodes and unary
+        // snarl nodes?
+        bool use_internal_connectivity;
     
         // We keep the unary snarl boundaries, reading in with the unary snarl
         // contents to the right.
