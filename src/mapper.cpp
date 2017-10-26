@@ -2823,7 +2823,7 @@ Mapper::align_mem_multi(const Alignment& aln,
             used_clusters.push_back(&cluster);
             continue;
         }
-        Alignment candidate = align_cluster(aln, cluster, false);
+        Alignment candidate = align_cluster(aln, cluster, true);
         string sig = signature(candidate);
 
 #ifdef debug_mapper
@@ -2885,12 +2885,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         int i = 0;
         for ( ; i < min((int)aln_ptrs.size(), keep_multimaps); ++i) {
             Alignment* alnp = aln_ptrs.at(i);
-            // only realign if we haven't yet
-            if (!alignment_to_length(*alnp)) {
-                auto& cluster = *used_clusters.at(aln_index.at(alnp));
-                Alignment candidate = align_cluster(aln, cluster, true);
-                best_alns.push_back(candidate);
-            }
+            best_alns.push_back(*alnp);
         }
         for ( ; i < aln_ptrs.size(); ++i) {
             best_alns.push_back(*aln_ptrs[i]);
