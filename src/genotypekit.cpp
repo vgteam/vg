@@ -443,7 +443,9 @@ SnarlManager CactusSnarlFinder::find_snarls() {
     // Fill the list with all of the snarls, recursively.
     recursively_emit_snarls(Visit(), Visit(), nullptr, cactus_chains_list, cactus_unary_snarls_list, snarl_list);
     
+#ifdef debug
     cerr << "Found " << snarl_list.size() << " snarls including fake root" << endl;
+#endif
     
     // Pop off the fake root snarl
     assert(!snarl_list.empty());
@@ -465,8 +467,10 @@ SnarlManager CactusSnarlFinder::find_snarls() {
 
 const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, const Visit& end, const Snarl* parent,
     stList* chains_list, stList* unary_snarls_list, list<Snarl>& destination) {
-            
+        
+#ifdef debug    
     cerr << "Explore snarl " << start << " -> " << end << endl;
+#endif
             
     // Make a snarl for this snarl
     destination.emplace_back();
@@ -487,7 +491,9 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     // And a vector of child unary snarls
     vector<Snarl> child_unary_snarls;
     
+#ifdef debug
     cerr << "Look at " << stList_length(chains_list) << " child chains" << endl;
+#endif
     
     int chain_offset = 0;
     for (int64_t i = 0; i < stList_length(chains_list); i++) {
@@ -498,7 +504,9 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         child_chains.emplace_back();
         auto& chain = child_chains.back();
         
+#ifdef debug
         cerr << "Chain " << i << " has " << stList_length(cactus_chain) << " child snarls" << endl;
+#endif
         
         for (int64_t j = 0; j < stList_length(cactus_chain); j++) {
             // for each child snarl in the chain
@@ -525,7 +533,9 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         }
     }
     
+#ifdef debug
     cerr << "Look at " << stList_length(unary_snarls_list) << " child unary snarls" << endl;
+#endif
     
     for (int64_t i = 0; i < stList_length(unary_snarls_list); i++) {
         // for each child unary snarl
@@ -632,9 +642,10 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         snarl.set_start_self_reachable(connected_start_start);
         snarl.set_end_self_reachable(connected_end_end);
         snarl.set_start_end_reachable(connected_start_end);
-        
-        cerr << "Connectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
 
+#ifdef debug
+        cerr << "Connectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
+#endif
         
     
     }
@@ -653,19 +664,29 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     if (start.node_id() == end.node_id()) {
         // Snarl has the same start and end (or no start or end, in which case we don't care).
         snarl.set_type(UNARY);
+#ifdef debug
         cerr << "Snarl is UNARY" << endl;
+#endif
     } else if(!child_unary_snarls.empty()) {
         // Can't be an ultrabubble if we have unary children
         snarl.set_type(UNCLASSIFIED);
+#ifdef debug
         cerr << "Snarl is UNCLASSIFIED because it has unary children" << endl;
+#endif
     } else if (!snarl.start_end_reachable()) {
         // Can't be an ultrabubble if we're not connected through.
         snarl.set_type(UNCLASSIFIED);
+#ifdef debug
         cerr << "Snarl is UNCLASSIFIED because it doesn't connect through" << endl;
+#endif
     } else if (snarl.start_self_reachable() || snarl.end_self_reachable()) {
         // Can't be an ultrabubble if we have these cycles
         snarl.set_type(UNCLASSIFIED);
+        
+#ifdef debug
         cerr << "Snarl is UNCLASSIFIED because it allows turning around, creating a directed cycle" << endl;
+#endif
+
     } else {
         // See if we have all ultrabubble children
         bool all_ultrabubble_children = true;
@@ -686,16 +707,23 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         if (!all_ultrabubble_children) {
             // If we have non-ultrabubble children, we can't be an ultrabubble.
             snarl.set_type(UNCLASSIFIED);
+#ifdef debug
             cerr << "Snarl is UNCLASSIFIED because it has non-ultrabubble children" << endl;
+#endif
         } else if (!snarl.directed_acyclic_net_graph()) {
             // If all our children are ultrabubbles but we ourselves are cyclic, we can't be an ultrabubble
             snarl.set_type(UNCLASSIFIED);
+            
+#ifdef debug
             cerr << "Snarl is UNCLASSIFIED because it is not directed-acyclic" << endl;
+#endif
         } else {
             // We have only ultrabubble children and are acyclic.
             // We're an ultrabubble.
             snarl.set_type(ULTRABUBBLE);
+#ifdef debug
             cerr << "Snarl is an ULTRABUBBLE" << endl;
+#endif
         }
     }
 
