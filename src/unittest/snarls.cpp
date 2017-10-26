@@ -32,7 +32,7 @@ namespace vg {
                 graph.create_edge(n2, n4);
                 graph.create_edge(n3, n4);
                 
-                CactusUltrabubbleFinder bubble_finder(graph, "");
+                CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
             }
@@ -61,7 +61,7 @@ namespace vg {
                 Edge* e9 = graph.create_edge(n6, n7);
                 Edge* e10 = graph.create_edge(n7, n8);
                 
-                CactusUltrabubbleFinder bubble_finder(graph, "");
+                CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
@@ -134,7 +134,7 @@ namespace vg {
                 Edge* e10 = graph.create_edge(n7, n8);
                 Edge* e11 = graph.create_edge(n8, n9);
                 
-                CactusUltrabubbleFinder bubble_finder(graph, "");
+                CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
@@ -191,7 +191,7 @@ namespace vg {
                 Edge* e10 = graph.create_edge(n7, n8);
                 Edge* e11 = graph.create_edge(n8, n9);
                 
-                CactusUltrabubbleFinder bubble_finder(graph, "");
+                CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
