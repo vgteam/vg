@@ -1539,7 +1539,6 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
 }
 
 pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, int full_length_bonus, bool traceback) {
-    //traceback = true;
     auto pair_sig = signature(mate1, mate2);
     // bail out if we can't figure out how far to go
     bool rescued1 = false;
@@ -1609,6 +1608,9 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
                             << " vs " << mate2.score() << "/" << mate2.identity() << endl;
             if (aln2.score() > max_mate2_score && (double)aln2.score()/perfect_score > min_threshold && pair_consistent(mate1, aln2, accept_pval)) {
+                if (!traceback) { // now get the traceback
+                    aln2 = align_maybe_flip(mate2, graph, orientation, true);
+                }
                 if (debug) cerr << "rescued aln2 " << pb2json(aln2) << endl;
                 mate2 = aln2;
                 max_mate2_score = mate2.score();
@@ -1620,6 +1622,9 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
                             << " vs " << mate1.score() << "/" << mate1.identity() << endl;
             if (aln1.score() > max_mate1_score && (double)aln1.score()/perfect_score > min_threshold && pair_consistent(aln1, mate2, accept_pval)) {
+                if (!traceback) { // now get the traceback
+                    aln1 = align_maybe_flip(mate1, graph, orientation, true);
+                }
                 if (debug) cerr << "rescued aln1 " << pb2json(aln1) << endl;
                 mate1 = aln1;
                 max_mate1_score = mate1.score();
@@ -2164,7 +2169,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
         auto& p = alns.back();
         if (cluster1.size()) {
-            p.first = align_cluster(read1, cluster1, false);
+            p.first = align_cluster(read1, cluster1, true);
         } else {
             p.first = read1;
             p.first.clear_score();
@@ -2172,7 +2177,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_path();
         }
         if (cluster2.size()) {
-            p.second = align_cluster(read2, cluster2, false);
+            p.second = align_cluster(read2, cluster2, true);
         } else {
             p.second = read2;
             p.second.clear_score();
@@ -2309,7 +2314,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             auto& aln2 = p->second;
             int score1 = aln1.score();
             int score2 = aln2.score();
-            pair<bool, bool> rescues = pair_rescue(aln1, aln2, match, full_length_bonus, false);
+            pair<bool, bool> rescues = pair_rescue(aln1, aln2, match, full_length_bonus, true);
             rescued_aln[&aln1] = rescues.first;
             rescued_aln[&aln2] = rescues.second;
             rescued |= rescues.first || rescues.second;
@@ -2336,7 +2341,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int i = 0;
     bool rescored = false;
     bool rescued = false;
-    
+
     auto traceback_alns = [&](void) {
         rescored = false;
         rescued = false;
@@ -2353,8 +2358,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 auto cluster_ptr = cluster_ptrs[aln_index[p]];
                 auto s1 = aln1.score();
                 auto s2 = aln2.score();
-                if (rescued_aln[&aln1]) {
-                    assert(!alignment_to_length(aln1) && aln1.path().mapping(0).has_position());
+                if (rescued_aln[&aln1] && !alignment_to_length(aln1) && aln1.path().mapping(0).has_position()) {
                     // realign based on alignment end position
                     aln1 = realign_from_start_position(aln1, aln1.sequence().size()/1.61803, 0);
                 } else if (cluster_ptr.first != nullptr && cluster_ptr.first->size()) {
@@ -2362,8 +2366,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                         aln1 = align_cluster(read1, *cluster_ptr.first, true);
                     }
                 }
-                if (rescued_aln[&aln2]) {
-                    assert(!alignment_to_length(aln2) && aln2.path().mapping(0).has_position());
+                if (rescued_aln[&aln2] && !alignment_to_length(aln2) && aln2.path().mapping(0).has_position()) {
                     // realign based on alignment end position
                     aln2 = realign_from_start_position(aln2, aln2.sequence().size()/1.61803, 0);
                 } else if (cluster_ptr.second != nullptr && cluster_ptr.second->size()) {
@@ -2371,8 +2374,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                         aln2 = align_cluster(read2, *cluster_ptr.second, true);
                     }
                 }
-                //assert(aln1.score() >= s1);
-                //assert(aln2.score() >= s2);
                 if (aln1.score() > s1 || aln2.score() > s2) rescored = true;
                 // we can reassign based on paths to get a more accurate fragment estimate
                 aln1.clear_fragment();
