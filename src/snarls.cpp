@@ -804,8 +804,8 @@ namespace vg {
             tie(connected_start_start, connected_end_end, connected_start_end) = connectivity.at(graph->get_id(here));
             
             if (connected_start_start) {
-                // Look left out of the start of the chain
-                if (!graph->follow_edges(here, true, handle_edge)) {
+                // Look backward out of the start of the chain
+                if (!graph->follow_edges(graph->flip(here), false, handle_edge)) {
                     // Iteratee is done
                     return false;
                 }
@@ -837,7 +837,7 @@ namespace vg {
             tie(connected_start_start, connected_end_end, connected_start_end) = connectivity.at(graph->get_id(here));
             
             if (connected_end_end) {
-                // Look right out of the end of the chain
+                // Look forward out of the end of the chain
                 if (!graph->follow_edges(chain_ends_by_start.at(graph->flip(here)), false, handle_edge)) {
                     // Iteratee is done
                     return false;

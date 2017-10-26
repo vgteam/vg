@@ -15,7 +15,7 @@
 
 namespace vg {
     namespace unittest {
-        TEST_CASE( "NetGraph can allow traversal of a snarl's net graph",
+        TEST_CASE( "NetGraph can allow traversal of a simple net graph",
                   "[snarls][netgraph]" ) {
         
         
@@ -103,6 +103,156 @@ namespace vg {
                 }
                 
                 REQUIRE(edges.size() == 3);
+            }
+        
+        }
+        
+        TEST_CASE( "NetGraph can handle start-start connectivity",
+                  "[snarls][netgraph]" ) {
+        
+        
+            // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
+            // and a snarl from 3 to 5, all nested in each other.
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n8);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n6);
+            Edge* e5 = graph.create_edge(n3, n4);
+            // Add an extra reversing edge
+            Edge* eRev = graph.create_edge(n3, n3, false, true);
+            Edge* e6 = graph.create_edge(n3, n5);
+            Edge* e7 = graph.create_edge(n4, n5);
+            Edge* e8 = graph.create_edge(n5, n7);
+            Edge* e9 = graph.create_edge(n6, n7);
+            Edge* e10 = graph.create_edge(n7, n8);
+            
+            // Define the snarls for the top level
+            Snarl top_snarl;
+            top_snarl.mutable_start()->set_node_id(n1->id());
+            top_snarl.mutable_end()->set_node_id(n8->id());
+            
+            // We have a chain with a snarl in it
+            vector<vector<Snarl>> top_chains;
+            top_chains.emplace_back();
+            auto& top_chain1 = top_chains.back();
+            top_chain1.emplace_back();
+            auto& nested_snarl1 = top_chain1.back();
+            
+            // And that snarl has these characteristics
+            nested_snarl1.mutable_start()->set_node_id(n2->id());
+            nested_snarl1.mutable_end()->set_node_id(n7->id());
+            nested_snarl1.set_type(ULTRABUBBLE);
+            *nested_snarl1.mutable_parent() = top_snarl;
+            nested_snarl1.set_directed_acyclic_net_graph(true);
+            // Because we can reverse inside a child, we are start-start reachable
+            nested_snarl1.set_start_self_reachable(true);
+            nested_snarl1.set_end_self_reachable(false);
+            nested_snarl1.set_start_end_reachable(true);
+            
+            // We have an empty vector of top-level unary snarls.
+            // TODO: should we have any?
+            vector<Snarl> top_unary_snarls;
+            
+            SECTION( "A connectivity-ignoring net graph ignores connectivity" ) {
+            
+                // Make a net graph
+                NetGraph net_graph(top_snarl.start(), top_snarl.end(), top_chains, top_unary_snarls, &graph, false);
+                
+                SECTION( "The top-level NetGraph has 3 nodes" ) {
+                    unordered_set<handle_t> nodes;
+                    net_graph.for_each_handle([&](const handle_t& handle) {
+                        nodes.insert(handle);
+                    });
+                    
+                    REQUIRE(nodes.size() == 3);
+                    
+                    SECTION( "The nodes are numbered 1, 2, and 8" ) {
+                        REQUIRE(nodes.count(net_graph.get_handle(1, false)) == 1);
+                        REQUIRE(nodes.count(net_graph.get_handle(2, false)) == 1);
+                        REQUIRE(nodes.count(net_graph.get_handle(8, false)) == 1);
+                    }
+                }
+                
+                SECTION( "The top-level NetGraph has 3 edges" ) {
+                    unordered_set<pair<handle_t, handle_t>> edges;
+                    for (auto& id : {1, 2, 8}) {
+                        // Go through the nodes we should have manually.
+                        handle_t handle = net_graph.get_handle(id, false);
+                    
+                        // Save all the edges off of each node
+                        net_graph.follow_edges(handle, false, [&](const handle_t& other) {
+                            edges.insert(net_graph.edge_handle(handle, other));
+                        });
+                        net_graph.follow_edges(handle, true, [&](const handle_t& other) {
+                            edges.insert(net_graph.edge_handle(other, handle));
+                        });
+                    }
+                    
+                    REQUIRE(edges.size() == 3);
+                }
+            }
+            
+            SECTION( "A connectivity-respecting net graph allows more traversals" ) {
+            
+                // Make a connectivity-respecting graph
+                NetGraph net_graph(top_snarl.start(), top_snarl.end(), top_chains, top_unary_snarls, &graph, true);
+                
+                SECTION( "The top-level NetGraph has 3 nodes" ) {
+                    unordered_set<handle_t> nodes;
+                    net_graph.for_each_handle([&](const handle_t& handle) {
+                        nodes.insert(handle);
+                    });
+                    
+                    REQUIRE(nodes.size() == 3);
+                    
+                    SECTION( "The nodes are numbered 1, 2, and 8" ) {
+                        REQUIRE(nodes.count(net_graph.get_handle(1, false)) == 1);
+                        REQUIRE(nodes.count(net_graph.get_handle(2, false)) == 1);
+                        REQUIRE(nodes.count(net_graph.get_handle(8, false)) == 1);
+                    }
+                }
+                
+                SECTION( "The top-level NetGraph has 4 edges" ) {
+                    unordered_set<pair<handle_t, handle_t>> edges;
+                    for (auto& id : {1, 2, 8}) {
+                        // Go through the nodes we should have manually.
+                        handle_t handle = net_graph.get_handle(id, false);
+                    
+                        // Save all the edges off of each node
+                        net_graph.follow_edges(handle, false, [&](const handle_t& other) {
+                            edges.insert(net_graph.edge_handle(handle, other));
+                        });
+                        net_graph.follow_edges(handle, true, [&](const handle_t& other) {
+                            edges.insert(net_graph.edge_handle(other, handle));
+                        });
+                    }
+                    
+                    REQUIRE(edges.size() == 4);
+                    
+#ifdef debug
+                    for (auto& edge : edges) {
+                        cerr << net_graph.get_id(edge.first) << " " << net_graph.get_is_reverse(edge.first) << " -> "
+                            << net_graph.get_id(edge.second) << " " << net_graph.get_is_reverse(edge.second) << endl;
+                    }
+#endif
+                    
+                    SECTION( "One edge is from node 1 to node 2 in reverse" ) {
+                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(1, false),
+                            net_graph.get_handle(2, true))) == 1);
+                    }
+                }
+            
             }
         
         }
