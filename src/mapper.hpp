@@ -437,8 +437,8 @@ public:
                                int fragment_size_bound);
 
     /// use the fragment length annotations to assess if the pair is consistent or not
-    bool pair_consistent(const Alignment& aln1,
-                         const Alignment& aln2,
+    bool pair_consistent(Alignment& aln1, // may modify the alignments to store the reference positions
+                         Alignment& aln2,
                          double pval);
 
     /// use the fragment configuration statistics to rescue more precisely
@@ -555,6 +555,8 @@ public:
     int64_t approx_alignment_position(const Alignment& aln);
     // get the full path offsets for the alignment, considering every mapping if just_first is not set
     map<string, vector<pair<size_t, bool> > > alignment_path_offsets(const Alignment& aln, bool just_min = true, bool nearby = false);
+    // return the path offsets as cached in the alignment
+    map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const Alignment& aln);
     // get the end position of the alignment
     Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined
