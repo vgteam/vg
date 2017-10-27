@@ -465,6 +465,7 @@ SnarlManager CactusSnarlFinder::find_snarls() {
     
 }
 
+#define debug
 const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, const Visit& end, const Snarl* parent,
     stList* chains_list, stList* unary_snarls_list, list<Snarl>& destination) {
         
@@ -589,6 +590,8 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         list<handle_t> queue{start_handle};
         unordered_set<handle_t> queued{start_handle};
         auto handle_edge = [&](const handle_t& other) {
+            cerr << "\tCan reach " << connectivity_net_graph.get_id(other) << " " << connectivity_net_graph.get_is_reverse(other) << endl;
+            
             // Whenever we see a new node orientation, queue it.
             if (!queued.count(other)) {
                 queue.push_back(other);
@@ -619,12 +622,18 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
             connectivity_net_graph.follow_edges(here, false, handle_edge);
         }
         
+        auto end_inward = connectivity_net_graph.flip(end_handle);
+        
+        cerr << "Looking for end-end turnarounds from " << connectivity_net_graph.get_id(end_inward) << " " << connectivity_net_graph.get_is_reverse(end_inward) << endl;
+        
         // Reset and search the other way from the end to see if it can find itself.
-        queue = {connectivity_net_graph.flip(end_handle)};
-        queued = {connectivity_net_graph.flip(end_handle)};
+        queue = {end_inward};
+        queued = {end_inward};
         while (!queue.empty()) {
             handle_t here = queue.front();
             queue.pop_front();
+            
+            cerr << "Got to " << connectivity_net_graph.get_id(here) << " " << connectivity_net_graph.get_is_reverse(here) << endl;
             
             if (here == end_handle) {
                 // End can reach itself the other way around
@@ -730,7 +739,8 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     // Return a reference to the snarl we created in the list.
     return snarl;
 }
-    
+#undef debug
+
    
 ExhaustiveTraversalFinder::ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager,
                                                      bool include_reversing_traversals) :

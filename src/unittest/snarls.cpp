@@ -576,6 +576,120 @@ namespace vg {
         
         }
         
+        TEST_CASE( "NetGraph finds all edges correctly when traversing in all directions",
+                  "[snarls][netgraph]" ) {
+        
+        
+            // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
+            // and a snarl from 3 to 5, all nested in each other.
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n8);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n6);
+            Edge* e5 = graph.create_edge(n3, n4);
+            // Add an extra reversing edge so you can leave out the start
+            Edge* eRev = graph.create_edge(n3, n3, false, true);
+            // Add an extra reversing edge so you can leave out the end
+            Edge* eRev2 = graph.create_edge(n5, n5, false, true);
+            Edge* e6 = graph.create_edge(n3, n5);
+            Edge* e7 = graph.create_edge(n4, n5);
+            Edge* e8 = graph.create_edge(n5, n7);
+            Edge* e9 = graph.create_edge(n6, n7);
+            Edge* e10 = graph.create_edge(n7, n8);
+            
+            // Define the snarls for the top level
+            Snarl top_snarl;
+            top_snarl.mutable_start()->set_node_id(n1->id());
+            top_snarl.mutable_end()->set_node_id(n8->id());
+            
+            // We have a chain with a snarl in it
+            vector<vector<Snarl>> top_chains;
+            top_chains.emplace_back();
+            auto& top_chain1 = top_chains.back();
+            top_chain1.emplace_back();
+            auto& nested_snarl1 = top_chain1.back();
+            
+            // And that snarl has these characteristics
+            nested_snarl1.mutable_start()->set_node_id(n2->id());
+            nested_snarl1.mutable_end()->set_node_id(n7->id());
+            nested_snarl1.set_type(UNCLASSIFIED);
+            *nested_snarl1.mutable_parent() = top_snarl;
+            nested_snarl1.set_directed_acyclic_net_graph(true);
+            // Because we can reverse inside a child, we are start-start and end-end reachable
+            nested_snarl1.set_start_self_reachable(true);
+            nested_snarl1.set_end_self_reachable(true);
+            nested_snarl1.set_start_end_reachable(true);
+            
+            // We have an empty vector of top-level unary snarls.
+            // TODO: should we have any?
+            vector<Snarl> top_unary_snarls;
+            
+            // Make a connectivity-respecting graph
+            NetGraph net_graph(top_snarl.start(), top_snarl.end(), top_chains, top_unary_snarls, &graph, true);
+        
+            // Make a handle to the nested child snarl
+            handle_t nested_fwd = net_graph.get_handle(n2->id(), false);
+            
+            // ANd reverse it
+            auto nested_rev = net_graph.flip(nested_fwd);
+            
+            SECTION( "Forward handle sees 1 fwd and 8 rev on its left" ) {
+                unordered_set<handle_t> seen;
+                net_graph.follow_edges(nested_fwd, true, [&](const handle_t& other) {
+                    seen.insert(other);
+                });
+                
+                REQUIRE(seen.size() == 2);
+                REQUIRE(seen.count(net_graph.get_handle(n1->id(), false)) == 1);
+                REQUIRE(seen.count(net_graph.get_handle(n8->id(), true)) == 1);
+            }
+            
+            SECTION( "Forward handle sees 1 rev and 8 fwd on its right" ) {
+                unordered_set<handle_t> seen;
+                net_graph.follow_edges(nested_fwd, false, [&](const handle_t& other) {
+                    seen.insert(other);
+                });
+                
+                REQUIRE(seen.size() == 2);
+                REQUIRE(seen.count(net_graph.get_handle(n1->id(), true)) == 1);
+                REQUIRE(seen.count(net_graph.get_handle(n8->id(), false)) == 1);
+            }
+            
+            SECTION( "Reverse handle sees 1 fwd and 8 rev on its left" ) {
+                unordered_set<handle_t> seen;
+                net_graph.follow_edges(nested_rev, true, [&](const handle_t& other) {
+                    seen.insert(other);
+                });
+                
+                REQUIRE(seen.size() == 2);
+                REQUIRE(seen.count(net_graph.get_handle(n1->id(), false)) == 1);
+                REQUIRE(seen.count(net_graph.get_handle(n8->id(), true)) == 1);
+            }
+            
+            SECTION( "Reverse handle sees 1 rev and 8 fwd on its right" ) {
+                unordered_set<handle_t> seen;
+                net_graph.follow_edges(nested_rev, false, [&](const handle_t& other) {
+                    seen.insert(other);
+                });
+                
+                REQUIRE(seen.size() == 2);
+                REQUIRE(seen.count(net_graph.get_handle(n1->id(), true)) == 1);
+                REQUIRE(seen.count(net_graph.get_handle(n8->id(), false)) == 1);
+            }
+        
+        }
+        
         TEST_CASE( "NetGraph can handle nested unary snarls",
                   "[snarls][netgraph]" ) {
         

@@ -448,16 +448,40 @@ TEST_CASE("SiteFinder can differntiate ultrabubbles from snarls", "[genotype]") 
         SnarlManager snarl_manager = cubs.find_snarls();
         const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
 
-        // Make sure we have one non-ultrabubble start at 1-5
-        REQUIRE(snarl_roots.size() == 1);
-        const Snarl* snarl = snarl_roots[0];
-        int64_t start = snarl->start().node_id();
-        int64_t end = snarl->end().node_id();
-        if (start > end) {
-            std::swap(start, end);
+        // Make sure we have one ultrabubble from 1 forward to 6 reverse, and
+        // another ultrabubble closing the cycle from 6 reverse to 1 forward.
+        REQUIRE(snarl_roots.size() == 2);
+        const Snarl* snarl1 = snarl_roots[0];
+        const Snarl* snarl2 = snarl_roots[1];
+        
+        if (snarl1->start().node_id() > snarl1->end().node_id()) {
+            // Flip it around so it goes from lower to higher numbers.
+            snarl_manager.flip(snarl1);
         }
-        REQUIRE((start == 1 && end == 6) == true);
-        REQUIRE(snarl->type() == ULTRABUBBLE);
+        
+        if (snarl2->start().node_id() > snarl2->end().node_id()) {
+            // Flip it around so it goes from lower to higher numbers.
+            snarl_manager.flip(snarl2);
+        }
+        
+        if (snarl1->start().node_id() > snarl2->start().node_id() ||
+            (snarl1->start().node_id() == snarl2->start().node_id() &&
+            snarl1->start().backward() > snarl2->start().backward())) {
+            // Make sure to order them deterministically
+            std::swap(snarl1, snarl2);
+        }
+        
+        REQUIRE(snarl1->start().node_id() == 1);
+        REQUIRE(snarl1->start().backward() == false);
+        REQUIRE(snarl1->end().node_id() == 6);
+        REQUIRE(snarl1->end().backward() == true);
+        REQUIRE(snarl1->type() == ULTRABUBBLE);
+        
+        REQUIRE(snarl2->start().node_id() == 1);
+        REQUIRE(snarl2->start().backward() == true);
+        REQUIRE(snarl2->end().node_id() == 6);
+        REQUIRE(snarl2->end().backward() == false);
+        REQUIRE(snarl2->type() == ULTRABUBBLE);
     }
 
 }
@@ -467,7 +491,7 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
     SECTION("Traversal-finding should work on a substitution inside a deletion") {
     
         // Build a toy graph
-        // Should be a substitution (2, 3 or 4, 5) nested inside a 1 to 6 deletion
+        // Should be a substitution (3 or 4 between 2 and 5) nested inside a 1 to 6 deletion
         const string graph_json = R"(
     
         {
@@ -505,10 +529,14 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
         // We should have a single root snarl
         REQUIRE(snarl_roots.size() == 1);
         const Snarl* parent = snarl_roots[0];
+        
+        REQUIRE(parent->type() == ULTRABUBBLE);
 
         auto children = snarl_manager.children_of(parent);
         REQUIRE(children.size() == 1);
         const Snarl* child = children[0];
+        
+        REQUIRE(child->type() == ULTRABUBBLE);
         
         // We need an AugmentedGraph wraping the graph to use the
         // RepresentativeTraversalFinder
