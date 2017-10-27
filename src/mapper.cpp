@@ -1305,11 +1305,11 @@ Mapper::Mapper(xg::XG* xidex,
     , drop_chain(0.2)
     , mq_overlap(0.2)
     , mate_rescues(0)
-    , maybe_mq_threshold(10)
+    , maybe_mq_threshold(0)
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.7)
+    , pair_rescue_hang_threshold(0.8)
     , pair_rescue_retry_threshold(0.0)
 {
     
