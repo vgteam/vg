@@ -465,7 +465,6 @@ SnarlManager CactusSnarlFinder::find_snarls() {
     
 }
 
-#define debug
 const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, const Visit& end, const Snarl* parent,
     stList* chains_list, stList* unary_snarls_list, list<Snarl>& destination) {
         
@@ -590,7 +589,10 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         list<handle_t> queue{start_handle};
         unordered_set<handle_t> queued{start_handle};
         auto handle_edge = [&](const handle_t& other) {
-            cerr << "\tCan reach " << connectivity_net_graph.get_id(other) << " " << connectivity_net_graph.get_is_reverse(other) << endl;
+#ifdef debug
+            cerr << "\tCan reach " << connectivity_net_graph.get_id(other)
+                << " " << connectivity_net_graph.get_is_reverse(other) << endl;
+#endif
             
             // Whenever we see a new node orientation, queue it.
             if (!queued.count(other)) {
@@ -598,6 +600,11 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
                 queued.insert(other);
             }
         };
+        
+#ifdef debug
+        cerr << "Looking for start-start turnarounds and through connections from "
+            << connectivity_net_graph.get_id(start_handle) << " " << connectivity_net_graph.get_is_reverse(start_handle) << endl;
+#endif
         
         while (!queue.empty()) {
             handle_t here = queue.front();
@@ -624,7 +631,10 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         
         auto end_inward = connectivity_net_graph.flip(end_handle);
         
-        cerr << "Looking for end-end turnarounds from " << connectivity_net_graph.get_id(end_inward) << " " << connectivity_net_graph.get_is_reverse(end_inward) << endl;
+#ifdef debug
+        cerr << "Looking for end-end turnarounds from " << connectivity_net_graph.get_id(end_inward)
+            << " " << connectivity_net_graph.get_is_reverse(end_inward) << endl;
+#endif
         
         // Reset and search the other way from the end to see if it can find itself.
         queue = {end_inward};
@@ -633,7 +643,10 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
             handle_t here = queue.front();
             queue.pop_front();
             
-            cerr << "Got to " << connectivity_net_graph.get_id(here) << " " << connectivity_net_graph.get_is_reverse(here) << endl;
+#ifdef debug
+            cerr << "Got to " << connectivity_net_graph.get_id(here) << " "
+                << connectivity_net_graph.get_is_reverse(here) << endl;
+#endif
             
             if (here == end_handle) {
                 // End can reach itself the other way around
@@ -739,8 +752,6 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     // Return a reference to the snarl we created in the list.
     return snarl;
 }
-#undef debug
-
    
 ExhaustiveTraversalFinder::ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager,
                                                      bool include_reversing_traversals) :

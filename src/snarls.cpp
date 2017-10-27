@@ -745,7 +745,6 @@ namespace vg {
         throw runtime_error("Cannot expose sequences via NetGraph");
     }
     
-#define debug
     bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
         // Now we do the real work.
         
@@ -1086,7 +1085,6 @@ namespace vg {
         // Otherwise, this is an ordinary snarl content node
         return graph->follow_edges(handle, go_left, handle_edge);
     }
-#undef debug
     
     void NetGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
         // Find all the handles by a traversal.
