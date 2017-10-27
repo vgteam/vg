@@ -2426,7 +2426,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double mqmax2 = max_mapping_quality;
     // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
-        && maybe_mq1 > 2 && maybe_mq2 > 2
         && pair_consistent(results.first.front(), results.second.front(), 1e-6)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, mqmax1, mqmax2);
     } else {
