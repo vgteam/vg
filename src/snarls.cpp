@@ -1018,42 +1018,56 @@ namespace vg {
     void NetGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
         // Find all the handles by a traversal.
         
-        // TODO: because of the way we do internal connectivity and our
-        // inability to distinguish reflecting off of a chain or child snarl
-        // from traversing it, this will only work as long as each end of each
-        // chain is reachable from either itself or the other end.
+        // We have to do the traversal on the underlying backing graph, because
+        // the traversal functions we implemented on the graph we present will
+        // maybe use internal child snarl connectivity, which can mean parts of
+        // the graph are in this snarl but not actually reachable.
         
+        // We let both the starts and ends of child snarls into the queue.
+        // But we'll only reveal the starts to our iteratee.
         list<handle_t> queue;
         unordered_set<id_t> queued;
         
-        // TODO: this should never happen
-        if (chain_end_rewrites.count(start)) {
-            // The start is actually the end of a chain, which needs to be represented by its start in reverse.
-            queue.push_back(chain_end_rewrites.at(start));
-            queued.insert(graph->get_id(chain_end_rewrites.at(start)));
-            
-        } else {
-            // Start at the actual start
-            queue.push_back(start);
-            queued.insert(graph->get_id(start));
-        }
+        // Start at both the start and the end of the snarl.
+        queue.push_back(start);
+        queued.insert(graph->get_id(start));
+        queue.push_back(end);
+        queued.insert(graph->get_id(end));
         
         while (!queue.empty()) {
             handle_t here = queue.front();
             queue.pop_front();
             
-            if (graph->get_is_reverse(here)) {
-                if (!iteratee(graph->flip(here))) {
-                    // Run the iteratee on the forward version, and stop if it wants to stop
-                    break;
-                }
-            } else {
-                if (!iteratee(here)) {
-                    // Run the iteratee, and stop if it wants to stop.
-                    break;
-                }
+            if (unary_boundaries.count(graph->flip(here))) {
+                // This is a backward unary child snarl head, so we need to look at it the other way around.
+                here = graph->flip(here);
+            } else if (chain_ends_by_start.count(graph->flip(here))) {
+                // This is a backward child chain head, so we need to look at it the other way around.
+                here = graph->flip(here);
+            } else if (chain_end_rewrites.count(graph->flip(here))) {
+                // This is a backward child chain tail, so we need to look at it the other way around.
+                here = graph->flip(here);
             }
             
+            if (!chain_end_rewrites.count(here)) {
+                // This is not a chain end, so it's either a real contained node or a chain head.
+                // We can emit it.
+                
+                if (graph->get_is_reverse(here)) {
+                    if (!iteratee(graph->flip(here))) {
+                        // Run the iteratee on the forward version, and stop if it wants to stop
+                        break;
+                    }
+                } else {
+                    if (!iteratee(here)) {
+                        // Run the iteratee, and stop if it wants to stop.
+                        break;
+                    }
+                }
+                
+            } 
+            
+            // We define a function to queue up nodes we could visit next
             auto handle_edge = [&](const handle_t& other) {
                 // Whenever we see a new node, add it to the queue
                 if (!queued.count(graph->get_id(other))) {
@@ -1062,9 +1076,31 @@ namespace vg {
                 }
             };
             
-            // Visit everything attached to here
-            follow_edges(here, false, handle_edge);
-            follow_edges(here, true, handle_edge);
+            // We already have flipped any backward heads or tails frontward. So
+            // we don't need to check if the backward version of us is in
+            // anything.
+            
+            if (here != end && here != graph->flip(start) && !unary_boundaries.count(here) &&
+                !chain_ends_by_start.count(here)  && !chain_end_rewrites.count(here)) {
+                
+                // We have normal graph to our right and not the exterior of this snarl or the interior of a child.
+                graph->follow_edges(here, false, handle_edge);
+            }
+            
+            if (here != start && here != graph->flip(end)) {
+                // We have normal graph to our left.
+                graph->follow_edges(here, true, handle_edge);
+            }
+            
+            if (chain_end_rewrites.count(here)) {
+                // We need to look right off the reverse head of this child snarl.
+                graph->follow_edges(chain_end_rewrites.at(here), false, handle_edge);
+            }
+            
+            if (chain_ends_by_start.count(here)) {
+                // We need to look right off the (reverse) tail of this child snarl.
+                graph->follow_edges(chain_ends_by_start.at(here), false, handle_edge);
+            }
         }
     }
     

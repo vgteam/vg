@@ -170,6 +170,10 @@ namespace vg {
      * And similarly for the mirror case.
      *
      * All the edges on either side of a unary snarl node are the same.
+     *
+     * In this part of the code we talk about "heads" (the inward-facing base
+     * graph handles used to represent child snarls/chains), and "tails" (the
+     * inward-facing ending handles of child chains).
      * 
      */
     class NetGraph : public HandleGraph {
