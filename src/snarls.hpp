@@ -92,7 +92,7 @@ namespace vg {
         /// end boundaries will be reversed.
         unordered_map<pair<int64_t, bool>, const Snarl*> snarl_boundary_index();
         
-        /// Returns a map from all Snarl start boundaries to the "Snarl they point into.
+        /// Returns a map from all Snarl start boundaries to the Snarl they point into.
         unordered_map<pair<int64_t, bool>, const Snarl*> snarl_start_index();
         
         /// Returns a map from all Snarl end boundaries to the Snarl they point into. Note that this means that

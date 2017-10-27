@@ -64,6 +64,7 @@ TEST_CASE("bubbles can be found", "[bubbles]") {
     
     BubbleTree* bubble_tree = ultrabubble_tree(graph);
     
+#ifdef debug
     bubble_tree->for_each_preorder([&](const TreeNode<Bubble>* node) {
         cerr << "Found bubble " << node->v.start << " to " << node->v.end << " containing ";
         for (auto& id : node->v.contents) {
@@ -71,6 +72,7 @@ TEST_CASE("bubbles can be found", "[bubbles]") {
         }
         cerr << endl;
     });
+#endif
     
     SECTION("Tree contains a root node that is a fake global bubble") {
         REQUIRE(bubble_tree->root != nullptr);
@@ -157,7 +159,8 @@ TEST_CASE("bubbles can be found in graphs with only heads", "[bubbles]") {
     graph.extend(chunk);
     
     BubbleTree* bubble_tree = ultrabubble_tree(graph);
-    
+
+#ifdef debug
     bubble_tree->for_each_preorder([&](const TreeNode<Bubble>* node) {
         cerr << "Found bubble " << node->v.start << " to " << node->v.end << " containing ";
         for (auto& id : node->v.contents) {
@@ -165,6 +168,7 @@ TEST_CASE("bubbles can be found in graphs with only heads", "[bubbles]") {
         }
         cerr << endl;
     });
+#endif
     
     SECTION("Tree contains a root node that is a fake global bubble") {
         REQUIRE(bubble_tree->root != nullptr);
@@ -248,6 +252,7 @@ TEST_CASE("bubbles can be found in bigger graphs with only heads", "[bubbles]") 
     
     BubbleTree* bubble_tree = ultrabubble_tree(graph);
     
+#ifdef debug
     bubble_tree->for_each_preorder([&](const TreeNode<Bubble>* node) {
         cerr << "Found bubble " << node->v.start << " to " << node->v.end << " containing ";
         for (auto& id : node->v.contents) {
@@ -255,6 +260,7 @@ TEST_CASE("bubbles can be found in bigger graphs with only heads", "[bubbles]") 
         }
         cerr << endl;
     });
+#endif
     
     SECTION("Tree contains a root node that is a fake global bubble") {
         REQUIRE(bubble_tree->root != nullptr);
@@ -361,6 +367,7 @@ TEST_CASE("bubbles can be found in graphs with only tails", "[bubbles]") {
     
     BubbleTree* bubble_tree = ultrabubble_tree(graph);
     
+#ifdef debug
     bubble_tree->for_each_preorder([&](const TreeNode<Bubble>* node) {
         cerr << "Found bubble " << node->v.start << " to " << node->v.end << " containing ";
         for (auto& id : node->v.contents) {
@@ -368,6 +375,7 @@ TEST_CASE("bubbles can be found in graphs with only tails", "[bubbles]") {
         }
         cerr << endl;
     });
+#endif
     
     SECTION("Tree contains a root node that is a fake global bubble") {
         REQUIRE(bubble_tree->root != nullptr);
@@ -466,6 +474,7 @@ TEST_CASE("bubbles can be found when heads cannot reach tails", "[bubbles]") {
     
     BubbleTree* bubble_tree = ultrabubble_tree(graph);
     
+#ifdef debug
     bubble_tree->for_each_preorder([&](const TreeNode<Bubble>* node) {
         cerr << "Found bubble " << node->v.start << " to " << node->v.end << " containing ";
         for (auto& id : node->v.contents) {
@@ -473,6 +482,7 @@ TEST_CASE("bubbles can be found when heads cannot reach tails", "[bubbles]") {
         }
         cerr << endl;
     });
+#endif
     
     SECTION("Tree contains a root node that is a fake global bubble") {
         REQUIRE(bubble_tree->root != nullptr);
@@ -529,6 +539,7 @@ TEST_CASE("bubbles can be found in a graph with no heads or tails", "[bubbles]")
     
     BubbleTree* bubble_tree = ultrabubble_tree(graph);
     
+#ifdef debug
     bubble_tree->for_each_preorder([&](const TreeNode<Bubble>* node) {
         cerr << "Found bubble " << node->v.start << " to " << node->v.end << " containing ";
         for (auto& id : node->v.contents) {
@@ -536,6 +547,7 @@ TEST_CASE("bubbles can be found in a graph with no heads or tails", "[bubbles]")
         }
         cerr << endl;
     });
+#endif
     
     SECTION("Tree contains a root node that is a fake global bubble") {
         REQUIRE(bubble_tree->root != nullptr);
@@ -605,6 +617,7 @@ TEST_CASE("bubbles can be found in a graph with no heads or tails or paths", "[b
     
     BubbleTree* bubble_tree = ultrabubble_tree(graph);
     
+#ifdef debug
     bubble_tree->for_each_preorder([&](const TreeNode<Bubble>* node) {
         cerr << "Found bubble " << node->v.start << " to " << node->v.end << " containing ";
         for (auto& id : node->v.contents) {
@@ -612,6 +625,7 @@ TEST_CASE("bubbles can be found in a graph with no heads or tails or paths", "[b
         }
         cerr << endl;
     });
+#endif
     
     SECTION("Tree contains a root node that is a fake global bubble") {
         REQUIRE(bubble_tree->root != nullptr);
@@ -673,6 +687,7 @@ TEST_CASE("bubbles are created based on most distant connected tips", "[bubbles]
     
     BubbleTree* bubble_tree = ultrabubble_tree(graph);
     
+#ifdef debug
     bubble_tree->for_each_preorder([&](const TreeNode<Bubble>* node) {
         cerr << "Found bubble " << node->v.start << " to " << node->v.end << " containing ";
         for (auto& id : node->v.contents) {
@@ -680,6 +695,7 @@ TEST_CASE("bubbles are created based on most distant connected tips", "[bubbles]
         }
         cerr << endl;
     });
+#endif
     
     SECTION("Tree contains a root node that is a fake global bubble") {
         REQUIRE(bubble_tree->root != nullptr);

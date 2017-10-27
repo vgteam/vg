@@ -139,12 +139,16 @@ namespace vg {
 
     void SnarlManager::build_indexes() {
         
+#ifdef debug
         cerr << "Building SnarlManager index of " << snarls.size() << " snarls" << endl;
+#endif
         
         for (size_t i = 0; i < snarls.size(); i++) {
             Snarl& snarl = snarls[i];
             
+#ifdef debug
             cerr << pb2json(snarl) << endl;
+#endif
             
             // Remember where each snarl is
             index_of[key_form(&snarl)] = i;
@@ -152,7 +156,9 @@ namespace vg {
             // is this a top-level snarl?
             if (snarl.has_parent()) {
                 // add this snarl to the parent-to-children index
+#ifdef debug
                 cerr << "\tSnarl is a child" << endl;
+#endif
                 if (!children.count(key_form(&(snarl.parent()))) ) {
                     children.insert(make_pair(key_form(&snarl.parent()), vector<const Snarl*>(1, &snarl)));
                 }
@@ -162,7 +168,9 @@ namespace vg {
             }
             else {
                 // record top level status
+#ifdef debug
                 cerr << "\tSnarl is top-level" << endl;
+#endif
                 roots.push_back(&snarl);
                 parent[key_form(&snarl)] = nullptr;
             }
