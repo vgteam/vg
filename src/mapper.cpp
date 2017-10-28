@@ -1844,7 +1844,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double mem_read_ratio1 = min(1.0, (double)total_mem_length1 / (double)read1.sequence().size());
     double mem_read_ratio2 = min(1.0, (double)total_mem_length2 / (double)read2.sequence().size());
 
-    int basis_length = min(read1.sequence().size(), gcsa->order());
+    int basis_length = min((int)read1.sequence().size(), (int)gcsa->order());
     double max_possible_mq = max_possible_mapping_quality(basis_length);
 
     int mem_max_length1 = 0;
@@ -2627,7 +2627,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     int total_mem_length = 0;
     for (auto& mem : mems) total_mem_length += mem.length() * mem.nodes.size();
     double mem_read_ratio = min(1.0, (double)total_mem_length / (double)aln.sequence().size());
-    int basis_length = min(aln.sequence().size(), gcsa->order());
+    int basis_length = min((int)aln.sequence().size(), (int)gcsa->order());
     double max_possible_mq = max_possible_mapping_quality(basis_length);
 
     // Estimate the maximum mapping quality we can get if the alignments based on the good MEMs are the best ones.
