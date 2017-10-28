@@ -603,7 +603,7 @@ public:
     int min_multimaps; // Minimum number of multimappings
     int band_multimaps; // the number of multimaps for to attempt for each band in a banded alignment
     
-    int maybe_mq_threshold; // quality below which we let the estimated mq kick in
+    double maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality
     bool use_cluster_mq; // should we use the cluster-based mapping quality component
     double identity_weight; // scale mapping quality by the alignment score identity to this power

@@ -1854,14 +1854,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                              read2.sequence().size()/longest_lcp2);
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
     double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
-    if (maybe_pair_mq < maybe_mq_threshold) {
-        mq_cap1 = maybe_pair_mq;
-        mq_cap2 = maybe_pair_mq;
-    }
     // scale our effort by our estimated mapping quality
-    if (maybe_pair_mq < 1) {
+    if (maybe_pair_mq < maybe_mq_threshold) {
         // don't try too hard when it looks unlikely for us to find a mapping with mq > 0
         total_multimaps = max(min_multimaps, max_multimaps);
+        mq_cap1 = maybe_pair_mq;
+        mq_cap2 = maybe_pair_mq;
     } else {
         // scale difficulty using the estimated mapping quality
         total_multimaps = max(max(min_multimaps, max_multimaps), (int)(min_multimaps*ceil(total_multimaps/maybe_pair_mq)));
@@ -2636,12 +2634,9 @@ Mapper::align_mem_multi(const Alignment& aln,
                                                             aln.sequence().size()/longest_lcp);
     // use the estimated mapping quality to avoid hard work when we have a very certain alignment candidate
     if (maybe_mq < maybe_mq_threshold) {
-        mq_cap = maybe_mq;
-    }
-    // scale our effort by our estimated mapping quality
-    if (maybe_mq < 1) {
         // don't try too hard when it looks unlikely for us to find a mapping with mq > 0
         total_multimaps = max(min_multimaps, max_multimaps);
+        mq_cap = maybe_mq;
     } else {
         // scale difficulty using the estimated mapping quality
         total_multimaps = max(max(min_multimaps, max_multimaps), (int)(min_multimaps*ceil(total_multimaps/maybe_mq)));
