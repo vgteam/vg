@@ -621,6 +621,13 @@ double BaseAligner::estimate_next_best_score(int length, double min_diffs) {
     return ((length - min_diffs) * match - min_diffs * mismatch);
 }
 
+double BaseAligner::max_possible_mapping_quality(int length) {
+    double max_score = log_base * length * match;
+    vector<double> v = { max_score };
+    size_t max_idx;
+    return maximum_mapping_quality_approx(v, &max_idx);
+}
+
 double BaseAligner::estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) {
     double max_score = log_base * ((length - min_diffs) * match - min_diffs * mismatch);
     double next_max_score = log_base * ((length - next_min_diffs) * match - next_min_diffs * mismatch);
