@@ -1844,18 +1844,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double mem_read_ratio1 = min(1.0, (double)total_mem_length1 / (double)read1.sequence().size());
     double mem_read_ratio2 = min(1.0, (double)total_mem_length2 / (double)read2.sequence().size());
 
-    double max_possible_mq = max_possible_mapping_quality(read1.sequence().size());
+    int basis_length = min(read1.sequence().size(), gcsa->order());
+    double max_possible_mq = max_possible_mapping_quality(basis_length);
 
     int mem_max_length1 = 0;
     for (auto& mem : mems1) if (mem.primary && mem.match_count) mem_max_length1 = max(mem_max_length1, (int)mem.length());
-    double maybe_mq1 = estimate_max_possible_mapping_quality(read1.sequence().size(),
-                                                             read1.sequence().size()/max(1.0, (double)mem_max_length1),
-                                                             read1.sequence().size()/longest_lcp1);
+    double maybe_mq1 = estimate_max_possible_mapping_quality(basis_length,
+                                                             basis_length/max(1.0, (double)mem_max_length1),
+                                                             basis_length/longest_lcp1);
     int mem_max_length2 = 0;
     for (auto& mem : mems2) if (mem.primary && mem.match_count) mem_max_length2 = max(mem_max_length2, (int)mem.length());
-    double maybe_mq2 = estimate_max_possible_mapping_quality(read2.sequence().size(),
-                                                             read2.sequence().size()/max(1.0, (double)mem_max_length2),
-                                                             read2.sequence().size()/longest_lcp2);
+    double maybe_mq2 = estimate_max_possible_mapping_quality(basis_length,
+                                                             basis_length/max(1.0, (double)mem_max_length2),
+                                                             basis_length/longest_lcp2);
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
     double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
     // set estimates as caps if we don't get either read in the pair with more than 30% MEM coverage
@@ -1866,8 +1867,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // scale difficulty using the estimated mapping quality
     total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)floor(max_possible_mq / maybe_pair_mq)));
 
-    if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << endl;
-    if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << endl;
+    if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << max_possible_mq << endl;
+    if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << max_possible_mq << endl;
 
 //#ifdef debug_mapper
 #pragma omp critical
@@ -2626,14 +2627,15 @@ Mapper::align_mem_multi(const Alignment& aln,
     int total_mem_length = 0;
     for (auto& mem : mems) total_mem_length += mem.length() * mem.nodes.size();
     double mem_read_ratio = min(1.0, (double)total_mem_length / (double)aln.sequence().size());
+    int basis_length = min(aln.sequence().size(), gcsa->order());
+    double max_possible_mq = max_possible_mapping_quality(basis_length);
 
-    double max_possible_mq = max_possible_mapping_quality(aln.sequence().size());
     // Estimate the maximum mapping quality we can get if the alignments based on the good MEMs are the best ones.
     int mem_max_length = 0;
     for (auto& mem : mems) if (mem.primary && mem.match_count) mem_max_length = max(mem_max_length, (int)mem.length());
-    double maybe_mq = estimate_max_possible_mapping_quality(aln.sequence().size(),
-                                                            aln.sequence().size()/max(1.0, (double)mem_max_length),
-                                                            aln.sequence().size()/longest_lcp);
+    double maybe_mq = estimate_max_possible_mapping_quality(basis_length,
+                                                            basis_length/max(1.0, (double)mem_max_length),
+                                                            basis_length/longest_lcp);
     // set estimates as caps if we don't get either read in the pair with more than 30% MEM coverage
     if (maybe_mq < maybe_mq_threshold || mem_read_ratio < 0.3) {
         mq_cap = maybe_mq;
@@ -2641,7 +2643,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     // scale difficulty using the estimated mapping quality
     total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)floor(max_possible_mq / maybe_mq)));
 
-    if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " min mem length: " << min_mem_length << " longest LCP: " << longest_lcp << " total multimaps: " << total_multimaps << endl;
+    if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " min mem length: " << min_mem_length << " longest LCP: " << longest_lcp << " total multimaps: " << total_multimaps << " max mq: " << max_possible_mq << endl;
 
     double avg_node_len = average_node_length();
     // go through the ordered single-hit MEMs
