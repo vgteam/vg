@@ -866,11 +866,12 @@ int main_index(int argc, char** argv) {
                     }
                 };
 
-                // Look for variants only on this path
-                variant_file.setRegion(vcf_contig_name);
-
                 // Process the phases in batches.
                 while(batch_start < num_samples) {
+
+                    // Look for variants only on this path; seek back if this
+                    // is not the first batch.
+                    variant_file.setRegion(vcf_contig_name);
 
                     // Set up progress bar
                     ProgressBar* progress = nullptr;
