@@ -628,7 +628,7 @@ int main_map(int argc, char** argv) {
             m->frag_stats.fragment_size = fragment_size;
             m->frag_stats.cached_fragment_length_mean = fragment_mean;
             m->frag_stats.cached_fragment_length_stdev = fragment_stdev;
-            m->frag_stats.cached_fragment_orientation = fragment_orientation;
+            m->frag_stats.cached_fragment_orientation_same = fragment_orientation;
             m->frag_stats.cached_fragment_direction = fragment_direction;
         }
         m->frag_stats.fragment_model_update_interval = fragment_model_update;

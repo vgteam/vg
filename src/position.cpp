@@ -86,5 +86,29 @@ ostream& operator<<(ostream& out, const pos_t& pos) {
     return out << id(pos) << (is_rev(pos) ? "-" : "+") << offset(pos);
 }
 
+pair<int64_t, int64_t> min_oriented_distances(const map<string, vector<pair<size_t, bool> > >& path_offsets1,
+                                              const map<string, vector<pair<size_t, bool> > >& path_offsets2) {
+    int64_t distance_same = std::numeric_limits<int64_t>::max();
+    int64_t distance_diff = std::numeric_limits<int64_t>::max();
+    for (auto& path : path_offsets1) {
+        auto& name = path.first;
+        auto f = path_offsets2.find(name);
+        if (f != path_offsets2.end()) {
+            auto& pos1 = path.second;
+            auto& pos2 = f->second;
+            for (auto& p1 : pos1) {
+                for (auto& p2 : pos2) {
+                    int64_t proposal = abs((int64_t)p1.first - (int64_t)p2.first);
+                    if (p1.second == p2.second) {
+                        distance_same = min(distance_same, proposal);
+                    } else if (p1.second != p2.second) {
+                        distance_diff = min(distance_diff, proposal);
+                    }
+                }
+            }
+        }
+    }
+    return make_pair(distance_same, distance_diff);
+}
 
 }

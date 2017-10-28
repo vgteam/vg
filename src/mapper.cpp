@@ -1394,7 +1394,7 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     //if (debug) cerr << "aln pos " << aln_pos << endl;
     // can't find the alignment position
     if (aln_pos < 0) return make_pos_t(0, false, 0);
-    bool same_orientation = frag_stats.cached_fragment_orientation;
+    bool same_orientation = frag_stats.cached_fragment_orientation_same;
     bool forward_direction = frag_stats.cached_fragment_direction;
     int64_t delta = frag_stats.cached_fragment_length_mean;
     // which way is our delta?
@@ -1492,7 +1492,7 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
         if (offsets.size()) break; // find a single node that has a path position
     }
     // get our fragment model on the stack
-    bool same_orientation = frag_stats.cached_fragment_orientation;
+    bool same_orientation = frag_stats.cached_fragment_orientation_same;
     bool forward_direction = frag_stats.cached_fragment_direction;
     int64_t delta = frag_stats.cached_fragment_length_mean;
     vector<pos_t> likely;
@@ -1720,7 +1720,7 @@ bool Mapper::pair_consistent(Alignment& aln1,
         }
         bool aln1_is_rev = aln1.path().mapping(0).position().is_reverse();
         bool aln2_is_rev = aln2.path().mapping(0).position().is_reverse();
-        bool same_orientation = frag_stats.cached_fragment_orientation;
+        bool same_orientation = frag_stats.cached_fragment_orientation_same;
         // XXX todo
         //bool direction_ok = frag_stats.cached_fragment_direction && 
         bool orientation_ok = same_orientation && aln1_is_rev == aln2_is_rev
@@ -1741,7 +1741,7 @@ bool Mapper::pair_consistent(Alignment& aln1,
             bool fwd2 = p2.second;
             int64_t len = pos2 - pos1;
             if (frag_stats.fragment_size) {
-                bool orientation_ok = frag_stats.cached_fragment_orientation && fwd1 == fwd2 || fwd1 != fwd2;
+                bool orientation_ok = frag_stats.cached_fragment_orientation_same && fwd1 == fwd2 || fwd1 != fwd2;
                 bool direction_ok = frag_stats.cached_fragment_direction && (!fwd1 && len > 0 || fwd1 && len < 0)
                     || (fwd1 && len > 0 || !fwd1 && len < 0);
                 bool length_ok = frag_stats.fragment_length_pval(abs(len)) > pval;//|| pval == 0 && abs(len) < frag_stats.fragment_size;
@@ -1809,7 +1809,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
              << frag_stats.fragment_size << ", "
              << frag_stats.cached_fragment_length_mean << ", "
              << frag_stats.cached_fragment_length_stdev << ", "
-             << frag_stats.cached_fragment_orientation << ", "
+             << frag_stats.cached_fragment_orientation_same << ", "
              << frag_stats.cached_fragment_direction << ", "
              << frag_stats.since_last_fragment_length_estimate << ", " << endl;
     }
@@ -1894,160 +1894,45 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
             int64_t max_length = frag_stats.fragment_max;
-            pair<int64_t, bool> d = mem_min_distance(m1, m2);
-            int64_t approx_dist = d.first;
-            bool same_orientation = d.second;
+            pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
+            // if we have a cached fragment orientation, use it to pick the min distance with the correct path relative orientation
+            int64_t approx_dist = (!frag_stats.fragment_size ? min(d.first, d.second)
+                                   : (frag_stats.cached_fragment_orientation_same ? d.first : d.second));
             /*// could be expensive for pairs
             if (approx_dist < max_length) {
                 approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
             }
             */
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                if (debug) cerr << "between fragment approx distance " << approx_dist << endl;
-            }
-#endif
             if (approx_dist >= max_length) {
-                // Seem to be too far appart
-#ifdef debug_mapper
-#pragma omp critical
-                {
-                    if (debug) cerr << "seem too far apart by approx_dist" << endl;
-                }
-#endif
+                // too far apart or wrong path/pair relative orientation
                 return -std::numeric_limits<double>::max();
+            } else if (frag_stats.fragment_size) {
+                return frag_stats.fragment_length_pval(approx_dist) * m2.length();
             } else {
-
-                if (approx_dist >= max_length) {
-#ifdef debug_mapper
-#pragma omp critical
-                    {
-                        if (debug) cerr << "too far apart by path distance" << endl;
-                    }
-#endif
-                    return -std::numeric_limits<double>::max();
-                } else if (frag_stats.fragment_size) {
-                    // TODO correctly use directionality information provided by path positions
-                    // exclude cases that don't match our model
-                    if (frag_stats.cached_fragment_orientation != same_orientation
-                        || approx_dist > frag_stats.fragment_size) {
-#ifdef debug_mapper
-#pragma omp critical
-                        {
-                            if (debug) cerr << "bad orientations or dist of " << approx_dist
-                                << " beyond fragment_size of " << frag_stats.fragment_size << endl;
-                        }
-#endif
-                        return -std::numeric_limits<double>::max();
-                    } else {
-#ifdef debug_mapper
-#pragma omp critical
-                        {
-                            if (debug) cerr << "OK with known fragment size" << endl;
-                        }
-#endif
-                        return frag_stats.fragment_length_pval(approx_dist) * m2.length();
-                    }
-                } else {
-#ifdef debug_mapper
-#pragma omp critical
-                    {
-                        if (debug) cerr << "OK with no fragment size" << endl;
-                    }
-#endif
-                    return 1.0/approx_dist * (m1.length() + m2.length());
-                }
+                return 1.0/approx_dist * (m1.length() + m2.length());
             }
         } else if (m1.fragment > m2.fragment) {
             // don't allow going backwards in the threads
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                if (debug) cerr << "can't go backward" << endl;
-            }
-#endif
             return -std::numeric_limits<double>::max();
         } else {
-            //int max_length = (m1.length() + m2.length());
             int max_length = max(read1.sequence().size(), read2.sequence().size());
-            // find the difference in m1.end and m2.begin
-            // find the positional difference in the graph between m1.end and m2.begin
             int duplicate_coverage = mems_overlap_length(m1, m2);
-            //int64_t approx_dist = mem_min_distance(m1, m2); //graph_mixed_distance_estimate(m1_pos, m2_pos, m1.length() + m2.length());
-            pair<int64_t, bool> d = mem_min_distance(m1, m2);
-            int64_t approx_dist = d.first;
-            bool same_orientation = d.second;
+            pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
+            int64_t approx_dist = d.first; // take the "same orientation" distance
             /*if (approx_dist < 32) {
                 approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
                 }*/
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                if (debug) cerr << "in fragment approx distance " << approx_dist << endl;
-            }
-#endif
             if (approx_dist > max_length) {
                 // too far
-                
-#ifdef debug_mapper
-#pragma omp critical
-                {
-                    if (debug) cerr << "too far apart on same node by approx_dist" << endl;
-                }
-#endif
-                
                 return -std::numeric_limits<double>::max();
             } else {
-                // we may want to switch back to exact measurement, although the approximate metric is simpler and more reliable despite being less precise
-                //int64_t distance = min(approx_dist, graph_distance(m1_pos, m2_pos, m1.length())); // enable for exact distance calculation
+                // accepted transition
                 int64_t distance = approx_dist;
-#ifdef debug_mapper
-#pragma omp critical
-                {
-                    if (debug) cerr << "---> true distance " << distance << endl;
-                }
-#endif
-                if (distance >= max_length) {
-#ifdef debug_mapper
-#pragma omp critical
-                    {
-                        if (debug) cerr << "exactly too far apart" << endl;
-                    }
-#endif
-                    return -std::numeric_limits<double>::max();
-                }
-                if (!same_orientation) {
-                    // disable inversions
-                    // TODO: shouldn't we be using cached_fragment_orientation like in the two-node case???
-                    
-#ifdef debug_mapper
-#pragma omp critical
-                    {
-                        if (debug) cerr << "no inversions allowed on the same node" << endl;
-                    }
-#endif
-                    return -std::numeric_limits<double>::max();
+                double jump = abs((m2.begin - m1.begin) - distance);
+                if (jump) {
+                    return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
                 } else {
-                    // accepted transition
-                    double jump = abs((m2.begin - m1.begin) - distance);
-                    if (jump) {
-#ifdef debug_mapper
-#pragma omp critical
-                        {
-                            if (debug) cerr << "accept distance with jump" << endl;
-                        }
-#endif
-                        return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
-                    } else {
-#ifdef debug_mapper
-#pragma omp critical
-                        {
-                            if (debug) cerr << "accept distance without jump" << endl;
-                        }
-#endif
-                        return (double) -duplicate_coverage * match;
-                    }
+                    return (double) -duplicate_coverage * match;
                 }
             }
         }
@@ -2528,7 +2413,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     fragment_dist << frag_stats.fragment_size
         << ':' << frag_stats.cached_fragment_length_mean
         << ':' << frag_stats.cached_fragment_length_stdev 
-        << ':' << frag_stats.cached_fragment_orientation
+        << ':' << frag_stats.cached_fragment_orientation_same
         << ':' << frag_stats.cached_fragment_direction;
     
     // we tried to align
@@ -2756,14 +2641,12 @@ Mapper::align_mem_multi(const Alignment& aln,
     // build the clustering model
     // find the alignments that are the best-scoring walks through it
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-
         int duplicate_coverage = mems_overlap_length(m1, m2);
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
         int64_t max_length = aln.sequence().size();
-        pair<int64_t, bool> d = mem_min_distance(m1, m2);
-        int64_t approx_dist = d.first;
-        bool same_orientation = d.second;
+        pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
+        int64_t approx_dist = d.first;// same orientation
         /*if (approx_dist < 32 && same_orientation) {
             approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
             }*/
@@ -2777,19 +2660,13 @@ Mapper::align_mem_multi(const Alignment& aln,
             // too far
             return -std::numeric_limits<double>::max();
         } else {
-            if (!same_orientation) {
-                // disable inversions
-                return -std::numeric_limits<double>::max();
+            // accepted transition
+            int64_t distance = approx_dist;
+            double jump = abs((m2.begin - m1.begin) - distance);
+            if (jump) {
+                return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
             } else {
-                //int64_t distance = min(approx_dist, graph_distance(m1_pos, m2_pos, m1.length())); // enable for exact distance calculation
-                int64_t distance = approx_dist;
-                // accepted transition
-                double jump = abs((m2.begin - m1.begin) - distance);
-                if (jump) {
-                    return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
-                } else {
-                    return (double) -duplicate_coverage * match;
-                }
+                return (double) -duplicate_coverage * match;
             }
         }
     };
@@ -3179,7 +3056,7 @@ string FragmentLengthStatistics::fragment_model_str(void) {
     s << fragment_size << ":"
       << cached_fragment_length_mean << ":"
       << cached_fragment_length_stdev << ":"
-      << cached_fragment_orientation << ":"
+      << cached_fragment_orientation_same << ":"
       << cached_fragment_direction;
     return s.str();
 }
@@ -3270,7 +3147,7 @@ void FragmentLengthStatistics::record_fragment_configuration(const Alignment& al
         if (++since_last_fragment_length_estimate > fragment_model_update_interval) {
             cached_fragment_length_mean = fragment_length_mean();
             cached_fragment_length_stdev = fragment_length_stdev();
-            cached_fragment_orientation = fragment_orientation();
+            cached_fragment_orientation_same = fragment_orientation();
             cached_fragment_direction = fragment_direction();
             // set our fragment size cap to the cached mean + 10x the standard deviation
             fragment_size = cached_fragment_length_mean + fragment_sigma * cached_fragment_length_stdev;
@@ -3640,31 +3517,29 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     auto transition_weight = [&](const Alignment& aln1, const Alignment& aln2,
                                  const map<string, vector<pair<size_t, bool> > >& pos1,
                                  const map<string, vector<pair<size_t, bool> > >& pos2) {
-        // scoring scheme for unaligned reads
-        if (!aln1.has_path() || !aln2.has_path()) {
-            return -(double)(10*(aln1.sequence().size() + aln2.sequence().size()) * gap_extension + gap_open);
+        if (aln1.has_path() && !aln2.has_path()) {
+            // pay a lot to go into unaligned from aligned
+            return -(double)5.0*(aln2.sequence().size() * gap_extension + gap_open);
+        } else if (!aln1.has_path() && !aln2.has_path()) {
+            // pay some to continue unaligned
+            return -(double)2.0*(aln2.sequence().size() * gap_extension);
+        } else if (!aln1.has_path() && aln2.has_path()) {
+            return 0.0;
         }
         auto aln1_end = make_pos_t(path_end(aln1.path()));
         auto aln2_begin = make_pos_t(path_start(aln2.path()));
-        //auto dist = graph_mixed_distance_estimate(aln1_end, aln2_begin, 32);
-        int64_t graph_dist = graph_distance(aln1_end, aln2_begin, 32);
-        int64_t dist = std::numeric_limits<int64_t>::max();
-        dist = min(graph_dist, dist);
-        for (auto& p : pos1) {
-            auto x = pos2.find(p.first);
-            if (x != pos2.end()) {
-                for (auto& pos1 : p.second) {
-                    for (auto& pos2 : x->second) {
-                        dist = min(dist, (int64_t)abs(pos2.first - pos1.first));
-                    }
-                }
-            }
+        pair<int64_t, int64_t> distances = min_oriented_distances(pos1, pos2);
+        bool same_orientation = distances.first <= distances.second;
+        int64_t dist = min(distances.first, distances.second);
+        if (dist < aln2.sequence().size()) {
+            int64_t graph_dist = graph_distance(aln1_end, aln2_begin, aln2.sequence().size());
+            dist = min(graph_dist, dist);
         }
         if (debug) cerr << "dist " << dist << endl;
         return -((double)gap_open + (double)dist * (double)gap_extension);
     };
 
-    AlignmentChainModel chainer(multi_alns, this, transition_weight, 1);
+    AlignmentChainModel chainer(multi_alns, this, transition_weight, 1, 64, 128);
     if (debug) chainer.display(cerr);
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps, false, debug);
     for (auto& aln : alignments) {

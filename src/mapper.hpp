@@ -341,7 +341,7 @@ public:
     // These cached versions of the parameters are updated periodically
     double cached_fragment_length_mean = 0;
     double cached_fragment_length_stdev = 0;
-    bool cached_fragment_orientation = 0;
+    bool cached_fragment_orientation_same = 0;
     bool cached_fragment_direction = 1;
     
     // These variables are used to manage the periodic updates
