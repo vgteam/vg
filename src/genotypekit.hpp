@@ -310,6 +310,7 @@ class CactusSnarlFinder : public SnarlFinder {
 public:
     /**
      * Make a new CactusSnarlFinder to find snarls in the given graph.
+     * We can't filter trivial bubbles because that would break our chains.
      */
     CactusSnarlFinder(VG& graph);
     

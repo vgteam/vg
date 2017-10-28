@@ -48,7 +48,7 @@ int main_snarl(int argc, char** argv) {
     bool top_level_only = false;
     int max_nodes = 10;
     bool legacy_ultrabubbles = false;
-    bool filter_trivial_bubbles = false;
+    bool filter_trivial_snarls = false;
     bool sort_snarls = false;
     bool fill_path_names = false;
 
@@ -101,7 +101,7 @@ int main_snarl(int argc, char** argv) {
             break;
             
         case 't':
-            filter_trivial_bubbles = true;
+            filter_trivial_snarls = true;
             break;
             
         case 's':
@@ -171,18 +171,28 @@ int main_snarl(int argc, char** argv) {
     }
     
     // The only implemented snarl finder:
-    SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph, "", filter_trivial_bubbles);
+    SnarlFinder* snarl_finder = new CactusSnarlFinder(*graph);
     
     // Load up all the snarls
     SnarlManager snarl_manager = snarl_finder->find_snarls();
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
     if (fill_path_names){
-        //delete trav_finder;
-       TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
+        TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
         for (const Snarl* snarl : snarl_roots ){
-           vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
-           stream::write_buffered(cout, travs, 0);
+            if (filter_trivial_snarls && snarl->type() == ULTRABUBBLE) {
+                auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
+                if (contents.first.empty()) {
+                    // Nothing but the boundary nodes in this snarl
+                    continue;
+                }
+            }
+            vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
+            stream::write_buffered(cout, travs, 0);
         }
+
+        delete trav_finder;
+        delete snarl_finder;
+        delete graph;
 
         exit(0);
     }
@@ -230,6 +240,14 @@ int main_snarl(int argc, char** argv) {
             const Snarl* snarl = stack.back();
             stack.pop_back();
             
+            if (filter_trivial_snarls && snarl->type() == ULTRABUBBLE) {
+                auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
+                if (contents.first.empty()) {
+                    // Nothing but the boundary nodes in this snarl
+                    continue;
+                }
+            }
+            
             // Write our snarl tree
             snarl_buffer.push_back(*snarl);
             stream::write_buffered(cout, snarl_buffer, buffer_size);
@@ -240,7 +258,13 @@ int main_snarl(int argc, char** argv) {
                 (!top_level_only || snarl_manager.is_root(snarl)) &&
                 (snarl_manager.deep_contents(snarl, *graph, true).first.size() < max_nodes)) {
                 
+#ifdef debug
+                cerr << "Look for traversals of " << pb2json(*snarl) << endl;
+#endif
                 vector<SnarlTraversal> travs = trav_finder->find_traversals(*snarl);
+#ifdef debug        
+                cerr << "Found " << travs.size() << endl;
+#endif
                 
                 traversal_buffer.insert(traversal_buffer.end(), travs.begin(), travs.end());
                 stream::write_buffered(trav_stream, traversal_buffer, buffer_size);

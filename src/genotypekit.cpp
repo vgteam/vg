@@ -867,6 +867,16 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
         // does this traversal point into a child snarl?
         const Snarl* into_snarl = snarl_manager.into_which_snarl(node_traversal.node->id(),
                                                                  node_traversal.backward);
+                                                                 
+#ifdef debug
+        cerr << "Traversal " << node_traversal.node->id() << " " << node_traversal.backward << " enters";
+        if (into_snarl != nullptr) {
+            cerr << " " << pb2json(*into_snarl) << endl;
+        } else {
+            cerr << " NULL" << endl; 
+        }
+#endif
+                                                                 
         if (into_snarl && !(node_traversal == traversal_start)) {
             // add a visit for the child snarl
             path.emplace_back();
@@ -880,29 +890,48 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
             if (into_snarl->start().node_id() == node_traversal.node->id()
                 && into_snarl->start().backward() == node_traversal.backward) {
                 // Into the start
-                
+#ifdef debug
+                cerr << "Entered child through its start" << endl;
+#endif
                 if (into_snarl->start_end_reachable()) {
-                    // skip to the other side
+                    // skip to the other side and proceed in the orientation that the end node takes.
                     stack.push_back(to_node_traversal(into_snarl->end(), graph));
+#ifdef debug
+                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+#endif
                 }
                 
                 // if the same side is also reachable, add it to the stack too
                 if (into_snarl->start_self_reachable()) {
-                    stack.push_back(to_rev_node_traversal(into_snarl->start(), graph));
+                    // Make sure to flip it around so we come out of the snarl instead of going in again,
+                    stack.push_back(to_rev_node_traversal(into_snarl->start(), graph).reverse());
+#ifdef debug
+                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+#endif
                 }
                 
             }
             else {
                 // Into the end
-                
+#ifdef debug
+                cerr << "Entered child through its end" << endl;
+#endif
                 if (into_snarl->start_end_reachable()) {
-                    // skip to the other side
-                    stack.push_back(to_node_traversal(into_snarl->start(), graph));
+                    // skip to the other side and proceed in the orientation
+                    // *opposite* what the start node takes (i.e. out of the
+                    // snarl)
+                    stack.push_back(to_node_traversal(into_snarl->start(), graph).reverse());
+#ifdef debug
+                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+#endif
                 }
                 
                 // if the same side is also reachable, add it to the stack too
                 if (into_snarl->end_self_reachable()) {
                     stack.push_back(to_rev_node_traversal(into_snarl->end(), graph));
+#ifdef debug
+                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+#endif
                 }
             }
         }
