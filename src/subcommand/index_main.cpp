@@ -957,12 +957,12 @@ int main_index(int argc, char** argv) {
                     return 1;
                 }
             } else if (!gbwt_name.empty()) {
-                // FIXME We are ignoring thread names here.
                 if (!gbwt_buffer.empty()) {
                     gbwt_index.insert(gbwt_buffer);
                     gbwt_buffer.clear();
                 }
                 sdsl::store_to_file(gbwt_index, gbwt_name);
+                index.store_thread_names(names);
             } else {
                 // XXX todo make the names here
                 index.insert_threads_into_dag(all_phase_threads, thread_names);

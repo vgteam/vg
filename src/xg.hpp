@@ -381,6 +381,10 @@ public:
     
     // Count matches to a subthread among embedded threads
 
+    /// Replace the existing thread names with the new names. Each name must
+    /// be unique.
+    void set_thread_names(const vector<string>& names);
+
     /// Insert a thread. Name must be unique or empty.
     /// bs_bake() and tn_bake() need to be called before queries.
     void insert_thread(const thread_t& t, const string& name);

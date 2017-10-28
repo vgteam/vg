@@ -3182,11 +3182,11 @@ XG::thread_t XG::extract_thread(xg::XG::ThreadMapping node, int64_t offset = 0, 
   return path;
 }
 
-void XG::insert_threads_into_dag(const vector<thread_t>& t, const vector<string>& names) {
+void XG::set_thread_names(const vector<string>& names) {
+    size_t total_length = 0;
+    for(auto& name : names) { total_length += name.length(); }
+    names_str.clear(); names_str.reserve(total_length);
 
-    util::assign(h_iv, int_vector<>(g_iv.size() * 2, 0));
-    util::assign(ts_iv, int_vector<>((node_count + 1) * 2, 0));
-    // Store the names
     for (auto& name : names) {
         names_str.append("$" + name);
     }
@@ -3194,6 +3194,15 @@ void XG::insert_threads_into_dag(const vector<thread_t>& t, const vector<string>
     cerr << "Compressing thread names..." << endl;
 #endif
     tn_bake();
+    
+}
+
+void XG::insert_threads_into_dag(const vector<thread_t>& t, const vector<string>& names) {
+
+    util::assign(h_iv, int_vector<>(g_iv.size() * 2, 0));
+    util::assign(ts_iv, int_vector<>((node_count + 1) * 2, 0));
+
+    set_thread_names(names);
 
     // store the sides in order of their addition to the threads
     int_vector<> sides_ordered_by_thread_id(t.size()*2); // fwd and reverse
