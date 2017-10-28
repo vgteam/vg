@@ -90,7 +90,7 @@ bool write_phase_threads(const vector<xg::XG::thread_t>& phase_threads, const st
 
 // Convert gbwt::node_type to ThreadMapping.
 xg::XG::ThreadMapping gbwt_to_thread_mapping(gbwt::node_type node) {
-    xg::XG::ThreadMapping thread_mapping = { (int64_t)(gbwt::Node::id(node)), gbwt::Node::reverse(node) };
+    xg::XG::ThreadMapping thread_mapping = { (int64_t)(gbwt::Node::id(node)), gbwt::Node::is_reverse(node) };
     return thread_mapping;
 }
 
@@ -553,20 +553,25 @@ int main_index(int argc, char** argv) {
                         // Copy the thread over to our batch that we GPBWT all
                         // at once, exploiting the fact that VCF-derived graphs
                         // are DAGs.
-                        // If we are building GBWT, we may have to insert the
-                        // current batch if there is no space for the thread.
                         if (gbwt_name.empty()) {
                             xg::XG::thread_t temp;
                             temp.reserve(to_save.size());
                             for(auto node : to_save) { temp.push_back(gbwt_to_thread_mapping(node)); }
                             all_phase_threads.push_back(temp);
                         } else {
-                            to_save.push_back(gbwt::ENDMARKER);
-                            if (gbwt_buffer.size() + to_save.size() > gbwt_buffer.capacity()) {
+                            // Insert the current batch if the buffer is full.
+                            if (gbwt_buffer.size() + 2 * (to_save.size() + 1) > gbwt_buffer.capacity()) {
                                 gbwt_index.insert(gbwt_buffer);
                                 gbwt_buffer.clear();
                             }
+                            // Forward orientation.
                             gbwt_buffer.insert(gbwt_buffer.end(), to_save.begin(), to_save.end());
+                            gbwt_buffer.push_back(gbwt::ENDMARKER);
+                            // Reverse orientation.
+                            for(auto iter = to_save.rbegin(); iter != to_save.rend(); ++iter) {
+                                gbwt_buffer.push_back(gbwt::Path::reverse(*iter));
+                            }
+                            gbwt_buffer.push_back(gbwt::ENDMARKER);
                         }
 
                         // Some threads are much longer than the average, so
@@ -586,15 +591,15 @@ int main_index(int argc, char** argv) {
                     if (to_extend.size() > 0) {
                         gbwt::node_type previous = to_extend.back();
 
-                        if (!index.has_edge(xg::make_edge(gbwt::Node::id(previous), gbwt::Node::reverse(previous),
-                                                          gbwt::Node::id(next), gbwt::Node::reverse(next)))) {
+                        if (!index.has_edge(xg::make_edge(gbwt::Node::id(previous), gbwt::Node::is_reverse(previous),
+                                                          gbwt::Node::id(next), gbwt::Node::is_reverse(next)))) {
                             // We can't have a thread take this edge (or an
                             // equivalent). Split and emit the current mappings
                             // and start a new path.
 #ifdef debug
                             cerr << "warning:[vg index] phase " << phase_number << " wants edge "
-                                << gbwt::Node::id(previous) << (gbwt::Node::reverse(previous) ? "L" : "R") << " - "
-                                << gbwt::Node::id(next) << (gbwt::Node::reverse(next) ? "R" : "L")
+                                << gbwt::Node::id(previous) << (gbwt::Node::is_reverse(previous) ? "L" : "R") << " - "
+                                << gbwt::Node::id(next) << (gbwt::Node::is_reverse(next) ? "R" : "L")
                                 << " which does not exist. Splitting!" << endl;
 #endif
                             // assumes diploidy...
@@ -962,7 +967,7 @@ int main_index(int argc, char** argv) {
                     gbwt_buffer.clear();
                 }
                 sdsl::store_to_file(gbwt_index, gbwt_name);
-                index.store_thread_names(names);
+                index.set_thread_names(thread_names);
             } else {
                 // XXX todo make the names here
                 index.insert_threads_into_dag(all_phase_threads, thread_names);
