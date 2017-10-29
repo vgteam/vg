@@ -488,7 +488,6 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     int l = max(alignment_to_length(max_aln), alignment_from_length(max_aln));
     double identity = 1. - (double)(l * match - max_aln.score()) / (match + mismatch) / l;
 
-    mapping_quality /= 2; // ow oof ouch
     mapping_quality *= pow(identity, identity_weight);
 
     if (mapping_quality > max_mapping_quality) {
@@ -544,10 +543,11 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     vector<double> scaled_scores(size);
     
     for (size_t i = 0; i < size; i++) {
-        scaled_scores[i] = log_base * (alignment_pairs.first[i].score() + alignment_pairs.second[i].score());
+        auto& aln1 = alignment_pairs.first[i];
+        auto& aln2 = alignment_pairs.second[i];
+        scaled_scores[i] = log_base * (aln1.score() + aln2.score());
         // + frag_weights[i]);
-        // ^^^ we could also incorporate the fragment weights, but this does not seem to help performance
-        // at least with the weights which we are using; todo explore this
+        // ^^^ we could also incorporate the fragment weights, but this does not seem to help performance in the current form
     }
 
     size_t max_idx;
@@ -580,8 +580,6 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     int len2 = max(alignment_to_length(max_aln2), alignment_from_length(max_aln2));
     double identity2 = 1. - (double)(len2 * match - max_aln2.score()) / (match + mismatch) / len2;
 
-    mapping_quality1 /= 2; // ow oof ouch
-    mapping_quality2 /= 2; // my bones hurt
     mapping_quality1 *= pow(identity1, identity_weight);
     mapping_quality2 *= pow(identity2, identity_weight);
 

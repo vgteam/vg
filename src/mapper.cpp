@@ -2157,10 +2157,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         for (auto& p : aln_ptrs) {
             auto& aln1 = p->first;
             auto& aln2 = p->second;
-            if (aln1.fragment_size() == 0 || aln2.fragment_size() == 0) {
-                auto approx_frag_lengths = min_pair_fragment_length(aln1, aln2);
-                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 1e-6));
-            }
+            auto approx_frag_lengths = min_pair_fragment_length(aln1, aln2);
+            frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 1e-6));
         }
         // sort the aligned pairs by score
         std::sort(aln_ptrs.begin(), aln_ptrs.end(),
@@ -2384,10 +2382,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
     bool max_first = results.first.size() && (read1_max_score == results.first.front().score() && read2_max_score == results.second.front().score());
 
-    double mqmax1 = max_mapping_quality;
-    double mqmax2 = max_mapping_quality;
     // calculate paired end quality if the model assumptions are not obviously violated
-    compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, mqmax1, mqmax2);
+    compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, mq_cap1, mq_cap2);
 
     // remove the extra pair used to compute mapping quality if necessary
     if (results.first.size() > max_multimaps) {
@@ -2846,7 +2842,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         alns = score_sort_and_deduplicate_alignments(best_alns, aln);
     }
     // compute the mapping quality
-    compute_mapping_qualities(alns, cluster_mq, mq_cap, max_mapping_quality);
+    compute_mapping_qualities(alns, cluster_mq, mq_cap, mq_cap);
 
     // final filter step
     filter_and_process_multimaps(alns, keep_multimaps);
@@ -3072,7 +3068,9 @@ string FragmentLengthStatistics::fragment_model_str(void) {
 
 void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2,
     const map<string, int64_t>& approx_frag_lengths, bool is_consistent) {
-
+    double max_score = 0;
+    aln1.clear_fragment();
+    aln2.clear_fragment();
     for (auto& j : approx_frag_lengths) {
         Path fragment;
         fragment.set_name(j.first);
@@ -3081,18 +3079,12 @@ void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment
         *aln1.add_fragment() = fragment;
         *aln2.add_fragment() = fragment;
         if (fragment_size && is_consistent) {
-            double pval = fragment_length_pval(abs(length));
-            double score = pval > 0.01 ? 10 + pval : 0;
-            aln1.set_fragment_score(score);
-            aln2.set_fragment_score(score);
-        } else if (length < fragment_max) {
-            aln1.set_fragment_score(0);
-            aln2.set_fragment_score(0);
-        } else {
-            aln1.set_fragment_score(0);
-            aln2.set_fragment_score(0);
+            double score = 50 + max(1.0, log(min(100.0, prob_to_phred(1.0-fragment_length_pval(abs(length))))));
+            max_score = max(max_score, score);
         }
     }
+    aln1.set_fragment_score(max_score);
+    aln2.set_fragment_score(max_score);
 }
 
 // XXX TODO this is busted because it doesn't respect the actual paths in the graph and assumes the alignment mapping position provides relative direction
