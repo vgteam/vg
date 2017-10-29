@@ -28,7 +28,7 @@ void help_map(char** argv) {
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [1024]" << endl
          << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [16]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than FLOAT [0]" << endl
-         << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [0]" << endl
+         << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [16]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.5]" << endl
@@ -122,7 +122,7 @@ int main_map(int argc, char** argv) {
     int min_multimaps = 16;
     int max_mapping_quality = 60;
     double maybe_mq_threshold = 0;
-    double identity_weight = 0;
+    double identity_weight = 16;
     string gam_input;
     bool compare_gam = false;
     int fragment_max = 1e4;

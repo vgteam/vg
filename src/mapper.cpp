@@ -2383,7 +2383,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     bool max_first = results.first.size() && (read1_max_score == results.first.front().score() && read2_max_score == results.second.front().score());
 
     // calculate paired end quality if the model assumptions are not obviously violated
-    compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, mq_cap1, mq_cap2);
+    compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2);
 
     // remove the extra pair used to compute mapping quality if necessary
     if (results.first.size() > max_multimaps) {
@@ -2842,7 +2842,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         alns = score_sort_and_deduplicate_alignments(best_alns, aln);
     }
     // compute the mapping quality
-    compute_mapping_qualities(alns, cluster_mq, mq_cap, mq_cap);
+    compute_mapping_qualities(alns, cluster_mq, maybe_mq, mq_cap);
 
     // final filter step
     filter_and_process_multimaps(alns, keep_multimaps);
