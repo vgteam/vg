@@ -26,9 +26,9 @@ void help_map(char** argv) {
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [1024]" << endl
-         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [16]" << endl
+         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [64]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than FLOAT [0]" << endl
-         << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [16]" << endl
+         << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [4]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.5]" << endl
@@ -37,7 +37,7 @@ void help_map(char** argv) {
          << "    -m, --acyclic-graph     improves runtime when the graph is acyclic" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [{-w}]" << endl
-         << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [10000:0:0:0:1]" << endl
+         << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [5000:0:0:0:1]" << endl
          << "                            max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
          << "    -U, --fixed-frag-model  don't learn the pair fragment model online, use {-I} without update" << endl
          << "    -p, --print-frag-model  suppress alignment output and print the fragment model on stdout as per {-I} format" << endl
@@ -119,13 +119,13 @@ int main_map(int argc, char** argv) {
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 1024;
-    int min_multimaps = 16;
+    int min_multimaps = 64;
     int max_mapping_quality = 60;
     double maybe_mq_threshold = 0;
-    double identity_weight = 16;
+    double identity_weight = 4;
     string gam_input;
     bool compare_gam = false;
-    int fragment_max = 1e4;
+    int fragment_max = 5000;
     int fragment_size = 0;
     double fragment_mean = 0;
     double fragment_stdev = 0;
