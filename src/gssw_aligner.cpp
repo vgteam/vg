@@ -480,9 +480,11 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
 
+    /*
     if (mq_estimate < mapping_quality) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality)));
     }
+    */
 
     auto& max_aln = alignments[max_idx];
     int l = max(alignment_to_length(max_aln), alignment_from_length(max_aln));
@@ -567,12 +569,14 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     double mapping_quality1 = mapping_quality;
     double mapping_quality2 = mapping_quality;
 
+    /*
     if (mq_estimate1 < mapping_quality2) {
         mapping_quality1 = prob_to_phred(sqrt(phred_to_prob(mq_estimate1 + mapping_quality1)));
     }
     if (mq_estimate2 < mapping_quality2) {
         mapping_quality2 = prob_to_phred(sqrt(phred_to_prob(mq_estimate2 + mapping_quality2)));
     }
+    */
 
     auto& max_aln1 = alignment_pairs.first[max_idx];
     int len1 = max(alignment_to_length(max_aln1), alignment_from_length(max_aln1));
