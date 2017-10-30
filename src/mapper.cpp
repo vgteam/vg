@@ -1860,12 +1860,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
     double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
     double min_maybe_pair_mq = min(maybe_mq1, maybe_mq2);
-    // set estimates as caps if we don't get either read in the pair with more than 30% MEM coverage
-    //if (maybe_pair_mq < maybe_mq_threshold) {
-    if (min_maybe_pair_mq < maybe_mq_threshold || min(mem_read_ratio1, mem_read_ratio2) < 0.3) {
-        mq_cap1 = min_maybe_pair_mq;
-        mq_cap2 = min_maybe_pair_mq;
-    }
+
     // scale difficulty using the estimated mapping quality
     total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)floor(max_possible_mq / maybe_pair_mq)));
 
@@ -2654,10 +2649,6 @@ Mapper::align_mem_multi(const Alignment& aln,
     double maybe_mq = estimate_max_possible_mapping_quality(basis_length,
                                                             basis_length/max(1.0, (double)mem_max_length),
                                                             basis_length/longest_lcp);
-    // set estimates as caps if we don't get either read in the pair with more than 30% MEM coverage
-    if (maybe_mq < maybe_mq_threshold || mem_read_ratio < 0.3) {
-        mq_cap = maybe_mq;
-    }
     // scale difficulty using the estimated mapping quality
     total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)floor(max_possible_mq / maybe_mq)));
 
