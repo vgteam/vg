@@ -394,10 +394,15 @@ int main_index(int argc, char** argv) {
     }
 
     if (!vcf_name.empty() && samples_in_batch < 1) {
-        cerr << "error:[vg index] batch size must be positive and nonzero" << endl;
+        cerr << "error:[vg index] Batch size must be positive and nonzero" << endl;
         return 1;
     }
-    
+
+    if (!vcf_name.empty() && !gbwt_name.empty() && !binary_haplotype_output.empty()) {
+        cerr << "error:[vg index] Cannot use both --gbwt-name and --write-haps" << endl;
+        return 1;
+    }
+
     if (!gcsa_name.empty() && rocksdb_name.empty()) {
         // We need to make a gcsa index and not a RocksDB index.
         
@@ -556,7 +561,8 @@ int main_index(int argc, char** argv) {
 
                         if (!gbwt_name.empty()) {
                             if (2 * (to_save.size() + 1) > gbwt_buffer.size()) {
-                                cerr << "error:[vg index] thread " << name << " too long for the buffer, skipping" << endl;
+                                cerr << "error:[vg index] thread " << name << " too long to fit into the buffer, skipping" << endl;
+                                to_save = std::vector<gbwt::node_type>();
                                 return;
                             }
                             // Insert the current batch if the buffer is full.
