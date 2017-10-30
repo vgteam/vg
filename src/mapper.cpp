@@ -1309,7 +1309,7 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.8)
+    , pair_rescue_hang_threshold(0.6)
     , pair_rescue_retry_threshold(0.0)
 {
     
@@ -1859,16 +1859,18 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                              basis_length/longest_lcp2);
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
     double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
+    double min_maybe_pair_mq = min(maybe_mq1, maybe_mq2);
     // set estimates as caps if we don't get either read in the pair with more than 30% MEM coverage
-    if (maybe_pair_mq < maybe_mq_threshold || max(mem_read_ratio1, mem_read_ratio2) < 0.3) {
-        mq_cap1 = maybe_pair_mq;
-        mq_cap2 = maybe_pair_mq;
+    //if (maybe_pair_mq < maybe_mq_threshold) {
+    if (min_maybe_pair_mq < maybe_mq_threshold || min(mem_read_ratio1, mem_read_ratio2) < 0.3) {
+        mq_cap1 = min_maybe_pair_mq;
+        mq_cap2 = min_maybe_pair_mq;
     }
     // scale difficulty using the estimated mapping quality
     total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)floor(max_possible_mq / maybe_pair_mq)));
 
-    if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << max_possible_mq << endl;
-    if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << max_possible_mq << endl;
+    if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << max_possible_mq << endl;
+    if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << max_possible_mq << endl;
 
 //#ifdef debug_mapper
 #pragma omp critical
@@ -2383,7 +2385,25 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     bool max_first = results.first.size() && (read1_max_score == results.first.front().score() && read2_max_score == results.second.front().score());
 
     // calculate paired end quality if the model assumptions are not obviously violated
-    compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2);
+    //compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2); // simplest method
+    if (results.first.size() && results.second.size()
+        && (fraction_filtered1 < 0.2 || fraction_filtered2 < 0.2)
+        && (mem_read_ratio1 > 0.8 || mem_read_ratio2 > 0.8)
+        && (maybe_mq1 > 1 || maybe_mq2 > 1)
+        && pair_consistent(results.first.front(), results.second.front(), 1e-6)) {
+        compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2);
+    } else {
+        // through filtering of candidate hits we've ended up with only one possible pair
+        if (results.first.size() < 2 && results.second.size() < 2) {
+            mq_cap1 = maybe_mq1;
+            mq_cap2 = maybe_mq2;
+        }
+        mq_cap1 = mem_read_ratio1 > 0.5 ? mq_cap1 : mem_read_ratio1 * mq_cap1;
+        mq_cap2 = mem_read_ratio2 > 0.5 ? mq_cap2 : mem_read_ratio2 * mq_cap2;
+        // compute mq independently
+        compute_mapping_qualities(results.first, cluster_mq, maybe_mq1, mq_cap1);
+        compute_mapping_qualities(results.second, cluster_mq, maybe_mq2, mq_cap2);
+    }
 
     // remove the extra pair used to compute mapping quality if necessary
     if (results.first.size() > max_multimaps) {

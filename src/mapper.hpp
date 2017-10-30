@@ -346,7 +346,7 @@ public:
     
     // These variables are used to manage the periodic updates
     int64_t since_last_fragment_length_estimate = 0;
-    int64_t fragment_model_update_interval = 10;
+    int64_t fragment_model_update_interval = 100;
     
     // These deques are used for the periodic running estimation of the fragment length distribution
     deque<double> fragment_lengths;
@@ -357,7 +357,7 @@ public:
     int64_t fragment_size = 0; // Used to bound clustering of MEMs during paired end mapping, also acts as sentinel to determine
                        // if consistent pairs should be reported; dynamically estimated at runtime
     double fragment_sigma = 10; // the number of times the standard deviation above the mean to set the fragment_size
-    int64_t fragment_length_cache_size = 1000;
+    int64_t fragment_length_cache_size = 10000;
     float perfect_pair_identity_threshold = 0.9;
     bool fixed_fragment_model = true;
     
