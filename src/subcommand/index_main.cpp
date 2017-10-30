@@ -72,22 +72,6 @@ void help_index(char** argv) {
          << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
 }
 
-bool write_phase_threads(const vector<xg::XG::thread_t>& phase_threads, const string& output_filename) {
-    ofstream output(output_filename, std::ios::binary);
-    if (!output.is_open()) return false;
-    for (auto& thread : phase_threads) {
-        for (const xg::XG::ThreadMapping& mapping : thread) {
-            int64_t i = mapping.node_id;
-            if (mapping.is_reverse) i *= -1;
-            output.write((const char*)&i, sizeof(int64_t));
-        }
-        int64_t j = 0;
-        output.write((const char*)&j, sizeof(int64_t));
-    }
-    output.close();
-    return true;
-}
-
 // Convert gbwt::node_type to ThreadMapping.
 xg::XG::ThreadMapping gbwt_to_thread_mapping(gbwt::node_type node) {
     xg::XG::ThreadMapping thread_mapping = { (int64_t)(gbwt::Node::id(node)), gbwt::Node::is_reverse(node) };
@@ -474,24 +458,34 @@ int main_index(int argc, char** argv) {
             cerr << "Built base XG index" << endl;
         }
 
-        // We're going to collect all the phase threads as XG threads (which
-        // aren't huge like Protobuf Paths), and then insert them all into xg in
-        // a batch, for speed. This will take a lot of memory (although not as
-        // much as a real vg::Paths index or vector<Path> would)
-        vector<xg::XG::thread_t> all_phase_threads;
-
-        // If we're going to build GBWT, we buffer the threads in a different
-        // structure and discard them after they have been inserted.
-        gbwt::DynamicGBWT gbwt_index;
-        std::vector<gbwt::node_type> gbwt_buffer; // FIXME gbwt::text_type would be smaller if we knew the size in advance.
-        if (!gbwt_name.empty()) {
-            // Configure GBWT verbosity so it doesn't spit out loads of extra info
-            if (!show_progress) { gbwt::Verbosity::set(gbwt::Verbosity::SILENT); }
-            gbwt_buffer.reserve(gbwt::DynamicGBWT::INSERT_BATCH_SIZE);
-        }
-
+        // Build gPBWT / GBWT or output the threads in binary.
         if (variant_file.is_open()) {
-            // Now go through and add the variants.
+
+            // Do we build GBWT?
+            gbwt::DynamicGBWT gbwt_index;
+            std::vector<gbwt::node_type> gbwt_buffer; // FIXME gbwt::text_type would be smaller if we knew the size in advance.
+            if (!gbwt_name.empty()) {
+                if (show_progress) { cerr << "Building GBWT index" << endl; }
+                else { gbwt::Verbosity::set(gbwt::Verbosity::SILENT); }
+                gbwt_buffer.reserve(gbwt::DynamicGBWT::INSERT_BATCH_SIZE);
+            }
+
+            // Do we output the threads in binary instead of building GBWT?
+            sdsl::int_vector_buffer<0> binary_file;
+            if (!binary_haplotype_output.empty()) {
+                size_t max_rank = index.max_node_rank();
+                xg::id_t max_id = 0;
+                for (size_t i = 1; i <= max_rank; i++) { max_id = std::max(max_id, index.rank_to_id(i)); }
+                if (show_progress) { cerr << "Writing the haplotypes to " << binary_haplotype_output << endl; }
+                size_t width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
+                binary_file = sdsl::int_vector_buffer<0>(binary_haplotype_output, std::ios::out, gbwt::MEGABYTE, width);
+            }
+
+            // We're going to collect all the phase threads as XG threads (which
+            // aren't huge like Protobuf Paths), and then insert them all into xg in
+            // a batch, for speed. This will take a lot of memory (although not as
+            // much as a real vg::Paths index or vector<Path> would)
+            vector<xg::XG::thread_t> all_phase_threads;
 
             // Buffer recent node lengths for faster access.
             NodeLengthBuffer node_length(index);
@@ -560,17 +554,10 @@ int main_index(int argc, char** argv) {
                         // We use a hierarchical naming convention to tie together threads from the same phase.
                         thread_names.push_back(name);
 
-                        // Copy the thread over to our batch that we GPBWT all
-                        // at once, exploiting the fact that VCF-derived graphs
-                        // are DAGs.
-                        if (gbwt_name.empty()) {
-                            xg::XG::thread_t temp;
-                            temp.reserve(to_save.size());
-                            for(auto node : to_save) { temp.push_back(gbwt_to_thread_mapping(node)); }
-                            all_phase_threads.push_back(temp);
-                        } else {
+                        if (!gbwt_name.empty()) {
                             // Insert the current batch if the buffer is full.
                             if (gbwt_buffer.size() + 2 * (to_save.size() + 1) > gbwt_buffer.capacity()) {
+                                if (show_progress) { cerr << endl; }
                                 gbwt_index.insert(gbwt_buffer);
                                 gbwt_buffer.clear();
                             }
@@ -582,6 +569,17 @@ int main_index(int argc, char** argv) {
                                 gbwt_buffer.push_back(gbwt::Path::reverse(*iter));
                             }
                             gbwt_buffer.push_back(gbwt::ENDMARKER);
+                        } else if (!binary_haplotype_output.empty()) {
+                            for (auto node : to_save) { binary_file.push_back(node); }
+                            binary_file.push_back(gbwt::ENDMARKER);
+                        } else {
+                            // Copy the thread over to our batch that we GPBWT all
+                            // at once, exploiting the fact that VCF-derived graphs
+                            // are DAGs.
+                            xg::XG::thread_t temp;
+                            temp.reserve(to_save.size());
+                            for (auto node : to_save) { temp.push_back(gbwt_to_thread_mapping(node)); }
+                            all_phase_threads.push_back(temp);
                         }
 
                         // Some threads are much longer than the average, so
@@ -964,26 +962,24 @@ int main_index(int argc, char** argv) {
                 cerr << "Inserting all phase threads into DAG..." << endl;
             }
 
-            // Now insert all the threads in a batch into the known-DAG VCF-
-            // derived graph.
-            if (!binary_haplotype_output.empty()) {
-                if (!write_phase_threads(all_phase_threads, binary_haplotype_output)) {
-                    cerr << "could not write binary haplotypes to " << binary_haplotype_output << endl;
-                    return 1;
-                }
-            } else if (!gbwt_name.empty()) {
+            // Flush the buffers and do whatever work is still left.
+            if (!gbwt_name.empty()) {
                 if (!gbwt_buffer.empty()) {
                     gbwt_index.insert(gbwt_buffer);
                     gbwt_buffer.clear();
                 }
+                if (show_progress) { cerr << "Saving GBWT to disk..." << endl; }
                 sdsl::store_to_file(gbwt_index, gbwt_name);
                 index.set_thread_names(thread_names);
+            } else if (!binary_haplotype_output.empty()) {
+                binary_file.close();
             } else {
+                // Now insert all the threads in a batch into the known-DAG VCF-
+                // derived graph.
                 // XXX todo make the names here
                 index.insert_threads_into_dag(all_phase_threads, thread_names);
+                all_phase_threads.clear();
             }
-            all_phase_threads.clear();
-
         }
 
         if (show_progress) {
