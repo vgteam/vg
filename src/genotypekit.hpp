@@ -21,7 +21,6 @@
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "types.hpp"
-#include "bubbles.hpp"
 #include "distributions.hpp"
 #include "snarls.hpp"
 #include "path_index.hpp"

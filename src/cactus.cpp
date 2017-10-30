@@ -1,5 +1,5 @@
 #include <unordered_set>
-#include "bubbles.hpp"
+#include "cactus.hpp"
 #include "vg.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/weakly_connected_components.hpp"

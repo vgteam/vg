@@ -41,8 +41,6 @@
 #include "types.hpp"
 #include "gfakluge.hpp"
 
-#include "bubbles.hpp"
-
 #include "nodetraversal.hpp"
 #include "nodeside.hpp"
 

@@ -1,6 +1,10 @@
-#ifndef VG_BUBBLES_HPP_INCLUDED
+#ifndef VG_CACTUS_HPP_INCLUDED
 
-#define VG_BUBBLES_HPP_INCLUDED
+#define VG_CACTUS_HPP_INCLUDED
+
+/** \file
+ * cactus.hpp: Wrapper utility functions for for pinchesAndCacti
+ */
 
 #include <vector>
 #include <map>
@@ -8,18 +12,16 @@
 #include "types.hpp"
 #include "utility.hpp"
 #include "nodeside.hpp"
+#include "vg.hpp"
 
 extern "C" {
-    typedef struct _stCactusGraph stCactusGraph;
-    typedef struct _stCactusNode stCactusNode;
-    typedef struct _stList stList;
+#include "sonLib.h"
+#include "stCactusGraphs.h"
 }
 
 using namespace std;
 
 namespace vg {
-
-class VG;
 
 // We use this when talking to Cactus.
 struct CactusSide {

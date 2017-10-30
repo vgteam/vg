@@ -1,12 +1,7 @@
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/is_directed_acyclic.hpp"
-#include "bubbles.hpp"
-
-extern "C" {
-#include "sonLib.h"
-#include "stCactusGraphs.h"
-}
+#include "cactus.hpp"
 
 //#define debug
 

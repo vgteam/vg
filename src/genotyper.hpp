@@ -26,7 +26,6 @@
 #include "srpe.hpp"
 #include "path_index.hpp"
 #include "index.hpp"
-#include "bubbles.hpp"
 #include "distributions.hpp"
 
 namespace vg {
