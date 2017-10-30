@@ -461,24 +461,30 @@ int main_index(int argc, char** argv) {
         // Build gPBWT / GBWT or output the threads in binary.
         if (variant_file.is_open()) {
 
+            // Apparently there is no efficient way of determining the max id.
+            size_t id_width = 64;
+            {
+                xg::id_t max_id = 0;
+                size_t max_rank = index.max_node_rank();
+                for (size_t i = 1; i <= max_rank; i++) { max_id = std::max(max_id, index.rank_to_id(i)); }
+                id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
+            }
+
             // Do we build GBWT?
             gbwt::DynamicGBWT gbwt_index;
-            std::vector<gbwt::node_type> gbwt_buffer; // FIXME gbwt::text_type would be smaller if we knew the size in advance.
+            gbwt::text_type gbwt_buffer;
+            size_t gbwt_tail = 0; // Resizing requires reallocation, so we keep track of the tail explicitly.
             if (!gbwt_name.empty()) {
                 if (show_progress) { cerr << "Building GBWT index" << endl; }
                 else { gbwt::Verbosity::set(gbwt::Verbosity::SILENT); }
-                gbwt_buffer.reserve(gbwt::DynamicGBWT::INSERT_BATCH_SIZE);
+                gbwt_buffer = gbwt::text_type(gbwt::DynamicGBWT::INSERT_BATCH_SIZE, 0, id_width);
             }
 
             // Do we output the threads in binary instead of building GBWT?
-            sdsl::int_vector_buffer<0> binary_file;
+            gbwt::text_buffer_type binary_file;
             if (!binary_haplotype_output.empty()) {
-                size_t max_rank = index.max_node_rank();
-                xg::id_t max_id = 0;
-                for (size_t i = 1; i <= max_rank; i++) { max_id = std::max(max_id, index.rank_to_id(i)); }
                 if (show_progress) { cerr << "Writing the haplotypes to " << binary_haplotype_output << endl; }
-                size_t width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
-                binary_file = sdsl::int_vector_buffer<0>(binary_haplotype_output, std::ios::out, gbwt::MEGABYTE, width);
+                binary_file = gbwt::text_buffer_type(binary_haplotype_output, std::ios::out, gbwt::MEGABYTE, id_width);
             }
 
             // We're going to collect all the phase threads as XG threads (which
@@ -548,27 +554,27 @@ int main_index(int argc, char** argv) {
                     if (to_save.size() > 0) {
                         // Only actually do anything if we put in some mappings.
 
-                        // Count this thread from this phase as being saved.
-                        saved_phase_paths[phase_number - first_phase]++;
-
-                        // We use a hierarchical naming convention to tie together threads from the same phase.
-                        thread_names.push_back(name);
-
                         if (!gbwt_name.empty()) {
+                            if (2 * (to_save.size() + 1) > gbwt_buffer.size()) {
+                                cerr << "error:[vg index] thread " << name << " too long for the buffer, skipping" << endl;
+                                return;
+                            }
                             // Insert the current batch if the buffer is full.
-                            if (gbwt_buffer.size() + 2 * (to_save.size() + 1) > gbwt_buffer.capacity()) {
+                            if (gbwt_tail + 2 * (to_save.size() + 1) > gbwt_buffer.size()) {
                                 if (show_progress) { cerr << endl; }
-                                gbwt_index.insert(gbwt_buffer);
-                                gbwt_buffer.clear();
+                                gbwt_index.insert(gbwt_buffer, gbwt_tail);
+                                gbwt_tail = 0;
                             }
                             // Forward orientation.
-                            gbwt_buffer.insert(gbwt_buffer.end(), to_save.begin(), to_save.end());
-                            gbwt_buffer.push_back(gbwt::ENDMARKER);
+                            for (auto node : to_save) {
+                                gbwt_buffer[gbwt_tail] = node; gbwt_tail++;
+                            }
+                            gbwt_buffer[gbwt_tail] = gbwt::ENDMARKER; gbwt_tail++;
                             // Reverse orientation.
                             for(auto iter = to_save.rbegin(); iter != to_save.rend(); ++iter) {
-                                gbwt_buffer.push_back(gbwt::Path::reverse(*iter));
+                                gbwt_buffer[gbwt_tail] = gbwt::Path::reverse(*iter); gbwt_tail++;
                             }
-                            gbwt_buffer.push_back(gbwt::ENDMARKER);
+                            gbwt_buffer[gbwt_tail] = gbwt::ENDMARKER; gbwt_tail++;
                         } else if (!binary_haplotype_output.empty()) {
                             for (auto node : to_save) { binary_file.push_back(node); }
                             binary_file.push_back(gbwt::ENDMARKER);
@@ -585,6 +591,12 @@ int main_index(int argc, char** argv) {
                         // Some threads are much longer than the average, so
                         // it's better to deallocate the memory here.
                         to_save = std::vector<gbwt::node_type>();
+
+                        // Count this thread from this phase as being saved.
+                        saved_phase_paths[phase_number - first_phase]++;
+
+                        // We use a hierarchical naming convention to tie together threads from the same phase.
+                        thread_names.push_back(name);
                     }
                 };
 
@@ -964,9 +976,9 @@ int main_index(int argc, char** argv) {
 
             // Flush the buffers and do whatever work is still left.
             if (!gbwt_name.empty()) {
-                if (!gbwt_buffer.empty()) {
-                    gbwt_index.insert(gbwt_buffer);
-                    gbwt_buffer.clear();
+                if (gbwt_tail > 0) {
+                    gbwt_index.insert(gbwt_buffer, gbwt_tail);
+                    gbwt_tail = 0;
                 }
                 if (show_progress) { cerr << "Saving GBWT to disk..." << endl; }
                 sdsl::store_to_file(gbwt_index, gbwt_name);
