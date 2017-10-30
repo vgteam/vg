@@ -2385,7 +2385,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     bool max_first = results.first.size() && (read1_max_score == results.first.front().score() && read2_max_score == results.second.front().score());
 
     // calculate paired end quality if the model assumptions are not obviously violated
-    //compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2); // simplest method
+    compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2); // simplest method
+    /*
     if (results.first.size() && results.second.size()
         && (fraction_filtered1 < 0.2 || fraction_filtered2 < 0.2)
         && (mem_read_ratio1 > 0.8 || mem_read_ratio2 > 0.8)
@@ -2404,6 +2405,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         compute_mapping_qualities(results.first, cluster_mq, maybe_mq1, mq_cap1);
         compute_mapping_qualities(results.second, cluster_mq, maybe_mq2, mq_cap2);
     }
+    */
 
     // remove the extra pair used to compute mapping quality if necessary
     if (results.first.size() > max_multimaps) {
