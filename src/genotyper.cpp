@@ -529,7 +529,6 @@ namespace vg {
             string contig_name,
             string sample_name,
             string augmented_file_name,
-            bool use_cactus,
             bool subset_graph,
             bool show_progress,
             bool output_vcf,
@@ -732,12 +731,9 @@ namespace vg {
             // we can only use Cactus with the ref path if it survived the
             // subsetting.
 
-            sites = use_cactus ? (
-                    subset.paths.has_path(ref_path_name) ?
+            sites = subset.paths.has_path(ref_path_name) ?
                     find_sites_with_cactus(subset, ref_path_name)
-                    : find_sites_with_cactus(subset)
-                    )
-                : find_sites_with_supbub(subset);
+                    : find_sites_with_cactus(subset);
 
             for(auto& site : sites) {
                 // Translate all the NodeTraversals back to node pointers in the
@@ -756,8 +752,7 @@ namespace vg {
 
             // Unfold/unroll, find the ultrabubbles, and translate back.
             algorithms::sort(&graph);
-            sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
-            : find_sites_with_supbub(graph);
+            sites = find_sites_with_cactus(graph, ref_path_name);
 
 
 
@@ -1195,93 +1190,42 @@ namespace vg {
         return round(total);
     }
 
-    vector<Genotyper::Site> Genotyper::find_sites_with_supbub(VG& graph) {
-
-        // Set up our output vector
-        vector<Site> to_return;
-
-        // Unfold the graph
-        // Copy the graph and unfold the copy. We need to hold this translation
-        // table from new node ID to old node and relative orientation.
-        unordered_map<vg::id_t, pair<vg::id_t, bool>> unfold_translation;
-        auto transformed = graph.unfold(unfold_max_length, unfold_translation);
-
-        // Fix up any doubly reversed edges
-        transformed.flip_doubly_reversed_edges();
-
-        // Now dagify the graph. We need to hold this translation table from new
-        // node ID to old node and relative orientation.
-        unordered_map<vg::id_t, pair<vg::id_t, bool>> dag_translation;
-        transformed = transformed.dagify(dagify_steps, dag_translation);
-
-        // Compose the complete translation
-        unordered_map<vg::id_t, pair<vg::id_t, bool>> overall_translation = transformed.overlay_node_translations(dag_translation, unfold_translation);
-        dag_translation.clear();
-        unfold_translation.clear();
-
-        // Find the ultrabubbles in the DAG
-        map<pair<id_t, id_t>, vector<id_t>> ultrabubbles = vg::ultrabubbles(transformed);
-
-        for(auto& ultrabubble : ultrabubbles) {
-
-            // Translate the ultrabubble coordinates into NodeTraversals.
-            // This is coming from a DAG so we only need to look at the translation for orientation.
-            auto& start_translation = overall_translation[ultrabubble.first.first];
-            NodeTraversal start(graph.get_node(start_translation.first), start_translation.second);
-
-            auto& end_translation = overall_translation[ultrabubble.first.second];
-            NodeTraversal end(graph.get_node(end_translation.first), end_translation.second);
-
-            // Make a Site and tell it where to start and end
-            Site site;
-            site.start = start;
-            site.end = end;
-
-            for(auto id : ultrabubble.second) {
-                // Translate each ID and put it in the set
-                Node* node = graph.get_node(overall_translation[id].first);
-            }
-
-            // Save the site
-            to_return.emplace_back(std::move(site));
-        }
-
-        // Give back the collection of sites
-        return to_return;    
-
-    }
-
     vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const string& ref_path_name) {
 
         // Set up our output vector
         vector<Site> to_return;
 
-        // cactus needs the nodes to be sorted in order to find a source and sink
-        algorithms::sort(&graph);
+        // Find all the snarls
+        SnarlManager snarls = CactusSnarlFinder(graph).find_snarls();
 
-        // todo: use deomposition instead of converting tree into flat structure
-        BubbleTree* bubble_tree = ultrabubble_tree(graph);
-
-        bubble_tree->for_each_preorder([&](BubbleTree::Node* node) {
-                Bubble& bubble = node->v;
-                // cut root to be consistent with ultrabubbles()
-                if (node != bubble_tree->root) {
-                set<id_t> nodes{bubble.contents.begin(), bubble.contents.end()};
-                NodeTraversal start(graph.get_node(bubble.start.node), !bubble.start.is_end);
-                NodeTraversal end(graph.get_node(bubble.end.node), bubble.end.is_end);
-                // Fill in a Site. Make sure to preserve original endpoint
-                // ordering, because swapping them without flipping their
-                // orientation flags will make an inside-out site.
-                Site site;
-                site.start = start;
-                site.end = end;
-                swap(site.contents, nodes);
-                // Save the site
-                to_return.emplace_back(std::move(site));
-                }
-                });
-
-        delete bubble_tree;
+        snarls.for_each_snarl_preorder([&](const Snarl* snarl) {
+                
+            if (snarl->type() != ULTRABUBBLE) {
+                // Skip non-ultrabubbles
+                return;                
+            }
+            
+            // Get the deep contents (an unordered set of node pointers)
+            auto contents = snarls.deep_contents(snarl, graph, true).first;
+            // Convert to ordered set of node IDs
+            set<id_t> nodes;
+            for (auto& node : contents) {
+                nodes.insert(node->id());
+            }
+            
+            // Get bounds as NodeTraversals, facing forward along the snarl.
+            NodeTraversal start(graph.get_node(snarl->start().node_id()), !snarl->start().backward());
+            NodeTraversal end(graph.get_node(snarl->end().node_id()), snarl->end().backward());
+            // Fill in a Site. Make sure to preserve original endpoint
+            // ordering, because swapping them without flipping their
+            // orientation flags will make an inside-out site.
+            Site site;
+            site.start = start;
+            site.end = end;
+            swap(site.contents, nodes);
+            // Save the site
+            to_return.emplace_back(std::move(site));
+        });
 
         return to_return;
     }

@@ -173,7 +173,6 @@ public:
              string contig_name = "",
              string sample_name = "",
              string augmented_file_name = "",
-             bool use_cactus = false,
              bool subset_graph = false,
              bool show_progress = false,
              bool output_vcf = false,
@@ -196,16 +195,12 @@ public:
      */
     int alignment_qual_score(VG& graph, const Site& site, const Alignment& alignment);
 
-    /**
-     * Unfold and dagify a graph, find the superbubbles, and then convert them
+    /** 
+     * Unfold and dagify a graph, find the snarls, and then convert them
      * back to the space of the original graph.
      *
      * Returns a collection of Sites.
-     */
-    vector<Site> find_sites_with_supbub(VG& graph);
-
-    /** 
-     * Same as find_sites but use Cactus instead of Superbubbles.
+     *
      * This is more general and doesn't require DAGifcation etc., but we keep
      * both versions around for now for debugging and comparison
      *

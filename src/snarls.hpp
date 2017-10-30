@@ -102,6 +102,9 @@ namespace vg {
         /// Execute a function on all top level sites
         void for_each_top_level_snarl(const function<void(const Snarl*)>& lambda);
         
+        /// Execute a function on all sites in a preorder traversal
+        void for_each_snarl_preorder(const function<void(const Snarl*)>& lambda);
+        
         /// Execute a function on all top level sites in parallel
         void for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda);
         

@@ -23,8 +23,6 @@ void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph.vg > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
-         << "    -u, --ultrabubbles    describe (in text) the ultrabubbles of the graph" << endl
-         << "traversals:" << endl
          << "    -p, --pathnames       output variant paths as SnarlTraversals to STDOUT" << endl
          << "    -r, --traversals FILE output SnarlTraversals for ultrabubbles." << endl
          << "    -l, --leaf-only       restrict traversals to leaf ultrabubbles." << endl
@@ -47,7 +45,6 @@ int main_snarl(int argc, char** argv) {
     bool leaf_only = false;
     bool top_level_only = false;
     int max_nodes = 10;
-    bool legacy_ultrabubbles = false;
     bool filter_trivial_snarls = false;
     bool sort_snarls = false;
     bool fill_path_names = false;
@@ -57,7 +54,6 @@ int main_snarl(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
-                {"ultrabubbles", no_argument, 0, 'u'},
                 {"traversals", required_argument, 0, 'r'},
 		        {"pathnames", no_argument, 0, 'p'},
                 {"leaf-only", no_argument, 0, 'l'},
@@ -70,7 +66,7 @@ int main_snarl(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "sur:ltopm:h?",
+        c = getopt_long (argc, argv, "sr:ltopm:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -80,10 +76,6 @@ int main_snarl(int argc, char** argv) {
         switch (c)
         {
             
-        case 'u':
-            legacy_ultrabubbles = true;
-            break;
-
         case 'r':
             traversal_file = optarg;
             break;
@@ -124,13 +116,6 @@ int main_snarl(int argc, char** argv) {
         }
     }
 
-    if (legacy_ultrabubbles) {
-        if (!traversal_file.empty()) {
-            cerr << "error:[vg snarl]: -u and -s options must be used alone" << endl;
-            return 1;
-        }
-    }
-
     // Prepare traversal output stream
     ofstream trav_stream;
     if (!traversal_file.empty()) {
@@ -153,23 +138,6 @@ int main_snarl(int argc, char** argv) {
         exit(1);
     }
 
-    // old code from vg stats
-    if (legacy_ultrabubbles) {
-        auto bubbles = vg::ultrabubbles(*graph);
-        for (auto& i : bubbles) {
-            auto b = i.first;
-            auto v = i.second;
-            // sort output for now, to help do diffs in testing
-            sort(v.begin(), v.end());
-            cout << b.first << "\t" << b.second << "\t";
-            for (auto& n : v) {
-                cout << n << ",";
-            }
-            cout << endl;
-        }
-        return 0;
-    }
-    
     // The only implemented snarl finder:
     SnarlFinder* snarl_finder = new CactusSnarlFinder(*graph);
     
