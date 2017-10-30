@@ -262,33 +262,6 @@ class SimpleConsistencyCalculator : public ConsistencyCalculator{
         const vector<SnarlTraversal>& traversals, const Alignment& read) const;
 };
 
-
-class CactusUltrabubbleFinder : public SnarlFinder {
-    
-    /// Holds the vg graph we are looking for sites in.
-    VG& graph;
-    
-    /// Use this path name as a rooting hint, if present.
-    string hint_path_name;
-    
-    /// Indicates whether bubbles that consist of a single edge should be filtered
-    bool filter_trivial_bubbles;
-    
-public:
-    /**
-     * Make a new CactusUltrabubbleFinder to find sites in the given graph.
-     */
-    CactusUltrabubbleFinder(VG& graph,
-                            const string& hint_path_name = "",
-                            bool filter_trivial_bubbles = false);
-    
-    /**
-     * Find all the sites in parallel with Cactus, and put them into a SnarlManager.
-     */
-    virtual SnarlManager find_snarls();
-    
-};
-
 /**
  * Class for finding all snarls using the base-level Cactus snarl decomposition
  * interface.
@@ -297,6 +270,9 @@ class CactusSnarlFinder : public SnarlFinder {
     
     /// Holds the vg graph we are looking for sites in.
     VG& graph;
+    
+    /// Holds the names of reference path hints
+    unordered_set<string> hint_paths;
     
     /// Create a snarl in the given list with the given start and end,
     /// containing the given child snarls in the list of chains of children and
@@ -311,8 +287,16 @@ public:
     /**
      * Make a new CactusSnarlFinder to find snarls in the given graph.
      * We can't filter trivial bubbles because that would break our chains.
+     *
+     * Optionally takes a hint path name.
      */
     CactusSnarlFinder(VG& graph);
+    
+    /**
+     * Make a new CactusSnarlFinder with a single hinted path to base the
+     * decomposition on.
+     */
+    CactusSnarlFinder(VG& graph, const string& hint_path);
     
     /**
      * Find all the snarls with Cactus, and put them into a SnarlManager.

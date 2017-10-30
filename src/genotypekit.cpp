@@ -330,90 +330,19 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     return ret;
 }
 
-CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
-                                                 const string& hint_path_name,
-                                                 bool filter_trivial_bubbles) :
-    graph(graph), hint_path_name(hint_path_name), filter_trivial_bubbles(filter_trivial_bubbles) {
-    // Make sure the graph is sorted.
-    // cactus needs the nodes to be sorted in order to find a source and sink.
-    algorithms::sort(&graph);
-}
-
-SnarlManager CactusUltrabubbleFinder::find_snarls() {
-    
-    // Get the bubble tree in Cactus format
-    BubbleTree* bubble_tree = ultrabubble_tree(graph);
-    
-    // Convert to Snarls
-    
-    vector<Snarl> converted_snarls;
-    
-    bubble_tree->for_each_preorder([&](BubbleTree::Node* node) {
-        
-        Bubble& bubble = node->v;
-        if (node != bubble_tree->root) {
-            // If we aren't the root node of the tree, we need to be a Snarl
-            
-            if (filter_trivial_bubbles) {
-                
-                // Check whether the bubble consists of a single edge
-                
-                set<NodeSide> start_connections = graph.sides_of(bubble.start);
-                set<NodeSide> end_connections = graph.sides_of(bubble.end);
-                
-                if (start_connections.size() == 1
-                    && start_connections.count(bubble.end)
-                    && end_connections.size() == 1
-                    && end_connections.count(bubble.start)) {
-                    // This is a single edge bubble, skip it
-                    return;
-                }
-            }
-            
-            // We're going to fill in this Snarl.
-            Snarl snarl;
-            
-            // Set up the start and end
-
-            // Make sure to preserve original endpoint
-            // ordering, because swapping them without flipping their
-            // orientation flags will make an inside-out site.
-            snarl.mutable_start()->set_node_id(bubble.start.node);
-            snarl.mutable_start()->set_backward(!bubble.start.is_end);
-            snarl.mutable_end()->set_node_id(bubble.end.node);
-            snarl.mutable_end()->set_backward(bubble.end.is_end);
-            
-            // Mark snarl as an ultrabubble if it's acyclic
-            snarl.set_type(bubble.dag ? ULTRABUBBLE : UNCLASSIFIED);
-            
-            // Mark it as traversable from start to end.
-            // TODO: May not really be true! But we always used to assume it was.
-            snarl.set_start_end_reachable(true);
-            
-            // If not a top level site, add parent info
-            if (node->parent != bubble_tree->root) {
-                Bubble& bubble_parent = node->parent->v;
-                Snarl* snarl_parent = snarl.mutable_parent();
-                snarl_parent->mutable_start()->set_node_id(bubble_parent.start.node);
-                snarl_parent->mutable_start()->set_backward(!bubble_parent.start.is_end);
-                snarl_parent->mutable_end()->set_node_id(bubble_parent.end.node);
-                snarl_parent->mutable_end()->set_backward(bubble_parent.end.is_end);
-            }
-            
-            converted_snarls.push_back(snarl);
-        }
-    });
-    
-    delete bubble_tree;
-    
-    // Now form the SnarlManager and return
-    return SnarlManager(converted_snarls.begin(), converted_snarls.end());
-}
-
 CactusSnarlFinder::CactusSnarlFinder(VG& graph) :
     graph(graph) {
     // Make sure the graph is sorted.
     algorithms::sort(&graph);
+}
+
+CactusSnarlFinder::CactusSnarlFinder(VG& graph, const string& hint_path) :
+    CactusSnarlFinder(graph) {
+    
+    // Save the hint path
+    hint_paths.insert(hint_path);
+    
+    // TODO: actually use it
 }
 
 SnarlManager CactusSnarlFinder::find_snarls() {
