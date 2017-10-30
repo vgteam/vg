@@ -166,7 +166,7 @@ namespace vg {
         map<string, vector<SnarlTraversal> > snarl_name_to_traversals;
 
         if (use_snarls){
-            SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph, "", true);
+            SnarlFinder* snarl_finder = new CactusSnarlFinder(*graph);
             SnarlManager snarl_manager = snarl_finder->find_snarls();
             vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
             SimpleConsistencyCalculator scc;
@@ -761,8 +761,7 @@ namespace vg {
 
 
 
-//             bool filter_trivials = true;
-//             snarl_finder =  new CactusUltrabubbleFinder(graph, "", filter_trivials);
+//             snarl_finder =  new CactusSnarlFinder(graph);
 
 //             // Get our snarls.
 //             SnarlManager snarl_manager = snarl_finder->find_snarls();

@@ -223,6 +223,7 @@ message Pileup {
 enum SnarlType {
     UNCLASSIFIED = 0;
 	ULTRABUBBLE = 1;
+	UNARY = 2;
 }
 
 // Describes a subgraph that is connected to the rest of the graph by two nodes.
@@ -245,6 +246,12 @@ message Snarl {
     // start to itself or the end to itself
     bool start_self_reachable = 6;
     bool end_self_reachable = 7;
+    
+    // Indicate whether the start of the Snarl is connected through to the end.
+    bool start_end_reachable = 8;
+    
+    // Indicate whether the snarl's net graph is free of directed cycles
+    bool directed_acyclic_net_graph = 9;
 }
 
 // Describes a step of a walk through a Snarl either on a node or through a child Snarl

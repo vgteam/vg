@@ -1198,7 +1198,7 @@ void Call2Vcf::call(
     // Find all the top-level sites
     list<const Snarl*> site_queue;
     
-    CactusUltrabubbleFinder finder(augmented.graph);
+    CactusSnarlFinder finder(augmented.graph);
     SnarlManager site_manager = finder.find_snarls();
     
     site_manager.for_each_top_level_snarl_parallel([&](const Snarl* site) {

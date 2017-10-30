@@ -11,7 +11,8 @@
 
 extern "C" {
     typedef struct _stCactusGraph stCactusGraph;
-    typedef struct _stCactusNode stCactusNode;;
+    typedef struct _stCactusNode stCactusNode;
+    typedef struct _stList stList;
 }
 
 using namespace std;
@@ -19,6 +20,12 @@ using namespace std;
 namespace vg {
 
 class VG;
+
+// We use this when talking to Cactus.
+struct CactusSide {
+    int64_t node;
+    bool is_end;
+};
 
 // Consolidate bubble finding code here to keep vg class size from getting even
 // more out of hand
@@ -30,12 +37,15 @@ struct Bubble {
     NodeSide start;
     NodeSide end;
     vector<id_t> contents;
-    // cactus now gives us chaining information, stick here for now
-    // so chain_offsets[i]-chain_offsets[i+1] mark the range
-    // of children in chain i.  existing code that doesn't use
-    // chains will be unaffected. 
+    /// cactus now gives us chaining information, stick here for now
+    /// so chain_offsets[i]-chain_offsets[i+1] mark the range
+    /// of children in chain i.  existing code that doesn't use
+    /// chains will be unaffected. 
     vector<int> chain_offsets;
+    /// Set to false if the graph contains cycles, and true if it is a DAG.
     bool dag;
+    /// Set to true if the graph contains any tips.
+    bool tips;
 };
 
 typedef Tree<Bubble> BubbleTree;
@@ -43,8 +53,8 @@ typedef Tree<Bubble> BubbleTree;
 // Convert VG to Cactus Graph
 // Notes:
 //  - returned cactus graph needs to be freed by stCactusGraph_destruct
-//  - returns "root" node as well as graph
-pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph);
+//  - returns a Cactus graph, and a list of stCactusEdgeEnd* telomeres, in pairs of adjacent items.
+pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph);
 
 // Return the hierchical cactus decomposition
 // The root node is meaningless.  Its children are the top level chains.
