@@ -36,6 +36,7 @@ void help_index(char** argv) {
          << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
+         << "    -b, --batch-size N     number of samples per batch (default 200)" << endl
          << "    -G, --gbwt-name FILE   write the paths generated from the VCF file as GBWT to FILE (don't write gPBWT)" << endl
          << "    -H, --write-haps FILE  write the paths generated from the VCF file in binary to FILE (don't write gPBWT)" << endl
          << "gcsa options:" << endl
@@ -67,7 +68,6 @@ void help_index(char** argv) {
          << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
          << "    -L, --path-layout      describes the path layout of the graph" << endl
          << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
-        //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
 }
@@ -113,7 +113,7 @@ struct NodeLengthBuffer
     std::vector<entry_type> buffer;
     std::hash<xg::id_t>     hash;
 
-    const static size_t BUFFER_SIZE = 251; // FIXME should be a parameter
+    const static size_t BUFFER_SIZE = 251;
 
     NodeLengthBuffer(const xg::XG& xg_index) : index(xg_index), buffer(BUFFER_SIZE, entry_type(-1, 0)) {}
 
@@ -163,6 +163,7 @@ int main_index(int argc, char** argv) {
     bool verify_index = false;
     bool forward_only = false;
     size_t size_limit = 200; // in gigabytes
+    size_t samples_in_batch = 200; // Samples per batch in GBWT construction.
     bool store_threads = false; // use gPBWT to store paths
     bool discard_overlaps = false;
     string binary_haplotype_output;
@@ -203,13 +204,14 @@ int main_index(int argc, char** argv) {
             {"node-alignments", no_argument, 0, 'N'},
             {"dbg-in", required_argument, 0, 'i'},
             {"discard-overlaps", no_argument, 0, 'o'},
+            {"batch-size", required_argument, 0, 'b'},
             {"gbwt-name", required_argument, 0, 'G'},
             {"write-haps", required_argument, 0, 'H'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNoG:H:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNob:G:H:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -228,6 +230,10 @@ int main_index(int argc, char** argv) {
 
         case 'v':
             vcf_name = optarg;
+            break;
+
+        case 'b':
+            samples_in_batch = atoi(optarg);
             break;
 
         case 'G':
@@ -402,6 +408,11 @@ int main_index(int argc, char** argv) {
         cerr << "error:[vg index] kmer stride must be positive and nonzero" << endl;
         return 1;
     }
+
+    if (!vcf_name.empty() && samples_in_batch < 1) {
+        cerr << "error:[vg index] batch size must be positive and nonzero" << endl;
+        return 1;
+    }
     
     if (!gcsa_name.empty() && rocksdb_name.empty()) {
         // We need to make a gcsa index and not a RocksDB index.
@@ -476,7 +487,7 @@ int main_index(int argc, char** argv) {
         if (!gbwt_name.empty()) {
             // Configure GBWT verbosity so it doesn't spit out loads of extra info
             if (!show_progress) { gbwt::Verbosity::set(gbwt::Verbosity::SILENT); }
-            gbwt_buffer.reserve(gbwt::DynamicGBWT::INSERT_BATCH_SIZE); // FIXME should be a parameter
+            gbwt_buffer.reserve(gbwt::DynamicGBWT::INSERT_BATCH_SIZE);
         }
 
         if (variant_file.is_open()) {
@@ -493,7 +504,6 @@ int main_index(int argc, char** argv) {
             vector<string> thread_names;
 
             // Process the samples in batches to save memory.
-            size_t samples_in_batch = 200; // FIXME should be a parameter
             size_t batch_start = 0, batch_limit = std::min(num_samples, samples_in_batch);
             size_t first_phase = 2 * batch_start, phases_in_batch = 2 * samples_in_batch;
 
