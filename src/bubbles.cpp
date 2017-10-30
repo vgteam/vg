@@ -175,7 +175,7 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
 // Step 2) Make a Cactus Graph. Returns the graph and a list of paired
 // cactusEdgeEnd telomeres, one after the other. Both members of the return
 // value must be destroyed.
-pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
+pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string>& hint_paths) {
 
     // in a cactus graph, every node is an adjacency component.
     // every edge is a *vg* node connecting the component
@@ -344,54 +344,73 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
     for (size_t i = 0; i < weak_components.size(); i++) {
         // For each weakly connected component
         
-        // First priority is two tips at the ends of the longest path that has
+        // First priority is longest path in the hint set.
+        // Next priority is two tips at the ends of the longest path that has
         // two tips at its ends.
         {
+        
             string longest_path;
             // This is going to hold inward-facing handles to the tips we find.
             pair<handle_t, handle_t> longest_path_tips;
-            size_t longest_path_length = 0;
+        
+            for (bool require_hint : {true, false}) {
+                // First try for a path that's in the hint set, then try for a path that might not be.
+        
+                size_t longest_path_length = 0;
 #ifdef debug
-            cerr << "Consider " << component_paths[i].size() << " paths for component " << i << endl;
+                cerr << "Consider " << component_paths[i].size() << " paths for component " << i << endl;
 #endif
-            for (auto& path_name : component_paths[i]) {
-                // Look at each path
-                auto& path_mappings = graph.paths.get_path(path_name);
-                
-#ifdef debug
-                cerr << "\tPath " << path_name << " has " << path_mappings.size() << " mappings" << endl;
-#endif
-                
-                // See if I can get two tips on its ends.
-                // Get the inward-facing start and end handles.
-                handle_t path_start = graph.get_handle(path_mappings.front().position().node_id(),
-                    path_mappings.front().position().is_reverse());
-                handle_t path_end = graph.get_handle(path_mappings.back().position().node_id(),
-                    !path_mappings.back().position().is_reverse());
-                
-                if (component_tips[i].count(path_start) && component_tips[i].count(path_end)) {
-                    // This path ends in two tips so we can consider it
+                for (auto& path_name : component_paths[i]) {
+                    // Look at each path
                     
-                    if (path_length[path_name] > longest_path_length) {
-                        // This is our new longest path between tips.
-                        longest_path = path_name;
-                        longest_path_tips = make_pair(path_start, path_end);
-                        longest_path_length = path_length[path_name];
+                    if (require_hint && !hint_paths.count(path_name)) {
+                        // Skip this one because it's not hinted
+                        continue;
+                    }
+                    
+                    auto& path_mappings = graph.paths.get_path(path_name);
+                    
 #ifdef debug
-                        cerr << "\t\tNew longest path!" << endl;
+                    cerr << "\tPath " << path_name << " has " << path_mappings.size() << " mappings" << endl;
 #endif
+                    
+                    // See if I can get two tips on its ends.
+                    // Get the inward-facing start and end handles.
+                    handle_t path_start = graph.get_handle(path_mappings.front().position().node_id(),
+                        path_mappings.front().position().is_reverse());
+                    handle_t path_end = graph.get_handle(path_mappings.back().position().node_id(),
+                        !path_mappings.back().position().is_reverse());
+                    
+                    if (component_tips[i].count(path_start) && component_tips[i].count(path_end)) {
+                        // This path ends in two tips so we can consider it
+                        
+                        if (path_length[path_name] > longest_path_length) {
+                            // This is our new longest path between tips.
+                            longest_path = path_name;
+                            longest_path_tips = make_pair(path_start, path_end);
+                            longest_path_length = path_length[path_name];
+#ifdef debug
+                            cerr << "\t\tNew longest path!" << endl;
+#endif
+                        } else {
+#ifdef debug
+                            cerr << "\t\tPath length of " << path_length[path_name] << " not longer than path "
+                                << longest_path << " with " << longest_path_length << endl;
+#endif
+                        } 
+                        
                     } else {
 #ifdef debug
-                        cerr << "\t\tPath length of " << path_length[path_name] << " not longer than path "
-                            << longest_path << " with " << longest_path_length << endl;
+                        cerr << "\t\tPath " << path_name << " does not start and end with tips" << endl;
 #endif
-                    } 
-                    
-                } else {
-#ifdef debug
-                    cerr << "\t\tPath " << path_name << " does not start and end with tips" << endl;
-#endif
+                    }
                 }
+                
+                if (!longest_path.empty()) {
+                    // We found something. Don't try again; we might be doing the hint pass and we don't want to clobber it.
+                    break;
+                }
+                
             }
             
             if (!longest_path.empty()) {
@@ -407,6 +426,7 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph) {
                 cerr << "No longest named path found between tips" << endl;
 #endif
             }
+            
         }
         
         // Otherwise, compute tip reachability and distance by Dijkstra's
@@ -731,7 +751,7 @@ BubbleTree* ultrabubble_tree(VG& graph) {
         return new BubbleTree(new BubbleTree::Node());
     }
     // convert to cactus
-    pair<stCactusGraph*, stList*> cac_pair = vg_to_cactus(graph);
+    pair<stCactusGraph*, stList*> cac_pair = vg_to_cactus(graph, unordered_set<string>());
     stCactusGraph* cactus_graph = cac_pair.first;
     stList* telomeres = cac_pair.second;
 
@@ -829,7 +849,7 @@ VG cactusify(VG& graph) {
     if (graph.size() == 0) {
         return VG();
     }
-    auto parts = vg_to_cactus(graph);
+    auto parts = vg_to_cactus(graph, unordered_set<string>());
     stList_destruct(parts.second);
     stCactusGraph* cactus_graph = parts.first;
     VG out_graph = cactus_to_vg(cactus_graph);

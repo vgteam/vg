@@ -50,11 +50,12 @@ struct Bubble {
 
 typedef Tree<Bubble> BubbleTree;
 
-// Convert VG to Cactus Graph
+// Convert VG to Cactus Graph. Takes a list of path names to use to find
+// telomeres if present in a connected component.
 // Notes:
 //  - returned cactus graph needs to be freed by stCactusGraph_destruct
 //  - returns a Cactus graph, and a list of stCactusEdgeEnd* telomeres, in pairs of adjacent items.
-pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph);
+pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string>& hint_paths);
 
 // Return the hierchical cactus decomposition
 // The root node is meaningless.  Its children are the top level chains.

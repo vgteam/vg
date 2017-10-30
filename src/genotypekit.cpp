@@ -352,7 +352,7 @@ SnarlManager CactusSnarlFinder::find_snarls() {
         return SnarlManager();
     }
     // convert to cactus
-    pair<stCactusGraph*, stList*> cac_pair = vg_to_cactus(graph);
+    pair<stCactusGraph*, stList*> cac_pair = vg_to_cactus(graph, hint_paths);
     stCactusGraph* cactus_graph = cac_pair.first;
     stList* telomeres = cac_pair.second;
 
