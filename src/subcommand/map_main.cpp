@@ -542,36 +542,50 @@ int main_map(int argc, char** argv) {
     mapper.resize(thread_count);
     vector<vector<Alignment> > output_buffer;
     output_buffer.resize(thread_count);
+    vector<Alignment> empty_alns;
+
+    auto write_json = [](const vector<Alignment>& alns) {
+        for(auto& alignment : alns) {
+            string json = pb2json(alignment);
+            cout << json << "\n";
+        }
+    };
+
+    auto write_refpos = [](const vector<Alignment>& alns) {
+        for(auto& alignment : alns) {
+            Position refpos;
+            if (alignment.refpos_size()) {
+                refpos = alignment.refpos(0);
+            }
+            cout << alignment.name() << "\t"
+            << refpos.name() << "\t"
+            << refpos.offset() << "\t"
+            << alignment.mapping_quality() << "\t"
+            << alignment.score() << "\n";
+        }
+    };
 
     // We have one function to dump alignments into
     // Make sure to flush the buffer at the end of the program!
     auto output_alignments = [&output_buffer,
                               &output_json,
                               &buffer_size,
-                              &refpos_table](vector<Alignment>& alignments) {
-        // for(auto& alignment : alignments){
-        //     cerr << "This is in output_alignments" << alignment.DebugString() << endl;
-        // }
-
+                              &refpos_table,
+                              &write_json,
+                              &write_refpos](const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
         if (output_json) {
             // If we want to convert to JSON, convert them all to JSON and dump them to cout.
-            for(auto& alignment : alignments) {
-                string json = pb2json(alignment);
 #pragma omp critical (cout)
-                cout << json << "\n";
+            {
+                write_json(alns1);
+                write_json(alns2);
             }
         } else if (refpos_table) {
-            for(auto& alignment : alignments) {
-                Position refpos;
-                if (alignment.refpos_size()) {
-                    refpos = alignment.refpos(0);
-                }
+            // keep multi alignments ordered appropriately
 #pragma omp critical (cout)
-                cout << alignment.name() << "\t"
-                     << refpos.name() << "\t"
-                     << refpos.offset() << "\t"
-                     << alignment.mapping_quality() << "\t"
-                     << alignment.score() << "\n";
+            {
+                write_refpos(alns1);
+                write_refpos(alns2);
             }
         } else {
             // Otherwise write them through the buffer for our thread
@@ -579,7 +593,8 @@ int main_map(int argc, char** argv) {
             auto& output_buf = output_buffer[tid];
 
             // Copy all the alignments over to the output buffer
-            copy(alignments.begin(), alignments.end(), back_inserter(output_buf));
+            copy(alns1.begin(), alns1.end(), back_inserter(output_buf));
+            copy(alns2.begin(), alns2.end(), back_inserter(output_buf));
 
             stream::write_buffered(cout, output_buf, buffer_size);
         }
@@ -663,7 +678,7 @@ int main_map(int argc, char** argv) {
         }
 
         // Output the alignments in JSON or protobuf as appropriate.
-        output_alignments(alignments);
+        output_alignments(alignments, empty_alns);
     }
 
     if (!read_file.empty()) {
@@ -694,7 +709,7 @@ int main_map(int argc, char** argv) {
 
 
                     // Output the alignments in JSON or protobuf as appropriate.
-                    output_alignments(alignments);
+                    output_alignments(alignments, empty_alns);
                 }
             }
         }
@@ -708,7 +723,8 @@ int main_map(int argc, char** argv) {
              &kmer_size,
              &kmer_stride,
              &max_mem_length,
-             &band_width]
+             &band_width,
+             &empty_alns]
                 (Alignment& alignment) {
 
                     if(alignment.is_secondary() && !keep_secondary) {
@@ -720,7 +736,7 @@ int main_map(int argc, char** argv) {
                     vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
 
                     // Output the alignments in JSON or protobuf as appropriate.
-                    output_alignments(alignments);
+                    output_alignments(alignments, empty_alns);
                 };
         // run
         hts_for_each_parallel(hts_file, lambda);
@@ -737,11 +753,7 @@ int main_map(int argc, char** argv) {
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
                 if (!print_fragment_model) {
                     // Output the alignments in JSON or protobuf as appropriate.
-#pragma omp critical (output)
-                    {
-                        output_alignments(alnp.first);
-                        output_alignments(alnp.second);
-                    }
+                    output_alignments(alnp.first, alnp.second);
                 }
             };
             function<void(Alignment&,Alignment&)> lambda =
@@ -802,13 +814,14 @@ int main_map(int argc, char** argv) {
                  &kmer_size,
                  &kmer_stride,
                  &max_mem_length,
-                 &band_width]
+                 &band_width,
+                 &empty_alns]
                     (Alignment& alignment) {
 
                         int tid = omp_get_thread_num();
                         vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
                         //cerr << "This is just before output_alignments" << alignment.DebugString() << endl;
-                        output_alignments(alignments);
+                        output_alignments(alignments, empty_alns);
                     };
             fastq_unpaired_for_each_parallel(fastq1, lambda);
         } else {
@@ -821,11 +834,7 @@ int main_map(int argc, char** argv) {
                 // Make sure we have unaligned "alignments" for things that don't align.
                 // Output the alignments in JSON or protobuf as appropriate.
                 if (!print_fragment_model) {
-#pragma omp critical (output)
-                    {
-                        output_alignments(alnp.first);
-                        output_alignments(alnp.second);
-                    }
+                    output_alignments(alnp.first, alnp.second);
                 }
             };
             function<void(Alignment&,Alignment&)> lambda =
@@ -897,11 +906,7 @@ int main_map(int argc, char** argv) {
                         alnp.first.front().set_correct(overlap(aln1.path(), alnp.first.front().path()));
                         alnp.second.front().set_correct(overlap(aln2.path(), alnp.second.front().path()));
                     }
-#pragma omp critical (output)
-                    {
-                        output_alignments(alnp.first);
-                        output_alignments(alnp.second);
-                    }
+                    output_alignments(alnp.first, alnp.second);
                 }
             };
             function<void(Alignment&,Alignment&)> lambda =
@@ -963,7 +968,8 @@ int main_map(int argc, char** argv) {
                  &kmer_stride,
                  &max_mem_length,
                  &band_width,
-                 &compare_gam]
+                 &compare_gam,
+                 &empty_alns]
                 (Alignment& alignment) {
                 int tid = omp_get_thread_num();
                 std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
@@ -974,7 +980,7 @@ int main_map(int argc, char** argv) {
                 if (compare_gam) {
                     alignments.front().set_correct(overlap(alignment.path(), alignments.front().path()));
                 }
-                output_alignments(alignments);
+                output_alignments(alignments, empty_alns);
             };
             stream::for_each_parallel(gam_in, lambda);
         }

@@ -139,19 +139,15 @@ bool write(std::ostream& out, uint64_t count, const std::function<T(uint64_t)>& 
 }
 
 template <typename T>
-void write_buffered(std::ostream& out, std::vector<T>& buffer, uint64_t buffer_limit) {
+bool write_buffered(std::ostream& out, std::vector<T>& buffer, uint64_t buffer_limit) {
     bool wrote = false;
     if (buffer.size() >= buffer_limit) {
-        auto batch = new std::vector<T>(buffer);
-        buffer.clear();
-        std::function<T(uint64_t)> lambda = [&batch](uint64_t n) { return batch->at(n); };
-#pragma omp task firstprivate(batch, lambda) shared(out)
-        {
+        std::function<T(uint64_t)> lambda = [&buffer](uint64_t n) { return buffer.at(n); };
 #pragma omp critical (stream_out)
-            bool wrote = write(out, batch->size(), lambda);
-            delete batch;
-        }
+        wrote = write(out, buffer.size(), lambda);
+        buffer.clear();
     }
+    return wrote;
 }
 
 // deserialize the input stream into the objects
