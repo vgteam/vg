@@ -1214,7 +1214,7 @@ namespace vg {
             }
             
             // Get bounds as NodeTraversals, facing forward along the snarl.
-            NodeTraversal start(graph.get_node(snarl->start().node_id()), !snarl->start().backward());
+            NodeTraversal start(graph.get_node(snarl->start().node_id()), snarl->start().backward());
             NodeTraversal end(graph.get_node(snarl->end().node_id()), snarl->end().backward());
             // Fill in a Site. Make sure to preserve original endpoint
             // ordering, because swapping them without flipping their
