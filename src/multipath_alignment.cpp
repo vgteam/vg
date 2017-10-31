@@ -101,6 +101,8 @@ namespace vg {
         vector<int32_t> prefix_score(multipath_aln.subpath_size(), 0);
         // previous subpath for traceback (we refer to subpaths by their index)
         vector<int64_t> prev_subpath(multipath_aln.subpath_size(), -1);
+        // the length of read sequence preceding this subpath
+        vector<int64_t> prefix_length(multipath_aln.subpath_size(), 0);
         
         int32_t opt_score = 0;
         int64_t opt_subpath = -1; // we refer to subpaths by their index
@@ -108,12 +110,19 @@ namespace vg {
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             const Subpath& subpath = multipath_aln.subpath(i);
             int32_t extended_score = prefix_score[i] + subpath.score();
-            for (size_t j = 0; j < subpath.next_size(); j++) {
-                int64_t next = subpath.next(j);
-                // can we improve prefix score on following subpath through this one?
-                if (extended_score >= prefix_score[next]) {
-                    prev_subpath[next] = i;
-                    prefix_score[next] = extended_score;
+            
+            // carry DP forward
+            if (subpath.next_size() > 0) {
+                int64_t thru_length = path_to_length(subpath.path()) + prefix_length[i];
+                for (size_t j = 0; j < subpath.next_size(); j++) {
+                    int64_t next = subpath.next(j);
+                    prefix_length[next] = thru_length;
+                    
+                    // can we improve prefix score on following subpath through this one?
+                    if (extended_score >= prefix_score[next]) {
+                        prev_subpath[next] = i;
+                        prefix_score[next] = extended_score;
+                    }
                 }
             }
             // check if optimal alignment ends here
@@ -124,68 +133,93 @@ namespace vg {
         }
         
         // are we constructing the alignment, or just getting the score?
-        if (aln_out) {
+        if (aln_out && opt_subpath >= 0) {
             
             // traceback the optimal subpaths until hitting sentinel (-1)
             vector<const Path*> optimal_path_chunks;
-            while (opt_subpath >= 0) {
-                optimal_path_chunks.push_back(&(multipath_aln.subpath(opt_subpath).path()));
-                opt_subpath = prev_subpath[opt_subpath];
+            int64_t curr = opt_subpath;
+            int64_t prev = -1;
+            while (curr >= 0) {
+                optimal_path_chunks.push_back(&(multipath_aln.subpath(curr).path()));
+                prev = curr;
+                curr = prev_subpath[curr];
             }
             
+            Path* opt_path = aln_out->mutable_path();
+            
+            // check for a softclip of entire subpaths on the beginning
+            if (prefix_length[prev]) {
+                Mapping* soft_clip_mapping = opt_path->add_mapping();
+                
+                soft_clip_mapping->set_rank(1);
+                
+                Edit* edit = soft_clip_mapping->add_edit();
+                edit->set_to_length(prefix_length[prev]);
+                edit->set_sequence(multipath_aln.sequence().substr(0, prefix_length[prev]));
+                
+                *soft_clip_mapping->mutable_position() = optimal_path_chunks.back()->mapping(0).position();
+            }
             
             // merge the subpaths into one optimal path in the Alignment object
-            auto iter = optimal_path_chunks.rbegin();
-            if (iter != optimal_path_chunks.rend()) {
-                Path* opt_path = aln_out->mutable_path();
-                *opt_path = *(*iter);
-                iter++;
-                int next_rank = opt_path->mapping_size() + 1;
-                for (; iter != optimal_path_chunks.rend(); iter++) {
-                    Mapping* curr_end_mapping = opt_path->mutable_mapping(opt_path->mapping_size() - 1);
-                    
-                    // get the first mapping of the next path
-                    const Path& next_path = *(*iter);
-                    const Mapping& next_start_mapping = next_path.mapping(0);
-                    
-                    size_t mapping_start_idx = 0;
-                    // merge mappings if they occur on the same node and same strand
-                    if (curr_end_mapping->position().node_id() == next_start_mapping.position().node_id()
-                        && curr_end_mapping->position().is_reverse() == next_start_mapping.position().is_reverse()) {
-                        
-                        Edit* last_edit = curr_end_mapping->mutable_edit(curr_end_mapping->edit_size() - 1);
-                        const Edit& first_edit = next_start_mapping.edit(0);
-                        
-                        // merge the first edit if it is the same type
-                        size_t edit_start_idx = 0;
-                        if ((last_edit->from_length() > 0) == (first_edit.from_length() > 0)
-                            && (last_edit->to_length() > 0) == (first_edit.to_length() > 0)
-                            && (last_edit->sequence().empty()) == (first_edit.sequence().empty())) {
-                            
-                            last_edit->set_from_length(last_edit->from_length() + first_edit.from_length());
-                            last_edit->set_to_length(last_edit->to_length() + first_edit.to_length());
-                            last_edit->set_sequence(last_edit->sequence() + first_edit.sequence());
-                            
-                            edit_start_idx++;
-                            
-                        }
-                        
-                        // append the rest of the edits
-                        for (size_t j = edit_start_idx; j < next_start_mapping.edit_size(); j++) {
-                            *curr_end_mapping->add_edit() = next_start_mapping.edit(j);
-                        }
-                        
-                        mapping_start_idx++;
-                    }
-                    
-                    // append the rest of the mappings
-                    for (size_t j = mapping_start_idx; j < next_path.mapping_size(); j++) {
-                        Mapping* next_mapping = opt_path->add_mapping();
-                        *next_mapping = next_path.mapping(j);
-                        next_mapping->set_rank(next_rank);
-                        next_rank++;
-                    }
+            for (auto iter = optimal_path_chunks.rbegin(); iter != optimal_path_chunks.rend(); iter++) {
+                if (opt_path->mapping_size() == 0) {
+                    *opt_path = *(*iter);
+                    continue;
                 }
+                
+                Mapping* curr_end_mapping = opt_path->mutable_mapping(opt_path->mapping_size() - 1);
+                
+                // get the first mapping of the next path
+                const Path& next_path = *(*iter);
+                const Mapping& next_start_mapping = next_path.mapping(0);
+                
+                size_t mapping_start_idx = 0;
+                // merge mappings if they occur on the same node and same strand
+                if (curr_end_mapping->position().node_id() == next_start_mapping.position().node_id()
+                    && curr_end_mapping->position().is_reverse() == next_start_mapping.position().is_reverse()) {
+                    
+                    Edit* last_edit = curr_end_mapping->mutable_edit(curr_end_mapping->edit_size() - 1);
+                    const Edit& first_edit = next_start_mapping.edit(0);
+                    
+                    // merge the first edit if it is the same type
+                    size_t edit_start_idx = 0;
+                    if ((last_edit->from_length() > 0) == (first_edit.from_length() > 0)
+                        && (last_edit->to_length() > 0) == (first_edit.to_length() > 0)
+                        && (last_edit->sequence().empty()) == (first_edit.sequence().empty())) {
+                        
+                        last_edit->set_from_length(last_edit->from_length() + first_edit.from_length());
+                        last_edit->set_to_length(last_edit->to_length() + first_edit.to_length());
+                        last_edit->set_sequence(last_edit->sequence() + first_edit.sequence());
+                        
+                        edit_start_idx++;
+                    }
+                    
+                    // append the rest of the edits
+                    for (size_t j = edit_start_idx; j < next_start_mapping.edit_size(); j++) {
+                        *curr_end_mapping->add_edit() = next_start_mapping.edit(j);
+                    }
+                    
+                    mapping_start_idx++;
+                }
+                
+                // append the rest of the mappings
+                for (size_t j = mapping_start_idx; j < next_path.mapping_size(); j++) {
+                    Mapping* next_mapping = opt_path->add_mapping();
+                    *next_mapping = next_path.mapping(j);
+                    next_mapping->set_rank(opt_path->mapping_size());
+                }
+            }
+            
+            // check for a softclip of entire subpaths on the end
+            int64_t seq_thru_length = prefix_length[opt_subpath] + path_to_length(multipath_aln.subpath(opt_subpath).path());
+            if (prev != opt_subpath && seq_thru_length < multipath_aln.sequence().size()) {
+                
+                Mapping* final_mapping = opt_path->mutable_mapping(opt_path->mapping_size() - 1);
+                
+                Edit* edit = final_mapping->add_edit();
+                edit->set_to_length(multipath_aln.sequence().size() - seq_thru_length);
+                edit->set_sequence(multipath_aln.sequence().substr(seq_thru_length,
+                                                                   multipath_aln.sequence().size() - seq_thru_length));
             }
         }
         
