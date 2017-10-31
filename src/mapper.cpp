@@ -1858,8 +1858,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                              basis_length/max(1.0, (double)mem_max_length2),
                                                              basis_length/longest_lcp2);
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
-    double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
-    double min_maybe_pair_mq = min(maybe_mq1, maybe_mq2);
+    double maybe_pair_mq = prob_to_phred(sqrt(phred_to_prob(maybe_mq1 + maybe_mq2)));
 
     // scale difficulty using the estimated mapping quality
     total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)floor(max_possible_mq / maybe_pair_mq)));
