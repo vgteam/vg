@@ -229,10 +229,10 @@ void for_each_parallel_impl(std::istream& in,
                             const std::function<bool(void)>& single_threaded_until_true) {
 
     // objects will be handed off to worker threads in batches of this many
-    const uint64_t batch_size = 256;
+    const uint64_t batch_size = 1024;
     static_assert(batch_size % 2 == 0, "stream::for_each_parallel::batch_size must be even");
     // max # of such batches to be holding in memory
-    const uint64_t max_batches_outstanding = 256;
+    const uint64_t max_batches_outstanding = 1024;
     // number of batches currently being processed
     uint64_t batches_outstanding = 0;
 
