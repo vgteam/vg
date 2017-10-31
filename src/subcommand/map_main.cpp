@@ -21,7 +21,7 @@ void help_map(char** argv) {
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
-         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [512]" << endl
+         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [1024]" << endl
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [1e-5]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
@@ -90,7 +90,7 @@ int main_map(int argc, char** argv) {
     string read_file;
     string hts_file;
     bool keep_secondary = false;
-    int hit_max = 512;
+    int hit_max = 1024;
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
