@@ -1713,5 +1713,724 @@ namespace vg {
                 
             }  
         }
+        
+        TEST_CASE("snarls can be found", "[snarls]") {
+    
+            // Build a toy graph
+            const string graph_json = R"(
+            
+            {
+                "node": [
+                    {"id": 1, "sequence": "G"},
+                    {"id": 2, "sequence": "A"},
+                    {"id": 3, "sequence": "T"},
+                    {"id": 4, "sequence": "GGG"},
+                    {"id": 5, "sequence": "T"},
+                    {"id": 6, "sequence": "A"},
+                    {"id": 7, "sequence": "C"},
+                    {"id": 8, "sequence": "A"},
+                    {"id": 9, "sequence": "A"}
+                ],
+                "edge": [
+                    {"from": 1, "to": 2},
+                    {"from": 1, "to": 6},
+                    {"from": 2, "to": 3},
+                    {"from": 2, "to": 4},
+                    {"from": 3, "to": 5},
+                    {"from": 4, "to": 5},
+                    {"from": 5, "to": 6},
+                    {"from": 6, "to": 7},
+                    {"from": 6, "to": 8},
+                    {"from": 7, "to": 9},
+                    {"from": 8, "to": 9}
+                    
+                ],
+                "path": [
+                    {"name": "hint", "mapping": [
+                        {"position": {"node_id": 1}, "rank" : 1 },
+                        {"position": {"node_id": 6}, "rank" : 2 },
+                        {"position": {"node_id": 8}, "rank" : 3 },
+                        {"position": {"node_id": 9}, "rank" : 4 }
+                    ]}
+                ]
+            }
+            
+            )";
+            
+            // Make an actual graph
+            VG graph;
+            Graph chunk;
+            json2pb(chunk, graph_json.c_str(), graph_json.size());
+            graph.extend(chunk);
+            
+            // We need to see the path.
+            REQUIRE(graph.paths.size() == 1);
+            
+            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            
+#ifdef debug
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                    cerr << node->id() << " ";
+                }
+                cerr << endl;
+            });
+#endif
+            
+                
+            SECTION("There are 2 top level snarls") {
+                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
+                
+                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
+                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
+                
+                if (child1->start().node_id() > child1->end().node_id()) {
+                    snarl_manager.flip(child1);
+                }
+                
+                if (child2->start().node_id() > child2->end().node_id()) {
+                    snarl_manager.flip(child2);
+                }
+                
+                SECTION("First child is from 1 end to 6 start") {
+                    REQUIRE(child1->start().node_id() == 1);
+                    REQUIRE(!child1->start().backward() == true);
+                    REQUIRE(child1->end().node_id() == 6);
+                    REQUIRE(child1->end().backward() == false);
+                    
+                    SECTION("First child has a child from 2 end to 5 start") {
+                        REQUIRE(snarl_manager.children_of(child1).size() == 1);
+                        
+                        const Snarl* subchild = snarl_manager.children_of(child1)[0];
+                        
+                        REQUIRE(subchild->start().node_id() == 2);
+                        REQUIRE(!subchild->start().backward() == true);
+                        REQUIRE(subchild->end().node_id() == 5);
+                        REQUIRE(subchild->end().backward() == false);
+                        
+                        SECTION("Subchild has no children") {
+                            REQUIRE(snarl_manager.children_of(subchild).size() == 0);
+                        }
+                            
+                    }
+                    
+                }
+                
+                SECTION("Second child is from 6 end to 9 start") {
+                    REQUIRE(child2->start().node_id() == 6);
+                    REQUIRE(!child2->start().backward() == true);
+                    REQUIRE(child2->end().node_id() == 9);
+                    REQUIRE(child2->end().backward() == false);
+                    
+                    SECTION("Second child has no children") {
+                        REQUIRE(snarl_manager.children_of(child2).size() == 0);
+                    }
+                }
+                
+            }
+                
+        }
+
+        TEST_CASE("bubbles can be found in graphs with only heads", "[bubbles]") {
+            
+            // Build a toy graph
+            const string graph_json = R"(
+            
+            {
+                "node": [
+                    {"id": 1, "sequence": "G"},
+                    {"id": 2, "sequence": "A"}
+                ],
+                "edge": [
+                    {"from": 1, "to": 2, "to_end": true}
+                    
+                ],
+                "path": [
+                    {"name": "hint", "mapping": [
+                        {"position": {"node_id": 1}, "rank" : 1 },
+                        {"position": {"node_id": 2, "is_reverse": true}, "rank" : 2 }
+                    ]}
+                ]
+            }
+            
+            )";
+            
+            // Make an actual graph
+            VG graph;
+            Graph chunk;
+            json2pb(chunk, graph_json.c_str(), graph_json.size());
+            graph.extend(chunk);
+            
+            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+
+#ifdef debug
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                    cerr << node->id() << " ";
+                }
+                cerr << endl;
+            });
+#endif
+        
+            SECTION("Root node has 1 child bubble") {
+                REQUIRE(snarl_manager.top_level_snarls().size() == 1);
+                
+                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
+                
+                if (child1->start().node_id() > child1->end().node_id()) {
+                    snarl_manager.flip(child1);
+                }
+                
+                SECTION("First child is from 1 end to 2 end") {
+                    REQUIRE(child1->start().node_id() == 1);
+                    REQUIRE(!child1->start().backward() == true);
+                    REQUIRE(child1->end().node_id() == 2);
+                    REQUIRE(child1->end().backward() == true);
+                    
+                    SECTION("First child has no children") {
+                        REQUIRE(snarl_manager.children_of(child1).size() == 0);
+                    }
+                    
+                }
+            }
+            
+        }
+
+
+        TEST_CASE("bubbles can be found in bigger graphs with only heads", "[bubbles]") {
+            
+            // Build a toy graph
+            const string graph_json = R"(
+            
+            {
+                "node": [
+                    {"id": 1, "sequence": "G"},
+                    {"id": 2, "sequence": "A"},
+                    {"id": 3, "sequence": "T"},
+                    {"id": 4, "sequence": "GGG"},
+                    {"id": 5, "sequence": "T"},
+                    {"id": 6, "sequence": "A"},
+                    {"id": 7, "sequence": "C"},
+                    {"id": 8, "sequence": "A"},
+                    {"id": 9, "sequence": "T"}
+                ],
+                "edge": [
+                    {"from": 1, "to": 2},
+                    {"from": 1, "to": 6},
+                    {"from": 2, "to": 3},
+                    {"from": 2, "to": 4},
+                    {"from": 3, "to": 5},
+                    {"from": 4, "to": 5},
+                    {"from": 5, "to": 6},
+                    {"from": 6, "to": 7},
+                    {"from": 6, "to": 8},
+                    {"from": 7, "to": 9, "to_end": true},
+                    {"from": 8, "to": 9, "to_end": true}
+                    
+                ],
+                "path": [
+                    {"name": "hint", "mapping": [
+                        {"position": {"node_id": 1}, "rank" : 1 },
+                        {"position": {"node_id": 6}, "rank" : 2 },
+                        {"position": {"node_id": 8}, "rank" : 3 },
+                        {"position": {"node_id": 9, "is_reverse": true}, "rank" : 4 }
+                    ]}
+                ]
+            }
+            
+            )";
+            
+            // Make an actual graph
+            VG graph;
+            Graph chunk;
+            json2pb(chunk, graph_json.c_str(), graph_json.size());
+            graph.extend(chunk);
+            
+            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            
+#ifdef debug
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                    cerr << node->id() << " ";
+                }
+                cerr << endl;
+            });
+#endif
+            
+            SECTION("Root node has 2 child bubbles") {
+                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
+                
+                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
+                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
+                
+                if (child1->start().node_id() > child1->end().node_id()) {
+                    snarl_manager.flip(child1);
+                }
+                
+                if (child2->start().node_id() > child2->end().node_id()) {
+                    snarl_manager.flip(child2);
+                }
+                
+                SECTION("First child is from 1 end to 6 start") {
+                    REQUIRE(child1->start().node_id() == 1);
+                    REQUIRE(!child1->start().backward() == true);
+                    REQUIRE(child1->end().node_id() == 6);
+                    REQUIRE(child1->end().backward() == false);
+                    
+                    SECTION("First child has a child from 2 end to 5 start") {
+                        REQUIRE(snarl_manager.children_of(child1).size() == 1);
+                        
+                        const Snarl* subchild = snarl_manager.children_of(child1)[0];
+                        
+                        REQUIRE(subchild->start().node_id() == 2);
+                        REQUIRE(!subchild->start().backward() == true);
+                        REQUIRE(subchild->end().node_id() == 5);
+                        REQUIRE(subchild->end().backward() == false);
+                        
+                        SECTION("Subchild has no children") {
+                            REQUIRE(snarl_manager.children_of(subchild).size() == 0);
+                        }
+                            
+                    }
+                    
+                }
+                
+                SECTION("Second child is from 6 end to 9 end") {
+                    REQUIRE(child2->start().node_id() == 6);
+                    REQUIRE(!child2->start().backward() == true);
+                    REQUIRE(child2->end().node_id() == 9);
+                    REQUIRE(child2->end().backward() == true);
+                    
+                    SECTION("Second child has no children") {
+                        REQUIRE(snarl_manager.children_of(child2).size() == 0);
+                    }
+                }
+                
+            }
+                
+        }
+
+        TEST_CASE("bubbles can be found in graphs with only tails", "[bubbles]") {
+            
+            // Build a toy graph
+            const string graph_json = R"(
+            
+            {
+                "node": [
+                    {"id": 1, "sequence": "C"},
+                    {"id": 2, "sequence": "A"},
+                    {"id": 3, "sequence": "T"},
+                    {"id": 4, "sequence": "GGG"},
+                    {"id": 5, "sequence": "T"},
+                    {"id": 6, "sequence": "A"},
+                    {"id": 7, "sequence": "C"},
+                    {"id": 8, "sequence": "A"},
+                    {"id": 9, "sequence": "A"}
+                ],
+                "edge": [
+                    {"from": 1, "to": 2, "from_start": true},
+                    {"from": 1, "to": 6, "from_start": true},
+                    {"from": 2, "to": 3},
+                    {"from": 2, "to": 4},
+                    {"from": 3, "to": 5},
+                    {"from": 4, "to": 5},
+                    {"from": 5, "to": 6},
+                    {"from": 6, "to": 7},
+                    {"from": 6, "to": 8},
+                    {"from": 7, "to": 9},
+                    {"from": 8, "to": 9}
+                    
+                ],
+                "path": [
+                    {"name": "hint", "mapping": [
+                        {"position": {"node_id": 1, "is_reverse": true}, "rank" : 1 },
+                        {"position": {"node_id": 6}, "rank" : 2 },
+                        {"position": {"node_id": 8}, "rank" : 3 },
+                        {"position": {"node_id": 9}, "rank" : 4 }
+                    ]}
+                ]
+            }
+            
+            )";
+            
+            // Make an actual graph
+            VG graph;
+            Graph chunk;
+            json2pb(chunk, graph_json.c_str(), graph_json.size());
+            graph.extend(chunk);
+            
+            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            
+#ifdef debug
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                    cerr << node->id() << " ";
+                }
+                cerr << endl;
+            });
+#endif
+            
+                
+            SECTION("Root node has 2 child bubbles") {
+                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
+                
+                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
+                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
+                
+                if (child1->start().node_id() > child1->end().node_id()) {
+                    snarl_manager.flip(child1);
+                }
+                
+                if (child2->start().node_id() > child2->end().node_id()) {
+                    snarl_manager.flip(child2);
+                }
+                
+                SECTION("First child is from 1 start to 6 start") {
+                    REQUIRE(child1->start().node_id() == 1);
+                    REQUIRE(!child1->start().backward() == false);
+                    REQUIRE(child1->end().node_id() == 6);
+                    REQUIRE(child1->end().backward() == false);
+                    
+                    SECTION("First child should have all the contained nodes in its contents, including contents of its children") {
+                        REQUIRE(snarl_manager.deep_contents(child1, graph, true).first.size() == 6);
+                    };
+                    
+                    SECTION("First child has a child from 2 end to 5 start") {
+                        REQUIRE(snarl_manager.children_of(child1).size() == 1);
+                        
+                        const Snarl* subchild = snarl_manager.children_of(child1)[0];
+                        
+                        REQUIRE(subchild->start().node_id() == 2);
+                        REQUIRE(!subchild->start().backward() == true);
+                        REQUIRE(subchild->end().node_id() == 5);
+                        REQUIRE(subchild->end().backward() == false);
+                        
+                        SECTION("Subchild has no children") {
+                            REQUIRE(snarl_manager.children_of(subchild).size() == 0);
+                        }
+                            
+                    }
+                    
+                }
+                
+                SECTION("Second child is from 6 end to 9 start") {
+                    REQUIRE(child2->start().node_id() == 6);
+                    REQUIRE(!child2->start().backward() == true);
+                    REQUIRE(child2->end().node_id() == 9);
+                    REQUIRE(child2->end().backward() == false);
+                    
+                    SECTION("Second child has no children") {
+                        REQUIRE(snarl_manager.children_of(child2).size() == 0);
+                    }
+                }
+                
+            }
+        }
+
+        TEST_CASE("bubbles can be found when heads cannot reach tails", "[bubbles]") {
+            
+            // Build a toy graph
+            // Looks like:
+            //
+            //    1\
+            //  2---3
+            //  v\4 v
+            //
+            // The head is 1, the tail is 4, 2 and 3 have self loops, and the graph is connected.
+            // But the head cannot reach the tail.
+            const string graph_json = R"(
+            
+            {
+                "node": [
+                    {"id": 1, "sequence": "A"},
+                    {"id": 2, "sequence": "A"},
+                    {"id": 3, "sequence": "A"},
+                    {"id": 4, "sequence": "A"}
+                ],
+                "edge": [
+                    {"from": 1, "to": 3},
+                    {"from": 2, "to": 4},
+                    {"from": 2, "to": 3},
+                    {"from": 2, "to": 2},
+                    {"from": 3, "to": 3}            
+                ]
+            }
+            
+            )";
+            
+            // Make an actual graph
+            VG graph;
+            Graph chunk;
+            json2pb(chunk, graph_json.c_str(), graph_json.size());
+            graph.extend(chunk);
+            
+            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            
+#ifdef debug
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                    cerr << node->id() << " ";
+                }
+                cerr << endl;
+            });
+#endif
+            
+            SECTION("Root should have one child actual bubble") {
+                REQUIRE(snarl_manager.top_level_snarls().size() == 1);
+                
+                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
+                
+                SECTION("The child should contain all the nodes as contents") {
+                    REQUIRE(snarl_manager.deep_contents(child1, graph, true).first.size() == 4);
+                }
+                
+                // TODO: When unary snarls are exposed, make sure we have unary children.
+            }
+            
+        }
+
+        TEST_CASE("bubbles can be found in a graph with no heads or tails", "[bubbles]") {
+            
+            // Build a toy graph
+            const string graph_json = R"(
+            
+            {
+                "node": [
+                    {"id": 1, "sequence": "G"},
+                    {"id": 2, "sequence": "A"}
+                ],
+                "edge": [
+                    {"from": 1, "to": 2},
+                    {"from": 2, "to": 1}
+                    
+                ],
+                "path": [
+                    {"name": "hint", "mapping": [
+                        {"position": {"node_id": 1}, "rank" : 1 },
+                        {"position": {"node_id": 2}, "rank" : 2 }
+                    ]}
+                ]
+            }
+            
+            )";
+            
+            // Make an actual graph
+            VG graph;
+            Graph chunk;
+            json2pb(chunk, graph_json.c_str(), graph_json.size());
+            graph.extend(chunk);
+            
+            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            
+#ifdef debug
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                    cerr << node->id() << " ";
+                }
+                cerr << endl;
+            });
+#endif
+            
+            SECTION("Root node has 2 child bubbles") {
+                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
+                
+                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
+                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
+                
+                if (child1->start().node_id() > child1->end().node_id()) {
+                    snarl_manager.flip(child1);
+                }
+                
+                if (child2->start().node_id() > child2->end().node_id()) {
+                    snarl_manager.flip(child2);
+                }
+                
+                SECTION("First child is from 1 start/end to 2 end/start") {
+                    REQUIRE(child1->start().node_id() == 1);
+                    REQUIRE(child1->end().node_id() == 2);
+                    REQUIRE(!child1->start().backward() != child1->end().backward());
+                    
+                    SECTION("First child has no children") {
+                        REQUIRE(snarl_manager.children_of(child1).size() == 0);
+                    }
+                    
+                }
+                
+                SECTION("Second child is from 1 start/end to 2 end/start") {
+                    REQUIRE(child2->start().node_id() == 1);
+                    REQUIRE(child2->end().node_id() == 2);
+                    REQUIRE(!child1->start().backward() != child1->end().backward());
+                    
+                    SECTION("Second child has no children") {
+                        REQUIRE(snarl_manager.children_of(child2).size() == 0);
+                    }
+                    
+                }
+                
+            }
+            
+        }
+
+        TEST_CASE("bubbles can be found in a graph with no heads or tails or paths", "[bubbles]") {
+            
+            // Build a toy graph
+            const string graph_json = R"(
+            
+            {
+                "node": [
+                    {"id": 1, "sequence": "G"},
+                    {"id": 2, "sequence": "A"}
+                ],
+                "edge": [
+                    {"from": 1, "to": 2},
+                    {"from": 2, "to": 1}
+                    
+                ]
+            }
+            
+            )";
+            
+            // Make an actual graph
+            VG graph;
+            Graph chunk;
+            json2pb(chunk, graph_json.c_str(), graph_json.size());
+            graph.extend(chunk);
+            
+            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            
+#ifdef debug
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                    cerr << node->id() << " ";
+                }
+                cerr << endl;
+            });
+#endif
+            
+            SECTION("Root node has 2 child bubbles") {
+                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
+                
+                // We should have 2 bubbles, one looking around the cycle in each direction.
+                // TODO: can't really say much about its contents.
+                
+            }
+            
+        }
+
+        TEST_CASE("bubbles are created based on most distant connected tips", "[bubbles]") {
+            
+            // Build a toy graph
+            // Looks like:
+            //
+            //       1\
+            //  5--2---3--6
+            //      \4  
+            //
+            // The head is 1, the tail is 4, 2 and 3 have self loops, and the graph is connected.
+            // But the head cannot reach the tail.
+            const string graph_json = R"(
+            
+            {
+                "node": [
+                    {"id": 1, "sequence": "A"},
+                    {"id": 2, "sequence": "A"},
+                    {"id": 3, "sequence": "A"},
+                    {"id": 4, "sequence": "A"},
+                    {"id": 5, "sequence": "A"},
+                    {"id": 6, "sequence": "A"}
+                ],
+                "edge": [
+                    {"from": 1, "to": 3},
+                    {"from": 2, "to": 4},
+                    {"from": 2, "to": 3},
+                    {"from": 5, "to": 2},
+                    {"from": 3, "to": 6}
+                ]
+            }
+            
+            )";
+            
+            // Make an actual graph
+            VG graph;
+            Graph chunk;
+            json2pb(chunk, graph_json.c_str(), graph_json.size());
+            graph.extend(chunk);
+            
+            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            
+#ifdef debug
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                    cerr << node->id() << " ";
+                }
+                cerr << endl;
+            });
+#endif
+            
+                
+            SECTION("Root should have three child actual bubbles") {
+                REQUIRE(snarl_manager.top_level_snarls().size() == 3);
+                
+                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
+                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
+                const Snarl* child3 = snarl_manager.top_level_snarls()[2];
+                
+                if (child1->start().node_id() > child1->end().node_id()) {
+                    snarl_manager.flip(child1);
+                }
+                
+                if (child2->start().node_id() > child2->end().node_id()) {
+                    snarl_manager.flip(child2);
+                }
+                
+                if (child3->start().node_id() > child3->end().node_id()) {
+                    snarl_manager.flip(child3);
+                }
+                
+                SECTION("First child is trivail snarl from 2 start to 5 end") {
+                    // Not 5 end to 2 start because we seem to be sorting by node ID.
+                    REQUIRE(child1->start().node_id() == 2);
+                    REQUIRE(!child1->start().backward() == false);
+                    REQUIRE(child1->end().node_id() == 5);
+                    REQUIRE(child1->end().backward() == true);
+                    
+                }
+                
+                SECTION("Second child is tip-containing snarl from 2 end to 3 start") {
+                    REQUIRE(child2->start().node_id() == 2);
+                    REQUIRE(!child2->start().backward() == true);
+                    REQUIRE(child2->end().node_id() == 3);
+                    REQUIRE(child2->end().backward() == false);
+                    
+                }
+                
+                SECTION("Third child is trivial snarl from 3 end to 6 start") {
+                    REQUIRE(child3->start().node_id() == 3);
+                    REQUIRE(!child3->start().backward() == true);
+                    REQUIRE(child3->end().node_id() == 6);
+                    REQUIRE(child3->end().backward() == false);
+                    
+                }
+                
+            }
+            
+        }
+        
     }
 }

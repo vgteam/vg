@@ -54,6 +54,21 @@ namespace vg {
         }
     }
     
+    void SnarlManager::for_each_snarl_preorder(const function<void(const Snarl*)>& lambda) {
+        // We define a recursive function to apply the lambda in a preorder traversal of the snarl tree.
+        std::function<void(const Snarl*)> process = [&](const Snarl* parent) {
+            // Do the parent
+            lambda(parent);
+            for (auto child : children_of(parent)) {
+                // Then do each child
+                process(child);
+            }
+        };
+        
+        // Then we run that on the root of each tree of snarls.
+        for_each_top_level_snarl(process);
+    }
+    
     void SnarlManager::flip(const Snarl* snarl) {
         
         // kinda ugly workaround of constness that avoids exposing non-const pointers while
