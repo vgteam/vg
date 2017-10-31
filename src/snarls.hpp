@@ -184,7 +184,8 @@ namespace vg {
         /// Destructor
         ~SnarlManager() = default;
         
-        /// Returns a vector of pointers to the children of a Snarl
+        /// Returns a vector of pointers to the children of a Snarl.
+        /// If given null, returns the top-level root snarls.
         const vector<const Snarl*>& children_of(const Snarl* snarl) const;
         
         /// Returns a pointer to the parent of a Snarl or nullptr if there is none
@@ -205,6 +206,7 @@ namespace vg {
         bool in_nontrivial_chain(const Snarl* here) const;
         
         /// Get all the snarls in all the chains under the given parent snarl.
+        /// If the parent snarl is null, gives the top-level chains that connect and contain the top-level root snarls.
         /// Unary snarls and snarls in trivial chains will be presented as their own chains.
         /// Snarls are not necessarily oriented appropriately given their ordering in the chain.
         /// Useful for making a net graph.

@@ -22,6 +22,10 @@ namespace vg {
     }
     
     const vector<const Snarl*>& SnarlManager::children_of(const Snarl* snarl) const {
+        if (snarl == nullptr) {
+            // Looking for top level snarls
+            return roots;
+        }
         return children.at(key_form(snarl));
     }
     
@@ -91,7 +95,7 @@ namespace vg {
         vector<vector<const Snarl*>> to_return;
         
         for (const Snarl* child : children_of(snarl)) {
-            // For every snarl in this snarl
+            // For every snarl in this snarl (or, if snarl is null, every top level snarl)
             
             if (seen.count(child)) {
                 // Already in a chain
