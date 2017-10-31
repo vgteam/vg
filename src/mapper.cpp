@@ -1605,8 +1605,8 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
 #endif
         orientations.insert(is_rev(mate_pos));
         int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
-                            : round(max((double)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
-                                        mate1.sequence().size() * 1.61803)));
+                            : round(min((double)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
+                                        mate1.sequence().size() * 4.0)));
         //cerr << "Getting at least " << get_at_least << endl;
         graph.MergeFrom(xindex->graph_context_id(mate_pos, get_at_least/2));
         graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
