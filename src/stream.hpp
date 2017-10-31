@@ -139,15 +139,19 @@ bool write(std::ostream& out, uint64_t count, const std::function<T(uint64_t)>& 
 }
 
 template <typename T>
-bool write_buffered(std::ostream& out, std::vector<T>& buffer, uint64_t buffer_limit) {
+void write_buffered(std::ostream& out, std::vector<T>& buffer, uint64_t buffer_limit) {
     bool wrote = false;
     if (buffer.size() >= buffer_limit) {
-        std::function<T(uint64_t)> lambda = [&buffer](uint64_t n) { return buffer.at(n); };
-#pragma omp critical (stream_out)
-        wrote = write(out, buffer.size(), lambda);
+        auto batch = new std::vector<T>(buffer);
         buffer.clear();
+        std::function<T(uint64_t)> lambda = [&batch](uint64_t n) { return batch->at(n); };
+#pragma omp task firstprivate(batch, lambda) shared(out)
+        {
+#pragma omp critical (stream_out)
+            bool wrote = write(out, batch->size(), lambda);
+            delete batch;
+        }
     }
-    return wrote;
 }
 
 // deserialize the input stream into the objects
@@ -229,10 +233,10 @@ void for_each_parallel_impl(std::istream& in,
                             const std::function<bool(void)>& single_threaded_until_true) {
 
     // objects will be handed off to worker threads in batches of this many
-    const uint64_t batch_size = 1024;
+    const uint64_t batch_size = 256;
     static_assert(batch_size % 2 == 0, "stream::for_each_parallel::batch_size must be even");
     // max # of such batches to be holding in memory
-    const uint64_t max_batches_outstanding = 1024;
+    const uint64_t max_batches_outstanding = 256;
     // number of batches currently being processed
     uint64_t batches_outstanding = 0;
 

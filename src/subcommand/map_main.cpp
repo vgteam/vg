@@ -63,7 +63,7 @@ void help_map(char** argv) {
          << "    -R, --read-group NAME   for --reads input, add this read group" << endl
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
-         << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [100]" << endl
+         << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [256]" << endl
          << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
@@ -110,7 +110,7 @@ int main_map(int argc, char** argv) {
     int min_cluster_length = 0;
     float mem_reseed_factor = 1.5;
     int max_target_factor = 100;
-    int buffer_size = 100;
+    int buffer_size = 256;
     int8_t match = 1;
     int8_t mismatch = 4;
     int8_t gap_open = 6;
