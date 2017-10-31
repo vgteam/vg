@@ -21,8 +21,8 @@ void help_map(char** argv) {
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
-         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [1024]" << endl
-         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [1e-5]" << endl
+         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [512]" << endl
+         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [1e-4]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [128]" << endl
@@ -90,7 +90,7 @@ int main_map(int argc, char** argv) {
     string read_file;
     string hts_file;
     bool keep_secondary = false;
-    int hit_max = 1024;
+    int hit_max = 512;
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
@@ -132,7 +132,7 @@ int main_map(int argc, char** argv) {
     double fragment_sigma = 10;
     bool fragment_orientation = false;
     bool fragment_direction = true;
-    float chance_match = 1e-5;
+    float chance_match = 1e-4;
     bool use_fast_reseed = true;
     float drop_chain = 0.5;
     float mq_overlap = 0.5;
