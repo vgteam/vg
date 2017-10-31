@@ -22,7 +22,7 @@ void help_map(char** argv) {
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
          << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [512]" << endl
-         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [1e-3]" << endl
+         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [1e-5]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [128]" << endl
@@ -31,7 +31,7 @@ void help_map(char** argv) {
          << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
-         << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [1e-5]" << endl
+         << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.5]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -m, --acyclic-graph     improves runtime when the graph is acyclic" << endl
