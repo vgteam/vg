@@ -672,8 +672,27 @@ namespace vg {
         
         for (auto& chain : child_chains) {
             // For every chain, get its bounding handles in the base graph
-            handle_t chain_start = graph->get_handle(chain.front().start().node_id(), chain.front().start().backward());
-            handle_t chain_end = graph->get_handle(chain.back().end().node_id(), chain.back().end().backward());
+            
+            // Note that bounding handles are not always the start of the first
+            // snarl and the end of the last, because snarls can be flipped!
+            
+            // The start snarl is backward if it shares its start node with the second snarl.
+            bool start_backward = (chain.size() > 1 &&
+                (chain.front().start().node_id() == (++chain.begin())->start().node_id() ||
+                chain.front().start().node_id() == (++chain.begin())->end().node_id()));
+            
+            // The end snarl is backward if it shares its end node with the next-to-last snarl.
+            bool end_backward = (chain.size() > 1 &&
+                (chain.back().end().node_id() == (++chain.rbegin())->start().node_id() ||
+                chain.back().end().node_id() == (++chain.rbegin())->end().node_id()));
+            
+            // Now get the bounding handles according to the orientations of the chains' bounding snarls.
+            handle_t chain_start = start_backward ? 
+                graph->get_handle(chain.front().end().node_id(), !chain.front().end().backward()) :
+                graph->get_handle(chain.front().start().node_id(), chain.front().start().backward());
+            handle_t chain_end = end_backward ?
+                graph->get_handle(chain.back().start().node_id(), !chain.back().start().backward()) :
+                graph->get_handle(chain.back().end().node_id(), chain.back().end().backward());
             
             // Save the links that let us cross the chain.
             chain_ends_by_start[chain_start] = chain_end;
@@ -686,16 +705,42 @@ namespace vg {
                 bool connected_right_right = false;
                 bool connected_left_right = true;
                 
+                // Looping over the chain, we need to know if snarls are
+                // backward.
+                bool backward = start_backward;
+                // And to track that we need to track what the last node of the
+                // last snarl was, so we can see if we share it on our start or
+                // end.
+                id_t last_node = 0;
+                
                 for (auto it = chain.begin(); it != chain.end(); ++it) {
                     // Go through the child snarls from left to right
                     auto& child = *it;
                     
-                    if (child.start_self_reachable()) {
+                    // Unpack the child's connectivity
+                    bool start_self_reachable = child.start_self_reachable();
+                    bool end_self_reachable = child.end_self_reachable();
+                    bool start_end_reachable = child.start_end_reachable();
+                    
+                    if (last_node != 0) {
+                        // We can determine if we are backward based on what we start with.
+                        // We're backward if we start with the wrong thing.
+                        backward = (child.start().node_id() != last_node);
+                    }
+                    // Update the last node
+                    last_node = backward ? child.start().node_id() : child.end().node_id();
+                    
+                    if (backward) {
+                        // Look at the connectivity in reverse
+                        std::swap(start_self_reachable, end_self_reachable);
+                    }
+                    
+                    if (start_self_reachable) {
                         // We found a turnaround from the left
                         connected_left_left = true;
                     }
                     
-                    if (!child.start_end_reachable()) {
+                    if (!start_end_reachable) {
                         // There's an impediment to getting through.
                         connected_left_right = false;
                         // Don't keep looking for turnarounds
@@ -703,17 +748,39 @@ namespace vg {
                     }
                 }
                 
+                // Reset for a traversal the other way
+                backward = end_backward;
+                last_node = 0;
+                
                 for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
                     // Go through the child snarls from right to left
                     auto& child = *it;
                     
-                     if (child.end_self_reachable()) {
+                    // Unpack the child's connectivity
+                    bool start_self_reachable = child.start_self_reachable();
+                    bool end_self_reachable = child.end_self_reachable();
+                    bool start_end_reachable = child.start_end_reachable();
+                    
+                    if (last_node != 0) {
+                        // We can determine if we are backward based on what we end with.
+                        // We're backward if we end with the wrong thing.
+                        backward = (child.end().node_id() != last_node);
+                    }
+                    // Update the last node
+                    last_node = backward ? child.end().node_id() : child.start().node_id();
+                    
+                    if (backward) {
+                        // Look at the connectivity in reverse
+                        std::swap(start_self_reachable, end_self_reachable);
+                    }
+                    
+                    if (end_self_reachable) {
                         // We found a turnaround from the right
                         connected_right_right = true;
                         break;
                     }
                     
-                    if (!child.start_end_reachable()) {
+                    if (!start_end_reachable) {
                         // Don't keep looking for turnarounds
                         break;
                     }

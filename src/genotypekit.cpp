@@ -414,6 +414,8 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     vector<vector<Snarl>> child_chains;
     // And a vector of child unary snarls
     vector<Snarl> child_unary_snarls;
+    // TODO: If we want to track linkages between the children in a chain, and
+    // just to save snarl copies, these should probably be vectors of pointers.
     
 #ifdef debug
     cerr << "Look at " << stList_length(chains_list) << " child chains" << endl;

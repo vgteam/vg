@@ -117,7 +117,7 @@ namespace vg {
         /// Define the key type
         using key_t = pair<pair<int64_t, bool>, pair<int64_t, bool>>;
         
-        /// Master list of the snarls in the graph
+        /// Master list of the snarls in the graph.
         vector<Snarl> snarls;
         
         /// Roots of snarl trees
