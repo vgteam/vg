@@ -1309,8 +1309,8 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.6)
-    , pair_rescue_retry_threshold(0.0)
+    , pair_rescue_hang_threshold(0.66)
+    , pair_rescue_retry_threshold(0.33)
 {
     
 }
@@ -1867,19 +1867,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << max_possible_mq << endl;
     if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << max_possible_mq << endl;
 
-//#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
-    }
-//#endif
-//#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) cerr << "mems for read 2 " << mems_to_json(mems2) << endl;
-    }
-//#endif
-
+    if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
+    if (debug) cerr << "mems for read 2 " << mems_to_json(mems2) << endl;
 
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
 
@@ -1992,12 +1981,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     };
 
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "### clusters before filtering:" << endl;
-            show_clusters();
-        }
+    if (debug) {
+        cerr << "### clusters before filtering:" << endl;
+        show_clusters();
     }
 
     vector<vector<MaximalExactMatch> > clusters1;
@@ -2076,12 +2062,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     };
         
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "### clusters after filtering:" << endl;
-            show_paired_clusters();
-        }
+    if (debug) {
+        cerr << "### clusters after filtering:" << endl;
+        show_paired_clusters();
     }
     
     set<pair<string, string> > seen_alignments;
@@ -2622,12 +2605,7 @@ Mapper::align_mem_multi(const Alignment& aln,
                         int keep_multimaps,
                         int additional_multimaps) {
 
-//#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) cerr << "mems for read " << mems_to_json(mems) << endl;
-    }
-//#endif
+    if (debug) cerr << "mems for read " << mems_to_json(mems) << endl;
     
     auto aligner = get_aligner(!aln.quality().empty());
     int8_t match = aligner->match;
@@ -2741,15 +2719,10 @@ Mapper::align_mem_multi(const Alignment& aln,
         }
     };
 
-//#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "### clusters:" << endl;
-            show_clusters();
-        }
+    if (debug) {
+        cerr << "### clusters:" << endl;
+        show_clusters();
     }
-//#endif
 
     if (use_cluster_mq) {
         cluster_mq = compute_cluster_mapping_quality(clusters, aln.sequence().size());
