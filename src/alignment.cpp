@@ -152,9 +152,9 @@ size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Al
     int thread_count = get_thread_count();
     vector<Alignment> *batch = nullptr;
     char* buf = new char[len];
-    const uint64_t batch_size = 1024; // read 1024 alignments at a time
+    const uint64_t batch_size = 2 << 8; // read 256 alignments at a time
     // max # of such batches to be holding in memory
-    const uint64_t max_batches_outstanding = 1024;
+    const uint64_t max_batches_outstanding = 2 << 16;
     // number of batches currently being processed
     uint64_t batches_outstanding = 0;
     bool more_data = true;
@@ -223,18 +223,15 @@ size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filen
     int thread_count = get_thread_count();
     vector<pair<Alignment, Alignment> > *batch = nullptr;
     char* buf = new char[len];
-    const uint64_t batch_size = 1024; // read 1024 pairs at a time
+    const uint64_t batch_size = 2 << 8; // read 256 pairs at a time
     // max # of such batches to be holding in memory
-    const uint64_t max_batches_outstanding = 1024;
+    uint64_t max_batches_outstanding = (!wait_until_true() ? 1 : 2 << 16);
     // number of batches currently being processed
     uint64_t batches_outstanding = 0;
     bool more_data = true;
-#pragma omp parallel default(none) shared(fp, more_data, batches_outstanding, wait_until_true, call_on_complete, batch, len, buf, nLines, lambda)
+#pragma omp parallel default(none) shared(fp, more_data, max_batches_outstanding, batches_outstanding, wait_until_true, call_on_complete, batch, len, buf, nLines, lambda)
 #pragma omp single
     {
-        // spinlock until wait function evaluates to true
-        while (!wait_until_true()) {}
-        
         while (more_data) {
             if (!batch) {
                 batch = new std::vector<pair<Alignment, Alignment> >();
@@ -273,6 +270,7 @@ size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filen
             } else {
                 call_on_complete();
             }
+            if (max_batches_outstanding == 1 && wait_until_true()) max_batches_outstanding = 2 << 16;
             batch = nullptr; // reset batch pointer
         }
     }
@@ -302,18 +300,16 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
     int thread_count = get_thread_count();
     vector<pair<Alignment, Alignment> > *batch = nullptr;
     char* buf = new char[len];
-    const uint64_t batch_size = 1024; // read 1024 pairs at a time
+    const uint64_t batch_size = 2 << 8; // read 256 pairs at a time
     // max # of such batches to be holding in memory
-    const uint64_t max_batches_outstanding = 1024;
+    uint64_t max_batches_outstanding = (!wait_until_true() ? 1 : 2 << 16);
     // number of batches currently being processed
     uint64_t batches_outstanding = 0;
     bool more_data = true;
-#pragma omp parallel default(none) shared(fp1, fp2, more_data, batches_outstanding, wait_until_true, call_on_complete, batch, len, buf, nLines, lambda)
+#pragma omp parallel default(none) shared(fp1, fp2, more_data, max_batches_outstanding, batches_outstanding, wait_until_true, call_on_complete, batch, len, buf, nLines, lambda)
 #pragma omp single
     {
         // spinlock until wait function evaluates to true
-        while (!wait_until_true()) {}
-        
         while (more_data) {
             if (!batch) {
                 batch = new std::vector<pair<Alignment, Alignment> >();
@@ -352,6 +348,7 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
             } else {
                 call_on_complete();
             }
+            if (max_batches_outstanding == 1 && wait_until_true()) max_batches_outstanding = 2 << 16;
             batch = nullptr; // reset batch pointer
         }
     }
@@ -360,65 +357,6 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
     gzclose(fp2);
     return nLines;
 }
-
-
-
-/*   
-    size_t len = 2 << 18; // 256k
-    size_t nLines = 0;
-    int thread_count = get_thread_count();
-    //vector<Alignment> alns; alns.resize(thread_count);
-    vector<char*> bufs; bufs.resize(thread_count);
-    for (auto& buf : bufs) {
-        buf = new char[len];
-    }
-    vector<vector<pair<Alignment, Alignment> > > pair_bufs;
-    pair_bufs.resize(thread_count);
-    size_t chunk_size = 2 << 10; // read 1024 pairs at a time
-    bool more_data = true;
-#pragma omp parallel shared(fp1, fp2, more_data, bufs)
-    {
-        // spinlock until wait function evaluates to true
-        while (!wait_until_true()) {}
-        
-        int tid = omp_get_thread_num();
-        while (more_data) {
-            Alignment mate1, mate2;
-            char* buf = bufs[tid];
-            auto& pair_buf = pair_bufs[tid];
-            bool got_anything = false;
-#pragma omp critical (fastq_input)
-            {
-                int i = 0;
-                while (more_data && i++ < chunk_size) {
-                    got_anything = more_data = get_next_alignment_pair_from_fastqs(fp1, fp2, buf, len, mate1, mate2);
-                    if (got_anything) {
-                        pair_buf.push_back(make_pair(mate1, mate2));
-                        nLines++;
-                    }
-                }
-            }
-            if (pair_buf.size()) {
-                for (auto& p : pair_buf) {
-                    lambda(p.first, p.second);
-                }
-                pair_buf.clear();
-            }
-            else {
-                call_on_complete();
-            }
-        }
-    }
-    for (auto& buf : bufs) {
-        delete buf;
-    }
-    gzclose(fp1);
-    gzclose(fp2);
-    return nLines;
-}
-*/
-
-
 
 size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)> lambda) {
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
