@@ -173,15 +173,15 @@ namespace vg {
             num_mappings++;
         }
         
+        // split up any alignments that ended up being disconnected
+        split_multicomponent_alignments(multipath_alns_out);
+        
 #ifdef debug_multipath_mapper
         cerr << "topologically ordering " << multipath_alns_out.size() << " multipath alignments" << endl;
 #endif
         for (MultipathAlignment& multipath_aln : multipath_alns_out) {
             topologically_order_subpaths(multipath_aln);
         }
-        
-        // split up any alignments that ended up being disconnected
-        split_multicomponent_alignments(multipath_alns_out);
         
 #ifdef debug_multipath_mapper
         cerr << "computing mapping quality and sorting mappings" << endl;
@@ -406,7 +406,7 @@ namespace vg {
                 && random_match_p_value(score_pseudo_length(aln.score()), multipath_aln.sequence().size()) < 0.005);
     }
     
-    bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) const {
+    bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) {
 #ifdef debug_multipath_mapper
         cerr << "effective match length of " << multipath_aln.name() << " is " << score_pseudo_length(optimal_alignment_score(multipath_aln)) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(score_pseudo_length(optimal_alignment_score(multipath_aln)), multipath_aln.sequence().size()) << endl;
 #endif
@@ -420,8 +420,23 @@ namespace vg {
         return score * aligner->log_base / (3 * aligner->match);
     }
     
-    double MultipathMapper::random_match_p_value(size_t match_length, size_t read_length) const {
-        return 1.0 - pow(1.0 - pow(0.25, match_length), xindex->seq_length * read_length);
+    // make the memo live in this .o file
+    thread_local unordered_map<pair<size_t, size_t>, double> MultipathMapper::p_value_memo;
+    
+    double MultipathMapper::random_match_p_value(size_t match_length, size_t read_length) {
+        // memoized to avoid transcendental functions (at least in cases where read lengths
+        // don't vary too much)
+        auto iter = p_value_memo.find(make_pair(match_length, read_length));
+        if (iter != p_value_memo.end()) {
+            return iter->second;
+        }
+        else {
+            double p_value = 1.0 - pow(1.0 - pow(0.25, match_length), xindex->seq_length * read_length);
+            if (p_value_memo.size() < max_p_value_memo_size) {
+                p_value_memo[make_pair(match_length, read_length)] = p_value;
+            }
+            return p_value;
+        }
     }
     
     int64_t MultipathMapper::distance_between(const MultipathAlignment& multipath_aln_1,
@@ -1196,15 +1211,15 @@ namespace vg {
             num_mappings++;
         }
         
+        // split up any multi-component multipath alignments
+        split_multicomponent_alignments(multipath_aln_pairs_out, cluster_pairs);
+        
         // downstream algorithms assume multipath alignments are topologically sorted (including the scoring
         // algorithm in the next step)
         for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
             topologically_order_subpaths(multipath_aln_pair.first);
             topologically_order_subpaths(multipath_aln_pair.second);
         }
-        
-        // split up any multi-component multipath alignments
-        split_multicomponent_alignments(multipath_aln_pairs_out, cluster_pairs);
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score
         sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs);
@@ -1932,7 +1947,6 @@ namespace vg {
         for (size_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
             ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
             if (match_node.edges.empty()) {
-                const Mapping& final_mapping = match_node.path.mapping(match_node.path.mapping_size() - 1);
                 if (match_node.end != alignment.sequence().end()) {
                     
                     Subpath* sink_subpath = multipath_aln_out.mutable_subpath(j);
@@ -2003,7 +2017,10 @@ namespace vg {
                     cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
 #endif
                     
+                    const Mapping& final_mapping = match_node.path.mapping(match_node.path.mapping_size() - 1);
+                    
                     for (Alignment& tail_alignment : alt_alignments) {
+                        
                         sink_subpath->add_next(multipath_aln_out.subpath_size());
                         
                         Subpath* tail_subpath = multipath_aln_out.add_subpath();
@@ -2014,6 +2031,16 @@ namespace vg {
                         Mapping* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
                         if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
                             first_mapping->mutable_position()->set_offset(offset(end_pos));
+                        }
+                        else if (tail_alignment.path().mapping_size() == 1 && first_mapping->edit_size() == 1
+                                 && first_mapping->edit(0).from_length() == 0 && first_mapping->edit(0).to_length() > 0
+                                 && first_mapping->position().node_id() != final_mapping.position().node_id()) {
+                            // this is a pure soft-clip on the beginning of the next node, we'll move it to the end
+                            // of the match node to match invariants expected by other parts of the code base
+                            Position* pos = first_mapping->mutable_position();
+                            pos->set_node_id(final_mapping.position().node_id());
+                            pos->set_is_reverse(final_mapping.position().is_reverse());
+                            pos->set_offset(final_mapping.position().offset() + mapping_from_length(final_mapping));
                         }
 #ifdef debug_multipath_mapper
                         cerr << "subpath from " << j << " to right tail:" << endl;
@@ -2089,7 +2116,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
                     cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
 #endif
-                    
+                    const Mapping& first_mapping = match_node.path.mapping(0);
                     for (Alignment& tail_alignment : alt_alignments) {
                         Subpath* tail_subpath = multipath_aln_out.add_subpath();
                         *tail_subpath->mutable_path() = tail_alignment.path();
@@ -2103,6 +2130,14 @@ namespace vg {
                         cerr << "subpath from " << j << " to left tail:" << endl;
                         cerr << pb2json(*tail_subpath) << endl;
 #endif
+                        Mapping* final_mapping = tail_subpath->mutable_path()->mutable_mapping(tail_subpath->path().mapping_size() - 1);
+                        if (tail_subpath->path().mapping_size() == 1 && final_mapping->edit_size() == 1
+                            && final_mapping->edit(0).from_length() == 0 && final_mapping->edit(0).to_length() > 0
+                            && final_mapping->position().node_id() != first_mapping.position().node_id()) {
+                            // this is a pure soft clip on the end of the previous node, so we move it over to the
+                            // beginning of the match node to match invariants in rest of code base
+                            *final_mapping->mutable_position() = first_mapping.position();
+                        }
                     }
                 }
                 else {

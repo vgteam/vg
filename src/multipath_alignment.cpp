@@ -212,7 +212,7 @@ namespace vg {
             
             // check for a softclip of entire subpaths on the end
             int64_t seq_thru_length = prefix_length[opt_subpath] + path_to_length(multipath_aln.subpath(opt_subpath).path());
-            if (prev != opt_subpath && seq_thru_length < multipath_aln.sequence().size()) {
+            if (seq_thru_length < multipath_aln.sequence().size()) {
                 
                 Mapping* final_mapping = opt_path->mutable_mapping(opt_path->mapping_size() - 1);
                 

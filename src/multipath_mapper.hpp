@@ -71,6 +71,7 @@ namespace vg {
         size_t num_mapping_attempts = 1;
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
+        size_t max_p_value_memo_size = 500;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -182,13 +183,13 @@ namespace vg {
         static int64_t read_coverage(const memcluster_t& mem_hits);
         
         /// Would an alignment this good be expected against a graph this big by chance alone
-        bool likely_mismapping(const MultipathAlignment& multipath_aln) const;
+        bool likely_mismapping(const MultipathAlignment& multipath_aln);
         
         /// A scaling of a score so that it approximately follows the distribution of the longest match in p-value test
         size_t score_pseudo_length(int32_t score) const;
         
         /// The approximate p-value for a match length of the given size against the current graph
-        double random_match_p_value(size_t match_length, size_t read_length) const;
+        double random_match_p_value(size_t match_length, size_t read_length);
         
         /// Compute the approximate distance between two multipath alignments
         int64_t distance_between(const MultipathAlignment& multipath_aln_1,
@@ -208,6 +209,9 @@ namespace vg {
         bool share_start_position(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
         SnarlManager* snarl_manager;
+        
+        // a memo for the transcendental p-value function (thread local to maintain threadsafety)
+        static thread_local unordered_map<pair<size_t, size_t>, double> p_value_memo;
     };
     
     // TODO: put in MultipathAlignmentGraph namespace
