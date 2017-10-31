@@ -152,9 +152,9 @@ size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Al
     int thread_count = get_thread_count();
     vector<Alignment> *batch = nullptr;
     char* buf = new char[len];
-    const uint64_t batch_size = 256; // read 256 pairs at a time
+    const uint64_t batch_size = 1024; // read 1024 alignments at a time
     // max # of such batches to be holding in memory
-    const uint64_t max_batches_outstanding = 256;
+    const uint64_t max_batches_outstanding = 1024;
     // number of batches currently being processed
     uint64_t batches_outstanding = 0;
     bool more_data = true;
@@ -223,9 +223,9 @@ size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filen
     int thread_count = get_thread_count();
     vector<pair<Alignment, Alignment> > *batch = nullptr;
     char* buf = new char[len];
-    const uint64_t batch_size = 256; // read 256 pairs at a time
+    const uint64_t batch_size = 1024; // read 1024 pairs at a time
     // max # of such batches to be holding in memory
-    const uint64_t max_batches_outstanding = 256;
+    const uint64_t max_batches_outstanding = 1024;
     // number of batches currently being processed
     uint64_t batches_outstanding = 0;
     bool more_data = true;
@@ -302,9 +302,9 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
     int thread_count = get_thread_count();
     vector<pair<Alignment, Alignment> > *batch = nullptr;
     char* buf = new char[len];
-    const uint64_t batch_size = 256; // read 256 pairs at a time
+    const uint64_t batch_size = 1024; // read 1024 pairs at a time
     // max # of such batches to be holding in memory
-    const uint64_t max_batches_outstanding = 256;
+    const uint64_t max_batches_outstanding = 1024;
     // number of batches currently being processed
     uint64_t batches_outstanding = 0;
     bool more_data = true;
