@@ -21,40 +21,148 @@ namespace vg {
         build_indexes();
     }
     
-    const vector<const Snarl*>& SnarlManager::children_of(const Snarl* snarl) {
-        return children[key_form(snarl)];
+    const vector<const Snarl*>& SnarlManager::children_of(const Snarl* snarl) const {
+        return children.at(key_form(snarl));
     }
     
-    const Snarl* SnarlManager::parent_of(const Snarl* snarl) {
-        return parent[key_form(snarl)];
+    const Snarl* SnarlManager::parent_of(const Snarl* snarl) const {
+        return parent.at(key_form(snarl));
     }
     
-    bool SnarlManager::is_leaf(const Snarl* snarl) {
-        return children[key_form(snarl)].size() == 0;
+    const Snarl* SnarlManager::snarl_sharing_start(const Snarl* here) const {
+        // Look out the start and see what we come to
+        const Snarl* next = into_which_snarl(here->start().node_id(), !here->start().backward());
+        
+        // Return it, unless it's us, in which case we're a unary snarl that should go nowhere.
+        return next == here ? nullptr : next;
+        
     }
     
-    bool SnarlManager::is_root(const Snarl* snarl) {
-        return parent[key_form(snarl)] == nullptr;
+    const Snarl* SnarlManager::snarl_sharing_end(const Snarl* here) const {
+        // Look out the end and see what we come to
+        const Snarl* next = into_which_snarl(here->end().node_id(), here->end().backward());
+        
+        // Return it, unless it's us, in which case we're a unary snarl that should go nowhere.
+        return next == here ? nullptr : next;
     }
     
-    const vector<const Snarl*>& SnarlManager::top_level_snarls() {
+    bool SnarlManager::in_nontrivial_chain(const Snarl* here) const {
+        return (snarl_sharing_start(here) != nullptr || snarl_sharing_end(here) != nullptr);
+    }
+    
+    Visit SnarlManager::next_in_chain(const Visit& here) const {
+        // Must be a snarl visit
+        assert(here.node_id() == 0);
+        const Snarl* here_snarl = manage(here.snarl());
+        assert(here_snarl != nullptr);
+        
+        // What visit are we going to return?
+        Visit to_return;
+        
+        // And what snarl are we visiting next?
+        const Snarl* next = here.backward() ? snarl_sharing_start(here_snarl) : snarl_sharing_end(here_snarl);
+
+        if (next == nullptr) {
+            // Nothing next
+            return to_return;
+        }
+        
+        // Fill in the start and end of the next snarl;
+        transfer_boundary_info(*next, *to_return.mutable_snarl());
+        
+        if (here.backward()) {
+            // We came out our start. So the next thing is also backward as long as its end matches our start. 
+            to_return.set_backward(next->end().node_id() == here_snarl->start().node_id());
+        } else {
+            // We came out our end. So the next thing is backward if its start doesn't match our end.
+            to_return.set_backward(next->start().node_id() != here_snarl->end().node_id());
+        }
+    }
+    
+    Visit SnarlManager::prev_in_chain(const Visit& here) const {
+        return reverse(next_in_chain(reverse(here)));
+    }
+    
+    const vector<vector<const Snarl*>> SnarlManager::chains_of(const Snarl* snarl) const {
+        // We track the snarls we have seen by chain traversal so we only have to see each chain once.
+        unordered_set<const Snarl*> seen;
+        
+        // We will populate this with the chains.
+        vector<vector<const Snarl*>> to_return;
+        
+        for (const Snarl* child : children_of(snarl)) {
+            // For every snarl in this snarl
+            
+            if (seen.count(child)) {
+                // Already in a chain
+                continue;
+            }
+            
+            // Make a new chain for this child.
+            list<const Snarl*> chain{child};
+            
+            // Mark it as seen
+            seen.insert(child);
+            
+            // Make a visit to the child
+            Visit here;
+            transfer_boundary_info(*child, *here.mutable_snarl());
+            
+            for (Visit walk_left = prev_in_chain(here); walk_left.has_snarl(); walk_left = prev_in_chain(walk_left)) {
+                // For everything in the chain left from here, add it to the chain
+                chain.push_front(manage(walk_left.snarl()));
+                // Mark it as seen
+                seen.insert(chain.front());
+            }
+            
+            for (Visit walk_right = next_in_chain(here); walk_right.has_snarl(); walk_right = next_in_chain(walk_right)) {
+                // For everything in the chain right from here, add it to the chain
+                chain.push_back(manage(walk_right.snarl()));
+                // Mark it as seen
+                seen.insert(chain.back());
+            }
+            
+            // Copy from the list into a vector
+            to_return.emplace_back(chain.begin(), chain.end());
+        }
+        
+        // When we finish we will have no chains starting at snarls in other chains, and a chain containing every snarl.
+        // Since chains are linear that means we have all the chains.
+        return to_return;
+    }
+    
+    NetGraph SnarlManager::net_graph_of(const Snarl* snarl, const HandleGraph* graph, bool use_internal_connectivity) const {
+        // Just get the chains and forward them on to the NetGraph.
+        // TODO: The NetGraph ends up computing its own indexes.
+        return NetGraph(snarl->start(), snarl->end(), chains_of(snarl), graph, use_internal_connectivity);
+    }
+    
+    bool SnarlManager::is_leaf(const Snarl* snarl) const {
+        return children.at(key_form(snarl)).size() == 0;
+    }
+    
+    bool SnarlManager::is_root(const Snarl* snarl) const {
+        return parent.at(key_form(snarl)) == nullptr;
+    }
+    
+    const vector<const Snarl*>& SnarlManager::top_level_snarls() const {
         return roots;
     }
     
-    void SnarlManager::for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda) {
+    void SnarlManager::for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda) const {
 #pragma omp parallel for
         for (int i = 0; i < roots.size(); i++) {
             lambda(roots[i]);
         }
     }
     
-    void SnarlManager::for_each_top_level_snarl(const function<void(const Snarl*)>& lambda) {
+    void SnarlManager::for_each_top_level_snarl(const function<void(const Snarl*)>& lambda) const {
         for (const Snarl* snarl : roots) {
             lambda(snarl);
         }
     }
     
-    void SnarlManager::for_each_snarl_preorder(const function<void(const Snarl*)>& lambda) {
+    void SnarlManager::for_each_snarl_preorder(const function<void(const Snarl*)>& lambda) const {
         // We define a recursive function to apply the lambda in a preorder traversal of the snarl tree.
         std::function<void(const Snarl*)> process = [&](const Snarl* parent) {
             // Do the parent
@@ -112,41 +220,41 @@ namespace vg {
         // note: snarl_into index is invariant to flipping
     }
     
-    const Snarl* SnarlManager::into_which_snarl(int64_t id, bool reverse) {
-        return snarl_into.count(make_pair(id, reverse)) ? snarl_into[make_pair(id, reverse)] : nullptr;
+    const Snarl* SnarlManager::into_which_snarl(int64_t id, bool reverse) const {
+        return snarl_into.count(make_pair(id, reverse)) ? snarl_into.at(make_pair(id, reverse)) : nullptr;
     }
     
-    const Snarl* SnarlManager::into_which_snarl(const Visit& visit) {
+    const Snarl* SnarlManager::into_which_snarl(const Visit& visit) const {
         return visit.has_snarl() ? manage(visit.snarl()) : into_which_snarl(visit.node_id(), visit.backward());
     }
     
-    unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_boundary_index() {
+    unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_boundary_index() const {
         unordered_map<pair<int64_t, bool>, const Snarl*> index;
-        for (Snarl& snarl : snarls) {
+        for (const Snarl& snarl : snarls) {
             index[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
             index[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
         }
         return index;
     }
     
-    unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_end_index() {
+    unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_end_index() const {
         unordered_map<pair<int64_t, bool>, const Snarl*> index;
-        for (Snarl& snarl : snarls) {
+        for (const Snarl& snarl : snarls) {
             index[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
         }
         return index;
     }
     
-    unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_start_index() {
+    unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_start_index() const {
         unordered_map<pair<int64_t, bool>, const Snarl*> index;
-        for (Snarl& snarl : snarls) {
+        for (const Snarl& snarl : snarls) {
             index[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
         }
         return index;
     }
     
     // can include definition of inline function apart from forward declaration b/c only used in this file
-    inline SnarlManager::key_t SnarlManager::key_form(const Snarl* snarl) {
+    inline SnarlManager::key_t SnarlManager::key_form(const Snarl* snarl) const {
         return make_pair(make_pair(snarl->start().node_id(), snarl->start().backward()),
                          make_pair(snarl->end().node_id(), snarl->end().backward()));
     }
@@ -210,7 +318,7 @@ namespace vg {
     }
     
     pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::shallow_contents(const Snarl* snarl, VG& graph,
-                                                                                     bool include_boundary_nodes) {
+                                                                                     bool include_boundary_nodes) const {
         
         pair<unordered_set<Node*>, unordered_set<Edge*> > to_return;
         
@@ -379,7 +487,7 @@ namespace vg {
     }
     
     pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::deep_contents(const Snarl* snarl, VG& graph,
-                                                                                  bool include_boundary_nodes) {
+                                                                                  bool include_boundary_nodes) const {
         
         pair<unordered_set<Node*>, unordered_set<Edge*> > to_return;
         
@@ -491,7 +599,7 @@ namespace vg {
         return to_return;
     }
     
-    const Snarl* SnarlManager::manage(const Snarl& not_owned) {
+    const Snarl* SnarlManager::manage(const Snarl& not_owned) const {
         // TODO: keep the Snarls in some kind of sorted order to make lookup
         // efficient. We could also have a map<Snarl, Snarl*> but that would be
         // a tremendous waste of space.
@@ -512,7 +620,7 @@ namespace vg {
         return &snarls.at(it->second);
     }
     
-    vector<Visit> SnarlManager::visits_right(const Visit& visit, VG& graph, const Snarl* in_snarl) {
+    vector<Visit> SnarlManager::visits_right(const Visit& visit, VG& graph, const Snarl* in_snarl) const {
         
 #ifdef debug
         cerr << "Look right from " << visit << endl;
@@ -619,7 +727,7 @@ namespace vg {
         
     }
     
-    vector<Visit> SnarlManager::visits_left(const Visit& visit, VG& graph, const Snarl* in_snarl) {
+    vector<Visit> SnarlManager::visits_left(const Visit& visit, VG& graph, const Snarl* in_snarl) const {
         
         // Get everything right of the reversed visit
         vector<Visit> to_return = visits_right(reverse(visit), graph, in_snarl);
@@ -634,164 +742,207 @@ namespace vg {
         
     }
     
-    NetGraph::NetGraph(const Visit& start, const Visit& end,
-        const vector<vector<Snarl>>& child_chains,
-        const vector<Snarl>& child_unary_snarls, const HandleGraph* graph,
-        bool use_internal_connectivity) : 
+    NetGraph::NetGraph(const Visit& start, const Visit& end, const HandleGraph* graph, bool use_internal_connectivity) :
         graph(graph),
         start(graph->get_handle(start.node_id(), start.backward())),
         end(graph->get_handle(end.node_id(), end.backward())),
         use_internal_connectivity(use_internal_connectivity) {
+        // Nothing to do!
+    }
+    
+    NetGraph::NetGraph(const Visit& start, const Visit& end,
+        const vector<vector<const Snarl*>>& child_chains_mixed,
+        const HandleGraph* graph,
+        bool use_internal_connectivity) : NetGraph(start, end, graph, use_internal_connectivity) {
         
-        for (auto& unary : child_unary_snarls) {
-            // For each unary snarl, make its bounding handle
-            handle_t snarl_bound = graph->get_handle(unary.start().node_id(), unary.start().backward());
-            
-            // Get its ID
-            id_t snarl_id = unary.start().node_id();
-            
-            // Make sure it is properly specified to be unary (in and out the same node in opposite directions)
-            assert(unary.end().node_id() == snarl_id);
-            assert(unary.end().backward() == !unary.start().backward());
-            
-            // Save it as a unary snarl
-            unary_boundaries.insert(snarl_bound);
-            
-            if (use_internal_connectivity) {
-                // Save its connectivity
-                connectivity[snarl_id] = make_tuple(unary.start_self_reachable(), unary.end_self_reachable(),
-                    unary.start_end_reachable());
+        // All we need to do is index the children. They come mixed as real chains and unary snarls.
+        
+        for (auto& chain : child_chains_mixed) {
+            if (chain.size() == 1 && chain.front()->type() == UNARY) {
+                // This is a unary snarl wrapped in a chain
+                add_unary_child(chain.front());
             } else {
-                // Use the connectivity of an ordinary node that has a different
-                // other side. Don't set connected_start_end because, for a real
-                // unary snarl, the end and the start are the same, so that
-                // means you can turn aroiund.
-                connectivity[snarl_id] = make_tuple(false, false, false);
+                // This is a real (but possibly trivial) chain
+                add_chain_child(chain);
             }
         }
         
+    }
+    
+    NetGraph::NetGraph(const Visit& start, const Visit& end,
+        const vector<vector<const Snarl*>>& child_chains,
+        const vector<const Snarl*>& child_unary_snarls, const HandleGraph* graph,
+        bool use_internal_connectivity) : NetGraph(start, end, graph, use_internal_connectivity) {
+        
+        // All we need to do is index the children.
+        
+        for (const Snarl* unary : child_unary_snarls) {
+            add_unary_child(unary);
+        }
+        
         for (auto& chain : child_chains) {
-            // For every chain, get its bounding handles in the base graph
+            add_chain_child(chain);
+        }
+    }
+    
+    NetGraph::NetGraph(const Visit& start, const Visit& end,
+        const vector<vector<Snarl>>& child_chains,
+        const vector<Snarl>& child_unary_snarls,
+        const HandleGraph* graph,
+        bool use_internal_connectivity) :
+        NetGraph(start, end, vg::map_over<vector, vector<Snarl>, vector<const Snarl*>>(child_chains, pointerfy<vector, Snarl>),
+            pointerfy(child_unary_snarls), graph, use_internal_connectivity) {
+        // Nothing to do! We already ran the real constructor with vectors of pointers to everything
+    }
+    
+    void NetGraph::add_unary_child(const Snarl* unary) {
+        // For each unary snarl, make its bounding handle
+        handle_t snarl_bound = graph->get_handle(unary->start().node_id(), unary->start().backward());
+        
+        // Get its ID
+        id_t snarl_id = unary->start().node_id();
+        
+        // Make sure it is properly specified to be unary (in and out the same node in opposite directions)
+        assert(unary->end().node_id() == snarl_id);
+        assert(unary->end().backward() == !unary->start().backward());
+        
+        // Save it as a unary snarl
+        unary_boundaries.insert(snarl_bound);
+        
+        if (use_internal_connectivity) {
+            // Save its connectivity
+            connectivity[snarl_id] = make_tuple(unary->start_self_reachable(), unary->end_self_reachable(),
+                unary->start_end_reachable());
+        } else {
+            // Use the connectivity of an ordinary node that has a different
+            // other side. Don't set connected_start_end because, for a real
+            // unary snarl, the end and the start are the same, so that
+            // means you can turn aroiund.
+            connectivity[snarl_id] = make_tuple(false, false, false);
+        }
+    }
+    
+    void NetGraph::add_chain_child(const vector<const Snarl*>& chain) {
+        // For every chain, get its bounding handles in the base graph
             
-            // Note that bounding handles are not always the start of the first
-            // snarl and the end of the last, because snarls can be flipped!
+        // Note that bounding handles are not always the start of the first
+        // snarl and the end of the last, because snarls can be flipped!
+        
+        // The start snarl is backward if it shares its start node with the second snarl.
+        bool start_backward = (chain.size() > 1 &&
+            (chain.front()->start().node_id() == (*++chain.begin())->start().node_id() ||
+            chain.front()->start().node_id() == (*++chain.begin())->end().node_id()));
+        
+        // The end snarl is backward if it shares its end node with the next-to-last snarl.
+        bool end_backward = (chain.size() > 1 &&
+            (chain.back()->end().node_id() == (*++chain.rbegin())->start().node_id() ||
+            chain.back()->end().node_id() == (*++chain.rbegin())->end().node_id()));
+        
+        // Now get the bounding handles according to the orientations of the chains' bounding snarls.
+        handle_t chain_start = start_backward ? 
+            graph->get_handle(chain.front()->end().node_id(), !chain.front()->end().backward()) :
+            graph->get_handle(chain.front()->start().node_id(), chain.front()->start().backward());
+        handle_t chain_end = end_backward ?
+            graph->get_handle(chain.back()->start().node_id(), !chain.back()->start().backward()) :
+            graph->get_handle(chain.back()->end().node_id(), chain.back()->end().backward());
+        
+        // Save the links that let us cross the chain.
+        chain_ends_by_start[chain_start] = chain_end;
+        chain_end_rewrites[graph->flip(chain_end)] = graph->flip(chain_start);
+        
+        if (use_internal_connectivity) {
+        
+            // Determine child snarl connectivity.
+            bool connected_left_left = false;
+            bool connected_right_right = false;
+            bool connected_left_right = true;
             
-            // The start snarl is backward if it shares its start node with the second snarl.
-            bool start_backward = (chain.size() > 1 &&
-                (chain.front().start().node_id() == (++chain.begin())->start().node_id() ||
-                chain.front().start().node_id() == (++chain.begin())->end().node_id()));
+            // Looping over the chain, we need to know if snarls are
+            // backward.
+            bool backward = start_backward;
+            // And to track that we need to track what the last node of the
+            // last snarl was, so we can see if we share it on our start or
+            // end.
+            id_t last_node = 0;
             
-            // The end snarl is backward if it shares its end node with the next-to-last snarl.
-            bool end_backward = (chain.size() > 1 &&
-                (chain.back().end().node_id() == (++chain.rbegin())->start().node_id() ||
-                chain.back().end().node_id() == (++chain.rbegin())->end().node_id()));
-            
-            // Now get the bounding handles according to the orientations of the chains' bounding snarls.
-            handle_t chain_start = start_backward ? 
-                graph->get_handle(chain.front().end().node_id(), !chain.front().end().backward()) :
-                graph->get_handle(chain.front().start().node_id(), chain.front().start().backward());
-            handle_t chain_end = end_backward ?
-                graph->get_handle(chain.back().start().node_id(), !chain.back().start().backward()) :
-                graph->get_handle(chain.back().end().node_id(), chain.back().end().backward());
-            
-            // Save the links that let us cross the chain.
-            chain_ends_by_start[chain_start] = chain_end;
-            chain_end_rewrites[graph->flip(chain_end)] = graph->flip(chain_start);
-            
-            if (use_internal_connectivity) {
-            
-                // Determine child snarl connectivity.
-                bool connected_left_left = false;
-                bool connected_right_right = false;
-                bool connected_left_right = true;
+            for (auto it = chain.begin(); it != chain.end(); ++it) {
+                // Go through the child snarls from left to right
+                const Snarl* child = *it;
                 
-                // Looping over the chain, we need to know if snarls are
-                // backward.
-                bool backward = start_backward;
-                // And to track that we need to track what the last node of the
-                // last snarl was, so we can see if we share it on our start or
-                // end.
-                id_t last_node = 0;
+                // Unpack the child's connectivity
+                bool start_self_reachable = child->start_self_reachable();
+                bool end_self_reachable = child->end_self_reachable();
+                bool start_end_reachable = child->start_end_reachable();
                 
-                for (auto it = chain.begin(); it != chain.end(); ++it) {
-                    // Go through the child snarls from left to right
-                    auto& child = *it;
-                    
-                    // Unpack the child's connectivity
-                    bool start_self_reachable = child.start_self_reachable();
-                    bool end_self_reachable = child.end_self_reachable();
-                    bool start_end_reachable = child.start_end_reachable();
-                    
-                    if (last_node != 0) {
-                        // We can determine if we are backward based on what we start with.
-                        // We're backward if we start with the wrong thing.
-                        backward = (child.start().node_id() != last_node);
-                    }
-                    // Update the last node
-                    last_node = backward ? child.start().node_id() : child.end().node_id();
-                    
-                    if (backward) {
-                        // Look at the connectivity in reverse
-                        std::swap(start_self_reachable, end_self_reachable);
-                    }
-                    
-                    if (start_self_reachable) {
-                        // We found a turnaround from the left
-                        connected_left_left = true;
-                    }
-                    
-                    if (!start_end_reachable) {
-                        // There's an impediment to getting through.
-                        connected_left_right = false;
-                        // Don't keep looking for turnarounds
-                        break;
-                    }
+                if (last_node != 0) {
+                    // We can determine if we are backward based on what we start with.
+                    // We're backward if we start with the wrong thing.
+                    backward = (child->start().node_id() != last_node);
+                }
+                // Update the last node
+                last_node = backward ? child->start().node_id() : child->end().node_id();
+                
+                if (backward) {
+                    // Look at the connectivity in reverse
+                    std::swap(start_self_reachable, end_self_reachable);
                 }
                 
-                // Reset for a traversal the other way
-                backward = end_backward;
-                last_node = 0;
-                
-                for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
-                    // Go through the child snarls from right to left
-                    auto& child = *it;
-                    
-                    // Unpack the child's connectivity
-                    bool start_self_reachable = child.start_self_reachable();
-                    bool end_self_reachable = child.end_self_reachable();
-                    bool start_end_reachable = child.start_end_reachable();
-                    
-                    if (last_node != 0) {
-                        // We can determine if we are backward based on what we end with.
-                        // We're backward if we end with the wrong thing.
-                        backward = (child.end().node_id() != last_node);
-                    }
-                    // Update the last node
-                    last_node = backward ? child.end().node_id() : child.start().node_id();
-                    
-                    if (backward) {
-                        // Look at the connectivity in reverse
-                        std::swap(start_self_reachable, end_self_reachable);
-                    }
-                    
-                    if (end_self_reachable) {
-                        // We found a turnaround from the right
-                        connected_right_right = true;
-                        break;
-                    }
-                    
-                    if (!start_end_reachable) {
-                        // Don't keep looking for turnarounds
-                        break;
-                    }
+                if (start_self_reachable) {
+                    // We found a turnaround from the left
+                    connected_left_left = true;
                 }
                 
-                // Save the connectivity
-                connectivity[graph->get_id(chain_start)] = tie(connected_left_left, connected_right_right, connected_left_right);
-            } else {
-                // Act like a normal connected-through node.
-                connectivity[graph->get_id(chain_start)] = make_tuple(false, false, true);
+                if (!start_end_reachable) {
+                    // There's an impediment to getting through.
+                    connected_left_right = false;
+                    // Don't keep looking for turnarounds
+                    break;
+                }
             }
+            
+            // Reset for a traversal the other way
+            backward = end_backward;
+            last_node = 0;
+            
+            for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+                // Go through the child snarls from right to left
+                const Snarl* child = *it;
+                
+                // Unpack the child's connectivity
+                bool start_self_reachable = child->start_self_reachable();
+                bool end_self_reachable = child->end_self_reachable();
+                bool start_end_reachable = child->start_end_reachable();
+                
+                if (last_node != 0) {
+                    // We can determine if we are backward based on what we end with.
+                    // We're backward if we end with the wrong thing.
+                    backward = (child->end().node_id() != last_node);
+                }
+                // Update the last node
+                last_node = backward ? child->end().node_id() : child->start().node_id();
+                
+                if (backward) {
+                    // Look at the connectivity in reverse
+                    std::swap(start_self_reachable, end_self_reachable);
+                }
+                
+                if (end_self_reachable) {
+                    // We found a turnaround from the right
+                    connected_right_right = true;
+                    break;
+                }
+                
+                if (!start_end_reachable) {
+                    // Don't keep looking for turnarounds
+                    break;
+                }
+            }
+            
+            // Save the connectivity
+            connectivity[graph->get_id(chain_start)] = tie(connected_left_left, connected_right_right, connected_left_right);
+        } else {
+            // Act like a normal connected-through node.
+            connectivity[graph->get_id(chain_start)] = make_tuple(false, false, true);
         }
     }
     
