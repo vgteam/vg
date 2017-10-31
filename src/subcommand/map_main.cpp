@@ -25,9 +25,9 @@ void help_map(char** argv) {
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [1e-5]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [256]" << endl
-         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [16]" << endl
-         << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than FLOAT [0]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [1024]" << endl
+         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [64]" << endl
+         << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than FLOAT [1]" << endl
          << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
@@ -118,10 +118,10 @@ int main_map(int argc, char** argv) {
     int8_t full_length_bonus = 5;
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 256;
-    int min_multimaps = 16;
+    int extra_multimaps = 1024;
+    int min_multimaps = 64;
     int max_mapping_quality = 60;
-    double maybe_mq_threshold = 0;
+    double maybe_mq_threshold = 1;
     double identity_weight = 2;
     string gam_input;
     bool compare_gam = false;
@@ -136,7 +136,7 @@ int main_map(int argc, char** argv) {
     bool use_fast_reseed = true;
     float drop_chain = 0.5;
     float mq_overlap = 0.5;
-    int kmer_size = 0;
+    int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
     int pair_window = 64; // unused
     int mate_rescues = 64;

@@ -1309,8 +1309,8 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.66)
-    , pair_rescue_retry_threshold(0.33)
+    , pair_rescue_hang_threshold(0.5)
+    , pair_rescue_retry_threshold(0.0)
 {
     
 }
