@@ -90,7 +90,7 @@ int main_map(int argc, char** argv) {
     string read_file;
     string hts_file;
     bool keep_secondary = false;
-    int hit_max = 1024;
+    int hit_max = 512;
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
@@ -132,7 +132,7 @@ int main_map(int argc, char** argv) {
     double fragment_sigma = 10;
     bool fragment_orientation = false;
     bool fragment_direction = true;
-    float chance_match = 1e-5;
+    float chance_match = 1e-3;
     bool use_fast_reseed = true;
     float drop_chain = 0.5;
     float mq_overlap = 0.5;
