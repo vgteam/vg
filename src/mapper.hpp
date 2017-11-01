@@ -378,7 +378,8 @@ private:
                              bool traceback,
                              bool pinned_alignment = false,
                              bool pin_left = false,
-                             bool global = false);
+                             bool global = false,
+                             bool keep_bonuses = true);
     vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
                                            const Alignment& aln,
                                            int kmer_size,
@@ -469,7 +470,7 @@ public:
     int32_t score_alignment(const Alignment& aln, bool use_approx_distance = false);
     
     /// Given an alignment scored with full length bonuses on, subtract out the full length bonus if it was applied.
-    int32_t remove_full_length_bonus(const Alignment& aln);
+    void remove_full_length_bonuses(Alignment& aln);
     
     // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
     Alignment patch_alignment(const Alignment& aln, int max_patch_length);
@@ -611,6 +612,7 @@ public:
     double identity_weight; // scale mapping quality by the alignment score identity to this power
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
+    bool include_full_length_bonuses;
     
     bool simultaneous_pair_alignment;
     int max_band_jump; // the maximum length edit we can detect via banded alignment

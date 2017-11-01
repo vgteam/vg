@@ -539,7 +539,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             // reseed when...
             if (mem.length() >= min_mem_length // our mem is greater than the min mem length (should be by default)
                 && (use_lcp_reseed_heuristic ? lcpmax : mem.length()) >= reseed_length // is the right length to reseed
-                && mem.nodes.size() // and wasn't filtered
+                //&& mem.nodes.size() // and wasn't filtered
                 && (reseed_below == 0  // and has fewer hits than our threshold for reseeding, if there is a threshold
                     || mem.nodes.size() <= reseed_below)) {
                     do_reseed(i); // reseed the ith MEM
@@ -1310,7 +1310,8 @@ Mapper::Mapper(xg::XG* xidex,
     , max_band_jump(0)
     , identity_weight(2)
     , pair_rescue_hang_threshold(0.5)
-    , pair_rescue_retry_threshold(0.0)
+    , pair_rescue_retry_threshold(0.8)
+    , include_full_length_bonuses(true)
 {
     
 }
@@ -1336,37 +1337,39 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool traceback,
                                  bool pinned_alignment,
                                  bool pin_left,
-                                 bool banded_global) {
+                                 bool banded_global,
+                                 bool keep_bonuses) {
     // check if we need to make a vg graph to handle this graph
+    Alignment aligned;
     if (!is_id_sortable(graph) || has_inversion(graph)) {
         VG vg;
         vg.extend(graph);
         if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
-            return vg.align(aln,
-                            get_regular_aligner(),
-                            traceback,
-                            assume_acyclic,
-                            max_query_graph_ratio,
-                            pinned_alignment,
-                            pin_left,
-                            banded_global,
-                            0, // band padding override
-                            aln.sequence().size());
+            aligned = vg.align(aln,
+                               get_regular_aligner(),
+                               traceback,
+                               assume_acyclic,
+                               max_query_graph_ratio,
+                               pinned_alignment,
+                               pin_left,
+                               banded_global,
+                               0, // band padding override
+                               aln.sequence().size());
         } else {
-            return vg.align_qual_adjusted(aln,
-                                          get_qual_adj_aligner(),
-                                          traceback,
-                                          assume_acyclic,
-                                          max_query_graph_ratio,
-                                          pinned_alignment,
-                                          pin_left,
-                                          banded_global,
-                                          0, // band padding override
-                                          aln.sequence().size());
+            aligned = vg.align_qual_adjusted(aln,
+                                             get_qual_adj_aligner(),
+                                             traceback,
+                                             assume_acyclic,
+                                             max_query_graph_ratio,
+                                             pinned_alignment,
+                                             pin_left,
+                                             banded_global,
+                                             0, // band padding override
+                                             aln.sequence().size());
         }
     } else {
         // we've got an id-sortable graph and we can directly align with gssw
-        Alignment aligned = aln;
+        aligned = aln;
         if (banded_global) {
             size_t max_span = aln.sequence().size();
             size_t band_padding_override = 0;
@@ -1378,8 +1381,11 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         } else {
             get_aligner(!aln.quality().empty())->align(aligned, graph, traceback, false);
         }
-        return aligned;
     }
+    if (traceback && !keep_bonuses && aligned.score()) {
+        remove_full_length_bonuses(aligned);
+    }
+    return aligned;
 }
 
 Alignment Mapper::align(const string& seq, int kmer_size, int stride, int max_mem_length, int band_width) {
@@ -1558,7 +1564,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     double perfect_score = mate1.sequence().size() * match_score + full_length_bonus * 2;
     double accept_pval = 1e-6;
     double attempt_pval = 1e-6;
-    bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, attempt_pval));
+    //bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, attempt_pval));
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     // based on our statistics about the alignments
     // get the subgraph overlapping the likely candidate position of the second alignment
@@ -1569,12 +1575,12 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     //cerr << "---------------------------" << pb2json(mate1) << endl << pb2json(mate2) << endl;
     //cerr << "---------------------------" << endl;
 #ifdef debug_rescue
-    if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
+    //if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
     if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
     if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
 #endif
     vector<pos_t> mate_positions;
-    if (mate1_id > mate2_id && mate1_id > hang_threshold && (mate2_id <= retry_threshold || !consistent)) {
+    if (mate1_id > mate2_id && mate1_id > hang_threshold && mate2_id == 0) {
         // retry off mate1
 #ifdef debug_rescue
         if (debug) cerr << "Rescue read 2 off of read 1" << endl;
@@ -1582,7 +1588,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         rescue_off_first = true;
         // record id and direction to second mate
         mate_positions = likely_mate_positions(mate1, true);
-    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && (mate1_id <= retry_threshold || !consistent)) {
+    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && mate1_id == 0) {
         // retry off mate2
 #ifdef debug_rescue
         if (debug) cerr << "Rescue read 1 off of read 2" << endl;
@@ -2067,25 +2073,28 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
     
     set<pair<string, string> > seen_alignments;
+    int filled1 = 0, filled2 = 0;
+
     for (auto& cluster_ptr : cluster_ptrs) {
         // break the cluster into two pieces
         auto& cluster1 = *cluster_ptr.first;
         auto& cluster2 = *cluster_ptr.second;
         alns.emplace_back();
-        if ((to_drop1.count(&cluster1) || to_drop2.count(&cluster2)) && alns.size() >= min_multimaps) {
-            continue;
-        }
         auto& p = alns.back();
-        if (cluster1.size()) {
+        if (cluster1.size() && (!to_drop1.count(&cluster1)
+                                || filled1 < min_multimaps)) {
             p.first = align_cluster(read1, cluster1, true);
+            ++filled1;
         } else {
             p.first = read1;
             p.first.clear_score();
             p.first.clear_identity();
             p.first.clear_path();
         }
-        if (cluster2.size()) {
+        if (cluster2.size() && (!to_drop2.count(&cluster2)
+                                || filled2 < min_multimaps)) {
             p.second = align_cluster(read2, cluster2, true);
+            ++filled2;
         } else {
             p.second = read2;
             p.second.clear_score();
@@ -2287,62 +2296,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 #endif
     }
 
-    // realign to generate traceback if needed
-    int i = 0;
-    bool rescored = false;
-    bool rescued = false;
-
-    auto traceback_alns = [&](void) {
-        rescored = false;
-        rescued = false;
-        for (auto& p : aln_ptrs) {
-            auto& aln1 = p->first;
-            auto& aln2 = p->second;
-            if (++i > max_multimaps) {
-                // we don't need to realign because we are not emitting this multimap
-                //aln1.clear_fragment();
-                //aln2.clear_fragment();
-            } else {
-                // we give exactly the same cluster to the alignments to get the traceback
-                assert(aln_index.find(p) != aln_index.end());
-                auto cluster_ptr = cluster_ptrs[aln_index[p]];
-                auto s1 = aln1.score();
-                auto s2 = aln2.score();
-                if (rescued_aln[&aln1] && !alignment_to_length(aln1) && aln1.path().mapping(0).has_position()) {
-                    // realign based on alignment end position
-                    aln1 = realign_from_start_position(aln1, aln1.sequence().size()/1.61803, 0);
-                } else if (cluster_ptr.first != nullptr && cluster_ptr.first->size()) {
-                    if (!alignment_to_length(aln1)) { // traceback needs to be generated
-                        aln1 = align_cluster(read1, *cluster_ptr.first, true);
-                    }
-                }
-                if (rescued_aln[&aln2] && !alignment_to_length(aln2) && aln2.path().mapping(0).has_position()) {
-                    // realign based on alignment end position
-                    aln2 = realign_from_start_position(aln2, aln2.sequence().size()/1.61803, 0);
-                } else if (cluster_ptr.second != nullptr && cluster_ptr.second->size()) {
-                    if (!alignment_to_length(aln2)) { // traceback needs to be generated
-                        aln2 = align_cluster(read2, *cluster_ptr.second, true);
-                    }
-                }
-                if (aln1.score() > s1 || aln2.score() > s2) rescored = true;
-                // we can reassign based on paths to get a more accurate fragment estimate
-                aln1.clear_fragment();
-                aln2.clear_fragment();
-                auto approx_frag_lengths = min_pair_fragment_length(aln1, aln2);
-                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 1e-6));
-            }
-        }
-    };
-    
-    // traceback alignments
-    /*
-    traceback_alns();
-    if (rescored) {
-        // sync if we need to
-        sort_and_dedup();
-        traceback_alns();
-    }
-    */
     show_alignments("end");
     
     int read1_max_score = 0;
@@ -2351,7 +2304,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int possible_pairs = 0;
 
     // build up the results
-    i = 0;
+    int i = 0;
     for (auto& p : aln_ptrs) {
         read1_max_score = max(p->first.score(), read1_max_score);
         read2_max_score = max(p->second.score(), read2_max_score);
@@ -2363,26 +2316,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     // calculate paired end quality if the model assumptions are not obviously violated
     compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2); // simplest method
-    /*
-    if (results.first.size() && results.second.size()
-        && (fraction_filtered1 < 0.2 || fraction_filtered2 < 0.2)
-        && (mem_read_ratio1 > 0.8 || mem_read_ratio2 > 0.8)
-        && (maybe_mq1 > 1 || maybe_mq2 > 1)
-        && pair_consistent(results.first.front(), results.second.front(), 1e-6)) {
-        compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2);
-    } else {
-        // through filtering of candidate hits we've ended up with only one possible pair
-        if (results.first.size() < 2 && results.second.size() < 2) {
-            mq_cap1 = maybe_mq1;
-            mq_cap2 = maybe_mq2;
-        }
-        mq_cap1 = mem_read_ratio1 > 0.5 ? mq_cap1 : mem_read_ratio1 * mq_cap1;
-        mq_cap2 = mem_read_ratio2 > 0.5 ? mq_cap2 : mem_read_ratio2 * mq_cap2;
-        // compute mq independently
-        compute_mapping_qualities(results.first, cluster_mq, maybe_mq1, mq_cap1);
-        compute_mapping_qualities(results.second, cluster_mq, maybe_mq2, mq_cap2);
-    }
-    */
 
     // remove the extra pair used to compute mapping quality if necessary
     if (results.first.size() > max_multimaps) {
@@ -2586,9 +2519,33 @@ int sub_overlaps_of_first_aln(const vector<Alignment>& alns, float overlap_fract
 
 set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters) {
     set<const vector<MaximalExactMatch>* > to_drop;
-    for (auto& cluster : clusters) {
-        if (cluster_coverage(cluster) < min_cluster_length) {
-            to_drop.insert(&cluster);
+    for (int i = 0; i < clusters.size(); ++i) {
+        // establish overlaps with longer clusters for all clusters
+        auto& this_cluster = clusters[i];
+        int t = cluster_coverage(this_cluster);
+        if (t < min_cluster_length) {
+            to_drop.insert(&this_cluster);
+            break;
+        }
+        int b = -1;
+        int l = t;
+        for (int j = i; j >= 0; --j) {
+            if (j == i) continue;
+            // are we overlapping?
+            auto& other_cluster = clusters[j];
+            if (to_drop.count(&other_cluster)) continue;
+            if (clusters_overlap_in_graph(this_cluster, other_cluster)) {
+                to_drop.insert(&this_cluster);
+                break;
+            }
+            // if the overlap length is more than half our cluster length
+            if (drop_chain > 0) {
+                double overlap_ratio = (double)clusters_overlap_length(this_cluster, other_cluster)/(double)t;
+                if (overlap_ratio < drop_chain) {
+                    to_drop.insert(&this_cluster);
+                    break;
+                }
+            }
         }
     }
     return to_drop;
@@ -2874,7 +2831,8 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool fli
                          traceback,
                          pinned_alignment,
                          pinned_reverse,
-                         banded_global);
+                         banded_global,
+                         include_full_length_bonuses);
 
     if (strip_bonuses && !banded_global && traceback) {
         // We want to remove the bonuses
@@ -3628,7 +3586,7 @@ vector<Alignment> Mapper::score_sort_and_deduplicate_alignments(vector<Alignment
         aln.set_score(0);
         return all_alns;
     }
-    
+
     map<int, set<Alignment*> > alignment_by_score;
     for (auto& ta : all_alns) {
         Alignment* aln = &ta;
@@ -4252,6 +4210,14 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
     // recompute the score
     patched.set_score(score_alignment(patched, false));
     return patched;
+}
+
+void Mapper::remove_full_length_bonuses(Alignment& aln) {
+    int32_t score = aln.score();
+    int8_t bonus = get_aligner(!aln.quality().empty())->full_length_bonus;
+    if (softclip_start(aln) == 0) score -= bonus;
+    if (softclip_end(aln) == 0) score -= bonus;
+    aln.set_score(score);
 }
 
 // generate a score from the alignment without realigning
