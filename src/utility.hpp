@@ -272,7 +272,7 @@ void create_ref_allele(vcflib::Variant& variant, const std::string& allele);
 int add_alt_allele(vcflib::Variant& variant, const std::string& allele);
 
 /**
- * We have a transforming map function thatw e can chain.
+ * We have a transforming map function that we can chain.
  */ 
 template <template <class T, class A = std::allocator<T>> class Container, typename Input, typename Output>
 Container<Output> map_over(const Container<Input>& in, const std::function<Output(const Input&)>& lambda) {
