@@ -705,6 +705,17 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_pos
     }
     sort(buckets.begin(), buckets.end());
     
+#ifdef debug_od_clusterer
+    cerr << "strand buckets:" << endl;
+    for (auto buck : buckets) {
+        cerr << "\t";
+        for (auto i : items_on_path_strand[buck]) {
+            cerr << i << " ";
+        }
+        cerr << endl;
+    }
+#endif
+    
     // use the path strands to bucket distance measurements
     for (pair<size_t, bool>& strand_bucket : buckets) {
 #ifdef debug_od_clusterer
@@ -1517,7 +1528,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
                                                                                      handle_memo_t* handle_memo) {
     
 #ifdef debug_od_clusterer
-    cerr << "beginning clustering of MEM cluster pairs" << endl;
+    cerr << "beginning clustering of MEM cluster pairs for " << left_clusters.size() << " left clusters and " << right_clusters.size() << " right clusters" << endl;
 #endif
     
     // We will fill this in with all sufficiently close pairs of clusters from different reads.
