@@ -4143,7 +4143,7 @@ void XG::extend_search(ThreadSearchState& state, const thread_t& t) const {
             // really important unless we're going to search during a path
             // addition.
             state.range_start = 0;
-            state.range_end = h_civ[node_graph_idx(next_id) * 2 + next_is_reverse];
+            state.range_end = h_civ.size() ? h_civ[node_graph_idx(next_id) * 2 + next_is_reverse] : 0;
             
 #ifdef VERBOSE_DEBUG
             cerr << "\tFound " << state.range_end << " threads present here." << endl;
