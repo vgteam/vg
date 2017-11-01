@@ -2432,5 +2432,168 @@ namespace vg {
             
         }
         
+        TEST_CASE("SnarlManager exposes chains correctly", "[snarls]") {
+            
+            // We need a graph a chain in it.
+            // Looks like:
+            //
+            //    2   5   8
+            //  1   4   7   10 
+            //    3   6   9
+            //
+            const string graph_json = R"(
+            
+            {
+                "node": [
+                    {"id": 1, "sequence": "A"},
+                    {"id": 2, "sequence": "A"},
+                    {"id": 3, "sequence": "A"},
+                    {"id": 4, "sequence": "A"},
+                    {"id": 5, "sequence": "A"},
+                    {"id": 6, "sequence": "A"},
+                    {"id": 7, "sequence": "A"},
+                    {"id": 8, "sequence": "A"},
+                    {"id": 9, "sequence": "A"},
+                    {"id": 10, "sequence": "A"}
+                ],
+                "edge": [
+                    {"from": 1, "to": 2},
+                    {"from": 1, "to": 3},
+                    {"from": 2, "to": 4},
+                    {"from": 3, "to": 4},
+                    {"from": 4, "to": 5},
+                    {"from": 4, "to": 6},
+                    {"from": 5, "to": 7},
+                    {"from": 6, "to": 7},
+                    {"from": 7, "to": 8},
+                    {"from": 7, "to": 9},
+                    {"from": 8, "to": 10},
+                    {"from": 9, "to": 10}
+                ]
+            }
+            
+            )";
+            
+            // Make an actual graph
+            VG graph;
+            Graph chunk;
+            json2pb(chunk, graph_json.c_str(), graph_json.size());
+            graph.extend(chunk);
+            
+            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            
+#ifdef debug
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                    cerr << node->id() << " ";
+                }
+                cerr << endl;
+            });
+#endif
+            
+                
+            SECTION("There should be three top-level snarls") {
+                REQUIRE(snarl_manager.top_level_snarls().size() == 3);
+                
+                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
+                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
+                const Snarl* child3 = snarl_manager.top_level_snarls()[2];
+                
+                if (child1->start().node_id() > child1->end().node_id()) {
+                    snarl_manager.flip(child1);
+                }
+                
+                if (child2->start().node_id() > child2->end().node_id()) {
+                    snarl_manager.flip(child2);
+                }
+                
+                if (child3->start().node_id() > child3->end().node_id()) {
+                    snarl_manager.flip(child3);
+                }
+                
+                SECTION("They should be in a chain") {
+                    REQUIRE(snarl_manager.in_nontrivial_chain(child1));
+                    REQUIRE(snarl_manager.in_nontrivial_chain(child2));
+                    REQUIRE(snarl_manager.in_nontrivial_chain(child3));
+                }
+                
+                SECTION("We should see that chain if we pull it out") {
+                    auto chains = snarl_manager.chains_of(nullptr);
+                    
+                    REQUIRE(chains.size() == 1);
+                    
+                    auto& chain = chains.front();
+                    
+                    REQUIRE(chain.size() == 3);
+                    
+                    REQUIRE(chain[0] == child1);
+                    REQUIRE(chain[1] == child2);
+                    REQUIRE(chain[2] == child3);
+                }
+                
+                SECTION("We can still see the chain if we flip the snarls around") {
+                    snarl_manager.flip(child1);
+                    snarl_manager.flip(child2);
+                    
+                    auto chains = snarl_manager.chains_of(nullptr);
+                    
+                    REQUIRE(chains.size() == 1);
+                    
+                    auto& chain = chains.front();
+                    
+                    REQUIRE(chain.size() == 3);
+                    
+                    // We happen to get it backward.
+                    // TODO: Do some kind of orientation-independent comparison
+                    REQUIRE(chain[0] == child3);
+                    REQUIRE(chain[1] == child2);
+                    REQUIRE(chain[2] == child1);
+                }
+                
+                SECTION("We can look around with Visits") {
+                    Visit here;
+                    transfer_boundary_info(*child1, *here.mutable_snarl());
+                    
+                    SECTION("Looking left off the end of the chain gives us a Visit with no Snarl") {
+                        Visit left = snarl_manager.prev_in_chain(here);
+                        
+                        REQUIRE(!left.has_snarl());
+                    }
+                    
+                    SECTION("Looking right into the chain gives us a Visit to the right Snarl") {
+                        Visit right = snarl_manager.next_in_chain(here);
+                        
+                        REQUIRE(right.has_snarl());
+                        REQUIRE(right.snarl().start().node_id() == child2->start().node_id());
+                        REQUIRE(right.snarl().end().node_id() == child2->end().node_id());
+                        REQUIRE(!right.backward());
+                    }
+                    
+                    here.set_backward(true);
+                    
+                    SECTION("Looking right off the end of the chain gives us a Visit with no Snarl") {
+                        Visit right = snarl_manager.next_in_chain(here);
+                        
+                        REQUIRE(!right.has_snarl());
+                    }
+                    
+                    SECTION("Looking left into the chain gives us a Visit to the right Snarl") {
+                        Visit left = snarl_manager.prev_in_chain(here);
+                        
+                        REQUIRE(left.has_snarl());
+                        REQUIRE(left.snarl().start().node_id() == child2->start().node_id());
+                        REQUIRE(left.snarl().end().node_id() == child2->end().node_id());
+                        REQUIRE(left.backward());
+                    }
+                    
+                    
+                }
+                
+            }
+            
+        }
+        
     }
 }
