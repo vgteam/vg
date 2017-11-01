@@ -1016,4 +1016,4 @@ int main_map(int argc, char** argv) {
 
 }
 
-static Subcommand vg_msga("map", "MEM-based read alignment", main_map);
+static Subcommand vg_msga("map", "MEM-based read alignment", PIPELINE, main_map);

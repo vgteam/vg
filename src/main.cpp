@@ -21,9 +21,9 @@ void vg_help(char** argv) {
          << endl
          << "usage: " << argv[0] << " <command> [options]" << endl
          << endl
-         << "commands:" << endl;
+         << vg::subcommand::PIPELINE << ":" << endl;
          
-     vg::subcommand::Subcommand::for_each([](const vg::subcommand::Subcommand& command) {
+     vg::subcommand::Subcommand::for_each(vg::subcommand::PIPELINE, [](const vg::subcommand::Subcommand& command) {
         // Announce every subcommand we have
         
         // Pad all the names so the descriptions line up
@@ -31,6 +31,8 @@ void vg_help(char** argv) {
         name.resize(14, ' ');
         cerr << "  -- " << name << command.get_description() << endl;
      });
+     
+     cerr << endl << "For more commands, type `vg help`." << endl;
  }
 
 int main(int argc, char *argv[])

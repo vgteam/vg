@@ -5,12 +5,37 @@
 namespace vg {
 namespace subcommand {
 
+std::ostream& operator<<(std::ostream& out, const CommandCategory& category) {
+    switch(category) {
+    case PIPELINE:
+        out << "main mapping and calling pipeline";
+        break;
+    case TOOLKIT:
+        out << "useful graph tools";
+        break;
+    case WIDGET:
+        out << "less useful graph tools";
+        break;
+    case DEVELOPMENT:
+        out << "developer commands";
+        break;
+    }
+    
+    return out;
+}
+
 Subcommand::Subcommand(std::string name, std::string description,
+    CommandCategory category, 
     std::function<int(int, char**)> main_function) : name(name),
-    description(description), main_function(main_function) {
+    category(category), description(description), main_function(main_function) {
     
     // Add this subcommand to the registry
     Subcommand::get_registry()[name] = this;
+}
+
+Subcommand::Subcommand(std::string name, std::string description,
+    std::function<int(int, char**)> main_function) : Subcommand(name, description, WIDGET, main_function) {
+    // Nothing to do!
 }
 
 const std::string& Subcommand::get_name() const {
@@ -45,6 +70,16 @@ void Subcommand::for_each(const std::function<void(const Subcommand&)>& lambda) 
         // For every subcommand, call the callback
         lambda(*kv.second);
     }
+}
+
+void Subcommand::for_each(CommandCategory category, const std::function<void(const Subcommand&)>& lambda) {
+    for_each([&](const Subcommand& command) {
+        // Loop over all the subcommands
+        if (command.category == category) {
+            // And subset to the ones we want
+            lambda(command);
+        }
+    });
 }
 
 std::map<std::string, Subcommand*>& Subcommand::get_registry() {

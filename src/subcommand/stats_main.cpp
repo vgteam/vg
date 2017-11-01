@@ -757,5 +757,5 @@ int main_stats(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_stats("stats", "metrics describing graph properties", main_stats);
+static Subcommand vg_stats("stats", "metrics describing graph properties", TOOLKIT, main_stats);
 

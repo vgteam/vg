@@ -232,5 +232,5 @@ int main_call(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_call("call", "call variants on a graph from a pileup", main_call);
+static Subcommand vg_call("call", "call variants on a graph from a pileup", PIPELINE, main_call);
 

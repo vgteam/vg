@@ -294,5 +294,5 @@ int main_construct(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_construct("construct", "graph construction", main_construct);
+static Subcommand vg_construct("construct", "graph construction", PIPELINE, main_construct);
 
