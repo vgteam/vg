@@ -1121,4 +1121,4 @@ int main_index(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_construct("index", "index graphs or alignments for random access or mapping", PIPELINE, main_index);
+static Subcommand vg_construct("index", "index graphs or alignments for random access or mapping", PIPELINE, 2, main_index);

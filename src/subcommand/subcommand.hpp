@@ -76,7 +76,17 @@ public:
     
     /**
      * Make and register a subcommand with the given name and description, in
-     * the given category, which calls the given main function when invoked.
+     * the given category, with the given priority (lower is better), which
+     * calls the given main function when invoked.
+     */
+    Subcommand(std::string name, std::string description,
+        CommandCategory category, int priority,
+        std::function<int(int, char**)> main_function);
+    
+    /**
+     * Make and register a subcommand with the given name and description, in
+     * the given category, with worst priority, which calls the given main
+     * function when invoked.
      */
     Subcommand(std::string name, std::string description,
         CommandCategory category,
@@ -84,7 +94,8 @@ public:
     
     /**
      * Make and register a subcommand with the given name and description, in
-     * the WIDGET category, which calls the given main function when invoked.
+     * the WIDGET category, with worst priority, which calls the given main
+     * function when invoked.
      */
     Subcommand(std::string name, std::string description,
         std::function<int(int, char**)> main_function);
@@ -98,6 +109,17 @@ public:
      * Get the description of a subcommand.
      */
     const std::string& get_description() const;
+    
+    /**
+     * Get the category of a subcommand, which determines who might want to use
+     * it and why.
+     */
+    const CommandCategory& get_category() const;
+    
+    /**
+     * Get the priority level of a subcommand (lower is more important).
+     */
+    const int& get_priority() const;
     
     /**
      * Run the main function of a subcommand. Return the return code.
@@ -136,6 +158,7 @@ private:
     std::string name;
     std::string description;
     CommandCategory category;
+    int priority;
     std::function<int(int, char**)> main_function;
     
     /**

@@ -193,5 +193,5 @@ int main_pileup(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_pileup("pileup", "build a pileup from a set of alignments", PIPELINE, main_pileup);
+static Subcommand vg_pileup("pileup", "build a pileup from a set of alignments", PIPELINE, 4, main_pileup);
 
