@@ -39,9 +39,9 @@ void help_msga(char** argv) {
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
-         << "    -w, --band-width INT    band width for long read alignment [256]" << endl
+         << "    -w, --band-width INT    band width for long read alignment [128]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [10*{-w}]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [64]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
          << "    -M, --max-multimaps INT consider this many alternate alignments for the entire sequence [1]" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
@@ -50,12 +50,12 @@ void help_msga(char** argv) {
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
          << "index generation:" << endl
-         << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
+         << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes [16]" << endl
          << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
-         << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
+         << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max [2]" << endl
          << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
-         << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
+         << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes [2]" << endl
          << "graph normalization:" << endl
          << "    -N, --normalize         normalize the graph after assembly" << endl
          << "    -Z, --circularize       the input sequences are from circular genomes, circularize them after inclusion" << endl
@@ -89,15 +89,15 @@ int main_msga(int argc, char** argv) {
     // optimal alignment through a series of bands based on a proximity metric
     int max_multimaps = 1;
     float min_identity = 0.0;
-    int band_width = 256;
+    int band_width = 128;
     int max_band_jump = -1;
-    int band_multimaps = 64;
+    int band_multimaps = 4;
     size_t doubling_steps = 3;
     bool debug = false;
     bool debug_align = false;
     size_t node_max = 0;
     int alignment_threads = get_thread_count();
-    int edge_max = 0;
+    int edge_max = 2;
     int subgraph_prune = 0;
     bool normalize = false;
     int iter_max = 1;

@@ -480,15 +480,17 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
 
+    /*
     if (mq_estimate < mapping_quality) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality)));
     }
+    */
 
     auto& max_aln = alignments[max_idx];
     int l = max(alignment_to_length(max_aln), alignment_from_length(max_aln));
     double identity = 1. - (double)(l * match - max_aln.score()) / (match + mismatch) / l;
 
-    mapping_quality /= 2; // ow oof ouch
+    mapping_quality /= 2; // my bones hurt
     mapping_quality *= pow(identity, identity_weight);
 
     if (mapping_quality > max_mapping_quality) {
@@ -544,10 +546,11 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     vector<double> scaled_scores(size);
     
     for (size_t i = 0; i < size; i++) {
-        scaled_scores[i] = log_base * (alignment_pairs.first[i].score() + alignment_pairs.second[i].score());
+        auto& aln1 = alignment_pairs.first[i];
+        auto& aln2 = alignment_pairs.second[i];
+        scaled_scores[i] = log_base * (aln1.score() + aln2.score());
         // + frag_weights[i]);
-        // ^^^ we could also incorporate the fragment weights, but this does not seem to help performance
-        // at least with the weights which we are using; todo explore this
+        // ^^^ we could also incorporate the fragment weights, but this does not seem to help performance in the current form
     }
 
     size_t max_idx;
@@ -566,12 +569,14 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     double mapping_quality1 = mapping_quality;
     double mapping_quality2 = mapping_quality;
 
+    /*
     if (mq_estimate1 < mapping_quality2) {
         mapping_quality1 = prob_to_phred(sqrt(phred_to_prob(mq_estimate1 + mapping_quality1)));
     }
     if (mq_estimate2 < mapping_quality2) {
         mapping_quality2 = prob_to_phred(sqrt(phred_to_prob(mq_estimate2 + mapping_quality2)));
     }
+    */
 
     auto& max_aln1 = alignment_pairs.first[max_idx];
     int len1 = max(alignment_to_length(max_aln1), alignment_from_length(max_aln1));
@@ -619,6 +624,13 @@ double BaseAligner::mapping_quality_score_diff(double mapping_quality) const {
 
 double BaseAligner::estimate_next_best_score(int length, double min_diffs) {
     return ((length - min_diffs) * match - min_diffs * mismatch);
+}
+
+double BaseAligner::max_possible_mapping_quality(int length) {
+    double max_score = log_base * length * match;
+    vector<double> v = { max_score };
+    size_t max_idx;
+    return maximum_mapping_quality_approx(v, &max_idx);
 }
 
 double BaseAligner::estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) {

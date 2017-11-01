@@ -22,12 +22,12 @@ void help_map(char** argv) {
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
          << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [1024]" << endl
-         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [0.05]" << endl
+         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [1e-5]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
-         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [64]" << endl
-         << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than INT [0]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [128]" << endl
+         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [2]" << endl
+         << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than FLOAT [1]" << endl
          << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
@@ -37,7 +37,7 @@ void help_map(char** argv) {
          << "    -m, --acyclic-graph     improves runtime when the graph is acyclic" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [{-w}]" << endl
-         << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [10000:0:0:0:1]" << endl
+         << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [5000:0:0:0:1]" << endl
          << "                            max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
          << "    -U, --fixed-frag-model  don't learn the pair fragment model online, use {-I} without update" << endl
          << "    -p, --print-frag-model  suppress alignment output and print the fragment model on stdout as per {-I} format" << endl
@@ -118,22 +118,21 @@ int main_map(int argc, char** argv) {
     int8_t full_length_bonus = 5;
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 512;
-    int min_multimaps = 64;
+    int extra_multimaps = 128;
+    int min_multimaps = 2;
     int max_mapping_quality = 60;
-    int maybe_mq_threshold = 0;
+    double maybe_mq_threshold = 1;
     double identity_weight = 2;
     string gam_input;
     bool compare_gam = false;
-    int fragment_max = 1e4;
+    int fragment_max = 5000;
     int fragment_size = 0;
     double fragment_mean = 0;
     double fragment_stdev = 0;
     double fragment_sigma = 10;
     bool fragment_orientation = false;
     bool fragment_direction = true;
-    bool use_cluster_mq = false;
-    float chance_match = 0.05;
+    float chance_match = 1e-5;
     bool use_fast_reseed = true;
     float drop_chain = 0.5;
     float mq_overlap = 0.5;
@@ -259,7 +258,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'E':
-            maybe_mq_threshold = atoi(optarg);
+            maybe_mq_threshold = atof(optarg);
             break;
 
         case 'L':
@@ -628,12 +627,11 @@ int main_map(int argc, char** argv) {
             m->frag_stats.fragment_size = fragment_size;
             m->frag_stats.cached_fragment_length_mean = fragment_mean;
             m->frag_stats.cached_fragment_length_stdev = fragment_stdev;
-            m->frag_stats.cached_fragment_orientation = fragment_orientation;
+            m->frag_stats.cached_fragment_orientation_same = fragment_orientation;
             m->frag_stats.cached_fragment_direction = fragment_direction;
         }
         m->frag_stats.fragment_model_update_interval = fragment_model_update;
         m->max_mapping_quality = max_mapping_quality;
-        m->use_cluster_mq = use_cluster_mq;
         m->mate_rescues = mate_rescues;
         m->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
         m->identity_weight = identity_weight;

@@ -1865,6 +1865,10 @@ Path XG::path(const string& name) const {
     
 }
 
+const XGPath& XG::get_path(const string& name) const {
+    return *paths[path_rank(name)-1];
+}
+
 size_t XG::path_rank(const string& name) const {
     // find the name in the csa
     string query = start_marker + name + end_marker;
@@ -2268,18 +2272,47 @@ void XG::get_id_range_by_length(int64_t id, int64_t length, Graph& g, bool forwa
     get_id_range(id, id2, g);
 }
 
-
-/*
-void XG::get_connected_nodes(Graph& g) {
-}
-*/
-
 size_t XG::path_length(const string& name) const {
     return paths[path_rank(name)-1]->offsets.size();
 }
 
 size_t XG::path_length(size_t rank) const {
     return paths[rank-1]->offsets.size();
+}
+
+pair<pos_t, int64_t> XG::next_path_position(pos_t pos, int64_t max_search) const {
+    handle_t h_fwd = get_handle(id(pos), is_rev(pos));
+    handle_t h_rev = get_handle(id(pos), !is_rev(pos));
+    int64_t fwd_seen = offset(pos);
+    int64_t rev_seen = node_length(id(pos)) - offset(pos);
+    pair<pos_t, int64_t> fwd_next = make_pair(make_pos_t(0,false,0), numeric_limits<int64_t>::max());
+    pair<pos_t, int64_t> rev_next = make_pair(make_pos_t(0,false,0), numeric_limits<int64_t>::max());
+    follow_edges(h_fwd, false, [&](const handle_t& n) {
+            id_t id = get_id(n);
+            if (!paths_of_node(id).empty()) {
+                fwd_next = make_pair(make_pos_t(id, get_is_reverse(n), 0), fwd_seen);
+                return false;
+            } else {
+                fwd_seen += node_length(id);
+                return fwd_seen < max_search;
+            }
+        });
+    follow_edges(h_rev, false, [&](const handle_t& n) {
+            id_t id = get_id(n);
+            if (!paths_of_node(id).empty()) {
+                rev_next = make_pair(make_pos_t(id, !get_is_reverse(n), 0), rev_seen);
+                return false;
+            } else {
+                rev_seen += node_length(id);
+                return rev_seen < max_search;
+            }
+        });
+    if (fwd_next.second <= rev_next.second) {
+        return fwd_next;
+    } else {
+        rev_next.second = -rev_next.second;
+        return rev_next;
+    }
 }
 
 pair<int64_t, vector<size_t> > XG::nearest_path_node(int64_t id, int max_steps) const {
@@ -2885,6 +2918,41 @@ map<string, vector<size_t> > XG::position_in_paths(int64_t id, bool is_rev, size
     return positions;
 }
 
+map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const {
+    map<string, vector<pair<size_t, bool> > > positions;
+    id_t node_id = id(pos);
+    for (auto& prank : paths_of_node(node_id)) {
+        auto& path = *paths[prank-1];
+        auto& pos_in_path = positions[path_name(prank)];
+        for (auto i : node_ranks_in_path(node_id, prank)) {
+            size_t off = path.positions[i] + offset(pos);
+            // relative direction to this traversal
+            bool dir = path.directions[i] != is_rev(pos);
+            pos_in_path.push_back(make_pair(off, dir));
+        }
+    }
+    return positions;
+}
+
+map<string, vector<pair<size_t, bool> > > XG::nearest_offsets_in_paths(pos_t pos, int64_t max_search) const {
+    pair<pos_t, int64_t> pz = next_path_position(pos, max_search);
+    auto& path_pos = pz.first;
+    auto& diff = pz.second;
+    if (id(path_pos)) {
+        // TODO apply approximate offset, second in pair returned by next_path_position
+        auto offsets = offsets_in_paths(path_pos);
+        for (auto& o : offsets) {
+            for (auto& p : o.second) {
+                p.first += diff;
+            }
+        }
+        return offsets;
+    } else {
+        map<string, vector<pair<size_t, bool> > > empty;
+        return empty;
+    }
+}
+
 map<string, vector<size_t> > XG::distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                                    int64_t id2, bool is_rev2, size_t offset2) const {
     auto pos1 = position_in_paths(id1, is_rev1, offset1);
@@ -2938,6 +3006,16 @@ size_t XG::node_start_at_path_position(const string& name, size_t pos) const {
     size_t p = path_rank(name)-1;
     size_t position_rank = paths[p]->offsets_rank(pos+1);
     return paths[p]->offsets_select(position_rank);
+}
+
+pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const {
+    auto& path = get_path(name);
+    path_pos = min((size_t)path.offsets.size()-1, path_pos);
+    size_t trav_idx = path.offsets_rank(path_pos+1)-1;
+    int64_t offset = path_pos - path.positions[trav_idx];
+    id_t node_id = path.ids[trav_idx];
+    bool is_rev = path.directions[trav_idx];
+    return make_pos_t(node_id, is_rev, offset);
 }
 
 Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature) const {

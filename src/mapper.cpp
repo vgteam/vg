@@ -347,6 +347,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             if (mem_length >= min_mem_length) {
 
                 mems.push_back(match);
+                lcp_maxima.push_back(max_lcp);
                 
 #ifdef debug_mapper
 #pragma omp critical
@@ -367,7 +368,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             --cursor;
             
             prev_iter_jumped_lcp = false;
-            lcp_maxima.push_back(max_lcp);
             max_lcp = 0;
             // skip looking for matches since they are non-informative
             continue;
@@ -396,6 +396,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 
                 if (match.end - match.begin >= min_mem_length) {
                     mems.push_back(match);
+                    lcp_maxima.push_back(max_lcp);
                 }
                 
                 match.end = cursor;
@@ -404,7 +405,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 
                 // don't reseed in empty MEMs
                 prev_iter_jumped_lcp = false;
-                lcp_maxima.push_back(max_lcp);
                 max_lcp = 0;
             }
             else {
@@ -415,6 +415,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 // for the end of the next MEM
                 if (mem_length >= min_mem_length && !prev_iter_jumped_lcp) {
                     mems.push_back(match);
+                    lcp_maxima.push_back(max_lcp);
                     
 #ifdef debug_mapper
 #pragma omp critical
@@ -438,17 +439,14 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 match.range = parent.range();
                 // record our max lcp
                 max_lcp = (int)parent.lcp();
-                
+
                 prev_iter_jumped_lcp = true;
-                lcp_maxima.push_back(max_lcp);
-                max_lcp = 0;
             }
         }
         else {
             prev_iter_jumped_lcp = false;
-            max_lcp = (int)lcp->parent(match.range).lcp();
+            max_lcp = max(max_lcp, (int)lcp->parent(match.range).lcp());
             ++mem_length;
-            lcp_maxima.push_back(max_lcp);
             // just step to the next position
             --cursor;
         }
@@ -461,9 +459,9 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     match.begin = seq_begin;
     mem_length = match.end - match.begin;
     if (mem_length >= min_mem_length) {
-        max_lcp = (int)lcp->parent(match.range).lcp();
+        max_lcp = max(max_lcp, (int)lcp->parent(match.range).lcp());
         mems.push_back(match);
-        
+        lcp_maxima.push_back(max_lcp);
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -478,17 +476,14 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
 #endif
     }
 
-    lcp_maxima.push_back(max_lcp);
-    longest_lcp = *max_element(lcp_maxima.begin(), lcp_maxima.end());
+    longest_lcp = lcp_maxima.empty() ? 0 : *max_element(lcp_maxima.begin(), lcp_maxima.end());
 
-    // filter weird MEMs ** that seem to occur when the input dBG to GCSA2 is made from path-only kmers
-    mems.erase(std::remove_if(mems.begin(), mems.end(),
-                              [&seq_begin, &seq_end](const MaximalExactMatch& mem)
-                              { return mem.begin < seq_begin || mem.end > seq_end; }),
-               mems.end());
+    assert(lcp_maxima.size() == mems.size());
 
     // fill the MEMs' node lists and indicate they are primary MEMs
     for (MaximalExactMatch& mem : mems) {
+        // invalid mem
+        if (mem.begin < seq_begin || mem.end > seq_end) continue;
         mem.match_count = gcsa->count(mem.range);
         mem.primary = true;
         // if we aren't filtering on hit count, or if we have up to the max allowed hits
@@ -538,9 +533,12 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         // run the reseeding
         for (int i = 0; i < mems.size(); ++i) {
             auto& mem = mems[i];
+            // invalid mem
+            if (mem.begin < seq_begin || mem.end > seq_end) continue;
+            int lcpmax = lcp_maxima[i];
             // reseed when...
             if (mem.length() >= min_mem_length // our mem is greater than the min mem length (should be by default)
-                && mem.length() >= reseed_length // is the right length to reseed
+                && (use_lcp_reseed_heuristic ? lcpmax : mem.length()) >= reseed_length // is the right length to reseed
                 && mem.nodes.size() // and wasn't filtered
                 && (reseed_below == 0  // and has fewer hits than our threshold for reseeding, if there is a threshold
                     || mem.nodes.size() <= reseed_below)) {
@@ -580,7 +578,13 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             mems.push_back(std::move(iter->first));
         }
     }
-    
+
+    // remove strange MEMs
+    mems.erase(std::remove_if(mems.begin(), mems.end(),
+                              [&seq_begin, &seq_end](const MaximalExactMatch& mem)
+                              { return mem.begin < seq_begin || mem.end > seq_end; }),
+               mems.end());
+
     // return the MEMs in order along the read
     // TODO: there should actually be a linear time method to merge and order the sub-MEMs, since
     // they are ordered by the parent MEMs
@@ -1301,12 +1305,12 @@ Mapper::Mapper(xg::XG* xidex,
     , drop_chain(0.2)
     , mq_overlap(0.2)
     , mate_rescues(0)
-    , maybe_mq_threshold(10)
+    , maybe_mq_threshold(0)
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.7)
-    , pair_rescue_retry_threshold(0.5)
+    , pair_rescue_hang_threshold(0.5)
+    , pair_rescue_retry_threshold(0.0)
 {
     
 }
@@ -1384,85 +1388,13 @@ Alignment Mapper::align(const string& seq, int kmer_size, int stride, int max_me
     return align(aln, kmer_size, stride, max_mem_length, band_width);
 }
 
-map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, bool first_hit_only) {
-    map<string, double> mean_pos;
-    // Alignments are consistent if their median node id positions are within the fragment_size
-    
-    // We need the sets of nodes visited by each alignment
-    set<id_t> ids;
-    
-    for(size_t i = 0; i < aln.path().mapping_size(); i++) {
-        // Collect all the unique nodes visited by the first algnment
-        ids.insert(aln.path().mapping(i).position().node_id());
-    }
-    map<string, map<int64_t, vector<id_t> > > node_positions;
-    for(auto id : ids) {
-        for (auto& ref : node_positions_in_paths(gcsa::Node::encode(id, 0))) {
-            auto& name = ref.first;
-            for (auto pos : ref.second) {
-                node_positions[name][pos].push_back(id);
-            }
-        }
-        // just get the first one
-        if (first_hit_only && node_positions.size()) break;
-    }
-    // get mean mapping positions
-    for (auto& ref : node_positions) {
-        int idscount = 0;
-        double idssum = 0;
-        for (auto& p : ref.second) {
-            for (auto& n : p.second) {
-                auto pos = p.first + get_node_length(n)/2;
-                if (ids.count(n)) {
-                    idscount++;
-                    idssum += pos;
-                }
-            }
-        }
-        mean_pos[ref.first] = idssum/idscount;
-    }
-    return mean_pos;
-}
-    
-map<string, size_t> Mapper::alignment_initial_path_positions(const Alignment& aln) {
-#ifdef debug_mapper
-    cerr << "finding initial path positions for read " << aln.name() << endl;
-#endif
-    map<string, size_t> to_return;
-    for (size_t i = 0; i < aln.path().mapping_size(); i++){
-        const Position& pos = aln.path().mapping(i).position();
-        map<string, vector<size_t>> path_positions = xindex->position_in_paths(pos.node_id(), pos.is_reverse(), pos.offset());
-        for (const pair<string, vector<size_t>>& path_record : path_positions) {
-            if (!to_return.count(path_record.first)) {
-#ifdef debug_mapper
-                cerr << "found first occurrence of path " << path_record.first << " on " << i << "-th mapping with position " << pb2json(aln.path().mapping(i).position()) << ", which occurs " << path_record.second.size() << " times on this path:" << endl;
-                for (auto off : path_record.second) {
-                    cerr << "\t" << off << endl;
-                }
-#endif
-                to_return[path_record.first] = *min_element(path_record.second.begin(), path_record.second.end());
-            }
-        }
-    }
-    return to_return;
-}
-
-void Mapper::annotate_with_initial_path_positions(Alignment& aln) {
-    map<string, size_t> init_path_positions = alignment_initial_path_positions(aln);
-    for (const pair<string, size_t>& pos_record : init_path_positions) {
-        Position* refpos = aln.add_refpos();
-        refpos->set_name(pos_record.first);
-        refpos->set_offset(pos_record.second);
-    }
-}
-
 pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     bool aln_is_rev = aln.path().mapping(0).position().is_reverse();
     int64_t aln_pos = approx_alignment_position(aln);
     //if (debug) cerr << "aln pos " << aln_pos << endl;
     // can't find the alignment position
     if (aln_pos < 0) return make_pos_t(0, false, 0);
-    bool same_orientation = frag_stats.cached_fragment_orientation;
+    bool same_orientation = frag_stats.cached_fragment_orientation_same;
     bool forward_direction = frag_stats.cached_fragment_direction;
     int64_t delta = frag_stats.cached_fragment_length_mean;
     // which way is our delta?
@@ -1502,19 +1434,116 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     } else {
         return make_pos_t(target, !aln_is_rev, 0);
     }
-    /*
-        && !aln_is_rev) {
-    } else if (!same_direction && aln_is_rev) {
-        target = (is_first_mate ? node_approximately_at(aln_pos + delta)
-                  : node_approximately_at(aln_pos - delta));
-    } else if (same_direction && aln_is_rev
-               || !same_direction && !aln_is_rev) {
-        target = (is_first_mate ? node_approximately_at(aln_pos - delta)
-                  : node_approximately_at(aln_pos + delta));
+}
+
+map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby) {
+    map<string, vector<pair<size_t, bool> > > offsets;
+    for (auto& mapping : aln.path().mapping()) {
+        auto pos_offs = (nearby ?
+                         xindex->nearest_offsets_in_paths(make_pos_t(mapping.position()), aln.sequence().size())
+                         : xindex->offsets_in_paths(make_pos_t(mapping.position())));
+        for (auto& p : pos_offs) {
+            auto& v = offsets[p.first];
+            auto& y = p.second;
+            v.reserve(v.size() + distance(y.begin(),y.end()));
+            v.insert(v.end(),y.begin(),y.end());
+        }
+        //if (just_first && offsets.size()) break; // find a single node that has a path position
     }
-    */
-    //bool target_is_rev = (same_orientation ? aln_is_rev : !aln_is_rev);
-    //return make_pos_t(target, target_is_rev, 0);
+    if (!nearby && offsets.empty()) { // find the nearest if we couldn't find any before
+        return alignment_path_offsets(aln, just_min, true);
+    }
+    if (just_min) {
+        // take the min offset in each path
+        for (auto& p : offsets) {
+            auto& v = p.second;
+            auto m = *min_element(v.begin(), v.end(),
+                                  [](const pair<size_t, bool>& a,
+                                     const pair<size_t, bool>& b)
+                                  { return a.first < b.first; });
+            v.clear();
+            v.push_back(m);
+        }
+    }
+    return offsets;
+}
+
+map<string ,vector<pair<size_t, bool> > > Mapper::alignment_refpos_to_path_offsets(const Alignment& aln) {
+    map<string, vector<pair<size_t, bool> > > offsets;
+    for (auto& refpos : aln.refpos()) {
+        offsets[refpos.name()].push_back(make_pair(refpos.offset(), refpos.is_reverse()));
+    }
+    return offsets;
+}
+
+vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_mate) {
+    // fallback to approx when we don't have paths
+    if (xindex->path_count == 0) {
+        return { likely_mate_position(aln, is_first_mate) };
+    }
+    map<string, vector<pair<size_t, bool> > > offsets;
+    for (auto& mapping : aln.path().mapping()) {
+        auto pos_offs = xindex->nearest_offsets_in_paths(make_pos_t(mapping.position()), aln.sequence().size());
+        for (auto& p : pos_offs) {
+            if (offsets.find(p.first)  == offsets.end()) {
+                offsets[p.first] = p.second;
+            }
+        }
+        if (offsets.size()) break; // find a single node that has a path position
+    }
+    // get our fragment model on the stack
+    bool same_orientation = frag_stats.cached_fragment_orientation_same;
+    bool forward_direction = frag_stats.cached_fragment_direction;
+    int64_t delta = frag_stats.cached_fragment_length_mean;
+    vector<pos_t> likely;
+    for (auto& seq : offsets) {
+        // find the likely position
+        // then direction
+        auto& seq_name = seq.first;
+        for (auto& p : seq.second) { 
+            size_t path_pos = p.first;
+            bool on_reverse_path = p.second;
+            int64_t mate_pos = 0;
+            if (forward_direction) {
+                if (is_first_mate) {
+                    if (!on_reverse_path) {
+                        mate_pos = path_pos + delta;
+                    } else {
+                        mate_pos = path_pos - delta;
+                    }
+                } else {
+                    if (!on_reverse_path) {
+                        mate_pos = path_pos + delta;
+                    } else {
+                        mate_pos = path_pos - delta;
+                    }
+                }
+            } else {
+                if (is_first_mate) {
+                    if (!on_reverse_path) {
+                        mate_pos = path_pos - delta;
+                    } else {
+                        mate_pos = path_pos + delta;
+                    }
+                } else {
+                    if (!on_reverse_path) {
+                        mate_pos = path_pos - delta;
+                    } else {
+                        mate_pos = path_pos + delta;
+                    }
+                }
+            }
+            mate_pos = max((int64_t)0, mate_pos);
+            pos_t target = xindex->graph_pos_at_path_position(seq_name, mate_pos);
+            // what orientation should we use
+            if (same_orientation && on_reverse_path
+                || !same_orientation && !on_reverse_path) {
+                target = reverse(target, get_node_length(id(target)));
+            }
+            likely.push_back(target);
+        }
+    }
+    return likely;
 }
 
 pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, int full_length_bonus, bool traceback) {
@@ -1525,8 +1554,11 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     if (!frag_stats.fragment_size) return make_pair(false, false);
     double hang_threshold = pair_rescue_hang_threshold;
     double retry_threshold = pair_rescue_retry_threshold;
-    double perfect_score = mate1.sequence().size() * match_score + full_length_bonus;
-    bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.0001));
+    double min_threshold = 0.5;
+    double perfect_score = mate1.sequence().size() * match_score + full_length_bonus * 2;
+    double accept_pval = 1e-6;
+    double attempt_pval = 1e-6;
+    bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, attempt_pval));
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     // based on our statistics about the alignments
     // get the subgraph overlapping the likely candidate position of the second alignment
@@ -1534,84 +1566,96 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     bool rescue_off_second = false;
     double mate1_id = (double) mate1.score() / perfect_score;
     double mate2_id = (double) mate2.score() / perfect_score;
-    pos_t mate_pos;
     //cerr << "---------------------------" << pb2json(mate1) << endl << pb2json(mate2) << endl;
-    //if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
     //cerr << "---------------------------" << endl;
-    //if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
-    //if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
-    if (mate1_id > mate2_id && mate1_id > hang_threshold && mate2_id <= retry_threshold && !consistent) {
+#ifdef debug_rescue
+    if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
+    if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
+    if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
+#endif
+    vector<pos_t> mate_positions;
+    if (mate1_id > mate2_id && mate1_id > hang_threshold && (mate2_id <= retry_threshold || !consistent)) {
         // retry off mate1
-#ifdef debug_mapper
-#pragma omp critical
-        {
-            if (debug) cerr << "Rescue read 2 off of read 1" << endl;
-        }
+#ifdef debug_rescue
+        if (debug) cerr << "Rescue read 2 off of read 1" << endl;
 #endif
         rescue_off_first = true;
         // record id and direction to second mate
-        mate_pos = likely_mate_position(mate1, true);
-    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && mate1_id <= retry_threshold && !consistent) {
+        mate_positions = likely_mate_positions(mate1, true);
+    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && (mate1_id <= retry_threshold || !consistent)) {
         // retry off mate2
-#ifdef debug_mapper
-#pragma omp critical
-        {
-            if (debug) cerr << "Rescue read 1 off of read 2" << endl;
-        }
+#ifdef debug_rescue
+        if (debug) cerr << "Rescue read 1 off of read 2" << endl;
 #endif
         rescue_off_second = true;
         // record id and direction to second mate
-        mate_pos = likely_mate_position(mate2, false);
+        mate_positions = likely_mate_positions(mate2, false);
     } else {
         return make_pair(false, false);
     }
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) cerr << "aiming for " << mate_pos << endl;
-    }
+    if (mate_positions.empty()) return make_pair(false, false); // can't rescue because the selected mate is unaligned
+    Graph graph;
+    set<bool> orientations;
+#ifdef debug_rescue
+    if (debug) cerr << "got " << mate_positions.size() << " mate positions" << endl;
 #endif
-    if (id(mate_pos) == 0) return make_pair(false, false); // can't rescue because the selected mate is unaligned
-    int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
-                        : max((int)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
-                              mate1.sequence().size() * 4));
-    Graph graph = xindex->graph_context_id(mate_pos, get_at_least/2);
-    graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
+    for (auto& mate_pos : mate_positions) {
+#ifdef debug_rescue
+        if (debug) cerr << "aiming for " << mate_pos << endl;
+#endif
+        orientations.insert(is_rev(mate_pos));
+        int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
+                            : round(min((double)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
+                                        mate1.sequence().size() * 4.0)));
+        //cerr << "Getting at least " << get_at_least << endl;
+        graph.MergeFrom(xindex->graph_context_id(mate_pos, get_at_least/2));
+        graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
+        //if (debug) cerr << "rescue got graph " << pb2json(graph) << endl;
+        // if we're reversed, align the reverse sequence and flip it back
+        // align against it
+    }
     sort_by_id_dedup_and_clean(graph);
-    //if (debug) cerr << "rescue got graph " << pb2json(graph.graph) << endl;
-    // if we're reversed, align the reverse sequence and flip it back
-    // align against it
-    if (rescue_off_first) {
-        Alignment aln2 = align_maybe_flip(mate2, graph, is_rev(mate_pos), traceback);
-#ifdef debug_mapper
-#pragma omp critical
-        {
+    //VG g; g.extend(graph);string h = g.hash();
+    //g.serialize_to_file("rescue-" + h + ".vg");
+    int max_mate1_score = mate1.score();
+    int max_mate2_score = mate2.score();
+    for (auto& orientation : orientations) {
+        if (rescue_off_first) {
+            Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback);
+            //write_alignment_to_file(aln2, "rescue-" + h + ".gam");
+#ifdef debug_rescue
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
                             << " vs " << mate2.score() << "/" << mate2.identity() << endl;
-        }
 #endif
-        if (aln2.score() > mate2.score() && (double)aln2.score()/perfect_score > retry_threshold && pair_consistent(mate1, aln2, 0.0001)) {
-            //cerr << "rescued aln2" << endl;
-            mate2 = aln2;
-            rescued2 = true;
-        } else {
-            return make_pair(false, false);
-        }
-    } else if (rescue_off_second) {
-        Alignment aln1 = align_maybe_flip(mate1, graph, is_rev(mate_pos), traceback);
-#ifdef debug_mapper
-#pragma omp critical
-        {
+            if (aln2.score() > max_mate2_score && (double)aln2.score()/perfect_score > min_threshold && pair_consistent(mate1, aln2, accept_pval)) {
+                if (!traceback) { // now get the traceback
+                    aln2 = align_maybe_flip(mate2, graph, orientation, true);
+                }
+#ifdef debug_rescue
+                if (debug) cerr << "rescued aln2 " << pb2json(aln2) << endl;
+#endif
+                mate2 = aln2;
+                max_mate2_score = mate2.score();
+                rescued2 = true;
+            }
+        } else if (rescue_off_second) {
+            Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback);
+            //write_alignment_to_file(aln1, "rescue-" + h + ".gam");
+#ifdef debug_rescue
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
                             << " vs " << mate1.score() << "/" << mate1.identity() << endl;
-        }
 #endif
-        if (aln1.score() > mate1.score() && (double)aln1.score()/perfect_score > retry_threshold && pair_consistent(aln1, mate2, 0.0001)) {
-            //cerr << "rescued aln1" << endl;
-            mate1 = aln1;
-            rescued1 = true;
-        } else {
-            return make_pair(false, false);
+            if (aln1.score() > max_mate1_score && (double)aln1.score()/perfect_score > min_threshold && pair_consistent(aln1, mate2, accept_pval)) {
+                if (!traceback) { // now get the traceback
+                    aln1 = align_maybe_flip(mate1, graph, orientation, true);
+                }
+#ifdef debug_rescue
+                if (debug) cerr << "rescued aln1 " << pb2json(aln1) << endl;
+#endif
+                mate1 = aln1;
+                max_mate1_score = mate1.score();
+                rescued1 = true;
+            }
         }
     }
     // if the new alignment is better
@@ -1660,38 +1704,69 @@ bool Mapper::alignments_consistent(const map<string, double>& pos1,
     return false;
 }
 
-bool Mapper::pair_consistent(const Alignment& aln1,
-                             const Alignment& aln2,
+bool Mapper::pair_consistent(Alignment& aln1,
+                             Alignment& aln2,
                              double pval) {
     if (!(aln1.score() && aln2.score())) return false;
     bool length_ok = false;
-    if (aln1.fragment_size() == 0 || aln2.fragment_size() == 0 || aln1.fragment_size() != aln2.fragment_size()) {
+    if (xindex->path_count == 0) {
         // use the approximate distance
+        //cerr << "using approx distance" << endl;
         int len = approx_fragment_length(aln1, aln2);
         if (frag_stats.fragment_size && len > 0 && (pval > 0 && frag_stats.fragment_length_pval(len) > pval
                                                     || len < frag_stats.fragment_size)
             || !frag_stats.fragment_size && len > 0 && len < frag_stats.fragment_max) {
             length_ok = true;
         }
+        bool aln1_is_rev = aln1.path().mapping(0).position().is_reverse();
+        bool aln2_is_rev = aln2.path().mapping(0).position().is_reverse();
+        bool same_orientation = frag_stats.cached_fragment_orientation_same;
+        // XXX todo
+        //bool direction_ok = frag_stats.cached_fragment_direction && 
+        bool orientation_ok = same_orientation && aln1_is_rev == aln2_is_rev
+            || !same_orientation && aln1_is_rev != aln2_is_rev;
+        return length_ok && orientation_ok;
     } else {
         // use the distance induced by the graph paths
-        assert(aln1.fragment_size() == aln2.fragment_size());
-        for (size_t i = 0; i < aln1.fragment_size(); ++i) {
-            int len = abs(aln1.fragment(i).length());
-            if (frag_stats.fragment_size && len > 0 && (pval > 0 && frag_stats.fragment_length_pval(len) > pval
-                                             || len < frag_stats.fragment_size)
-                || !frag_stats.fragment_size && len > 0 && len < frag_stats.fragment_max) {
-                length_ok = true;
-                break;
+        // won't recompute if we already have refpos
+        annotate_with_initial_path_positions(aln1);
+        annotate_with_initial_path_positions(aln2);
+        map<string, vector<pair<size_t, bool> > > offsets1 = alignment_refpos_to_path_offsets(aln1);
+        map<string, vector<pair<size_t, bool> > > offsets2 = alignment_refpos_to_path_offsets(aln2);
+        auto pos_consistent =
+            [&](const pair<size_t, bool>& p1, const pair<size_t, bool>& p2) {
+            int64_t pos1 = p1.first;
+            int64_t pos2 = p2.first;
+            bool fwd1 = p1.second;
+            bool fwd2 = p2.second;
+            int64_t len = pos2 - pos1;
+            if (frag_stats.fragment_size) {
+                bool orientation_ok = frag_stats.cached_fragment_orientation_same && fwd1 == fwd2 || fwd1 != fwd2;
+                bool direction_ok = frag_stats.cached_fragment_direction && (!fwd1 && len > 0 || fwd1 && len < 0)
+                    || (fwd1 && len > 0 || !fwd1 && len < 0);
+                bool length_ok = frag_stats.fragment_length_pval(abs(len)) > pval;//|| pval == 0 && abs(len) < frag_stats.fragment_size;
+                return orientation_ok && direction_ok && length_ok;
+            } else {
+                return abs(len) < frag_stats.fragment_max;
+            }
+        };
+        for (auto& path : offsets1) {
+            // see if the other alignment has it
+            auto f = offsets2.find(path.first);
+            if (f != offsets2.end()) {
+                auto& pos1s = path.second;
+                auto& pos2s = f->second;
+                // in the cartesian product of the mapping positions is there one pair that would match our model?
+                // TODO linearize this as it could get bad if we have lots of paths!
+                for (auto& pos1 : pos1s) {
+                    for (auto& pos2 : pos2s) {
+                        if (pos_consistent(pos1, pos2)) return true;
+                    }
+                }
             }
         }
     }
-    bool aln1_is_rev = aln1.path().mapping(0).position().is_reverse();
-    bool aln2_is_rev = aln2.path().mapping(0).position().is_reverse();
-    bool same_orientation = frag_stats.cached_fragment_orientation;
-    bool orientation_ok = same_orientation && aln1_is_rev == aln2_is_rev
-        || !same_orientation && aln1_is_rev != aln2_is_rev;
-    return length_ok && orientation_ok;
+    return false;
 }
 
 pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
@@ -1734,7 +1809,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
              << frag_stats.fragment_size << ", "
              << frag_stats.cached_fragment_length_mean << ", "
              << frag_stats.cached_fragment_length_stdev << ", "
-             << frag_stats.cached_fragment_orientation << ", "
+             << frag_stats.cached_fragment_orientation_same << ", "
              << frag_stats.cached_fragment_direction << ", "
              << frag_stats.since_last_fragment_length_estimate << ", " << endl;
     }
@@ -1749,7 +1824,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length,
-                                                     false, false, false, 0);
+                                                     true, false, false, 2);
     vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
                                                      read2.sequence().end(),
                                                      longest_lcp2,
@@ -1757,7 +1832,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length,
-                                                     false, false, false, 0);
+                                                     true, false, false, 2);
 
     double mq_cap1, mq_cap2;
     mq_cap1 = mq_cap2 = max_mapping_quality;
@@ -1766,40 +1841,34 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     for (auto& mem : mems1) total_mem_length1 += mem.length() * mem.nodes.size();
     int total_mem_length2 = 0;
     for (auto& mem : mems2) total_mem_length2 += mem.length() * mem.nodes.size();
+    double mem_read_ratio1 = min(1.0, (double)total_mem_length1 / (double)read1.sequence().size());
+    double mem_read_ratio2 = min(1.0, (double)total_mem_length2 / (double)read2.sequence().size());
+
+    int basis_length = min((int)read1.sequence().size(), (int)gcsa->order());
+    double max_possible_mq = max_possible_mapping_quality(basis_length);
 
     int mem_max_length1 = 0;
     for (auto& mem : mems1) if (mem.primary && mem.match_count) mem_max_length1 = max(mem_max_length1, (int)mem.length());
-    double maybe_mq1 = estimate_max_possible_mapping_quality(read1.sequence().size(),
-                                                             read1.sequence().size()/max(1.0, (double)mem_max_length1),
-                                                             read1.sequence().size()/longest_lcp1);
+    double maybe_mq1 = estimate_max_possible_mapping_quality(basis_length,
+                                                             basis_length/max(1.0, (double)mem_max_length1),
+                                                             basis_length/longest_lcp1);
     int mem_max_length2 = 0;
     for (auto& mem : mems2) if (mem.primary && mem.match_count) mem_max_length2 = max(mem_max_length2, (int)mem.length());
-    double maybe_mq2 = estimate_max_possible_mapping_quality(read2.sequence().size(),
-                                                             read2.sequence().size()/max(1.0, (double)mem_max_length2),
-                                                             read2.sequence().size()/longest_lcp2);
+    double maybe_mq2 = estimate_max_possible_mapping_quality(basis_length,
+                                                             basis_length/max(1.0, (double)mem_max_length2),
+                                                             basis_length/longest_lcp2);
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
-    double maybe_min = min(maybe_mq1, maybe_mq2);
-    if (maybe_min < maybe_mq_threshold) {
-        mq_cap1 = maybe_min;
-        mq_cap2 = maybe_min;
-    }
-    total_multimaps = max(min_multimaps, (int)round(total_multimaps/min(maybe_mq1,maybe_mq2)));
-    if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << endl;
-    if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << endl;
+    double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
+    double min_maybe_pair_mq = min(maybe_mq1, maybe_mq2);
 
-//#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
-    }
-//#endif
-//#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) cerr << "mems for read 2 " << mems_to_json(mems2) << endl;
-    }
-//#endif
+    // scale difficulty using the estimated mapping quality
+    total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)floor(max_possible_mq / maybe_pair_mq)));
 
+    if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << max_possible_mq << endl;
+    if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << max_possible_mq << endl;
+
+    if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
+    if (debug) cerr << "mems for read 2 " << mems_to_json(mems2) << endl;
 
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
 
@@ -1818,149 +1887,45 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
             int64_t max_length = frag_stats.fragment_max;
-            int64_t approx_dist = mem_min_distance(m1, m2); //graph_mixed_distance_estimate(m1_pos, m2_pos, 0); // use graph/path based estimate here
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                if (debug) cerr << "between fragment approx distance " << approx_dist << endl;
+            pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
+            // if we have a cached fragment orientation, use it to pick the min distance with the correct path relative orientation
+            int64_t approx_dist = (!frag_stats.fragment_size ? min(d.first, d.second)
+                                   : (frag_stats.cached_fragment_orientation_same ? d.first : d.second));
+            /*// could be expensive for pairs
+            if (approx_dist < max_length) {
+                approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
             }
-#endif
+            */
             if (approx_dist >= max_length) {
-                // Seem to be too far appart
-#ifdef debug_mapper
-#pragma omp critical
-                {
-                    if (debug) cerr << "seem too far apart by approx_dist" << endl;
-                }
-#endif
+                // too far apart or wrong path/pair relative orientation
                 return -std::numeric_limits<double>::max();
+            } else if (frag_stats.fragment_size) {
+                return frag_stats.fragment_length_pval(approx_dist) * m2.length();
             } else {
-
-                if (approx_dist >= max_length) {
-#ifdef debug_mapper
-#pragma omp critical
-                    {
-                        if (debug) cerr << "too far apart by path distance" << endl;
-                    }
-#endif
-                    return -std::numeric_limits<double>::max();
-                } else if (frag_stats.fragment_size) {
-                    // exclude cases that don't match our model
-                    if (!frag_stats.cached_fragment_orientation
-                        && is_rev(m1_pos) == is_rev(m2_pos)
-                        || frag_stats.cached_fragment_orientation
-                        && is_rev(m1_pos) != is_rev(m2_pos)
-                        || approx_dist > frag_stats.fragment_size) {
-#ifdef debug_mapper
-#pragma omp critical
-                        {
-                            if (debug) cerr << "bad orientations or dist of " << approx_dist
-                                << " beyond fragment_size of " << frag_stats.fragment_size << endl;
-                        }
-#endif
-                        return -std::numeric_limits<double>::max();
-                    } else {
-#ifdef debug_mapper
-#pragma omp critical
-                        {
-                            if (debug) cerr << "OK with known fragment size" << endl;
-                        }
-#endif
-                        return frag_stats.fragment_length_pval(approx_dist) * (m1.length() + m2.length());
-                    }
-                } else {
-#ifdef debug_mapper
-#pragma omp critical
-                    {
-                        if (debug) cerr << "OK with no fragment size" << endl;
-                    }
-#endif
-                    return 1.0/approx_dist * (m1.length() + m2.length());
-                }
+                return 1.0/approx_dist * (m1.length() + m2.length());
             }
         } else if (m1.fragment > m2.fragment) {
             // don't allow going backwards in the threads
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                if (debug) cerr << "can't go backward" << endl;
-            }
-#endif
             return -std::numeric_limits<double>::max();
         } else {
-            //int max_length = (m1.length() + m2.length());
             int max_length = max(read1.sequence().size(), read2.sequence().size());
-            // find the difference in m1.end and m2.begin
-            // find the positional difference in the graph between m1.end and m2.begin
             int duplicate_coverage = mems_overlap_length(m1, m2);
-            int64_t approx_dist = mem_min_distance(m1, m2); //graph_mixed_distance_estimate(m1_pos, m2_pos, m1.length() + m2.length());
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                if (debug) cerr << "in fragment approx distance " << approx_dist << endl;
-            }
-#endif
+            pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
+            int64_t approx_dist = d.first; // take the "same orientation" distance
+            /*if (approx_dist < 32) {
+                approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
+                }*/
             if (approx_dist > max_length) {
                 // too far
-                
-#ifdef debug_mapper
-#pragma omp critical
-                {
-                    if (debug) cerr << "too far apart on same node by approx_dist" << endl;
-                }
-#endif
-                
                 return -std::numeric_limits<double>::max();
             } else {
-                // we may want to switch back to exact measurement, although the approximate metric is simpler and more reliable despite being less precise
-                //int64_t distance = min(approx_dist, graph_distance(m1_pos, m2_pos, m1.length())); // enable for exact distance calculation
+                // accepted transition
                 int64_t distance = approx_dist;
-#ifdef debug_mapper
-#pragma omp critical
-                {
-                    if (debug) cerr << "---> true distance " << distance << endl;
-                }
-#endif
-                if (distance >= max_length) {
-#ifdef debug_mapper
-#pragma omp critical
-                    {
-                        if (debug) cerr << "exactly too far apart" << endl;
-                    }
-#endif
-                    return -std::numeric_limits<double>::max();
-                }
-                if (is_rev(m1_pos) != is_rev(m2_pos)) {
-                    // disable inversions
-                    // TODO: shouldn't we be using cached_fragment_orientation like in the two-node case???
-                    
-#ifdef debug_mapper
-#pragma omp critical
-                    {
-                        if (debug) cerr << "no inversions allowed on the same node" << endl;
-                    }
-#endif
-                    return -std::numeric_limits<double>::max();
+                double jump = abs((m2.begin - m1.begin) - distance);
+                if (jump) {
+                    return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
                 } else {
-                    // accepted transition
-                    double jump = abs((m2.begin - m1.begin) - distance);
-                    if (jump) {
-#ifdef debug_mapper
-#pragma omp critical
-                        {
-                            if (debug) cerr << "accept distance with jump" << endl;
-                        }
-#endif
-                        return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
-                    } else {
-#ifdef debug_mapper
-#pragma omp critical
-                        {
-                            if (debug) cerr << "accept distance without jump" << endl;
-                        }
-#endif
-                        return (double) -duplicate_coverage * match;
-                    }
+                    return (double) -duplicate_coverage * match;
                 }
             }
         }
@@ -1990,8 +1955,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               [&](pos_t n) -> int64_t {
                                   return approx_position(n);
                               },
-                              [&](pos_t n) -> map<string, vector<size_t> > {
-                                  return xindex->position_in_paths(id(n), is_rev(n), offset(n));
+                              [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
+                                  return xindex->offsets_in_paths(n);
                               },
                               transition_weight,
                               band_width);
@@ -2016,12 +1981,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     };
 
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "### clusters before filtering:" << endl;
-            show_clusters();
-        }
+    if (debug) {
+        cerr << "### clusters before filtering:" << endl;
+        show_clusters();
     }
 
     vector<vector<MaximalExactMatch> > clusters1;
@@ -2100,12 +2062,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     };
         
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "### clusters after filtering:" << endl;
-            show_paired_clusters();
-        }
+    if (debug) {
+        cerr << "### clusters after filtering:" << endl;
+        show_paired_clusters();
     }
     
     set<pair<string, string> > seen_alignments;
@@ -2119,7 +2078,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
         auto& p = alns.back();
         if (cluster1.size()) {
-            p.first = align_cluster(read1, cluster1, false);
+            p.first = align_cluster(read1, cluster1, true);
         } else {
             p.first = read1;
             p.first.clear_score();
@@ -2127,7 +2086,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_path();
         }
         if (cluster2.size()) {
-            p.second = align_cluster(read2, cluster2, false);
+            p.second = align_cluster(read2, cluster2, true);
         } else {
             p.second = read2;
             p.second.clear_score();
@@ -2178,10 +2137,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         for (auto& p : aln_ptrs) {
             auto& aln1 = p->first;
             auto& aln2 = p->second;
-            if (aln1.fragment_size() == 0 || aln2.fragment_size() == 0) {
-                auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
-                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.0001));
-            }
+            auto approx_frag_lengths = min_pair_fragment_length(aln1, aln2);
+            frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 1e-6));
         }
         // sort the aligned pairs by score
         std::sort(aln_ptrs.begin(), aln_ptrs.end(),
@@ -2216,32 +2173,31 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     sort_and_dedup();
     show_alignments("dedup");
 
-    double max_possible_score = read1.sequence().size() * match + 2*full_length_bonus;
-
-    // now add back in single-ended versions of everything
+    // now add back in single-ended versions of everything that we can use for rescue
     vector<pair<Alignment, Alignment> > se_alns;
     vector<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*> > se_cluster_ptrs;
+    double max_possible_score = read1.sequence().size() * match + 2*full_length_bonus;
+    double hang_threshold = max_possible_score * pair_rescue_hang_threshold;
+    double retry_threshold = max_possible_score * pair_rescue_retry_threshold;
     for (auto& p : aln_ptrs) {
         auto& aln1 = p->first;
         auto& aln2 = p->second;
+        auto cluster_ptr = cluster_ptrs[aln_index[p]];
+        bool consistent = aln1.score() && aln2.score() && pair_consistent(aln1, aln2, 1e-2);
         // if both mates are aligned, add each single end into the mix
-        if (aln1.score() && aln2.score()) {
-            auto cluster_ptr = cluster_ptrs[aln_index[p]];
-            // if these can be used for rescue
-            if (aln1.score() > max_possible_score * pair_rescue_hang_threshold) {
-                se_alns.emplace_back();
-                auto& p = se_alns.back();
-                p.first = aln1;
-                p.second = read2;
-                se_cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
-            }
-            if (aln2.score() > max_possible_score * pair_rescue_hang_threshold) {
-                se_alns.emplace_back();
-                auto& q = se_alns.back();
-                q.first = read1;
-                q.second = aln2;
-                se_cluster_ptrs.push_back(make_pair(nullptr, cluster_ptr.second));
-            }
+        if (aln1.score() > hang_threshold && (aln2.score() <= retry_threshold || !consistent)) {
+            se_alns.emplace_back();
+            auto& p = se_alns.back();
+            p.first = aln1;
+            p.second = read2;
+            se_cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
+        }
+        if (aln2.score() > hang_threshold && (aln1.score() <= retry_threshold || !consistent)) {
+            se_alns.emplace_back();
+            auto& q = se_alns.back();
+            q.first = read1;
+            q.second = aln2;
+            se_cluster_ptrs.push_back(make_pair(nullptr, cluster_ptr.second));
         }
     }
     int k = 0;
@@ -2265,7 +2221,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             auto& aln2 = p->second;
             int score1 = aln1.score();
             int score2 = aln2.score();
-            pair<bool, bool> rescues = pair_rescue(aln1, aln2, match, full_length_bonus, false);
+            pair<bool, bool> rescues = pair_rescue(aln1, aln2, match, full_length_bonus, true);
             rescued_aln[&aln1] = rescues.first;
             rescued_aln[&aln2] = rescues.second;
             rescued |= rescues.first || rescues.second;
@@ -2275,6 +2231,50 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             show_alignments("rescue");
         }
     }
+
+    vector<pair<Alignment, Alignment> > pe_alns;
+    vector<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*> > pe_cluster_ptrs;
+    double mix_threshold = max_possible_score * 0.1;
+    int x = 0;
+    for (auto& p1 : aln_ptrs) {
+        //if (++x > total_multimaps) break;
+        auto& aln1a = p1->first;
+        auto& aln2a = p1->second;
+        auto cluster_ptrA = cluster_ptrs[aln_index[p1]];
+        int y = 0;
+        for (auto& p2 : aln_ptrs) {
+            //if (++y > total_multimaps) break;
+            if (p1 == p2) continue;
+            auto& aln1b = p2->first;
+            auto& aln2b = p2->second;
+            auto cluster_ptrB = cluster_ptrs[aln_index[p2]];
+            bool consistent1a2b = aln1a.score() > mix_threshold && aln2b.score() > mix_threshold && pair_consistent(aln1a, aln2b, 1e-6);
+            bool consistent1b2a = aln1b.score() > mix_threshold && aln2a.score() > mix_threshold && pair_consistent(aln1b, aln2a, 1e-6);
+            if (consistent1a2b) {
+                pe_alns.emplace_back();
+                auto& p = pe_alns.back();
+                p.first = aln1a;
+                p.second = aln2b;
+                pe_cluster_ptrs.push_back(make_pair(cluster_ptrA.first, cluster_ptrB.second));
+            }
+            if (consistent1b2a) {
+                pe_alns.emplace_back();
+                auto& p = pe_alns.back();
+                p.first = aln1b;
+                p.second = aln2a;
+                pe_cluster_ptrs.push_back(make_pair(cluster_ptrB.first, cluster_ptrA.second));
+            }
+        }
+    }
+    k = 0;
+    for (auto& pe_aln : pe_alns) {
+        alns.push_back(pe_aln);
+        cluster_ptrs.push_back(pe_cluster_ptrs[k]);
+        ++k;
+    }
+    update_aln_ptrs();
+    sort_and_dedup();
+    show_alignments("mixed");
 
     // calculate cluster mapping quality
 
@@ -2292,7 +2292,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int i = 0;
     bool rescored = false;
     bool rescued = false;
-    
+
     auto traceback_alns = [&](void) {
         rescored = false;
         rescued = false;
@@ -2309,8 +2309,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 auto cluster_ptr = cluster_ptrs[aln_index[p]];
                 auto s1 = aln1.score();
                 auto s2 = aln2.score();
-                if (rescued_aln[&aln1]) {
-                    assert(!alignment_to_length(aln1) && aln1.path().mapping(0).has_position());
+                if (rescued_aln[&aln1] && !alignment_to_length(aln1) && aln1.path().mapping(0).has_position()) {
                     // realign based on alignment end position
                     aln1 = realign_from_start_position(aln1, aln1.sequence().size()/1.61803, 0);
                 } else if (cluster_ptr.first != nullptr && cluster_ptr.first->size()) {
@@ -2318,8 +2317,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                         aln1 = align_cluster(read1, *cluster_ptr.first, true);
                     }
                 }
-                if (rescued_aln[&aln2]) {
-                    assert(!alignment_to_length(aln2) && aln2.path().mapping(0).has_position());
+                if (rescued_aln[&aln2] && !alignment_to_length(aln2) && aln2.path().mapping(0).has_position()) {
                     // realign based on alignment end position
                     aln2 = realign_from_start_position(aln2, aln2.sequence().size()/1.61803, 0);
                 } else if (cluster_ptr.second != nullptr && cluster_ptr.second->size()) {
@@ -2327,25 +2325,25 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                         aln2 = align_cluster(read2, *cluster_ptr.second, true);
                     }
                 }
-                //assert(aln1.score() >= s1);
-                //assert(aln2.score() >= s2);
                 if (aln1.score() > s1 || aln2.score() > s2) rescored = true;
                 // we can reassign based on paths to get a more accurate fragment estimate
                 aln1.clear_fragment();
                 aln2.clear_fragment();
-                auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
-                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.0001));
+                auto approx_frag_lengths = min_pair_fragment_length(aln1, aln2);
+                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 1e-6));
             }
         }
     };
     
     // traceback alignments
+    /*
     traceback_alns();
     if (rescored) {
         // sync if we need to
         sort_and_dedup();
         traceback_alns();
     }
+    */
     show_alignments("end");
     
     int read1_max_score = 0;
@@ -2364,27 +2362,28 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
     bool max_first = results.first.size() && (read1_max_score == results.first.front().score() && read2_max_score == results.second.front().score());
 
-    double mem_read_ratio1 = min(1.0, (double)total_mem_length1 / (double)read1.sequence().size());
-    double mem_read_ratio2 = min(1.0, (double)total_mem_length2 / (double)read2.sequence().size());
-    double mqmax1 = max_mapping_quality;
-    double mqmax2 = max_mapping_quality;
     // calculate paired end quality if the model assumptions are not obviously violated
+    compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2); // simplest method
+    /*
     if (results.first.size() && results.second.size()
-        && (fraction_filtered1 < 0.1 && fraction_filtered2 < 0.1 && maybe_mq1 > 1 && maybe_mq2 > 1 && max_first && (mem_read_ratio1 > 0.5 || mem_read_ratio2 > 0.5) || possible_pairs > 1) // may help in human context
-        && pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
-        compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, mqmax1, mqmax2);
+        && (fraction_filtered1 < 0.2 || fraction_filtered2 < 0.2)
+        && (mem_read_ratio1 > 0.8 || mem_read_ratio2 > 0.8)
+        && (maybe_mq1 > 1 || maybe_mq2 > 1)
+        && pair_consistent(results.first.front(), results.second.front(), 1e-6)) {
+        compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2);
     } else {
         // through filtering of candidate hits we've ended up with only one possible pair
         if (results.first.size() < 2 && results.second.size() < 2) {
-            mqmax1 = maybe_mq1;
-            mqmax2 = maybe_mq2;
+            mq_cap1 = maybe_mq1;
+            mq_cap2 = maybe_mq2;
         }
-        mqmax1 = mem_read_ratio1 > 0.5 ? mqmax1 : mem_read_ratio1 * mqmax1;
-        mqmax2 = mem_read_ratio2 > 0.5 ? mqmax2 : mem_read_ratio2 * mqmax2;
+        mq_cap1 = mem_read_ratio1 > 0.5 ? mq_cap1 : mem_read_ratio1 * mq_cap1;
+        mq_cap2 = mem_read_ratio2 > 0.5 ? mq_cap2 : mem_read_ratio2 * mq_cap2;
         // compute mq independently
-        compute_mapping_qualities(results.first, cluster_mq, mq_cap1, mqmax1);
-        compute_mapping_qualities(results.second, cluster_mq, mq_cap2, mqmax2);
+        compute_mapping_qualities(results.first, cluster_mq, maybe_mq1, mq_cap1);
+        compute_mapping_qualities(results.second, cluster_mq, maybe_mq2, mq_cap2);
     }
+    */
 
     // remove the extra pair used to compute mapping quality if necessary
     if (results.first.size() > max_multimaps) {
@@ -2415,7 +2414,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     fragment_dist << frag_stats.fragment_size
         << ':' << frag_stats.cached_fragment_length_mean
         << ':' << frag_stats.cached_fragment_length_stdev 
-        << ':' << frag_stats.cached_fragment_orientation 
+        << ':' << frag_stats.cached_fragment_orientation_same
         << ':' << frag_stats.cached_fragment_direction;
     
     // we tried to align
@@ -2432,22 +2431,22 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         if (retrying) break;
         auto& aln1 = results.first.at(i);
         auto& aln2 = results.second.at(i);
+        //double ident1 = (double) aln1.score() / max_possible_score;
+        //double ident2 = (double) aln2.score() / max_possible_score;
+        int64_t length = std::numeric_limits<int64_t>::max();
         for (int j = 0; j < aln1.fragment_size(); ++j) {
-            int length = aln1.fragment(j).length();
-            // if we have a perfect mapping, and we're under our hard fragment length cutoff
-            // push the result into our deque of fragment lengths
-            if (results.first.size() == 1
-                && results.second.size() == 1
-                && results.first.front().identity() > frag_stats.perfect_pair_identity_threshold
-                && results.second.front().identity() > frag_stats.perfect_pair_identity_threshold
-                && (frag_stats.fragment_size && abs(length) < frag_stats.fragment_size
-                    || !frag_stats.fragment_size && abs(length) < frag_stats.fragment_max)) { // hard cutoff
-                //cerr << "aln\tperfect alignments" << endl;
-                frag_stats.record_fragment_configuration(length, aln1, aln2);
-            } else if (!frag_stats.fragment_size) {
-                imperfect_pair = true;
-                break;
-            }
+            length = min(length, abs(aln1.fragment(j).length()));
+        }
+        if (results.first.size() == 1
+            && results.second.size() == 1
+            && results.first.front().identity() > frag_stats.perfect_pair_identity_threshold
+            && results.second.front().identity() > frag_stats.perfect_pair_identity_threshold
+            && (frag_stats.fragment_size && length < frag_stats.fragment_size && pair_consistent(aln1, aln2, 1e-3)
+                || !frag_stats.fragment_size && length < frag_stats.fragment_max)) { // hard cutoff
+            //cerr << "aln\tperfect alignments" << endl;
+            frag_stats.record_fragment_configuration(aln1, aln2, this);
+        } else if (!frag_stats.fragment_size) {
+            imperfect_pair = true;
         }
     }
 
@@ -2492,22 +2491,31 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
 
     // if we have references, annotate the alignments with their reference positions
-    annotate_with_mean_path_positions(results.first);
-    annotate_with_mean_path_positions(results.second);
+    annotate_with_initial_path_positions(results.first);
+    annotate_with_initial_path_positions(results.second);
 
     return results;
 
 }
 
-void Mapper::annotate_with_mean_path_positions(vector<Alignment>& alns) {
-    for (auto& aln : alns) {
-        for (auto& ref : alignment_mean_path_positions(aln)) {
+void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) {
+    for (auto& aln : alns) annotate_with_initial_path_positions(aln);
+}
+
+void Mapper::annotate_with_initial_path_positions(Alignment& aln) {
+    if (aln.refpos_size()) return; // refpos already cached in the alignment
+    auto init_path_positions = alignment_path_offsets(aln);
+    for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
+        for (auto& pos : pos_record.second) {
             Position* refpos = aln.add_refpos();
-            refpos->set_name(ref.first);
-            refpos->set_offset(round(ref.second));
+            refpos->set_name(pos_record.first);
+            refpos->set_offset(pos.first);
+            refpos->set_is_reverse(pos.second);
         }
     }
 }
+
+
 double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters,
                                                int read_length) {
     if (clusters.size() == 0) {
@@ -2579,39 +2587,9 @@ int sub_overlaps_of_first_aln(const vector<Alignment>& alns, float overlap_fract
 
 set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters) {
     set<const vector<MaximalExactMatch>* > to_drop;
-    map<const vector<MaximalExactMatch>*, int> cluster_cov;
     for (auto& cluster : clusters) {
-        cluster_cov[&cluster] = cluster_coverage(cluster);
-    }
-    for (int i = 0; i < clusters.size(); ++i) {
-        // establish overlaps with longer clusters for all clusters
-        auto& this_cluster = clusters[i];
-        int t = cluster_cov[&this_cluster];
-        int b = -1;
-        int l = t;
-        for (int j = i; j >= 0; --j) {
-            if (j == i) continue;
-            // are we overlapping?
-            auto& other_cluster = clusters[j];
-            //if (to_drop.count(&other_cluster)) continue;
-            if (clusters_overlap_in_graph(this_cluster, other_cluster)) {
-                to_drop.insert(&this_cluster);
-                break;
-            }
-            if (clusters_overlap_in_read(this_cluster, other_cluster)) {
-                int c = cluster_cov[&other_cluster];
-                if (c > l) {
-                    l = c;
-                    b = j;
-                }
-                if (b >= 0 && (float) t / (float) l < drop_chain) {
-                    to_drop.insert(&this_cluster);
-                    break;
-                }
-            }
-        }
-        if (b >= 0 && (float) t / (float) l < drop_chain) {
-            to_drop.insert(&this_cluster);
+        if (cluster_coverage(cluster) < min_cluster_length) {
+            to_drop.insert(&cluster);
         }
     }
     return to_drop;
@@ -2627,12 +2605,7 @@ Mapper::align_mem_multi(const Alignment& aln,
                         int keep_multimaps,
                         int additional_multimaps) {
 
-//#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) cerr << "mems for read " << mems_to_json(mems) << endl;
-    }
-//#endif
+    if (debug) cerr << "mems for read " << mems_to_json(mems) << endl;
     
     auto aligner = get_aligner(!aln.quality().empty());
     int8_t match = aligner->match;
@@ -2644,33 +2617,35 @@ Mapper::align_mem_multi(const Alignment& aln,
 
     int total_mem_length = 0;
     for (auto& mem : mems) total_mem_length += mem.length() * mem.nodes.size();
+    double mem_read_ratio = min(1.0, (double)total_mem_length / (double)aln.sequence().size());
+    int basis_length = min((int)aln.sequence().size(), (int)gcsa->order());
+    double max_possible_mq = max_possible_mapping_quality(basis_length);
 
     // Estimate the maximum mapping quality we can get if the alignments based on the good MEMs are the best ones.
     int mem_max_length = 0;
     for (auto& mem : mems) if (mem.primary && mem.match_count) mem_max_length = max(mem_max_length, (int)mem.length());
-    double maybe_mq = estimate_max_possible_mapping_quality(aln.sequence().size(),
-                                                            aln.sequence().size()/max(1.0, (double)mem_max_length),
-                                                            aln.sequence().size()/longest_lcp);
-    // use the estimated mapping quality to avoid hard work when the outcome will be noninformative
-    if (maybe_mq < maybe_mq_threshold) {
-        mq_cap = maybe_mq;
-    }
-    // TODO: why should we limit our number of MEM chains to examine to max_multimaps / max estimated mapping quality?
-    total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_mq));
-    if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " min mem length: " << min_mem_length << " longest LCP: " << longest_lcp << endl;
+    double maybe_mq = estimate_max_possible_mapping_quality(basis_length,
+                                                            basis_length/max(1.0, (double)mem_max_length),
+                                                            basis_length/longest_lcp);
+    // scale difficulty using the estimated mapping quality
+    total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)floor(max_possible_mq / maybe_mq)));
+
+    if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " min mem length: " << min_mem_length << " longest LCP: " << longest_lcp << " total multimaps: " << total_multimaps << " max mq: " << max_possible_mq << endl;
 
     double avg_node_len = average_node_length();
     // go through the ordered single-hit MEMs
     // build the clustering model
     // find the alignments that are the best-scoring walks through it
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-
         int duplicate_coverage = mems_overlap_length(m1, m2);
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
         int64_t max_length = aln.sequence().size();
-        int64_t approx_dist = mem_min_distance(m1, m2);
-        
+        pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
+        int64_t approx_dist = d.first;// same orientation
+        /*if (approx_dist < 32 && same_orientation) {
+            approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
+            }*/
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -2681,19 +2656,13 @@ Mapper::align_mem_multi(const Alignment& aln,
             // too far
             return -std::numeric_limits<double>::max();
         } else {
-            if (is_rev(m1_pos) != is_rev(m2_pos)) {
-                // disable inversions
-                return -std::numeric_limits<double>::max();
+            // accepted transition
+            int64_t distance = approx_dist;
+            double jump = abs((m2.begin - m1.begin) - distance);
+            if (jump) {
+                return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
             } else {
-                //int64_t distance = min(approx_dist, graph_distance(m1_pos, m2_pos, m1.length())); // enable for exact distance calculation
-                int64_t distance = approx_dist;
-                // accepted transition
-                double jump = abs((m2.begin - m1.begin) - distance);
-                if (jump) {
-                    return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
-                } else {
-                    return (double) -duplicate_coverage * match;
-                }
+                return (double) -duplicate_coverage * match;
             }
         }
     };
@@ -2705,8 +2674,8 @@ Mapper::align_mem_multi(const Alignment& aln,
                               [&](pos_t n) {
                                   return approx_position(n);
                               },
-                              [&](pos_t n) -> map<string, vector<size_t> > {
-                                  return xindex->position_in_paths(id(n), is_rev(n), offset(n));
+                              [&](pos_t n) -> map<string, vector<pair<size_t, bool> > > {
+                                  return xindex->offsets_in_paths(n);
                               },
                               transition_weight,
                               aln.sequence().size());
@@ -2750,15 +2719,10 @@ Mapper::align_mem_multi(const Alignment& aln,
         }
     };
 
-//#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "### clusters:" << endl;
-            show_clusters();
-        }
+    if (debug) {
+        cerr << "### clusters:" << endl;
+        show_clusters();
     }
-//#endif
 
     if (use_cluster_mq) {
         cluster_mq = compute_cluster_mapping_quality(clusters, aln.sequence().size());
@@ -2794,7 +2758,7 @@ Mapper::align_mem_multi(const Alignment& aln,
             used_clusters.push_back(&cluster);
             continue;
         }
-        Alignment candidate = align_cluster(aln, cluster, false);
+        Alignment candidate = align_cluster(aln, cluster, true);
         string sig = signature(candidate);
 
 #ifdef debug_mapper
@@ -2812,7 +2776,6 @@ Mapper::align_mem_multi(const Alignment& aln,
             used_clusters.push_back(&cluster);
             seen_alignments.insert(sig);
         }
-
     }
     
     assert(alns.size() == used_clusters.size());
@@ -2857,12 +2820,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         int i = 0;
         for ( ; i < min((int)aln_ptrs.size(), keep_multimaps); ++i) {
             Alignment* alnp = aln_ptrs.at(i);
-            // only realign if we haven't yet
-            if (!alignment_to_length(*alnp)) {
-                auto& cluster = *used_clusters.at(aln_index.at(alnp));
-                Alignment candidate = align_cluster(aln, cluster, true);
-                best_alns.push_back(candidate);
-            }
+            best_alns.push_back(*alnp);
         }
         for ( ; i < aln_ptrs.size(); ++i) {
             best_alns.push_back(*aln_ptrs[i]);
@@ -2870,7 +2828,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         alns = score_sort_and_deduplicate_alignments(best_alns, aln);
     }
     // compute the mapping quality
-    compute_mapping_qualities(alns, cluster_mq, mq_cap, max_mapping_quality);
+    compute_mapping_qualities(alns, cluster_mq, maybe_mq, mq_cap);
 
     // final filter step
     filter_and_process_multimaps(alns, keep_multimaps);
@@ -2961,7 +2919,7 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
         }
     }
     // get the graph with cluster.hpp's cluster_subgraph
-    Graph graph = cluster_subgraph(*xindex, aln, mems);
+    Graph graph = cluster_subgraph(*xindex, aln, mems, 1.1);
     // and test each direction for which we have MEM hits
     Alignment aln_fwd;
     Alignment aln_rev;
@@ -3061,16 +3019,26 @@ VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
 }
 
 // estimate the fragment length as the difference in mean positions of both alignments
-map<string, int64_t> Mapper::approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
+map<string, int64_t> Mapper::min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
     map<string, int64_t> lengths;
-    auto pos1 = alignment_mean_path_positions(aln1);
-    auto pos2 = alignment_mean_path_positions(aln2);
+    auto pos1 = alignment_path_offsets(aln1);
+    auto pos2 = alignment_path_offsets(aln2);
     for (auto& p : pos1) {
         auto x = pos2.find(p.first);
         if (x != pos2.end()) {
-            lengths[p.first] = x->second - p.second;
+            auto& d = lengths[p.first];
+            int64_t l = std::numeric_limits<int64_t>::max();
+            for (auto& pos1 : p.second) {
+                for (auto& pos2 : x->second) {
+                    int64_t f = (int64_t)pos2.first - (int64_t)pos1.first;
+                    if (abs(f) < l) {
+                        d = f; l = abs(f);
+                    }
+                }
+            }
         }
     }
+    //cerr << "got lengths "; for (auto& c : lengths) cerr << c.first << ":" << c.second << " "; cerr << endl;
     return lengths;
 }
 
@@ -3079,26 +3047,16 @@ string FragmentLengthStatistics::fragment_model_str(void) {
     s << fragment_size << ":"
       << cached_fragment_length_mean << ":"
       << cached_fragment_length_stdev << ":"
-      << cached_fragment_orientation << ":"
+      << cached_fragment_orientation_same << ":"
       << cached_fragment_direction;
     return s.str();
 }
 
-int64_t Mapper::first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
-    auto pos1 = alignment_mean_path_positions(aln1);
-    auto pos2 = alignment_mean_path_positions(aln2);
-    for (auto& p : pos1) {
-        auto x = pos2.find(p.first);
-        if (x != pos2.end()) {
-            return x->second - p.second;
-        }
-    }
-    return -1;
-}
-
 void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2,
     const map<string, int64_t>& approx_frag_lengths, bool is_consistent) {
-    
+    double max_score = 0;
+    aln1.clear_fragment();
+    aln2.clear_fragment();
     for (auto& j : approx_frag_lengths) {
         Path fragment;
         fragment.set_name(j.first);
@@ -3107,63 +3065,81 @@ void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment
         *aln1.add_fragment() = fragment;
         *aln2.add_fragment() = fragment;
         if (fragment_size && is_consistent) {
-            double pval = fragment_length_pval(abs(length));
-            double score = pval > 0.01 ? 10 + pval : 0;
-            aln1.set_fragment_score(score);
-            aln2.set_fragment_score(score);
-        } else if (length < fragment_max) {
-            aln1.set_fragment_score(0);
-            aln2.set_fragment_score(0);
-        } else {
-            aln1.set_fragment_score(0);
-            aln2.set_fragment_score(0);
+            double score = 50 + max(1.0, log(min(100.0, prob_to_phred(1.0-fragment_length_pval(abs(length))))));
+            max_score = max(max_score, score);
         }
     }
+    aln1.set_fragment_score(max_score);
+    aln2.set_fragment_score(max_score);
 }
 
-void FragmentLengthStatistics::record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2) {
+// XXX TODO this is busted because it doesn't respect the actual paths in the graph and assumes the alignment mapping position provides relative direction
+void FragmentLengthStatistics::record_fragment_configuration(const Alignment& aln1, const Alignment& aln2, Mapper* mapper) {
     if (fixed_fragment_model) return;
-    // record the relative orientations
-    assert(aln1.path().mapping(0).has_position() && aln2.path().mapping(0).has_position());
-    bool aln1_is_rev = aln1.path().mapping(0).position().is_reverse();
-    bool aln2_is_rev = aln2.path().mapping(0).position().is_reverse();
-    bool same_orientation = aln1_is_rev == aln2_is_rev;
-    fragment_orientations.push_front(same_orientation);
-    if (fragment_orientations.size() > fragment_length_cache_size) {
-        fragment_orientations.pop_back();
+    assert(aln1.path().mapping(0).has_position() && aln2.path().mapping(0).has_position());    
+    map<string, tuple<int64_t, bool, bool> > lengths;
+    auto pos1 = mapper->alignment_path_offsets(aln1);
+    auto pos2 = mapper->alignment_path_offsets(aln2);
+    for (auto& p : pos1) {
+        auto x = pos2.find(p.first);
+        if (x != pos2.end()) {
+            auto& d = lengths[p.first];
+            int64_t l = std::numeric_limits<int64_t>::max();
+            for (auto& pos1 : p.second) {
+                for (auto& pos2 : x->second) {
+                    int64_t f = (int64_t)pos2.first - (int64_t)pos1.first;
+                    if (abs(f) < l) {
+                        l = abs(f);
+                        d = make_tuple(f, pos1.second, pos2.second);
+                    }
+                }
+            }
+        }
     }
-    // assuming a dag-like graph
-    // which direction do we go relative to the orientation of our first mate to find the second?
-    bool same_direction = true;
-    if (aln1_is_rev && length <= 0) {
-        same_direction = true;
-    } else if (!aln1_is_rev && length >= 0) {
-        same_direction = true;
-    } else if (aln1_is_rev && length >= 0) {
-        same_direction = false;
-    } else if (!aln1_is_rev && length <= 0) {
-        same_direction = false;
-    } else {
-        assert(false);
-    }
-    fragment_directions.push_front(same_direction);
-    if (fragment_directions.size() > fragment_length_cache_size) {
-        fragment_directions.pop_back();
-    }
-    // assume we can record the fragment length
-    fragment_lengths.push_front(abs(length));
-    if (fragment_lengths.size() > fragment_length_cache_size) {
-        auto last = fragment_lengths.back();
-        fragment_lengths.pop_back();
-    }
-    if (++since_last_fragment_length_estimate > fragment_model_update_interval) {
-        cached_fragment_length_mean = fragment_length_mean();
-        cached_fragment_length_stdev = fragment_length_stdev();
-        cached_fragment_orientation = fragment_orientation();
-        cached_fragment_direction = fragment_direction();
-        // set our fragment size cap to the cached mean + 10x the standard deviation
-        fragment_size = cached_fragment_length_mean + fragment_sigma * cached_fragment_length_stdev;
-        since_last_fragment_length_estimate = 1;
+    //cerr << "got lengths "; for (auto& c : lengths) cerr << c.first << ":" << c.second << " "; cerr << endl;
+    //return lengths;
+    for (auto& chr : lengths) {
+        int64_t length = get<0>(chr.second);
+        if (abs(length) > fragment_max // keep out super high values
+            || fragment_size && abs(length) > fragment_size) continue;
+        bool aln1_is_rev = get<1>(chr.second);
+        bool aln2_is_rev = get<2>(chr.second);
+        bool same_orientation = aln1_is_rev == aln2_is_rev;
+        fragment_orientations.push_front(same_orientation);
+        if (fragment_orientations.size() > fragment_length_cache_size) {
+            fragment_orientations.pop_back();
+        }
+        bool same_direction = true;
+        if (aln1_is_rev && length <= 0) {
+            same_direction = true;
+        } else if (!aln1_is_rev && length >= 0) {
+            same_direction = true;
+        } else if (aln1_is_rev && length >= 0) {
+            same_direction = false;
+        } else if (!aln1_is_rev && length <= 0) {
+            same_direction = false;
+        } else {
+            assert(false);
+        }
+        fragment_directions.push_front(same_direction);
+        if (fragment_directions.size() > fragment_length_cache_size) {
+            fragment_directions.pop_back();
+        }
+        // assume we can record the fragment length
+        fragment_lengths.push_front(abs(length));
+        if (fragment_lengths.size() > fragment_length_cache_size) {
+            auto last = fragment_lengths.back();
+            fragment_lengths.pop_back();
+        }
+        if (++since_last_fragment_length_estimate > fragment_model_update_interval) {
+            cached_fragment_length_mean = fragment_length_mean();
+            cached_fragment_length_stdev = fragment_length_stdev();
+            cached_fragment_orientation_same = fragment_orientation();
+            cached_fragment_direction = fragment_direction();
+            // set our fragment size cap to the cached mean + 10x the standard deviation
+            fragment_size = cached_fragment_length_mean + fragment_sigma * cached_fragment_length_stdev;
+            since_last_fragment_length_estimate = 1;
+        }
     }
 }
 
@@ -3526,28 +3502,31 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
 
     // cost function
     auto transition_weight = [&](const Alignment& aln1, const Alignment& aln2,
-                                 const map<string, double>& pos1, const map<string, double>& pos2) {
-        // scoring scheme for unaligned reads
-        if (!aln1.has_path() || !aln2.has_path()) {
-            return -(double)(10*(aln1.sequence().size() + aln2.sequence().size()) * gap_extension + gap_open);
+                                 const map<string, vector<pair<size_t, bool> > >& pos1,
+                                 const map<string, vector<pair<size_t, bool> > >& pos2) {
+        if (aln1.has_path() && !aln2.has_path()) {
+            // pay a lot to go into unaligned from aligned
+            return -(double)5.0*(aln2.sequence().size() * gap_extension + gap_open);
+        } else if (!aln1.has_path() && !aln2.has_path()) {
+            // pay some to continue unaligned
+            return -(double)2.0*(aln2.sequence().size() * gap_extension);
+        } else if (!aln1.has_path() && aln2.has_path()) {
+            return 0.0;
         }
         auto aln1_end = make_pos_t(path_end(aln1.path()));
         auto aln2_begin = make_pos_t(path_start(aln2.path()));
-        //auto dist = graph_mixed_distance_estimate(aln1_end, aln2_begin, 32);
-        int64_t graph_dist = graph_distance(aln1_end, aln2_begin, 32);
-        int64_t dist = std::numeric_limits<int64_t>::max();
-        dist = min(graph_dist, dist);
-        for (auto& p : pos1) {
-            auto f = pos2.find(p.first);
-            if (f != pos2.end()) {
-                dist = min((int64_t)round(abs(f->second - p.second)), dist);
-            }
+        pair<int64_t, int64_t> distances = min_oriented_distances(pos1, pos2);
+        bool same_orientation = distances.first <= distances.second;
+        int64_t dist = min(distances.first, distances.second);
+        if (dist < aln2.sequence().size()) {
+            int64_t graph_dist = graph_distance(aln1_end, aln2_begin, aln2.sequence().size());
+            dist = min(graph_dist, dist);
         }
         if (debug) cerr << "dist " << dist << endl;
         return -((double)gap_open + (double)dist * (double)gap_extension);
     };
 
-    AlignmentChainModel chainer(multi_alns, this, transition_weight, 1);
+    AlignmentChainModel chainer(multi_alns, this, transition_weight, 1, 64, 128);
     if (debug) chainer.display(cerr);
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps, false, debug);
     for (auto& aln : alignments) {
@@ -3633,6 +3612,10 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
 
 double Mapper::estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) {
     return get_aligner()->estimate_max_possible_mapping_quality(length, min_diffs, next_min_diffs);
+}
+
+double Mapper::max_possible_mapping_quality(int length) {
+    return get_aligner()->max_possible_mapping_quality(length);
 }
 
 vector<Alignment> Mapper::score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment) {
@@ -3767,7 +3750,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         max_mem_length,
                                                         min_mem_length,
                                                         mem_reseed_length,
-                                                        false, false, false, 0);
+                                                        true, false, false, 2);
         // query mem hits
         alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }
@@ -3788,7 +3771,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
         }
     }
     
-    annotate_with_mean_path_positions(alignments);
+    annotate_with_initial_path_positions(alignments);
 
     return alignments;
 }
@@ -4539,7 +4522,7 @@ const vector<string> balanced_kmers(const string& seq, const int kmer_size, cons
 AlignmentChainModel::AlignmentChainModel(
     vector<vector<Alignment> >& bands,
     Mapper* mapper,
-    const function<double(const Alignment&, const Alignment&, const map<string, double>&, const map<string, double>&)>& transition_weight,
+    const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&)>& transition_weight,
     int vertex_band_width,
     int position_depth,
     int max_connections) {
@@ -4555,8 +4538,8 @@ AlignmentChainModel::AlignmentChainModel(
             v.weight = aln.sequence().size() + aln.score() + aln.mapping_quality();
             v.prev = nullptr;
             v.score = 0;
-            v.positions = mapper->alignment_mean_path_positions(aln);
-            v.positions[""] = mapper->approx_alignment_position(aln);
+            v.positions = mapper->alignment_path_offsets(aln);
+            v.positions[""].push_back(make_pair(mapper->approx_alignment_position(aln), false));
             model.push_back(v);
         }
         assert(!band.empty());

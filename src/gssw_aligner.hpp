@@ -71,6 +71,7 @@ namespace vg {
         
     public:
 
+        double max_possible_mapping_quality(int length);
         double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
         
         /// Store optimal local alignment against a graph in the Alignment object.
