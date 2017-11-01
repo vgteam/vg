@@ -49,7 +49,7 @@ vg index -x flat2.xg flat2.vg
 vg sim -n 30 -l 50 -e 0.005 -s 8675309 -x flat2.xg -a >flat2.sim
 vg map -x flat.xg -g flat.gcsa -G <(cat flat1.sim flat2.sim) >flat.gam
 vg index -d flat.gam.index -N flat.gam
-vg genotype flat.vg flat.gam.index -C >flat.loci
+vg genotype flat.vg flat.gam.index >flat.loci
 cat tiny/tiny.fa flat1.fa flat2.fa >flats.fa
 vg msga -f flats.fa -b x | vg mod -D - | vg mod -n - | vg mod -c - >flat_msga.vg
 vg mod -Q flat.loci flat.vg | vg mod -D - | vg mod -n - | vg mod -c - >flat_mod.vg

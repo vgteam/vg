@@ -7,7 +7,7 @@ using namespace std;
 Simplifier::Simplifier(VG& graph) : Progressive(), graph(graph), traversal_finder(graph) {
     
     // create a SnarlManager using Cactus
-    CactusUltrabubbleFinder site_finder(graph, "", true);
+    CactusSnarlFinder site_finder(graph);
     site_manager = site_finder.find_snarls();
 }
 
@@ -40,6 +40,17 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
             queue.pop_front();
             
             if (site_manager.is_leaf(site)) {
+                // It's a leaf. Filter it out if it is trivial
+                
+                if (site->type() == ULTRABUBBLE) {
+                    auto contents = site_manager.shallow_contents(site, graph, false);
+                    if (contents.first.empty()) {
+                        // Nothing but the boundary nodes in this snarl
+                        continue;
+                    }
+                }
+            
+                // Not trivial. Keep it.
                 leaves.push_back(site);
             }
             else {

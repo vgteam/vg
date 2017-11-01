@@ -54,6 +54,21 @@ namespace vg {
         }
     }
     
+    void SnarlManager::for_each_snarl_preorder(const function<void(const Snarl*)>& lambda) {
+        // We define a recursive function to apply the lambda in a preorder traversal of the snarl tree.
+        std::function<void(const Snarl*)> process = [&](const Snarl* parent) {
+            // Do the parent
+            lambda(parent);
+            for (auto child : children_of(parent)) {
+                // Then do each child
+                process(child);
+            }
+        };
+        
+        // Then we run that on the root of each tree of snarls.
+        for_each_top_level_snarl(process);
+    }
+    
     void SnarlManager::flip(const Snarl* snarl) {
         
         // kinda ugly workaround of constness that avoids exposing non-const pointers while
@@ -139,8 +154,16 @@ namespace vg {
 
     void SnarlManager::build_indexes() {
         
+#ifdef debug
+        cerr << "Building SnarlManager index of " << snarls.size() << " snarls" << endl;
+#endif
+        
         for (size_t i = 0; i < snarls.size(); i++) {
             Snarl& snarl = snarls[i];
+            
+#ifdef debug
+            cerr << pb2json(snarl) << endl;
+#endif
             
             // Remember where each snarl is
             index_of[key_form(&snarl)] = i;
@@ -148,6 +171,9 @@ namespace vg {
             // is this a top-level snarl?
             if (snarl.has_parent()) {
                 // add this snarl to the parent-to-children index
+#ifdef debug
+                cerr << "\tSnarl is a child" << endl;
+#endif
                 if (!children.count(key_form(&(snarl.parent()))) ) {
                     children.insert(make_pair(key_form(&snarl.parent()), vector<const Snarl*>(1, &snarl)));
                 }
@@ -157,6 +183,9 @@ namespace vg {
             }
             else {
                 // record top level status
+#ifdef debug
+                cerr << "\tSnarl is top-level" << endl;
+#endif
                 roots.push_back(&snarl);
                 parent[key_form(&snarl)] = nullptr;
             }
@@ -603,6 +632,571 @@ namespace vg {
         
         return to_return;
         
+    }
+    
+    NetGraph::NetGraph(const Visit& start, const Visit& end,
+        const vector<vector<Snarl>>& child_chains,
+        const vector<Snarl>& child_unary_snarls, const HandleGraph* graph,
+        bool use_internal_connectivity) : 
+        graph(graph),
+        start(graph->get_handle(start.node_id(), start.backward())),
+        end(graph->get_handle(end.node_id(), end.backward())),
+        use_internal_connectivity(use_internal_connectivity) {
+        
+        for (auto& unary : child_unary_snarls) {
+            // For each unary snarl, make its bounding handle
+            handle_t snarl_bound = graph->get_handle(unary.start().node_id(), unary.start().backward());
+            
+            // Get its ID
+            id_t snarl_id = unary.start().node_id();
+            
+            // Make sure it is properly specified to be unary (in and out the same node in opposite directions)
+            assert(unary.end().node_id() == snarl_id);
+            assert(unary.end().backward() == !unary.start().backward());
+            
+            // Save it as a unary snarl
+            unary_boundaries.insert(snarl_bound);
+            
+            if (use_internal_connectivity) {
+                // Save its connectivity
+                connectivity[snarl_id] = make_tuple(unary.start_self_reachable(), unary.end_self_reachable(),
+                    unary.start_end_reachable());
+            } else {
+                // Use the connectivity of an ordinary node that has a different
+                // other side. Don't set connected_start_end because, for a real
+                // unary snarl, the end and the start are the same, so that
+                // means you can turn aroiund.
+                connectivity[snarl_id] = make_tuple(false, false, false);
+            }
+        }
+        
+        for (auto& chain : child_chains) {
+            // For every chain, get its bounding handles in the base graph
+            handle_t chain_start = graph->get_handle(chain.front().start().node_id(), chain.front().start().backward());
+            handle_t chain_end = graph->get_handle(chain.back().end().node_id(), chain.back().end().backward());
+            
+            // Save the links that let us cross the chain.
+            chain_ends_by_start[chain_start] = chain_end;
+            chain_end_rewrites[graph->flip(chain_end)] = graph->flip(chain_start);
+            
+            if (use_internal_connectivity) {
+            
+                // Determine child snarl connectivity.
+                bool connected_left_left = false;
+                bool connected_right_right = false;
+                bool connected_left_right = true;
+                
+                for (auto it = chain.begin(); it != chain.end(); ++it) {
+                    // Go through the child snarls from left to right
+                    auto& child = *it;
+                    
+                    if (child.start_self_reachable()) {
+                        // We found a turnaround from the left
+                        connected_left_left = true;
+                    }
+                    
+                    if (!child.start_end_reachable()) {
+                        // There's an impediment to getting through.
+                        connected_left_right = false;
+                        // Don't keep looking for turnarounds
+                        break;
+                    }
+                }
+                
+                for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+                    // Go through the child snarls from right to left
+                    auto& child = *it;
+                    
+                     if (child.end_self_reachable()) {
+                        // We found a turnaround from the right
+                        connected_right_right = true;
+                        break;
+                    }
+                    
+                    if (!child.start_end_reachable()) {
+                        // Don't keep looking for turnarounds
+                        break;
+                    }
+                }
+                
+                // Save the connectivity
+                connectivity[graph->get_id(chain_start)] = tie(connected_left_left, connected_right_right, connected_left_right);
+            } else {
+                // Act like a normal connected-through node.
+                connectivity[graph->get_id(chain_start)] = make_tuple(false, false, true);
+            }
+        }
+    }
+    
+    handle_t NetGraph::get_handle(const id_t& node_id, bool is_reverse) const {
+        // We never let anyone see any node IDs that aren't assigned to child snarls/chains or content nodes.
+        return graph->get_handle(node_id, is_reverse);
+    }
+    
+    id_t NetGraph::get_id(const handle_t& handle) const {
+        // We just use the handle/ID mapping of the backing graph
+        return graph->get_id(handle);
+    }
+    
+    bool NetGraph::get_is_reverse(const handle_t& handle) const {
+        // We just use the handle/orientation mapping of the backing graph
+        return graph->get_is_reverse(handle);
+    }
+    
+    handle_t NetGraph::flip(const handle_t& handle) const {
+        // We just use the flip implementation of the backing graph
+        return graph->flip(handle);
+    }
+    
+    size_t NetGraph::get_length(const handle_t& handle) const {
+        // TODO: We don't really want to support this operation; maybe lengths
+        // and sequences should be factored out into another interface.
+        throw runtime_error("Cannot expose sequence lengths via NetGraph");
+    }
+    
+    string NetGraph::get_sequence(const handle_t& handle) const {
+        // TODO: We don't really want to support this operation; maybe lengths
+        // and sequences should be factored out into another interface.
+        throw runtime_error("Cannot expose sequences via NetGraph");
+    }
+    
+    bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+        // Now we do the real work.
+        
+#ifdef debug
+        cerr << "Look for edges on " << graph->get_id(handle) << " " << graph->get_is_reverse(handle)
+            << " going " << (go_left ? "left" : "right") << endl;
+#endif
+        
+        // We also need to deduplicate edges. Maybe the start and end of a chain
+        // connect to the same next node, and we could read out both traversing
+        // the chain.
+        unordered_set<handle_t> seen;
+            
+        // This deduplicates and emits the edges, and also handles rewriting
+        // visits to the ends of chains as visits to the start, which we use to
+        // represent the whole chain.
+        auto handle_edge = [&](const handle_t& other) -> bool {
+            
+            handle_t real_handle = other;
+            if (chain_end_rewrites.count(other)) {
+                // We're reading into the end of a chain.
+                // Warp to the start.
+                real_handle = chain_end_rewrites.at(other);
+            } else if (chain_end_rewrites.count(graph->flip(other))) {
+                // We're backing into the end of a chain.
+                // Warp to the start.
+                real_handle = graph->flip(chain_end_rewrites.at(graph->flip(other)));
+            }
+            
+#ifdef debug
+            cerr << "Found edge " << (go_left ? "from " : "to ") << graph->get_id(other) << " " << graph->get_is_reverse(other) << endl;
+#endif
+            
+            if (!seen.count(real_handle)) {
+                seen.insert(real_handle);
+#ifdef debug
+                cerr << "Report as " << graph->get_id(real_handle) << " " << graph->get_is_reverse(real_handle) << endl;
+#endif
+                
+                return iteratee(real_handle);
+            } else {
+                cerr << "Edge has been seen" << endl;
+                return true;
+            }
+        };
+        
+        // This does the same as handle_edge, but flips the real handle
+        auto flip_and_handle_edge = [&](const handle_t& other) -> bool {
+            
+            handle_t real_handle = other;
+            if (chain_end_rewrites.count(other)) {
+                // We're reading into the end of a chain.
+                // Warp to the start.
+                real_handle = chain_end_rewrites.at(other);
+            } else if (chain_end_rewrites.count(graph->flip(other))) {
+                // We're backing into the end of a chain.
+                // Warp to the start.
+                real_handle = graph->flip(chain_end_rewrites.at(graph->flip(other)));
+            }
+            
+            real_handle = graph->flip(real_handle);
+            
+#ifdef debug
+            cerr << "Found edge " << (go_left ? "from " : "to ") << graph->get_id(other) << " " << graph->get_is_reverse(other) << endl;
+#endif
+            
+            if (!seen.count(real_handle)) {
+                seen.insert(real_handle);
+#ifdef debug
+                cerr << "Report as " << graph->get_id(real_handle) << " " << graph->get_is_reverse(real_handle) << endl;
+#endif
+                
+                return iteratee(real_handle);
+            } else {
+                cerr << "Edge has been seen" << endl;
+                return true;
+            }
+        };
+        
+        // Each way of doing things needs to support going either left or right
+        
+        if ((handle == end && !go_left) || (handle == graph->flip(end) && go_left) ||
+            (handle == graph->flip(start) && !go_left) || (handle == start && go_left)) {
+            // If we're looking outside of the snarl this is the net graph for, don't admit to having any edges.
+            
+#ifdef debug
+            cerr << "We are at the bound of the graph so don't say anything" << endl;
+#endif
+            return true;
+        }
+        
+        if (chain_ends_by_start.count(handle) || chain_ends_by_start.count(graph->flip(handle))) {
+            // If we have an associated chain end for this start, we have to use chain connectivity to decide what to do.
+            
+#ifdef debug
+            cerr << "We are a chain node" << endl;
+#endif
+            
+            bool connected_start_start;
+            bool connected_end_end;
+            bool connected_start_end;
+            tie(connected_start_start, connected_end_end, connected_start_end) = connectivity.at(graph->get_id(handle));
+            
+#ifdef debug
+            cerr << "Connectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
+#endif
+            
+            if (chain_ends_by_start.count(handle)) {
+                // We visit the chain in its forward orientation
+                
+#ifdef debug
+                cerr << "We are visiting the chain forward" << endl;
+#endif
+                
+                if (go_left) {
+                    // We want predecessors.
+                    // So we care about end-end connectivity (how could we have left our end?)
+                    
+#ifdef debug
+                    cerr << "We are going left from a forward chain" << endl;
+#endif
+                    
+                    if (connected_end_end) {
+                    
+#ifdef debug
+                        cerr << "We can reverse and go back out the end" << endl;
+#endif
+                    
+                        // Anything after us but in its reverse orientation could be our predecessor
+                        // But a thing after us may be a chain, in which case we need to find its head before flipping.
+                        if (!graph->follow_edges(chain_ends_by_start.at(handle), false, flip_and_handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                    if (connected_start_end) {
+                    
+#ifdef debug
+                        cerr << "We can continue through and go out the start" << endl;
+#endif
+                    
+                        // Look left out of the start of the chain (which is the handle we really are on)
+                        if (!graph->follow_edges(handle, true, handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                } else {
+                    // We want our successors
+                    
+#ifdef debug
+                    cerr << "We are going right from a forward chain" << endl;
+#endif
+                    
+                    if (connected_start_start) {
+                    
+#ifdef debug
+                        cerr << "We can reverse and go back out the start" << endl;
+#endif
+                    
+                        // Anything before us but in its reverse orientation could be our successor
+                        // But a thing before us may be a chain, in which case we need to find its head before flipping.
+                        if (!graph->follow_edges(handle, true, flip_and_handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                    if (connected_start_end) {
+                    
+#ifdef debug
+                        cerr << "We can continue through and go out the end" << endl;
+#endif
+                    
+                        // Look right out of the end of the chain (which is the handle we really are on)
+                        if (!graph->follow_edges(chain_ends_by_start.at(handle), false, handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                }
+                
+            } else {
+                // We visit the chain in its reverse orientation.
+                // Just flip the cases of above and reverse all the emitted orientations.
+                
+#ifdef debug
+                cerr << "We are visiting the chain in reverse" << endl;
+#endif
+
+                if (go_left) {
+                    // We want predecessors of the reverse version (successors, but flipped)
+                    
+#ifdef debug
+                    cerr << "We are going left from a reverse chain" << endl;
+#endif
+                    
+                    if (connected_start_start) {
+                    
+#ifdef debug
+                        cerr << "We can reverse and go back out the start" << endl;
+#endif
+                    
+                        if (!graph->follow_edges(handle, false, flip_and_handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                    if (connected_start_end) {
+                    
+#ifdef debug
+                        cerr << "We can continue through and go out the end" << endl;
+#endif
+                    
+                        if (!graph->follow_edges(chain_ends_by_start.at(graph->flip(handle)), false, flip_and_handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                } else {
+                    // We want successors of the reverse version (predecessors, but flipped)
+                    
+#ifdef debug
+                    cerr << "We are going right from a reverse chain" << endl;
+#endif
+                    
+                    if (connected_end_end) {
+                    
+#ifdef debug
+                        cerr << "We can reverse and go back out the end" << endl;
+#endif
+                    
+                        if (!graph->follow_edges(chain_ends_by_start.at(graph->flip(handle)), false, handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                    if (connected_start_end) {
+                    
+#ifdef debug
+                        cerr << "We can continue through and go out the start" << endl;
+#endif
+                    
+                        if (!graph->follow_edges(handle, false, handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    
+                }
+                
+            }
+            
+            return true;
+        }
+        
+        if (unary_boundaries.count(handle) || unary_boundaries.count(graph->flip(handle))) {
+            // We are dealign with a node representing a unary child snarl.
+            
+#ifdef debug
+            cerr << "We are looking at a unary snarl" << endl;
+#endif
+            
+            // We have to use chain connectivity to decide what to do.
+            bool connected_start_start;
+            bool connected_end_end;
+            bool connected_start_end;
+            tie(connected_start_start, connected_end_end, connected_start_end) = connectivity.at(graph->get_id(handle));
+            
+            if (unary_boundaries.count(handle)) {
+                // We point into a unary snarl
+                if (go_left) {
+                    // We want the predecessors
+                    
+                    if (!use_internal_connectivity) {
+                        // We treat this as a normal node
+                        // Get the real predecessors
+                        if (!graph->follow_edges(handle, true, handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                    // Otherwise just think about what we can traverse to (i.e. nothing)
+                    
+                    // Can't read a forward oriented unary boundary as a
+                    // predecessor, so no need to support read through.
+                    
+                } else {
+                    // We want the successors
+                    
+                    // No real successors
+                    
+                    if (connected_start_start || connected_end_end || connected_start_end) {
+                        // Successors also include our predecessors but backward
+                        if (!graph->follow_edges(handle, true, flip_and_handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                        
+                    }
+                }
+            } else {
+                // We point out of a unary snarl.
+                // Reverse of above. Sort of.
+                if (go_left) {
+                    if (connected_start_start || connected_end_end || connected_start_end) {
+                        if (!graph->follow_edges(handle, false, handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                        
+                    }
+                    
+                } else {
+                    if (!use_internal_connectivity) {
+                        if (!graph->follow_edges(handle, false, flip_and_handle_edge)) {
+                            // Iteratee is done
+                            return false;
+                        }
+                    }
+                }
+            
+            }
+            
+            return true;
+        }
+        
+#ifdef debug
+        cerr << "We are an ordinary node" << endl;
+#endif
+        
+        // Otherwise, this is an ordinary snarl content node
+        return graph->follow_edges(handle, go_left, handle_edge);
+    }
+    
+    void NetGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
+        // Find all the handles by a traversal.
+        
+        // We have to do the traversal on the underlying backing graph, because
+        // the traversal functions we implemented on the graph we present will
+        // maybe use internal child snarl connectivity, which can mean parts of
+        // the graph are in this snarl but not actually reachable.
+        
+        // We let both the starts and ends of child snarls into the queue.
+        // But we'll only reveal the starts to our iteratee.
+        list<handle_t> queue;
+        unordered_set<id_t> queued;
+        
+        // Start at both the start and the end of the snarl.
+        queue.push_back(start);
+        queued.insert(graph->get_id(start));
+        queue.push_back(end);
+        queued.insert(graph->get_id(end));
+        
+        while (!queue.empty()) {
+            handle_t here = queue.front();
+            queue.pop_front();
+            
+            if (unary_boundaries.count(graph->flip(here))) {
+                // This is a backward unary child snarl head, so we need to look at it the other way around.
+                here = graph->flip(here);
+            } else if (chain_ends_by_start.count(graph->flip(here))) {
+                // This is a backward child chain head, so we need to look at it the other way around.
+                here = graph->flip(here);
+            } else if (chain_end_rewrites.count(graph->flip(here))) {
+                // This is a backward child chain tail, so we need to look at it the other way around.
+                here = graph->flip(here);
+            }
+            
+            if (!chain_end_rewrites.count(here)) {
+                // This is not a chain end, so it's either a real contained node or a chain head.
+                // We can emit it.
+                
+                if (graph->get_is_reverse(here)) {
+                    if (!iteratee(graph->flip(here))) {
+                        // Run the iteratee on the forward version, and stop if it wants to stop
+                        break;
+                    }
+                } else {
+                    if (!iteratee(here)) {
+                        // Run the iteratee, and stop if it wants to stop.
+                        break;
+                    }
+                }
+                
+            } 
+            
+            // We define a function to queue up nodes we could visit next
+            auto handle_edge = [&](const handle_t& other) {
+                // Whenever we see a new node, add it to the queue
+                if (!queued.count(graph->get_id(other))) {
+                    queue.push_back(other);
+                    queued.insert(graph->get_id(other));
+                }
+            };
+            
+            // We already have flipped any backward heads or tails frontward. So
+            // we don't need to check if the backward version of us is in
+            // anything.
+            
+            if (here != end && here != graph->flip(start) && !unary_boundaries.count(here) &&
+                !chain_ends_by_start.count(here)  && !chain_end_rewrites.count(here)) {
+                
+                // We have normal graph to our right and not the exterior of this snarl or the interior of a child.
+                graph->follow_edges(here, false, handle_edge);
+            }
+            
+            if (here != start && here != graph->flip(end)) {
+                // We have normal graph to our left.
+                graph->follow_edges(here, true, handle_edge);
+            }
+            
+            if (chain_end_rewrites.count(here)) {
+                // We need to look right off the reverse head of this child snarl.
+                graph->follow_edges(chain_end_rewrites.at(here), false, handle_edge);
+            }
+            
+            if (chain_ends_by_start.count(here)) {
+                // We need to look right off the (reverse) tail of this child snarl.
+                graph->follow_edges(chain_ends_by_start.at(here), false, handle_edge);
+            }
+        }
+    }
+    
+    size_t NetGraph::node_size() const {
+        // TODO: this is inefficient!
+        size_t size = 0;
+        for_each_handle([&](const handle_t& ignored) {
+            size++;
+        });
+        return size;
     }
     
     bool operator==(const Visit& a, const Visit& b) {

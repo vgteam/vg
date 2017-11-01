@@ -1613,7 +1613,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
     return true;
 }
 
-void XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
 
     // Unpack the handle
     size_t g = as_integer(handle) & LOW_BITS;
@@ -1630,7 +1630,9 @@ void XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     // We will look for all the edges on the appropriate side, which means we have to check the from and to edges
     if (do_edges(g, to_start, edges_to_count, true, go_left, is_reverse, iteratee)) {
         // All the edges where we're to were accepted, so do the edges where we're from
-        do_edges(g, from_start, edges_from_count, false, go_left, is_reverse, iteratee);
+        return do_edges(g, from_start, edges_from_count, false, go_left, is_reverse, iteratee);
+    } else {
+        return false;
     }
 }
 

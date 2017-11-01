@@ -23,8 +23,6 @@ void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph.vg > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
-         << "    -u, --ultrabubbles    describe (in text) the ultrabubbles of the graph" << endl
-         << "traversals:" << endl
          << "    -p, --pathnames       output variant paths as SnarlTraversals to STDOUT" << endl
          << "    -r, --traversals FILE output SnarlTraversals for ultrabubbles." << endl
          << "    -l, --leaf-only       restrict traversals to leaf ultrabubbles." << endl
@@ -47,8 +45,7 @@ int main_snarl(int argc, char** argv) {
     bool leaf_only = false;
     bool top_level_only = false;
     int max_nodes = 10;
-    bool legacy_ultrabubbles = false;
-    bool filter_trivial_bubbles = false;
+    bool filter_trivial_snarls = false;
     bool sort_snarls = false;
     bool fill_path_names = false;
 
@@ -57,7 +54,6 @@ int main_snarl(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
-                {"ultrabubbles", no_argument, 0, 'u'},
                 {"traversals", required_argument, 0, 'r'},
 		        {"pathnames", no_argument, 0, 'p'},
                 {"leaf-only", no_argument, 0, 'l'},
@@ -70,7 +66,7 @@ int main_snarl(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "sur:ltopm:h?",
+        c = getopt_long (argc, argv, "sr:ltopm:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -80,10 +76,6 @@ int main_snarl(int argc, char** argv) {
         switch (c)
         {
             
-        case 'u':
-            legacy_ultrabubbles = true;
-            break;
-
         case 'r':
             traversal_file = optarg;
             break;
@@ -101,7 +93,7 @@ int main_snarl(int argc, char** argv) {
             break;
             
         case 't':
-            filter_trivial_bubbles = true;
+            filter_trivial_snarls = true;
             break;
             
         case 's':
@@ -121,13 +113,6 @@ int main_snarl(int argc, char** argv) {
         default:
             abort ();
 
-        }
-    }
-
-    if (legacy_ultrabubbles) {
-        if (!traversal_file.empty()) {
-            cerr << "error:[vg snarl]: -u and -s options must be used alone" << endl;
-            return 1;
         }
     }
 
@@ -153,36 +138,29 @@ int main_snarl(int argc, char** argv) {
         exit(1);
     }
 
-    // old code from vg stats
-    if (legacy_ultrabubbles) {
-        auto bubbles = vg::ultrabubbles(*graph);
-        for (auto& i : bubbles) {
-            auto b = i.first;
-            auto v = i.second;
-            // sort output for now, to help do diffs in testing
-            sort(v.begin(), v.end());
-            cout << b.first << "\t" << b.second << "\t";
-            for (auto& n : v) {
-                cout << n << ",";
-            }
-            cout << endl;
-        }
-        return 0;
-    }
-    
     // The only implemented snarl finder:
-    SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph, "", filter_trivial_bubbles);
+    SnarlFinder* snarl_finder = new CactusSnarlFinder(*graph);
     
     // Load up all the snarls
     SnarlManager snarl_manager = snarl_finder->find_snarls();
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
     if (fill_path_names){
-        //delete trav_finder;
-       TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
+        TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
         for (const Snarl* snarl : snarl_roots ){
-           vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
-           stream::write_buffered(cout, travs, 0);
+            if (filter_trivial_snarls && snarl->type() == ULTRABUBBLE) {
+                auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
+                if (contents.first.empty()) {
+                    // Nothing but the boundary nodes in this snarl
+                    continue;
+                }
+            }
+            vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
+            stream::write_buffered(cout, travs, 0);
         }
+
+        delete trav_finder;
+        delete snarl_finder;
+        delete graph;
 
         exit(0);
     }
@@ -230,6 +208,14 @@ int main_snarl(int argc, char** argv) {
             const Snarl* snarl = stack.back();
             stack.pop_back();
             
+            if (filter_trivial_snarls && snarl->type() == ULTRABUBBLE) {
+                auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
+                if (contents.first.empty()) {
+                    // Nothing but the boundary nodes in this snarl
+                    continue;
+                }
+            }
+            
             // Write our snarl tree
             snarl_buffer.push_back(*snarl);
             stream::write_buffered(cout, snarl_buffer, buffer_size);
@@ -240,7 +226,13 @@ int main_snarl(int argc, char** argv) {
                 (!top_level_only || snarl_manager.is_root(snarl)) &&
                 (snarl_manager.deep_contents(snarl, *graph, true).first.size() < max_nodes)) {
                 
+#ifdef debug
+                cerr << "Look for traversals of " << pb2json(*snarl) << endl;
+#endif
                 vector<SnarlTraversal> travs = trav_finder->find_traversals(*snarl);
+#ifdef debug        
+                cerr << "Found " << travs.size() << endl;
+#endif
                 
                 traversal_buffer.insert(traversal_buffer.end(), travs.begin(), travs.end());
                 stream::write_buffered(trav_stream, traversal_buffer, buffer_size);

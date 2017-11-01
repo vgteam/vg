@@ -11,6 +11,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../cactus.hpp"
 #include "../stream.hpp"
 #include "../utility.hpp"
 #include "../algorithms/topological_sort.hpp"

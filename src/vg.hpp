@@ -41,8 +41,6 @@
 #include "types.hpp"
 #include "gfakluge.hpp"
 
-#include "bubbles.hpp"
-
 #include "nodetraversal.hpp"
 #include "nodeside.hpp"
 
@@ -108,8 +106,8 @@ public:
     
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
-    /// continue.
-    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
+    /// continue. Returns true if we finished and false if we stopped early.
+    virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
     
     // Copy over the template for nice calls
     using HandleGraph::follow_edges;

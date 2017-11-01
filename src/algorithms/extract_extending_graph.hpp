@@ -2,7 +2,7 @@
 #define VG_ALGORITHMS_EXTRACT_EXTENDING_GRAPH_HPP_INCLUDED
 
 /**
- * \file extract_estending_graphs.hpp
+ * \file extract_extending_graphs.hpp
  *
  * Definitions for the extract_extending_graph algorithm.
  */

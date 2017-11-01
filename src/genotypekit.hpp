@@ -21,10 +21,13 @@
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "types.hpp"
-#include "bubbles.hpp"
 #include "distributions.hpp"
 #include "snarls.hpp"
 #include "path_index.hpp"
+
+extern "C" {
+#include "sonLib.h"
+}
 
 namespace vg {
 
@@ -258,29 +261,44 @@ class SimpleConsistencyCalculator : public ConsistencyCalculator{
         const vector<SnarlTraversal>& traversals, const Alignment& read) const;
 };
 
-
-class CactusUltrabubbleFinder : public SnarlFinder {
+/**
+ * Class for finding all snarls using the base-level Cactus snarl decomposition
+ * interface.
+ */
+class CactusSnarlFinder : public SnarlFinder {
     
     /// Holds the vg graph we are looking for sites in.
     VG& graph;
     
-    /// Use this path name as a rooting hint, if present.
-    string hint_path_name;
+    /// Holds the names of reference path hints
+    unordered_set<string> hint_paths;
     
-    /// Indicates whether bubbles that consist of a single edge should be filtered
-    bool filter_trivial_bubbles;
+    /// Create a snarl in the given list with the given start and end,
+    /// containing the given child snarls in the list of chains of children and
+    /// the given list of unary children. Recursively creates snarls in the list
+    /// for the children. Returns a reference to the finished snarl in the list.
+    /// Start and end may be empty visits, in which case a fake root snarl is
+    /// created.
+    const Snarl& recursively_emit_snarls(const Visit& start, const Visit& end, const Snarl* parent,
+        stList* chains_list, stList* unary_snarls_list, list<Snarl>& destination);
     
 public:
     /**
-     * Make a new CactusSiteFinder to find sites in the given graph.
+     * Make a new CactusSnarlFinder to find snarls in the given graph.
+     * We can't filter trivial bubbles because that would break our chains.
+     *
+     * Optionally takes a hint path name.
      */
-    CactusUltrabubbleFinder(VG& graph,
-                            const string& hint_path_name = "",
-                            bool filter_trivial_bubbles = false);
+    CactusSnarlFinder(VG& graph);
     
     /**
-     * Find all the sites in parallel with Cactus, make the site tree, and call
-     * the given function on all the top-level sites.
+     * Make a new CactusSnarlFinder with a single hinted path to base the
+     * decomposition on.
+     */
+    CactusSnarlFinder(VG& graph, const string& hint_path);
+    
+    /**
+     * Find all the snarls with Cactus, and put them into a SnarlManager.
      */
     virtual SnarlManager find_snarls();
     

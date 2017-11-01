@@ -31,7 +31,6 @@ void help_genotype(char** argv) {
          << "    -l, --length INT        override total sequence length" << std::endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
          << "    -q, --use_mapq          use mapping qualities" << std::endl
-         << "    -C, --cactus            use cactus ultrabubbles for site finding" << std::endl
          << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << std::endl
          << "    -i, --realign_indels    realign at indels" << std::endl
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << std::endl
@@ -82,8 +81,6 @@ int main_genotype(int argc, char** argv) {
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
 
-    // Should we do superbubbles/sites with Cactus (true) or supbub (false)
-    bool use_cactus = false;
     // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
     bool subset_graph = false;
     // What should the heterozygous genotype prior be? (1/this)
@@ -106,7 +103,6 @@ int main_genotype(int argc, char** argv) {
                 {"length", required_argument, 0, 'l'},
                 {"augmented", required_argument, 0, 'a'},
                 {"use_mapq", no_argument, 0, 'q'},
-                {"cactus", no_argument, 0, 'C'},
                 {"subset-graph", no_argument, 0, 'S'},
                 {"realign_indels", no_argument, 0, 'i'},
                 {"het_prior_denom", required_argument, 0, 'd'},
@@ -122,7 +118,7 @@ int main_genotype(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSid:P:pt:V:I:G:F:z",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qSid:P:pt:V:I:G:F:z",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -164,10 +160,6 @@ int main_genotype(int argc, char** argv) {
         case 'q':
             // Use mapping qualities
             use_mapq = true;
-            break;
-        case 'C':
-            // Use Cactus to find sites
-            use_cactus = true;
             break;
         case 'S':
             // Find sites on the graph subset with any read support
@@ -336,7 +328,6 @@ int main_genotype(int argc, char** argv) {
                   contig_name,
                   sample_name,
                   augmented_file_name,
-                  use_cactus,
                   subset_graph,
                   show_progress,
                   output_vcf,

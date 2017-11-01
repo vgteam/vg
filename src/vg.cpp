@@ -1,6 +1,8 @@
 #include "vg.hpp"
 #include "stream.hpp"
 #include "gssw_aligner.hpp"
+// We need to use ultrabubbles for dot output
+#include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
@@ -119,7 +121,7 @@ string VG::get_sequence(const handle_t& handle) const {
     
 }
 
-void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+bool VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
     // Are we reverse?
     bool is_reverse = get_is_reverse(handle);
     
@@ -135,10 +137,12 @@ void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
             bool new_reverse = (is_reverse != id_and_flip.second);
             if (!iteratee(get_handle(id_and_flip.first, new_reverse))) {
                 // Iteratee said to stop
-                return;
+                return false;
             }
         }
     }
+    
+    return true;
 }
 
 void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
@@ -6111,22 +6115,36 @@ void VG::to_dot(ostream& out,
     if (ultrabubble_labeling) {
         Pictographs picts(random_seed);
         Colors colors(random_seed);
-        map<pair<id_t, id_t>, vector<id_t> > sb = ultrabubbles(*this);
-        for (auto& bub : sb) {
-            auto start_node = bub.first.first;
-            auto end_node = bub.first.second;
+        
+        // Go get the snarls.
+        SnarlManager snarl_manager = CactusSnarlFinder(*this).find_snarls();
+
+        snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+            // For every snarl
+            if (!snarl->type() == ULTRABUBBLE) {
+                // Make sure it is an ultrabubble
+                return;
+            }
+            
+            // Get the deep contents of the snarl, which define it and which
+            // need to be labeled with it.
+            auto contents = snarl_manager.deep_contents(snarl, *this, true).first;
+            
+            // Serialize them
             stringstream vb;
-            for (auto& i : bub.second) {
-                vb << i << ",";
+            for (Node* node : contents) {
+                vb << node->id() << ",";
             }
             auto repr = vb.str();
+            
+            // Compute a label for the bubble
             string emoji = ascii_labels ? picts.hashed_char(repr) : picts.hashed(repr);
             string color = colors.hashed(repr);
             auto label = make_pair(color, emoji);
-            for (auto& i : bub.second) {
-                symbols_for_node[i].insert(label);
+            for (Node* node : contents) {
+                symbols_for_node[node->id()].insert(label);
             }
-        }
+        });
     }
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);

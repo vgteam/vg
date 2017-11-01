@@ -15,6 +15,7 @@
 #include <fstream>
 #include "stream.hpp"
 #include "vg.hpp"
+#include "handle.hpp"
 #include "vg.pb.h"
 #include "hash_map.hpp"
 
@@ -91,7 +92,7 @@ namespace vg {
         /// end boundaries will be reversed.
         unordered_map<pair<int64_t, bool>, const Snarl*> snarl_boundary_index();
         
-        /// Returns a map from all Snarl start boundaries to the "Snarl they point into.
+        /// Returns a map from all Snarl start boundaries to the Snarl they point into.
         unordered_map<pair<int64_t, bool>, const Snarl*> snarl_start_index();
         
         /// Returns a map from all Snarl end boundaries to the Snarl they point into. Note that this means that
@@ -100,6 +101,9 @@ namespace vg {
         
         /// Execute a function on all top level sites
         void for_each_top_level_snarl(const function<void(const Snarl*)>& lambda);
+        
+        /// Execute a function on all sites in a preorder traversal
+        void for_each_snarl_preorder(const function<void(const Snarl*)>& lambda);
         
         /// Execute a function on all top level sites in parallel
         void for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda);
@@ -136,6 +140,121 @@ namespace vg {
         
         /// Builds tree indexes after Snarls have been added
         void build_indexes();
+    };
+    
+    /**
+     * Allow traversing a graph of nodes and child snarl chains within a snarl
+     * within another HandleGraph. Uses its own internal child index because
+     * it's used in the construction of snarls to feed to SnarlManagers.
+     *
+     * Assumes that the chains we get from Cactus are in a consistent order, so
+     * the start of the first snarl is the very first thing in the chain, and
+     * the end of the last snarl is the very last.
+     *
+     * We adapt the handle graph abstraction as follows:
+     *
+     * A chain becomes a single node with the ID and local forward orientation
+     * of its first snarl's start.
+     *
+     * A chain node connects on its left to everything connected to its first
+     * start and on its right to everything connected to its last end.
+     *
+     * A unary snarl becomes a single node, too. It is identified by its
+     * boundary node's ID.
+     *
+     * If you're not using internal connectivity, a chain node or a unary snarl
+     * node behaves just like an ordinary node.
+     *
+     * If you are using internal connectivity, edges are slightly faked:
+     *
+     * A chain node also sees out its right everything that is out its left if
+     * it has a left-left connected snarl before any disconnected snarl.
+     *
+     * And similarly for the mirror case.
+     *
+     * All the edges on either side of a unary snarl node are the same.
+     *
+     * In this part of the code we talk about "heads" (the inward-facing base
+     * graph handles used to represent child snarls/chains), and "tails" (the
+     * inward-facing ending handles of child chains).
+     * 
+     */
+    class NetGraph : public HandleGraph {
+    public:
+        /// Make a new NetGraph from the given chains and unary snarls in the given backing graph.
+        NetGraph(const Visit& start, const Visit& end, const vector<vector<Snarl>>& child_chains,
+            const vector<Snarl>& child_unary_snarls, const HandleGraph* graph, bool use_internal_connectivity = false);
+    
+        /// Look up the handle for the node with the given ID in the given orientation
+        virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
+        
+        /// Get the ID from a handle
+        virtual id_t get_id(const handle_t& handle) const;
+        
+        /// Get the orientation of a handle
+        virtual bool get_is_reverse(const handle_t& handle) const;
+        
+        /// Invert the orientation of a handle (potentially without getting its ID)
+        virtual handle_t flip(const handle_t& handle) const;
+        
+        /// Get the length of a node
+        virtual size_t get_length(const handle_t& handle) const;
+        
+        /// Get the sequence of a node, presented in the handle's local forward
+        /// orientation.
+        virtual string get_sequence(const handle_t& handle) const;
+        
+        /// Loop over all the handles to next/previous (right/left) nodes. Passes
+        /// them to a callback which returns false to stop iterating and true to
+        /// continue. Returns true if we finished and false if we stopped early.
+        virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
+        
+        // Copy over the template for nice calls
+        using HandleGraph::follow_edges;
+        
+        /// Loop over all the nodes in the graph in their local forward
+        /// orientations, in their internal stored order. Stop if the iteratee returns false.
+        virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const;
+        
+        // Copy over the template for nice calls
+        using HandleGraph::for_each_handle;
+        
+        /// Return the number of nodes in the graph
+        /// TODO: can't be node_count because XG has a field named node_count.
+        virtual size_t node_size() const;
+        
+    protected:
+    
+        // Save the backing graph
+        const HandleGraph* graph;
+        
+        // And the start and end handles that bound the snarl we are working on.
+        handle_t start;
+        handle_t end;
+        
+        // Should we use the internal connectivity of chain nodes and unary
+        // snarl nodes?
+        bool use_internal_connectivity;
+    
+        // We keep the unary snarl boundaries, reading in with the unary snarl
+        // contents to the right.
+        unordered_set<handle_t> unary_boundaries;
+        
+        // We keep a map from handles that enter the ends of chains to the
+        // reverse handles to their fronts. Whenever the backing graph tells us
+        // to emit the one, we emit the other instead. This makes them look like
+        // one big node.
+        unordered_map<handle_t, handle_t> chain_end_rewrites;
+        
+        // We keep basically the reverse map, from chain start in chain forward
+        // orientation to chain end in chain forward orientation. This lets us
+        // find the edges off the far end of a chian.
+        unordered_map<handle_t, handle_t> chain_ends_by_start;
+        
+        // Stores whether a chain or unary snarl, identified by the ID of its
+        // start handle, is left-left, right-right, or left-right connected.
+        unordered_map<id_t, tuple<bool, bool, bool>> connectivity;
+        
     };
     
     /// Converts a Visit to a NodeTraversal. Throws an exception if the Visit is of a Snarl instead

@@ -1,5 +1,7 @@
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
+#include "algorithms/is_directed_acyclic.hpp"
+#include "cactus.hpp"
 
 //#define debug
 
@@ -206,16 +208,6 @@ vector<Support> SimpleTraversalSupportCalculator::calculate_supports(const Snarl
         return site_supports;
         }
 
-CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
-                                                 const string& hint_path_name,
-                                                 bool filter_trivial_bubbles) :
-    graph(graph), hint_path_name(hint_path_name), filter_trivial_bubbles(filter_trivial_bubbles) {
-    // Make sure the graph is sorted.
-    // cactus needs the nodes to be sorted in order to find a source and sink.
-    algorithms::sort(&graph);
-}
-
-
 PathBasedTraversalFinder::PathBasedTraversalFinder(vg::VG& g, SnarlManager& sm) : graph(g), snarlmanager(sm){
 }
 vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
@@ -333,73 +325,357 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     return ret;
 }
 
-SnarlManager CactusUltrabubbleFinder::find_snarls() {
+CactusSnarlFinder::CactusSnarlFinder(VG& graph) :
+    graph(graph) {
+    // Make sure the graph is sorted.
+    algorithms::sort(&graph);
+}
+
+CactusSnarlFinder::CactusSnarlFinder(VG& graph, const string& hint_path) :
+    CactusSnarlFinder(graph) {
     
-    // Get the bubble tree in Cactus format
-    BubbleTree* bubble_tree = ultrabubble_tree(graph);
+    // Save the hint path
+    hint_paths.insert(hint_path);
     
-    // Convert to Snarls
+    // TODO: actually use it
+}
+
+SnarlManager CactusSnarlFinder::find_snarls() {
     
-    vector<Snarl> converted_snarls;
+    if (graph.size() == 0) {
+        // No snarls here!
+        return SnarlManager();
+    }
+    // convert to cactus
+    pair<stCactusGraph*, stList*> cac_pair = vg_to_cactus(graph, hint_paths);
+    stCactusGraph* cactus_graph = cac_pair.first;
+    stList* telomeres = cac_pair.second;
+
+    // get the snarl decomposition as a C struct
+    stSnarlDecomposition *snarls = stCactusGraph_getSnarlDecomposition(cactus_graph, telomeres);
     
-    bubble_tree->for_each_preorder([&](BubbleTree::Node* node) {
+    // Get a non-owning pointer to the list of chains (which are themselves lists of snarls).
+    stList* cactus_chains_list = snarls->topLevelChains;
+    
+    // And one to the list of top-level unary snarls
+    stList* cactus_unary_snarls_list = snarls->topLevelUnarySnarls;
+    
+    
+    // We'll fill this with all the snarls
+    list<Snarl> snarl_list;
+    
+    // Fill the list with all of the snarls, recursively.
+    recursively_emit_snarls(Visit(), Visit(), nullptr, cactus_chains_list, cactus_unary_snarls_list, snarl_list);
+    
+#ifdef debug
+    cerr << "Found " << snarl_list.size() << " snarls including fake root" << endl;
+#endif
+    
+    // Pop off the fake root snarl
+    assert(!snarl_list.empty());
+    snarl_list.pop_front();
+    
+    // Free the decomposition
+    stSnarlDecomposition_destruct(snarls);
+    
+    // Free the telomeres
+    stList_destruct(telomeres);
+
+    // free the cactus graph
+    stCactusGraph_destruct(cactus_graph);
+    
+    // Feed all the snarls into a SnarlManager
+    return SnarlManager(snarl_list.begin(), snarl_list.end());
+    
+}
+
+const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, const Visit& end, const Snarl* parent,
+    stList* chains_list, stList* unary_snarls_list, list<Snarl>& destination) {
         
-        Bubble& bubble = node->v;
-        if (node != bubble_tree->root) {
-            // If we aren't the root node of the tree, we need to be a Snarl
+#ifdef debug    
+    cerr << "Explore snarl " << start << " -> " << end << endl;
+#endif
             
-            if (filter_trivial_bubbles) {
+    // Make a snarl for this snarl
+    destination.emplace_back();
+    Snarl& snarl = destination.back();
+            
+    // Set up the start and end
+    *snarl.mutable_start() = start;
+    *snarl.mutable_end() = end;
+    
+    if (parent != nullptr && parent->start().node_id() != 0 && parent->end().node_id() != 0) {
+        // We have a parent that isn't the fake root, so fill in its ends
+        *snarl.mutable_parent()->mutable_start() = parent->start();
+        *snarl.mutable_parent()->mutable_end() = parent->end();
+    }
+    
+    // We have a vector of the snarls made for the child snarls in each chain
+    vector<vector<Snarl>> child_chains;
+    // And a vector of child unary snarls
+    vector<Snarl> child_unary_snarls;
+    
+#ifdef debug
+    cerr << "Look at " << stList_length(chains_list) << " child chains" << endl;
+#endif
+    
+    int chain_offset = 0;
+    for (int64_t i = 0; i < stList_length(chains_list); i++) {
+        // For each child chain
+        stList* cactus_chain = (stList*)stList_get(chains_list, i);
+            
+        // Make a new chain
+        child_chains.emplace_back();
+        auto& chain = child_chains.back();
+        
+#ifdef debug
+        cerr << "Chain " << i << " has " << stList_length(cactus_chain) << " child snarls" << endl;
+#endif
+        
+        for (int64_t j = 0; j < stList_length(cactus_chain); j++) {
+            // for each child snarl in the chain
+            stSnarl* child_snarl = (stSnarl*)stList_get(cactus_chain, j);
+
+            // scrape the vg coordinate information out of the cactus ends where we stuck
+            // it during cactus construction
+            CactusSide* cac_child_side1 = (CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd1);
+            CactusSide* cac_child_side2 = (CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd2);
+            
+            // Convert from CactusSide (the interior endpoint of each node) to Visit (inward at start, outward at end)
+            Visit child_start;
+            child_start.set_node_id(cac_child_side1->node);
+            // Start is backward if the interior is not an end
+            child_start.set_backward(!cac_child_side1->is_end);
+            Visit child_end;
+            child_end.set_node_id(cac_child_side2->node);
+            // End is backward if the interior is an end
+            child_end.set_backward(cac_child_side2->is_end);
                 
-                // Check whether the bubble consists of a single edge
-                
-                set<NodeSide> start_connections = graph.sides_of(bubble.start);
-                set<NodeSide> end_connections = graph.sides_of(bubble.end);
-                
-                if (start_connections.size() == 1
-                    && start_connections.count(bubble.end)
-                    && end_connections.size() == 1
-                    && end_connections.count(bubble.start)) {
-                    // This is a single edge bubble, skip it
-                    return;
+            // Recursively create a snarl for the child, and then add it to this chain in us.
+            chain.push_back(recursively_emit_snarls(child_start, child_end, &snarl,
+                child_snarl->chains, child_snarl->unarySnarls, destination));
+        }
+    }
+    
+#ifdef debug
+    cerr << "Look at " << stList_length(unary_snarls_list) << " child unary snarls" << endl;
+#endif
+    
+    for (int64_t i = 0; i < stList_length(unary_snarls_list); i++) {
+        // for each child unary snarl
+        stSnarl* child_snarl = (stSnarl*)stList_get(unary_snarls_list, i);
+
+        // TODO: deduplicate this code
+
+        // scrape the vg coordinate information out of the cactus ends where we stuck
+        // it during cactus construction
+        CactusSide* cac_child_side1 = (CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd1);
+        CactusSide* cac_child_side2 = (CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd2);
+        
+        // Convert from CactusSide (the interior endpoint of each node) to Visit (inward at start, outward at end)
+        Visit child_start;
+        child_start.set_node_id(cac_child_side1->node);
+        // Start is backward if the interior is not an end
+        child_start.set_backward(!cac_child_side1->is_end);
+        Visit child_end;
+        child_end.set_node_id(cac_child_side2->node);
+        // End is backward if the interior is an end
+        child_end.set_backward(cac_child_side2->is_end);
+            
+        // Recursively create a snarl for the child, and then add it to the unary child snarl vector.
+        child_unary_snarls.push_back(recursively_emit_snarls(child_start, child_end, &snarl,
+            child_snarl->chains, child_snarl->unarySnarls, destination));
+    }
+
+    if (start.node_id() == 0 || end.node_id() == 0) {
+        // No need to do anything more for this fake root snarl.
+        return snarl;
+    }
+    
+    // Otherwise, we care about type and connectivity.
+
+    {
+
+        // Make a net graph for the snarl that uses internal connectivity
+        NetGraph connectivity_net_graph(start, end, child_chains, child_unary_snarls, &graph, true);
+        
+        // Evaluate connectivity
+        // A snarl is minimal, so we know out start and end will be normal nodes.
+        handle_t start_handle = connectivity_net_graph.get_handle(start.node_id(), start.backward());
+        handle_t end_handle = connectivity_net_graph.get_handle(end.node_id(), end.backward());
+        
+        // Start out by assuming we aren't connected
+        bool connected_start_start = false;
+        bool connected_end_end = false;
+        bool connected_start_end = false;
+        
+        // We do a couple of direcred walk searches to test connectivity.
+        list<handle_t> queue{start_handle};
+        unordered_set<handle_t> queued{start_handle};
+        auto handle_edge = [&](const handle_t& other) {
+#ifdef debug
+            cerr << "\tCan reach " << connectivity_net_graph.get_id(other)
+                << " " << connectivity_net_graph.get_is_reverse(other) << endl;
+#endif
+            
+            // Whenever we see a new node orientation, queue it.
+            if (!queued.count(other)) {
+                queue.push_back(other);
+                queued.insert(other);
+            }
+        };
+        
+#ifdef debug
+        cerr << "Looking for start-start turnarounds and through connections from "
+            << connectivity_net_graph.get_id(start_handle) << " " << connectivity_net_graph.get_is_reverse(start_handle) << endl;
+#endif
+        
+        while (!queue.empty()) {
+            handle_t here = queue.front();
+            queue.pop_front();
+            
+            if (here == end_handle) {
+                // Start can reach the end
+                connected_start_end = true;
+            }
+            
+            if (here == connectivity_net_graph.flip(start_handle)) {
+                // Start can reach itself the other way around
+                connected_start_start = true;
+            }
+            
+            if (connected_start_end && connected_start_start) {
+                // No more searching needed
+                break;
+            }
+            
+            // Look at everything reachable on a proper rightward directed walk.
+            connectivity_net_graph.follow_edges(here, false, handle_edge);
+        }
+        
+        auto end_inward = connectivity_net_graph.flip(end_handle);
+        
+#ifdef debug
+        cerr << "Looking for end-end turnarounds from " << connectivity_net_graph.get_id(end_inward)
+            << " " << connectivity_net_graph.get_is_reverse(end_inward) << endl;
+#endif
+        
+        // Reset and search the other way from the end to see if it can find itself.
+        queue = {end_inward};
+        queued = {end_inward};
+        while (!queue.empty()) {
+            handle_t here = queue.front();
+            queue.pop_front();
+            
+#ifdef debug
+            cerr << "Got to " << connectivity_net_graph.get_id(here) << " "
+                << connectivity_net_graph.get_is_reverse(here) << endl;
+#endif
+            
+            if (here == end_handle) {
+                // End can reach itself the other way around
+                connected_end_end = true;
+                break;
+            }
+            
+            // Look at everything reachable on a proper rightward directed walk.
+            connectivity_net_graph.follow_edges(here, false, handle_edge);
+        }
+        
+        // Save the connectivity info. TODO: should the connectivity flags be
+        // calculated based on just the net graph, or based on actual connectivity
+        // within child snarls.
+        snarl.set_start_self_reachable(connected_start_start);
+        snarl.set_end_self_reachable(connected_end_end);
+        snarl.set_start_end_reachable(connected_start_end);
+
+#ifdef debug
+        cerr << "Connectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
+#endif
+        
+    
+    }
+    
+    {
+        // Determine cyclicity/acyclicity
+    
+        // Make a net graph that just pretends child snarls/chains are ordinary nodes
+        NetGraph flat_net_graph(start, end, child_chains, child_unary_snarls, &graph);
+        
+        // This definitely should be calculated based on the internal-connectivity-ignoring net graph.
+        snarl.set_directed_acyclic_net_graph(algorithms::is_directed_acyclic(&flat_net_graph));
+    }
+
+    // Now we need to work out if the snarl can be a unary snarl or an ultrabubble or what.
+    if (start.node_id() == end.node_id()) {
+        // Snarl has the same start and end (or no start or end, in which case we don't care).
+        snarl.set_type(UNARY);
+#ifdef debug
+        cerr << "Snarl is UNARY" << endl;
+#endif
+    } else if(!child_unary_snarls.empty()) {
+        // Can't be an ultrabubble if we have unary children
+        snarl.set_type(UNCLASSIFIED);
+#ifdef debug
+        cerr << "Snarl is UNCLASSIFIED because it has unary children" << endl;
+#endif
+    } else if (!snarl.start_end_reachable()) {
+        // Can't be an ultrabubble if we're not connected through.
+        snarl.set_type(UNCLASSIFIED);
+#ifdef debug
+        cerr << "Snarl is UNCLASSIFIED because it doesn't connect through" << endl;
+#endif
+    } else if (snarl.start_self_reachable() || snarl.end_self_reachable()) {
+        // Can't be an ultrabubble if we have these cycles
+        snarl.set_type(UNCLASSIFIED);
+        
+#ifdef debug
+        cerr << "Snarl is UNCLASSIFIED because it allows turning around, creating a directed cycle" << endl;
+#endif
+
+    } else {
+        // See if we have all ultrabubble children
+        bool all_ultrabubble_children = true;
+        for (auto& chain : child_chains) {
+            for (auto& child : chain) {
+                if (child.type() != ULTRABUBBLE) {
+                    all_ultrabubble_children = false;
+                    break;
                 }
             }
-            
-            // We're going to fill in this Snarl.
-            Snarl snarl;
-            
-            // Set up the start and end
-
-            // Make sure to preserve original endpoint
-            // ordering, because swapping them without flipping their
-            // orientation flags will make an inside-out site.
-            snarl.mutable_start()->set_node_id(bubble.start.node);
-            snarl.mutable_start()->set_backward(!bubble.start.is_end);
-            snarl.mutable_end()->set_node_id(bubble.end.node);
-            snarl.mutable_end()->set_backward(bubble.end.is_end);
-            
-            // Mark snarl as an ultrabubble if it's acyclic
-            snarl.set_type(bubble.dag ? ULTRABUBBLE : UNCLASSIFIED);
-            
-            // If not a top level site, add parent info
-            if (node->parent != bubble_tree->root) {
-                Bubble& bubble_parent = node->parent->v;
-                Snarl* snarl_parent = snarl.mutable_parent();
-                snarl_parent->mutable_start()->set_node_id(bubble_parent.start.node);
-                snarl_parent->mutable_start()->set_backward(!bubble_parent.start.is_end);
-                snarl_parent->mutable_end()->set_node_id(bubble_parent.end.node);
-                snarl_parent->mutable_end()->set_backward(bubble_parent.end.is_end);
+            if (!all_ultrabubble_children) {
+                break;
             }
-            
-            converted_snarls.push_back(snarl);
         }
-    });
-    
-    delete bubble_tree;
-    
-    // Now form the SnarlManager and return
-    return SnarlManager(converted_snarls.begin(), converted_snarls.end());
+        
+        // Note that ultrabubbles *can* loop back on their start or end.
+        
+        if (!all_ultrabubble_children) {
+            // If we have non-ultrabubble children, we can't be an ultrabubble.
+            snarl.set_type(UNCLASSIFIED);
+#ifdef debug
+            cerr << "Snarl is UNCLASSIFIED because it has non-ultrabubble children" << endl;
+#endif
+        } else if (!snarl.directed_acyclic_net_graph()) {
+            // If all our children are ultrabubbles but we ourselves are cyclic, we can't be an ultrabubble
+            snarl.set_type(UNCLASSIFIED);
+            
+#ifdef debug
+            cerr << "Snarl is UNCLASSIFIED because it is not directed-acyclic" << endl;
+#endif
+        } else {
+            // We have only ultrabubble children and are acyclic.
+            // We're an ultrabubble.
+            snarl.set_type(ULTRABUBBLE);
+#ifdef debug
+            cerr << "Snarl is an ULTRABUBBLE" << endl;
+#endif
+        }
+    }
+
+    // Return a reference to the snarl we created in the list.
+    return snarl;
 }
-    
    
 ExhaustiveTraversalFinder::ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager,
                                                      bool include_reversing_traversals) :
@@ -515,6 +791,16 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
         // does this traversal point into a child snarl?
         const Snarl* into_snarl = snarl_manager.into_which_snarl(node_traversal.node->id(),
                                                                  node_traversal.backward);
+                                                                 
+#ifdef debug
+        cerr << "Traversal " << node_traversal.node->id() << " " << node_traversal.backward << " enters";
+        if (into_snarl != nullptr) {
+            cerr << " " << pb2json(*into_snarl) << endl;
+        } else {
+            cerr << " NULL" << endl; 
+        }
+#endif
+                                                                 
         if (into_snarl && !(node_traversal == traversal_start)) {
             // add a visit for the child snarl
             path.emplace_back();
@@ -527,23 +813,49 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
             // which side of the snarl does the traversal point into?
             if (into_snarl->start().node_id() == node_traversal.node->id()
                 && into_snarl->start().backward() == node_traversal.backward) {
-                
-                // skip to the other side
-                stack.push_back(to_node_traversal(into_snarl->end(), graph));
+                // Into the start
+#ifdef debug
+                cerr << "Entered child through its start" << endl;
+#endif
+                if (into_snarl->start_end_reachable()) {
+                    // skip to the other side and proceed in the orientation that the end node takes.
+                    stack.push_back(to_node_traversal(into_snarl->end(), graph));
+#ifdef debug
+                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+#endif
+                }
                 
                 // if the same side is also reachable, add it to the stack too
                 if (into_snarl->start_self_reachable()) {
-                    stack.push_back(to_rev_node_traversal(into_snarl->start(), graph));
+                    // Make sure to flip it around so we come out of the snarl instead of going in again,
+                    stack.push_back(to_rev_node_traversal(into_snarl->start(), graph).reverse());
+#ifdef debug
+                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+#endif
                 }
                 
             }
             else {
-                // skip to the other side
-                stack.push_back(to_node_traversal(into_snarl->start(), graph));
+                // Into the end
+#ifdef debug
+                cerr << "Entered child through its end" << endl;
+#endif
+                if (into_snarl->start_end_reachable()) {
+                    // skip to the other side and proceed in the orientation
+                    // *opposite* what the start node takes (i.e. out of the
+                    // snarl)
+                    stack.push_back(to_node_traversal(into_snarl->start(), graph).reverse());
+#ifdef debug
+                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+#endif
+                }
                 
                 // if the same side is also reachable, add it to the stack too
-                if (into_snarl->start_self_reachable()) {
+                if (into_snarl->end_self_reachable()) {
                     stack.push_back(to_rev_node_traversal(into_snarl->end(), graph));
+#ifdef debug
+                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+#endif
                 }
             }
         }
