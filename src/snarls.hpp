@@ -25,6 +25,43 @@ using namespace std;
 namespace vg {
     
     /**
+     * Snarls are defined at the Protobuf level, but here is how we define
+     * chains as real objects.
+     *
+     * The SnarlManager is going to have one official copy of each chain stored,
+     * and it will give you a pointer to it on demand.
+     */
+    using Chain = vector<const Snarl*>;
+    
+    /**
+     * Get the inward-facing start Visit for a chain.
+     */
+    Visit get_start(const Chain& chain);
+    
+    /**
+     * Get the outward-facing end Visit for a chain.
+     */
+    Visit get_end(const Chain& chain);
+    
+    /**
+     * We want to be able to loop over a chain and get iterators to pairs of the
+     * snarl and its orientation in the chain. So we define some iterators.
+     */
+    struct ChainIterator {
+        /// Advance the iterator
+        ChainIterator& operator++();
+        /// Get the snarl we're at and whether it is backward 
+        pair<const snarl*, bool> operator*();
+        /// What position in the underlying vector are we in?
+        Chain::iterator pos;
+        /// Are we a reverse iterator or not?
+        bool go_left;
+        /// Is the snarl we are at backward or forward in its chain?
+        bool backward;
+    }
+    
+    
+    /**
      * Allow traversing a graph of nodes and child snarl chains within a snarl
      * within another HandleGraph. Uses its own internal child index because
      * it's used in the construction of snarls to feed to SnarlManagers.
@@ -72,12 +109,12 @@ namespace vg {
         /// using the given chains as child chains. Unary snarls are stored as
         /// single-snarl chains just like other trivial chains.
         NetGraph(const Visit& start, const Visit& end,
-            const vector<vector<const Snarl*>>& child_chains_mixed,
+            const vector<Chain>& child_chains_mixed,
             const HandleGraph* graph,
             bool use_internal_connectivity = false);
             
         /// Make a net graph from the given chains and unary snarls (as pointers) in the given backing graph.
-        NetGraph(const Visit& start, const Visit& end, const vector<vector<const Snarl*>>& child_chains,
+        NetGraph(const Visit& start, const Visit& end, const vector<Chain>& child_chains,
             const vector<const Snarl*>& child_unary_snarls, const HandleGraph* graph, bool use_internal_connectivity = false);
             
         /// Make a net graph from the given chains and unary snarls (as raw values) in the given backing graph.
@@ -130,7 +167,7 @@ namespace vg {
         void add_unary_child(const Snarl* unary);
         
         /// Add a chain of one or more non-unary snarls to the index.
-        void add_chain_child(const vector<const Snarl*>& chain);
+        void add_chain_child(const Chain& chain);
     
         // Save the backing graph
         const HandleGraph* graph;
@@ -210,7 +247,7 @@ namespace vg {
         /// Unary snarls and snarls in trivial chains will be presented as their own chains.
         /// Snarls are not necessarily oriented appropriately given their ordering in the chain.
         /// Useful for making a net graph.
-        const vector<vector<const Snarl*>> chains_of(const Snarl* snarl) const;
+        const vector<Chain> chains_of(const Snarl* snarl) const;
         
         /// Get the net graph of the given Snarl's contents, using the given
         /// backing HandleGraph. If use_internal_connectivity is false, each

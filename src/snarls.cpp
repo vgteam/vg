@@ -9,6 +9,27 @@
 #include "json2pb.h"
 
 namespace vg {
+
+    Visit get_start(const Chain& chain) {
+        // The start snarl is backward if it shares its start node with the second snarl.
+        bool start_backward = (chain.size() > 1 &&
+            (chain.front()->start().node_id() == (*++chain.begin())->start().node_id() ||
+            chain.front()->start().node_id() == (*++chain.begin())->end().node_id()));
+        
+        // Now get a bounding visit and return it.
+        return start_backward ? reverse(chain.front()->end()) : chain.front()->start();
+    }
+    
+    Visit get_end(const Chain& chain) {
+        // The end snarl is backward if it shares its end node with the next-to-last snarl.
+        bool end_backward = (chain.size() > 1 &&
+            (chain.back()->end().node_id() == (*++chain.rbegin())->start().node_id() ||
+            chain.back()->end().node_id() == (*++chain.rbegin())->end().node_id()));
+            
+        // Now get a bounding visit and return it.
+        return end_backward ? reverse(chain.front()->start()) : chain.front()->end();
+    }
+
     // TODO: this is duplicative with the other constructor, but protobuf won't let me make
     // a deserialization iterator to match its signature because its internal file streams
     // disallow copy constructors
@@ -87,12 +108,12 @@ namespace vg {
         return reverse(next_in_chain(reverse(here)));
     }
     
-    const vector<vector<const Snarl*>> SnarlManager::chains_of(const Snarl* snarl) const {
+    const vector<Chain> SnarlManager::chains_of(const Snarl* snarl) const {
         // We track the snarls we have seen by chain traversal so we only have to see each chain once.
         unordered_set<const Snarl*> seen;
         
         // We will populate this with the chains.
-        vector<vector<const Snarl*>> to_return;
+        vector<Chain> to_return;
         
         for (const Snarl* child : children_of(snarl)) {
             // For every snarl in this snarl (or, if snarl is null, every top level snarl)
@@ -755,7 +776,7 @@ namespace vg {
     }
     
     NetGraph::NetGraph(const Visit& start, const Visit& end,
-        const vector<vector<const Snarl*>>& child_chains_mixed,
+        const vector<Chain>& child_chains_mixed,
         const HandleGraph* graph,
         bool use_internal_connectivity) : NetGraph(start, end, graph, use_internal_connectivity) {
         
@@ -774,7 +795,7 @@ namespace vg {
     }
     
     NetGraph::NetGraph(const Visit& start, const Visit& end,
-        const vector<vector<const Snarl*>>& child_chains,
+        const vector<Chain>& child_chains,
         const vector<const Snarl*>& child_unary_snarls, const HandleGraph* graph,
         bool use_internal_connectivity) : NetGraph(start, end, graph, use_internal_connectivity) {
         
@@ -794,7 +815,7 @@ namespace vg {
         const vector<Snarl>& child_unary_snarls,
         const HandleGraph* graph,
         bool use_internal_connectivity) :
-        NetGraph(start, end, vg::map_over<vector, vector<Snarl>, vector<const Snarl*>>(child_chains, pointerfy<vector, Snarl>),
+        NetGraph(start, end, vg::map_over<vector, vector<Snarl>, Chain>(child_chains, pointerfy<vector, Snarl>),
             pointerfy(child_unary_snarls), graph, use_internal_connectivity) {
         // Nothing to do! We already ran the real constructor with vectors of pointers to everything
     }
@@ -826,29 +847,10 @@ namespace vg {
         }
     }
     
-    void NetGraph::add_chain_child(const vector<const Snarl*>& chain) {
+    void NetGraph::add_chain_child(const Chain& chain) {
         // For every chain, get its bounding handles in the base graph
-            
-        // Note that bounding handles are not always the start of the first
-        // snarl and the end of the last, because snarls can be flipped!
-        
-        // The start snarl is backward if it shares its start node with the second snarl.
-        bool start_backward = (chain.size() > 1 &&
-            (chain.front()->start().node_id() == (*++chain.begin())->start().node_id() ||
-            chain.front()->start().node_id() == (*++chain.begin())->end().node_id()));
-        
-        // The end snarl is backward if it shares its end node with the next-to-last snarl.
-        bool end_backward = (chain.size() > 1 &&
-            (chain.back()->end().node_id() == (*++chain.rbegin())->start().node_id() ||
-            chain.back()->end().node_id() == (*++chain.rbegin())->end().node_id()));
-        
-        // Now get the bounding handles according to the orientations of the chains' bounding snarls.
-        handle_t chain_start = start_backward ? 
-            graph->get_handle(chain.front()->end().node_id(), !chain.front()->end().backward()) :
-            graph->get_handle(chain.front()->start().node_id(), chain.front()->start().backward());
-        handle_t chain_end = end_backward ?
-            graph->get_handle(chain.back()->start().node_id(), !chain.back()->start().backward()) :
-            graph->get_handle(chain.back()->end().node_id(), chain.back()->end().backward());
+        handle_t chain_start = graph->get_handle(get_start(chain));
+        handle_t chain_end = graph->get_handle(get_end(chain));
         
         // Save the links that let us cross the chain.
         chain_ends_by_start[chain_start] = chain_end;
@@ -863,7 +865,8 @@ namespace vg {
             
             // Looping over the chain, we need to know if snarls are
             // backward.
-            bool backward = start_backward;
+            // We start out backward if we don't start at the start of the first snarl.
+            bool backward = (get_start(chain).node_id() != chain.front()->start().node_id());
             // And to track that we need to track what the last node of the
             // last snarl was, so we can see if we share it on our start or
             // end.
@@ -905,7 +908,8 @@ namespace vg {
             }
             
             // Reset for a traversal the other way
-            backward = end_backward;
+            // We're backward if the end snarl doesn't end with the same node as the chain.
+            backward = (get_end(chain).node_id() != chain.back()->end().node_id());;
             last_node = 0;
             
             for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
