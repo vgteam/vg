@@ -76,5 +76,5 @@ int main_bugs(int argc, char** argv){
 }
 
 // Register subcommand
-static Subcommand vg_bugs("bugs", "show or create bugs", main_bugs);
+static Subcommand vg_bugs("bugs", "show or create bugs", DEVELOPMENT, main_bugs);
 

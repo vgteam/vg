@@ -837,4 +837,4 @@ int main_find(int argc, char** argv) {
 
 }
 
-static Subcommand vg_msga("find", "use an index to find nodes, edges, kmers, paths, or positions", main_find);
+static Subcommand vg_msga("find", "use an index to find nodes, edges, kmers, paths, or positions", TOOLKIT, main_find);
