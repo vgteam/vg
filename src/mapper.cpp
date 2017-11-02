@@ -484,7 +484,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
 #endif
     }
 
-    if (record_max_lcp) longest_lcp = *max_element(lcp_maxima.begin(), lcp_maxima.end());
+    if (record_max_lcp) longest_lcp = lcp_maxima.empty() ? 0 : *max_element(lcp_maxima.begin(), lcp_maxima.end());
 
     assert(lcp_maxima.size() == mems.size());
 
