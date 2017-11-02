@@ -126,14 +126,7 @@ int mems_overlap_length(const MaximalExactMatch& mem1,
 
 bool clusters_overlap_in_read(const vector<MaximalExactMatch>& cluster1,
                               const vector<MaximalExactMatch>& cluster2) {
-    for (auto& mem1 : cluster1) {
-        for (auto& mem2 : cluster2) {
-            if (mems_overlap(mem1, mem2)) {
-                return true;
-            }
-        }
-    }
-    return false;
+    return clusters_overlap_length(cluster1, cluster2) > 0;
 }
 
 int clusters_overlap_length(const vector<MaximalExactMatch>& cluster1,
