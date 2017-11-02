@@ -1352,8 +1352,8 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.5)
-    , pair_rescue_retry_threshold(0.8)
+    , pair_rescue_hang_threshold(0.8)
+    , pair_rescue_retry_threshold(0.0)
     , include_full_length_bonuses(true)
 {
     
@@ -1654,8 +1654,8 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
 #endif
         orientations.insert(is_rev(mate_pos));
         int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
-                            : round(min((double)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
-                                        mate1.sequence().size() * 4.0)));
+                            : round(min((double)frag_stats.cached_fragment_length_stdev * 10.0 + mate1.sequence().size(),
+                                        mate1.sequence().size() * 10.0)));
         //cerr << "Getting at least " << get_at_least << endl;
         graph.MergeFrom(xindex->graph_context_id(mate_pos, get_at_least/2));
         graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
@@ -1911,11 +1911,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
 
     // scale difficulty using the estimated mapping quality
-    total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)floor(max_possible_mq / maybe_pair_mq)));
+    total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)ceil(max_possible_mq / maybe_pair_mq)));
 
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << max_possible_mq << endl;
     if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << max_possible_mq << endl;
-
+    
     if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
     if (debug) cerr << "mems for read 2 " << mems_to_json(mems2) << endl;
 
@@ -2633,7 +2633,7 @@ Mapper::align_mem_multi(const Alignment& aln,
                                                             basis_length/max(1.0, (double)mem_max_length),
                                                             basis_length/longest_lcp);
     // scale difficulty using the estimated mapping quality
-    total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)floor(max_possible_mq / maybe_mq)));
+    total_multimaps = max(max(min_multimaps*2, max_multimaps), min(total_multimaps, (int)ceil(max_possible_mq / maybe_mq)));
 
     if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " min mem length: " << min_mem_length << " longest LCP: " << longest_lcp << " total multimaps: " << total_multimaps << " max mq: " << max_possible_mq << endl;
 
@@ -2753,14 +2753,8 @@ Mapper::align_mem_multi(const Alignment& aln,
     for (auto& cluster : clusters) {
         if (alns.size() >= total_multimaps) { break; }
         // skip if we've filtered the cluster
-        if (to_drop.count(&cluster) && filled >= min_multimaps) {
+        if (to_drop.count(&cluster) && filled >= min_multimaps*2) {
             alns.push_back(aln);
-            used_clusters.push_back(&cluster);
-            continue;
-        }
-        // skip if we've got enough multimaps to get MQ and we're under the min cluster length
-        if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) {
-            alns.emplace_back(aln);
             used_clusters.push_back(&cluster);
             continue;
         }
@@ -3586,10 +3580,10 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_m
     int sub_overlaps = sub_overlaps_of_first_aln(alns, mq_overlap);
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_mapping_quality(alns, max_mq, true, cluster_mq, use_cluster_mq, sub_overlaps, mq_estimate, identity_weight);
+            aligner->compute_mapping_quality(alns, max_mq, true, cluster_mq, use_cluster_mq, sub_overlaps, mq_estimate, maybe_mq_threshold, identity_weight);
             break;
         case Exact:
-            aligner->compute_mapping_quality(alns, max_mq, false, cluster_mq, use_cluster_mq, sub_overlaps, mq_estimate, identity_weight);
+            aligner->compute_mapping_quality(alns, max_mq, false, cluster_mq, use_cluster_mq, sub_overlaps, mq_estimate, maybe_mq_threshold, identity_weight);
             break;
         default: // None
             break;
@@ -3610,10 +3604,10 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
     }
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_paired_mapping_quality(pair_alns, frag_weights, max_mq1, max_mq2, true, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, mq_estimate1, mq_estimate2, identity_weight);
+            aligner->compute_paired_mapping_quality(pair_alns, frag_weights, max_mq1, max_mq2, true, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, mq_estimate1, mq_estimate2, maybe_mq_threshold, identity_weight);
             break;
         case Exact:
-            aligner->compute_paired_mapping_quality(pair_alns, frag_weights, max_mq1, max_mq2, false, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, mq_estimate1, mq_estimate2, identity_weight);
+            aligner->compute_paired_mapping_quality(pair_alns, frag_weights, max_mq1, max_mq2, false, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, mq_estimate1, mq_estimate2, maybe_mq_threshold, identity_weight);
             break;
         default: // None
             break;

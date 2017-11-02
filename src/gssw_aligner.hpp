@@ -139,6 +139,7 @@ namespace vg {
                                      bool use_cluster_mq,
                                      int overlap_count,
                                      double mq_estimate,
+                                     double maybe_mq_threshold,
                                      double identity_weight);
         /// same function for paired reads, mapping qualities are stored in both alignments in the pair
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
@@ -152,6 +153,7 @@ namespace vg {
                                             int overlap_count2,
                                             double mq_estimate1,
                                             double mq_estimate2,
+                                            double maybe_mq_threshold,
                                             double identity_weight);
         
         /// Computes mapping quality for the optimal score in a vector of scores
