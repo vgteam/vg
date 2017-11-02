@@ -2082,7 +2082,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size() && (!to_drop1.count(&cluster1)
-                                || filled1 < min_multimaps)) {
+                                || filled1 < 2)) {
             p.first = align_cluster(read1, cluster1, true);
             ++filled1;
         } else {
@@ -2092,7 +2092,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_path();
         }
         if (cluster2.size() && (!to_drop2.count(&cluster2)
-                                || filled2 < min_multimaps)) {
+                                || filled2 < 2)) {
             p.second = align_cluster(read2, cluster2, true);
             ++filled2;
         } else {
@@ -2519,13 +2519,17 @@ int sub_overlaps_of_first_aln(const vector<Alignment>& alns, float overlap_fract
 
 set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters) {
     set<const vector<MaximalExactMatch>* > to_drop;
+    vector<double> covs; covs.resize(clusters.size());
+    for (int i = 0; i < clusters.size(); ++i) {
+        covs[i] = cluster_coverage(clusters[i]);
+    }
     for (int i = 0; i < clusters.size(); ++i) {
         // establish overlaps with longer clusters for all clusters
         auto& this_cluster = clusters[i];
-        int t = cluster_coverage(this_cluster);
+        double t = covs[i];
         if (t < min_cluster_length) {
             to_drop.insert(&this_cluster);
-            break;
+            continue;
         }
         int b = -1;
         int l = t;
@@ -2538,10 +2542,11 @@ set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vec
                 to_drop.insert(&this_cluster);
                 break;
             }
-            // if the overlap length is more than half our cluster length
-            if (drop_chain > 0) {
-                double overlap_ratio = (double)clusters_overlap_length(this_cluster, other_cluster)/(double)t;
-                if (overlap_ratio < drop_chain) {
+            // if the overlap length is more than our drop_chain fraction
+            if (drop_chain > 0
+                && clusters_overlap_in_read(this_cluster, other_cluster)) {
+                double length_ratio = t/covs[j];
+                if (length_ratio < drop_chain) {
                     to_drop.insert(&this_cluster);
                     break;
                 }
@@ -2700,10 +2705,11 @@ Mapper::align_mem_multi(const Alignment& aln,
     vector<vector<MaximalExactMatch>*> used_clusters;
     set<string> seen_alignments;
     int multimaps = 0;
+    int filled = 0;
     for (auto& cluster : clusters) {
         if (alns.size() >= total_multimaps) { break; }
         // skip if we've filtered the cluster
-        if (to_drop.count(&cluster) && alns.size() >= min_multimaps) {
+        if (to_drop.count(&cluster) && filled >= 2) {
             alns.push_back(aln);
             used_clusters.push_back(&cluster);
             continue;
@@ -2714,6 +2720,7 @@ Mapper::align_mem_multi(const Alignment& aln,
             used_clusters.push_back(&cluster);
             continue;
         }
+        ++filled;
         Alignment candidate = align_cluster(aln, cluster, true);
         string sig = signature(candidate);
 
@@ -3532,7 +3539,7 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_m
     if (alns.empty()) return;
     double max_mq = min(mq_cap, (double)max_mapping_quality);
     BaseAligner* aligner = get_aligner();
-    int sub_overlaps = 0; //sub_overlaps_of_first_aln(alns, mq_overlap);
+    int sub_overlaps = sub_overlaps_of_first_aln(alns, mq_overlap);
     switch (mapping_quality_method) {
         case Approx:
             aligner->compute_mapping_quality(alns, max_mq, true, cluster_mq, use_cluster_mq, sub_overlaps, mq_estimate, identity_weight);
@@ -3550,8 +3557,8 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
     double max_mq1 = min(mq_cap1, (double)max_mapping_quality);
     double max_mq2 = min(mq_cap2, (double)max_mapping_quality);
     BaseAligner* aligner = get_aligner();
-    int sub_overlaps1 = 0; //sub_overlaps_of_first_aln(pair_alns.first, mq_overlap);
-    int sub_overlaps2 = 0; //sub_overlaps_of_first_aln(pair_alns.second, mq_overlap);
+    int sub_overlaps1 = sub_overlaps_of_first_aln(pair_alns.first, mq_overlap);
+    int sub_overlaps2 = sub_overlaps_of_first_aln(pair_alns.second, mq_overlap);
     vector<double> frag_weights;
     for (int i = 0; i < pair_alns.first.size(); ++i) {
         auto& aln1 = pair_alns.first[i];
