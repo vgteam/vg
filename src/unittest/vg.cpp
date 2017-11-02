@@ -1891,8 +1891,7 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
         vg.create_edge(n0, n5, false, true);
         vg.create_edge(n6, n4, true, true);
         vg.create_edge(n3, n6);
-        
-        unordered_map<int64_t, pair<int64_t, bool>> trans;
+      
         
         VG rev = vg.reverse_complement_graph(trans);
         
@@ -1932,6 +1931,47 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
     }
     
 }
+//-------------------------------------------------------------------------
+TEST_CASE("distance_to_head() produces expected results", "[vg]") {
+    VG vg;
+    // Create a graph with one node
+    Node* n0 = vg.create_node("AA");
+
+    SECTION("distance_to_head() works when NodeTraversal is at head") {
+        // Set NodeTraversal to head node
+        NodeTraversal n;
+        n.node = n0;
+        // maxSize is the number of nodes in the graph
+        int32_t maxSize = vg.node_size();
+        set<NodeTraversal> trav;
+
+        int32_t check = vg.distance_to_head(n, maxSize, 0, trav);
+        
+        REQUIRE(check == 0);
+    }
+    SECTION("distance_to_head() works when NodeTraversal is not at head") {
+        // Add more nodes to graph
+        Node* n1 = vg.create_node("AC");
+        Node* n2 = vg.create_node("AG");
+        Node* n3 = vg.create_node("AT");
+        vg.create_edge(n0, n1);
+        vg.create_edge(n1, n2);
+        vg.create_edge(n2, n3);
+
+        // Set NodeTraversal to the node you are currently on
+        NodeTraversal n;
+        n.node = n3;
+        // maxSize is the number of nodes in the graph
+        int32_t maxSize = vg.node_size();
+        set<NodeTraversal> trav;
+
+        int32_t check = vg.distance_to_head(n, maxSize, 0, trav);
+        
+        REQUIRE(check == vg.node_size());
+      
+    }
     
+}
+//-------------------------------------------------------------------------   
 }
 }
