@@ -493,7 +493,7 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
 
     mapping_quality *= pow(identity, identity_weight);
 
-    if (mq_estimate < maybe_mq_threshold) {
+    if (mq_estimate < maybe_mq_threshold && mq_estimate < mapping_quality) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality)));
     }
 
@@ -593,10 +593,10 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     mapping_quality2 *= pow(identity2, identity_weight);
 
     double mq_estimate = min(mq_estimate1, mq_estimate2);
-    if (mq_estimate < maybe_mq_threshold) {
+    if (mq_estimate < maybe_mq_threshold && mq_estimate < mapping_quality1) {
         mapping_quality1 = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality1)));
     }
-    if (mq_estimate < maybe_mq_threshold) {
+    if (mq_estimate < maybe_mq_threshold && mq_estimate < mapping_quality2) {
         mapping_quality2 = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality2)));
     }
 

@@ -1888,9 +1888,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     mq_cap1 = mq_cap2 = max_mapping_quality;
 
     int total_mem_length1 = 0;
-    for (auto& mem : mems1) total_mem_length1 += mem.length() * mem.nodes.size();
+    for (auto& mem : mems1) total_mem_length1 += mem.length(); // * mem.nodes.size();
     int total_mem_length2 = 0;
-    for (auto& mem : mems2) total_mem_length2 += mem.length() * mem.nodes.size();
+    for (auto& mem : mems2) total_mem_length2 += mem.length(); // * mem.nodes.size();
     double mem_read_ratio1 = min(1.0, (double)total_mem_length1 / (double)read1.sequence().size());
     double mem_read_ratio2 = min(1.0, (double)total_mem_length2 / (double)read2.sequence().size());
 
@@ -1912,14 +1912,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
 
     // use the estimated mq as a cap in cases where we get very few candidates MEMs
-    if (mem_read_ratio1 < 0.3) mq_cap1 = min(mq_cap1, maybe_mq1);
-    if (mem_read_ratio2 < 0.3) mq_cap2 = min(mq_cap2, maybe_mq2);
+    //if (mem_read_ratio1 < 0.5) mq_cap1 = min(mq_cap1, maybe_mq1);
+    //if (mem_read_ratio2 < 0.5) mq_cap2 = min(mq_cap2, maybe_mq2);
 
     // scale difficulty using the estimated mapping quality
     total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)ceil(max_possible_mq / maybe_pair_mq)));
 
-    if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << max_possible_mq << endl;
-    if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << max_possible_mq << endl;
+    if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << endl;
+    if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << fraction_filtered2 << " " << max_possible_mq << endl;
     
     if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
     if (debug) cerr << "mems for read 2 " << mems_to_json(mems2) << endl;
@@ -2364,7 +2364,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     bool max_first = results.first.size() && (read1_max_score == results.first.front().score() && read2_max_score == results.second.front().score());
 
     // calculate paired end quality if the model assumptions are not obviously violated
-    compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2); // simplest method
+    if (results.first.size() && results.second.size()
+        && mem_read_ratio1 > 0.5 && mem_read_ratio2 > 0.5
+        && pair_consistent(results.first.front(), results.second.front(), 1e-6)) {
+        compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2);
+    } else {
+        compute_mapping_qualities(results.first, cluster_mq, maybe_mq1, mq_cap1);
+        compute_mapping_qualities(results.second, cluster_mq, maybe_mq2, mq_cap2);
+    }
 
     // remove the extra pair used to compute mapping quality if necessary
     if (results.first.size() > max_multimaps) {
@@ -2626,7 +2633,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     double mq_cap = max_mapping_quality;
 
     int total_mem_length = 0;
-    for (auto& mem : mems) total_mem_length += mem.length() * mem.nodes.size();
+    for (auto& mem : mems) total_mem_length += mem.length(); // * mem.nodes.size();
     double mem_read_ratio = min(1.0, (double)total_mem_length / (double)aln.sequence().size());
     int basis_length = min((int)aln.sequence().size(), (int)gcsa->order());
     double max_possible_mq = max_possible_mapping_quality(basis_length);
@@ -2639,12 +2646,13 @@ Mapper::align_mem_multi(const Alignment& aln,
                                                             basis_length/longest_lcp);
 
     // use the estimated mq as a cap in cases where we get very few candidates MEMs
-    if (mem_read_ratio < 0.3) mq_cap = min(mq_cap, maybe_mq);
+    //if (mem_read_ratio < 0.5) mq_cap = min(mq_cap, maybe_mq);
 
     // scale difficulty using the estimated mapping quality
     total_multimaps = max(max(min_multimaps*2, max_multimaps), min(total_multimaps, (int)ceil(max_possible_mq / maybe_mq)));
 
-    if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " min mem length: " << min_mem_length << " longest LCP: " << longest_lcp << " total multimaps: " << total_multimaps << " max mq: " << max_possible_mq << endl;
+    //if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " min mem length: " << min_mem_length << " longest LCP: " << longest_lcp << " total multimaps: " << total_multimaps << " max mq: " << max_possible_mq << endl;
+    if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_mq << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << " " << total_multimaps << " " << mem_read_ratio << " " << fraction_filtered << " " << max_possible_mq << endl;
 
     double avg_node_len = average_node_length();
     // go through the ordered single-hit MEMs
