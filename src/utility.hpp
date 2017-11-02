@@ -271,6 +271,28 @@ void create_ref_allele(vcflib::Variant& variant, const std::string& allele);
  */
 int add_alt_allele(vcflib::Variant& variant, const std::string& allele);
 
+/**
+ * We have a transforming map function thatw e can chain.
+ */ 
+template <template <class T, class A = std::allocator<T>> class Container, typename Input, typename Output>
+Container<Output> map_over(const Container<Input>& in, const std::function<Output(const Input&)>& lambda) {
+    Container<Output> to_return;
+    for (const Input& item : in) {
+        to_return.push_back(lambda(item));
+    }
+    return to_return;
+}
+
+/**
+ * We have a wrapper of that to turn a container reference into a container of pointers.
+ */
+template <template <class T, class A = std::allocator<T>> class Container, typename Item>
+Container<const Item*> pointerfy(const Container<Item>& in) {
+    return map_over<Container, Item, const Item*>(in, [](const Item& item) -> const Item* {
+        return &item;
+    });
+}
+
 // Simple little tree
 template<typename T>
 struct TreeNode {

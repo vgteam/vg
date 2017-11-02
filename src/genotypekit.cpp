@@ -411,9 +411,10 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
     }
     
     // We have a vector of the snarls made for the child snarls in each chain
-    vector<vector<Snarl>> child_chains;
+    vector<vector<const Snarl*>> child_chains;
     // And a vector of child unary snarls
-    vector<Snarl> child_unary_snarls;
+    vector<const Snarl*> child_unary_snarls;
+    // These are both expressed as pointers into the "destination" list
     
 #ifdef debug
     cerr << "Look at " << stList_length(chains_list) << " child chains" << endl;
@@ -452,7 +453,7 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
             child_end.set_backward(cac_child_side2->is_end);
                 
             // Recursively create a snarl for the child, and then add it to this chain in us.
-            chain.push_back(recursively_emit_snarls(child_start, child_end, &snarl,
+            chain.push_back(&recursively_emit_snarls(child_start, child_end, &snarl,
                 child_snarl->chains, child_snarl->unarySnarls, destination));
         }
     }
@@ -483,7 +484,7 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         child_end.set_backward(cac_child_side2->is_end);
             
         // Recursively create a snarl for the child, and then add it to the unary child snarl vector.
-        child_unary_snarls.push_back(recursively_emit_snarls(child_start, child_end, &snarl,
+        child_unary_snarls.push_back(&recursively_emit_snarls(child_start, child_end, &snarl,
             child_snarl->chains, child_snarl->unarySnarls, destination));
     }
 
@@ -638,7 +639,7 @@ const Snarl& CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         bool all_ultrabubble_children = true;
         for (auto& chain : child_chains) {
             for (auto& child : chain) {
-                if (child.type() != ULTRABUBBLE) {
+                if (child->type() != ULTRABUBBLE) {
                     all_ultrabubble_children = false;
                     break;
                 }
