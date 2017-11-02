@@ -10,24 +10,128 @@
 
 namespace vg {
 
-    Visit get_start(const Chain& chain) {
+    bool start_backward(const Chain& chain) {
         // The start snarl is backward if it shares its start node with the second snarl.
-        bool start_backward = (chain.size() > 1 &&
+        return (chain.size() > 1 &&
             (chain.front()->start().node_id() == (*++chain.begin())->start().node_id() ||
             chain.front()->start().node_id() == (*++chain.begin())->end().node_id()));
-        
-        // Now get a bounding visit and return it.
-        return start_backward ? reverse(chain.front()->end()) : chain.front()->start();
+    }
+    
+    bool end_backward(const Chain& chain) {
+        // The end snarl is backward if it shares its end node with the next-to-last snarl.
+        return (chain.size() > 1 &&
+            (chain.back()->end().node_id() == (*++chain.rbegin())->start().node_id() ||
+            chain.back()->end().node_id() == (*++chain.rbegin())->end().node_id()));
+    }
+
+    Visit get_start(const Chain& chain) {
+        // Get a bounding visit and return it.
+        return start_backward(chain) ? reverse(chain.front()->end()) : chain.front()->start();
     }
     
     Visit get_end(const Chain& chain) {
-        // The end snarl is backward if it shares its end node with the next-to-last snarl.
-        bool end_backward = (chain.size() > 1 &&
-            (chain.back()->end().node_id() == (*++chain.rbegin())->start().node_id() ||
-            chain.back()->end().node_id() == (*++chain.rbegin())->end().node_id()));
+        // Get a bounding visit and return it.
+        return end_backward(chain) ? reverse(chain.front()->start()) : chain.front()->end();
+    }
+    
+    ChainIterator& ChainIterator::operator++() {
+        // What node from this snarl should the next snarl touch
+        id_t last_leading_node = (go_left != backward) ? (*pos)->start().node_id() : (*pos)->end().node_id();
+        
+        if (go_left) {
+            // Walk left
             
-        // Now get a bounding visit and return it.
-        return end_backward ? reverse(chain.front()->start()) : chain.front()->end();
+            if (pos == chain_start) {
+                // We're already at the start, so next is just going to be come rend
+                is_rend = true;
+                backward = false;
+            } else {
+                // There's actually something to the left of us
+                --pos;
+                
+                // The next snarl is backward in the chain if its end isn't shared with the last snarl.
+                auto next_trailing_node = (*pos)->end().node_id();
+                backward = (next_trailing_node != last_leading_node);
+            }
+        } else {
+            // Walk right
+            ++pos;
+            
+            if (pos == chain_end) {
+                // We've hit the end. Look like a default end iterator.
+                backward = false;
+            } else {
+                // We've arrived somewhere
+            
+                // The next snarl is backward in the chain if its start isn't shared with the last snarl.
+                auto next_trailing_node = (*pos)->start().node_id();
+                backward = (next_trailing_node != last_leading_node);
+            }
+        }
+        
+        return *this;
+    }
+    
+    pair<const Snarl*, bool> ChainIterator::operator*() {
+        return make_pair(*pos, backward);
+    }
+    
+    ChainIterator chain_begin(const Chain& chain) {
+        ChainIterator to_return{
+            false, // Don't go left
+            start_backward(chain), // Start backward if necessary
+            chain.begin(), // Be at the start of the chain
+            chain.begin(), // Here's the chain's start
+            chain.end(), // And its end
+            false // This is not a reverse end
+        };
+        
+        return to_return;
+    }
+    
+    ChainIterator chain_end(const Chain& chain) {
+        ChainIterator to_return{
+            false, // Don't go left
+            false, // Ends are not backward because they are past the end
+            chain.end(), // Be at the end of the chain
+            chain.begin(), // Here's the chain's start
+            chain.end(), // And its end
+            false // This is not a reverse end
+        };
+        
+        return to_return;
+    }
+    
+    ChainIterator chain_rbegin(const Chain& chain) {
+        if (chain.empty()) {
+            // If it's empty we should be the rend past-the-end reverse iterator
+            return chain_rend(chain);
+        }
+        
+        // Otherwise there's at least one element so point to the last.
+        ChainIterator to_return{
+            true, // Go left
+            end_backward(chain), // Start backward if necessary
+            --chain.end(), // Be at the last real thing in the chain
+            chain.begin(), // Here's the chain's start
+            chain.end(), // And its end
+            false // This is not a reverse end
+        };
+        
+        return to_return;
+    }
+    
+    ChainIterator chain_rend(const Chain& chain) {
+        ChainIterator to_return{
+            true, // Go left
+            false, // Ends are never backward
+            chain.begin(), // Be at the start of the chain
+            chain.begin(), // Here's the chain's start
+            chain.end(), // And its end
+            true // This is a reverse end
+        };
+        
+        return to_return;
     }
 
     // TODO: this is duplicative with the other constructor, but protobuf won't let me make

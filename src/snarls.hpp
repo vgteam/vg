@@ -34,6 +34,16 @@ namespace vg {
     using Chain = vector<const Snarl*>;
     
     /**
+     * Return true if the first snarl in the given chain is backward relative to the chain.
+     */
+    bool start_backward(const Chain& chain);
+    
+    /**
+     * Return true if the last snarl in the given chain is backward relative to the chain.
+     */
+    bool end_backward(const Chain& chain);
+    
+    /**
      * Get the inward-facing start Visit for a chain.
      */
     Visit get_start(const Chain& chain);
@@ -51,14 +61,34 @@ namespace vg {
         /// Advance the iterator
         ChainIterator& operator++();
         /// Get the snarl we're at and whether it is backward 
-        pair<const snarl*, bool> operator*();
-        /// What position in the underlying vector are we in?
-        Chain::iterator pos;
+        pair<const Snarl*, bool> operator*();
+        
         /// Are we a reverse iterator or not?
         bool go_left;
         /// Is the snarl we are at backward or forward in its chain?
         bool backward;
-    }
+        
+        /// What position in the underlying vector are we in?
+        Chain::const_iterator pos;
+        
+        /// What are the bounds of that underlying vector?
+        Chain::const_iterator chain_start;
+        Chain::const_iterator chain_end;
+        
+        /// Since we're using backing random access itarators to provide reverse
+        /// iterators, we need a flag to see if we are rend (i.e. before the
+        /// beginning)
+        bool is_rend;
+    };
+    
+    /**
+     * We define free functions for getting iterators forward and backward through chains.
+     */
+    ChainIterator chain_begin(const Chain& chain);
+    ChainIterator chain_end(const Chain& chain);
+    ChainIterator chain_rbegin(const Chain& chain);
+    ChainIterator chain_rend(const Chain& chain);
+     
     
     
     /**
