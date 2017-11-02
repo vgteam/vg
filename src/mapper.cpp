@@ -1353,7 +1353,7 @@ Mapper::Mapper(xg::XG* xidex,
     , max_band_jump(0)
     , identity_weight(2)
     , pair_rescue_hang_threshold(0.5)
-    , pair_rescue_retry_threshold(0.0)
+    , pair_rescue_retry_threshold(0.7)
     , include_full_length_bonuses(true)
 {
     
@@ -1654,8 +1654,8 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
 #endif
         orientations.insert(is_rev(mate_pos));
         int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
-                            : round(min((double)frag_stats.cached_fragment_length_stdev * 10.0 + mate1.sequence().size(),
-                                        mate1.sequence().size() * 10.0)));
+                            : round(min((double)frag_stats.cached_fragment_length_stdev * 6.0 + mate1.sequence().size(),
+                                        mate1.sequence().size() * 6.0)));
         //cerr << "Getting at least " << get_at_least << endl;
         graph.MergeFrom(xindex->graph_context_id(mate_pos, get_at_least/2));
         graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
@@ -1907,8 +1907,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double maybe_mq2 = estimate_max_possible_mapping_quality(basis_length,
                                                              basis_length/max(1.0, (double)mem_max_length2),
                                                              basis_length/longest_lcp2);
+
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
     double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
+
+    // use the estimated mq as a cap in cases where we get very few candidates MEMs
+    if (mem_read_ratio1 < 0.3) mq_cap1 = min(mq_cap1, maybe_mq1);
+    if (mem_read_ratio2 < 0.3) mq_cap2 = min(mq_cap2, maybe_mq2);
 
     // scale difficulty using the estimated mapping quality
     total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)ceil(max_possible_mq / maybe_pair_mq)));
@@ -2632,6 +2637,10 @@ Mapper::align_mem_multi(const Alignment& aln,
     double maybe_mq = estimate_max_possible_mapping_quality(basis_length,
                                                             basis_length/max(1.0, (double)mem_max_length),
                                                             basis_length/longest_lcp);
+
+    // use the estimated mq as a cap in cases where we get very few candidates MEMs
+    if (mem_read_ratio < 0.3) mq_cap = min(mq_cap, maybe_mq);
+
     // scale difficulty using the estimated mapping quality
     total_multimaps = max(max(min_multimaps*2, max_multimaps), min(total_multimaps, (int)ceil(max_possible_mq / maybe_mq)));
 
