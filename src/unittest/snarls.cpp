@@ -2519,24 +2519,91 @@ namespace vg {
                     REQUIRE(snarl_manager.in_nontrivial_chain(child3));
                 }
                 
-                SECTION("We should see that chain if we pull it out") {
+                SECTION("We can traverse the chain with iterators") {
                     auto chains = snarl_manager.chains_of(nullptr);
                     
                     REQUIRE(chains.size() == 1);
                     
                     auto& chain = chains.front();
                     
-                    REQUIRE(chain.size() == 3);
+                    auto begin = chain_begin(chain);
+                    auto rbegin = chain_rbegin(chain);
+                    auto end = chain_end(chain);
+                    auto rend = chain_rend(chain);
                     
-                    auto it = chain_begin(chain);
+                    SECTION("Iterator equality works") {
                     
-                    REQUIRE(*it == make_pair(child1, false));
-                    ++it;
-                    REQUIRE(*it == make_pair(child2, false));
-                    ++it;
-                    REQUIRE(*it == make_pair(child3, false));
-                    ++it;
-                    REQUIRE(it == chain_end(chain));
+                        REQUIRE(begin == begin);
+                        REQUIRE(begin != end);
+                        REQUIRE(begin != rbegin);
+                        REQUIRE(begin != rend);
+                        
+                        REQUIRE(rbegin == rbegin);
+                        REQUIRE(rbegin != end);
+                        REQUIRE(rbegin != begin);
+                        REQUIRE(rbegin != rend);
+                        
+                        REQUIRE(end == end);
+                        REQUIRE(end != begin);
+                        REQUIRE(end != rbegin);
+                        REQUIRE(end != rend);
+                        
+                        REQUIRE(rend == rend);
+                        REQUIRE(rend != end);
+                        REQUIRE(rend != rbegin);
+                        REQUIRE(rend != begin);
+                        
+                    }
+                    
+                    SECTION("Iterators traverse the chain left to right and right to left") {
+                        auto it = begin;
+                        auto rit = rbegin;
+                        
+                        REQUIRE(*it == make_pair(child1, false));
+                        REQUIRE(*rit == make_pair(child3, false));
+                        
+                        REQUIRE(it->first == child1);
+                        REQUIRE(it->second == false);
+                        REQUIRE(rit->first == child3);
+                        REQUIRE(rit->second == false);
+                        
+                        ++it;
+                        ++rit;
+                        
+                        REQUIRE(*it == make_pair(child2, false));
+                        REQUIRE(*rit == make_pair(child2, false));
+                        
+                        REQUIRE(it->first == child2);
+                        REQUIRE(it->second == false);
+                        REQUIRE(rit->first == child2);
+                        REQUIRE(rit->second == false);
+                        
+                        ++it;
+                        ++rit;
+                        
+                        REQUIRE(*it == make_pair(child3, false));
+                        REQUIRE(*rit == make_pair(child1, false));
+                        
+                        REQUIRE(it->first == child3);
+                        REQUIRE(it->second == false);
+                        REQUIRE(rit->first == child1);
+                        REQUIRE(rit->second == false);
+                        
+                        ++it;
+                        ++rit;
+                        
+                        REQUIRE(it == end);
+                        REQUIRE(rit == rend);
+                        
+                    }
+                    
+                    SECTION("Empty chains have proper iterators") {
+                        Chain empty;
+                        
+                        REQUIRE(chain_begin(empty) == chain_end(empty));
+                        REQUIRE(chain_rbegin(empty) == chain_rend(empty));
+                    }
+                    
                 }
                 
                 SECTION("We can still see the chain if we flip the snarls around") {
