@@ -705,6 +705,15 @@ namespace vg {
                         multipath_aln_pairs_out.back().first.clear_start();
                     }
                 }
+                
+                if (!multipath_aln_pairs_out.empty()) {
+                    if (likely_mismapping(multipath_aln_pairs_out.front().first)) {
+                        multipath_aln_pairs_out.front().first.set_mapping_quality(0);
+                    }
+                    if (likely_mismapping(multipath_aln_pairs_out.front().second)) {
+                        multipath_aln_pairs_out.front().second.set_mapping_quality(0);
+                    }
+                }
             }
         }
         
@@ -1561,6 +1570,8 @@ namespace vg {
             node_trans = align_graph.overlay_node_translations(dagify_trans, node_trans);
         }
         
+        // put the internal graph in topological order for the MultipathAlignmentGraph algorithm
+        align_graph.lazy_sort();
         
 #ifdef debug_multipath_mapper
         cerr << "making multipath alignment MEM graph" << endl;
