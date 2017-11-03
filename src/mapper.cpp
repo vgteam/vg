@@ -1899,20 +1899,26 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     int mem_max_length1 = 0;
     for (auto& mem : mems1) if (mem.primary && mem.match_count) mem_max_length1 = max(mem_max_length1, (int)mem.length());
-    double maybe_mq1 = estimate_max_possible_mapping_quality(basis_length,
-                                                             basis_length/max(1.0, (double)mem_max_length1),
-                                                             basis_length/longest_lcp1);
+    double maybe_mq1 = 0;
+    if (mems1.size()) {
+        maybe_mq1 = estimate_max_possible_mapping_quality(basis_length,
+                                                          basis_length/max(1.0, (double)mem_max_length1),
+                                                          basis_length/longest_lcp1);
+    }
     int mem_max_length2 = 0;
     for (auto& mem : mems2) if (mem.primary && mem.match_count) mem_max_length2 = max(mem_max_length2, (int)mem.length());
-    double maybe_mq2 = estimate_max_possible_mapping_quality(basis_length,
-                                                             basis_length/max(1.0, (double)mem_max_length2),
-                                                             basis_length/longest_lcp2);
+    double maybe_mq2 = 0;
+    if (mems2.size()) {
+        maybe_mq2 = estimate_max_possible_mapping_quality(basis_length,
+                                                          basis_length/max(1.0, (double)mem_max_length2),
+                                                          basis_length/longest_lcp2);
+    }
 
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
     double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
 
     // if estimated mq is not high scale difficulty using the estimated mapping quality
-    if (min(maybe_mq1, maybe_mq2) > max_mapping_quality*2) {
+    if (min(maybe_mq1, maybe_mq2) > max_mapping_quality) {
         total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(total_multimaps * (1 - (4*maybe_pair_mq / max_possible_mq)))));
     }
 
@@ -2360,18 +2366,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
     bool max_first = results.first.size() && (read1_max_score == results.first.front().score() && read2_max_score == results.second.front().score());
 
-    // calculate paired end quality if the model assumptions are not obviously violated
-    if (results.first.size() && results.second.size()
-        && (possible_pairs > 1 // either we have more than one candidate or a really good pair
-            || fraction_filtered1 < 0.1 && fraction_filtered2 < 0.1
-            && maybe_mq1 > 1 && maybe_mq2 > 1 && max_first
-            && (mem_read_ratio1 > 0.5 || mem_read_ratio2 > 0.5))
-        && pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
-        compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2);
-    } else {
-        compute_mapping_qualities(results.first, cluster_mq, maybe_mq1, mq_cap1);
-        compute_mapping_qualities(results.second, cluster_mq, maybe_mq2, mq_cap2);
-    }
+    // compute mapping qulaity
+    compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2);
 
     // remove the extra pair used to compute mapping quality if necessary
     if (results.first.size() > max_multimaps) {
@@ -2641,12 +2637,15 @@ Mapper::align_mem_multi(const Alignment& aln,
     // Estimate the maximum mapping quality we can get if the alignments based on the good MEMs are the best ones.
     int mem_max_length = 0;
     for (auto& mem : mems) if (mem.primary && mem.match_count) mem_max_length = max(mem_max_length, (int)mem.length());
-    double maybe_mq = estimate_max_possible_mapping_quality(basis_length,
-                                                            basis_length/max(1.0, (double)mem_max_length),
-                                                            basis_length/longest_lcp);
+    double maybe_mq = 0;
+    if (mems.size()) {
+        maybe_mq = estimate_max_possible_mapping_quality(basis_length,
+                                                         basis_length/max(1.0, (double)mem_max_length),
+                                                         basis_length/longest_lcp);
+    }
 
     // scale difficulty using the estimated mapping quality
-    if (maybe_mq > max_mapping_quality*2) {
+    if (maybe_mq > max_mapping_quality) {
         total_multimaps = max(max(min_multimaps*4, max_multimaps), min(total_multimaps, (int)round(total_multimaps * (1 - (4*maybe_mq / max_possible_mq)))));
     }
 
