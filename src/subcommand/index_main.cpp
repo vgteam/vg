@@ -37,6 +37,7 @@ void help_index(char** argv) {
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
          << "    -b, --batch-size N     number of samples per batch (default 200)" << endl
+         << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -G, --gbwt-name FILE   write the paths generated from the VCF file as GBWT to FILE (don't write gPBWT)" << endl
          << "    -H, --write-haps FILE  write the paths generated from the VCF file in binary to FILE (don't write gPBWT)" << endl
          << "gcsa options:" << endl
@@ -148,6 +149,7 @@ int main_index(int argc, char** argv) {
     bool forward_only = false;
     size_t size_limit = 200; // in gigabytes
     size_t samples_in_batch = 200; // Samples per batch in GBWT construction.
+    std::pair<size_t, size_t> sample_range(0, ~(size_t)0);  // The semiopen range of samples to process.
     bool store_threads = false; // use gPBWT to store paths
     bool discard_overlaps = false;
     string binary_haplotype_output;
@@ -189,13 +191,14 @@ int main_index(int argc, char** argv) {
             {"dbg-in", required_argument, 0, 'i'},
             {"discard-overlaps", no_argument, 0, 'o'},
             {"batch-size", required_argument, 0, 'b'},
+            {"range", required_argument, 0, 'R'},
             {"gbwt-name", required_argument, 0, 'G'},
             {"write-haps", required_argument, 0, 'H'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNob:G:H:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNob:R:G:H:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -217,7 +220,21 @@ int main_index(int argc, char** argv) {
             break;
 
         case 'b':
-            samples_in_batch = atoi(optarg);
+            samples_in_batch = std::stoul(optarg);
+            break;
+
+        case 'R':
+            {
+                // Parse first..last
+                string temp(optarg);
+                size_t found = temp.find("..");
+                if(found == string::npos || found == 0 || found + 2 == temp.size()) {
+                    cerr << "error:[vg construct] could not parse range " << temp << endl;
+                    exit(1);
+                }
+                sample_range.first = std::stoul(temp.substr(0, found));
+                sample_range.second = std::stoul(temp.substr(found + 2)) + 1;
+            }
             break;
 
         case 'G':
@@ -501,15 +518,26 @@ int main_index(int argc, char** argv) {
             // Buffer recent node lengths for faster access.
             NodeLengthBuffer node_length(index);
 
-            // How many phases are there?
+            // How many samples are there?
             size_t num_samples = variant_file.sampleNames.size();
+            if (num_samples == 0) {
+                cerr << "error:[vg index] The variant file does not contain phasings" << endl;
+                return 1;
+            }
+
             // Remember the sample names
             const vector<string>& sample_names = variant_file.sampleNames;
             // We'll want to keep track of names too
             vector<string> thread_names;
 
+            // Determine the range of samples.
+            sample_range.second = std::min(sample_range.second, num_samples);
+            if (show_progress) {
+                cerr << "Processing samples " << sample_range.first << " to " << (sample_range.second - 1) << endl;
+            }
+
             // Process the samples in batches to save memory.
-            size_t batch_start = 0, batch_limit = std::min(num_samples, samples_in_batch);
+            size_t batch_start = sample_range.first, batch_limit = std::min(batch_start + samples_in_batch, sample_range.second);
             size_t first_phase = 2 * batch_start, phases_in_batch = 2 * samples_in_batch;
 
             for (size_t path_rank = 1; path_rank <= index.max_path_rank(); path_rank++) {
@@ -898,7 +926,7 @@ int main_index(int argc, char** argv) {
                 };
 
                 // Process the phases in batches.
-                while(batch_start < num_samples) {
+                while(batch_start < sample_range.second) {
 
                     // Look for variants only on this path; seek back if this
                     // is not the first batch.
@@ -969,7 +997,7 @@ int main_index(int argc, char** argv) {
 
                     // Proceed to the next batch.
                     batch_start = batch_limit;
-                    batch_limit = std::min(batch_start + samples_in_batch, num_samples);
+                    batch_limit = std::min(batch_start + samples_in_batch, sample_range.second);
                     first_phase = 2 * batch_start;
                     saved_phase_paths = std::vector<int>(phases_in_batch, 0);
                     nonvariant_starts = std::vector<size_t>(phases_in_batch, 0);
