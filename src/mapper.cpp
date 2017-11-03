@@ -1963,7 +1963,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             return -std::numeric_limits<double>::max();
         } else {
             int max_length = max(read1.sequence().size(), read2.sequence().size());
-            int duplicate_coverage = mems_overlap_length(m1, m2);
             pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
             int64_t approx_dist = d.first; // take the "same orientation" distance
             /*if (approx_dist < 32) {
@@ -1977,9 +1976,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 int64_t distance = approx_dist;
                 double jump = abs((m2.begin - m1.begin) - distance);
                 if (jump) {
-                    return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
+                    return (double) -(gap_open + jump * gap_extension);
                 } else {
-                    return (double) -duplicate_coverage * match;
+                    return 0.0;
                 }
             }
         }
@@ -2659,7 +2658,6 @@ Mapper::align_mem_multi(const Alignment& aln,
     // build the clustering model
     // find the alignments that are the best-scoring walks through it
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-        int duplicate_coverage = mems_overlap_length(m1, m2);
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
         int64_t max_length = aln.sequence().size();
@@ -2671,7 +2669,7 @@ Mapper::align_mem_multi(const Alignment& aln,
 #ifdef debug_mapper
 #pragma omp critical
         {
-            if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << " approx_dist " << approx_dist << " duplicate_coverage " << duplicate_coverage << endl;
+            if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << " approx_dist " << approx_dist << endl;
         }
 #endif
         if (approx_dist > max_length) {
@@ -2682,9 +2680,9 @@ Mapper::align_mem_multi(const Alignment& aln,
             int64_t distance = approx_dist;
             double jump = abs((m2.begin - m1.begin) - distance);
             if (jump) {
-                return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
+                return (double) -(gap_open + jump * gap_extension);
             } else {
-                return (double) -duplicate_coverage * match;
+                return 0.0;
             }
         }
     };
