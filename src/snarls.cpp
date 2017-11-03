@@ -358,9 +358,9 @@ namespace vg {
         children[key_form(snarl)] = std::move(children[old_key]);
         children.erase(old_key);
         
-        // Update index index
-        index_of[key_form(snarl)] = std::move(index_of[old_key]);
-        index_of.erase(old_key);
+        // Update self index
+        self[key_form(snarl)] = std::move(self[old_key]);
+        self.erase(old_key);
         
         // note: snarl_into index is invariant to flipping
     }
@@ -419,7 +419,7 @@ namespace vg {
 #endif
             
             // Remember where each snarl is
-            index_of[key_form(&snarl)] = i;
+            self[key_form(&snarl)] = &snarl;
         
             // is this a top-level snarl?
             if (snarl.has_parent()) {
@@ -752,17 +752,17 @@ namespace vg {
         // Work out the key for the snarl
         key_t key = key_form(&not_owned);
         
-        // Get the index of the snarl with that key.
-        auto it = index_of.find(key);
+        // Get the cannonical pointer to the snarl with that key.
+        auto it = self.find(key);
         
-        if (it == index_of.end()) {
+        if (it == self.end()) {
             // It's not there. Someone is trying to manage a snarl we don't
             // really own. Complain.
             throw runtime_error("Unable to find snarl " +  pb2json(not_owned) + " in SnarlManager");
         }
         
         // Return the official copy of that snarl
-        return &snarls.at(it->second);
+        return it->second;
     }
     
     vector<Visit> SnarlManager::visits_right(const Visit& visit, VG& graph, const Snarl* in_snarl) const {

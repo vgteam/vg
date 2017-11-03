@@ -383,9 +383,8 @@ namespace vg {
         /// Map of snarls to their parent
         unordered_map<key_t, const Snarl*> parent;
         
-        /// Map of snarl keys to the indexes in the snarl array
-        // TODO: should we switch to just pointers here and save an indirection?
-        unordered_map<key_t, size_t> index_of;
+        /// Map of snarl keys to the pointer to the managed copy in the snarls vector.
+        unordered_map<key_t, const Snarl*> self;
         
         /// Map of node traversals to the snarls they point into
         unordered_map<pair<int64_t, bool>, const Snarl*> snarl_into;
