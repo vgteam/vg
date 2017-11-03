@@ -285,7 +285,7 @@ namespace vg {
         /// Unary snarls and snarls in trivial chains will be presented as their own chains.
         /// Snarls are not necessarily oriented appropriately given their ordering in the chain.
         /// Useful for making a net graph.
-        const vector<Chain> chains_of(const Snarl* snarl) const;
+        const vector<Chain>& chains_of(const Snarl* snarl) const;
         
         /// Get the net graph of the given Snarl's contents, using the given
         /// backing HandleGraph. If use_internal_connectivity is false, each
@@ -377,9 +377,14 @@ namespace vg {
         
         /// Roots of snarl trees
         vector<const Snarl*> roots;
+        /// Chains of root-level snarls
+        vector<Chain> root_chains;
         
         /// Map of snarls to the child snarls they contain
         unordered_map<key_t, vector<const Snarl*>> children;
+        /// Map of snarls to the child chains they contain
+        /// TODO: can we replace children with this? Or do we still need memoized flat children?
+        unordered_map<key_t, vector<Chain>> child_chains;
         /// Map of snarls to their parent
         unordered_map<key_t, const Snarl*> parent;
         
@@ -392,8 +397,12 @@ namespace vg {
         /// Converts Snarl to the form used as keys in internal data structures
         inline key_t key_form(const Snarl* snarl) const;
         
-        /// Builds tree indexes after Snarls have been added
+        /// Builds tree indexes after Snarls have been added to the snarls vector
         void build_indexes();
+        
+        /// Actually compute chains for a set of already indexed snarls, which
+        /// is important when chains were not provided. Returns the chains.
+        vector<Chain> compute_chains(const vector<const Snarl*>& input_snarls);
     };
     
     /// Converts a Visit to a NodeTraversal. Throws an exception if the Visit is of a Snarl instead

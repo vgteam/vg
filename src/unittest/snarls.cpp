@@ -2528,9 +2528,15 @@ namespace vg {
                     
                     REQUIRE(chain.size() == 3);
                     
-                    REQUIRE(chain[0] == child1);
-                    REQUIRE(chain[1] == child2);
-                    REQUIRE(chain[2] == child3);
+                    auto it = chain_begin(chain);
+                    
+                    REQUIRE(*it == make_pair(child1, false));
+                    ++it;
+                    REQUIRE(*it == make_pair(child2, false));
+                    ++it;
+                    REQUIRE(*it == make_pair(child3, false));
+                    ++it;
+                    REQUIRE(it == chain_end(chain));
                 }
                 
                 SECTION("We can still see the chain if we flip the snarls around") {
@@ -2545,11 +2551,16 @@ namespace vg {
                     
                     REQUIRE(chain.size() == 3);
                     
-                    // We happen to get it backward.
-                    // TODO: Do some kind of orientation-independent comparison
-                    REQUIRE(chain[0] == child3);
-                    REQUIRE(chain[1] == child2);
-                    REQUIRE(chain[2] == child1);
+                    auto it = chain_begin(chain);
+                    
+                    // Chain should be in the same order but with some orientations flipped.
+                    REQUIRE(*it == make_pair(child1, true));
+                    ++it;
+                    REQUIRE(*it == make_pair(child2, true));
+                    ++it;
+                    REQUIRE(*it == make_pair(child3, false));
+                    ++it;
+                    REQUIRE(it == chain_end(chain));
                 }
                 
                 SECTION("We can look around with Visits") {

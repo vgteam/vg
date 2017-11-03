@@ -228,52 +228,14 @@ namespace vg {
         return reverse(next_in_chain(reverse(here)));
     }
     
-    const vector<Chain> SnarlManager::chains_of(const Snarl* snarl) const {
-        // We track the snarls we have seen by chain traversal so we only have to see each chain once.
-        unordered_set<const Snarl*> seen;
-        
-        // We will populate this with the chains.
-        vector<Chain> to_return;
-        
-        for (const Snarl* child : children_of(snarl)) {
-            // For every snarl in this snarl (or, if snarl is null, every top level snarl)
-            
-            if (seen.count(child)) {
-                // Already in a chain
-                continue;
-            }
-            
-            // Make a new chain for this child.
-            list<const Snarl*> chain{child};
-            
-            // Mark it as seen
-            seen.insert(child);
-            
-            // Make a visit to the child
-            Visit here;
-            transfer_boundary_info(*child, *here.mutable_snarl());
-            
-            for (Visit walk_left = prev_in_chain(here); walk_left.has_snarl(); walk_left = prev_in_chain(walk_left)) {
-                // For everything in the chain left from here, add it to the chain
-                chain.push_front(manage(walk_left.snarl()));
-                // Mark it as seen
-                seen.insert(chain.front());
-            }
-            
-            for (Visit walk_right = next_in_chain(here); walk_right.has_snarl(); walk_right = next_in_chain(walk_right)) {
-                // For everything in the chain right from here, add it to the chain
-                chain.push_back(manage(walk_right.snarl()));
-                // Mark it as seen
-                seen.insert(chain.back());
-            }
-            
-            // Copy from the list into a vector
-            to_return.emplace_back(chain.begin(), chain.end());
+    const vector<Chain>& SnarlManager::chains_of(const Snarl* snarl) const {
+        if (snarl == nullptr) {
+            // We want the root chains
+            return root_chains;
         }
         
-        // When we finish we will have no chains starting at snarls in other chains, and a chain containing every snarl.
-        // Since chains are linear that means we have all the chains.
-        return to_return;
+        // Otherwise, go look up the child chains of this snarl.
+        return child_chains.at(key_form(snarl));
     }
     
     NetGraph SnarlManager::net_graph_of(const Snarl* snarl, const HandleGraph* graph, bool use_internal_connectivity) const {
@@ -357,6 +319,10 @@ namespace vg {
         // update children index
         children[key_form(snarl)] = std::move(children[old_key]);
         children.erase(old_key);
+        
+        // And the child chain index
+        child_chains[key_form(snarl)] = std::move(child_chains[old_key]);
+        child_chains.erase(old_key);
         
         // Update self index
         self[key_form(snarl)] = std::move(self[old_key]);
@@ -460,6 +426,78 @@ namespace vg {
                 children.insert(make_pair(key_form(&snarl), vector<const Snarl*>()));
             }
         }
+        
+        if (root_chains.empty() || child_chains.empty()) {
+            // Chains were not provided already.
+            // Now compute the chains using the into and out-of indexes.
+        
+            // Compute the chains for the root level snarls
+            root_chains = compute_chains(roots);
+        
+            for (auto& kv : children) {
+                // For each parent snarl
+                const key_t& parent_key = kv.first;
+                // And its children
+                vector<const Snarl*>& snarl_children = kv.second;
+                
+                // Compute chains of the children and store it under the parent.
+                child_chains.insert(make_pair(parent_key, compute_chains(snarl_children)));
+            }
+        }
+    }
+    
+    vector<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snarls) {
+        // We populate this
+        vector<Chain> to_return;
+        
+        // We track the snarls we have seen in chain traversals so we only have to see each chain once.
+        unordered_set<const Snarl*> seen;
+        
+        for (const Snarl* snarl : input_snarls) {
+            // For every snarl in this snarl (or, if snarl is null, every top level snarl)
+            
+            if (seen.count(snarl)) {
+                // Already in a chain
+                continue;
+            }
+            
+            // Make a new chain for this child.
+            list<const Snarl*> chain{snarl};
+            
+            // Mark it as seen
+            seen.insert(snarl);
+            
+            // Make a visit to the child
+            Visit here;
+            transfer_boundary_info(*snarl, *here.mutable_snarl());
+            
+            for (Visit walk_left = prev_in_chain(here);
+                walk_left.has_snarl() && !seen.count(manage(walk_left.snarl()));
+                walk_left = prev_in_chain(walk_left)) {
+            
+                // For everything in the chain left from here, until we hit the
+                // end or come back to the start, add it to the chain
+                chain.push_front(manage(walk_left.snarl()));
+                // Mark it as seen
+                seen.insert(chain.front());
+            }
+            
+            for (Visit walk_right = next_in_chain(here);
+                walk_right.has_snarl() && !seen.count(manage(walk_right.snarl()));
+                walk_right = next_in_chain(walk_right)) {
+                
+                // For everything in the chain right from here, until we hit the
+                // end or come back to the start, add it to the chain
+                chain.push_back(manage(walk_right.snarl()));
+                // Mark it as seen
+                seen.insert(chain.back());
+            }
+            
+            // Copy from the list into a vector
+            to_return.emplace_back(chain.begin(), chain.end());
+        }
+        
+        return to_return;
     }
     
     pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::shallow_contents(const Snarl* snarl, VG& graph,
