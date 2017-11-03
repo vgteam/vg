@@ -55,7 +55,53 @@ protected:
     
     
 };
- 
+
+class GenomeState;
+
+/**
+ * Represents a modification of a GenomeState.
+ * We use a command pattern to enable undo-ability.
+ * Applying a command always returns a command that will undo what you did.
+ */
+struct GenomeStateCommand {
+    virtual ~GenomeStateCommand() = default;
+    
+    /// Execute this command on the given state and return the reverse command.
+    virtual GenomeStateCommand* execute(GenomeState& state) const;
+};
+
+struct InsertHaplotypeCommand : public GenomeStateCommand {
+
+    /// In each snarl's state, at each rank, insert the given haplotype.
+    /// Includes all the nested snarls.
+    /// To be executed in order from left to right (becasue inserting at ranks changes ranks).
+    vector<tuple<const Snarl*, size_t, vector<handle_t>>> insertions;
+    
+    virtual ~InsertHaplotypeCommand() = default;
+};
+
+struct DeleteHaplotypeCommand : public GenomeStateCommand {
+    /// In each (top level) snarl's state, delete the haplotype at the given rank.
+    
+    vector<pair<const Snarl*, size_t>> deletions;
+
+    virtual ~DeleteHaplotypeCommand() = default;
+};
+
+struct SwapHaplotypesCommand : public GenomeStateCommand {
+    pair<size_t, size_t> to_swap;
+    
+    virtual ~SwapHaplotypesCommand() = default;
+};
+
+struct CreateHaplotypeCommand : public GenomeStateCommand {
+    /// This is the root snarl to create a new traversal of.
+    /// TODO: maybe should be a chain?
+    const Snarl* root;
+    
+    virtual ~CreateHaplotypeCommand() = default;
+};
+
 /**
  * Define a way to represent a phased set of haplotypes on a graph that is under
  * consideration as a variant calling solution.
@@ -68,22 +114,25 @@ class GenomeState {
 
 public:
     
-    /**
-     * Sample and add a new traversal of the given snarl. Recursively samples
-     * and adds new traversals of all the child snarls that need to be
-     * traversed. Returns the rank of the new traversal in the given snarl.
-     */
-    size_t sample_new(const Snarl* snarl);
+    // We execute commands and return the inverse commands
     
-    /**
-     * Erase the haplotype of the given rank form the given snarl. Also erases
-     * all the corresponding haplotypes in child snarls, recursively. Returns
-     * all the insert operations needed to undo the erase.
-     */
-     vector<tuple<const Snarl*, size_t, vector<handle_t>>> erase(const Snarl* snarl, size_t rank);
+    DeleteHaplotypeCommand create_haplotype(const CreateHaplotypeCommand& c);
+    
+    DeleteHaplotypeCommand insert_haplotype(const InsertHaplotypeCommand& c);
+    
+    InsertHaplotypeCommand delete_haplotype(const DeleteHaplotypeCommand& c);
+    
+    SwapHaplotypesCommand swap_haplotypes(const SwapHaplotypesCommand& c);
+    
+    /// Execute a command.
+    /// Return a new heap-allocated command that undoes the command being executed.
+    /// Frees the passed command. TODO: does that make sense?
+    GenomeStateCommand* execute(GenomeStateCommand* command);
      
 protected:
-    /// We have a state for every snarl
+    /// We have a state for every snarl. TODO: What about how top-level snarls
+    /// form chains? Mightn't you need to traverse several? We don't really have
+    /// a root-level state.
     unordered_map<const Snarl*, SnarlState> state;
     
     /// We precompute all the net graphs and keep them around.
