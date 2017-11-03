@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <fstream>
+#include <deque>
 #include "stream.hpp"
 #include "vg.hpp"
 #include "handle.hpp"
@@ -247,6 +248,7 @@ namespace vg {
     public:
         
         /// Construct a SnarlManager for the snarls returned by an iterator
+        /// Also covers iterators of chains of snarls.
         template <typename SnarlIterator>
         SnarlManager(SnarlIterator begin, SnarlIterator end);
         
@@ -325,6 +327,20 @@ namespace vg {
         /// Reverses the orientation of a snarl
         void flip(const Snarl* snarl);
         
+        /// Add the given snarl to the SnarlManager as neither a root nor a
+        /// child of any other snarl. The snarl must eventually either be added
+        /// to a parent snarl or as a root snarl through add_chain() or it will
+        /// not be visible.
+        const Snarl* add_snarl(const Snarl& new_snarl);
+        
+        /// Add the given chain of snarls that have already been added with
+        /// add_snarl(). Parents the chain to the given parent snarl, also added
+        /// with add_snarl(). If the parent is null, makes the chain a root
+        /// chain and all of its snarls root snarls. Note that the chains are
+        /// allowed to be reallocated until the last child chain of a snarl is
+        /// added.
+        void add_chain(const Chain& new_chain, const Snarl* chain_parent);
+        
         /// Returns the Nodes and Edges contained in this Snarl but not in any child Snarls (always includes the
         /// Nodes that form the boundaries of child Snarls, optionally includes this Snarl's own boundary Nodes)
         pair<unordered_set<Node*>, unordered_set<Edge*> > shallow_contents(const Snarl* snarl, VG& graph,
@@ -373,7 +389,8 @@ namespace vg {
         using key_t = pair<pair<int64_t, bool>, pair<int64_t, bool>>;
         
         /// Master list of the snarls in the graph.
-        vector<Snarl> snarls;
+        /// Use a deque so pointers never get invalidated but we still have some locality.
+        deque<Snarl> snarls;
         
         /// Roots of snarl trees
         vector<const Snarl*> roots;
@@ -383,13 +400,14 @@ namespace vg {
         /// Map of snarls to the child snarls they contain
         unordered_map<key_t, vector<const Snarl*>> children;
         /// Map of snarls to the child chains they contain
-        /// TODO: can we replace children with this? Or do we still need memoized flat children?
+        /// TODO: can we replace children with this? Or do we still need precomputed flat children?
         unordered_map<key_t, vector<Chain>> child_chains;
         /// Map of snarls to their parent
         unordered_map<key_t, const Snarl*> parent;
         
         /// Map of snarl keys to the pointer to the managed copy in the snarls vector.
-        unordered_map<key_t, const Snarl*> self;
+        /// Is non-const so we can do flip nicely.
+        unordered_map<key_t, Snarl*> self;
         
         /// Map of node traversals to the snarls they point into
         unordered_map<pair<int64_t, bool>, const Snarl*> snarl_into;

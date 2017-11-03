@@ -286,21 +286,12 @@ namespace vg {
     
     void SnarlManager::flip(const Snarl* snarl) {
         
-        // kinda ugly workaround of constness that avoids exposing non-const pointers while
-        // still letting client edit Snarls in this controlled manner
-        
-        // get the offset of this snarl in the master list
-        int64_t offset = (intptr_t) snarl - (intptr_t) snarls.data();
-        // make sure this pointer is aligned to the vector
-        if (offset % sizeof(Snarl) != 0) {
-            cerr << "error:[SnarlManager] attempted to flip a Snarl with a pointer that is not owned by SnarlManager" << endl;
-            assert(0);
-        }
-        
-        Snarl& to_flip = snarls[offset / sizeof(Snarl)];
-        
         // save the key used in the indices before editing the snarl
         auto old_key = key_form(snarl);
+        
+        // Get a non-const reference to the cannonical snarl.
+        // TODO: Can't we use a const cast and save a lookup?
+        Snarl& to_flip = *self[key_form(snarl)];
         
         // swap and reverse the start and end Visits
         int64_t start_id = to_flip.start().node_id();
@@ -329,6 +320,58 @@ namespace vg {
         self.erase(old_key);
         
         // note: snarl_into index is invariant to flipping
+    }
+    
+    const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
+        // Store the snarl
+        snarls.push_back(new_snarl);
+        Snarl* snarl = &snarls.back();
+        
+        // Remember where each snarl is
+        self[key_form(snarl)] = snarl;
+        
+        // It has an empty vector of children
+        children[key_form(snarl)] = vector<const Snarl*>();
+        // It has an empty list of child chains.
+        child_chains[key_form(snarl)] = vector<Chain>();
+        
+        // We will set the parent later when we add the snarl's chain.
+        // Every snarl has to be in a chain. Even the unary ones, in trivial chains.
+        
+        // Record how you get in and out
+        snarl_into[make_pair(snarl->start().node_id(), snarl->start().backward())] = snarl;
+        snarl_into[make_pair(snarl->end().node_id(), !snarl->end().backward())] = snarl;
+        
+        return snarl;
+    }
+    
+    void SnarlManager::add_chain(const Chain& new_chain, const Snarl* chain_parent) {
+        if (chain_parent == nullptr) {
+            // This is a root chain
+            
+            // Save a copy of the chain as a root chain
+            root_chains.push_back(new_chain);
+            
+            for (const Snarl* child : new_chain) {
+                // Save it as a root snarl
+                roots.push_back(child);
+                
+                // Save its parent, which is null
+                parent[key_form(child)] = nullptr;
+            }
+        } else {
+        
+            // Save a copy of the chain as a child chain
+            child_chains[key_form(chain_parent)].push_back(new_chain);
+            
+            for (const Snarl* child : new_chain) {
+                // Save it as a child of the parent
+                children[key_form(chain_parent)].push_back(child);
+                
+                // Save its parent
+                parent[key_form(child)] = chain_parent;
+            }
+        }
     }
     
     const Snarl* SnarlManager::into_which_snarl(int64_t id, bool reverse) const {
@@ -377,8 +420,7 @@ namespace vg {
         cerr << "Building SnarlManager index of " << snarls.size() << " snarls" << endl;
 #endif
         
-        for (size_t i = 0; i < snarls.size(); i++) {
-            Snarl& snarl = snarls[i];
+        for (Snarl& snarl : snarls) {
             
 #ifdef debug
             cerr << pb2json(snarl) << endl;
