@@ -61,7 +61,13 @@ namespace vg {
         /// Advance the iterator
         ChainIterator& operator++();
         /// Get the snarl we're at and whether it is backward 
-        pair<const Snarl*, bool> operator*();
+        pair<const Snarl*, bool> operator*() const;
+        /// Get a pointer to the thing we get when we dereference the iterator
+        const pair<const Snarl*, bool>* operator->() const;
+        
+        /// We need to define comparison because C++ doesn't give it to us for free.
+        bool operator==(const ChainIterator& other) const;
+        bool operator!=(const ChainIterator& other) const;
         
         /// Are we a reverse iterator or not?
         bool go_left;
@@ -79,6 +85,10 @@ namespace vg {
         /// iterators, we need a flag to see if we are rend (i.e. before the
         /// beginning)
         bool is_rend;
+        
+        /// In order to dereference to a pair with -> we need a place to put the pair so we can have a pointer to it.
+        /// Gets lazily set to wherever the iterator is pointing when we do ->
+        mutable pair<const Snarl*, bool> scratch;
     };
     
     /**
@@ -88,8 +98,6 @@ namespace vg {
     ChainIterator chain_end(const Chain& chain);
     ChainIterator chain_rbegin(const Chain& chain);
     ChainIterator chain_rend(const Chain& chain);
-     
-    
     
     /**
      * Allow traversing a graph of nodes and child snarl chains within a snarl

@@ -34,6 +34,15 @@ namespace vg {
         return end_backward(chain) ? reverse(chain.front()->start()) : chain.front()->end();
     }
     
+    bool ChainIterator::operator==(const ChainIterator& other) const {
+        return (tie(go_left, backward, pos, chain_start, chain_end, is_rend) ==
+            tie(other.go_left, other.backward, other.pos, other.chain_start, other.chain_end, other.is_rend));
+    }
+    
+    bool ChainIterator::operator!=(const ChainIterator& other) const {
+        return !(*this == other);
+    }
+    
     ChainIterator& ChainIterator::operator++() {
         // What node from this snarl should the next snarl touch
         id_t last_leading_node = (go_left != backward) ? (*pos)->start().node_id() : (*pos)->end().node_id();
@@ -72,8 +81,15 @@ namespace vg {
         return *this;
     }
     
-    pair<const Snarl*, bool> ChainIterator::operator*() {
+    pair<const Snarl*, bool> ChainIterator::operator*() const {
         return make_pair(*pos, backward);
+    }
+    
+    const pair<const Snarl*, bool>* ChainIterator::operator->() const {
+        // Make the pair we need
+        scratch = *(*this);
+        // Return a pointer to it.
+        return &scratch;
     }
     
     ChainIterator chain_begin(const Chain& chain) {
@@ -953,12 +969,12 @@ namespace vg {
     
     void NetGraph::add_chain_child(const Chain& chain) {
         // For every chain, get its bounding handles in the base graph
-        handle_t chain_start = graph->get_handle(get_start(chain));
-        handle_t chain_end = graph->get_handle(get_end(chain));
+        handle_t chain_start_handle = graph->get_handle(get_start(chain));
+        handle_t chain_end_handle = graph->get_handle(get_end(chain));
         
         // Save the links that let us cross the chain.
-        chain_ends_by_start[chain_start] = chain_end;
-        chain_end_rewrites[graph->flip(chain_end)] = graph->flip(chain_start);
+        chain_ends_by_start[chain_start_handle] = chain_end_handle;
+        chain_end_rewrites[graph->flip(chain_end_handle)] = graph->flip(chain_start_handle);
         
         if (use_internal_connectivity) {
         
@@ -967,31 +983,15 @@ namespace vg {
             bool connected_right_right = false;
             bool connected_left_right = true;
             
-            // Looping over the chain, we need to know if snarls are
-            // backward.
-            // We start out backward if we don't start at the start of the first snarl.
-            bool backward = (get_start(chain).node_id() != chain.front()->start().node_id());
-            // And to track that we need to track what the last node of the
-            // last snarl was, so we can see if we share it on our start or
-            // end.
-            id_t last_node = 0;
-            
-            for (auto it = chain.begin(); it != chain.end(); ++it) {
-                // Go through the child snarls from left to right
-                const Snarl* child = *it;
+            for (auto it = chain_begin(chain); it != chain_end(chain); ++it) {
+                // Go through the oriented child snarls from left to right
+                const Snarl* child = it->first;
+                bool backward = it->second;
                 
                 // Unpack the child's connectivity
                 bool start_self_reachable = child->start_self_reachable();
                 bool end_self_reachable = child->end_self_reachable();
                 bool start_end_reachable = child->start_end_reachable();
-                
-                if (last_node != 0) {
-                    // We can determine if we are backward based on what we start with.
-                    // We're backward if we start with the wrong thing.
-                    backward = (child->start().node_id() != last_node);
-                }
-                // Update the last node
-                last_node = backward ? child->start().node_id() : child->end().node_id();
                 
                 if (backward) {
                     // Look at the connectivity in reverse
@@ -1011,27 +1011,15 @@ namespace vg {
                 }
             }
             
-            // Reset for a traversal the other way
-            // We're backward if the end snarl doesn't end with the same node as the chain.
-            backward = (get_end(chain).node_id() != chain.back()->end().node_id());;
-            last_node = 0;
-            
-            for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
-                // Go through the child snarls from right to left
-                const Snarl* child = *it;
+            for (auto it = chain_rbegin(chain); it != chain_rend(chain); ++it) {
+                // Go through the oriented child snarls from left to right
+                const Snarl* child = it->first;
+                bool backward = it->second;
                 
                 // Unpack the child's connectivity
                 bool start_self_reachable = child->start_self_reachable();
                 bool end_self_reachable = child->end_self_reachable();
                 bool start_end_reachable = child->start_end_reachable();
-                
-                if (last_node != 0) {
-                    // We can determine if we are backward based on what we end with.
-                    // We're backward if we end with the wrong thing.
-                    backward = (child->end().node_id() != last_node);
-                }
-                // Update the last node
-                last_node = backward ? child->end().node_id() : child->start().node_id();
                 
                 if (backward) {
                     // Look at the connectivity in reverse
@@ -1051,10 +1039,11 @@ namespace vg {
             }
             
             // Save the connectivity
-            connectivity[graph->get_id(chain_start)] = tie(connected_left_left, connected_right_right, connected_left_right);
+            connectivity[graph->get_id(chain_start_handle)] = tie(connected_left_left,
+                connected_right_right, connected_left_right);
         } else {
             // Act like a normal connected-through node.
-            connectivity[graph->get_id(chain_start)] = make_tuple(false, false, true);
+            connectivity[graph->get_id(chain_start_handle)] = make_tuple(false, false, true);
         }
     }
     
