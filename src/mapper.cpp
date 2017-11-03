@@ -1352,8 +1352,8 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.5)
-    , pair_rescue_retry_threshold(0.7)
+    , pair_rescue_hang_threshold(0.7)
+    , pair_rescue_retry_threshold(0.5)
     , include_full_length_bonuses(true)
 {
     
@@ -1655,7 +1655,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         orientations.insert(is_rev(mate_pos));
         int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
                             : round(min((double)frag_stats.cached_fragment_length_stdev * 6.0 + mate1.sequence().size(),
-                                        mate1.sequence().size() * 6.0)));
+                                        mate1.sequence().size() * 4.0)));
         //cerr << "Getting at least " << get_at_least << endl;
         graph.MergeFrom(xindex->graph_context_id(mate_pos, get_at_least/2));
         graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
@@ -1911,15 +1911,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
     double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
 
-    // use the estimated mq as a cap in cases where we get very few candidates MEMs
-    //if (mem_read_ratio1 < 0.5) mq_cap1 = min(mq_cap1, maybe_mq1);
-    //if (mem_read_ratio2 < 0.5) mq_cap2 = min(mq_cap2, maybe_mq2);
+    // if estimated mq is not high scale difficulty using the estimated mapping quality
+    if (min(maybe_mq1, maybe_mq2) > max_mapping_quality*2) {
+        total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(total_multimaps * (1 - (4*maybe_pair_mq / max_possible_mq)))));
+    }
 
-    // scale difficulty using the estimated mapping quality
-    total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)ceil(max_possible_mq / maybe_pair_mq)));
-
-    if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << endl;
-    if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << fraction_filtered2 << " " << max_possible_mq << endl;
+    if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << " " << total_multimaps << endl;
+    if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << fraction_filtered2 << " " << max_possible_mq << " " << total_multimaps << endl;
     
     if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
     if (debug) cerr << "mems for read 2 " << mems_to_json(mems2) << endl;
@@ -2239,7 +2237,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         auto& aln1 = p->first;
         auto& aln2 = p->second;
         auto cluster_ptr = cluster_ptrs[aln_index[p]];
-        bool consistent = aln1.score() && aln2.score() && pair_consistent(aln1, aln2, 1e-2);
+        bool consistent = aln1.score() && aln2.score() && pair_consistent(aln1, aln2, 1e-6);
         // if both mates are aligned, add each single end into the mix
         if (aln1.score() > hang_threshold && (aln2.score() <= retry_threshold || !consistent)) {
             se_alns.emplace_back();
@@ -2364,8 +2362,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
-        && mem_read_ratio1 > 0.5 && mem_read_ratio2 > 0.5
-        && pair_consistent(results.first.front(), results.second.front(), 1e-6)) {
+        && (possible_pairs > 1 // either we have more than one candidate or a really good pair
+            || fraction_filtered1 < 0.1 && fraction_filtered2 < 0.1
+            && maybe_mq1 > 1 && maybe_mq2 > 1 && max_first
+            && (mem_read_ratio1 > 0.5 || mem_read_ratio2 > 0.5))
+        && pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
         compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2);
     } else {
         compute_mapping_qualities(results.first, cluster_mq, maybe_mq1, mq_cap1);
@@ -2644,14 +2645,12 @@ Mapper::align_mem_multi(const Alignment& aln,
                                                             basis_length/max(1.0, (double)mem_max_length),
                                                             basis_length/longest_lcp);
 
-    // use the estimated mq as a cap in cases where we get very few candidates MEMs
-    //if (mem_read_ratio < 0.5) mq_cap = min(mq_cap, maybe_mq);
-
     // scale difficulty using the estimated mapping quality
-    total_multimaps = max(max(min_multimaps*2, max_multimaps), min(total_multimaps, (int)ceil(max_possible_mq / maybe_mq)));
+    if (maybe_mq > max_mapping_quality*2) {
+        total_multimaps = max(max(min_multimaps*4, max_multimaps), min(total_multimaps, (int)round(total_multimaps * (1 - (4*maybe_mq / max_possible_mq)))));
+    }
 
-    //if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_mq << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " min mem length: " << min_mem_length << " longest LCP: " << longest_lcp << " total multimaps: " << total_multimaps << " max mq: " << max_possible_mq << endl;
-    if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_mq << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << " " << total_multimaps << " " << mem_read_ratio << " " << fraction_filtered << " " << max_possible_mq << endl;
+    if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_mq << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << " " << total_multimaps << " " << mem_read_ratio << " " << fraction_filtered << " " << max_possible_mq << " " << total_multimaps << endl;
 
     double avg_node_len = average_node_length();
     // go through the ordered single-hit MEMs
@@ -2768,7 +2767,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     for (auto& cluster : clusters) {
         if (alns.size() >= total_multimaps) { break; }
         // skip if we've filtered the cluster
-        if (to_drop.count(&cluster) && filled >= min_multimaps*2) {
+        if (to_drop.count(&cluster) && filled >= min_multimaps*4) {
             alns.push_back(aln);
             used_clusters.push_back(&cluster);
             continue;

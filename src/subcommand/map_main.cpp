@@ -43,7 +43,7 @@ void help_map(char** argv) {
          << "    -p, --print-frag-model  suppress alignment output and print the fragment model on stdout as per {-I} format" << endl
          << "    -F, --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
-         << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [4]" << endl
+         << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
