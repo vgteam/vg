@@ -261,6 +261,14 @@ namespace vg {
         /// Destructor
         ~SnarlManager() = default;
         
+        /// Cannot be copied because of all the internal pointer indexes
+        SnarlManager(const SnarlManager& other) = delete;
+        SnarlManager& operator=(const SnarlManager& other) = delete;
+        
+        /// Can be moved
+        SnarlManager(SnarlManager&& other) = default;
+        SnarlManager& operator=(SnarlManager&& other) = default;
+        
         /// Returns a vector of pointers to the children of a Snarl.
         /// If given null, returns the top-level root snarls.
         const vector<const Snarl*>& children_of(const Snarl* snarl) const;

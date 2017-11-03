@@ -1770,8 +1770,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -1867,8 +1867,8 @@ namespace vg {
 
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -1954,8 +1954,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2069,8 +2069,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2176,8 +2176,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2234,8 +2234,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2312,8 +2312,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2374,8 +2374,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2403,7 +2403,7 @@ namespace vg {
                     snarl_manager.flip(child3);
                 }
                 
-                SECTION("First child is trivail snarl from 2 start to 5 end") {
+                SECTION("First child is trivial snarl from 2 start to 5 end") {
                     // Not 5 end to 2 start because we seem to be sorting by node ID.
                     REQUIRE(child1->start().node_id() == 2);
                     REQUIRE(!child1->start().backward() == false);
@@ -2429,6 +2429,109 @@ namespace vg {
                 }
                 
             }
+            
+        }
+        
+        TEST_CASE("SnarlManager accepts chain input", "[snarls]") {
+            // Make a little graph where snarl1 and snarl2 are a top-level
+            // chain, and snarl3 and snarl4 are trivial chains inside snarl1
+      
+            Snarl snarl1;
+            snarl1.mutable_start()->set_node_id(1);
+            snarl1.mutable_end()->set_node_id(6);
+            snarl1.set_start_end_reachable(true);
+            
+            Snarl snarl2;
+            snarl2.mutable_start()->set_node_id(6);
+            snarl2.mutable_end()->set_node_id(7);
+            snarl2.set_start_end_reachable(true);
+            
+            Snarl snarl3;
+            snarl3.mutable_start()->set_node_id(2);
+            snarl3.mutable_end()->set_node_id(3);
+            snarl3.set_start_end_reachable(true);
+            transfer_boundary_info(snarl1, *snarl3.mutable_parent());
+            
+            Snarl snarl4;
+            snarl4.mutable_start()->set_node_id(4);
+            snarl4.mutable_end()->set_node_id(5);
+            snarl4.set_start_end_reachable(true);
+            transfer_boundary_info(snarl1, *snarl4.mutable_parent());
+            
+            // Load all this into the SnarlManager
+            SnarlManager snarl_manager;
+            
+            auto ptr3 = snarl_manager.add_snarl(snarl3);
+            auto ptr4 = snarl_manager.add_snarl(snarl4);
+            
+            auto ptr1 = snarl_manager.add_snarl(snarl1);
+            snarl_manager.add_chain(Chain{ptr3}, ptr1);
+            snarl_manager.add_chain(Chain{ptr4}, ptr1);
+            
+            auto ptr2 = snarl_manager.add_snarl(snarl2);
+            snarl_manager.add_chain(Chain{ptr1, ptr2}, nullptr);
+ 
+#ifdef debug
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << endl;
+            });
+#endif
+
+            SECTION("There should be two top-level snarls") {
+                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
+                
+                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
+                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
+                
+                if (child1->start().node_id() > child1->end().node_id()) {
+                    snarl_manager.flip(child1);
+                }
+                
+                if (child2->start().node_id() > child2->end().node_id()) {
+                    snarl_manager.flip(child2);
+                }
+                
+                SECTION("First child is from 1 to 6") {
+                    REQUIRE(child1->start().node_id() == 1);
+                    REQUIRE(child1->start().backward() == false);
+                    REQUIRE(child1->end().node_id() == 6);
+                    REQUIRE(child1->end().backward() == false);
+                    
+                    SECTION("First child has two children") {
+                        REQUIRE(snarl_manager.children_of(child1).size() == 2);
+                        
+                        const Snarl* subchild1 = snarl_manager.children_of(child1)[0];
+                        const Snarl* subchild2 = snarl_manager.children_of(child1)[1];
+                        
+                        SECTION("First child is from 2 to 3") {
+                            REQUIRE(subchild1->start().node_id() == 2);
+                            REQUIRE(subchild1->start().backward() == false);
+                            REQUIRE(subchild1->end().node_id() == 3);
+                            REQUIRE(subchild1->end().backward() == false);
+                        }
+                        
+                        SECTION("Second child is from 4 to 5") {
+                            REQUIRE(subchild2->start().node_id() == 4);
+                            REQUIRE(subchild2->start().backward() == false);
+                            REQUIRE(subchild2->end().node_id() == 5);
+                            REQUIRE(subchild2->end().backward() == false);
+                        }
+                        
+                    }
+                    
+                }
+                
+                SECTION("Second child from 6 to 7") {
+                    REQUIRE(child2->start().node_id() == 6);
+                    REQUIRE(child2->start().backward() == false);
+                    REQUIRE(child2->end().node_id() == 7);
+                    REQUIRE(child2->end().backward() == false);
+                    
+                }
+                
+            }
+            
             
         }
         
@@ -2484,8 +2587,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }

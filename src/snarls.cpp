@@ -327,6 +327,11 @@ namespace vg {
         snarls.push_back(new_snarl);
         Snarl* snarl = &snarls.back();
         
+#ifdef debug
+        cerr << "Adding snarl " << new_snarl.start().node_id() << " " << new_snarl.start().backward() << " -> "
+            << new_snarl.end().node_id() << " " << new_snarl.end().backward() << endl;
+#endif
+        
         // Remember where each snarl is
         self[key_form(snarl)] = snarl;
         
@@ -349,6 +354,10 @@ namespace vg {
         if (chain_parent == nullptr) {
             // This is a root chain
             
+#ifdef debug
+        cerr << "Adding root chain of " << new_chain.size() << " snarls" << endl;
+#endif
+            
             // Save a copy of the chain as a root chain
             root_chains.push_back(new_chain);
             
@@ -360,6 +369,13 @@ namespace vg {
                 parent[key_form(child)] = nullptr;
             }
         } else {
+        
+#ifdef debug
+        cerr << "Adding chain of " << new_chain.size() << " snarls under "
+            << chain_parent->start().node_id() << " " << chain_parent->start().backward() << " -> "
+            << chain_parent->end().node_id() << " " << chain_parent->end().backward()
+            << endl;
+#endif
         
             // Save a copy of the chain as a child chain
             child_chains[key_form(chain_parent)].push_back(new_chain);
