@@ -533,7 +533,7 @@ int main_index(int argc, char** argv) {
             // Determine the range of samples.
             sample_range.second = std::min(sample_range.second, num_samples);
             if (show_progress) {
-                cerr << "Processing samples " << sample_range.first << " to " << (sample_range.second - 1) << endl;
+                cerr << "Processing samples " << sample_range.first << " to " << (sample_range.second - 1) << " with batch size " << samples_in_batch << endl;
             }
 
             // Process the samples in batches to save memory.
