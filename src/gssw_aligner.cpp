@@ -489,6 +489,8 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     int l = max(alignment_to_length(max_aln), alignment_from_length(max_aln));
     double identity = 1. - (double)(l * match - max_aln.score()) / (match + mismatch) / l;
 
+    mapping_quality /= 2;
+
     mapping_quality *= pow(identity, identity_weight);
 
     if (mq_estimate < maybe_mq_threshold && mq_estimate < mapping_quality) {
@@ -585,6 +587,9 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     auto& max_aln2 = alignment_pairs.second[max_idx];
     int len2 = max(alignment_to_length(max_aln2), alignment_from_length(max_aln2));
     double identity2 = 1. - (double)(len2 * match - max_aln2.score()) / (match + mismatch) / len2;
+
+    mapping_quality1 /= 2;
+    mapping_quality2 /= 2;
 
     mapping_quality1 *= pow(identity1, identity_weight);
     mapping_quality2 *= pow(identity2, identity_weight);
