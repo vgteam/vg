@@ -1352,7 +1352,7 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.7)
+    , pair_rescue_hang_threshold(0.8)
     , pair_rescue_retry_threshold(0.0)
     , include_full_length_bonuses(true)
 {
@@ -1919,12 +1919,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double maybe_pair_mq = maybe_mq1 + maybe_mq2;
 
     // if estimated mq is not high scale difficulty using the estimated mapping quality
-    if (maybe_pair_mq < 10) {
+    if (maybe_pair_mq < 2) {
         mq_cap1 = maybe_pair_mq;
         mq_cap2 = maybe_pair_mq;
-        total_multimaps = max(min_multimaps, max_multimaps);
-    } else if (max(maybe_mq1, maybe_mq2) < max_mapping_quality) {
-        total_multimaps = max(min(total_multimaps, max(min_multimaps, (int)(1.0/phred_to_prob(maybe_pair_mq)))), max(min_multimaps, max_multimaps));
+    }
+    if (maybe_pair_mq < max_mapping_quality) {
+        total_multimaps = max(min(total_multimaps*4, max(min_multimaps, (int)(1.0/phred_to_prob(maybe_pair_mq)))), max(min_multimaps, max_multimaps));
     }
 
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << " " << total_multimaps << endl;
@@ -2766,7 +2766,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     for (auto& cluster : clusters) {
         if (alns.size() >= total_multimaps) { break; }
         // skip if we've filtered the cluster
-        if (to_drop.count(&cluster) && filled >= min_multimaps*16) {
+        if (to_drop.count(&cluster) && filled >= min_multimaps*4) {
             alns.push_back(aln);
             used_clusters.push_back(&cluster);
             continue;
