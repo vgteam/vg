@@ -125,7 +125,7 @@ vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAAT
 vg index -x 2snp.xg 2snp.vg
 vg sim -s 420 -l 30 -x 2snp.xg -n 30 -a >2snp.sim
 vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
-vg map -g flat.gcsa -x flat.xg -G 2snp.sim >2snp.gam
+vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
 is $(vg mod -i 2snp.gam flat.vg | vg mod -D - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
 rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim 2snp.gam
 

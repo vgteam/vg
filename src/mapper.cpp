@@ -1353,7 +1353,7 @@ Mapper::Mapper(xg::XG* xidex,
     , max_band_jump(0)
     , identity_weight(2)
     , pair_rescue_hang_threshold(0.7)
-    , pair_rescue_retry_threshold(0.5)
+    , pair_rescue_retry_threshold(0.0)
     , include_full_length_bonuses(true)
 {
     
@@ -1923,10 +1923,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         mq_cap1 = 0;
         mq_cap2 = 0;
         total_multimaps = max(min_multimaps, max_multimaps);
-    } else if (maybe_pair_mq < max_mapping_quality/2) {
-        mq_cap1 = maybe_pair_mq;
-        mq_cap2 = maybe_pair_mq;
-        total_multimaps = max(min(total_multimaps, max(min_multimaps, (int)(1.0/phred_to_prob(maybe_pair_mq)*0.5))), max(min_multimaps, max_multimaps));
     }
 
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << " " << total_multimaps << endl;
@@ -2252,14 +2248,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         auto cluster_ptr = cluster_ptrs[aln_index[p]];
         bool consistent = aln1.score() && aln2.score() && pair_consistent(aln1, aln2, 1e-6);
         // if both mates are aligned, add each single end into the mix
-        if (aln1.score() > hang_threshold && (aln2.score() <= retry_threshold || !consistent)) {
+        if (aln1.score() > hang_threshold && (aln2.score() < retry_threshold || !consistent)) {
             se_alns.emplace_back();
             auto& p = se_alns.back();
             p.first = aln1;
             p.second = read2;
             se_cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
         }
-        if (aln2.score() > hang_threshold && (aln1.score() <= retry_threshold || !consistent)) {
+        if (aln2.score() > hang_threshold && (aln1.score() < retry_threshold || !consistent)) {
             se_alns.emplace_back();
             auto& q = se_alns.back();
             q.first = read1;
