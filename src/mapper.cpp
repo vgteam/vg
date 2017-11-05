@@ -1916,11 +1916,17 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
 
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
-    double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
+    double maybe_pair_mq = maybe_mq1 + maybe_mq2;
 
     // if estimated mq is not high scale difficulty using the estimated mapping quality
-    if (min(maybe_mq1, maybe_mq2) > max_mapping_quality) {
-        total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(total_multimaps * (1 - (4*maybe_pair_mq / max_possible_mq)))));
+    if (maybe_pair_mq < 1) {
+        mq_cap1 = 0;
+        mq_cap2 = 0;
+        total_multimaps = max(min_multimaps, max_multimaps);
+    } else if (maybe_pair_mq < max_mapping_quality/2) {
+        mq_cap1 = maybe_pair_mq;
+        mq_cap2 = maybe_pair_mq;
+        total_multimaps = max(min(total_multimaps, max(min_multimaps, (int)(1.0/phred_to_prob(maybe_pair_mq)*0.5))), max(min_multimaps, max_multimaps));
     }
 
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << " " << total_multimaps << endl;
@@ -2643,11 +2649,6 @@ Mapper::align_mem_multi(const Alignment& aln,
         maybe_mq = estimate_max_possible_mapping_quality(basis_length,
                                                          basis_length/max(1.0, (double)mem_max_length),
                                                          basis_length/longest_lcp);
-    }
-
-    // scale difficulty using the estimated mapping quality
-    if (maybe_mq > max_mapping_quality) {
-        total_multimaps = max(max(min_multimaps*4, max_multimaps), min(total_multimaps, (int)round(total_multimaps * (1 - (4*maybe_mq / max_possible_mq)))));
     }
 
     if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_mq << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << " " << total_multimaps << " " << mem_read_ratio << " " << fraction_filtered << " " << max_possible_mq << " " << total_multimaps << endl;
