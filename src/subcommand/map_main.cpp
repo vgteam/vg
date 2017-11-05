@@ -26,11 +26,11 @@ void help_map(char** argv) {
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
-         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [2]" << endl
+         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [4]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than FLOAT [0]" << endl
          << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.0]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
@@ -119,7 +119,7 @@ int main_map(int argc, char** argv) {
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
-    int min_multimaps = 2;
+    int min_multimaps = 4;
     int max_mapping_quality = 60;
     double maybe_mq_threshold = 0;
     double identity_weight = 2;
@@ -134,7 +134,7 @@ int main_map(int argc, char** argv) {
     bool fragment_direction = true;
     float chance_match = 0.0;
     bool use_fast_reseed = true;
-    float drop_chain = 0.0;
+    float drop_chain = 0.5;
     float mq_overlap = 0.0;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
