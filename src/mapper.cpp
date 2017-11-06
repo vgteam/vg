@@ -1352,7 +1352,7 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.8)
+    , pair_rescue_hang_threshold(0.5)
     , pair_rescue_retry_threshold(0.0)
     , include_full_length_bonuses(true)
 {
@@ -1916,15 +1916,23 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
 
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
-    double maybe_pair_mq = maybe_mq1 + maybe_mq2;
+    double maybe_pair_mq = min(maybe_mq1, maybe_mq2);
 
     // if estimated mq is not high scale difficulty using the estimated mapping quality
-    if (maybe_pair_mq < 2) {
+    if (maybe_mq1 + maybe_mq2 < 1) {
         mq_cap1 = maybe_pair_mq;
         mq_cap2 = maybe_pair_mq;
     }
-    if (maybe_pair_mq < max_mapping_quality) {
-        total_multimaps = max(min(total_multimaps*4, max(min_multimaps, (int)(1.0/phred_to_prob(maybe_pair_mq)))), max(min_multimaps, max_multimaps));
+    if (min_multimaps < extra_multimaps
+        && maybe_pair_mq < max_mapping_quality) {
+        total_multimaps =
+            max(max_multimaps,
+                min(total_multimaps,
+                    max(min_multimaps,
+                        (int)(1.0/phred_to_prob(maybe_pair_mq)))));
+    }
+    if (max(maybe_mq1, maybe_mq2) < max_mapping_quality) {
+        total_multimaps = max(total_multimaps, 8);
     }
 
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << " " << total_multimaps << endl;
@@ -2250,14 +2258,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         auto cluster_ptr = cluster_ptrs[aln_index[p]];
         bool consistent = aln1.score() && aln2.score() && pair_consistent(aln1, aln2, 1e-6);
         // if both mates are aligned, add each single end into the mix
-        if (aln1.score() > hang_threshold && (aln2.score() < retry_threshold || !consistent)) {
+        if (aln1.score() > hang_threshold && (aln2.score() <= retry_threshold || !consistent)) {
             se_alns.emplace_back();
             auto& p = se_alns.back();
             p.first = aln1;
             p.second = read2;
             se_cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
         }
-        if (aln2.score() > hang_threshold && (aln1.score() < retry_threshold || !consistent)) {
+        if (aln2.score() > hang_threshold && (aln1.score() <= retry_threshold || !consistent)) {
             se_alns.emplace_back();
             auto& q = se_alns.back();
             q.first = read1;
