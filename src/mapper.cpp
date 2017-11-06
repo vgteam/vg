@@ -1352,8 +1352,8 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.5)
-    , pair_rescue_retry_threshold(0.0)
+    , pair_rescue_hang_threshold(0.7)
+    , pair_rescue_retry_threshold(0.5)
     , include_full_length_bonuses(true)
 {
     
@@ -1915,18 +1915,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                           basis_length/longest_lcp2);
     }
 
-    double maybe_pair_mq = maybe_mq1 + maybe_mq2;
-    // if estimated mq is not high scale difficulty using the estimated mapping quality
-    if (maybe_pair_mq < 3) {
-        mq_cap1 = maybe_mq1;
-        mq_cap2 = maybe_mq2;
-    }
-    if (min_multimaps < extra_multimaps
-        && maybe_pair_mq < max_mapping_quality) {
-        total_multimaps =
-            max(max_multimaps,
-                min(total_multimaps,
-                    max(min_multimaps, (int)round(maybe_pair_mq)*2)));
+    // use the estimated mapping quality to avoid hard work when the results are likely noninformative
+    double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
+
+    // if estimated mq is high scale difficulty using the estimated mapping quality
+    if (min(maybe_mq1, maybe_mq2) > max_mapping_quality) {
+        total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(total_multimaps * (1 - (4*maybe_pair_mq / max_possible_mq)))));
     }
 
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << " " << total_multimaps << endl;
@@ -2651,14 +2645,11 @@ Mapper::align_mem_multi(const Alignment& aln,
                                                          basis_length/longest_lcp);
     }
 
-    if (min_multimaps < extra_multimaps
-        && maybe_mq < max_mapping_quality) {
-        total_multimaps =
-            max(max_multimaps,
-                min(total_multimaps,
-                    max(min_multimaps*4, (int)round(maybe_mq)*2)));
+    // scale difficulty using the estimated mapping quality
+    if (maybe_mq > max_mapping_quality) {
+        total_multimaps = max(max(min_multimaps*4, max_multimaps), min(total_multimaps, (int)round(total_multimaps * (1 - (4*maybe_mq / max_possible_mq)))));
     }
-    
+
     if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_mq << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << " " << total_multimaps << " " << mem_read_ratio << " " << fraction_filtered << " " << max_possible_mq << " " << total_multimaps << endl;
 
     double avg_node_len = average_node_length();
