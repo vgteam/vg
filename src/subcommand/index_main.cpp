@@ -493,13 +493,11 @@ int main_index(int argc, char** argv) {
             }
 
             // Do we build GBWT?
-            gbwt::DynamicGBWT gbwt_index;
-            gbwt::text_type gbwt_buffer;
-            size_t gbwt_tail = 0; // Resizing requires reallocation, so we keep track of the tail explicitly.
+            gbwt::GBWTBuilder* gbwt_builder = 0;
             if (!gbwt_name.empty()) {
                 if (show_progress) { cerr << "Building GBWT index" << endl; }
-                else { gbwt::Verbosity::set(gbwt::Verbosity::SILENT); }
-                gbwt_buffer = gbwt::text_type(gbwt::DynamicGBWT::INSERT_BATCH_SIZE, 0, id_width);
+                gbwt::Verbosity::set(gbwt::Verbosity::SILENT);  // Make the construction thread silent.
+                gbwt_builder = new gbwt::GBWTBuilder(id_width);
             }
 
             // Do we output the threads in binary instead of building GBWT?
@@ -588,27 +586,7 @@ int main_index(int argc, char** argv) {
                         // Only actually do anything if we put in some mappings.
 
                         if (!gbwt_name.empty()) {
-                            if (2 * (to_save.size() + 1) > gbwt_buffer.size()) {
-                                cerr << "error:[vg index] thread " << name << " too long to fit into the buffer, skipping" << endl;
-                                to_save = std::vector<gbwt::node_type>();
-                                return;
-                            }
-                            // Insert the current batch if the buffer is full.
-                            if (gbwt_tail + 2 * (to_save.size() + 1) > gbwt_buffer.size()) {
-                                if (show_progress) { cerr << endl; }
-                                gbwt_index.insert(gbwt_buffer, gbwt_tail);
-                                gbwt_tail = 0;
-                            }
-                            // Forward orientation.
-                            for (auto node : to_save) {
-                                gbwt_buffer[gbwt_tail] = node; gbwt_tail++;
-                            }
-                            gbwt_buffer[gbwt_tail] = gbwt::ENDMARKER; gbwt_tail++;
-                            // Reverse orientation.
-                            for(auto iter = to_save.rbegin(); iter != to_save.rend(); ++iter) {
-                                gbwt_buffer[gbwt_tail] = gbwt::Node::reverse(*iter); gbwt_tail++;
-                            }
-                            gbwt_buffer[gbwt_tail] = gbwt::ENDMARKER; gbwt_tail++;
+                            gbwt_builder->insert(to_save, true); // Insert in both orientations.
                         } else if (!binary_haplotype_output.empty()) {
                             for (auto node : to_save) { binary_file.push_back(node); }
                             binary_file.push_back(gbwt::ENDMARKER);
@@ -1004,25 +982,21 @@ int main_index(int argc, char** argv) {
                 }
             }
 
-            if (show_progress) {
-                cerr << "Inserting all phase threads into DAG..." << endl;
-            }
-
             // Flush the buffers and do whatever work is still left.
             if (!gbwt_name.empty()) {
-                if (gbwt_tail > 0) {
-                    gbwt_index.insert(gbwt_buffer, gbwt_tail);
-                    gbwt_tail = 0;
-                }
+                gbwt_builder->finish();
                 if (show_progress) { cerr << "Saving GBWT to disk..." << endl; }
-                sdsl::store_to_file(gbwt_index, gbwt_name);
+                sdsl::store_to_file(gbwt_builder->index, gbwt_name);
+                delete gbwt_builder; gbwt_builder = 0;
                 index.set_thread_names(thread_names);
             } else if (!binary_haplotype_output.empty()) {
                 binary_file.close();
             } else {
                 // Now insert all the threads in a batch into the known-DAG VCF-
                 // derived graph.
-                // XXX todo make the names here
+                if (show_progress) {
+                    cerr << "Inserting all phase threads into DAG..." << endl;
+                }
                 index.insert_threads_into_dag(all_phase_threads, thread_names);
                 all_phase_threads.clear();
             }
