@@ -484,12 +484,13 @@ int main_index(int argc, char** argv) {
         if (variant_file.is_open()) {
 
             // Apparently there is no efficient way of determining the max id.
-            size_t id_width = 64;
+            size_t max_node = 0, id_width = 64;
             {
                 xg::id_t max_id = 0;
                 size_t max_rank = index.max_node_rank();
                 for (size_t i = 1; i <= max_rank; i++) { max_id = std::max(max_id, index.rank_to_id(i)); }
-                id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
+                max_node = gbwt::Node::encode(max_id, true);
+                id_width = gbwt::bit_length(max_id);
             }
 
             // Do we build GBWT?
@@ -497,7 +498,7 @@ int main_index(int argc, char** argv) {
             if (!gbwt_name.empty()) {
                 if (show_progress) { cerr << "Building GBWT index" << endl; }
                 gbwt::Verbosity::set(gbwt::Verbosity::SILENT);  // Make the construction thread silent.
-                gbwt_builder = new gbwt::GBWTBuilder(id_width);
+                gbwt_builder = new gbwt::GBWTBuilder(max_node);
             }
 
             // Do we output the threads in binary instead of building GBWT?
