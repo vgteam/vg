@@ -1917,10 +1917,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     double maybe_pair_mq = maybe_mq1 + maybe_mq2;
     // if estimated mq is not high scale difficulty using the estimated mapping quality
-    if (maybe_mq1 < 2) {
+    if (maybe_pair_mq < 3) {
         mq_cap1 = maybe_mq1;
-    }
-    if (maybe_mq2 < 2) {
         mq_cap2 = maybe_mq2;
     }
     if (min_multimaps < extra_multimaps
@@ -2653,6 +2651,14 @@ Mapper::align_mem_multi(const Alignment& aln,
                                                          basis_length/longest_lcp);
     }
 
+    if (min_multimaps < extra_multimaps
+        && maybe_mq < max_mapping_quality) {
+        total_multimaps =
+            max(max_multimaps,
+                min(total_multimaps,
+                    max(min_multimaps*4, (int)round(maybe_mq)*2)));
+    }
+    
     if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_mq << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << " " << total_multimaps << " " << mem_read_ratio << " " << fraction_filtered << " " << max_possible_mq << " " << total_multimaps << endl;
 
     double avg_node_len = average_node_length();
