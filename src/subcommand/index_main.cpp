@@ -606,7 +606,7 @@ int main_index(int argc, char** argv) {
                             gbwt_buffer[gbwt_tail] = gbwt::ENDMARKER; gbwt_tail++;
                             // Reverse orientation.
                             for(auto iter = to_save.rbegin(); iter != to_save.rend(); ++iter) {
-                                gbwt_buffer[gbwt_tail] = gbwt::Path::reverse(*iter); gbwt_tail++;
+                                gbwt_buffer[gbwt_tail] = gbwt::Node::reverse(*iter); gbwt_tail++;
                             }
                             gbwt_buffer[gbwt_tail] = gbwt::ENDMARKER; gbwt_tail++;
                         } else if (!binary_haplotype_output.empty()) {
