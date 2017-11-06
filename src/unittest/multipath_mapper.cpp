@@ -321,9 +321,6 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     // Lower the max mapping quality so that it thinks it can find unambiguous mappings of
     // short sequences
     mapper.max_mapping_quality = 10;
-    // In case we're using compile time forced fragment length distribution, set a max sample
-    // size
-    mapper.set_fragment_length_distr_params(10, 10, .95);
     
     SECTION( "MultipathMapper can map a short fake read" ) {
 
@@ -370,6 +367,9 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
             }
         }
     }
+    
+    // Give it a fragment length distribution so it doesn't try to learn one
+    mapper.force_fragment_length_distr(4, 2);
     
     SECTION( "MultipathMapper can map two tiny paired reads" ) {
     
@@ -472,9 +472,6 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     // Lower the max mapping quality so that it thinks it can find unambiguous mappings of
     // short sequences
     mapper.max_mapping_quality = 10;
-    // In case we're using compile time forced fragment length distribution, set a max sample
-    // size
-    mapper.set_fragment_length_distr_params(10, 10, .95);
     
     SECTION( "topologically_order_subpaths works within a node" ) {
     
@@ -568,7 +565,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
         // Here are two reads on the same strand
         Alignment read1, read2;
         read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
-        read2.set_sequence("TCCTTGACTTCTTGAAACA");
+        read2.set_sequence("TCCTTGACTTCTTGAAACATTTGGCTATTGACC");
         
         // Have a list to fill with results
         vector<pair<MultipathAlignment, MultipathAlignment>> results;
