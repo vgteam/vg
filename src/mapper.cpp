@@ -1915,6 +1915,22 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                           basis_length/longest_lcp2);
     }
 
+    double maybe_pair_mq = maybe_mq1 + maybe_mq2;
+    // if estimated mq is not high scale difficulty using the estimated mapping quality
+    if (maybe_mq1 < 2) {
+        mq_cap1 = maybe_mq1;
+    }
+    if (maybe_mq2 < 2) {
+        mq_cap2 = maybe_mq2;
+    }
+    if (min_multimaps < extra_multimaps
+        && maybe_pair_mq < max_mapping_quality) {
+        total_multimaps =
+            max(max_multimaps,
+                min(total_multimaps,
+                    max(min_multimaps, (int)round(maybe_pair_mq)*2)));
+    }
+
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << " " << total_multimaps << endl;
     if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << fraction_filtered2 << " " << max_possible_mq << " " << total_multimaps << endl;
     
