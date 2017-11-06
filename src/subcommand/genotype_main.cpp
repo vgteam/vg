@@ -236,17 +236,18 @@ int main_genotype(int argc, char** argv) {
         exit(0);
     }
 
-      // setup reads index
-    if (optind >= argc) {
-        help_genotype(argv);
-        return 1;
-    }
-
+    // setup reads index
     string reads_index_name = "";
     if (optind < argc){
         reads_index_name = get_input_file_name(optind, argc, argv);
 
+    } else {
+        if (gam_file.empty()) {
+            cerr << "[vg genotype] Index argument must be specified when not using -G" << endl;
+            return 1;
+        }
     }
+    
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
     if (useindex){
