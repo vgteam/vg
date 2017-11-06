@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <fstream>
+#include <deque>
 #include "stream.hpp"
 #include "vg.hpp"
 #include "handle.hpp"
@@ -23,6 +24,81 @@
 using namespace std;
 
 namespace vg {
+    
+    /**
+     * Snarls are defined at the Protobuf level, but here is how we define
+     * chains as real objects.
+     *
+     * The SnarlManager is going to have one official copy of each chain stored,
+     * and it will give you a pointer to it on demand.
+     */
+    using Chain = vector<const Snarl*>;
+    
+    /**
+     * Return true if the first snarl in the given chain is backward relative to the chain.
+     */
+    bool start_backward(const Chain& chain);
+    
+    /**
+     * Return true if the last snarl in the given chain is backward relative to the chain.
+     */
+    bool end_backward(const Chain& chain);
+    
+    /**
+     * Get the inward-facing start Visit for a chain.
+     */
+    Visit get_start(const Chain& chain);
+    
+    /**
+     * Get the outward-facing end Visit for a chain.
+     */
+    Visit get_end(const Chain& chain);
+    
+    /**
+     * We want to be able to loop over a chain and get iterators to pairs of the
+     * snarl and its orientation in the chain. So we define some iterators.
+     */
+    struct ChainIterator {
+        /// Advance the iterator
+        ChainIterator& operator++();
+        /// Get the snarl we're at and whether it is backward 
+        pair<const Snarl*, bool> operator*() const;
+        /// Get a pointer to the thing we get when we dereference the iterator
+        const pair<const Snarl*, bool>* operator->() const;
+        
+        /// We need to define comparison because C++ doesn't give it to us for free.
+        bool operator==(const ChainIterator& other) const;
+        bool operator!=(const ChainIterator& other) const;
+        
+        /// Are we a reverse iterator or not?
+        bool go_left;
+        /// Is the snarl we are at backward or forward in its chain?
+        bool backward;
+        
+        /// What position in the underlying vector are we in?
+        Chain::const_iterator pos;
+        
+        /// What are the bounds of that underlying vector?
+        Chain::const_iterator chain_start;
+        Chain::const_iterator chain_end;
+        
+        /// Since we're using backing random access itarators to provide reverse
+        /// iterators, we need a flag to see if we are rend (i.e. before the
+        /// beginning)
+        bool is_rend;
+        
+        /// In order to dereference to a pair with -> we need a place to put the pair so we can have a pointer to it.
+        /// Gets lazily set to wherever the iterator is pointing when we do ->
+        mutable pair<const Snarl*, bool> scratch;
+    };
+    
+    /**
+     * We define free functions for getting iterators forward and backward through chains.
+     */
+    ChainIterator chain_begin(const Chain& chain);
+    ChainIterator chain_end(const Chain& chain);
+    ChainIterator chain_rbegin(const Chain& chain);
+    ChainIterator chain_rend(const Chain& chain);
     
     /**
      * Allow traversing a graph of nodes and child snarl chains within a snarl
@@ -72,12 +148,12 @@ namespace vg {
         /// using the given chains as child chains. Unary snarls are stored as
         /// single-snarl chains just like other trivial chains.
         NetGraph(const Visit& start, const Visit& end,
-            const vector<vector<const Snarl*>>& child_chains_mixed,
+            const vector<Chain>& child_chains_mixed,
             const HandleGraph* graph,
             bool use_internal_connectivity = false);
             
         /// Make a net graph from the given chains and unary snarls (as pointers) in the given backing graph.
-        NetGraph(const Visit& start, const Visit& end, const vector<vector<const Snarl*>>& child_chains,
+        NetGraph(const Visit& start, const Visit& end, const vector<Chain>& child_chains,
             const vector<const Snarl*>& child_unary_snarls, const HandleGraph* graph, bool use_internal_connectivity = false);
             
         /// Make a net graph from the given chains and unary snarls (as raw values) in the given backing graph.
@@ -130,7 +206,7 @@ namespace vg {
         void add_unary_child(const Snarl* unary);
         
         /// Add a chain of one or more non-unary snarls to the index.
-        void add_chain_child(const vector<const Snarl*>& chain);
+        void add_chain_child(const Chain& chain);
     
         // Save the backing graph
         const HandleGraph* graph;
@@ -172,6 +248,7 @@ namespace vg {
     public:
         
         /// Construct a SnarlManager for the snarls returned by an iterator
+        /// Also covers iterators of chains of snarls.
         template <typename SnarlIterator>
         SnarlManager(SnarlIterator begin, SnarlIterator end);
         
@@ -183,6 +260,14 @@ namespace vg {
         
         /// Destructor
         ~SnarlManager() = default;
+        
+        /// Cannot be copied because of all the internal pointer indexes
+        SnarlManager(const SnarlManager& other) = delete;
+        SnarlManager& operator=(const SnarlManager& other) = delete;
+        
+        /// Can be moved
+        SnarlManager(SnarlManager&& other) = default;
+        SnarlManager& operator=(SnarlManager&& other) = default;
         
         /// Returns a vector of pointers to the children of a Snarl.
         /// If given null, returns the top-level root snarls.
@@ -210,7 +295,7 @@ namespace vg {
         /// Unary snarls and snarls in trivial chains will be presented as their own chains.
         /// Snarls are not necessarily oriented appropriately given their ordering in the chain.
         /// Useful for making a net graph.
-        const vector<vector<const Snarl*>> chains_of(const Snarl* snarl) const;
+        const vector<Chain>& chains_of(const Snarl* snarl) const;
         
         /// Get the net graph of the given Snarl's contents, using the given
         /// backing HandleGraph. If use_internal_connectivity is false, each
@@ -249,6 +334,20 @@ namespace vg {
         
         /// Reverses the orientation of a snarl
         void flip(const Snarl* snarl);
+        
+        /// Add the given snarl to the SnarlManager as neither a root nor a
+        /// child of any other snarl. The snarl must eventually either be added
+        /// to a parent snarl or as a root snarl through add_chain() or it will
+        /// not be visible.
+        const Snarl* add_snarl(const Snarl& new_snarl);
+        
+        /// Add the given chain of snarls that have already been added with
+        /// add_snarl(). Parents the chain to the given parent snarl, also added
+        /// with add_snarl(). If the parent is null, makes the chain a root
+        /// chain and all of its snarls root snarls. Note that the chains are
+        /// allowed to be reallocated until the last child chain of a snarl is
+        /// added.
+        void add_chain(const Chain& new_chain, const Snarl* chain_parent);
         
         /// Returns the Nodes and Edges contained in this Snarl but not in any child Snarls (always includes the
         /// Nodes that form the boundaries of child Snarls, optionally includes this Snarl's own boundary Nodes)
@@ -298,19 +397,25 @@ namespace vg {
         using key_t = pair<pair<int64_t, bool>, pair<int64_t, bool>>;
         
         /// Master list of the snarls in the graph.
-        vector<Snarl> snarls;
+        /// Use a deque so pointers never get invalidated but we still have some locality.
+        deque<Snarl> snarls;
         
         /// Roots of snarl trees
         vector<const Snarl*> roots;
+        /// Chains of root-level snarls
+        vector<Chain> root_chains;
         
         /// Map of snarls to the child snarls they contain
         unordered_map<key_t, vector<const Snarl*>> children;
+        /// Map of snarls to the child chains they contain
+        /// TODO: can we replace children with this? Or do we still need precomputed flat children?
+        unordered_map<key_t, vector<Chain>> child_chains;
         /// Map of snarls to their parent
         unordered_map<key_t, const Snarl*> parent;
         
-        /// Map of snarl keys to the indexes in the snarl array
-        // TODO: should we switch to just pointers here and save an indirection?
-        unordered_map<key_t, size_t> index_of;
+        /// Map of snarl keys to the pointer to the managed copy in the snarls vector.
+        /// Is non-const so we can do flip nicely.
+        unordered_map<key_t, Snarl*> self;
         
         /// Map of node traversals to the snarls they point into
         unordered_map<pair<int64_t, bool>, const Snarl*> snarl_into;
@@ -318,8 +423,12 @@ namespace vg {
         /// Converts Snarl to the form used as keys in internal data structures
         inline key_t key_form(const Snarl* snarl) const;
         
-        /// Builds tree indexes after Snarls have been added
+        /// Builds tree indexes after Snarls have been added to the snarls vector
         void build_indexes();
+        
+        /// Actually compute chains for a set of already indexed snarls, which
+        /// is important when chains were not provided. Returns the chains.
+        vector<Chain> compute_chains(const vector<const Snarl*>& input_snarls);
     };
     
     /// Converts a Visit to a NodeTraversal. Throws an exception if the Visit is of a Snarl instead

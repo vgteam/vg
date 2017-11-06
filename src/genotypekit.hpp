@@ -273,14 +273,17 @@ class CactusSnarlFinder : public SnarlFinder {
     /// Holds the names of reference path hints
     unordered_set<string> hint_paths;
     
-    /// Create a snarl in the given list with the given start and end,
+    /// Create a snarl in the given SnarlManager with the given start and end,
     /// containing the given child snarls in the list of chains of children and
-    /// the given list of unary children. Recursively creates snarls in the list
-    /// for the children. Returns a reference to the finished snarl in the list.
-    /// Start and end may be empty visits, in which case a fake root snarl is
-    /// created.
-    const Snarl& recursively_emit_snarls(const Visit& start, const Visit& end, const Snarl* parent,
-        stList* chains_list, stList* unary_snarls_list, list<Snarl>& destination);
+    /// the given list of unary children. Recursively creates snarls in the
+    /// SnarlManager for the children. Returns a pointer to the finished snarl
+    /// in the SnarlManager. Start and end may be empty visits, in which case no
+    /// snarl is created, all the child chains are added as root chains, and
+    /// null is returned. If parent_start and parent_end are empty Visits, no
+    /// parent() is added to the produced snarl.
+    const Snarl* recursively_emit_snarls(const Visit& start, const Visit& end,
+        const Visit& parent_start, const Visit& parent_end,
+        stList* chains_list, stList* unary_snarls_list, SnarlManager& destination);
     
 public:
     /**
@@ -365,7 +368,7 @@ public:
 
 class PathBasedTraversalFinder : public TraversalFinder{
     vg::VG& graph;
-    SnarlManager snarlmanager;
+    SnarlManager& snarlmanager;
     public:
     PathBasedTraversalFinder(vg::VG& graph, SnarlManager& sm);
     virtual ~PathBasedTraversalFinder() = default;
