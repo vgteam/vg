@@ -1352,8 +1352,8 @@ Mapper::Mapper(xg::XG* xidex,
     , min_banded_mq(0)
     , max_band_jump(0)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.8)
-    , pair_rescue_retry_threshold(0.0)
+    , pair_rescue_hang_threshold(0.7)
+    , pair_rescue_retry_threshold(0.5)
     , include_full_length_bonuses(true)
 {
     
@@ -1916,19 +1916,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
 
 
-    double maybe_pair_mq = maybe_mq1 + maybe_mq2;
-
-    // if estimated mq is ~0 attempt only the minimum number of alignments
-    if (maybe_pair_mq < 1) {
-        mq_cap1 = 0;
-        mq_cap2 = 0;
-        total_multimaps = max(min_multimaps, max_multimaps);
-    }
+    double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
 
     // if estimated mq is high scale difficulty using the estimated mapping quality
-    if (min(maybe_mq1, maybe_mq2) > max_mapping_quality) {
-        total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(total_multimaps * (1 - (4*maybe_pair_mq / max_possible_mq)))));
-    }
+    total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(maybe_pair_mq)));
 
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << " " << total_multimaps << endl;
     if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << fraction_filtered2 << " " << max_possible_mq << " " << total_multimaps << endl;
@@ -2653,8 +2644,8 @@ Mapper::align_mem_multi(const Alignment& aln,
     }
 
     // scale difficulty using the estimated mapping quality
-    if (maybe_mq > max_mapping_quality) {
-        total_multimaps = max(max(min_multimaps*4, max_multimaps), min(total_multimaps, (int)round(total_multimaps * (1 - (4*maybe_mq / max_possible_mq)))));
+    if (maybe_mq > max_mapping_quality * 2) {
+        total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(maybe_mq)));
     }
 
     if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_mq << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << " " << total_multimaps << " " << mem_read_ratio << " " << fraction_filtered << " " << max_possible_mq << " " << total_multimaps << endl;
