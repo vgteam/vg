@@ -1915,11 +1915,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                           basis_length/longest_lcp2);
     }
 
-
+    // use the estimated mapping quality to avoid hard work when the results are likely noninformative
     double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
 
     // if estimated mq is high scale difficulty using the estimated mapping quality
-    total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(maybe_pair_mq)));
+    if (min(maybe_mq1, maybe_mq2) > max_mapping_quality) {
+        total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(maybe_pair_mq)));
+    }
 
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << " " << total_multimaps << endl;
     if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << fraction_filtered2 << " " << max_possible_mq << " " << total_multimaps << endl;
@@ -2244,14 +2246,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         auto cluster_ptr = cluster_ptrs[aln_index[p]];
         bool consistent = aln1.score() && aln2.score() && pair_consistent(aln1, aln2, 1e-6);
         // if both mates are aligned, add each single end into the mix
-        if (aln1.score() > hang_threshold && (aln2.score() < retry_threshold || !consistent)) {
+        if (aln1.score() > hang_threshold && (aln2.score() <= retry_threshold || !consistent)) {
             se_alns.emplace_back();
             auto& p = se_alns.back();
             p.first = aln1;
             p.second = read2;
             se_cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
         }
-        if (aln2.score() > hang_threshold && (aln1.score() < retry_threshold || !consistent)) {
+        if (aln2.score() > hang_threshold && (aln1.score() <= retry_threshold || !consistent)) {
             se_alns.emplace_back();
             auto& q = se_alns.back();
             q.first = read1;
@@ -2644,8 +2646,8 @@ Mapper::align_mem_multi(const Alignment& aln,
     }
 
     // scale difficulty using the estimated mapping quality
-    if (maybe_mq > max_mapping_quality * 2) {
-        total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(maybe_mq)));
+    if (maybe_mq > max_mapping_quality) {
+        total_multimaps = max(max(min_multimaps*4, max_multimaps), min(total_multimaps, (int)round(maybe_mq)));
     }
 
     if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_mq << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << " " << total_multimaps << " " << mem_read_ratio << " " << fraction_filtered << " " << max_possible_mq << " " << total_multimaps << endl;
