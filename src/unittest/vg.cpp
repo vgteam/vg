@@ -1892,7 +1892,7 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
         vg.create_edge(n6, n4, true, true);
         vg.create_edge(n3, n6);
       
-        
+        unordered_map<int64_t, pair<int64_t, bool>> trans;
         VG rev = vg.reverse_complement_graph(trans);
         
         REQUIRE(trans.size() == rev.graph.node_size());
@@ -1931,47 +1931,184 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
     }
     
 }
-//-------------------------------------------------------------------------
 TEST_CASE("distance_to_head() produces expected results", "[vg]") {
-    VG vg;
-    // Create a graph with one node
-    Node* n0 = vg.create_node("AA");
+        VG vg;
+        Node* n0 = vg.create_node("AA");
+        Node* n1 = vg.create_node("AC");
+        Node* n2 = vg.create_node("AG");
+        Node* n3 = vg.create_node("AT");
+        NodeTraversal n;
 
     SECTION("distance_to_head() works when NodeTraversal is at head") {
         // Set NodeTraversal to head node
-        NodeTraversal n;
         n.node = n0;
-        // maxSize is the number of nodes in the graph
-        int32_t maxSize = vg.node_size();
+        int32_t limit = 100;
         set<NodeTraversal> trav;
 
-        int32_t check = vg.distance_to_head(n, maxSize, 0, trav);
+        int32_t check = vg.distance_to_head(n, limit, 0, trav);
         
         REQUIRE(check == 0);
     }
     SECTION("distance_to_head() works when NodeTraversal is not at head") {
-        // Add more nodes to graph
-        Node* n1 = vg.create_node("AC");
-        Node* n2 = vg.create_node("AG");
-        Node* n3 = vg.create_node("AT");
         vg.create_edge(n0, n1);
         vg.create_edge(n1, n2);
         vg.create_edge(n2, n3);
-
         // Set NodeTraversal to the node you are currently on
-        NodeTraversal n;
         n.node = n3;
-        // maxSize is the number of nodes in the graph
-        int32_t maxSize = vg.node_size();
+        int32_t limit = 100;
         set<NodeTraversal> trav;
 
-        int32_t check = vg.distance_to_head(n, maxSize, 0, trav);
+        int32_t check = vg.distance_to_head(n, limit, 0, trav);
         
-        REQUIRE(check == vg.node_size());
-      
+        REQUIRE(check == 6);
     }
-    
+    SECTION("distance_to_head() works when limit is less than the distance") {
+        vg.create_edge(n0, n1);
+        vg.create_edge(n1, n2);
+        vg.create_edge(n2, n3);
+        // Set NodeTraversal to the node you are currently on
+        n.node = n3;
+        int32_t limit = 4;
+        set<NodeTraversal> trav;
+
+        int32_t check = vg.distance_to_head(n, limit, 0, trav);
+        
+        REQUIRE(check == -1);
+    }
+    SECTION("distance_to_head() works when limit is equal to the distance") {
+        vg.create_edge(n0, n1);
+        vg.create_edge(n1, n2);
+        vg.create_edge(n2, n3);
+        // Set NodeTraversal to the node you are currently on
+        n.node = n3;
+        int32_t limit = 6;
+        set<NodeTraversal> trav;
+
+        int32_t check = vg.distance_to_head(n, limit, 0, trav);
+        
+        REQUIRE(check == -1);
+    }
+      SECTION("distance_to_head() works when there is no head") {
+        vg.create_edge(n0, n1, true, false);
+        // Set NodeTraversal to the node you are currently on
+        n.node = n1;
+        int32_t limit = 100;
+        set<NodeTraversal> trav;
+
+        int32_t check = vg.distance_to_head(n, limit, 0, trav);
+        
+        REQUIRE(check == -1);
+    }
+      SECTION("distance_to_head() works when there are 2 previous nodes") {
+        Node* n4 = vg.create_node("AG");
+        Node* n5 = vg.create_node("AT");
+        Node* n6 = vg.create_node("GATTACA");
+        vg.create_edge(n0, n4);
+        vg.create_edge(n4, n5);
+        vg.create_edge(n0, n6);
+        vg.create_edge(n6, n1);
+        vg.create_edge(n5, n1);
+        // Set NodeTraversal to the node you are currently on
+        n.node = n1;
+        int32_t limit = 100;
+        set<NodeTraversal> trav;
+        // if there are 2 previous nodes, gets the distance of previous node that was made first
+        int32_t check = vg.distance_to_head(n, limit, 0, trav);
+        
+        REQUIRE(check == 9);
+    }
 }
-//-------------------------------------------------------------------------   
+TEST_CASE("distance_to_tail() produces expected results", "[vg]") {
+        VG vg;
+        Node* n0 = vg.create_node("AA");
+        Node* n1 = vg.create_node("AC");
+        Node* n2 = vg.create_node("AG");
+        Node* n3 = vg.create_node("AT");
+        NodeTraversal n;
+
+    SECTION("distance_to_tail() works when NodeTraversal is at tail") {
+        // Set NodeTraversal to head node
+        n.node = n0;
+        int32_t limit = 100;
+        set<NodeTraversal> trav;
+
+        int32_t check = vg.distance_to_tail(n, limit, 0, trav);
+        
+        REQUIRE(check == 0);
+    }
+    SECTION("distance_to_tail() works when NodeTraversal is not at head") {
+        vg.create_edge(n0, n1);
+        vg.create_edge(n1, n2);
+        vg.create_edge(n2, n3);
+        // Set NodeTraversal to the node you are currently on
+        n.node = n0;
+        int32_t limit = 100;
+        set<NodeTraversal> trav;
+
+        int32_t check = vg.distance_to_tail(n, limit, 0, trav);
+        
+        REQUIRE(check == 6);
+    }
+    SECTION("distance_to_tail() works when limit is less than the distance") {
+        vg.create_edge(n0, n1);
+        vg.create_edge(n1, n2);
+        vg.create_edge(n2, n3);
+        // Set NodeTraversal to the node you are currently on
+        n.node = n0;
+        int32_t limit = 4;
+        set<NodeTraversal> trav;
+
+        int32_t check = vg.distance_to_tail(n, limit, 0, trav);
+        
+        REQUIRE(check == -1);
+    }
+    SECTION("distance_to_tail() works when limit is equal to the distance") {
+        vg.create_edge(n0, n1);
+        vg.create_edge(n1, n2);
+        vg.create_edge(n2, n3);
+        // Set NodeTraversal to the node you are currently on
+        n.node = n3;
+        int32_t limit = 6;
+        set<NodeTraversal> trav;
+
+        int32_t check = vg.distance_to_tail(n, limit, 0, trav);
+        
+        REQUIRE(check == 0);
+    }
+      SECTION("distance_to_tail() works when there is no tail") {
+        vg.create_edge(n0, n1, false, true);
+        // Set NodeTraversal to the node you are currently on
+        n.node = n1;
+        int32_t limit = 100;
+        set<NodeTraversal> trav;
+
+        int32_t check = vg.distance_to_tail(n, limit, 0, trav);
+        
+        REQUIRE(check == -1);
+    }
+      SECTION("distance_to_tail() works when there are 3 next nodes") {
+        Node* n4 = vg.create_node("AG");
+        Node* n5 = vg.create_node("AT");
+        Node* n6 = vg.create_node("GATTACA");
+        Node* n7 = vg.create_node("ATG");
+        vg.create_edge(n0, n6); 
+        vg.create_edge(n6, n1); 
+        vg.create_edge(n0, n2); 
+        vg.create_edge(n2, n7);
+        vg.create_edge(n7, n1); 
+        vg.create_edge(n0, n4);
+        vg.create_edge(n4, n5);
+        vg.create_edge(n5, n1); 
+        
+        // Set NodeTraversal to the node you are currently on
+        n.node = n0;
+        int32_t limit = 100;
+        set<NodeTraversal> trav;
+        // if there are 3 next nodes, gets the distance of next node that was made first
+        int32_t check = vg.distance_to_tail(n, limit, 0, trav);
+        
+        REQUIRE(check == 9);
+    }
+}
 }
 }
