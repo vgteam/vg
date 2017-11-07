@@ -26,34 +26,60 @@ using namespace std;
  * NetGraph.
  *
  * Only admits full-length traversals of a snarl from start to end.
+ *
+ * Multiple haplotypes are distinguished by their rank. The rank at which each
+ * haplotype visits a child snarl on each visit is recorded.
  */
 class SnarlState {
 
 protected:
+    // TODO: The rank updates here are going to be O(n^2) in total traversal
+    // count, because we're shifting vectors around and updating a bunch of ints
+    // on every edit.
+    
+    // Really we need a dynamic rank/select sort of thing. But for traversal
+    // counts on the order of 2, like we expect, this might end up faster.
+    
+    // We assign ranks to each traversal of each node. The ranks on the end
+    // nodes are also the rank of the traversal overall, since each traversal
+    // visits each end node only once. We constrain the ranks on the end nodes
+    // to always be the same. Internally, rank is more or less arbitrary, but we
+    // use it, when we visit child snarls, to say which traversal of that child
+    // snarl is being visited.
+
     /**
      * Store a vector of haplotype traversals of this snarl from start to end.
-     * Handles are in the Snarl's NetGraph, and represent visits to either the
-     * snarl's own nodes or to child snarls. The handles visiting the snarl's
-     * start and end nodes are included.
+     * Each traversal is paired with its rank among traversals of that handle
+     * (in either orientation) in this SnarlState. Handles are in the Snarl's
+     * NetGraph, and represent visits to either the snarl's own nodes or to
+     * child snarls. The handles visiting the snarl's start and end nodes are
+     * included.
      */
-    vector<vector<handle_t>> haplotypes;
+    vector<vector<pair<handle_t, size_t>>> haplotypes;
+
+    /**
+     * For each locally forward handle, store a vector of all of the visits to
+     * it in either orientation, in order by rank.
+     */
+    unordered_map<handle_t, vector<decltype(haplotypes)::iterator>> visits_by_rank;
+    
+    /// We need to keep track of the net graph, because we may need to traverse
+    /// haplotypes forward or reverse and we need to flip things.
+    const NetGraph* graph;
 
 public:
+    
+    /// Create a SnarlState that uses the given net graph.
+    SnarlState(const NetGraph* graph);
     
     /// How many haplotypes traverse this snarl?
     size_t size() const;
     
-    /// We define a way to iterate over the contained haplotypes
-    using const_iterator = decltype(haplotypes)::const_iterator;
-    
-    /// Get an iterator to the first haplotype
-    const_iterator begin() const;
-    
-    /// Get an iterator to the past-the-end haplotype
-    const_iterator end() const;
-    
-    /// Get the haplotype at the given rank.
-    const vector<handle_t>& at(size_t rank) const;
+    /// Trace the haplotype with the given rank. Call the iteratee on each
+    /// handle in the net graph with the rank of this traversal among traversals
+    /// of that handle's node or child snarl.
+    /// If backward is true, traverses in reverse.
+    void trace(size_t rank, bool backward, const function<void(const handle_t&, size_t)>& iteratee) const;
 
     // We can add, remove, and swap haplotypes by rank.
     // All these operations are meant to be reversible.
@@ -61,6 +87,7 @@ public:
     /// Insert the given traversal of this snarl from start to end as a
     /// haplotype with the given overall rank. The first rank is 0. Pushes
     /// everything with a higher rank 1 rank up.
+    /// 
     void insert(size_t rank, const vector<handle_t>& haplotype);
     
     /// Replace the traversal of this haplotype at the given rank with the given
@@ -122,9 +149,7 @@ struct SwapHaplotypesCommand : public GenomeStateCommand {
 };
 
 struct CreateHaplotypeCommand : public GenomeStateCommand {
-    /// This is the root snarl to create a new traversal of.
-    /// TODO: maybe should be a chain?
-    const Snarl* root;
+    // No data here; a telomere pair should be randomly chosen.    
     
     virtual GenomeStateCommand* execute(GenomeState& state) const;
     
@@ -144,7 +169,8 @@ class GenomeState {
 public:
     
     /// Make a new GenomeState on the given SnarlManager, manageing snarls in
-    /// the given graph, with the given telomere pairs
+    /// the given graph, with the given telomere pairs. Each telomere can appear
+    /// in only one pair.
     GenomeState(const SnarlManager& manager, const HandleGraph* graph,
         const unordered_set<pair<const Snarl*, const Snarl*>> telomeres);
     
@@ -166,6 +192,15 @@ public:
     /// command being executed. Frees the passed command. TODO: does that make
     /// sense?
     GenomeStateCommand* execute(GenomeStateCommand* command);
+    
+    /// Count the number of haplotypes connecting the given pair of telomeres.
+    /// It must be a pair of telomeres actually passed during construction.
+    size_t count_haplotypes(const pair<const Snarl*, const Snarl*>& telomere_pair);
+    
+    /// Trace the haplotype starting at the given start telomere snarl with the
+    /// given rank. Calls the callback with each backing HandleGraph handle.
+    void trace_haplotype(const pair<const Snarl*, const Snarl*>& telomere_pair,
+        size_t rank, const function<void(const handle_t&)> iteratee);
      
 protected:
     /// We keep track of pairs of telomere unary snarls. The haplotypes we work
@@ -174,11 +209,11 @@ protected:
     /// following chains or pollowing paths inside of some snarl we are in.
     unordered_set<pair<const Snarl*, const Snarl*>> telomeres;
 
-    /// We have a state for every snarl.
-    unordered_map<const Snarl*, SnarlState> state;
-    
     /// We precompute all the net graphs and keep them around.
     unordered_map<const Snarl*, NetGraph> net_graphs;
+
+    /// We have a state for every snarl, which depends on the corresponding net graph.
+    unordered_map<const Snarl*, SnarlState> state;
     
     /// We keep a reference to the SnarlManager that knows what children are
     /// where and which snarl we should look at next after leaving a previous
