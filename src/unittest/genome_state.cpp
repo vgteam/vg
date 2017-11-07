@@ -215,6 +215,70 @@ TEST_CASE("SnarlState can hold haplotypes", "[snarlstate][genomestate]") {
                     
                 }
                 
+                SECTION("It can be swapped with another haplotype") {
+                    state.swap(0, 2);
+                    
+                    SECTION("Swapping haplotypes dows not change the overall size") {
+                        REQUIRE(state.size() == 3);
+                    }
+                    
+                    SECTION("The second haplotype added is now in overall lane 2") {
+                        vector<pair<handle_t, size_t>> recovered;
+                        
+                        
+                        state.trace(2, false, [&](const handle_t& visit, size_t local_lane) {
+                            recovered.emplace_back(visit, local_lane);
+                        });
+                        
+                        
+                        
+                        REQUIRE(recovered.size() == 2);
+                        REQUIRE(recovered[0].first == hap2[0].first);
+                        REQUIRE(recovered[0].second == 2);
+                        REQUIRE(recovered[1].first == hap2[1].first);
+                        REQUIRE(recovered[1].second == 2);
+                    }
+                    
+                    SECTION("The third haplotype added is now in overall lane 0") {
+                        vector<pair<handle_t, size_t>> recovered;
+                        
+                        state.trace(0, false, [&](const handle_t& visit, size_t local_lane) {
+                            recovered.emplace_back(visit, local_lane);
+                        });
+                        
+                        REQUIRE(recovered.size() == 3);
+                        REQUIRE(recovered[0].first == hap3[0]);
+                        REQUIRE(recovered[0].second == 0);
+                        SECTION("Swapping haplotypes does not change interior child snarl lane assignments") {
+                            // The second mapping should stay in place in its assigned lane
+                            REQUIRE(recovered[1].first == hap3[1]);
+                            REQUIRE(recovered[1].second == 1);
+                        }
+                        REQUIRE(recovered[2].first == hap3[2]);
+                        REQUIRE(recovered[2].second == 0);
+                    }
+                    
+                    SECTION("The first haplotype added is unaffected in overall lane 1") {
+                        vector<pair<handle_t, size_t>> recovered;
+                        
+                        state.trace(1, false, [&](const handle_t& visit, size_t local_lane) {
+                            recovered.emplace_back(visit, local_lane);
+                        });
+                        
+                        REQUIRE(recovered.size() == 3);
+                        REQUIRE(recovered[0].first == annotated_haplotype[0].first);
+                        REQUIRE(recovered[0].second == annotated_haplotype[0].second + 1);
+                        // The second mapping should not get bumped up.
+                        REQUIRE(recovered[1].first == annotated_haplotype[1].first);
+                        REQUIRE(recovered[1].second == annotated_haplotype[1].second);
+                        REQUIRE(recovered[2].first == annotated_haplotype[2].first);
+                        REQUIRE(recovered[2].second == annotated_haplotype[2].second + 1);
+                        
+                    }
+                    
+                    
+                }
+                
             }
             
             SECTION("A haplotype without lane numbers can be inserted") {

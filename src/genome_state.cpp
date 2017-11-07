@@ -213,6 +213,24 @@ vector<pair<handle_t, size_t>> SnarlState::erase(size_t overall_lane) {
     return copy;
 }
 
+void SnarlState::swap(size_t rank1, size_t rank2) {
+    
+    // Swap the start and end annotation values
+    std::swap(haplotypes.at(rank1).front().second, haplotypes.at(rank2).front().second);
+    std::swap(haplotypes.at(rank1).back().second, haplotypes.at(rank2).back().second);
+    
+    // Swap the start net node index entries
+    auto& start_node_lanes = net_node_lanes[graph->forward(graph->get_start())];
+    std::swap(start_node_lanes.at(rank1), start_node_lanes.at(rank2));
+    
+    // Swap the end net node index entries
+    auto& end_node_lanes = net_node_lanes[graph->forward(graph->get_end())];
+    std::swap(end_node_lanes.at(rank1), end_node_lanes.at(rank2));
+    
+    // Swap the actual haplotype vectors
+    std::swap(haplotypes.at(rank1), haplotypes.at(rank2));
+}
+
 GenomeStateCommand* DeleteHaplotypeCommand::execute(GenomeState& state) const {
     // Allocate and populate the reverse command.
     return new InsertHaplotypeCommand(state.delete_haplotype(*this));
