@@ -9,6 +9,147 @@
 #include "json2pb.h"
 
 namespace vg {
+
+    bool start_backward(const Chain& chain) {
+        // The start snarl is backward if it shares its start node with the second snarl.
+        return (chain.size() > 1 &&
+            (chain.front()->start().node_id() == (*++chain.begin())->start().node_id() ||
+            chain.front()->start().node_id() == (*++chain.begin())->end().node_id()));
+    }
+    
+    bool end_backward(const Chain& chain) {
+        // The end snarl is backward if it shares its end node with the next-to-last snarl.
+        return (chain.size() > 1 &&
+            (chain.back()->end().node_id() == (*++chain.rbegin())->start().node_id() ||
+            chain.back()->end().node_id() == (*++chain.rbegin())->end().node_id()));
+    }
+
+    Visit get_start(const Chain& chain) {
+        // Get a bounding visit and return it.
+        return start_backward(chain) ? reverse(chain.front()->end()) : chain.front()->start();
+    }
+    
+    Visit get_end(const Chain& chain) {
+        // Get a bounding visit and return it.
+        return end_backward(chain) ? reverse(chain.front()->start()) : chain.front()->end();
+    }
+    
+    bool ChainIterator::operator==(const ChainIterator& other) const {
+        return (tie(go_left, backward, pos, chain_start, chain_end, is_rend) ==
+            tie(other.go_left, other.backward, other.pos, other.chain_start, other.chain_end, other.is_rend));
+    }
+    
+    bool ChainIterator::operator!=(const ChainIterator& other) const {
+        return !(*this == other);
+    }
+    
+    ChainIterator& ChainIterator::operator++() {
+        // What node from this snarl should the next snarl touch
+        id_t last_leading_node = (go_left != backward) ? (*pos)->start().node_id() : (*pos)->end().node_id();
+        
+        if (go_left) {
+            // Walk left
+            
+            if (pos == chain_start) {
+                // We're already at the start, so next is just going to be come rend
+                is_rend = true;
+                backward = false;
+            } else {
+                // There's actually something to the left of us
+                --pos;
+                
+                // The next snarl is backward in the chain if its end isn't shared with the last snarl.
+                auto next_trailing_node = (*pos)->end().node_id();
+                backward = (next_trailing_node != last_leading_node);
+            }
+        } else {
+            // Walk right
+            ++pos;
+            
+            if (pos == chain_end) {
+                // We've hit the end. Look like a default end iterator.
+                backward = false;
+            } else {
+                // We've arrived somewhere
+            
+                // The next snarl is backward in the chain if its start isn't shared with the last snarl.
+                auto next_trailing_node = (*pos)->start().node_id();
+                backward = (next_trailing_node != last_leading_node);
+            }
+        }
+        
+        return *this;
+    }
+    
+    pair<const Snarl*, bool> ChainIterator::operator*() const {
+        return make_pair(*pos, backward);
+    }
+    
+    const pair<const Snarl*, bool>* ChainIterator::operator->() const {
+        // Make the pair we need
+        scratch = *(*this);
+        // Return a pointer to it.
+        return &scratch;
+    }
+    
+    ChainIterator chain_begin(const Chain& chain) {
+        ChainIterator to_return{
+            false, // Don't go left
+            start_backward(chain), // Start backward if necessary
+            chain.begin(), // Be at the start of the chain
+            chain.begin(), // Here's the chain's start
+            chain.end(), // And its end
+            false // This is not a reverse end
+        };
+        
+        return to_return;
+    }
+    
+    ChainIterator chain_end(const Chain& chain) {
+        ChainIterator to_return{
+            false, // Don't go left
+            false, // Ends are not backward because they are past the end
+            chain.end(), // Be at the end of the chain
+            chain.begin(), // Here's the chain's start
+            chain.end(), // And its end
+            false // This is not a reverse end
+        };
+        
+        return to_return;
+    }
+    
+    ChainIterator chain_rbegin(const Chain& chain) {
+        if (chain.empty()) {
+            // If it's empty we should be the rend past-the-end reverse iterator
+            return chain_rend(chain);
+        }
+        
+        // Otherwise there's at least one element so point to the last.
+        ChainIterator to_return{
+            true, // Go left
+            end_backward(chain), // Start backward if necessary
+            --chain.end(), // Be at the last real thing in the chain
+            chain.begin(), // Here's the chain's start
+            chain.end(), // And its end
+            false // This is not a reverse end
+        };
+        
+        return to_return;
+    }
+    
+    ChainIterator chain_rend(const Chain& chain) {
+        ChainIterator to_return{
+            true, // Go left
+            false, // Ends are never backward
+            chain.begin(), // Be at the start of the chain
+            chain.begin(), // Here's the chain's start
+            chain.end(), // And its end
+            true // This is a reverse end
+        };
+        
+        return to_return;
+    }
+
     // TODO: this is duplicative with the other constructor, but protobuf won't let me make
     // a deserialization iterator to match its signature because its internal file streams
     // disallow copy constructors
@@ -87,52 +228,14 @@ namespace vg {
         return reverse(next_in_chain(reverse(here)));
     }
     
-    const vector<vector<const Snarl*>> SnarlManager::chains_of(const Snarl* snarl) const {
-        // We track the snarls we have seen by chain traversal so we only have to see each chain once.
-        unordered_set<const Snarl*> seen;
-        
-        // We will populate this with the chains.
-        vector<vector<const Snarl*>> to_return;
-        
-        for (const Snarl* child : children_of(snarl)) {
-            // For every snarl in this snarl (or, if snarl is null, every top level snarl)
-            
-            if (seen.count(child)) {
-                // Already in a chain
-                continue;
-            }
-            
-            // Make a new chain for this child.
-            list<const Snarl*> chain{child};
-            
-            // Mark it as seen
-            seen.insert(child);
-            
-            // Make a visit to the child
-            Visit here;
-            transfer_boundary_info(*child, *here.mutable_snarl());
-            
-            for (Visit walk_left = prev_in_chain(here); walk_left.has_snarl(); walk_left = prev_in_chain(walk_left)) {
-                // For everything in the chain left from here, add it to the chain
-                chain.push_front(manage(walk_left.snarl()));
-                // Mark it as seen
-                seen.insert(chain.front());
-            }
-            
-            for (Visit walk_right = next_in_chain(here); walk_right.has_snarl(); walk_right = next_in_chain(walk_right)) {
-                // For everything in the chain right from here, add it to the chain
-                chain.push_back(manage(walk_right.snarl()));
-                // Mark it as seen
-                seen.insert(chain.back());
-            }
-            
-            // Copy from the list into a vector
-            to_return.emplace_back(chain.begin(), chain.end());
+    const vector<Chain>& SnarlManager::chains_of(const Snarl* snarl) const {
+        if (snarl == nullptr) {
+            // We want the root chains
+            return root_chains;
         }
         
-        // When we finish we will have no chains starting at snarls in other chains, and a chain containing every snarl.
-        // Since chains are linear that means we have all the chains.
-        return to_return;
+        // Otherwise, go look up the child chains of this snarl.
+        return child_chains.at(key_form(snarl));
     }
     
     NetGraph SnarlManager::net_graph_of(const Snarl* snarl, const HandleGraph* graph, bool use_internal_connectivity) const {
@@ -183,21 +286,12 @@ namespace vg {
     
     void SnarlManager::flip(const Snarl* snarl) {
         
-        // kinda ugly workaround of constness that avoids exposing non-const pointers while
-        // still letting client edit Snarls in this controlled manner
-        
-        // get the offset of this snarl in the master list
-        int64_t offset = (intptr_t) snarl - (intptr_t) snarls.data();
-        // make sure this pointer is aligned to the vector
-        if (offset % sizeof(Snarl) != 0) {
-            cerr << "error:[SnarlManager] attempted to flip a Snarl with a pointer that is not owned by SnarlManager" << endl;
-            assert(0);
-        }
-        
-        Snarl& to_flip = snarls[offset / sizeof(Snarl)];
-        
         // save the key used in the indices before editing the snarl
         auto old_key = key_form(snarl);
+        
+        // Get a non-const reference to the cannonical snarl.
+        // TODO: Can't we use a const cast and save a lookup?
+        Snarl& to_flip = *self[key_form(snarl)];
         
         // swap and reverse the start and end Visits
         int64_t start_id = to_flip.start().node_id();
@@ -217,11 +311,83 @@ namespace vg {
         children[key_form(snarl)] = std::move(children[old_key]);
         children.erase(old_key);
         
-        // Update index index
-        index_of[key_form(snarl)] = std::move(index_of[old_key]);
-        index_of.erase(old_key);
+        // And the child chain index
+        child_chains[key_form(snarl)] = std::move(child_chains[old_key]);
+        child_chains.erase(old_key);
+        
+        // Update self index
+        self[key_form(snarl)] = std::move(self[old_key]);
+        self.erase(old_key);
         
         // note: snarl_into index is invariant to flipping
+    }
+    
+    const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
+        // Store the snarl
+        snarls.push_back(new_snarl);
+        Snarl* snarl = &snarls.back();
+        
+#ifdef debug
+        cerr << "Adding snarl " << new_snarl.start().node_id() << " " << new_snarl.start().backward() << " -> "
+            << new_snarl.end().node_id() << " " << new_snarl.end().backward() << endl;
+#endif
+        
+        // Remember where each snarl is
+        self[key_form(snarl)] = snarl;
+        
+        // It has an empty vector of children
+        children[key_form(snarl)] = vector<const Snarl*>();
+        // It has an empty list of child chains.
+        child_chains[key_form(snarl)] = vector<Chain>();
+        
+        // We will set the parent later when we add the snarl's chain.
+        // Every snarl has to be in a chain. Even the unary ones, in trivial chains.
+        
+        // Record how you get in and out
+        snarl_into[make_pair(snarl->start().node_id(), snarl->start().backward())] = snarl;
+        snarl_into[make_pair(snarl->end().node_id(), !snarl->end().backward())] = snarl;
+        
+        return snarl;
+    }
+    
+    void SnarlManager::add_chain(const Chain& new_chain, const Snarl* chain_parent) {
+        if (chain_parent == nullptr) {
+            // This is a root chain
+            
+#ifdef debug
+        cerr << "Adding root chain of " << new_chain.size() << " snarls" << endl;
+#endif
+            
+            // Save a copy of the chain as a root chain
+            root_chains.push_back(new_chain);
+            
+            for (const Snarl* child : new_chain) {
+                // Save it as a root snarl
+                roots.push_back(child);
+                
+                // Save its parent, which is null
+                parent[key_form(child)] = nullptr;
+            }
+        } else {
+        
+#ifdef debug
+        cerr << "Adding chain of " << new_chain.size() << " snarls under "
+            << chain_parent->start().node_id() << " " << chain_parent->start().backward() << " -> "
+            << chain_parent->end().node_id() << " " << chain_parent->end().backward()
+            << endl;
+#endif
+        
+            // Save a copy of the chain as a child chain
+            child_chains[key_form(chain_parent)].push_back(new_chain);
+            
+            for (const Snarl* child : new_chain) {
+                // Save it as a child of the parent
+                children[key_form(chain_parent)].push_back(child);
+                
+                // Save its parent
+                parent[key_form(child)] = chain_parent;
+            }
+        }
     }
     
     const Snarl* SnarlManager::into_which_snarl(int64_t id, bool reverse) const {
@@ -270,15 +436,14 @@ namespace vg {
         cerr << "Building SnarlManager index of " << snarls.size() << " snarls" << endl;
 #endif
         
-        for (size_t i = 0; i < snarls.size(); i++) {
-            Snarl& snarl = snarls[i];
+        for (Snarl& snarl : snarls) {
             
 #ifdef debug
             cerr << pb2json(snarl) << endl;
 #endif
             
             // Remember where each snarl is
-            index_of[key_form(&snarl)] = i;
+            self[key_form(&snarl)] = &snarl;
         
             // is this a top-level snarl?
             if (snarl.has_parent()) {
@@ -319,6 +484,78 @@ namespace vg {
                 children.insert(make_pair(key_form(&snarl), vector<const Snarl*>()));
             }
         }
+        
+        if (root_chains.empty() || child_chains.empty()) {
+            // Chains were not provided already.
+            // Now compute the chains using the into and out-of indexes.
+        
+            // Compute the chains for the root level snarls
+            root_chains = compute_chains(roots);
+        
+            for (auto& kv : children) {
+                // For each parent snarl
+                const key_t& parent_key = kv.first;
+                // And its children
+                vector<const Snarl*>& snarl_children = kv.second;
+                
+                // Compute chains of the children and store it under the parent.
+                child_chains.insert(make_pair(parent_key, compute_chains(snarl_children)));
+            }
+        }
+    }
+    
+    vector<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snarls) {
+        // We populate this
+        vector<Chain> to_return;
+        
+        // We track the snarls we have seen in chain traversals so we only have to see each chain once.
+        unordered_set<const Snarl*> seen;
+        
+        for (const Snarl* snarl : input_snarls) {
+            // For every snarl in this snarl (or, if snarl is null, every top level snarl)
+            
+            if (seen.count(snarl)) {
+                // Already in a chain
+                continue;
+            }
+            
+            // Make a new chain for this child.
+            list<const Snarl*> chain{snarl};
+            
+            // Mark it as seen
+            seen.insert(snarl);
+            
+            // Make a visit to the child
+            Visit here;
+            transfer_boundary_info(*snarl, *here.mutable_snarl());
+            
+            for (Visit walk_left = prev_in_chain(here);
+                walk_left.has_snarl() && !seen.count(manage(walk_left.snarl()));
+                walk_left = prev_in_chain(walk_left)) {
+            
+                // For everything in the chain left from here, until we hit the
+                // end or come back to the start, add it to the chain
+                chain.push_front(manage(walk_left.snarl()));
+                // Mark it as seen
+                seen.insert(chain.front());
+            }
+            
+            for (Visit walk_right = next_in_chain(here);
+                walk_right.has_snarl() && !seen.count(manage(walk_right.snarl()));
+                walk_right = next_in_chain(walk_right)) {
+                
+                // For everything in the chain right from here, until we hit the
+                // end or come back to the start, add it to the chain
+                chain.push_back(manage(walk_right.snarl()));
+                // Mark it as seen
+                seen.insert(chain.back());
+            }
+            
+            // Copy from the list into a vector
+            to_return.emplace_back(chain.begin(), chain.end());
+        }
+        
+        return to_return;
     }
     
     pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::shallow_contents(const Snarl* snarl, VG& graph,
@@ -611,17 +848,17 @@ namespace vg {
         // Work out the key for the snarl
         key_t key = key_form(&not_owned);
         
-        // Get the index of the snarl with that key.
-        auto it = index_of.find(key);
+        // Get the cannonical pointer to the snarl with that key.
+        auto it = self.find(key);
         
-        if (it == index_of.end()) {
+        if (it == self.end()) {
             // It's not there. Someone is trying to manage a snarl we don't
             // really own. Complain.
             throw runtime_error("Unable to find snarl " +  pb2json(not_owned) + " in SnarlManager");
         }
         
         // Return the official copy of that snarl
-        return &snarls.at(it->second);
+        return it->second;
     }
     
     vector<Visit> SnarlManager::visits_right(const Visit& visit, VG& graph, const Snarl* in_snarl) const {
@@ -755,7 +992,7 @@ namespace vg {
     }
     
     NetGraph::NetGraph(const Visit& start, const Visit& end,
-        const vector<vector<const Snarl*>>& child_chains_mixed,
+        const vector<Chain>& child_chains_mixed,
         const HandleGraph* graph,
         bool use_internal_connectivity) : NetGraph(start, end, graph, use_internal_connectivity) {
         
@@ -774,7 +1011,7 @@ namespace vg {
     }
     
     NetGraph::NetGraph(const Visit& start, const Visit& end,
-        const vector<vector<const Snarl*>>& child_chains,
+        const vector<Chain>& child_chains,
         const vector<const Snarl*>& child_unary_snarls, const HandleGraph* graph,
         bool use_internal_connectivity) : NetGraph(start, end, graph, use_internal_connectivity) {
         
@@ -794,7 +1031,7 @@ namespace vg {
         const vector<Snarl>& child_unary_snarls,
         const HandleGraph* graph,
         bool use_internal_connectivity) :
-        NetGraph(start, end, vg::map_over<vector, vector<Snarl>, vector<const Snarl*>>(child_chains, pointerfy<vector, Snarl>),
+        NetGraph(start, end, vg::map_over<vector, vector<Snarl>, Chain>(child_chains, pointerfy<vector, Snarl>),
             pointerfy(child_unary_snarls), graph, use_internal_connectivity) {
         // Nothing to do! We already ran the real constructor with vectors of pointers to everything
     }
@@ -826,33 +1063,14 @@ namespace vg {
         }
     }
     
-    void NetGraph::add_chain_child(const vector<const Snarl*>& chain) {
+    void NetGraph::add_chain_child(const Chain& chain) {
         // For every chain, get its bounding handles in the base graph
-            
-        // Note that bounding handles are not always the start of the first
-        // snarl and the end of the last, because snarls can be flipped!
-        
-        // The start snarl is backward if it shares its start node with the second snarl.
-        bool start_backward = (chain.size() > 1 &&
-            (chain.front()->start().node_id() == (*++chain.begin())->start().node_id() ||
-            chain.front()->start().node_id() == (*++chain.begin())->end().node_id()));
-        
-        // The end snarl is backward if it shares its end node with the next-to-last snarl.
-        bool end_backward = (chain.size() > 1 &&
-            (chain.back()->end().node_id() == (*++chain.rbegin())->start().node_id() ||
-            chain.back()->end().node_id() == (*++chain.rbegin())->end().node_id()));
-        
-        // Now get the bounding handles according to the orientations of the chains' bounding snarls.
-        handle_t chain_start = start_backward ? 
-            graph->get_handle(chain.front()->end().node_id(), !chain.front()->end().backward()) :
-            graph->get_handle(chain.front()->start().node_id(), chain.front()->start().backward());
-        handle_t chain_end = end_backward ?
-            graph->get_handle(chain.back()->start().node_id(), !chain.back()->start().backward()) :
-            graph->get_handle(chain.back()->end().node_id(), chain.back()->end().backward());
+        handle_t chain_start_handle = graph->get_handle(get_start(chain));
+        handle_t chain_end_handle = graph->get_handle(get_end(chain));
         
         // Save the links that let us cross the chain.
-        chain_ends_by_start[chain_start] = chain_end;
-        chain_end_rewrites[graph->flip(chain_end)] = graph->flip(chain_start);
+        chain_ends_by_start[chain_start_handle] = chain_end_handle;
+        chain_end_rewrites[graph->flip(chain_end_handle)] = graph->flip(chain_start_handle);
         
         if (use_internal_connectivity) {
         
@@ -861,30 +1079,15 @@ namespace vg {
             bool connected_right_right = false;
             bool connected_left_right = true;
             
-            // Looping over the chain, we need to know if snarls are
-            // backward.
-            bool backward = start_backward;
-            // And to track that we need to track what the last node of the
-            // last snarl was, so we can see if we share it on our start or
-            // end.
-            id_t last_node = 0;
-            
-            for (auto it = chain.begin(); it != chain.end(); ++it) {
-                // Go through the child snarls from left to right
-                const Snarl* child = *it;
+            for (auto it = chain_begin(chain); it != chain_end(chain); ++it) {
+                // Go through the oriented child snarls from left to right
+                const Snarl* child = it->first;
+                bool backward = it->second;
                 
                 // Unpack the child's connectivity
                 bool start_self_reachable = child->start_self_reachable();
                 bool end_self_reachable = child->end_self_reachable();
                 bool start_end_reachable = child->start_end_reachable();
-                
-                if (last_node != 0) {
-                    // We can determine if we are backward based on what we start with.
-                    // We're backward if we start with the wrong thing.
-                    backward = (child->start().node_id() != last_node);
-                }
-                // Update the last node
-                last_node = backward ? child->start().node_id() : child->end().node_id();
                 
                 if (backward) {
                     // Look at the connectivity in reverse
@@ -904,26 +1107,15 @@ namespace vg {
                 }
             }
             
-            // Reset for a traversal the other way
-            backward = end_backward;
-            last_node = 0;
-            
-            for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
-                // Go through the child snarls from right to left
-                const Snarl* child = *it;
+            for (auto it = chain_rbegin(chain); it != chain_rend(chain); ++it) {
+                // Go through the oriented child snarls from left to right
+                const Snarl* child = it->first;
+                bool backward = it->second;
                 
                 // Unpack the child's connectivity
                 bool start_self_reachable = child->start_self_reachable();
                 bool end_self_reachable = child->end_self_reachable();
                 bool start_end_reachable = child->start_end_reachable();
-                
-                if (last_node != 0) {
-                    // We can determine if we are backward based on what we end with.
-                    // We're backward if we end with the wrong thing.
-                    backward = (child->end().node_id() != last_node);
-                }
-                // Update the last node
-                last_node = backward ? child->end().node_id() : child->start().node_id();
                 
                 if (backward) {
                     // Look at the connectivity in reverse
@@ -943,10 +1135,11 @@ namespace vg {
             }
             
             // Save the connectivity
-            connectivity[graph->get_id(chain_start)] = tie(connected_left_left, connected_right_right, connected_left_right);
+            connectivity[graph->get_id(chain_start_handle)] = tie(connected_left_left,
+                connected_right_right, connected_left_right);
         } else {
             // Act like a normal connected-through node.
-            connectivity[graph->get_id(chain_start)] = make_tuple(false, false, true);
+            connectivity[graph->get_id(chain_start_handle)] = make_tuple(false, false, true);
         }
     }
     

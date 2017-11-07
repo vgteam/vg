@@ -372,5 +372,5 @@ int main_sim(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_sim("sim", "simulate reads from a graph", main_sim);
+static Subcommand vg_sim("sim", "simulate reads from a graph", TOOLKIT, main_sim);
 

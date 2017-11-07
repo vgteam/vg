@@ -70,11 +70,10 @@ int main_bugs(int argc, char** argv){
 #endif
 
     // Open the URL in the appropriate browser (which may be lynx or similar)
-    system((open_command + " " + url).c_str());
+    return system((open_command + " " + url).c_str());
     
-    return 0;
 }
 
 // Register subcommand
-static Subcommand vg_bugs("bugs", "show or create bugs", main_bugs);
+static Subcommand vg_bugs("bugs", "show or create bugs", DEVELOPMENT, main_bugs);
 

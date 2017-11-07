@@ -20,7 +20,7 @@ void help_genotype(char** argv) {
          << "options:" << endl
          << "    -j, --json              output in JSON" << endl
          << "    -v, --vcf               output in VCF" << endl
-         << "    -G, --gam   GAM         a GAM file to use with variant recall." << endl
+         << "    -G, --gam   GAM         a GAM file to use with variant recall (or in place of index)" << endl
          << "    -V, --recall-vcf VCF    recall variants in a specific VCF file." << endl
          << "    -F, --fasta  FASTA" << endl
          << "    -I, --insertions INS" << endl
@@ -236,17 +236,18 @@ int main_genotype(int argc, char** argv) {
         exit(0);
     }
 
-      // setup reads index
-    if (optind >= argc) {
-        help_genotype(argv);
-        return 1;
-    }
-
+    // setup reads index
     string reads_index_name = "";
     if (optind < argc){
         reads_index_name = get_input_file_name(optind, argc, argv);
 
+    } else {
+        if (gam_file.empty()) {
+            cerr << "[vg genotype] Index argument must be specified when not using -G" << endl;
+            return 1;
+        }
     }
+    
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
     if (useindex){
@@ -279,10 +280,6 @@ int main_genotype(int argc, char** argv) {
 
     }
 
-  
-
-    
-
     // Load all the reads matching the graph into memory
     vector<Alignment> alignments;
 
@@ -290,24 +287,39 @@ int main_genotype(int argc, char** argv) {
         cerr << "Loading reads..." << endl;
     }
 
-    index.for_alignment_to_nodes(graph_ids, [&](const Alignment& alignment) {
-        // Extract all the alignments
-
-        // Only take alignments that don't visit nodes not in the graph
-        bool contained = true;
+    function<bool(const Alignment&)> alignment_contained = [&graph](const Alignment& alignment) {
         for(size_t i = 0; i < alignment.path().mapping_size(); i++) {
             if(!graph->has_node(alignment.path().mapping(i).position().node_id())) {
-                // Throw out the read
-                contained = false;
+                return false;
             }
         }
+        return alignment.path().mapping_size() > 0;
+    };
 
-        if(contained) {
-            // This alignment completely falls within the graph
-            alignments.push_back(alignment);
+    if (useindex) {
+        // Extract all the alignments
+        index.for_alignment_to_nodes(graph_ids, [&](const Alignment& alignment) {
+                // Only take alignments that don't visit nodes not in the graph
+                if (alignment_contained(alignment)) {
+                    alignments.push_back(alignment);
+                }
+            });
+    } else {
+        // load in all reads (activated by passing GAM directly with -G).
+        // This is used by, ex., toil-vg, which has already used the gam index
+        // to extract relevant reads
+        ifstream gam_reads(gam_file.c_str());
+        if (!gam_reads) {
+            cerr << "[vg genotype] Error opening gam: " << gam_file << endl;
+            return 1;
         }
-    });
-
+        stream::for_each<Alignment>(gam_reads, [&alignments, &alignment_contained](Alignment& alignment) {
+                if (alignment_contained(alignment)) {
+                    alignments.push_back(alignment);
+                }
+            });
+    }
+    
     if(show_progress) {
         cerr << "Loaded " << alignments.size() << " alignments" << endl;
     }

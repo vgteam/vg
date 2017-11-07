@@ -2583,13 +2583,14 @@ namespace vg {
         stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << std::endl;
         stream << "##INFO=<ID=XSBB,Number=1,Type=Integer,Description=\"Ultrabubble Bases\">" << std::endl;
         stream << "##INFO=<ID=XSBN,Number=1,Type=Integer,Description=\"Ultrabubble Nodes\">" << std::endl;
-        stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << std::endl;
-        stream << "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">" << std::endl;
+        stream << "##FORMAT=<ID=DP,Number=1,Type=Float,Description=\"Read Depth\">" << std::endl;
+        stream << "##FORMAT=<ID=GQ,Number=1,Type=Float,Description=\"Genotype Quality\">" << std::endl;
         stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
-        stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << std::endl;
-        stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << std::endl;
+        stream << "##FORMAT=<ID=AD,Number=.,Type=Float,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << std::endl;
+        stream << "##FORMAT=<ID=SB,Number=4,Type=Float,Description=\"Forward and reverse support for ref and alt alleles.\">" << std::endl;
+        stream << "##FORMAT=<ID=PL,Number=G,Type=String,Description=\"Log Likelihood\">" << std::endl;
         // We need this field to stratify on for VCF comparison. The info is in SB but vcfeval can't pull it out
-        stream << "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">" << std::endl;
+        stream << "##FORMAT=<ID=XAAD,Number=1,Type=Float,Description=\"Alt allele read count.\">" << std::endl;
         if(!contig_name.empty()) {
             // Announce the contig as well.
             stream << "##contig=<ID=" << contig_name << ",length=" << contig_size << ">" << std::endl;

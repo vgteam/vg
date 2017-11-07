@@ -49,6 +49,9 @@ Position make_position(const pos_t& pos);
 Position make_position(id_t id, bool is_rev, off_t off);
 /// Make a Position from a gcsa node
 Position make_position(gcsa::node_type node);
+/// Find the min distance in the path offsets where the path orientation is the same and different
+pair<int64_t, int64_t> min_oriented_distances(const map<string, vector<pair<size_t, bool> > >& path_offsets1,
+                                              const map<string, vector<pair<size_t, bool> > >& path_offsets2);
 
 }
 

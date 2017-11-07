@@ -1770,8 +1770,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -1867,8 +1867,8 @@ namespace vg {
 
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -1954,8 +1954,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2069,8 +2069,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2176,8 +2176,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2234,8 +2234,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2312,8 +2312,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2374,8 +2374,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2403,7 +2403,7 @@ namespace vg {
                     snarl_manager.flip(child3);
                 }
                 
-                SECTION("First child is trivail snarl from 2 start to 5 end") {
+                SECTION("First child is trivial snarl from 2 start to 5 end") {
                     // Not 5 end to 2 start because we seem to be sorting by node ID.
                     REQUIRE(child1->start().node_id() == 2);
                     REQUIRE(!child1->start().backward() == false);
@@ -2429,6 +2429,109 @@ namespace vg {
                 }
                 
             }
+            
+        }
+        
+        TEST_CASE("SnarlManager accepts chain input", "[snarls]") {
+            // Make a little graph where snarl1 and snarl2 are a top-level
+            // chain, and snarl3 and snarl4 are trivial chains inside snarl1
+      
+            Snarl snarl1;
+            snarl1.mutable_start()->set_node_id(1);
+            snarl1.mutable_end()->set_node_id(6);
+            snarl1.set_start_end_reachable(true);
+            
+            Snarl snarl2;
+            snarl2.mutable_start()->set_node_id(6);
+            snarl2.mutable_end()->set_node_id(7);
+            snarl2.set_start_end_reachable(true);
+            
+            Snarl snarl3;
+            snarl3.mutable_start()->set_node_id(2);
+            snarl3.mutable_end()->set_node_id(3);
+            snarl3.set_start_end_reachable(true);
+            transfer_boundary_info(snarl1, *snarl3.mutable_parent());
+            
+            Snarl snarl4;
+            snarl4.mutable_start()->set_node_id(4);
+            snarl4.mutable_end()->set_node_id(5);
+            snarl4.set_start_end_reachable(true);
+            transfer_boundary_info(snarl1, *snarl4.mutable_parent());
+            
+            // Load all this into the SnarlManager
+            SnarlManager snarl_manager;
+            
+            auto ptr3 = snarl_manager.add_snarl(snarl3);
+            auto ptr4 = snarl_manager.add_snarl(snarl4);
+            
+            auto ptr1 = snarl_manager.add_snarl(snarl1);
+            snarl_manager.add_chain(Chain{ptr3}, ptr1);
+            snarl_manager.add_chain(Chain{ptr4}, ptr1);
+            
+            auto ptr2 = snarl_manager.add_snarl(snarl2);
+            snarl_manager.add_chain(Chain{ptr1, ptr2}, nullptr);
+ 
+#ifdef debug
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << endl;
+            });
+#endif
+
+            SECTION("There should be two top-level snarls") {
+                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
+                
+                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
+                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
+                
+                if (child1->start().node_id() > child1->end().node_id()) {
+                    snarl_manager.flip(child1);
+                }
+                
+                if (child2->start().node_id() > child2->end().node_id()) {
+                    snarl_manager.flip(child2);
+                }
+                
+                SECTION("First child is from 1 to 6") {
+                    REQUIRE(child1->start().node_id() == 1);
+                    REQUIRE(child1->start().backward() == false);
+                    REQUIRE(child1->end().node_id() == 6);
+                    REQUIRE(child1->end().backward() == false);
+                    
+                    SECTION("First child has two children") {
+                        REQUIRE(snarl_manager.children_of(child1).size() == 2);
+                        
+                        const Snarl* subchild1 = snarl_manager.children_of(child1)[0];
+                        const Snarl* subchild2 = snarl_manager.children_of(child1)[1];
+                        
+                        SECTION("First child is from 2 to 3") {
+                            REQUIRE(subchild1->start().node_id() == 2);
+                            REQUIRE(subchild1->start().backward() == false);
+                            REQUIRE(subchild1->end().node_id() == 3);
+                            REQUIRE(subchild1->end().backward() == false);
+                        }
+                        
+                        SECTION("Second child is from 4 to 5") {
+                            REQUIRE(subchild2->start().node_id() == 4);
+                            REQUIRE(subchild2->start().backward() == false);
+                            REQUIRE(subchild2->end().node_id() == 5);
+                            REQUIRE(subchild2->end().backward() == false);
+                        }
+                        
+                    }
+                    
+                }
+                
+                SECTION("Second child from 6 to 7") {
+                    REQUIRE(child2->start().node_id() == 6);
+                    REQUIRE(child2->start().backward() == false);
+                    REQUIRE(child2->end().node_id() == 7);
+                    REQUIRE(child2->end().backward() == false);
+                    
+                }
+                
+            }
+            
             
         }
         
@@ -2484,8 +2587,8 @@ namespace vg {
             
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().is_reverse()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().is_reverse() << " containing ";
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
                 for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
                     cerr << node->id() << " ";
                 }
@@ -2519,18 +2622,91 @@ namespace vg {
                     REQUIRE(snarl_manager.in_nontrivial_chain(child3));
                 }
                 
-                SECTION("We should see that chain if we pull it out") {
+                SECTION("We can traverse the chain with iterators") {
                     auto chains = snarl_manager.chains_of(nullptr);
                     
                     REQUIRE(chains.size() == 1);
                     
                     auto& chain = chains.front();
                     
-                    REQUIRE(chain.size() == 3);
+                    auto begin = chain_begin(chain);
+                    auto rbegin = chain_rbegin(chain);
+                    auto end = chain_end(chain);
+                    auto rend = chain_rend(chain);
                     
-                    REQUIRE(chain[0] == child1);
-                    REQUIRE(chain[1] == child2);
-                    REQUIRE(chain[2] == child3);
+                    SECTION("Iterator equality works") {
+                    
+                        REQUIRE(begin == begin);
+                        REQUIRE(begin != end);
+                        REQUIRE(begin != rbegin);
+                        REQUIRE(begin != rend);
+                        
+                        REQUIRE(rbegin == rbegin);
+                        REQUIRE(rbegin != end);
+                        REQUIRE(rbegin != begin);
+                        REQUIRE(rbegin != rend);
+                        
+                        REQUIRE(end == end);
+                        REQUIRE(end != begin);
+                        REQUIRE(end != rbegin);
+                        REQUIRE(end != rend);
+                        
+                        REQUIRE(rend == rend);
+                        REQUIRE(rend != end);
+                        REQUIRE(rend != rbegin);
+                        REQUIRE(rend != begin);
+                        
+                    }
+                    
+                    SECTION("Iterators traverse the chain left to right and right to left") {
+                        auto it = begin;
+                        auto rit = rbegin;
+                        
+                        REQUIRE(*it == make_pair(child1, false));
+                        REQUIRE(*rit == make_pair(child3, false));
+                        
+                        REQUIRE(it->first == child1);
+                        REQUIRE(it->second == false);
+                        REQUIRE(rit->first == child3);
+                        REQUIRE(rit->second == false);
+                        
+                        ++it;
+                        ++rit;
+                        
+                        REQUIRE(*it == make_pair(child2, false));
+                        REQUIRE(*rit == make_pair(child2, false));
+                        
+                        REQUIRE(it->first == child2);
+                        REQUIRE(it->second == false);
+                        REQUIRE(rit->first == child2);
+                        REQUIRE(rit->second == false);
+                        
+                        ++it;
+                        ++rit;
+                        
+                        REQUIRE(*it == make_pair(child3, false));
+                        REQUIRE(*rit == make_pair(child1, false));
+                        
+                        REQUIRE(it->first == child3);
+                        REQUIRE(it->second == false);
+                        REQUIRE(rit->first == child1);
+                        REQUIRE(rit->second == false);
+                        
+                        ++it;
+                        ++rit;
+                        
+                        REQUIRE(it == end);
+                        REQUIRE(rit == rend);
+                        
+                    }
+                    
+                    SECTION("Empty chains have proper iterators") {
+                        Chain empty;
+                        
+                        REQUIRE(chain_begin(empty) == chain_end(empty));
+                        REQUIRE(chain_rbegin(empty) == chain_rend(empty));
+                    }
+                    
                 }
                 
                 SECTION("We can still see the chain if we flip the snarls around") {
@@ -2545,11 +2721,16 @@ namespace vg {
                     
                     REQUIRE(chain.size() == 3);
                     
-                    // We happen to get it backward.
-                    // TODO: Do some kind of orientation-independent comparison
-                    REQUIRE(chain[0] == child3);
-                    REQUIRE(chain[1] == child2);
-                    REQUIRE(chain[2] == child1);
+                    auto it = chain_begin(chain);
+                    
+                    // Chain should be in the same order but with some orientations flipped.
+                    REQUIRE(*it == make_pair(child1, true));
+                    ++it;
+                    REQUIRE(*it == make_pair(child2, true));
+                    ++it;
+                    REQUIRE(*it == make_pair(child3, false));
+                    ++it;
+                    REQUIRE(it == chain_end(chain));
                 }
                 
                 SECTION("We can look around with Visits") {

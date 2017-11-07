@@ -107,7 +107,7 @@ is $? 0 "dagify unrolls the un-unrollable graph"
 vg mod -s graphs/not-simple.vg | vg validate -
 is $? 0 "sibling simplification does not disrupt paths"
 
-vg msga -f msgas/cycle.fa -b s1 -w 50 -t 1 -N | vg mod -D -| vg mod -U 10 - | vg mod -c - >c.vg
+vg msga -f msgas/cycle.fa -b s1 -w 64 -t 1 -N | vg mod -D -| vg mod -U 10 - | vg mod -c - >c.vg
 is $(cat c.vg | vg mod -w 100 - | vg stats -N -) 4 "dagify correctly calculates the minimum distance through the unrolled component"
 is $(cat c.vg | vg mod -w 100 - | vg stats -l - | cut -f 2) 200 "dagify produces a graph of the correct size"
 rm -f c.vg
@@ -125,7 +125,7 @@ vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAAT
 vg index -x 2snp.xg 2snp.vg
 vg sim -s 420 -l 30 -x 2snp.xg -n 30 -a >2snp.sim
 vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
-vg map -g flat.gcsa -x flat.xg -G 2snp.sim >2snp.gam
+vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
 is $(vg mod -i 2snp.gam flat.vg | vg mod -D - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
 rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim 2snp.gam
 

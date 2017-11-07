@@ -9,6 +9,7 @@
  */
 
 #include "types.hpp"
+#include "vg.pb.h"
 #include <functional>
 #include <cstdint>
 #include <vector>
@@ -87,6 +88,11 @@ using namespace std;
  */
 class HandleGraph {
 public:
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Interface that needs to be implemented
+    ////////////////////////////////////////////////////////////////////////////
+
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const = 0;
     
@@ -118,6 +124,10 @@ public:
     /// Return the number of nodes in the graph
     /// TODO: can't be node_count because XG has a field named node_count.
     virtual size_t node_size() const = 0;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Interface that needs to be using'd
+    ////////////////////////////////////////////////////////////////////////////
     
     /// Loop over all the handles to next/previous (right/left) nodes. Works
     /// with a callback that just takes all the handles and returns void.
@@ -167,6 +177,15 @@ public:
         
         // Use that
         for_each_handle(lambda);
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Concrete utility methods
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Get a handle from a Visit Protobuf object.
+    inline handle_t get_handle(const Visit& visit) const {
+        return get_handle(visit.node_id(), visit.backward());
     }
     
     /// Get the locally forward version of a handle
