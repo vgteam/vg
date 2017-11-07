@@ -34,6 +34,11 @@ void SnarlState::trace(size_t overall_lane, bool backward, const function<void(c
 
 void SnarlState::insert(const vector<pair<handle_t, size_t>>& haplotype) {
     assert(!haplotype.empty());
+    
+    if (haplotype.front().first != graph->get_start() || haplotype.back().first != graph->get_end()) {
+        // Fail if it's not actually from start to end.
+        throw runtime_error("Tried to add a haplotype to a snarl that is not a start-to-end traversal of that snarl.");
+    }
 
     // TODO: all these inserts at indexes are O(N).
 

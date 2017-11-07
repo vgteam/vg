@@ -24,12 +24,12 @@ namespace vg {
             chain.back()->end().node_id() == (*++chain.rbegin())->end().node_id()));
     }
 
-    Visit get_start(const Chain& chain) {
+    Visit get_start_of(const Chain& chain) {
         // Get a bounding visit and return it.
         return start_backward(chain) ? reverse(chain.front()->end()) : chain.front()->start();
     }
     
-    Visit get_end(const Chain& chain) {
+    Visit get_end_of(const Chain& chain) {
         // Get a bounding visit and return it.
         return end_backward(chain) ? reverse(chain.front()->start()) : chain.front()->end();
     }
@@ -1065,8 +1065,8 @@ namespace vg {
     
     void NetGraph::add_chain_child(const Chain& chain) {
         // For every chain, get its bounding handles in the base graph
-        handle_t chain_start_handle = graph->get_handle(get_start(chain));
-        handle_t chain_end_handle = graph->get_handle(get_end(chain));
+        handle_t chain_start_handle = graph->get_handle(get_start_of(chain));
+        handle_t chain_end_handle = graph->get_handle(get_end_of(chain));
         
         // Save the links that let us cross the chain.
         chain_ends_by_start[chain_start_handle] = chain_end_handle;
@@ -1612,6 +1612,14 @@ namespace vg {
             size++;
         });
         return size;
+    }
+    
+    const handle_t& NetGraph::get_start() const {
+        return start;
+    }
+    
+    const handle_t& NetGraph::get_end() const {
+        return end;
     }
     
     bool operator==(const Visit& a, const Visit& b) {

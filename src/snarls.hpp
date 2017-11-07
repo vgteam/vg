@@ -47,12 +47,12 @@ namespace vg {
     /**
      * Get the inward-facing start Visit for a chain.
      */
-    Visit get_start(const Chain& chain);
+    Visit get_start_of(const Chain& chain);
     
     /**
      * Get the outward-facing end Visit for a chain.
      */
-    Visit get_end(const Chain& chain);
+    Visit get_end_of(const Chain& chain);
     
     /**
      * We want to be able to loop over a chain and get iterators to pairs of the
@@ -196,6 +196,16 @@ namespace vg {
         
         /// Return the number of nodes in the graph
         virtual size_t node_size() const;
+        
+        // We also have some extra functions
+        
+        /// Get the inward-facing start handle for this net graph. Useful when
+        /// working with traversals.
+        const handle_t& get_start() const;
+        
+        /// Get the outward-facing end handle for this net graph. Useful when
+        /// working with traversals.
+        const handle_t& get_end() const;
         
     protected:
     
