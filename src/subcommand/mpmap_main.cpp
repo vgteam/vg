@@ -9,6 +9,7 @@
 #include "subcommand.hpp"
 
 #include "../multipath_mapper.hpp"
+#include "../path.hpp"
 
 //#define record_read_run_times
 
@@ -687,6 +688,8 @@ int main_mpmap(int argc, char** argv) {
         for (MultipathAlignment& mp_aln : mp_alns) {
             output_buf.emplace_back();
             optimal_alignment(mp_aln, output_buf.back());
+            // compute the Alignment identity to make vg call happy
+            output_buf.back().set_identity(identity(output_buf.back().path()));
         }
         
         stream::write_buffered(cout, output_buf, buffer_size);
@@ -724,8 +727,13 @@ int main_mpmap(int argc, char** argv) {
             
             output_buf.emplace_back();
             optimal_alignment(mp_aln_pair.first, output_buf.back());
+            // compute the Alignment identity to make vg call happy
+            output_buf.back().set_identity(identity(output_buf.back().path()));
+            
             output_buf.emplace_back();
             optimal_alignment(mp_aln_pair.second, output_buf.back());
+            // compute identity again
+            output_buf.back().set_identity(identity(output_buf.back().path()));
             
             // switch second read back to the opposite strand if necessary
             if (!same_strand) {
