@@ -161,13 +161,6 @@ TEST_CASE("SnarlState can hold haplotypes", "[snarlstate][genomestate]") {
                 }
                 
                 SECTION("The returned annotated haplotype is correct") {
-                    
-                    for (auto record : added) {
-                        cerr << "Added to " << net_graph.get_id(record.first) << " at lane " << record.second << endl;
-                    }
-                    
-                    state.dump();
-                    
                     REQUIRE(added.size() == 3);
                     REQUIRE(added[0].first == hap3[0]);
                     REQUIRE(added[0].second == 2);
@@ -204,7 +197,10 @@ TEST_CASE("SnarlState can hold haplotypes", "[snarlstate][genomestate]") {
                     REQUIRE(added[0].first == hap3[0]);
                     REQUIRE(added[0].second == 1);
                     REQUIRE(added[1].first == hap3[1]);
-                    REQUIRE(added[1].second == 0);
+                    // We don't actually care about our middle node lane assignment.
+                    // It could be before or after other haplotypes; they're allowed to cross over each other arbitrarily.
+                    REQUIRE(added[1].second >= 0);
+                    REQUIRE(added[1].second <= 1);
                     REQUIRE(added[2].first == hap3[2]);
                     REQUIRE(added[2].second == 1);
                 }
@@ -230,7 +226,10 @@ TEST_CASE("SnarlState can hold haplotypes", "[snarlstate][genomestate]") {
                     REQUIRE(net_graph.get_id(recovered[0].first) == 1);
                     REQUIRE(recovered[0].second == 2);
                     REQUIRE(net_graph.get_id(recovered[1].first) == 2);
-                    REQUIRE(recovered[1].second == 1);
+                    // Lane assignment at the middle visit may or may not have been pushed up.
+                    REQUIRE(recovered[1].second >= 0);
+                    REQUIRE(recovered[1].second <= 1);
+                    REQUIRE(recovered[1].second != added[1].second);
                     REQUIRE(net_graph.get_id(recovered[2].first) == 8);
                     REQUIRE(recovered[2].second == 2);
                 }

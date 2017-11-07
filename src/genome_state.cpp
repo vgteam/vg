@@ -125,7 +125,7 @@ const vector<pair<handle_t, size_t>>& SnarlState::append(const vector<handle_t>&
         // Find the appropriate node lanes collection
         auto& node_lanes = net_node_lanes[graph->forward(handle)];
         // Save the local lane assignment
-        inserted_iterator->second = node_lanes.size() - 1;
+        inserted_iterator->second = node_lanes.size();
         // And do the insert
         node_lanes.emplace_back(inserted_iterator);
         
@@ -182,7 +182,7 @@ const vector<pair<handle_t, size_t>>& SnarlState::insert(size_t overall_lane, co
             // Interior visits just get appended, which is simplest. No need to bump anything up.
             
             // Save the local lane assignment
-            inserted_iterator->second = node_lanes.size() - 1;
+            inserted_iterator->second = node_lanes.size();
             // And do the insert
             node_lanes.emplace_back(inserted_iterator);
         }
