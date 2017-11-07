@@ -59,6 +59,9 @@ public:
     /// Create a SnarlState that uses the given net graph.
     SnarlState(const NetGraph* graph);
     
+    /// Dump internal state to cerr.
+    void dump() const;
+    
     /// How many haplotypes traverse this snarl?
     size_t size() const;
     
@@ -77,8 +80,11 @@ public:
     void insert(const vector<pair<handle_t, size_t>>& haplotype);
     
     /// Insert the given traversal of this snarl from start to end, assigning
-    /// each visit to a handle to the next available lane.
-    void append(const vector<handle_t>& haplotype);
+    /// each visit to a handle to the next available lane. Returns the haplotype
+    /// annotated with lane assignments. If handles to the same node or child
+    /// snarl appear more than once, their lane numbers will be strictly
+    /// increasing.
+    const vector<pair<handle_t, size_t>>& append(const vector<handle_t>& haplotype);
     
     /// Insert the given traversal of this snarl from start to end, assigning it
     /// to the given overall lane. Returns the haplotype annotated with lane
@@ -86,8 +92,9 @@ public:
     /// represent child snarls, this can be used to recurse down and insert
     /// traversals of them at the right lanes. If handles to the same node or
     /// child snarl appear more than once, their assigned lane numbers will be
-    /// strictly increasing.
-    vector<pair<handle_t, size_t>> insert(size_t overall_lane, const vector<handle_t>& haplotype);
+    /// strictly increasing. Returns the haplotype annotated with lane
+    /// assignments.
+    const vector<pair<handle_t, size_t>>& insert(size_t overall_lane, const vector<handle_t>& haplotype);
     
     // TODO: can we do an efficient replace? Or should we just drop and add.
     

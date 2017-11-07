@@ -145,6 +145,97 @@ TEST_CASE("SnarlState can hold haplotypes", "[snarlstate][genomestate]") {
                 REQUIRE(recovered[2].second == annotated_haplotype[2].second + 1);
                 
             }
+            
+            SECTION("A haplotype without lane numbers can be appended") {
+                // Make a haplotype
+                vector<handle_t> hap3;
+                hap3.emplace_back(net_graph.get_handle(1, false));
+                hap3.emplace_back(net_graph.get_handle(2, false));
+                hap3.emplace_back(net_graph.get_handle(8, false));
+                
+                // Put it in the state
+                auto added = state.append(hap3);
+                
+                SECTION("The state now has 3 haplotypes") {
+                    REQUIRE(state.size() == 3);
+                }
+                
+                SECTION("The returned annotated haplotype is correct") {
+                    
+                    for (auto record : added) {
+                        cerr << "Added to " << net_graph.get_id(record.first) << " at lane " << record.second << endl;
+                    }
+                    
+                    state.dump();
+                    
+                    REQUIRE(added.size() == 3);
+                    REQUIRE(added[0].first == hap3[0]);
+                    REQUIRE(added[0].second == 2);
+                    REQUIRE(added[1].first == hap3[1]);
+                    REQUIRE(added[1].second == 1);
+                    REQUIRE(added[2].first == hap3[2]);
+                    REQUIRE(added[2].second == 2);
+                }
+                
+                SECTION("The new haplotype can be traced back again") {
+                    vector<pair<handle_t, size_t>> recovered;
+                    
+                    state.trace(2, false, [&](const handle_t& visit, size_t local_lane) {
+                        recovered.emplace_back(visit, local_lane);
+                    });
+                    
+                    REQUIRE(recovered == added);
+                }
+                
+            }
+            
+            SECTION("A haplotype without lane numbers can be inserted") {
+                // Make a haplotype
+                vector<handle_t> hap3;
+                hap3.emplace_back(net_graph.get_handle(1, false));
+                hap3.emplace_back(net_graph.get_handle(2, false));
+                hap3.emplace_back(net_graph.get_handle(8, false));
+                
+                // Put it in the state, at lane 1
+                auto added = state.insert(1, hap3);
+                
+                SECTION("The returned annotated haplotype is correct") {
+                    REQUIRE(added.size() == 3);
+                    REQUIRE(added[0].first == hap3[0]);
+                    REQUIRE(added[0].second == 1);
+                    REQUIRE(added[1].first == hap3[1]);
+                    REQUIRE(added[1].second == 0);
+                    REQUIRE(added[2].first == hap3[2]);
+                    REQUIRE(added[2].second == 1);
+                }
+                
+                SECTION("The new haplotype can be traced back again") {
+                    vector<pair<handle_t, size_t>> recovered;
+                    
+                    state.trace(1, false, [&](const handle_t& visit, size_t local_lane) {
+                        recovered.emplace_back(visit, local_lane);
+                    });
+                    
+                    REQUIRE(recovered == added);
+                }
+                
+                SECTION("The bumped-up haplotype can be traced back again") {
+                    vector<pair<handle_t, size_t>> recovered;
+                    
+                    state.trace(2, false, [&](const handle_t& visit, size_t local_lane) {
+                        recovered.emplace_back(visit, local_lane);
+                    });
+                    
+                    REQUIRE(recovered.size() == 3);
+                    REQUIRE(net_graph.get_id(recovered[0].first) == 1);
+                    REQUIRE(recovered[0].second == 2);
+                    REQUIRE(net_graph.get_id(recovered[1].first) == 2);
+                    REQUIRE(recovered[1].second == 1);
+                    REQUIRE(net_graph.get_id(recovered[2].first) == 8);
+                    REQUIRE(recovered[2].second == 2);
+                }
+                
+            }
         
         }
         

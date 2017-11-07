@@ -10,6 +10,34 @@ SnarlState::SnarlState(const NetGraph* graph) : graph(graph) {
 
 size_t SnarlState::size() const {
     return haplotypes.size();
+
+}
+void SnarlState::dump() const {
+    // First dump the haplotypes
+    for (size_t i = 0; i < haplotypes.size(); i++) {
+        cerr << "Haplotype " << i << ":";
+        
+        for (auto& record : haplotypes.at(i)) {
+            cerr << " " << graph->get_id(record.first) << " " << graph->get_is_reverse(record.first)
+                << " at lane " << record.second << ",";
+        }
+        
+        cerr << endl;
+    }
+    
+    
+    // Then the lanes index
+    for (auto& kv : net_node_lanes) {
+        cerr << "Net node " << graph->get_id(kv.first) << " " << graph->get_is_reverse(kv.first) << " lanes:" << endl;
+        
+        for (size_t i = 0; i < kv.second.size(); i++) {
+            cerr << "\tLane " << i << ": " << graph->get_id(kv.second.at(i)->first)
+                << " " << graph->get_is_reverse(kv.second.at(i)->first)
+                << " at lane " << kv.second.at(i)->second << endl;
+        }
+        
+    }
+    
 }
 
 void SnarlState::trace(size_t overall_lane, bool backward, const function<void(const handle_t&, size_t)>& iteratee) const {
@@ -39,13 +67,18 @@ void SnarlState::insert(const vector<pair<handle_t, size_t>>& haplotype) {
         // Fail if it's not actually from start to end.
         throw runtime_error("Tried to add a haplotype to a snarl that is not a start-to-end traversal of that snarl.");
     }
+    
+    if (haplotype.front().second != haplotype.back().second) {
+        // Fail if we try to put something at two different overall lanes
+        throw runtime_error("Tried to insert a haplotype with different lanes at the snarl start and end nodes.");
+    }
 
     // TODO: all these inserts at indexes are O(N).
 
     // Insert the whole traversal into haplotypes at the appropriate index for the overall lane
     size_t overall_lane = haplotype.front().second;
     assert(overall_lane == haplotype.back().second);
-    auto inserted = haplotypes.insert(haplotypes.begin() + overall_lane, haplotype);
+    auto inserted = haplotypes.emplace(haplotypes.begin() + overall_lane, haplotype);
     
     for (auto it = inserted->begin(); it != inserted->end(); ++it) {
         // For each handle visit
@@ -53,7 +86,7 @@ void SnarlState::insert(const vector<pair<handle_t, size_t>>& haplotype) {
         
         // Insert the iterator record at the right place in net_node_lanes
         auto& node_lanes = net_node_lanes[graph->forward(handle_visit.first)];
-        auto lane_iterator = node_lanes.insert(node_lanes.begin() + handle_visit.second, it);
+        auto lane_iterator = node_lanes.emplace(node_lanes.begin() + handle_visit.second, it);
     
         // Look at whatever is after the lane we just inserted
         ++lane_iterator;
@@ -69,20 +102,97 @@ void SnarlState::insert(const vector<pair<handle_t, size_t>>& haplotype) {
     }
 }
 
-void SnarlState::append(const vector<handle_t>& haplotype) {
-    // Append the whole traversal to haplotypes, with 0s for the lane assignments
+const vector<pair<handle_t, size_t>>& SnarlState::append(const vector<handle_t>& haplotype) {
+    assert(!haplotype.empty());
     
-    // For each handle visit in the haplotype in haplotypes
+    if (haplotype.front() != graph->get_start() || haplotype.back() != graph->get_end()) {
+        // Fail if it's not actually from start to end.
+        throw runtime_error("Tried to add a haplotype to a snarl that is not a start-to-end traversal of that snarl.");
+    }
     
-    // Append its iterator to net_node_lanes for the net node it is on
+    // Make a new haplotype at the end of our haplotypes vector that's big enough.
+    haplotypes.emplace_back(haplotype.size());
+    auto& inserted = haplotypes.back();
     
-    // Set its internal lane assignment that results
+    // Make an iterator to run through it
+    auto inserted_iterator = inserted.begin();
+    for (auto& handle : haplotype) {
+        // For every handle we need to insert
+        
+        // Save the handle
+        inserted_iterator->first = handle;
+        
+        // Find the appropriate node lanes collection
+        auto& node_lanes = net_node_lanes[graph->forward(handle)];
+        // Save the local lane assignment
+        inserted_iterator->second = node_lanes.size() - 1;
+        // And do the insert
+        node_lanes.emplace_back(inserted_iterator);
+        
+        // Insert the next handle in the next slot in the haplotype
+        ++inserted_iterator;
+    }
+
+    // Return the completed vector with the lane annotations.
+    return inserted;
 }
 
-vector<pair<handle_t, size_t>> SnarlState::insert(size_t overall_lane, const vector<handle_t>& haplotype) {
-    // Insert the first and last handles with the assigned overall lane
+const vector<pair<handle_t, size_t>>& SnarlState::insert(size_t overall_lane, const vector<handle_t>& haplotype) {
+    assert(!haplotype.empty());
     
-    // Insert everything lese with the last overall lane, in order.
+    if (haplotype.front() != graph->get_start() || haplotype.back() != graph->get_end()) {
+        // Fail if it's not actually from start to end.
+        throw runtime_error("Tried to add a haplotype to a snarl that is not a start-to-end traversal of that snarl.");
+    }
+    
+    // Insert a haplotype record at the specified overall lane that's big enough.
+    auto& inserted = *haplotypes.emplace(haplotypes.begin() + overall_lane, haplotype.size());
+    
+    // Make an iterator to run through it
+    auto inserted_iterator = inserted.begin();
+    for (auto& handle : haplotype) {
+        // For every handle we need to insert
+        
+        // Save the handle
+        inserted_iterator->first = handle;
+        
+        // Find the appropriate node lanes collection
+        auto& node_lanes = net_node_lanes[graph->forward(handle)];
+        
+        if (inserted_iterator == inserted.begin() || inserted_iterator + 1 == inserted.end()) {
+            // Start and end visits get placed at the predetermined overall_lane
+            inserted_iterator->second = overall_lane;
+            
+            // Insert at the correct offset
+            auto lane_iterator = node_lanes.emplace(node_lanes.begin() + overall_lane, inserted_iterator);
+            
+            // Look at whatever is after the lane we just inserted
+            ++lane_iterator;
+            while (lane_iterator != node_lanes.end()) {
+                // Update all the subsequent records in that net node's lane list and bump up their internal lane assignments
+                
+                // First dereference to get the iterator that points to the actual
+                // record, then dereference that, and increment the lane number.
+                (*(*lane_iterator)).second++;
+                
+                ++lane_iterator;
+            }
+                
+        } else {
+            // Interior visits just get appended, which is simplest. No need to bump anything up.
+            
+            // Save the local lane assignment
+            inserted_iterator->second = node_lanes.size() - 1;
+            // And do the insert
+            node_lanes.emplace_back(inserted_iterator);
+        }
+        
+        // Insert the next handle in the next slot in the haplotype
+        ++inserted_iterator;
+    } 
+    
+    // Return the annotated haplotype.
+    return inserted;
 }
 
 GenomeStateCommand* DeleteHaplotypeCommand::execute(GenomeState& state) const {
