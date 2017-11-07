@@ -27,41 +27,25 @@ using namespace std;
  *
  * Only admits full-length traversals of a snarl from start to end.
  *
- * Multiple haplotypes are distinguished by their rank. The rank at which each
- * haplotype visits a child snarl on each visit is recorded.
+ * Every traversing haplotype is assigned a "lane" number at which it traverses
+ * the snarl. Lane is the same looking backward or forward through the snarl.
+ * Within each child snarl or child node, the traversal is also assigned a lane.
+ * The lane assignments at the start and end nodes are the same, and define the
+ * lane assignments for the overall snarl. Traversals can be inserted at any
+ * lane number in any internal node.
  */
 class SnarlState {
 
 protected:
-    // TODO: The rank updates here are going to be O(n^2) in total traversal
-    // count, because we're shifting vectors around and updating a bunch of ints
-    // on every edit.
     
-    // Really we need a dynamic rank/select sort of thing. But for traversal
-    // counts on the order of 2, like we expect, this might end up faster.
+    // This stores, for each overall lane, the traversal in that lane, annotated with its internal lane assignments
+    vector<list<pair<handle_t, size_t>>> haplotypes;
     
-    // We assign ranks to each traversal of each node. The ranks on the end
-    // nodes are also the rank of the traversal overall, since each traversal
-    // visits each end node only once. We constrain the ranks on the end nodes
-    // to always be the same. Internally, rank is more or less arbitrary, but we
-    // use it, when we visit child snarls, to say which traversal of that child
-    // snarl is being visited.
-
-    /**
-     * Store a vector of haplotype traversals of this snarl from start to end.
-     * Each traversal is paired with its rank among traversals of that handle
-     * (in either orientation) in this SnarlState. Handles are in the Snarl's
-     * NetGraph, and represent visits to either the snarl's own nodes or to
-     * child snarls. The handles visiting the snarl's start and end nodes are
-     * included.
-     */
-    vector<vector<pair<handle_t, size_t>>> haplotypes;
-
-    /**
-     * For each locally forward handle, store a vector of all of the visits to
-     * it in either orientation, in order by rank.
-     */
-    unordered_map<handle_t, vector<decltype(haplotypes)::iterator>> visits_by_rank;
+    // This stores, for each forward handle, a list of all the lanes in order.
+    // Each lane is holding an iterator to the entry in the haplotyope that
+    // occupies that lane. When we insert into or delete out of the lists in
+    // this map, we update the lane numbers where all the iterators point.
+    unordered_map<handle_t, list<decltype(haplotypes)::iterator>> net_node_lanes;
     
     /// We need to keep track of the net graph, because we may need to traverse
     /// haplotypes forward or reverse and we need to flip things.
@@ -75,30 +59,43 @@ public:
     /// How many haplotypes traverse this snarl?
     size_t size() const;
     
-    /// Trace the haplotype with the given rank. Call the iteratee on each
-    /// handle in the net graph with the rank of this traversal among traversals
-    /// of that handle's node or child snarl.
-    /// If backward is true, traverses in reverse.
-    void trace(size_t rank, bool backward, const function<void(const handle_t&, size_t)>& iteratee) const;
+    /// Trace the haplotype int eh given overall lane in the given orientation.
+    /// Yields the oriented handles visited and the per-forward-handle lane
+    /// assignments.
+    void trace(size_t overall_lane, bool backward, const function<void(const handle_t&, size_t)>& iteratee) const;
 
     // We can add, remove, and swap haplotypes by rank.
     // All these operations are meant to be reversible.
     
-    /// Insert the given traversal of this snarl from start to end as a
-    /// haplotype with the given overall rank. The first rank is 0. Pushes
-    /// everything with a higher rank 1 rank up.
-    /// 
-    void insert(size_t rank, const vector<handle_t>& haplotype);
+    /// Insert the given traversal of this snarl from start to end, with the
+    /// given lane assignments for each oriented handle. If handles to the same
+    /// node or child snarl appear more than once, their lane numbers must be
+    /// strictly increasing.
+    void insert(const vector<pair<handle_t, size_t>>& haplotype);
     
-    /// Replace the traversal of this haplotype at the given rank with the given
-    /// new traversal from start to end. Returns the replaced haplotype.
-    vector<handle_t> replace(size_t rank, const vector<handle_t>& haplotype);
+    /// Insert the given traversal of this snarl from start to end, assigning
+    /// each visit to a handle to the next available lane.
+    void append(const vector<handle_t>& haplotype);
     
-    /// Erase the traversal of this haplotype with the given rank. Shifts
-    /// everything with a higher rank 1 rank down. Returns the erased haplotype.
-    vector<handle_t> erase(size_t rank);
+    /// Insert the given traversal of this snarl from start to end, assigning it
+    /// to the given overall lane. Returns the haplotype annotated with lane
+    /// assignments for all the internal handles. If the internal handles
+    /// represent child snarls, this can be used to recurse down and insert
+    /// traversals of them at the right lanes. If handles to the same node or
+    /// child snarl appear more than once, their assigned lane numbers will be
+    /// strictly increasing.
+    vector<pair<handle_t, size_t>> insert(size_t overall_lane, const vector<handle_t>& haplotype);
     
-    /// Swap the traversals of this haplotype with the two given ranks.
+    // TODO: can we do an efficient replace? Or should we just drop and add.
+    
+    /// Erase the traversal of this haplotype in the given overall lane. Shifts
+    /// everything in a higher lane 1 rank down. Returns the erased haplotype
+    /// and its old lane assignments.
+    vector<pair<handle_t, size_t>> erase(size_t overall_lane);
+    
+    /// Swap the traversals of this haplotype in the two given overall lanes.
+    /// Internal lane assignments (as are used by child snarls) are not
+    /// affected.
     void swap(size_t rank1, size_t rank2);
     
 };

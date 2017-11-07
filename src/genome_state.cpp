@@ -12,14 +12,14 @@ size_t SnarlState::size() const {
     return haplotypes.size();
 }
 
-void SnarlState::trace(size_t rank, bool backward, const function<void(const handle_t&, size_t)>& iteratee) const {
+void SnarlState::trace(size_t overall_lane, bool backward, const function<void(const handle_t&, size_t)>& iteratee) const {
     // Get the haplotype we want to loop over
     auto& haplotype = haplotypes.at(rank);
     
-    auto process_traversal = [&](const pair<handle_t, size_t>& handle_and_rank) {
+    auto process_traversal = [&](const pair<handle_t, size_t>& handle_and_lane) {
         // For every handle in the haplotype, yield it either forward or
         // backward as determined by our traversal direction.
-        iteratee(backward ? graph->flip(handle_and_rank.first) : handle_and_rank.first, handle_and_rank.second);
+        iteratee(backward ? graph->flip(handle_and_lane.first) : handle_and_lane.first, handle_and_lane.second);
     };
     
     if (backward) {
@@ -32,20 +32,24 @@ void SnarlState::trace(size_t rank, bool backward, const function<void(const han
     }
 }
 
-void SnarlState::insert(size_t rank, const vector<handle_t>& haplotype) {
-    // We're going to insert the given haplotype at the given initial rank.
+void SnarlState::insert(const vector<pair<handle_t, size_t>>& haplotype) {
+    // Insert the whole traversal into haplotypes at the appropriate index for the overall lane
     
-    // For each handle in the haplotype
+    // For each handle visit
     
-    // If it's the first or the last
+    // Insert the iterator record at the right place in net_node_lanes
     
-    // Insert it at the specified rank and push everything else up
+    // Update all the subsequent records in that net node's lane list and bump up their internal lane assignments
+}
+
+void SnarlState::append(const vector<handle_t>& haplotype) {
+    // Append the whole traversal to haplotypes, with 0s for the lane assignments
     
-    // Otherwise just append it at the next available rank.
+    // For each handle visit in the haplotype in haplotypes
     
-    // Insert it at the last rank for all visits to the forward version of that handle.
+    // Append its iterator to net_node_lanes for the net node it is on
     
-    // For the first visit (and the last if it isn't equal to the first), actually make it be at the specified rank and move all the other things at or after that rank up.
+    // Set its internal lane assignment that results
 }
 
 
