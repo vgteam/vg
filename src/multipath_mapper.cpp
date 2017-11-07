@@ -188,6 +188,10 @@ namespace vg {
 #endif
         sort_and_compute_mapping_quality(multipath_alns_out, mapq_method);
         
+        if (!multipath_alns_out.empty() ? likely_mismapping(multipath_alns_out.front()) : false) {
+            multipath_alns_out.front().set_mapping_quality(0);
+        }
+        
         // for debugging: an expensive check for invariant validity that can be turned on
         // with a preprocessor flag
 #ifdef debug_validate_multipath_alignments
@@ -204,8 +208,8 @@ namespace vg {
 #endif
         
         // if we computed extra alignments to get a mapping quality, remove them
-        while (multipath_alns_out.size() > max_alt_mappings) {
-            multipath_alns_out.pop_back();
+        if (multipath_alns_out.size() > max_alt_mappings) {
+            multipath_alns_out.resize(max_alt_mappings);
         }
         
         if (strip_bonuses) {
@@ -503,6 +507,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
             cerr << "found consistent, confident pair mapping from independent end mapping" << endl;
 #endif
+            // TODO: recalculate mapping quality as a pair?
             multipath_aln_pairs_out.emplace_back(move(multipath_alns_1.front()), move(multipath_alns_2.front()));
             found_consistent = true;
         }
@@ -519,10 +524,10 @@ namespace vg {
             MultipathAlignment rescue_multipath_aln_1, rescue_multipath_aln_2;
             bool rescued_forward = false;
             bool rescued_backward = false;
-            if (!multipath_alns_1.empty() && !likely_mismapping(multipath_alns_1.front())) {
+            if (!multipath_alns_1.empty() ? !likely_mismapping(multipath_alns_1.front()) : false) {
                 rescued_forward = attempt_rescue(multipath_alns_1.front(), alignment2, true, rescue_multipath_aln_2);
             }
-            if (!multipath_alns_2.empty() && !likely_mismapping(multipath_alns_2.front())) {
+            if (!multipath_alns_2.empty() ? !likely_mismapping(multipath_alns_2.front()) : false) {
                 rescued_backward = attempt_rescue(multipath_alns_2.front(), alignment1, false, rescue_multipath_aln_1);
             }
             
@@ -703,15 +708,6 @@ namespace vg {
                         to_multipath_alignment(alignment1, multipath_aln_pairs_out.back().first);
                         multipath_aln_pairs_out.back().first.clear_subpath();
                         multipath_aln_pairs_out.back().first.clear_start();
-                    }
-                }
-                
-                if (!multipath_aln_pairs_out.empty()) {
-                    if (likely_mismapping(multipath_aln_pairs_out.front().first)) {
-                        multipath_aln_pairs_out.front().first.set_mapping_quality(0);
-                    }
-                    if (likely_mismapping(multipath_aln_pairs_out.front().second)) {
-                        multipath_aln_pairs_out.front().second.set_mapping_quality(0);
                     }
                 }
             }
