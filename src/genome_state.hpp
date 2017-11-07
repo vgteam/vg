@@ -39,13 +39,16 @@ class SnarlState {
 protected:
     
     // This stores, for each overall lane, the traversal in that lane, annotated with its internal lane assignments
-    vector<list<pair<handle_t, size_t>>> haplotypes;
+    vector<vector<pair<handle_t, size_t>>> haplotypes;
     
-    // This stores, for each forward handle, a list of all the lanes in order.
+    // This stores, for each forward handle, a vector of all the lanes in order.
     // Each lane is holding an iterator to the entry in the haplotyope that
-    // occupies that lane. When we insert into or delete out of the lists in
-    // this map, we update the lane numbers where all the iterators point.
-    unordered_map<handle_t, list<decltype(haplotypes)::iterator>> net_node_lanes;
+    // occupies that lane. When we insert into or delete out of the vectors in
+    // this map, we update the lane numbers where all the iterators point. TODO:
+    // really we need to hold skip lists or something; we need efficient insert
+    // at index. But since we still need to pay O(N) fixing up stuff after the
+    // insert, it might not be worth it.
+    unordered_map<handle_t, vector<decltype(haplotypes)::value_type::iterator>> net_node_lanes;
     
     /// We need to keep track of the net graph, because we may need to traverse
     /// haplotypes forward or reverse and we need to flip things.
