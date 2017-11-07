@@ -57,8 +57,8 @@ is $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - -
 
 is $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - -x giab.xg -g giab.gcsa -M 2 -j | jq -c 'select(.is_secondary | not)' | wc -l) $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - -x giab.xg -g giab.gcsa -M 1 -j | wc -l) "allowing secondary alignments with MEM mapping does not change number of primary alignments"
 
-count_prev=$(samtools sort -n minigiab/NA12878.chr22.tiny.bam | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa | vg view -a - | jq .fragment_prev.name | grep null | wc -l)
-count_next=$(samtools sort -n minigiab/NA12878.chr22.tiny.bam | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa | vg view -a - | jq .fragment_next.name | grep null | wc -l)
+count_prev=$(samtools sort -o -n minigiab/NA12878.chr22.tiny.bam - | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa | vg view -a - | jq .fragment_prev.name | grep null | wc -l)
+count_next=$(samtools sort -o -n minigiab/NA12878.chr22.tiny.bam - | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa | vg view -a - | jq .fragment_next.name | grep null | wc -l)
 
 is $count_prev $count_next "vg connects paired-end reads in gam output"
 
@@ -110,7 +110,7 @@ is $(printf "%s\t%s\n" $paired_score $independent_score | awk '{if ($1 < $2) pri
 paired_range=$(jq -r ".path.mapping[0].position.node_id" <  temp_paired_alignment.json| sort | rs -T | awk '{print ($2 - $1)}')
 independent_range=$(jq -r ".path.mapping[0].position.node_id" <  temp_independent_alignment.json| sort | rs -T | awk '{print ($2 - $1)}')
 is $(printf "%s\t%s\n" $paired_range $independent_range | awk '{if ($1 < $2) print 1; else print 0}') 1 "paired read alignments forced to be consistent are closer together in node id space than unrestricted alignments"
-is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -j -M 4 | jq -r ".mapping_quality" | grep -v null | wc -l) 2 "only primary alignments have mapping quality scores"
+is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -j -M 4 -UI 832:332.192:50.0602:0:1 | jq -r ".mapping_quality" | grep -v null | wc -l) 2 "only primary alignments have mapping quality scores"
 is $(vg map -T x.reads -x x.xg -g x.gcsa -k 22 -j | jq -r ".mapping_quality" | wc -l) 1000 "unpaired reads produce mapping quality scores"
 
 rm temp_paired_alignment.json temp_independent_alignment.json

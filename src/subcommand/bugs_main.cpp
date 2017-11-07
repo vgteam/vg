@@ -70,9 +70,8 @@ int main_bugs(int argc, char** argv){
 #endif
 
     // Open the URL in the appropriate browser (which may be lynx or similar)
-    system((open_command + " " + url).c_str());
+    return system((open_command + " " + url).c_str());
     
-    return 0;
 }
 
 // Register subcommand

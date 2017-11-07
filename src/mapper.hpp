@@ -43,7 +43,7 @@ public:
     vector<pair<AlignmentChainModelVertex*, double> > prev_cost; // for backward
     double weight;
     double score;
-    map<string, double> positions;
+    map<string, vector<pair<size_t, bool> > > positions;
     int band_begin;
     int band_idx;
     AlignmentChainModelVertex* prev;
@@ -64,8 +64,8 @@ public:
     AlignmentChainModel(
         vector<vector<Alignment> >& bands,
         Mapper* mapper,
-        const function<double(const Alignment&, const Alignment&, const map<string, double>&, const map<string, double>&)>& transition_weight,
-        int vertex_width = 10,
+        const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&)>& transition_weight,
+        int vertex_band_width = 10,
         int position_depth = 1,
         int max_connections = 30);
     void score(const set<AlignmentChainModelVertex*>& exclude);
@@ -334,8 +334,8 @@ private:
 class FragmentLengthStatistics {
 public:
 
-    void record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2);
-    
+    void record_fragment_configuration(const Alignment& aln1, const Alignment& aln2, Mapper* mapper);
+
     string fragment_model_str(void);
     void save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2, const map<string, int64_t>& approx_frag_lengths, bool is_consistent);
     
@@ -350,12 +350,12 @@ public:
     // These cached versions of the parameters are updated periodically
     double cached_fragment_length_mean = 0;
     double cached_fragment_length_stdev = 0;
-    bool cached_fragment_orientation = 0;
+    bool cached_fragment_orientation_same = 0;
     bool cached_fragment_direction = 1;
     
     // These variables are used to manage the periodic updates
     int64_t since_last_fragment_length_estimate = 0;
-    int64_t fragment_model_update_interval = 10;
+    int64_t fragment_model_update_interval = 100;
     
     // These deques are used for the periodic running estimation of the fragment length distribution
     deque<double> fragment_lengths;
@@ -366,8 +366,8 @@ public:
     int64_t fragment_size = 0; // Used to bound clustering of MEMs during paired end mapping, also acts as sentinel to determine
                        // if consistent pairs should be reported; dynamically estimated at runtime
     double fragment_sigma = 10; // the number of times the standard deviation above the mean to set the fragment_size
-    int64_t fragment_length_cache_size = 1000;
-    float perfect_pair_identity_threshold = 0.95;
+    int64_t fragment_length_cache_size = 10000;
+    float perfect_pair_identity_threshold = 0.9;
     bool fixed_fragment_model = true;
     
     
@@ -387,7 +387,8 @@ private:
                              bool traceback,
                              bool pinned_alignment = false,
                              bool pin_left = false,
-                             bool global = false);
+                             bool global = false,
+                             bool keep_bonuses = true);
     vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
                                            const Alignment& aln,
                                            int kmer_size,
@@ -435,13 +436,10 @@ public:
 
     double graph_entropy(void);
 
-    // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
-    map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
-    void annotate_with_mean_path_positions(vector<Alignment>& alns);
-    
     // use the xg index to get the first position of an alignment on a reference path
-    map<string, size_t> alignment_initial_path_positions(const Alignment& aln);
+    map<string, vector<pair<size_t, bool> > > alignment_initial_path_positions(const Alignment& aln);
     void annotate_with_initial_path_positions(Alignment& aln);
+    void annotate_with_initial_path_positions(vector<Alignment>& alns);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
@@ -449,8 +447,8 @@ public:
                                int fragment_size_bound);
 
     /// use the fragment length annotations to assess if the pair is consistent or not
-    bool pair_consistent(const Alignment& aln1,
-                         const Alignment& aln2,
+    bool pair_consistent(Alignment& aln1, // may modify the alignments to store the reference positions
+                         Alignment& aln2,
                          double pval);
 
     /// use the fragment configuration statistics to rescue more precisely
@@ -481,7 +479,7 @@ public:
     int32_t score_alignment(const Alignment& aln, bool use_approx_distance = false);
     
     /// Given an alignment scored with full length bonuses on, subtract out the full length bonus if it was applied.
-    int32_t remove_full_length_bonus(const Alignment& aln);
+    void remove_full_length_bonuses(Alignment& aln);
     
     // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
     Alignment patch_alignment(const Alignment& aln, int max_patch_length);
@@ -555,6 +553,8 @@ public:
     double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);
     // use an average length of an LCP to a parent in the suffix tree to estimate a mapping quality
     double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
+    // absolute max possible mq
+    double max_possible_mapping_quality(int length);
     // walks the graph one base at a time from pos1 until we find pos2
     int64_t graph_distance(pos_t pos1, pos_t pos2, int64_t maximum = 1e3);
     // takes the min of graph_distance, approx_distance, and xindex->min_approx_path_distance()
@@ -565,12 +565,18 @@ public:
     int64_t approx_position(pos_t pos);
     // get the approximate position of the alignment or return -1 if it can't be had
     int64_t approx_alignment_position(const Alignment& aln);
+    // get the full path offsets for the alignment, considering every mapping if just_first is not set
+    map<string, vector<pair<size_t, bool> > > alignment_path_offsets(const Alignment& aln, bool just_min = true, bool nearby = false);
+    // return the path offsets as cached in the alignment
+    map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const Alignment& aln);
     // get the end position of the alignment
     Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined
     int64_t approx_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // use the cached fragment model to estimate the likely place we'll find the mate
     pos_t likely_mate_position(const Alignment& aln, bool is_first);
+    // get a set of positions that are likely based on the fragment model and the embedded paths
+    vector<pos_t> likely_mate_positions(const Alignment& aln, bool is_first);
     // get the node approximately at the given offset relative to our position (offset may be negative)
     id_t node_approximately_at(int64_t approx_pos);
     // convert a single MEM hit into an alignment (by definition, a perfect one)
@@ -580,8 +586,7 @@ public:
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
 
     // fargment length estimation
-    map<string, int64_t> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
-    int64_t first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    map<string, int64_t> min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // uses the cached information about the graph in the xg index to get an approximate node length
     double average_node_length(void);
     
@@ -610,12 +615,13 @@ public:
     int min_multimaps; // Minimum number of multimappings
     int band_multimaps; // the number of multimaps for to attempt for each band in a banded alignment
     
-    int maybe_mq_threshold; // quality below which we let the estimated mq kick in
+    double maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality
     bool use_cluster_mq; // should we use the cluster-based mapping quality component
     double identity_weight; // scale mapping quality by the alignment score identity to this power
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
+    bool include_full_length_bonuses;
     
     bool simultaneous_pair_alignment;
     int max_band_jump; // the maximum length edit we can detect via banded alignment

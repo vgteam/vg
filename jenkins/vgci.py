@@ -971,7 +971,7 @@ class VGCITest(TestCase):
         self._test_mapeval(10000, 'MHC', 'cactus',
                            ['snp1kg', 'cactus'],
                            multipath=True,
-                           source_path_names=['GI568335986', 'GI568335994'], acc_threshold=0.02, auc_threshold=0.02)
+                           source_path_names=['GI568335986', 'GI568335994'], acc_threshold=0.02, auc_threshold=0.04)
 
     @timeout_decorator.timeout(16000)        
     def test_sim_chr21_snp1kg(self):
