@@ -150,6 +150,50 @@ TEST_CASE("SnarlState can hold haplotypes", "[snarlstate][genomestate]") {
         
     }
     
+    SECTION("A haplotype with lane numbers can be added in lane 0 in reverse when the SnarlState is empty") {
+        // Make a haplotype
+        vector<pair<handle_t, size_t>> annotated_haplotype;
+        
+        // Say we go 8 rev, 2 rev (which is a child snarl), 1 rev
+        annotated_haplotype.emplace_back(net_graph.get_handle(8, true), 0);
+        annotated_haplotype.emplace_back(net_graph.get_handle(2, true), 0);
+        annotated_haplotype.emplace_back(net_graph.get_handle(1, true), 0);
+        
+        // Put it in the state
+        state.insert(annotated_haplotype);
+        
+        SECTION("The state now has 1 haplotype") {
+            REQUIRE(state.size() == 1);
+        }
+        
+        SECTION("The haplotype can be traced back again, and comes out in snarl-forward orientation") {
+            vector<pair<handle_t, size_t>> recovered;
+            
+            state.trace(0, false, [&](const handle_t& visit, size_t local_lane) {
+                recovered.emplace_back(visit, local_lane);
+            });
+            
+            REQUIRE(recovered.size() == 3);
+            REQUIRE(net_graph.get_id(recovered[0].first) == 1);
+            REQUIRE(net_graph.get_is_reverse(recovered[0].first) == false);
+            REQUIRE(net_graph.get_id(recovered[1].first) == 2);
+            REQUIRE(net_graph.get_is_reverse(recovered[1].first) == false);
+            REQUIRE(net_graph.get_id(recovered[2].first) == 8);
+            REQUIRE(net_graph.get_is_reverse(recovered[2].first) == false);
+        }
+        
+        SECTION("The haplotype can be traced in reverse and comes out in its original order and orientation") {
+            vector<pair<handle_t, size_t>> recovered;
+            
+            state.trace(0, true, [&](const handle_t& visit, size_t local_lane) {
+                recovered.emplace_back(visit, local_lane);
+            });
+            
+            REQUIRE(recovered == annotated_haplotype);
+        }
+        
+    }
+    
     
 
 }
