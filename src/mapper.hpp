@@ -76,7 +76,7 @@ public:
 };
 
 /*
- * A threadsafe class that keeps a running estimation of a fragment length distribution
+ * A class that keeps a running estimation of a fragment length distribution
  * using a robust estimation formula in order to be insensitive to outliers.
  */
 class FragmentLengthDistribution {
