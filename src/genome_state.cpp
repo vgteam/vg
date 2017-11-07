@@ -195,6 +195,24 @@ const vector<pair<handle_t, size_t>>& SnarlState::insert(size_t overall_lane, co
     return inserted;
 }
 
+vector<pair<handle_t, size_t>> SnarlState::erase(size_t overall_lane) {
+    // Copy what we're erasing
+    auto copy = haplotypes.at(overall_lane);
+    
+    for (auto it = copy.rbegin(); it != copy.rend(); ++it) {
+        // Trace from end to start and remove from the net node lanes collections.
+        // We have to do it backward so we can handle duplicate visits properly.
+        auto& node_lanes = net_node_lanes[graph->forward(it->first)];
+        node_lanes.erase(node_lanes.begin() + it->second);
+    }
+
+    // Drop the actual haplotype
+    haplotypes.erase(haplotypes.begin() + overall_lane);
+    
+    // Return the copy
+    return copy;
+}
+
 GenomeStateCommand* DeleteHaplotypeCommand::execute(GenomeState& state) const {
     // Allocate and populate the reverse command.
     return new InsertHaplotypeCommand(state.delete_haplotype(*this));

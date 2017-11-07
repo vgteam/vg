@@ -180,6 +180,41 @@ TEST_CASE("SnarlState can hold haplotypes", "[snarlstate][genomestate]") {
                     REQUIRE(recovered == added);
                 }
                 
+                SECTION("It can be deleted again") {
+                    state.erase(2);
+                    
+                    REQUIRE(state.size() == 2);
+                        
+                    SECTION("The second haplotype can be traced back again") {
+                        vector<pair<handle_t, size_t>> recovered;
+                        
+                        state.trace(0, false, [&](const handle_t& visit, size_t local_lane) {
+                            recovered.emplace_back(visit, local_lane);
+                        });
+                        
+                        REQUIRE(recovered == hap2);
+                    }
+                    
+                    SECTION("The first haplotype can be traced back again") {
+                        vector<pair<handle_t, size_t>> recovered;
+                        
+                        state.trace(1, false, [&](const handle_t& visit, size_t local_lane) {
+                            recovered.emplace_back(visit, local_lane);
+                        });
+                        
+                        REQUIRE(recovered.size() == 3);
+                        REQUIRE(recovered[0].first == annotated_haplotype[0].first);
+                        REQUIRE(recovered[0].second == annotated_haplotype[0].second + 1);
+                        // The second mapping should not get bumped up.
+                        REQUIRE(recovered[1].first == annotated_haplotype[1].first);
+                        REQUIRE(recovered[1].second == annotated_haplotype[1].second);
+                        REQUIRE(recovered[2].first == annotated_haplotype[2].first);
+                        REQUIRE(recovered[2].second == annotated_haplotype[2].second + 1);
+                        
+                    }
+                    
+                }
+                
             }
             
             SECTION("A haplotype without lane numbers can be inserted") {
