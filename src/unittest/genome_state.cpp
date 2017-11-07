@@ -92,6 +92,62 @@ TEST_CASE("SnarlState can hold haplotypes", "[snarlstate][genomestate]") {
             REQUIRE(recovered == annotated_haplotype);
         }
         
+        SECTION("The haplotype can be traced in reverse") {
+            vector<pair<handle_t, size_t>> recovered;
+            
+            state.trace(0, true, [&](const handle_t& visit, size_t local_lane) {
+                recovered.emplace_back(net_graph.flip(visit), local_lane);
+            });
+            
+            reverse(recovered.begin(), recovered.end());
+            
+            REQUIRE(recovered == annotated_haplotype);
+        }
+        
+        SECTION("A haplotype with lane numbers can be inserted before an existing haplotype") {
+            
+            vector<pair<handle_t, size_t>> hap2;
+            // Say we go 1, 8 directly in lane 0
+            hap2.emplace_back(net_graph.get_handle(1, false), 0);
+            hap2.emplace_back(net_graph.get_handle(8, false), 0);
+            
+            // Put it in the state
+            state.insert(hap2);
+            
+            SECTION("The state now has 2 haplotypes") {
+                REQUIRE(state.size() == 2);
+            }
+            
+            SECTION("The new haplotype can be traced back again") {
+                vector<pair<handle_t, size_t>> recovered;
+                
+                state.trace(0, false, [&](const handle_t& visit, size_t local_lane) {
+                    recovered.emplace_back(visit, local_lane);
+                });
+                
+                REQUIRE(recovered == hap2);
+            }
+            
+            SECTION("The old haplotype can be traced back again") {
+                vector<pair<handle_t, size_t>> recovered;
+                
+                state.trace(1, false, [&](const handle_t& visit, size_t local_lane) {
+                    recovered.emplace_back(visit, local_lane);
+                });
+                
+                REQUIRE(recovered.size() == 3);
+                REQUIRE(recovered[0].first == annotated_haplotype[0].first);
+                REQUIRE(recovered[0].second == annotated_haplotype[0].second + 1);
+                // The second mapping should not get bumped up.
+                REQUIRE(recovered[1].first == annotated_haplotype[1].first);
+                REQUIRE(recovered[1].second == annotated_haplotype[1].second);
+                REQUIRE(recovered[2].first == annotated_haplotype[2].first);
+                REQUIRE(recovered[2].second == annotated_haplotype[2].second + 1);
+                
+            }
+        
+        }
+        
     }
     
     
