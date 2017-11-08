@@ -1916,10 +1916,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
 
     // use the estimated mapping quality to avoid hard work when the results are likely noninformative
-    double maybe_pair_mq = max(maybe_mq1, maybe_mq2);
+    double maybe_pair_mq = maybe_mq1+maybe_mq2;
 
     // if estimated mq is high scale difficulty using the estimated mapping quality
-    if (min(maybe_mq1, maybe_mq2) > max_mapping_quality) {
+    if (maybe_pair_mq > max_mapping_quality) {
         total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(maybe_pair_mq)));
     }
 
