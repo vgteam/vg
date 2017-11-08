@@ -171,12 +171,32 @@ struct SwapHaplotypesCommand : public GenomeStateCommand {
     virtual ~SwapHaplotypesCommand() = default;
 };
 
-struct CreateHaplotypeCommand : public GenomeStateCommand {
-    // No data here; a telomere pair should be randomly chosen.    
+struct AppendHaplotypeCommand : public GenomeStateCommand {
+    /// We just feed in a full traversal from one end of a telomere pair to the other.
+    /// Internally the GenomeState has to work out how to divide this into snarls.
+    vector<handle_t> haplotype;
     
     virtual GenomeStateCommand* execute(GenomeState& state) const;
     
-    virtual ~CreateHaplotypeCommand() = default;
+    virtual ~AppendHaplotypeCommand() = default;
+};
+
+/// We can use this to replace a local haplotype within one or more snarls.
+/// We also could just express all the deletions and insertions in terms of
+/// this.
+struct ReplaceLocalHaplotypeCommand : public GenomeStateCommand {
+    /// Holds, for each snarl, the overall lanes that have to be deleted. Each
+    /// deleted overall lane for a snarl that is still traversed from its parent
+    /// needs to be replaced in insertions. Deletions happen first.
+    unordered_map<const Snarl*, vector<size_t>> deletions;
+    
+    /// Holds, for each Snarl, the visits and their lane assignments that have
+    /// to be inserted.
+    unordered_map<const Snarl*, vector<vector<pair<handle_t, size_t>>>> insertions;
+    
+    virtual GenomeStateCommand* execute(GenomeState& state) const;
+    
+    virtual ~ReplaceLocalHaplotypeCommand() = default;
 };
 
 /**
@@ -204,7 +224,7 @@ public:
     // We execute commands and return the inverse commands
     
     /// Create a haplotype and return a command to delete it
-    DeleteHaplotypeCommand create_haplotype(const CreateHaplotypeCommand& c);
+    DeleteHaplotypeCommand append_haplotype(const AppendHaplotypeCommand& c);
     
     /// Insert a haplotype and return a command to delete it
     DeleteHaplotypeCommand insert_haplotype(const InsertHaplotypeCommand& c);
@@ -214,6 +234,9 @@ public:
     
     /// Swap two haplotypes and return a command to swap them back
     SwapHaplotypesCommand swap_haplotypes(const SwapHaplotypesCommand& c);
+    
+    /// Replace part(s) of some haplotype(s) with other material.
+    ReplaceLocalHaplotypeCommand replace_local_haplotype(const ReplaceLocalHaplotypeCommand& c);
     
     /// Execute a command. Return a new heap-allocated command that undoes the
     /// command being executed. Frees the passed command. TODO: does that make

@@ -265,9 +265,14 @@ GenomeStateCommand* SwapHaplotypesCommand::execute(GenomeState& state) const {
     return new SwapHaplotypesCommand(state.swap_haplotypes(*this));
 }
 
-GenomeStateCommand* CreateHaplotypeCommand::execute(GenomeState& state) const {
+GenomeStateCommand* AppendHaplotypeCommand::execute(GenomeState& state) const {
     // Allocate and populate the reverse command.
-    return new DeleteHaplotypeCommand(state.create_haplotype(*this));
+    return new DeleteHaplotypeCommand(state.append_haplotype(*this));
+}
+
+GenomeStateCommand* ReplaceLocalHaplotypeCommand::execute(GenomeState& state) const {
+    // Allocate and populate the reverse command.
+    return new ReplaceLocalHaplotypeCommand(state.replace_local_haplotype(*this));
 }
 
 
@@ -296,10 +301,10 @@ const NetGraph* GenomeState::get_net_graph(const Snarl* snarl) {
     return &net_graphs.at(snarl);
 }
 
-DeleteHaplotypeCommand GenomeState::create_haplotype(const CreateHaplotypeCommand& c) {
-    // Sample a new haplotype recursively
-    
-    // TODO: what RNG are we going to use?
+DeleteHaplotypeCommand GenomeState::append_haplotype(const AppendHaplotypeCommand& c) {
+}
+
+ReplaceLocalHaplotypeCommand GenomeState::replace_local_haplotype(const ReplaceLocalHaplotypeCommand& c) {
 }
 
 DeleteHaplotypeCommand GenomeState::insert_haplotype(const InsertHaplotypeCommand& c) {
