@@ -232,22 +232,22 @@ vector<pair<handle_t, size_t>> SnarlState::erase(size_t overall_lane) {
     return copy;
 }
 
-void SnarlState::swap(size_t rank1, size_t rank2) {
+void SnarlState::swap(size_t lane1, size_t lane2) {
     
     // Swap the start and end annotation values
-    std::swap(haplotypes.at(rank1).front().second, haplotypes.at(rank2).front().second);
-    std::swap(haplotypes.at(rank1).back().second, haplotypes.at(rank2).back().second);
+    std::swap(haplotypes.at(lane1).front().second, haplotypes.at(lane2).front().second);
+    std::swap(haplotypes.at(lane1).back().second, haplotypes.at(lane2).back().second);
     
     // Swap the start net node index entries
     auto& start_node_lanes = net_node_lanes[graph->forward(graph->get_start())];
-    std::swap(start_node_lanes.at(rank1), start_node_lanes.at(rank2));
+    std::swap(start_node_lanes.at(lane1), start_node_lanes.at(lane2));
     
     // Swap the end net node index entries
     auto& end_node_lanes = net_node_lanes[graph->forward(graph->get_end())];
-    std::swap(end_node_lanes.at(rank1), end_node_lanes.at(rank2));
+    std::swap(end_node_lanes.at(lane1), end_node_lanes.at(lane2));
     
     // Swap the actual haplotype vectors
-    std::swap(haplotypes.at(rank1), haplotypes.at(rank2));
+    std::swap(haplotypes.at(lane1), haplotypes.at(lane2));
 }
 
 GenomeStateCommand* InsertHaplotypeCommand::execute(GenomeState& state) const {
@@ -365,6 +365,39 @@ InsertHaplotypeCommand GenomeState::delete_haplotype(const DeleteHaplotypeComman
 
 SwapHaplotypesCommand GenomeState::swap_haplotypes(const SwapHaplotypesCommand& c) {
     
+    // We have to walk the chromosome and swap in each top-level snarl.
+    
+    // Make a visit to track where we are. We start at the start of the forward
+    // snarl.
+    Visit here = c.telomere_pair.first->start();
+    
+    // Work out what snarl comes next
+    const Snarl* next = manager.into_which_snarl(here);
+    
+    while (next != nullptr) {
+        // Until we run out of snarls
+    
+        // Work out if we go backward or forward through this one
+        bool backward = (here.node_id() != next->start().node_id());
+        
+        // Swap the lanes in this snarl
+        state.at(next).swap(c.to_swap.first, c.to_swap.second);
+        
+        if (next == c.telomere_pair.second) {
+            // We just did the last snarl on the chromosome so stop. Don't go
+            // around circular things forever.
+            break;
+        }
+        
+        // Now look at the visit out of the snarl we just did
+        here = backward ? reverse(next->start()) : next->end();
+        
+        // See if that puts us in another snarl
+        next = manager.into_which_snarl(here);
+    }
+
+    // This command is its own inverse
+    return c;
 }
 
 GenomeStateCommand* GenomeState::execute(GenomeStateCommand* command) {

@@ -563,6 +563,109 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
                 REQUIRE(traced[5] == graph.get_handle(8, false));
             }
             
+            SECTION("The two haplotypes can be swapped") {
+                SwapHaplotypesCommand swapper;
+                swapper.telomere_pair = chromosome;
+                swapper.to_swap = make_pair(0, 1);
+                
+                GenomeStateCommand* unswapper = state.execute(&swapper);
+                
+                SECTION("There are still two haplotypes") {
+                    REQUIRE(state.count_haplotypes(chromosome) == 2);
+                }
+                
+                SECTION("The new haplotype can be traced in its new position") {
+                    // We trace out all the handles in the backing graph
+                    vector<handle_t> traced;
+                    
+                    state.trace_haplotype(chromosome, 1, [&](const handle_t& visit) {
+                        // Put every handle in the vector
+                        traced.push_back(visit);
+                    });
+                 
+                    // We should visit nodes 1, 2, 3, 4, 5, 7, 8 in that order
+                    REQUIRE(traced.size() == 7);
+                    REQUIRE(traced[0] == graph.get_handle(1, false));
+                    REQUIRE(traced[1] == graph.get_handle(2, false));
+                    REQUIRE(traced[2] == graph.get_handle(3, false));
+                    REQUIRE(traced[3] == graph.get_handle(4, false));
+                    REQUIRE(traced[4] == graph.get_handle(5, false));
+                    REQUIRE(traced[5] == graph.get_handle(7, false));
+                    REQUIRE(traced[6] == graph.get_handle(8, false));
+                }
+                
+                SECTION("The old haplotype can be traced in its new position") {
+                    // We trace out all the handles in the backing graph
+                    vector<handle_t> traced;
+                    
+                    state.trace_haplotype(chromosome, 0, [&](const handle_t& visit) {
+                        // Put every handle in the vector
+                        traced.push_back(visit);
+                    });
+                 
+                    // We should visit nodes 1, 2, 3, 5, 7, 8 in that order
+                    REQUIRE(traced.size() == 6);
+                    REQUIRE(traced[0] == graph.get_handle(1, false));
+                    REQUIRE(traced[1] == graph.get_handle(2, false));
+                    REQUIRE(traced[2] == graph.get_handle(3, false));
+                    REQUIRE(traced[3] == graph.get_handle(5, false));
+                    REQUIRE(traced[4] == graph.get_handle(7, false));
+                    REQUIRE(traced[5] == graph.get_handle(8, false));
+                }
+                
+                SECTION("The swap can be undone") {
+                    
+                    delete state.execute(unswapper);
+                    
+                    SECTION("There are still two haplotypes") {
+                        REQUIRE(state.count_haplotypes(chromosome) == 2);
+                    }
+                    
+                    SECTION("The new haplotype can be traced in its original position") {
+                        // We trace out all the handles in the backing graph
+                        vector<handle_t> traced;
+                        
+                        state.trace_haplotype(chromosome, 0, [&](const handle_t& visit) {
+                            // Put every handle in the vector
+                            traced.push_back(visit);
+                        });
+                     
+                        // We should visit nodes 1, 2, 3, 4, 5, 7, 8 in that order
+                        REQUIRE(traced.size() == 7);
+                        REQUIRE(traced[0] == graph.get_handle(1, false));
+                        REQUIRE(traced[1] == graph.get_handle(2, false));
+                        REQUIRE(traced[2] == graph.get_handle(3, false));
+                        REQUIRE(traced[3] == graph.get_handle(4, false));
+                        REQUIRE(traced[4] == graph.get_handle(5, false));
+                        REQUIRE(traced[5] == graph.get_handle(7, false));
+                        REQUIRE(traced[6] == graph.get_handle(8, false));
+                    }
+                    
+                    SECTION("The old haplotype can be traced in its original position") {
+                        // We trace out all the handles in the backing graph
+                        vector<handle_t> traced;
+                        
+                        state.trace_haplotype(chromosome, 1, [&](const handle_t& visit) {
+                            // Put every handle in the vector
+                            traced.push_back(visit);
+                        });
+                     
+                        // We should visit nodes 1, 2, 3, 5, 7, 8 in that order
+                        REQUIRE(traced.size() == 6);
+                        REQUIRE(traced[0] == graph.get_handle(1, false));
+                        REQUIRE(traced[1] == graph.get_handle(2, false));
+                        REQUIRE(traced[2] == graph.get_handle(3, false));
+                        REQUIRE(traced[3] == graph.get_handle(5, false));
+                        REQUIRE(traced[4] == graph.get_handle(7, false));
+                        REQUIRE(traced[5] == graph.get_handle(8, false));
+                    }               
+                    
+                }
+                
+                delete unswapper;
+                
+            }
+            
             // We can't delete the old haplotype with its original uninsert
             // command because now it has been moved. We have to do the
             // deletions in reverse insertion order.

@@ -106,7 +106,7 @@ public:
     /// Swap the traversals of this haplotype in the two given overall lanes.
     /// Internal lane assignments (as are used by child snarls) are not
     /// affected.
-    void swap(size_t rank1, size_t rank2);
+    void swap(size_t lane1, size_t lane2);
     
 };
 
@@ -161,6 +161,8 @@ struct DeleteHaplotypeCommand : public GenomeStateCommand {
 };
 
 struct SwapHaplotypesCommand : public GenomeStateCommand {
+    /// Work on the given pair of telomeres
+    pair<const Snarl*, const Snarl*> telomere_pair;
     /// Swap the haplotypes at the given ranks
     pair<size_t, size_t> to_swap;
     
