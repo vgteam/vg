@@ -391,6 +391,11 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
     // Get the top snarl
     const Snarl* top_snarl = snarl_manager.top_level_snarls().at(0);
     
+    if (top_snarl->end().node_id() < top_snarl->start().node_id()) {
+        // Put it a consistent way around
+        snarl_manager.flip(top_snarl);
+    }
+    
     // Make sure it's what we expect.
     REQUIRE(top_snarl->start().node_id() == 1);
     REQUIRE(top_snarl->end().node_id() == 8);
@@ -398,8 +403,18 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
     // Get the middle snarl
     const Snarl* middle_snarl = snarl_manager.children_of(top_snarl).at(0);
     
+    if (middle_snarl->end().node_id() < middle_snarl->start().node_id()) {
+        // Put it a consistent way around
+        snarl_manager.flip(middle_snarl);
+    }
+    
     // And the bottom snarl
     const Snarl* bottom_snarl = snarl_manager.children_of(middle_snarl).at(0);
+    
+    if (bottom_snarl->end().node_id() < bottom_snarl->start().node_id()) {
+        // Put it a consistent way around
+        snarl_manager.flip(bottom_snarl);
+    }
     
     // Define the chromosome by telomere snarls (first and last)
     auto chromosome = make_pair(top_snarl, top_snarl);
