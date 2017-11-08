@@ -380,8 +380,6 @@ size_t GenomeState::count_haplotypes(const pair<const Snarl*, const Snarl*>& tel
 void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telomere_pair,
     size_t overall_lane, const function<void(const handle_t&)>& iteratee) {
     
-    cerr << "Trace overall lane " << overall_lane << endl;
-    
     // We need to traverse this hierarchy while not emitting visits twice. The
     // hard part is that the same handle represents entering a snarl and the
     // start visit of that snarl. The other hard part is that for back-to-back
@@ -395,9 +393,6 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
     // We define a recursive function to traverse a snarl and all its visited children.
     function<void(const Snarl*, size_t, bool, bool)> recursively_traverse_snarl =
         [&](const Snarl* here, size_t lane, bool orientation, bool skip_first) {
-
-        cerr << "Traverse snarl " << pb2json(*here) << endl;
-        state.at(here).dump();
 
         // We need to remember if the last visit we did was a child snarl.
         bool last_was_child = false;
