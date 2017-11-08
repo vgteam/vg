@@ -223,15 +223,17 @@ public:
     size_t count_haplotypes(const pair<const Snarl*, const Snarl*>& telomere_pair);
     
     /// Trace the haplotype starting at the given start telomere snarl with the
-    /// given rank. Calls the callback with each backing HandleGraph handle.
+    /// given overall lane. Calls the callback with each backing HandleGraph
+    /// handle.
     void trace_haplotype(const pair<const Snarl*, const Snarl*>& telomere_pair,
-        size_t rank, const function<void(const handle_t&)> iteratee);
+        size_t overall_lane, const function<void(const handle_t&)>& iteratee);
      
 protected:
-    /// We keep track of pairs of telomere unary snarls. The haplotypes we work
-    /// on connect a left telomere and its corresponding right telomere. We can
+    /// We keep track of pairs of telomere snarls. The haplotypes we work on
+    /// connect a left telomere and its corresponding right telomere. We can
     /// traverse the snarl decomposition from one telomere to the other either
     /// following chains or pollowing paths inside of some snarl we are in.
+    /// The start snarl of a pair must be in its local forward orientation.
     unordered_set<pair<const Snarl*, const Snarl*>> telomeres;
 
     /// We precompute all the net graphs and keep them around.

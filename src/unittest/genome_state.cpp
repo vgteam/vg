@@ -472,6 +472,48 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
             REQUIRE(state.count_haplotypes(chromosome) == 1);
         }
         
+        SECTION("The haplotype can be traced") {
+            // We trace out all the handles in the backing graph
+            vector<handle_t> traced;
+            
+            state.trace_haplotype(chromosome, 0, [&](const handle_t& visit) {
+                // Put every handle in the vector
+                traced.push_back(visit);
+            });
+         
+            // We should visit nodes 1, 2, 3, 5, 7, 8 in that order
+            REQUIRE(traced.size() == 6);
+            REQUIRE(traced[0] == graph.get_handle(1, false));
+            REQUIRE(traced[1] == graph.get_handle(2, false));
+            REQUIRE(traced[2] == graph.get_handle(3, false));
+            REQUIRE(traced[3] == graph.get_handle(5, false));
+            REQUIRE(traced[4] == graph.get_handle(7, false));
+            REQUIRE(traced[5] == graph.get_handle(8, false));
+        }
+        
+        SECTION("The added haplotype can be deleted again") {
+            GenomeStateCommand* undelete = state.execute(undo);
+            
+            REQUIRE(state.count_haplotypes(chromosome) == 0);
+        
+            SECTION("The undelete command matches the insert command") {
+                REQUIRE(((InsertHaplotypeCommand*)undelete)->insertions == insert.insertions);
+            }
+        
+            SECTION("And then it can be un-deleted") {
+                
+                GenomeStateCommand* redelete = state.execute(undelete);
+                
+                REQUIRE(state.count_haplotypes(chromosome) == 1);
+                
+                delete redelete;
+            
+            }
+        
+            delete undelete;
+        
+        }
+        
         // Free the undo command
         delete undo;
     }

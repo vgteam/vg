@@ -368,18 +368,104 @@ size_t GenomeState::count_haplotypes(const pair<const Snarl*, const Snarl*>& tel
 }
 
 void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telomere_pair,
-    size_t rank, const function<void(const handle_t&)> iteratee) {
+    size_t overall_lane, const function<void(const handle_t&)>& iteratee) {
     
-    // Start at the first snarl in the telomere pair
+    // We need to traverse this hierarchy while not emitting visits twice. The
+    // hard part is that the same handle represents entering a snarl and the
+    // start visit of that snarl. The other hard part is that for back-to-back
+    // snarls in a chain be need to not visit the shared node twice.
     
-    // Start at the rank we were given
+    // So what we do is, we never emit the handle for entering a snarl and
+    // always make it be the frist handle from inside the snarl instead. Also,
+    // if we visit a child snarl immediately after we did a child snarl, we
+    // leave the first handle of the child snarl off because we just did it.
     
-    // Trace out its traversal
+    // We define a recursive function to traverse a snarl and all its visited children.
+    function<void(const Snarl*, size_t, bool, bool)> recursively_traverse_snarl =
+        [&](const Snarl* here, size_t lane, bool orientation, bool skip_first) {
+
+        // We need to remember if the last visit we did was a child snarl.
+        bool last_was_child = false;
     
-    // If we visit a real node, yield it.
+        // Here's the NetGraph we are working on
+        auto& net_graph = net_graphs.at(here);
     
-    // If we visit a child snarl, we need to recurse into it with the appropriate rank.
+        // Go through its traversal
+        state.at(here).trace(lane, orientation, [&](const handle_t& visit, const size_t child_lane) {
+            
+            if (skip_first) {
+                // We aren't supposed to do this visit; it's already been done.
+                skip_first = false;
+                return;
+            }
+            
+            // What child, if any, do we enter on this node?
+            const Snarl* child = manager.into_which_snarl(net_graph.get_id(visit), net_graph.get_is_reverse(visit));
+            
+            if (child != nullptr && child != here) {
+                // If the visit enters a snarl (other than this one)
+                
+                // Work out if we go through it backward
+                bool child_backward = net_graph.get_id(visit) != child->start().node_id();
+                
+                // Recurse and do the snarl. Do it in the lane we have recorded
+                // for this child visit, in the orientation appropriate for the
+                // handle we are entering with, and skipping the first node if
+                // the last thing we visited was also a child snarl (which must
+                // be back to back with this one).
+                recursively_traverse_snarl(child, child_lane, child_backward, last_was_child);
+                
+                // Remember that the last thing we did was a child snarl.
+                last_was_child = true;
+            } else {
+                // This is a visit to a normal handle in this snarl.
+                
+                // Emit it
+                iteratee(visit);
+                
+                // Rember we didn't visit a child last at this level
+                last_was_child = false;
+            }
+        });
+    };
+
+    // Now we need to walk between the telomeres we were given. It's not quite a
+    // chain because the telomeres may be unary snarls.
     
+    // Make a visit to track where we are. We start at the start of the forward
+    // snarl.
+    Visit here = telomere_pair.first->start();
+    
+    // Work out what snarl comes next
+    const Snarl* next = manager.into_which_snarl(here);
+    
+    // Track if we had a previous snarl that would have emitted any shaed nodes.
+    bool had_previous = false;
+    
+    while (next != nullptr) {
+        // Until we run out of snarls
+    
+        // Work out if we go backward or forward through this one
+        bool backward = (here.node_id() != next->start().node_id());
+        
+        // Handle it
+        recursively_traverse_snarl(next, overall_lane, backward, had_previous);
+        
+        // Say we did a snarl previously
+        had_previous = true;
+        
+        if (next == telomere_pair.second) {
+            // We just did the last snarl on the chromosome so stop. Don't go
+            // around circular things forever.
+            break;
+        }
+        
+        // Now look at the visit out of the snarl we just did
+        here = backward ? reverse(next->start()) : next->end();
+        
+        // See if that puts us in another snarl
+        next = manager.into_which_snarl(here);
+    }
 }
 
 
