@@ -65,7 +65,16 @@ void SnarlState::insert(const vector<pair<handle_t, size_t>>& haplotype) {
     
     if (haplotype.front().first != graph->get_start() || haplotype.back().first != graph->get_end()) {
         // Fail if it's not actually from start to end.
-        throw runtime_error("Tried to add a haplotype to a snarl that is not a start-to-end traversal of that snarl.");
+        stringstream message;
+        message << "Tried to add a haplotype to a snarl ("
+            << graph->get_id(graph->get_start()) << " " << graph->get_is_reverse(graph->get_start())
+            << " -> " << graph->get_id(graph->get_end()) << " " << graph->get_is_reverse(graph->get_end())
+            << ") that starts at "
+            << graph->get_id(haplotype.front().first) << " " <<  graph->get_is_reverse(haplotype.front().first)
+            << " and ends at "
+            << graph->get_id(haplotype.back().first) << " " <<  graph->get_is_reverse(haplotype.back().first)
+            << " and is not a start-to-end traversal of the snarl";
+        throw runtime_error(message.str());
     }
     
     if (haplotype.front().second != haplotype.back().second) {
@@ -231,9 +240,24 @@ void SnarlState::swap(size_t rank1, size_t rank2) {
     std::swap(haplotypes.at(rank1), haplotypes.at(rank2));
 }
 
+GenomeStateCommand* InsertHaplotypeCommand::execute(GenomeState& state) const {
+    // Allocate and populate the reverse command.
+    return new DeleteHaplotypeCommand(state.insert_haplotype(*this));
+}
+
 GenomeStateCommand* DeleteHaplotypeCommand::execute(GenomeState& state) const {
     // Allocate and populate the reverse command.
     return new InsertHaplotypeCommand(state.delete_haplotype(*this));
+}
+
+GenomeStateCommand* SwapHaplotypesCommand::execute(GenomeState& state) const {
+    // Allocate and populate the reverse command.
+    return new SwapHaplotypesCommand(state.swap_haplotypes(*this));
+}
+
+GenomeStateCommand* CreateHaplotypeCommand::execute(GenomeState& state) const {
+    // Allocate and populate the reverse command.
+    return new DeleteHaplotypeCommand(state.create_haplotype(*this));
 }
 
 
@@ -258,6 +282,10 @@ GenomeState::GenomeState(const SnarlManager& manager, const HandleGraph* graph,
     });
 }
 
+const NetGraph* GenomeState::get_net_graph(const Snarl* snarl) {
+    return &net_graphs.at(snarl);
+}
+
 DeleteHaplotypeCommand GenomeState::create_haplotype(const CreateHaplotypeCommand& c) {
     // Sample a new haplotype recursively
     
@@ -267,19 +295,66 @@ DeleteHaplotypeCommand GenomeState::create_haplotype(const CreateHaplotypeComman
 DeleteHaplotypeCommand GenomeState::insert_haplotype(const InsertHaplotypeCommand& c) {
     DeleteHaplotypeCommand to_return;
     
-    for (const tuple<const Snarl*, size_t, vector<handle_t>>& action : c.insertions) {
-        // For every insert action we have to do, in order, do it
-        // Insert into this snarl at this rank this haplotype
-        state.at(get<0>(action)).insert(get<1>(action), get<2>(action));
+    for (auto& kv : c.insertions) {
+        // We can handle each snarl independently.
+        // TODO: do this in parallel?
+        auto& snarl = kv.first;
+        auto& haplotypes = kv.second;
         
-        // Record how to undo it (delete from this snarl at this rank).
-        to_return.deletions.emplace_back(get<0>(action), get<1>(action));
+        // Find where to log the deletions we need to do
+        auto& haplotype_deletions = to_return.deletions[snarl];
+        
+        for (auto& haplotype : haplotypes) {
+            // For each haplotype we want to add to this snarl, in order...
+            
+            // Insert the haplotype
+            state.at(snarl).insert(haplotype);  
+            
+            // Save the deletion to do by logging the overall lane used.
+            haplotype_deletions.emplace_back(haplotype.front().second); 
+        }
+        
+        // Flip the deletions around to happen in reverse order. Things may not
+        // stay in the lane we put them in when we add later things.
+        reverse(haplotype_deletions.begin(), haplotype_deletions.end());
     }
     
     return to_return;
 }
 
 InsertHaplotypeCommand GenomeState::delete_haplotype(const DeleteHaplotypeCommand& c) {
+    InsertHaplotypeCommand to_return;
+    
+    for (auto& kv : c.deletions) {
+        // We can handle each snarl independently.
+        // TODO: do this in parallel?
+        auto& snarl = kv.first;
+        auto& overall_lanes = kv.second;
+        
+        // Find where to log the deletions we need to do
+        auto& haplotype_insertions = to_return.insertions[snarl];
+        
+        for (auto& overall_lane : overall_lanes) {
+            // For each haplotype we want to remove from this snarl, in order...
+            
+            // Remove the haplotype and save a copy
+            auto removed = state.at(snarl).erase(overall_lane);  
+            
+            // Save the insertion to do by logging the haplotype with all its
+            // tagged lane assignments.
+            haplotype_insertions.emplace_back(removed); 
+        }
+        
+        // Flip the insertions around to happen in reverse order. Things need to
+        // get to the lanes we deleted them from.
+        reverse(haplotype_insertions.begin(), haplotype_insertions.end());
+    }
+    
+    return to_return;
+}
+
+SwapHaplotypesCommand GenomeState::swap_haplotypes(const SwapHaplotypesCommand& c) {
+    
 }
 
 GenomeStateCommand* GenomeState::execute(GenomeStateCommand* command) {

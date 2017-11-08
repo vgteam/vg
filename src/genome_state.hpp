@@ -112,6 +112,11 @@ public:
 
 class GenomeState;
 
+// We have all these commands. All the handles in the commands are in the net
+// graph of the appropriate snarl, as owned by the GenomeState. If you want to
+// populate a command, you need to go get the net graph from the genome state to
+// make your handles.
+
 /**
  * Represents a modification of a GenomeState.
  * We use a command pattern to enable undo-ability.
@@ -121,16 +126,20 @@ struct GenomeStateCommand {
     virtual ~GenomeStateCommand() = default;
     
     /// Execute this command on the given state and return the reverse command.
-    /// Generally ends up calling a command-type-specific method on the GenomeState that does the actual work.
+    /// Generally ends up calling a command-type-specific method on the
+    /// GenomeState that does the actual work.
     virtual GenomeStateCommand* execute(GenomeState& state) const = 0;
 };
 
 struct InsertHaplotypeCommand : public GenomeStateCommand {
 
-    /// In each snarl's state, at each rank, insert the given haplotype.
-    /// Includes all the nested snarls.
-    /// To be executed in order from left to right (becasue inserting at ranks changes ranks).
-    vector<tuple<const Snarl*, size_t, vector<handle_t>>> insertions;
+    /// For each snarl, holds several haplotype traversals. The handles in each
+    /// traversal are annotated with their local lane assignments. This
+    /// annotation lets the command be basically an undelete, because we can
+    /// exactly reverse a delete. Insertions are applied from begin to end
+    /// within each vector. Lane numbers for a given forward handle must
+    /// strictly increase between vectors and within vectors.
+    unordered_map<const Snarl*, vector<vector<pair<handle_t, size_t>>>> insertions;
     
     virtual GenomeStateCommand* execute(GenomeState& state) const;
     
@@ -138,8 +147,13 @@ struct InsertHaplotypeCommand : public GenomeStateCommand {
 };
 
 struct DeleteHaplotypeCommand : public GenomeStateCommand {
-    /// In each (top level) snarl's state, delete the haplotype at the given rank.
-    vector<pair<const Snarl*, size_t>> deletions;
+    
+    /// For each snarl, delete the haplotype in each overall lane in the vector.
+    /// You must specify out the deletions for all the snarls in a haplotype; we
+    /// won't automatically go and find the children if you just list to delete
+    /// from the parents. Deletions happen from begin to end through each
+    /// vector. Lane numbers for a given snarl must be strictly decreasing.
+    unordered_map<const Snarl*, vector<size_t>> deletions;
     
     virtual GenomeStateCommand* execute(GenomeState& state) const;
 
@@ -180,6 +194,10 @@ public:
     /// in only one pair.
     GenomeState(const SnarlManager& manager, const HandleGraph* graph,
         const unordered_set<pair<const Snarl*, const Snarl*>> telomeres);
+        
+    // We can give you a net graph for a snarl so that you can make handles to
+    // populate commands.
+    const NetGraph* get_net_graph(const Snarl* snarl);
     
     // We execute commands and return the inverse commands
     
