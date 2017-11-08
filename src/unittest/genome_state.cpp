@@ -491,6 +491,123 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
             REQUIRE(traced[5] == graph.get_handle(8, false));
         }
         
+        SECTION("A second haplotype can be added") {
+            // We're just going to steal lane 0 in everything so we know things match up.
+        
+            InsertHaplotypeCommand insert2;
+        
+            // For the top snarl we go 1, 2 (child), and 8
+            insert2.insertions.emplace(top_snarl, vector<vector<pair<handle_t, size_t>>>{{
+                {top_graph->get_handle(1, false), 0},
+                {top_graph->get_handle(2, false), 0},
+                {top_graph->get_handle(8, false), 0}
+            }});
+            
+            // For the middle snarl we go 2, 3 (child), 7
+            insert2.insertions.emplace(middle_snarl, vector<vector<pair<handle_t, size_t>>>{{
+                {middle_graph->get_handle(2, false), 0},
+                {middle_graph->get_handle(3, false), 0},
+                {middle_graph->get_handle(7, false), 0}
+            }});
+            
+            // For the bottom snarl we go 3, 4, 5
+            insert2.insertions.emplace(bottom_snarl, vector<vector<pair<handle_t, size_t>>>{{
+                {bottom_graph->get_handle(3, false), 0},
+                {bottom_graph->get_handle(4, false), 0},
+                {bottom_graph->get_handle(5, false), 0}
+            }});
+            
+            // Execute the command and get the undo command
+            GenomeStateCommand* undo2 = state.execute(&insert2);
+            
+            SECTION("The added haplotype is counted") {
+                REQUIRE(state.count_haplotypes(chromosome) == 2);
+            }
+            
+            SECTION("The new haplotype can be traced") {
+                // We trace out all the handles in the backing graph
+                vector<handle_t> traced;
+                
+                state.trace_haplotype(chromosome, 0, [&](const handle_t& visit) {
+                    // Put every handle in the vector
+                    traced.push_back(visit);
+                });
+             
+                // We should visit nodes 1, 2, 3, 4, 5, 7, 8 in that order
+                REQUIRE(traced.size() == 7);
+                REQUIRE(traced[0] == graph.get_handle(1, false));
+                REQUIRE(traced[1] == graph.get_handle(2, false));
+                REQUIRE(traced[2] == graph.get_handle(3, false));
+                REQUIRE(traced[3] == graph.get_handle(4, false));
+                REQUIRE(traced[4] == graph.get_handle(5, false));
+                REQUIRE(traced[5] == graph.get_handle(7, false));
+                REQUIRE(traced[6] == graph.get_handle(8, false));
+            }
+            
+            SECTION("The old haplotype can be traced") {
+                // We trace out all the handles in the backing graph
+                vector<handle_t> traced;
+                
+                state.trace_haplotype(chromosome, 1, [&](const handle_t& visit) {
+                    // Put every handle in the vector
+                    traced.push_back(visit);
+                });
+             
+                // We should visit nodes 1, 2, 3, 5, 7, 8 in that order
+                REQUIRE(traced.size() == 6);
+                REQUIRE(traced[0] == graph.get_handle(1, false));
+                REQUIRE(traced[1] == graph.get_handle(2, false));
+                REQUIRE(traced[2] == graph.get_handle(3, false));
+                REQUIRE(traced[3] == graph.get_handle(5, false));
+                REQUIRE(traced[4] == graph.get_handle(7, false));
+                REQUIRE(traced[5] == graph.get_handle(8, false));
+            }
+            
+            // We can't delete the old haplotype with its original uninsert
+            // command because now it has been moved. We have to do the
+            // deletions in reverse insertion order.
+            
+            SECTION("The new haplotype can be deleted") {
+                delete state.execute(undo2);
+                
+                SECTION("Only one haplotype is left") {
+                    REQUIRE(state.count_haplotypes(chromosome) == 1);
+                }
+                
+                SECTION("The remaining, original haplotype can be traced") {
+                    // We trace out all the handles in the backing graph
+                    vector<handle_t> traced;
+                    
+                    state.trace_haplotype(chromosome, 0, [&](const handle_t& visit) {
+                        // Put every handle in the vector
+                        traced.push_back(visit);
+                    });
+                 
+                    // We should visit nodes 1, 2, 3, 5, 7, 8 in that order
+                    REQUIRE(traced.size() == 6);
+                    REQUIRE(traced[0] == graph.get_handle(1, false));
+                    REQUIRE(traced[1] == graph.get_handle(2, false));
+                    REQUIRE(traced[2] == graph.get_handle(3, false));
+                    REQUIRE(traced[3] == graph.get_handle(5, false));
+                    REQUIRE(traced[4] == graph.get_handle(7, false));
+                    REQUIRE(traced[5] == graph.get_handle(8, false));
+                }
+                
+                SECTION("The old haplotype can also be deleted") {
+                    delete state.execute(undo);
+                    
+                    SECTION("No haplotypes are left") {
+                        REQUIRE(state.count_haplotypes(chromosome) == 0);
+                    }
+                    
+                }
+                
+            }
+            
+            delete undo2;
+            
+        }
+        
         SECTION("The added haplotype can be deleted again") {
             GenomeStateCommand* undelete = state.execute(undo);
             
