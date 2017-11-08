@@ -212,7 +212,17 @@ vector<pair<handle_t, size_t>> SnarlState::erase(size_t overall_lane) {
         // Trace from end to start and remove from the net node lanes collections.
         // We have to do it backward so we can handle duplicate visits properly.
         auto& node_lanes = net_node_lanes[graph->forward(it->first)];
-        node_lanes.erase(node_lanes.begin() + it->second);
+        auto lane_iterator = node_lanes.erase(node_lanes.begin() + it->second);
+        
+        while (lane_iterator != node_lanes.end()) {
+            // Update all the subsequent records in that net node's lane list and bump down their internal lane assignments
+            
+            // First dereference to get the iterator that points to the actual
+            // record, then dereference that, and decrement the lane number.
+            (*(*lane_iterator)).second--;
+            
+            ++lane_iterator;
+        }
     }
 
     // Drop the actual haplotype
