@@ -9,36 +9,101 @@ namespace vg {
 
 using namespace std;
 
+pair<const Edge*, bool> AugmentedGraph::base_edge(const Edge* edge) {
+    assert(base_graph != NULL);
 
-bool AugmentedGraph::has_supports() {
+    bool is_trivial = false;
+    const Edge* found_edge = NULL;
+
+    // check if from node is even in the base graph
+    Position from_pos;
+    from_pos.set_node_id(edge->from());
+    if (!translator.has_translation(from_pos)) {
+        return pair<const Edge*, bool>(NULL, false);
+    }
+
+    // check if the to node is even in the base graph
+    Position to_pos;
+    to_pos.set_node_id(edge->to());
+    if (!translator.has_translation(to_pos)) {
+        return pair<const Edge*, bool>(NULL, false);        
+    }
+
+    // work in forward strand since translator doesn't seem strand-aware
+    from_pos.set_is_reverse(false);
+    from_pos.set_offset(edge->from_start() ? 0 :
+                        graph.get_node(edge->from())->sequence().length() - 1);
+
+    to_pos.set_is_reverse(false);
+    to_pos.set_offset(edge->to_end() == false ? 0 :
+                      graph.get_node(edge->to())->sequence().length() - 1);
+
+    // Map to the base graph using our translation table
+    Position base_from_pos = translator.translate(from_pos);
+    Position base_to_pos = translator.translate(to_pos);
+
+    // Make sure we don't have an unexpected reversal
+    assert(base_from_pos.is_reverse() == false);
+    assert(base_to_pos.is_reverse() == false);
+
+    // Test if we're a trivial edge in the base graph (just to consecutive positions)
+    if (base_from_pos.node_id() == base_to_pos.node_id() &&
+        base_from_pos.is_reverse() == base_to_pos.is_reverse() &&
+        abs(base_from_pos.offset() - base_to_pos.offset()) == 1) {
+        is_trivial = true;
+    }
+    // 2) or an existing edge in the base graph (translations are all forward strand,
+    //    so we need to look up sequence lengths to check if we're coming out end)
+    else if (edge->from_start() && !edge->to_end() &&
+             base_from_pos.offset() == 0 &&
+             base_to_pos.offset() == 0) {
+        found_edge = base_graph->get_edge(NodeSide(base_from_pos.node_id(), false),
+                                          NodeSide(base_to_pos.node_id(), false));
+    }
+    else if (edge->from_start() && edge->to_end() &&
+             base_from_pos.offset() == 0 &&
+             base_to_pos.offset() == base_graph->get_node(base_to_pos.node_id())->sequence().length() - 1) {
+        found_edge = base_graph->get_edge(NodeSide(base_from_pos.node_id(), false),
+                                          NodeSide(base_to_pos.node_id(), true));
+    }
+    else if (!edge->from_start() && !edge->to_end() &&
+             base_from_pos.offset() == base_graph->get_node(base_from_pos.node_id())->sequence().length() - 1 &&
+             base_to_pos.offset() == 0) {
+        found_edge = base_graph->get_edge(NodeSide(base_from_pos.node_id(), true),
+                                          NodeSide(base_to_pos.node_id(), false));
+    }
+    else if (!edge->from_start() && edge->to_end() &&
+             base_from_pos.offset() == base_graph->get_node(base_from_pos.node_id())->sequence().length() - 1 &&
+             base_to_pos.offset() == base_graph->get_node(base_to_pos.node_id())->sequence().length() - 1) {
+        found_edge = base_graph->get_edge(NodeSide(base_from_pos.node_id(), true),
+                                          NodeSide(base_to_pos.node_id(), true));
+    }
+
+    return pair<const Edge*, bool>(found_edge, is_trivial);
+}
+
+void AugmentedGraph::clear() {
+    // Reset to default state
+    *this = AugmentedGraph();
+}
+
+void SupportAugmentedGraph::clear() {
+    // Reset to default state
+    *this = SupportAugmentedGraph();
+}
+
+bool SupportAugmentedGraph::has_supports() {
     return !node_supports.empty() || !edge_supports.empty();
 }
 
-Support AugmentedGraph::get_support(Node* node) {
+Support SupportAugmentedGraph::get_support(Node* node) {
     return node_supports.count(node) ? node_supports.at(node) : Support();
 }
 
-Support AugmentedGraph::get_support(Edge* edge) {
+Support SupportAugmentedGraph::get_support(Edge* edge) {
     return edge_supports.count(edge) ? edge_supports.at(edge) : Support();
 }
-
-double AugmentedGraph::get_likelihood(Node* node) {
-    return node_likelihoods.count(node) ? node_likelihoods.at(node) : 0;
-}
-
-double AugmentedGraph::get_likelihood(Edge* edge) {
-    return edge_likelihoods.count(edge) ? edge_likelihoods.at(edge) : 0;
-}
-
-ElementCall AugmentedGraph::get_call(Node* node) {
-    return node_calls.count(node) ? node_calls.at(node) : CALL_UNCALLED;
-}
-
-ElementCall AugmentedGraph::get_call(Edge* edge) {
-    return edge_calls.count(edge) ? edge_calls.at(edge) : CALL_UNCALLED;
-}
     
-
 SimpleConsistencyCalculator::~SimpleConsistencyCalculator(){
 
 }
@@ -1271,7 +1336,7 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
 }
 
 
-RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
+RepresentativeTraversalFinder::RepresentativeTraversalFinder(SupportAugmentedGraph& augmented,
     SnarlManager& snarl_manager, size_t max_depth, size_t max_width, size_t max_bubble_paths,
     function<PathIndex*(const Snarl&)> get_index) : augmented(augmented), snarl_manager(snarl_manager),
     max_depth(max_depth), max_width(max_width), max_bubble_paths(max_bubble_paths), get_index(get_index) {

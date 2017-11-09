@@ -172,7 +172,7 @@ public:
     // input graph
     VG* _graph;
     // Output augmented graph with annotations
-    AugmentedGraph _augmented_graph;
+    SupportAugmentedGraph _augmented_graph;
 
     // buffer for base calls for each position in the node
     // . = reference
@@ -325,7 +325,7 @@ public:
          * Index the given path in the given augmented graph, and compute all
          * the coverage bin information with the given bin size.
          */
-        PrimaryPath(AugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size); 
+        PrimaryPath(SupportAugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size); 
     
         /**
          * Get the support at the bin appropriate for the given primary path
@@ -417,7 +417,7 @@ public:
      * pileup_filename is provided, the pileup is loaded again and used to add
      * comments describing variants
      */
-    void call(AugmentedGraph& augmented, string pileup_filename = "");
+    void call(SupportAugmentedGraph& augmented, string pileup_filename = "");
 
     /** 
      * Get the support and size for each traversal in a list. Discount support
@@ -425,7 +425,7 @@ public:
      * use_average_support to decide whether to return min or avg supports
      */
     tuple<vector<Support>, vector<size_t> > get_traversal_supports_and_sizes(
-        AugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
+        SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
         const vector<SnarlTraversal>& traversals,
         const SnarlTraversal* minus_traversal = NULL);
 
@@ -451,7 +451,7 @@ public:
      * If no path through the Snarl can be found, emits no Locus and returns no
      * SnarlTraversals.
      */
-    vector<SnarlTraversal> find_best_traversals(AugmentedGraph& augmented,
+    vector<SnarlTraversal> find_best_traversals(SupportAugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
         const Support& baseline_support, size_t copy_budget,
         function<void(const Locus&, const Snarl*)> emit_locus);

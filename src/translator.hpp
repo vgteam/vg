@@ -34,8 +34,10 @@ public:
     void load(const vector<Translation>& trans);
     void build_position_table(void);
     Translation get_translation(const Position& position);
+    bool has_translation(const Position& position, bool ignore_strand = true);
     Position translate(const Position& position);
-    Position translate(const Position& position, const Translation& translation);    
+    Position translate(const Position& position, const Translation& translation);
+    Edge translate(const Edge& edge);
     Mapping translate(const Mapping& mapping);
     Path translate(const Path& path);
     Alignment translate(const Alignment& aln);

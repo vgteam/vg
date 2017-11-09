@@ -22,6 +22,7 @@ Caller::Caller(VG* graph,
     assert(_min_aug_support > 0);
     _max_id = _graph->max_node_id();
     _node_divider._max_id = &_max_id;
+    _augmented_graph.base_graph = graph;
 }
 
 // delete contents of table
@@ -212,6 +213,8 @@ void Caller::update_augmented_graph() {
         auto& n = i.second; 
         annotate_augmented_node(n.node, 'I', n.sup, n.orig_id, n.orig_offset);
     }
+    // build the translation table in augmented graph
+    _augmented_graph.translator.build_position_table();
 }
 
 
@@ -810,14 +813,8 @@ void Caller::create_node_calls(const NodePileup& np) {
     }
 }
 
-void AugmentedGraph::clear() {
-    // Reset to default state
-    *this = AugmentedGraph();
-}
-
 void Caller::annotate_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
 {
-    _augmented_graph.node_calls[node] = (ElementCall) call;
     _augmented_graph.node_supports[node].set_forward(support.fs);
     _augmented_graph.node_supports[node].set_reverse(support.rs);
     _augmented_graph.node_supports[node].set_quality(support.qual);
@@ -836,14 +833,13 @@ void Caller::annotate_augmented_node(Node* node, char call, StrandSupport suppor
         auto* old_edit = old_mapping->add_edit();
         old_edit->set_from_length(node->sequence().size());
         old_edit->set_to_length(node->sequence().size());
-        
-        _augmented_graph.translations.push_back(trans);
+
+        _augmented_graph.translator.translations.push_back(trans);
     }
 }
 
 void Caller::annotate_augmented_edge(Edge* edge, char call, StrandSupport support)
 {
-    _augmented_graph.edge_calls[edge] = (ElementCall) call;
     _augmented_graph.edge_supports[edge].set_forward(support.fs);
     _augmented_graph.edge_supports[edge].set_reverse(support.rs);
     _augmented_graph.edge_supports[edge].set_quality(support.qual);

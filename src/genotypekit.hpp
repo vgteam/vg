@@ -167,45 +167,56 @@ public:
 // And now the implementations //
 /////////////////////////////////
 
-// Represents an assertion that an element in the augmented graph results from
-// an event of a certain type.
-enum ElementCall {
-    CALL_DELETION = 'D',
-    CALL_REFERENCE = 'R',
-    CALL_UNCALLED = 'U',
-    CALL_SUBSTITUTION = 'S',
-    CALL_INSERTION = 'I'
-};
-
-/// Data structure for representing an augmented graph, with semantic hints
-/// about how it was generated and how much support each node and edge has.
+/// General interface for an augmented graph.  This is a graph that was constructed
+/// by adding some read information to an original ("base") graph.  We preserve
+/// mappings back to the base graph via translations. Augmented graphs can be
+/// made using edit (such as in vg mod -i) or pileup.
+/// Todo : further abstract to handle graph interface
 struct AugmentedGraph {
     // This holds all the new nodes and edges
     VG graph;
+
+    // This holds the base graph (only required for mapping edges)
+    VG* base_graph = NULL;
+
+    // Translations back to the base graph
+    Translator translator;
     
-    // This holds info about where all the nodes came from
-    map<Node*, ElementCall> node_calls;
-    // And this similarly holds origin information for the edges
-    map<Edge*, ElementCall> edge_calls;
+    // Map an edge back to teh base graph (return NULL if does not exist)
+    // In the special case that an edge in the augmented graph represents
+    // two abutting positions within a node in the base graph, null, true
+    // is returned (todo: less tortured interface?)
+    pair<const Edge*, bool> base_edge(const Edge* augmented_edge);
+
+    // Is this a node novel?  ie does it not map back to the base graph?
+    bool is_novel_node(const Node* augmented_node) {
+        Position pos;
+        pos.set_node_id(augmented_node->id());
+        cerr << "checking " << augmented_node->id() << " in translator of size " << translator.pos_to_trans.size() << endl;
+        return !translator.has_translation(pos);
+    }
     
+    // Is this a node novel?  ie does it not map back to the base graph?
+    bool is_novel_edge(const Edge* augmented_edge) {
+        auto be_ret = base_edge(augmented_edge);
+        return be_ret.first == NULL && be_ret.second == false;
+    }
+    
+    /**
+     * Clear the contents.
+     */
+    virtual void clear();
+};
+
+/// Augmented Graph that holds some Support annotation data specific to vg call
+struct SupportAugmentedGraph : public AugmentedGraph {
+        
     // This holds support info for nodes. Note that we discard the "os" other
     // support field from StrandSupport.
     // Supports for nodes are minimum distinct reads that use the node.
     map<Node*, Support> node_supports;
     // And for edges
     map<Edge*, Support> edge_supports;
-    
-    // This holds the log10 likelihood for each node.
-    // TODO: what exactly does that mean?
-    map<Node*, double> node_likelihoods;
-    // And for edges
-    map<Edge*, double> edge_likelihoods;
-    
-    // This records how each new node came from the original graph, if it's not
-    // just a straight copy. Each Translation is a single mapping for a single
-    // whole new node on the forward strand, and the piece of the single old
-    // node it came from, on the forward strand.
-    vector<Translation> translations;
     
     /**
      * Return true if we have support information, and false otherwise.
@@ -220,36 +231,12 @@ struct AugmentedGraph {
     /**
      * Get the Support for a given Edge, or 0 if it has no recorded support.
      */
-    Support get_support(Edge* edge);
-    
-    /**
-     * Get the log10 likelihood for a given node, or 0 if it has no recorded
-     * likelihood.
-     */
-    double get_likelihood(Node* node);
-    
-    /**
-     * Get the log10 likelihood for a edge node, or 0 if it has no recorded
-     * likelihood.
-     */
-    double get_likelihood(Edge* edge);
-    
-    /**
-     * Get the call for a given node, or CALL_UNCALLED if it has no associated
-     * call.
-     */
-    ElementCall get_call(Node* node);
-    
-    /**
-     * Get the call for a given edge, or CALL_UNCALLED if it has no associated
-     * call.
-     */
-    ElementCall get_call(Edge* edge);
+    Support get_support(Edge* edge);    
     
     /**
      * Clear the contents.
      */
-    void clear();
+    virtual void clear();
 };
     
 
@@ -407,7 +394,7 @@ class RepresentativeTraversalFinder : public TraversalFinder {
 
 protected:
     /// The annotated, augmented graph we're finding traversals in
-    AugmentedGraph& augmented;
+    SupportAugmentedGraph& augmented;
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
     
@@ -492,7 +479,7 @@ public:
      * Uses the given get_index function to try and find a PathIndex for a
      * reference path traversing a child snarl.
      */
-    RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
+    RepresentativeTraversalFinder(SupportAugmentedGraph& augmented, SnarlManager& snarl_manager,
         size_t max_depth, size_t max_width, size_t max_bubble_paths,
         function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
     

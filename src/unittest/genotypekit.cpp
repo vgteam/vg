@@ -604,7 +604,7 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
         
         // We need an AugmentedGraph wraping the graph to use the
         // RepresentativeTraversalFinder
-        AugmentedGraph augmented;
+        SupportAugmentedGraph augmented;
         augmented.graph = graph;
         
         // Make a RepresentativeTraversalFinder
