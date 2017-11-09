@@ -454,31 +454,24 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
                 // If the visit enters a real child snarl, we have to do that
                 // child snarl and all the snarls in its chain.
                 
-                // Work out if we go through it backward
-                bool child_backward = net_graph.get_id(visit) != child->start().node_id();
+                // Get the chain for the child
+                const Chain* child_chain = manager.chain_of(child);
                 
-                // Make a visit to track where we are in the child snarl's
-                // chain. We snart with this snarl
-                Visit chain_cursor;
-                transfer_boundary_info(*child, *chain_cursor.mutable_snarl());
-                chain_cursor.set_backward(child_backward);
+                // Get the iterators to loop over it starting at the child
+                auto here = chain_begin_from(*child_chain, child);
+                auto end = chain_end_from(*child_chain, child);
                 
                 // Track if we had a previous snarl that would have emitted any shaed nodes.
                 bool had_previous = false;
                 
-                while (chain_cursor.has_snarl()) {
+                for (; here != end; ++here) {
                     // Until we run out of snarls in the chain
                 
                     // Handle this one
-                    recursively_traverse_snarl(manager.manage(chain_cursor.snarl()), child_lane,
-                        chain_cursor.backward(), had_previous);
+                    recursively_traverse_snarl(here->first, child_lane, here->second, had_previous);
                     
                     // Say we did a snarl previously
                     had_previous = true;
-                    
-                    // Go to the next snarl (or off the chain)
-                    chain_cursor = manager.next_in_chain(chain_cursor);
-                    
                 }                                                               
             } else {
                 // This is a visit to a normal handle in this snarl.

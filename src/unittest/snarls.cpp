@@ -2733,40 +2733,34 @@ namespace vg {
                     REQUIRE(it == chain_end(chain));
                 }
                 
-                SECTION("We can look around with Visits") {
-                    Visit here;
-                    transfer_boundary_info(*child1, *here.mutable_snarl());
+                SECTION("We can look around from a snarl") {
+                    const Chain* chain = snarl_manager.chain_of(child1);
                     
-                    SECTION("Looking left off the end of the chain gives us a Visit with no Snarl") {
-                        Visit left = snarl_manager.prev_in_chain(here);
+                    ChainIterator here = chain_begin_from(*chain, child1);
+                    ChainIterator end = chain_end_from(*chain, child1);
+                    
+                    SECTION("Looking right into the chain gives us the Snarl to the right") {
+                        ChainIterator right = here;
+                        ++right;
                         
-                        REQUIRE(!left.has_snarl());
+                        REQUIRE(right != end);
+                        REQUIRE(right->first == child2);
+                        // Must not be backward
+                        REQUIRE(right->second == false);
                     }
                     
-                    SECTION("Looking right into the chain gives us a Visit to the right Snarl") {
-                        Visit right = snarl_manager.next_in_chain(here);
-                        
-                        REQUIRE(right.has_snarl());
-                        REQUIRE(right.snarl().start().node_id() == child2->start().node_id());
-                        REQUIRE(right.snarl().end().node_id() == child2->end().node_id());
-                        REQUIRE(!right.backward());
-                    }
-                    
-                    here.set_backward(true);
-                    
-                    SECTION("Looking right off the end of the chain gives us a Visit with no Snarl") {
-                        Visit right = snarl_manager.next_in_chain(here);
-                        
-                        REQUIRE(!right.has_snarl());
-                    }
+                    // Now look from the other end
+                    here = chain_begin_from(*chain, child3);
+                    end = chain_end_from(*chain, child3);
                     
                     SECTION("Looking left into the chain gives us a Visit to the right Snarl") {
-                        Visit left = snarl_manager.prev_in_chain(here);
+                        ChainIterator left = here;
+                        ++left;
                         
-                        REQUIRE(left.has_snarl());
-                        REQUIRE(left.snarl().start().node_id() == child2->start().node_id());
-                        REQUIRE(left.snarl().end().node_id() == child2->end().node_id());
-                        REQUIRE(left.backward());
+                        REQUIRE(left != end);
+                        REQUIRE(left->first == child2);
+                        // Must be backward
+                        REQUIRE(left->second == true);
                     }
                     
                     

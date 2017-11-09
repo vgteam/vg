@@ -100,6 +100,11 @@ namespace vg {
     ChainIterator chain_rbegin(const Chain& chain);
     ChainIterator chain_rend(const Chain& chain);
     
+    /// We also define a function for getting the ChainIterator for a chain starting with a given snarl
+    ChainIterator chain_begin_from(const Chain& chain, const Snarl* start_snarl);
+    /// And the end iterator for the chain viewed from a given snarl.
+    ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl);
+    
     /**
      * Allow traversing a graph of nodes and child snarl chains within a snarl
      * within another HandleGraph. Uses its own internal child index because
@@ -140,25 +145,54 @@ namespace vg {
     class NetGraph : public HandleGraph {
     public:
         
-        /// Make a new NetGraph from the given chains and unary snarls in the given backing graph.
-        //NetGraph(const Visit& start, const Visit& end, const vector<vector<Snarl>>& child_chains,
-        //    const vector<Snarl>& child_unary_snarls, const HandleGraph* graph, bool use_internal_connectivity = false);
-            
         /// Make a new NetGraph for the given snarl in the given backing graph,
         /// using the given chains as child chains. Unary snarls are stored as
         /// single-snarl chains just like other trivial chains.
+        template<typename ChainContainer>
         NetGraph(const Visit& start, const Visit& end,
-            const vector<Chain>& child_chains_mixed,
+            const ChainContainer& child_chains_mixed,
             const HandleGraph* graph,
-            bool use_internal_connectivity = false);
+            bool use_internal_connectivity = false) : NetGraph(start, end, graph, use_internal_connectivity) {
             
+            // All we need to do is index the children. They come mixed as real chains and unary snarls.
+            
+            for (auto& chain : child_chains_mixed) {
+                if (chain.size() == 1 && chain.front()->type() == UNARY) {
+                    // This is a unary snarl wrapped in a chain
+                    add_unary_child(chain.front());
+                } else {
+                    // This is a real (but possibly trivial) chain
+                    add_chain_child(chain);
+                }
+            }
+            
+        }
+        
         /// Make a net graph from the given chains and unary snarls (as pointers) in the given backing graph.
-        NetGraph(const Visit& start, const Visit& end, const vector<Chain>& child_chains,
-            const vector<const Snarl*>& child_unary_snarls, const HandleGraph* graph, bool use_internal_connectivity = false);
+        template<typename ChainContainer, typename SnarlContainer>
+        NetGraph(const Visit& start, const Visit& end,
+            const ChainContainer& child_chains,
+            const SnarlContainer& child_unary_snarls, const HandleGraph* graph,
+            bool use_internal_connectivity = false) : NetGraph(start, end, graph, use_internal_connectivity) {
+            
+            // All we need to do is index the children.
+            
+            for (const Snarl* unary : child_unary_snarls) {
+                add_unary_child(unary);
+            }
+            
+            for (auto& chain : child_chains) {
+                add_chain_child(chain);
+            }
+        }
             
         /// Make a net graph from the given chains and unary snarls (as raw values) in the given backing graph.
-        NetGraph(const Visit& start, const Visit& end, const vector<vector<Snarl>>& child_chains,
-            const vector<Snarl>& child_unary_snarls, const HandleGraph* graph, bool use_internal_connectivity = false);
+        /// Mostly for testing.
+        NetGraph(const Visit& start, const Visit& end,
+            const vector<vector<Snarl>>& child_chains,
+            const vector<Snarl>& child_unary_snarls,
+            const HandleGraph* graph,
+            bool use_internal_connectivity = false);
             
         /// Look up the handle for the node with the given ID in the given orientation
         virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
@@ -286,15 +320,21 @@ namespace vg {
         /// Returns a pointer to the parent of a Snarl or nullptr if there is none
         const Snarl* parent_of(const Snarl* snarl) const;
         
-        /// Get the Snarl, if any, that shares this Snarl's start node as either its start or its end.
-        /// Does not count this snarl, even if this snarl is unary.
-        /// Basic operation used to traverse a chain. Caller must account for snarls' orientations within a chain.
-        const Snarl* snarl_sharing_start(const Snarl* here) const;
+        /// Returns the Snarl that a traversal points into at either the start
+        /// or end, or nullptr if the traversal does not point into any Snarl.
+        /// Note that Snarls store the end Visit pointing out of rather than
+        /// into the Snarl, so they must be reversed to query it.
+        const Snarl* into_which_snarl(int64_t id, bool reverse) const;
         
-        /// Get the Snarl, if any, that shares this Snarl's end node as either its start or its end.
-        /// Does not count this snarl, even if this snarl is unary.
-        /// Basic operation used to traverse a chain. Caller must account for snarls' orientations within a chain.
-        const Snarl* snarl_sharing_end(const Snarl* here) const;
+        /// Returns the Snarl that a Visit points into. If the Visit contains a
+        /// Snarl rather than a node ID, returns a pointer the managed version
+        /// of that snarl.
+        const Snarl* into_which_snarl(const Visit& visit) const;
+        
+        /// Get the Chain that the given snarl participates in. Instead of
+        /// asking this class to walk the chain for you, use ChainIterators on
+        /// this chain.
+        const Chain* chain_of(const Snarl* snarl) const;
         
         /// Return true if a Snarl is part of a nontrivial chain of more than
         /// one snarl.
@@ -305,7 +345,7 @@ namespace vg {
         /// Unary snarls and snarls in trivial chains will be presented as their own chains.
         /// Snarls are not necessarily oriented appropriately given their ordering in the chain.
         /// Useful for making a net graph.
-        const vector<Chain>& chains_of(const Snarl* snarl) const;
+        const deque<Chain>& chains_of(const Snarl* snarl) const;
         
         /// Get the net graph of the given Snarl's contents, using the given
         /// backing HandleGraph. If use_internal_connectivity is false, each
@@ -314,24 +354,6 @@ namespace vg {
         /// Otherwise, traversing the graph works like it would if you actually
         /// went through the internal graphs fo child snarls.
         NetGraph net_graph_of(const Snarl* snarl, const HandleGraph* graph, bool use_internal_connectivity = true) const;
-        
-        /// Get a Visit to the snarl in the same chain coming after the given
-        /// Visit to a snarl, or a Visit with no Snarl if the end of the chain
-        /// is hit. Accounts for snarls' orientations in their chains.
-        Visit next_in_chain(const Visit& here) const;
-        
-        /// Get a Visit to the snarl in the same chain coming before the given
-        /// Visit to a snarl, or a Visit with no Snarl if the end of the chain
-        /// is hit. Accounts for snarls' orientations in their chains.
-        Visit prev_in_chain(const Visit& here) const;
-        
-        /// Returns the Snarl that a traversal points into at either the start or end, or nullptr if
-        /// the traversal does not point into any Snarl. Note that Snarls store the end Visit pointing
-        /// out of rather than into the Snarl, so they must be reversed to query it.
-        const Snarl* into_which_snarl(int64_t id, bool reverse) const;
-        /// Returns the Snarl that a Visit points into. If the Visit contains a Snarl rather than a node
-        /// ID, returns a pointer the managed version of that snarl.
-        const Snarl* into_which_snarl(const Visit& visit) const;
         
         /// Returns true if snarl has no children and false otherwise
         bool is_leaf(const Snarl* snarl) const;
@@ -412,16 +434,18 @@ namespace vg {
         
         /// Roots of snarl trees
         vector<const Snarl*> roots;
-        /// Chains of root-level snarls
-        vector<Chain> root_chains;
+        /// Chains of root-level snarls. Uses a deque so Chain* pointers don't get invalidated.
+        deque<Chain> root_chains;
         
         /// Map of snarls to the child snarls they contain
         unordered_map<key_t, vector<const Snarl*>> children;
         /// Map of snarls to the child chains they contain
-        /// TODO: can we replace children with this? Or do we still need precomputed flat children?
-        unordered_map<key_t, vector<Chain>> child_chains;
-        /// Map of snarls to their parent
+        /// Uses a deque so Chain* pointers don't get invalidated.
+        unordered_map<key_t, deque<Chain>> child_chains;
+        /// Map of snarls to their parent snarls
         unordered_map<key_t, const Snarl*> parent;
+        /// Map of snarls to the chain each appears in
+        unordered_map<key_t, const Chain*> parent_chain;
         
         /// Map of snarl keys to the pointer to the managed copy in the snarls vector.
         /// Is non-const so we can do flip nicely.
@@ -438,7 +462,35 @@ namespace vg {
         
         /// Actually compute chains for a set of already indexed snarls, which
         /// is important when chains were not provided. Returns the chains.
-        vector<Chain> compute_chains(const vector<const Snarl*>& input_snarls);
+        deque<Chain> compute_chains(const vector<const Snarl*>& input_snarls);
+        
+        // Chain computation uses these pseudo-chain-traversal functions, which
+        // walk around based on the snarl boundary index. This basically gets
+        // you chains, except for structures that look like circular chains,
+        // which are actually presented as circular chains and not linear ones.
+        // They also let you walk into unary snarls.
+        
+        /// Get a Visit to the snarl coming after the given Visit to a snarl, or
+        /// a Visit with no Snarl no next snarl exists. Accounts for snarls'
+        /// orientations.
+        Visit next_snarl(const Visit& here) const;
+        
+        /// Get a Visit to the snarl coming before the given Visit to a snarl,
+        /// or a Visit with no Snarl no previous snarl exists. Accounts for
+        /// snarls' orientations.
+        Visit prev_snarl(const Visit& here) const;
+        
+        /// Get the Snarl, if any, that shares this Snarl's start node as either
+        /// its start or its end. Does not count this snarl, even if this snarl
+        /// is unary. Basic operation used to traverse a chain. Caller must
+        /// account for snarls' orientations within a chain.
+        const Snarl* snarl_sharing_start(const Snarl* here) const;
+        
+        /// Get the Snarl, if any, that shares this Snarl's end node as either
+        /// its start or its end. Does not count this snarl, even if this snarl
+        /// is unary. Basic operation used to traverse a chain. Caller must
+        /// account for snarls' orientations within a chain.
+        const Snarl* snarl_sharing_end(const Snarl* here) const;
     };
     
     /// Converts a Visit to a NodeTraversal. Throws an exception if the Visit is of a Snarl instead

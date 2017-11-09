@@ -976,7 +976,6 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains", "[snarlstat
     }
     
 }
-    
         
 }
 }

@@ -149,6 +149,32 @@ namespace vg {
         
         return to_return;
     }
+    
+    ChainIterator chain_begin_from(const Chain& chain, const Snarl* start_snarl) {
+        assert(!chain.empty());
+        if (start_snarl == chain.front()) {
+            // We are at the left end of the chain, so go forward
+            return chain_begin(chain);
+        } else if (start_snarl == chain.back()) {
+            // We are at the right end of the chain, so go reverse
+            return chain_rbegin(chain);
+        } else {
+            throw runtime_error("Tried to view a chain from a snarl not at either end!");
+        }
+    }
+    
+    ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl) {
+        assert(!chain.empty());
+        if (start_snarl == chain.front()) {
+            // We are at the left end of the chain, so go forward
+            return chain_end(chain);
+        } else if (start_snarl == chain.back()) {
+            // We are at the right end of the chain, so go reverse
+            return chain_rend(chain);
+        } else {
+            throw runtime_error("Tried to view a chain from a snarl not at either end!");
+        }
+    } 
 
     // TODO: this is duplicative with the other constructor, but protobuf won't let me make
     // a deserialization iterator to match its signature because its internal file streams
@@ -191,11 +217,15 @@ namespace vg {
         return next == here ? nullptr : next;
     }
     
-    bool SnarlManager::in_nontrivial_chain(const Snarl* here) const {
-        return (snarl_sharing_start(here) != nullptr || snarl_sharing_end(here) != nullptr);
+    const Chain* SnarlManager::chain_of(const Snarl* snarl) const {
+        return parent_chain.at(key_form(snarl));
     }
     
-    Visit SnarlManager::next_in_chain(const Visit& here) const {
+    bool SnarlManager::in_nontrivial_chain(const Snarl* here) const {
+        return chain_of(here)->size() > 1;
+    }
+    
+    Visit SnarlManager::next_snarl(const Visit& here) const {
         // Must be a snarl visit
         assert(here.node_id() == 0);
         const Snarl* here_snarl = manage(here.snarl());
@@ -224,11 +254,11 @@ namespace vg {
         }
     }
     
-    Visit SnarlManager::prev_in_chain(const Visit& here) const {
-        return reverse(next_in_chain(reverse(here)));
+    Visit SnarlManager::prev_snarl(const Visit& here) const {
+        return reverse(next_snarl(reverse(here)));
     }
     
-    const vector<Chain>& SnarlManager::chains_of(const Snarl* snarl) const {
+    const deque<Chain>& SnarlManager::chains_of(const Snarl* snarl) const {
         if (snarl == nullptr) {
             // We want the root chains
             return root_chains;
@@ -315,6 +345,10 @@ namespace vg {
         child_chains[key_form(snarl)] = std::move(child_chains[old_key]);
         child_chains.erase(old_key);
         
+        // And the parent chain index
+        parent_chain[key_form(snarl)] = std::move(parent_chain[old_key]);
+        parent_chain.erase(old_key);
+        
         // Update self index
         self[key_form(snarl)] = std::move(self[old_key]);
         self.erase(old_key);
@@ -338,7 +372,7 @@ namespace vg {
         // It has an empty vector of children
         children[key_form(snarl)] = vector<const Snarl*>();
         // It has an empty list of child chains.
-        child_chains[key_form(snarl)] = vector<Chain>();
+        child_chains[key_form(snarl)] = deque<Chain>();
         
         // We will set the parent later when we add the snarl's chain.
         // Every snarl has to be in a chain. Even the unary ones, in trivial chains.
@@ -366,7 +400,16 @@ namespace vg {
                 roots.push_back(child);
                 
                 // Save its parent, which is null
-                parent[key_form(child)] = nullptr;
+                parent.emplace(key_form(child), nullptr);
+                
+                // Save its chain. Relies on the Chain in root_chains never
+                // moving.
+                parent_chain.emplace(key_form(child), &root_chains.back());
+                
+#ifdef debug
+                cerr << "Stored parent of " << child << endl;
+#endif
+                
             }
         } else {
         
@@ -385,9 +428,22 @@ namespace vg {
                 children[key_form(chain_parent)].push_back(child);
                 
                 // Save its parent
-                parent[key_form(child)] = chain_parent;
+                parent.emplace(key_form(child), chain_parent);
+                
+                // Save its chain. Relies on the Chain in child_chains never
+                // moving.
+                parent_chain.emplace(key_form(child), &child_chains[key_form(chain_parent)].back());
+                
+#ifdef debug
+                cerr << "Stored parent of " << child << endl;
+#endif
+                
             }
         }
+        
+#ifdef debug
+        cerr << "Now have " << parent_chain.size() << " chain index entries for " << snarls.size() << " snarls" << endl;
+#endif
     }
     
     const Snarl* SnarlManager::into_which_snarl(int64_t id, bool reverse) const {
@@ -491,6 +547,13 @@ namespace vg {
         
             // Compute the chains for the root level snarls
             root_chains = compute_chains(roots);
+            
+            // Build the back index from root snarl to containing chain
+            for (auto& chain : root_chains) {
+                for (const Snarl* snarl : chain) {
+                    parent_chain.emplace(key_form(snarl), &chain);
+                }
+            }
         
             for (auto& kv : children) {
                 // For each parent snarl
@@ -499,14 +562,23 @@ namespace vg {
                 vector<const Snarl*>& snarl_children = kv.second;
                 
                 // Compute chains of the children and store it under the parent.
-                child_chains.insert(make_pair(parent_key, compute_chains(snarl_children)));
+                // Keep the iterator.
+                auto inserted = child_chains.emplace(make_pair(parent_key, compute_chains(snarl_children))).first;
+                
+                // Build the back index from child snarl to containing chain
+                for (auto& chain : inserted->second) {
+                    for (const Snarl* snarl : chain) {
+                        parent_chain.emplace(key_form(snarl), &chain);
+                    }
+                }
+                
             }
         }
     }
     
-    vector<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snarls) {
+    deque<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snarls) {
         // We populate this
-        vector<Chain> to_return;
+        deque<Chain> to_return;
         
         // We track the snarls we have seen in chain traversals so we only have to see each chain once.
         unordered_set<const Snarl*> seen;
@@ -529,9 +601,9 @@ namespace vg {
             Visit here;
             transfer_boundary_info(*snarl, *here.mutable_snarl());
             
-            for (Visit walk_left = prev_in_chain(here);
+            for (Visit walk_left = prev_snarl(here);
                 walk_left.has_snarl() && !seen.count(manage(walk_left.snarl()));
-                walk_left = prev_in_chain(walk_left)) {
+                walk_left = prev_snarl(walk_left)) {
             
                 // For everything in the chain left from here, until we hit the
                 // end or come back to the start, add it to the chain
@@ -540,9 +612,9 @@ namespace vg {
                 seen.insert(chain.front());
             }
             
-            for (Visit walk_right = next_in_chain(here);
+            for (Visit walk_right = next_snarl(here);
                 walk_right.has_snarl() && !seen.count(manage(walk_right.snarl()));
-                walk_right = next_in_chain(walk_right)) {
+                walk_right = next_snarl(walk_right)) {
                 
                 // For everything in the chain right from here, until we hit the
                 // end or come back to the start, add it to the chain
@@ -989,41 +1061,6 @@ namespace vg {
         end(graph->get_handle(end.node_id(), end.backward())),
         use_internal_connectivity(use_internal_connectivity) {
         // Nothing to do!
-    }
-    
-    NetGraph::NetGraph(const Visit& start, const Visit& end,
-        const vector<Chain>& child_chains_mixed,
-        const HandleGraph* graph,
-        bool use_internal_connectivity) : NetGraph(start, end, graph, use_internal_connectivity) {
-        
-        // All we need to do is index the children. They come mixed as real chains and unary snarls.
-        
-        for (auto& chain : child_chains_mixed) {
-            if (chain.size() == 1 && chain.front()->type() == UNARY) {
-                // This is a unary snarl wrapped in a chain
-                add_unary_child(chain.front());
-            } else {
-                // This is a real (but possibly trivial) chain
-                add_chain_child(chain);
-            }
-        }
-        
-    }
-    
-    NetGraph::NetGraph(const Visit& start, const Visit& end,
-        const vector<Chain>& child_chains,
-        const vector<const Snarl*>& child_unary_snarls, const HandleGraph* graph,
-        bool use_internal_connectivity) : NetGraph(start, end, graph, use_internal_connectivity) {
-        
-        // All we need to do is index the children.
-        
-        for (const Snarl* unary : child_unary_snarls) {
-            add_unary_child(unary);
-        }
-        
-        for (auto& chain : child_chains) {
-            add_chain_child(chain);
-        }
     }
     
     NetGraph::NetGraph(const Visit& start, const Visit& end,
