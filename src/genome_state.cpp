@@ -449,6 +449,7 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
             
             // What child, if any, do we enter on this node?
             const Snarl* child = manager.into_which_snarl(net_graph.get_id(visit), net_graph.get_is_reverse(visit));
+            // TODO: This is also catching subsequent snarls in our chain. We should not recurse into those!
             
             if (child != nullptr && child != here) {
                 // If the visit enters a snarl (other than this one)
