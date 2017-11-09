@@ -70,7 +70,7 @@ TEST_CASE("SnarlState can hold and manipulate haplotypes", "[snarlstate][genomes
         // Make a haplotype
         vector<pair<handle_t, size_t>> annotated_haplotype;
         
-        // Say we go 1, 2 (which is a child snarl), 8
+        // Say we go 1, 2 (which is a child chain), 8
         annotated_haplotype.emplace_back(net_graph.get_handle(1, false), 0);
         annotated_haplotype.emplace_back(net_graph.get_handle(2, false), 0);
         annotated_haplotype.emplace_back(net_graph.get_handle(8, false), 0);
@@ -249,7 +249,7 @@ TEST_CASE("SnarlState can hold and manipulate haplotypes", "[snarlstate][genomes
                         REQUIRE(recovered.size() == 3);
                         REQUIRE(recovered[0].first == hap3[0]);
                         REQUIRE(recovered[0].second == 0);
-                        SECTION("Swapping haplotypes does not change interior child snarl lane assignments") {
+                        SECTION("Swapping haplotypes does not change interior child chain lane assignments") {
                             // The second mapping should stay in place in its assigned lane
                             REQUIRE(recovered[1].first == hap3[1]);
                             REQUIRE(recovered[1].second == 1);
@@ -343,7 +343,7 @@ TEST_CASE("SnarlState can hold and manipulate haplotypes", "[snarlstate][genomes
         // Make a haplotype
         vector<pair<handle_t, size_t>> annotated_haplotype;
         
-        // Say we go 8 rev, 2 rev (which is a child snarl), 1 rev
+        // Say we go 8 rev, 2 rev (which is a child chain), 1 rev
         annotated_haplotype.emplace_back(net_graph.get_handle(8, true), 0);
         annotated_haplotype.emplace_back(net_graph.get_handle(2, true), 0);
         annotated_haplotype.emplace_back(net_graph.get_handle(1, true), 0);
@@ -352,9 +352,106 @@ TEST_CASE("SnarlState can hold and manipulate haplotypes", "[snarlstate][genomes
         REQUIRE_THROWS(state.insert(annotated_haplotype));
         
     }
-    
+}
+
+
+TEST_CASE("SnarlState works on snarls with child chains", "[snarlstate][genomestate]") {
     
 
+    // This graph will have a snarl from 1 to 8, a snarl from 2 to 4,
+    // and a snarl from 4 to 7, with a chain in the top snarl.
+    VG graph;
+        
+    Node* n1 = graph.create_node("GCA");
+    Node* n2 = graph.create_node("T");
+    Node* n3 = graph.create_node("G");
+    Node* n4 = graph.create_node("CTGA");
+    Node* n5 = graph.create_node("GCA");
+    Node* n6 = graph.create_node("T");
+    Node* n7 = graph.create_node("G");
+    Node* n8 = graph.create_node("CTGA");
+    
+    Edge* e1 = graph.create_edge(n1, n2);
+    Edge* e2 = graph.create_edge(n1, n8);
+    Edge* e3 = graph.create_edge(n2, n3);
+    Edge* e4 = graph.create_edge(n2, n4);
+    Edge* e5 = graph.create_edge(n3, n4);
+    Edge* e6 = graph.create_edge(n4, n5);
+    Edge* e7 = graph.create_edge(n4, n6);
+    Edge* e8 = graph.create_edge(n5, n7);
+    Edge* e9 = graph.create_edge(n6, n7);
+    Edge* e10 = graph.create_edge(n7, n8);
+    
+    // Work out its snarls
+    CactusSnarlFinder bubble_finder(graph);
+    SnarlManager snarl_manager = bubble_finder.find_snarls();
+    
+    // Get the top snarl
+    const Snarl* top_snarl = snarl_manager.top_level_snarls().at(0);
+    
+    if (top_snarl->end().node_id() < top_snarl->start().node_id()) {
+        // Put it a consistent way around
+        snarl_manager.flip(top_snarl);
+    }
+    
+    // Make sure it's what we expect.
+    REQUIRE(top_snarl->start().node_id() == 1);
+    REQUIRE(top_snarl->end().node_id() == 8);
+
+    // Make sure we have one chain    
+    auto& chains = snarl_manager.chains_of(top_snarl);
+    REQUIRE(chains.size() == 1);
+    
+    // Get the chain
+    auto& chain = chains.at(0);
+    REQUIRE(chain.size() == 2);
+    
+    // And the snarls in the chain
+    const Snarl* left_child = chain.at(0);
+    const Snarl* right_child = chain.at(1);
+    
+    REQUIRE(left_child->start().node_id() == 2);
+    REQUIRE(left_child->end().node_id() == 4);
+    REQUIRE(right_child->start().node_id() == 4);
+    REQUIRE(right_child->end().node_id() == 7);
+    
+    // And get its net graph
+    NetGraph net_graph = snarl_manager.net_graph_of(top_snarl, &graph, true);
+    
+    // Make a SnarlState for the top snarl
+    SnarlState state(&net_graph);
+    
+    SECTION("The state starts empty") {
+        REQUIRE(state.size() == 0);
+    }
+    
+    SECTION("We can add a traversal through the chain") {
+        // Make a haplotype
+        vector<pair<handle_t, size_t>> annotated_haplotype;
+        
+        // Say we go 1, 2 (which is a child chain), 8
+        annotated_haplotype.emplace_back(net_graph.get_handle(1, false), 0);
+        annotated_haplotype.emplace_back(net_graph.get_handle(2, false), 0);
+        annotated_haplotype.emplace_back(net_graph.get_handle(8, false), 0);
+        
+        // Put it in the state
+        state.insert(annotated_haplotype);
+        
+        SECTION("The state now has 1 haplotype") {
+            REQUIRE(state.size() == 1);
+        }
+        
+        SECTION("The haplotype can be traced back again") {
+            vector<pair<handle_t, size_t>> recovered;
+            
+            state.trace(0, false, [&](const handle_t& visit, size_t local_lane) {
+                recovered.emplace_back(visit, local_lane);
+            });
+            
+            REQUIRE(recovered == annotated_haplotype);
+        }
+        
+    }
 }
 
 TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
