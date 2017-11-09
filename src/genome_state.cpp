@@ -432,9 +432,6 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
     function<void(const Snarl*, size_t, bool, bool)> recursively_traverse_snarl =
         [&](const Snarl* here, size_t lane, bool orientation, bool skip_first) {
 
-        // We need to remember if the last visit we did was a child snarl.
-        bool last_was_child = false;
-    
         // Here's the NetGraph we are working on
         auto& net_graph = net_graphs.at(here);
     
@@ -442,38 +439,52 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
         state.at(here).trace(lane, orientation, [&](const handle_t& visit, const size_t child_lane) {
             
             if (skip_first) {
-                // We aren't supposed to do this visit; it's already been done.
+                // We aren't supposed to do this visit; it's already been done
+                // by the previous snarl in our chain.
                 skip_first = false;
                 return;
             }
             
-            // What child, if any, do we enter on this node?
+            // What child, if any, do we enter on this node? Note that we will
+            // also get ourselves (if this is the first node) or the next snarl
+            // in the chain (if this is the last node).
             const Snarl* child = manager.into_which_snarl(net_graph.get_id(visit), net_graph.get_is_reverse(visit));
-            // TODO: This is also catching subsequent snarls in our chain. We should not recurse into those!
             
-            if (child != nullptr && child != here) {
-                // If the visit enters a snarl (other than this one)
+            if (child != nullptr && manager.parent_of(child) == here) {
+                // If the visit enters a real child snarl, we have to do that
+                // child snarl and all the snarls in its chain.
                 
                 // Work out if we go through it backward
                 bool child_backward = net_graph.get_id(visit) != child->start().node_id();
                 
-                // Recurse and do the snarl. Do it in the lane we have recorded
-                // for this child visit, in the orientation appropriate for the
-                // handle we are entering with, and skipping the first node if
-                // the last thing we visited was also a child snarl (which must
-                // be back to back with this one).
-                recursively_traverse_snarl(child, child_lane, child_backward, last_was_child);
+                // Make a visit to track where we are in the child snarl's
+                // chain. We snart with this snarl
+                Visit chain_cursor;
+                transfer_boundary_info(*child, *chain_cursor.mutable_snarl());
+                chain_cursor.set_backward(child_backward);
                 
-                // Remember that the last thing we did was a child snarl.
-                last_was_child = true;
+                // Track if we had a previous snarl that would have emitted any shaed nodes.
+                bool had_previous = false;
+                
+                while (chain_cursor.has_snarl()) {
+                    // Until we run out of snarls in the chain
+                
+                    // Handle this one
+                    recursively_traverse_snarl(manager.manage(chain_cursor.snarl()), child_lane,
+                        chain_cursor.backward(), had_previous);
+                    
+                    // Say we did a snarl previously
+                    had_previous = true;
+                    
+                    // Go to the next snarl (or off the chain)
+                    chain_cursor = manager.next_in_chain(chain_cursor);
+                    
+                }                                                               
             } else {
                 // This is a visit to a normal handle in this snarl.
                 
                 // Emit it
                 iteratee(visit);
-                
-                // Rember we didn't visit a child last at this level
-                last_was_child = false;
             }
         });
     };
@@ -488,7 +499,7 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
     // Work out what snarl comes next
     const Snarl* next = manager.into_which_snarl(here);
     
-    // Track if we had a previous snarl that would have emitted any shaed nodes.
+    // Track if we had a previous snarl that would have emitted any shared nodes.
     bool had_previous = false;
     
     while (next != nullptr) {
