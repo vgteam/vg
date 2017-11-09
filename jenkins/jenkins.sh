@@ -150,7 +150,7 @@ pip install requests
 pip install timeout_decorator
 pip install pytest
 pip install pygithub
-pip install toil[aws,mesos]
+pip install toil[aws,mesos]==3.11.0
 # Don't manually install boto since toil just installs its preferred version
 
 # Install toil-vg itself

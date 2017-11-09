@@ -1338,9 +1338,11 @@ public:
     bool is_head_node(id_t id);
     /// Determine if a node is a head node.
     bool is_head_node(Node* node);
-    /// Get the distance from head of node to beginning of graph, or -1 if limit exceeded.
+    /// Get the distance in bases from start of node to closest head node of graph, or -1 if that distance exceeds the limit.
     int32_t distance_to_head(NodeTraversal node, int32_t limit = 1000);
-    /// Get the distance from head of node to beginning of graph, or -1 if limit exceeded.
+    /// Get the distance in bases from start of node to closest head node of graph, or -1 if that distance exceeds the limit.
+    /// dist increases by the number of bases of each previous node until you reach the head node
+    /// seen is a set that holds the nodes that you have already gotten the distance of, but starts off empty
     int32_t distance_to_head(NodeTraversal node, int32_t limit,
                              int32_t dist, set<NodeTraversal>& seen);
     /// Get the tail nodes (nodes with edges only to their left sides). These are required to be oriented forward.
@@ -1353,7 +1355,9 @@ public:
     bool is_tail_node(Node* node);
     /// Get the distance from tail of node to end of graph, or -1 if limit exceeded.
     int32_t distance_to_tail(NodeTraversal node, int32_t limit = 1000);
-    /// Get the distance from tail of node to end of graph, or -1 if limit exceeded.
+    /// Get the distance in bases from end of node to closest tail of graph, or -1 if that distance exceeds the limit.
+    /// dist increases by the number of bases of each next node until you reach the tail node
+    /// seen is a set that holds the nodes that you have already gotten the distance of, but starts off empty
     int32_t distance_to_tail(NodeTraversal node, int32_t limit,
                              int32_t dist, set<NodeTraversal>& seen);
     /// Get the distance from tail of node to end of graph, or -1 if limit exceeded.
