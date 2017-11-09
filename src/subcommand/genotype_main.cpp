@@ -5,6 +5,7 @@
 #include "stream.hpp"
 #include "genotyper.hpp"
 #include "genotypekit.hpp"
+#include "variant_recall.hpp"
 #include "stream.hpp"
 /**
 * GAM sort main
@@ -229,10 +230,9 @@ int main_genotype(int argc, char** argv) {
     });
 
     if (just_call){
-        Genotyper gt;
         string gamfi(gam_file);
         string rstr(ref_path_name);
-        gt.genotype_svs(graph, gamfi, rstr);
+        genotype_svs(graph, gamfi, rstr);
         exit(0);
     }
 
@@ -263,7 +263,6 @@ int main_genotype(int argc, char** argv) {
     });
 
     if (!(recall_vcf.empty() || fasta.empty())){
-        Genotyper gt;
         vcflib::VariantCallFile* vars = new vcflib::VariantCallFile();
         vars->open(recall_vcf);
         FastaReference* lin_ref = new FastaReference();
@@ -275,7 +274,7 @@ int main_genotype(int argc, char** argv) {
             insertions.emplace_back(ins);
             ins->open(insertions_file);
         }
-        gt.variant_recall(graph, vars, lin_ref, insertions, gam_file, useindex);
+        variant_recall(graph, vars, lin_ref, insertions, gam_file, useindex);
         return 0;
 
     }
