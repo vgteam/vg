@@ -28,7 +28,7 @@ void help_sim(char** argv) {
          << "options:" << endl
          << "    -x, --xg-name FILE          use the xg index in FILE" << endl
          << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f)" << endl
-         << "    -P, --path PATH             simulate from the given names path (multiple allowed)" << endl
+         << "    -P, --path PATH             simulate from the given named path (multiple allowed)" << endl
          << "    -l, --read-length N         write reads of length N" << endl
          << "    -n, --num-reads N           simulate N reads or read pairs" << endl
          << "    -s, --random-seed N         use this specific seed for the PRNG" << endl

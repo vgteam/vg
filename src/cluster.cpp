@@ -608,28 +608,37 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     // for recording the distance of any pair that we check with a finite distance
     unordered_map<pair<size_t, size_t>, int64_t> recorded_finite_dists;
     
+    // for recording the number of times elements of a strand cluster have been compared
+    // and found an infinite distance
+    map<pair<size_t, size_t>, size_t> num_infinite_dists;
+    
     // we use a union find to keep track of which MEMs have been identified as being on the same strand
     UnionFind component_union_find(num_items);
     
     size_t num_possible_merges_remaining = (num_items * (num_items - 1)) / 2;
     
+    int64_t max_failed_distance_probes = 2;
+    
     // an initial pass that only looks at nodes on path
-    extend_dist_tree_by_path_buckets(num_possible_merges_remaining,component_union_find, recorded_finite_dists,
-                                     num_items, xgindex, get_position, get_offset, node_path_memo, handle_memo);
+    extend_dist_tree_by_path_buckets(max_failed_distance_probes, num_possible_merges_remaining,component_union_find, recorded_finite_dists,
+                                     num_infinite_dists, num_items, xgindex, get_position, get_offset, node_path_memo, handle_memo);
     
     // TODO: permutations that try to assign singletons
     
     // a second pass that tries fill in the tree by traversing to the nearest shared path
     size_t nlogn = ceil(num_items * log(num_items));
-    extend_dist_tree_by_permutations(2, 50, nlogn, num_possible_merges_remaining, component_union_find, recorded_finite_dists,
-                                     num_items, xgindex, get_position, get_offset, node_path_memo, handle_memo);
+    extend_dist_tree_by_permutations(max_failed_distance_probes, 50, nlogn, num_possible_merges_remaining, component_union_find,
+                                     recorded_finite_dists, num_infinite_dists, num_items, xgindex, get_position, get_offset, node_path_memo,
+                                     handle_memo);
     
     return recorded_finite_dists;
 }
     
-void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_possible_merges_remaining,
+void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_failed_distance_probes,
+                                                                 size_t& num_possible_merges_remaining,
                                                                  UnionFind& component_union_find,
                                                                  unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                                                 map<pair<size_t, size_t>, size_t>& num_infinite_dists,
                                                                  size_t num_items,
                                                                  xg::XG* xgindex,
                                                                  const function<pos_t(size_t)>& get_position,
@@ -640,6 +649,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_pos
         return;
     }
     
+    // enter which paths occur on the nodes of each hit into the memo
     for (size_t i = 0; i < num_items; i++) {
         pos_t pos = get_position(i);
         if (!paths_of_node_memo->count(id(pos))) {
@@ -647,14 +657,16 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_pos
         }
     }
     
-    // identify singletons and reverse the memo so that it tells us which hits occur on a strand of a path
+    // reverse the memo so that it tells us which hits occur on a strand of a path and identify hits with no paths
     unordered_map<pair<size_t, bool>, vector<size_t>> items_on_path_strand;
-    vector<size_t> singletons;
+    // record which hits aren't on a path and associate them with their nearest neighbor's node ID
+    unordered_map<size_t, id_t> non_path_hits;
     for (size_t i = 0; i < num_items; i++) {
         pos_t pos = get_position(i);
         auto& path_records = paths_of_node_memo->at(id(pos));
         if (path_records.empty()) {
-            singletons.push_back(i);
+            // just add a sentinel for now
+            non_path_hits[i] = 0;
         }
         else {
             for (pair<size_t, vector<pair<size_t, bool>>>& path_record : path_records) {
@@ -665,9 +677,10 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_pos
         }
     }
     
+    
     // check the nearest nodes to each singleton to see if we can use it to bucket the item
-    for (size_t i : singletons) {
-        pos_t pos = get_position(i);
+    for (pair<const size_t, id_t>& non_path_hit : non_path_hits) {
+        pos_t pos = get_position(non_path_hit.first);
         handle_t handle = xgindex->memoized_get_handle(id(pos), is_rev(pos), handle_memo);
         size_t right_dist = xgindex->get_length(handle) - offset(pos);
         size_t trav_dist = min(offset(pos), right_dist);
@@ -683,8 +696,12 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_pos
                 auto& path_records = paths_of_node_memo->at(neighbor_id);
                 for (pair<size_t, vector<pair<size_t, bool>>>& path_record : path_records) {
                     for (pair<size_t, bool>& node_occurence : path_record.second) {
-                        items_on_path_strand[make_pair(path_record.first, node_occurence.second != neighbor_rev)].push_back(i);
+                        items_on_path_strand[make_pair(path_record.first, node_occurence.second != neighbor_rev)].push_back(non_path_hit.first);
                     }
+                }
+                // replace the sentinel value with the actual neighbor's ID (but only if we find a path on it)
+                if (!path_records.empty()) {
+                    non_path_hit.second = neighbor_id;
                 }
                 return true;
             };
@@ -765,6 +782,59 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(size_t& num_pos
             component_union_find.union_groups(prev, here);
         }
     }
+    
+    // use the component path set index to exclude some distance measurements between groups we can tell are on separate
+    // strands a priori
+    // TODO: I wonder if there's a way to do this without the quadratic loop (although it's quadratic in number of connected
+    // components, so probably not all that bad)
+    vector<vector<size_t>> bucketed_groups = component_union_find.all_groups();
+    for (size_t i = 1; i < bucketed_groups.size(); i++) {
+        // find the first member of the 'i' group that is on a path or associated with a neighbor on a path
+        vector<size_t>& i_group = bucketed_groups[i];
+        size_t i_idx = 0;
+        while (i_idx < i_group.size() ? (non_path_hits.count(i_group[i_idx]) ? non_path_hits[i_group[i_idx]] != 0 : true ) : false) {
+            i_idx++;
+        }
+        
+        // check if these two hits are on a path that is on a separate component
+        if (i_idx < i_group.size()) {
+            size_t i_node_id = non_path_hits.count(i_group[i_idx]) ? non_path_hits[i_group[i_idx]] : id(get_position(i_group[i_idx]));
+            size_t i_path = paths_of_node_memo->at(i_node_id).front().first;
+            
+            for (size_t j = 0; j < i; j++) {
+                // find the first member of the 'j' group that is on a path or associated with a neighbor on a path
+                vector<size_t>& j_group = bucketed_groups[j];
+                size_t j_idx = 0;
+                while (j_idx < j_group.size() ? (non_path_hits.count(j_group[j_idx]) ? non_path_hits[j_group[j_idx]] != 0 : true ) : false) {
+                    j_idx++;
+                }
+                
+                if (j_idx < j_group.size()) {
+#ifdef debug_od_clusterer
+                    cerr << "checking for shared component using strand cluster representatives " << get_position(i_group[i_idx]) << " and " << get_position(j_group[j_idx]) << endl;
+#endif
+                    size_t j_node_id = non_path_hits.count(j_group[j_idx]) ? non_path_hits[j_group[j_idx]] : id(get_position(j_group[j_idx]));
+                    size_t j_path = paths_of_node_memo->at(j_node_id).front().first;
+                    
+                    if (!xgindex->paths_on_same_component(i_path, j_path)) {
+                        // these hits are associated with strands that are on separated components of the graph
+                        // so we can rule out these strand merges a priori
+                        size_t i_strand = component_union_find.find_group(i_group[i_idx]);
+                        size_t j_strand = component_union_find.find_group(j_group[j_idx]);
+                        
+                        num_infinite_dists[make_pair(i_strand, j_strand)] = max_failed_distance_probes + 1;
+                        num_infinite_dists[make_pair(j_strand, i_strand)] = max_failed_distance_probes + 1;
+                        
+                        num_possible_merges_remaining -= component_union_find.group_size(i_strand) * component_union_find.group_size(j_strand);
+                        
+#ifdef debug_od_clusterer
+                        cerr << "representatives are on separate components, blocking strand merge and decreasing possible merges by " << component_union_find.group_size(i_strand) * component_union_find.group_size(j_strand) << " to " << num_possible_merges_remaining << endl;
+#endif
+                    }
+                }
+            }
+        }
+    }
 }
     
 void OrientedDistanceClusterer::extend_dist_tree_by_permutations(int64_t max_failed_distance_probes,
@@ -773,16 +843,13 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(int64_t max_fai
                                                                  size_t& num_possible_merges_remaining,
                                                                  UnionFind& component_union_find,
                                                                  unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                                                 map<pair<size_t, size_t>, size_t>& num_infinite_dists,
                                                                  size_t num_items,
                                                                  xg::XG* xgindex,
                                                                  const function<pos_t(size_t)>& get_position,
                                                                  const function<int64_t(size_t)>& get_offset,
                                                                  node_occurrence_on_paths_memo_t* paths_of_node_memo,
                                                                  handle_memo_t* handle_memo) {
-    
-    // for recording the number of times elements of a strand cluster have been compared
-    // and found an infinite distance
-    map<pair<size_t, size_t>, size_t> num_infinite_dists;
     
     // We want to run through all possible pairsets of node numbers in a permuted order.
     ShuffledPairs shuffled_pairs(num_items);

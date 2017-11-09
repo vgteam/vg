@@ -28,7 +28,7 @@ void help_ids(char** argv) {
         << "    -d, --decrement N    decrease ids by N" << endl
         << "    -j, --join           make a joint id space for all the graphs that are supplied" << endl
         << "                         by iterating through the supplied graphs and incrementing" << endl
-        << "                         their ids to be non-conflicting" << endl
+        << "                         their ids to be non-conflicting (modifies original files)" << endl
         << "    -s, --sort           assign new node IDs in (generalized) topological sort order" << endl;
 }
 
