@@ -355,7 +355,7 @@ TEST_CASE("SnarlState can hold and manipulate haplotypes", "[snarlstate][genomes
 }
 
 
-TEST_CASE("SnarlState works on snarls with child chains", "[snarlstate][genomestate]") {
+TEST_CASE("SnarlState works on snarls with nontrivial child chains", "[snarlstate][genomestate]") {
     
 
     // This graph will have a snarl from 1 to 8, a snarl from 2 to 4,
@@ -833,6 +833,146 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
         
         // Free the undo command
         delete undo;
+    }
+    
+}
+
+TEST_CASE("GenomeSate works on snarls with nontrivial child chains", "[snarlstate][genomestate]") {
+    
+
+    // This graph will have a snarl from 1 to 8, a snarl from 2 to 4,
+    // and a snarl from 4 to 7, with a chain in the top snarl.
+    VG graph;
+        
+    Node* n1 = graph.create_node("GCA");
+    Node* n2 = graph.create_node("T");
+    Node* n3 = graph.create_node("G");
+    Node* n4 = graph.create_node("CTGA");
+    Node* n5 = graph.create_node("GCA");
+    Node* n6 = graph.create_node("T");
+    Node* n7 = graph.create_node("G");
+    Node* n8 = graph.create_node("CTGA");
+    
+    Edge* e1 = graph.create_edge(n1, n2);
+    Edge* e2 = graph.create_edge(n1, n8);
+    Edge* e3 = graph.create_edge(n2, n3);
+    Edge* e4 = graph.create_edge(n2, n4);
+    Edge* e5 = graph.create_edge(n3, n4);
+    Edge* e6 = graph.create_edge(n4, n5);
+    Edge* e7 = graph.create_edge(n4, n6);
+    Edge* e8 = graph.create_edge(n5, n7);
+    Edge* e9 = graph.create_edge(n6, n7);
+    Edge* e10 = graph.create_edge(n7, n8);
+    
+    // Work out its snarls
+    CactusSnarlFinder bubble_finder(graph);
+    SnarlManager snarl_manager = bubble_finder.find_snarls();
+    
+    // Get the top snarl
+    const Snarl* top_snarl = snarl_manager.top_level_snarls().at(0);
+    
+    if (top_snarl->end().node_id() < top_snarl->start().node_id()) {
+        // Put it a consistent way around
+        snarl_manager.flip(top_snarl);
+    }
+    
+    // Make sure it's what we expect.
+    REQUIRE(top_snarl->start().node_id() == 1);
+    REQUIRE(top_snarl->end().node_id() == 8);
+
+    // Make sure we have one chain    
+    auto& chains = snarl_manager.chains_of(top_snarl);
+    REQUIRE(chains.size() == 1);
+    
+    // Get the chain
+    auto& chain = chains.at(0);
+    REQUIRE(chain.size() == 2);
+    
+    // And the snarls in the chain
+    const Snarl* left_child = chain.at(0);
+    const Snarl* right_child = chain.at(1);
+    
+    REQUIRE(left_child->start().node_id() == 2);
+    REQUIRE(left_child->end().node_id() == 4);
+    REQUIRE(right_child->start().node_id() == 4);
+    REQUIRE(right_child->end().node_id() == 7);
+    
+    // Define the chromosome by telomere snarls (first and last)
+    auto chromosome = make_pair(top_snarl, top_snarl);
+    
+    // Make a genome state for this genome, with the only top snarl being the
+    // telomere snarls for the main chromosome
+    GenomeState state(snarl_manager, &graph, {chromosome});
+    
+    // Make sure to get all the net graphs
+    const NetGraph* top_graph = state.get_net_graph(top_snarl);
+    const NetGraph* left_graph = state.get_net_graph(left_child);
+    const NetGraph* right_graph = state.get_net_graph(right_child);
+    
+    SECTION("NetGraphs for snarls can be obtained") {
+        REQUIRE(top_graph != nullptr);
+        REQUIRE(left_graph != nullptr);
+        REQUIRE(right_graph != nullptr);
+    }
+    
+    SECTION("GenomeState starts empty") {
+        REQUIRE(state.count_haplotypes(chromosome) == 0);
+    }
+    
+    SECTION("A haplotype can be added") {
+        // Define a haplotype across the entire graph, in three levels
+        InsertHaplotypeCommand insert;
+        
+        // We fill these with handles from the appropriate net graphs.
+        // TODO: really we could just use the backing graph. Would that be better???
+        
+        // For the top snarl we go 1, 2 (child chain), and 8
+        insert.insertions.emplace(top_snarl, vector<vector<pair<handle_t, size_t>>>{{
+            {top_graph->get_handle(1, false), 0},
+            {top_graph->get_handle(2, false), 0},
+            {top_graph->get_handle(8, false), 0}
+        }});
+        
+        // For the left child snarl we go 2, 3, 4
+        insert.insertions.emplace(left_child, vector<vector<pair<handle_t, size_t>>>{{
+            {left_graph->get_handle(2, false), 0},
+            {left_graph->get_handle(3, false), 0},
+            {left_graph->get_handle(4, false), 0}
+        }});
+        
+        // For the right child snarl we go 4, 5, 7
+        insert.insertions.emplace(right_child, vector<vector<pair<handle_t, size_t>>>{{
+            {right_graph->get_handle(4, false), 0},
+            {right_graph->get_handle(5, false), 0},
+            {right_graph->get_handle(7, false), 0}
+        }});
+        
+        // Execute the command and get the undo command
+        GenomeStateCommand* undo = state.execute(&insert);
+        
+        SECTION("The added haplotype is counted") {
+            REQUIRE(state.count_haplotypes(chromosome) == 1);
+        }
+        
+        SECTION("The haplotype can be traced") {
+            // We trace out all the handles in the backing graph
+            vector<handle_t> traced;
+            
+            state.trace_haplotype(chromosome, 0, [&](const handle_t& visit) {
+                // Put every handle in the vector
+                traced.push_back(visit);
+            });
+         
+            // We should visit nodes 1, 2, 3, 4, 5, 7, 8 in that order
+            REQUIRE(traced.size() == 7);
+            REQUIRE(traced[0] == graph.get_handle(1, false));
+            REQUIRE(traced[1] == graph.get_handle(2, false));
+            REQUIRE(traced[2] == graph.get_handle(3, false));
+            REQUIRE(traced[3] == graph.get_handle(4, false));
+            REQUIRE(traced[4] == graph.get_handle(5, false));
+            REQUIRE(traced[5] == graph.get_handle(7, false));
+            REQUIRE(traced[6] == graph.get_handle(8, false));
+        }
     }
     
 }
