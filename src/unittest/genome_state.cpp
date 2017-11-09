@@ -96,12 +96,19 @@ TEST_CASE("SnarlState can hold and manipulate haplotypes", "[snarlstate][genomes
             vector<pair<handle_t, size_t>> recovered;
             
             state.trace(0, true, [&](const handle_t& visit, size_t local_lane) {
-                recovered.emplace_back(net_graph.flip(visit), local_lane);
+                recovered.emplace_back(visit, local_lane);
             });
             
-            reverse(recovered.begin(), recovered.end());
-            
-            REQUIRE(recovered == annotated_haplotype);
+            REQUIRE(recovered.size() == 3);
+            REQUIRE(recovered[0].first == net_graph.get_handle(8, true));
+            REQUIRE(recovered[0].second == 0);
+            // We use the snarl's leading node in reverse for the snarl in
+            // reverse, even though we entered the end of the snarl and then
+            // skipped tot he front.
+            REQUIRE(recovered[1].first == net_graph.get_handle(2, true));
+            REQUIRE(recovered[1].second == 0);
+            REQUIRE(recovered[2].first == net_graph.get_handle(1, true));
+            REQUIRE(recovered[2].second == 0);
         }
         
         SECTION("A haplotype with lane numbers can be inserted before an existing haplotype") {
@@ -837,7 +844,7 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
     
 }
 
-TEST_CASE("GenomeSate works on snarls with nontrivial child chains", "[snarlstate][genomestate]") {
+TEST_CASE("GenomeSate works on snarls with nontrivial child chains", "[genomestate]") {
     
 
     // This graph will have a snarl from 1 to 8, a snarl from 2 to 4,
@@ -979,11 +986,12 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains", "[snarlstat
     
 }
 
-TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward snarls", "[snarlstate][genomestate]") {
+TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward snarls", "[genomestate]") {
     
 
-    // This graph will have a snarl from 1 to 8, a snarl from 2 to 4,
-    // and a snarl from 4 to 7, with a chain in the top snarl.
+    // This graph will have a snarl from 1 to 8, a snarl from 2 to 4, and a
+    // snarl from 4 to 7, with a chain in the top snarl. The snarl from 4 to 7
+    // will have a child snarl from 5 to 6 (an insertion of node 9)
     VG graph;
         
     Node* n1 = graph.create_node("GCA");
@@ -994,6 +1002,7 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
     Node* n6 = graph.create_node("T");
     Node* n7 = graph.create_node("G");
     Node* n8 = graph.create_node("CTGA");
+    Node* n9 = graph.create_node("GCA");
     
     Edge* e1 = graph.create_edge(n1, n2);
     Edge* e2 = graph.create_edge(n1, n8);
@@ -1001,10 +1010,12 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
     Edge* e4 = graph.create_edge(n2, n4);
     Edge* e5 = graph.create_edge(n3, n4);
     Edge* e6 = graph.create_edge(n4, n5);
-    Edge* e7 = graph.create_edge(n4, n6);
-    Edge* e8 = graph.create_edge(n5, n7);
-    Edge* e9 = graph.create_edge(n6, n7);
-    Edge* e10 = graph.create_edge(n7, n8);
+    Edge* e7 = graph.create_edge(n4, n7);
+    Edge* e8 = graph.create_edge(n5, n6);
+    Edge* e9 = graph.create_edge(n5, n9);
+    Edge* e10 = graph.create_edge(n9, n6);
+    Edge* e11 = graph.create_edge(n6, n7);
+    Edge* e12 = graph.create_edge(n7, n8);
     
     // Work out its snarls
     CactusSnarlFinder bubble_finder(graph);
@@ -1043,6 +1054,11 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
     REQUIRE(right_child->start().node_id() == 7);
     REQUIRE(right_child->end().node_id() == 4);
     
+    const Snarl* right_child_child = snarl_manager.children_of(right_child).at(0);
+    
+    REQUIRE(right_child_child->start().node_id() == 5);
+    REQUIRE(right_child_child->end().node_id() == 6);
+    
     // Define the chromosome by telomere snarls (first and last)
     auto chromosome = make_pair(top_snarl, top_snarl);
     
@@ -1054,6 +1070,7 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
     const NetGraph* top_graph = state.get_net_graph(top_snarl);
     const NetGraph* left_graph = state.get_net_graph(left_child);
     const NetGraph* right_graph = state.get_net_graph(right_child);
+    const NetGraph* right_child_graph = state.get_net_graph(right_child_child);
     
     SECTION("A haplotype can be added") {
         // Define a haplotype across the entire graph, in three levels
@@ -1076,11 +1093,20 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
             {left_graph->get_handle(4, false), 0}
         }});
         
-        // For the right child snarl we go backward: 7, 5, 4
+        // For the right child snarl we go backward: 7 rev, 5 rev, 4 rev. Note
+        // that we use 5 rev (start node backward) and not 6 rev (end node
+        // backward) to identify the reverse of the child chain.
         insert.insertions.emplace(right_child, vector<vector<pair<handle_t, size_t>>>{{
             {right_graph->get_handle(7, true), 0},
             {right_graph->get_handle(5, true), 0},
             {right_graph->get_handle(4, true), 0}
+        }});
+        
+        // For the right child's child, we go forward and take the insertion of 9
+        insert.insertions.emplace(right_child_child, vector<vector<pair<handle_t, size_t>>>{{
+            {right_child_graph->get_handle(5, false), 0},
+            {right_child_graph->get_handle(9, false), 0},
+            {right_child_graph->get_handle(6, false), 0}
         }});
         
         // Execute the command and get the undo command
@@ -1095,15 +1121,17 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
                 traced.push_back(visit);
             });
          
-            // We should visit nodes 1, 2, 3, 4, 5, 7, 8 in that order
-            REQUIRE(traced.size() == 7);
+            // We should visit nodes 1, 2, 3, 4, 5, 9, 6, 7, 8 in that order
+            REQUIRE(traced.size() == 9);
             REQUIRE(traced[0] == graph.get_handle(1, false));
             REQUIRE(traced[1] == graph.get_handle(2, false));
             REQUIRE(traced[2] == graph.get_handle(3, false));
             REQUIRE(traced[3] == graph.get_handle(4, false));
             REQUIRE(traced[4] == graph.get_handle(5, false));
-            REQUIRE(traced[5] == graph.get_handle(7, false));
-            REQUIRE(traced[6] == graph.get_handle(8, false));
+            REQUIRE(traced[5] == graph.get_handle(9, false));
+            REQUIRE(traced[6] == graph.get_handle(6, false));
+            REQUIRE(traced[7] == graph.get_handle(7, false));
+            REQUIRE(traced[8] == graph.get_handle(8, false));
         }
         
         delete undo;

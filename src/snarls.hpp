@@ -87,6 +87,10 @@ namespace vg {
         /// beginning)
         bool is_rend;
         
+        /// When dereferencing, should we flip snarl orientations form the
+        /// orientations they appear at in the chain when read left to right?
+        bool complement;
+        
         /// In order to dereference to a pair with -> we need a place to put the pair so we can have a pointer to it.
         /// Gets lazily set to wherever the iterator is pointing when we do ->
         mutable pair<const Snarl*, bool> scratch;
@@ -100,10 +104,21 @@ namespace vg {
     ChainIterator chain_rbegin(const Chain& chain);
     ChainIterator chain_rend(const Chain& chain);
     
-    /// We also define a function for getting the ChainIterator for a chain starting with a given snarl
-    ChainIterator chain_begin_from(const Chain& chain, const Snarl* start_snarl);
-    /// And the end iterator for the chain viewed from a given snarl.
-    ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl);
+    /// We also define some reverse complement iterators, which go from right to
+    /// left through the chains, but give us the reverse view. For ecample, if
+    /// all the snarls are oriented forward in the chain, we will iterate
+    /// through the snarls in reverse order, with each individual snarl also
+    /// reversed.
+    ChainIterator chain_rcbegin(const Chain& chain);
+    ChainIterator chain_rcend(const Chain& chain);
+    
+    /// We also define a function for getting the ChainIterator (forward or
+    /// reverse complement) for a chain starting with a given snarl in the given
+    /// inward orientation
+    ChainIterator chain_begin_from(const Chain& chain, const Snarl* start_snarl, bool snarl_orientation);
+    /// And the end iterator for the chain (forward or reverse complement)
+    /// viewed from a given snarl in the given inward orientation
+    ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool snarl_orientation);
     
     /**
      * Allow traversing a graph of nodes and child snarl chains within a snarl
@@ -240,6 +255,16 @@ namespace vg {
         /// Get the outward-facing end handle for this net graph. Useful when
         /// working with traversals.
         const handle_t& get_end() const;
+        
+        /// Returns true if the given handle represents a meta-node for a child
+        /// chain or unary snarl, and false if it is a normal node actually in
+        /// the net graph snarl's contents.
+        bool is_child(const handle_t& handle) const;
+        
+        /// Get the handle in the backing graph reading into the child chain or
+        /// unary snarl in the orientation represented by this handle to a node
+        /// representing a child chain or unary snarl.
+        handle_t get_inward_backing_handle(const handle_t& child_handle) const;
         
     protected:
     

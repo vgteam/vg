@@ -277,7 +277,8 @@ GenomeStateCommand* ReplaceLocalHaplotypeCommand::execute(GenomeState& state) co
 
 
 GenomeState::GenomeState(const SnarlManager& manager, const HandleGraph* graph,
-    const unordered_set<pair<const Snarl*, const Snarl*>> telomeres) : telomeres(telomeres), manager(manager) {
+    const unordered_set<pair<const Snarl*, const Snarl*>> telomeres) : telomeres(telomeres),
+    backing_graph(graph), manager(manager) {
 
     manager.for_each_snarl_preorder([&](const Snarl* snarl) {
         // For each snarl
@@ -435,8 +436,18 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
         // Here's the NetGraph we are working on
         auto& net_graph = net_graphs.at(here);
     
+#ifdef debug
+        cerr << "Tracing snarl " << here->start() << " -> " << here->end() << " lane " << lane
+            << " in orientation " << orientation << " and skip first flag " << skip_first << endl;
+#endif
+    
         // Go through its traversal
         state.at(here).trace(lane, orientation, [&](const handle_t& visit, const size_t child_lane) {
+            
+#ifdef debug
+            cerr << "Snarl " << here->start() << " -> " << here->end() << " has visit "
+                << net_graph.get_id(visit) << " " << net_graph.get_is_reverse(visit) << endl;
+#endif
             
             if (skip_first) {
                 // We aren't supposed to do this visit; it's already been done
@@ -445,30 +456,49 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
                 return;
             }
             
-            // What child, if any, do we enter on this node? Note that we will
-            // also get ourselves (if this is the first node) or the next snarl
-            // in the chain (if this is the last node).
-            const Snarl* child = manager.into_which_snarl(net_graph.get_id(visit), net_graph.get_is_reverse(visit));
-            
-            if (child != nullptr && manager.parent_of(child) == here) {
+            if (net_graph.is_child(visit)) {
                 // If the visit enters a real child snarl, we have to do that
                 // child snarl and all the snarls in its chain.
                 
+                // Get the handle in the backing graph that reads into the child
+                // in the orientation we are visiting it
+                handle_t into = net_graph.get_inward_backing_handle(visit);
+            
+                // Get the child we are actually reading into from the SnarlManager
+                const Snarl* child = manager.into_which_snarl(backing_graph->get_id(into), backing_graph->get_is_reverse(into));
+            
                 // Get the chain for the child
                 const Chain* child_chain = manager.chain_of(child);
                 
-                // Get the iterators to loop over it starting at the child
-                auto here = chain_begin_from(*child_chain, child);
-                auto end = chain_end_from(*child_chain, child);
+                // Decide if we are entering the child snarl backward or not
+                bool child_orientation = child->start().node_id() != backing_graph->get_id(into);
+                
+#ifdef debug
+                cerr << "\tEnters into snarl " << child->start() << " -> " << child->end() << endl;
+#endif
+                
+                // Get the iterators to loop over the chain starting at the child inthis orientation
+                auto it = chain_begin_from(*child_chain, child, child_orientation);
+                auto end = chain_end_from(*child_chain, child, child_orientation);
+                
+                // TODO: We can go through a one-snarl chain either forward or
+                // backward. But the chain iterators will always start at the
+                // start and go left to right, and so see the child snarl
+                // forward. We need to account for the orientation in which we
+                // are entering this child snarl.
                 
                 // Track if we had a previous snarl that would have emitted any shaed nodes.
                 bool had_previous = false;
                 
-                for (; here != end; ++here) {
+                for (; it != end; ++it) {
                     // Until we run out of snarls in the chain
                 
+#ifdef debug
+                    cerr << "\t\tHandle " << it->first->start() << " -> " << it->first->end() << " in chain" << endl;
+#endif
+                
                     // Handle this one
-                    recursively_traverse_snarl(here->first, child_lane, here->second, had_previous);
+                    recursively_traverse_snarl(it->first, child_lane, it->second, had_previous);
                     
                     // Say we did a snarl previously
                     had_previous = true;
@@ -500,6 +530,11 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
     
         // Work out if we go backward or forward through this one
         bool backward = (here.node_id() != next->start().node_id());
+        
+#ifdef debug
+        cerr << "Traverse top level snarl " << pb2json(*next) << " lane " << overall_lane
+            << " in orientation " << backward << " and skip first flag " << had_previous << endl;
+#endif
         
         // Handle it
         recursively_traverse_snarl(next, overall_lane, backward, had_previous);

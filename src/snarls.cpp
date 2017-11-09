@@ -35,12 +35,13 @@ namespace vg {
     }
     
     bool ChainIterator::operator==(const ChainIterator& other) const {
-        return (tie(go_left, backward, pos, chain_start, chain_end, is_rend) ==
-            tie(other.go_left, other.backward, other.pos, other.chain_start, other.chain_end, other.is_rend));
+        return (tie(go_left, backward, pos, chain_start, chain_end, is_rend, complement) ==
+            tie(other.go_left, other.backward, other.pos, other.chain_start, other.chain_end, other.is_rend, other.complement));
     }
     
     bool ChainIterator::operator!=(const ChainIterator& other) const {
-        return !(*this == other);
+        auto unequal = !(*this == other);
+        return unequal;
     }
     
     ChainIterator& ChainIterator::operator++() {
@@ -51,7 +52,11 @@ namespace vg {
             // Walk left
             
             if (pos == chain_start) {
-                // We're already at the start, so next is just going to be come rend
+                if (is_rend) {
+                    throw runtime_error("Walked off start!");
+                }
+                
+                // We're already at the start, so next is just going to become rend
                 is_rend = true;
                 backward = false;
             } else {
@@ -64,6 +69,11 @@ namespace vg {
             }
         } else {
             // Walk right
+            
+            if (pos == chain_end) {
+                throw runtime_error("Walked off end!");
+            }
+            
             ++pos;
             
             if (pos == chain_end) {
@@ -82,7 +92,7 @@ namespace vg {
     }
     
     pair<const Snarl*, bool> ChainIterator::operator*() const {
-        return make_pair(*pos, backward);
+        return make_pair(*pos, backward != complement);
     }
     
     const pair<const Snarl*, bool>* ChainIterator::operator->() const {
@@ -99,7 +109,8 @@ namespace vg {
             chain.begin(), // Be at the start of the chain
             chain.begin(), // Here's the chain's start
             chain.end(), // And its end
-            false // This is not a reverse end
+            false, // This is not a reverse end
+            false // Do not complement snarl orientations
         };
         
         return to_return;
@@ -112,7 +123,8 @@ namespace vg {
             chain.end(), // Be at the end of the chain
             chain.begin(), // Here's the chain's start
             chain.end(), // And its end
-            false // This is not a reverse end
+            false, // This is not a reverse end
+            false // Do not complement snarl orientations
         };
         
         return to_return;
@@ -131,7 +143,8 @@ namespace vg {
             --chain.end(), // Be at the last real thing in the chain
             chain.begin(), // Here's the chain's start
             chain.end(), // And its end
-            false // This is not a reverse end
+            false, // This is not a reverse end
+            false // Do not complement snarl orientations
         };
         
         return to_return;
@@ -144,33 +157,46 @@ namespace vg {
             chain.begin(), // Be at the start of the chain
             chain.begin(), // Here's the chain's start
             chain.end(), // And its end
-            true // This is a reverse end
+            true, // This is a reverse end
+            false // Do not complement snarl orientations
         };
         
         return to_return;
     }
     
-    ChainIterator chain_begin_from(const Chain& chain, const Snarl* start_snarl) {
+    ChainIterator chain_rcbegin(const Chain& chain) {
+        ChainIterator to_return = chain_rbegin(chain);
+        to_return.complement = true;
+        return to_return;
+    }
+    
+    ChainIterator chain_rcend(const Chain& chain) {
+        ChainIterator to_return = chain_rend(chain);
+        to_return.complement = true;
+        return to_return;
+    }
+    
+    ChainIterator chain_begin_from(const Chain& chain, const Snarl* start_snarl, bool snarl_orientation) {
         assert(!chain.empty());
-        if (start_snarl == chain.front()) {
-            // We are at the left end of the chain, so go forward
+        if (start_snarl == chain.front() && snarl_orientation == start_backward(chain)) {
+            // We are at the left end of the chain, in the correct orientation, so go forward
             return chain_begin(chain);
         } else if (start_snarl == chain.back()) {
-            // We are at the right end of the chain, so go reverse
-            return chain_rbegin(chain);
+            // We are at the right end of the chain, so go reverse complement
+            return chain_rcbegin(chain);
         } else {
             throw runtime_error("Tried to view a chain from a snarl not at either end!");
         }
     }
     
-    ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl) {
+    ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool snarl_orientation) {
         assert(!chain.empty());
-        if (start_snarl == chain.front()) {
+        if (start_snarl == chain.front() && snarl_orientation == start_backward(chain)) {
             // We are at the left end of the chain, so go forward
             return chain_end(chain);
         } else if (start_snarl == chain.back()) {
-            // We are at the right end of the chain, so go reverse
-            return chain_rend(chain);
+            // We are at the right end of the chain, so go reverse complement
+            return chain_rcend(chain);
         } else {
             throw runtime_error("Tried to view a chain from a snarl not at either end!");
         }
@@ -1657,6 +1683,30 @@ namespace vg {
     
     const handle_t& NetGraph::get_end() const {
         return end;
+    }
+    
+    bool NetGraph::is_child(const handle_t& handle) const {
+        // It's a child if we're going forward or backward through a chain, or into a unary snarl.
+        return chain_ends_by_start.count(handle) ||
+            chain_ends_by_start.count(flip(handle)) ||
+            unary_boundaries.count(handle);
+    }
+        
+    handle_t NetGraph::get_inward_backing_handle(const handle_t& child_handle) const {
+        if (chain_ends_by_start.count(child_handle)) {
+            // Reading into a chain, so just return this
+            return child_handle;
+        } else if (chain_ends_by_start.count(flip(child_handle))) {
+            // Reading out of a chain, so get the outward end of the chain and flip it
+            return graph->flip(chain_ends_by_start.at(flip(child_handle)));
+        } else if (unary_boundaries.count(child_handle)) {
+            // Reading into a unary snarl.
+            // Always already facing inward.
+            // TODO: what if we're reading out of a chain *and* into a unary snarl?
+            return child_handle;
+        } else {
+            throw runtime_error("Cannot get backing handle for a handle that is not a handle to a child's node in the net graph");
+        }
     }
     
     bool operator==(const Visit& a, const Visit& b) {

@@ -2736,8 +2736,8 @@ namespace vg {
                 SECTION("We can look around from a snarl") {
                     const Chain* chain = snarl_manager.chain_of(child1);
                     
-                    ChainIterator here = chain_begin_from(*chain, child1);
-                    ChainIterator end = chain_end_from(*chain, child1);
+                    ChainIterator here = chain_begin_from(*chain, child1, false);
+                    ChainIterator end = chain_end_from(*chain, child1, false);
                     
                     SECTION("Looking right into the chain gives us the Snarl to the right") {
                         ChainIterator right = here;
@@ -2750,8 +2750,8 @@ namespace vg {
                     }
                     
                     // Now look from the other end
-                    here = chain_begin_from(*chain, child3);
-                    end = chain_end_from(*chain, child3);
+                    here = chain_begin_from(*chain, child3, true);
+                    end = chain_end_from(*chain, child3, true);
                     
                     SECTION("Looking left into the chain gives us a Visit to the right Snarl") {
                         ChainIterator left = here;

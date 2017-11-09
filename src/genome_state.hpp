@@ -267,6 +267,10 @@ protected:
     /// We have a state for every snarl, which depends on the corresponding net graph.
     unordered_map<const Snarl*, SnarlState> state;
     
+    /// We remember the backing graph, because sometimes we need to translate
+    /// from backing graph handles to IDs and orientations to look up snarls.
+    const HandleGraph* backing_graph;
+    
     /// We keep a reference to the SnarlManager that knows what children are
     /// where and which snarl we should look at next after leaving a previous
     /// snarl.
