@@ -222,6 +222,68 @@ void XG::load(istream& in) {
                 deserialize(bs_single_array, in);
             }
             break;
+        case 5:
+            {
+                sdsl::read_member(seq_length, in);
+                sdsl::read_member(node_count, in);
+                sdsl::read_member(edge_count, in);
+                sdsl::read_member(path_count, in);
+                size_t entity_count = node_count + edge_count;
+                //cerr << sequence_length << ", " << node_count << ", " << edge_count << endl;
+                sdsl::read_member(min_id, in);
+                sdsl::read_member(max_id, in);
+                
+                i_iv.load(in);
+                r_iv.load(in);
+                
+                g_iv.load(in);
+                g_bv.load(in);
+                g_bv_rank.load(in, &g_bv);
+                g_bv_select.load(in, &g_bv);
+                
+                s_iv.load(in);
+                s_bv.load(in);
+                s_bv_rank.load(in, &s_bv);
+                s_bv_select.load(in, &s_bv);
+                
+                tn_csa.load(in);
+                tn_cbv.load(in);
+                tn_cbv_rank.load(in, &tn_cbv);
+                tn_cbv_select.load(in, &tn_cbv);
+                tin_civ.load(in);
+                tio_civ.load(in);
+                side_thread_wt.load(in);
+                
+                pn_iv.load(in);
+                pn_csa.load(in);
+                pn_bv.load(in);
+                pn_bv_rank.load(in, &pn_bv);
+                pn_bv_select.load(in, &pn_bv);
+                pi_iv.load(in);
+                sdsl::read_member(path_count, in);
+                for (size_t i = 0; i < path_count; ++i) {
+                    auto path = new XGPath;
+                    path->load(in);
+                    paths.push_back(path);
+                }
+                np_iv.load(in);
+                np_bv.load(in);
+                np_bv_rank.load(in, &np_bv);
+                np_bv_select.load(in, &np_bv);
+                
+                // note: no component path set indexes here
+                
+                h_civ.load(in);
+                ts_civ.load(in);
+                
+                // Load all the B_s arrays for sides.
+                // Baking required before serialization.
+                deserialize(bs_single_array, in);
+                
+                // build the component path set indexes that were added in version 6
+                index_component_path_sets();
+            }
+            break;
         default:
             throw XGFormatError("Unimplemented XG format version: " + to_string(file_version));
         }
