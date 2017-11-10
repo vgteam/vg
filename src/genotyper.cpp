@@ -16,7 +16,7 @@ using namespace std;
 // - Compute diploid genotypes for each site
 // - Output as vcf or as native format
 
-void Genotyper::run(VG& graph,
+void Genotyper::run(AugmentedGraph& augmented_graph,
                     vector<Alignment>& alignments,
                     ostream& out,
                     string ref_path_name,
@@ -30,16 +30,10 @@ void Genotyper::run(VG& graph,
                     int length_override,
                     int variant_offset) {
 
-    if(ref_path_name.empty()) {
-        // Guess the ref path name
-        if(graph.paths.size() == 1) {
-            // Autodetect the reference path name as the name of the only path
-            ref_path_name = (*graph.paths._paths.begin()).first;
-        } else {
-            ref_path_name = "ref";
-        }
-    }
+    VG& graph = augmented_graph.graph;
+    Translator& translator = augmented_graph.translator;
 
+    assert(graph.paths.has_path("x"));
     if(output_vcf && show_progress) {
 #pragma omp critical (cerr)
         cerr << "Calling against path " << ref_path_name << endl;
@@ -49,51 +43,10 @@ void Genotyper::run(VG& graph,
         // Set a default sample name
         sample_name = "SAMPLE";
     }
-
-    // Make sure they have unique names.
-    set<string> names_seen;
-    // We warn about duplicate names, but only once.
-    bool duplicate_names_warned = false;
-    for(size_t i = 0; i < alignments.size(); i++) {
-        if(alignments[i].name().empty()) {
-            // Generate a name
-            alignments[i].set_name("_unnamed_alignment_" + to_string(i));
-        }
-        if(names_seen.count(alignments[i].name())) {
-            // This name is duplicated
-            if(!duplicate_names_warned) {
-                // Warn, but only once
-                cerr << "Warning: duplicate alignment names present! Example: " << alignments[i].name() << endl;
-                duplicate_names_warned = true;
-            }
-
-            // Generate a new name
-            // TODO: we assume this is unique
-            alignments[i].set_name("_renamed_alignment_" + to_string(i));
-            assert(!names_seen.count(alignments[i].name()));
-        }
-        names_seen.insert(alignments[i].name());
-    }
-    names_seen.clear();
-
-    // Suck out paths
-    vector<Path> paths;
-    for(auto& alignment : alignments) {
-        // Copy over each path, naming it after its alignment
-        // and trimming so that it begins and ends with a match to avoid
-        // creating a bunch of stubs.
-        Path path = trim_hanging_ends(alignment.path());
-        path.set_name(alignment.name());
-        paths.push_back(path);
-    }
-
-    // Run them through vg::edit() to add them to the graph. Save the translations.
-    vector<Translation> augmentation_translations = graph.edit(paths);
-    translator.load(augmentation_translations);
-
+    
     if(show_progress) {
 #pragma omp critical (cerr)
-        cerr << "Augmented graph; got " << augmentation_translations.size() << " translations" << endl;
+        cerr << "Augmented graph; got " << translator.translations.size() << " translations" << endl;
     }
 
     // Make sure that we actually have an index for traversing along paths.

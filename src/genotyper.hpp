@@ -141,10 +141,10 @@ public:
     QualAdjAligner quality_aligner;
 
     // Process and write output
-    void run(Graph& graph,
+    void run(AugmentedGraph& graph,
              vector<Alignment>& alignments,
              ostream& out,
-             string ref_path_name = "",
+             string ref_path_name,
              string contig_name = "",
              string sample_name = "",
              string augmented_file_name = "",

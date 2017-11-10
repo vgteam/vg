@@ -87,6 +87,53 @@ void AugmentedGraph::clear() {
     *this = AugmentedGraph();
 }
 
+void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
+                                                  bool unique_names) {
+
+    if (unique_names) { 
+        // Make sure they have unique names.
+        set<string> names_seen;
+        // We warn about duplicate names, but only once.
+        bool duplicate_names_warned = false;
+        for(size_t i = 0; i < alignments.size(); i++) {
+            if(alignments[i].name().empty()) {
+                // Generate a name
+                alignments[i].set_name("_unnamed_alignment_" + to_string(i));
+            }
+            if(names_seen.count(alignments[i].name())) {
+                // This name is duplicated
+                if(!duplicate_names_warned) {
+                    // Warn, but only once
+                    cerr << "Warning: duplicate alignment names present! Example: " << alignments[i].name() << endl;
+                    duplicate_names_warned = true;
+                }
+
+                // Generate a new name
+                // TODO: we assume this is unique
+                alignments[i].set_name("_renamed_alignment_" + to_string(i));
+                assert(!names_seen.count(alignments[i].name()));
+            }
+            names_seen.insert(alignments[i].name());
+        }
+        names_seen.clear();
+    }
+    
+    // Suck out paths
+    vector<Path> paths;
+    for(auto& alignment : alignments) {
+        // Copy over each path, naming it after its alignment
+        // and trimming so that it begins and ends with a match to avoid
+        // creating a bunch of stubs.
+        Path path = trim_hanging_ends(alignment.path());
+        path.set_name(alignment.name());
+        paths.push_back(path);
+    }
+
+    // Run them through vg::edit() to add them to the graph. Save the translations.
+    vector<Translation> augmentation_translations = graph.edit(paths);
+    translator.load(augmentation_translations);
+}
+
 void SupportAugmentedGraph::clear() {
     // Reset to default state
     *this = SupportAugmentedGraph();

@@ -322,7 +322,7 @@ int main_genotype(int argc, char** argv) {
     if(show_progress) {
         cerr << "Loaded " << alignments.size() << " alignments" << endl;
     }
-
+    
     // Make a Genotyper to do the genotyping
     Genotyper genotyper;
     // Configure it
@@ -331,8 +331,34 @@ int main_genotype(int argc, char** argv) {
     assert(het_prior_denominator > 0);
     genotyper.het_prior_logprob = prob_to_logprob(1.0/het_prior_denominator);
     genotyper.min_consistent_per_strand = min_consistent_per_strand;
+
+    // Guess the reference path if not given
+    if(ref_path_name.empty()) {
+        // Guess the ref path name
+        if(graph->paths.size() == 1) {
+            // Autodetect the reference path name as the name of the only path
+            ref_path_name = (*graph->paths._paths.begin()).first;
+        } else {
+            ref_path_name = "ref";
+        }
+    }
+
+    // Augment the graph with all the reads
+    AugmentedGraph augmented_graph;
+
+    // Move our input graph into the augmented graph
+    // TODO: less terrible interface.  also shouldn't have to re-index.
+    swap(augmented_graph.graph, *graph); 
+    swap(augmented_graph.graph.paths, graph->paths);
+    augmented_graph.graph.paths.rebuild_node_mapping();
+    augmented_graph.graph.paths.rebuild_mapping_aux();
+    augmented_graph.graph.paths.to_graph(augmented_graph.graph.graph);    
+
+    // Do the actual augmentation using vg edit.
+    augmented_graph.augment_from_alignment_edits(alignments);
+
     // TODO: move arguments below up into configuration
-    genotyper.run(*graph,
+    genotyper.run(augmented_graph,
                   alignments,
                   cout,
                   ref_path_name,

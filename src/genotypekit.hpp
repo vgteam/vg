@@ -206,6 +206,11 @@ struct AugmentedGraph {
      * Clear the contents.
      */
     virtual void clear();
+
+    /** 
+     * Construct an augmented graph using edit() on a set of alignments
+     */
+    void augment_from_alignment_edits(vector<Alignment>& alignments, bool unique_names = true);
 };
 
 /// Augmented Graph that holds some Support annotation data specific to vg call
