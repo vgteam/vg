@@ -189,6 +189,52 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
 
 }
 
+TEST_CASE("CactusSnarlFinder throws an error when paths span multiple components", "[genotype]") {
+    
+    // Build a toy graph
+    const string graph_json = R"(
+    
+    {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "T"},
+            {"id": 6, "sequence": "A"},
+            {"id": 7, "sequence": "C"},
+            {"id": 8, "sequence": "A"},
+            {"id": 9, "sequence": "A"}
+        ],
+        "edge": [
+        ],
+        "path": [
+            {"name": "hint", "mapping": [
+                {"position": {"node_id": 1}, "rank" : 1 },
+                {"position": {"node_id": 6}, "rank" : 2 },
+                {"position": {"node_id": 8}, "rank" : 3 },
+                {"position": {"node_id": 9}, "rank" : 4 }
+            ]}
+        ]
+    }
+    
+    )";
+    
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+    
+    // Make a CactusSnarlFinder
+    SnarlFinder* finder = new CactusSnarlFinder(graph);
+    
+    SECTION("CactusSnarlFinder should fail gracefully") {
+        REQUIRE_THROWS(finder->find_snarls());
+    }
+    
+}
+
 TEST_CASE("fixed priors can be assigned to genotypes", "[genotype]") {
     
     GenotypePriorCalculator* calculator = new FixedGenotypePriorCalculator();
