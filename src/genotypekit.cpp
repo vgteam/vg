@@ -88,7 +88,7 @@ void AugmentedGraph::clear() {
 }
 
 void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
-                                                  bool unique_names) {
+                                                  bool unique_names, bool leave_edits) {
 
     if (unique_names) { 
         // Make sure they have unique names.
@@ -129,9 +129,22 @@ void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
         paths.push_back(path);
     }
 
-    // Run them through vg::edit() to add them to the graph. Save the translations.
-    vector<Translation> augmentation_translations = graph.edit(paths);
-    translator.load(augmentation_translations);
+    if (!leave_edits) {
+        // Run them through vg::edit() to add them to the graph. Save the translations.
+        vector<Translation> augmentation_translations = graph.edit(paths);
+        translator.load(augmentation_translations);
+    } else {
+        // Add the paths to the graphs, but don't embed the edits.  These paths
+        // will not be representable as lists of NodeTraversals.  
+        for (auto& path : paths) {
+            graph.paths.extend(path);
+        }
+        graph.paths.rebuild_node_mapping();
+        graph.paths.rebuild_mapping_aux();
+
+        // trivial translation map?
+    }
+    
 }
 
 void SupportAugmentedGraph::clear() {
