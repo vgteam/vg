@@ -484,13 +484,12 @@ int main_index(int argc, char** argv) {
         if (variant_file.is_open()) {
 
             // Apparently there is no efficient way of determining the max id.
-            size_t max_node = 0, id_width = 64;
+            size_t id_width = 64;
             {
                 xg::id_t max_id = 0;
                 size_t max_rank = index.max_node_rank();
                 for (size_t i = 1; i <= max_rank; i++) { max_id = std::max(max_id, index.rank_to_id(i)); }
-                max_node = gbwt::Node::encode(max_id, true);
-                id_width = gbwt::bit_length(max_id);
+                id_width = gbwt::bit_length(gbwt_name.empty() ? max_id : gbwt::Node::encode(max_id, true));
             }
 
             // Do we build GBWT?
@@ -498,7 +497,7 @@ int main_index(int argc, char** argv) {
             if (!gbwt_name.empty()) {
                 if (show_progress) { cerr << "Building GBWT index" << endl; }
                 gbwt::Verbosity::set(gbwt::Verbosity::SILENT);  // Make the construction thread silent.
-                gbwt_builder = new gbwt::GBWTBuilder(max_node);
+                gbwt_builder = new gbwt::GBWTBuilder(id_width);
             }
 
             // Do we output the threads in binary instead of building GBWT?
@@ -916,8 +915,10 @@ int main_index(int argc, char** argv) {
                     // Message needs to last as long as the bar itself.
                     string progress_message = "contig " + vcf_contig_name + ", samples " + std::to_string(batch_start) + " to " + std::to_string(batch_limit - 1);
                     if (show_progress) {
-                        progress = new ProgressBar(path_length, progress_message.c_str());
-                        progress->Progressed(0);
+                        cerr << progress_message << endl;
+                        // Disable the progress bar until the console issue is solved.
+/*                        progress = new ProgressBar(path_length, progress_message.c_str());
+                        progress->Progressed(0);*/
                     }
 
                     // Allocate a place to store actual variants
