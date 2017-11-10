@@ -1666,7 +1666,7 @@ Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
     Graph graph;
-    int padding = 1;
+    int padding = aln.sequence().size()/4;
     int get_before = padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     if (get_before) {
         graph.MergeFrom(xg.graph_context_id(rev_start_pos, get_before));
@@ -1675,7 +1675,7 @@ Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::
         auto& mem = mems[i];
         auto pos = make_pos_t(mem.nodes.front());
         int get_after = padding + (i+1 == mems.size() ?
-                                   expansion * (int)(aln.sequence().end() - mem.begin)
+                                   expansion * (int)(aln.sequence().end() - mem.begin) + padding
                                    : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
         graph.MergeFrom(xg.graph_context_id(pos, get_after));
     }
