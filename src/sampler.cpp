@@ -668,6 +668,11 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
         transition_distrs_2.pop_back();
     }
     
+    if (transition_distrs_1.size() != transition_distrs_2.size() && transition_distrs_2.size() > 0) {
+        cerr << "error:[NGSSimulator] One fragment end in training data has no reads at the modal length, cannot produce joint samples" << endl;
+        exit(1);
+    }
+    
     finalize();
     
 #ifdef debug_ngs_sim
