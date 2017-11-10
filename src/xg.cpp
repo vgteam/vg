@@ -6,6 +6,7 @@
 
 //#define VERBOSE_DEBUG
 //#define debug_algorithms
+//#define debug_component_index
 
 namespace xg {
 
@@ -914,6 +915,10 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     util::assign(np_bv_rank, rank_support_v<1>(&np_bv));
     util::assign(np_bv_select, bit_vector::select_1_type(&np_bv));
 
+#ifdef VERBOSE_DEBUG
+    cerr << "indexing component path sets" << endl;
+#endif
+    
     // memoize which paths co-occur on connected components
     index_component_path_sets();
     
@@ -1316,9 +1321,15 @@ void XG::index_component_path_sets() {
     sdsl::bit_vector enqueued(node_count, 0);
     
     for (size_t i = 0; i < node_count; i++) {
+#ifdef debug_component_index
+        cerr << "i = " << i << endl;
+#endif
         if (enqueued[i]) {
             continue;
         }
+#ifdef debug_component_index
+        cerr << "not yet enqueued, beginning traversal" << endl;
+#endif
         // a node that hasn't been traversed means a new component
         component_path_sets.emplace_back();
         unordered_set<size_t>& component_path_set = component_path_sets.back();
@@ -1329,16 +1340,28 @@ void XG::index_component_path_sets() {
         // to call on each subsequent handle we navigate to
         function<bool(const handle_t&)> record_paths_and_enqueue = [&](const handle_t& handle) {
             size_t node_rank = id_to_rank(get_id(handle));
+#ifdef debug_component_index
+            cerr << "traverse to handle on node " << get_id(handle) << " at rank " << node_rank << endl;
+#endif
+
             // don't queue up the same node twice
             if (!enqueued[node_rank - 1]) {
                 // add the paths of the new node
                 for (size_t path_rank : paths_of_node(get_id(handle))) {
+#ifdef debug_component_index
+                    cerr << "node is on path " << path_rank << endl;
+#endif
                     component_path_set.insert(path_rank);
                 }
                 // and add it to the queue
                 queue.push(handle);
                 enqueued[node_rank - 1] = 1;
             }
+#ifdef debug_component_index
+            else {
+                cerr << "already enqueued" << endl;
+            }
+#endif
             return true;
         };
         
@@ -1369,11 +1392,25 @@ void XG::index_component_path_sets() {
 }
     
 void XG::create_succinct_component_path_sets(int_vector<>& path_ranks_iv_out, bit_vector& path_ranks_bv_out) const {
+#ifdef debug_component_index
+    cerr << "creating serializable component path sets for " << paths.size() << " paths and " << component_path_sets.size() << " components" << endl;
+#endif
     path_ranks_iv_out = int_vector<>(paths.size());
     path_ranks_bv_out = bit_vector(paths.size());
     
     size_t i = 0;
     for (const unordered_set<size_t>& component_path_set : component_path_sets) {
+#ifdef debug_component_index
+        cerr << "handling component containing paths:" << endl;
+        for (size_t path : component_path_set) {
+            cerr << "\t" << path << endl;
+        }
+        cerr << "first corresponding index in succinct vector is " << i << endl;
+#endif
+        if (component_path_set.empty()) {
+            continue;
+        }
+        
         // generate a deterministic ordering (probably not strictly necessary, but for good measure)
         vector<size_t> component_paths(component_path_set.begin(), component_path_set.end());
         sort(component_paths.begin(), component_paths.end());
@@ -1967,7 +2004,7 @@ size_t XG::node_start(int64_t id) const {
 size_t XG::max_path_rank(void) const {
     //cerr << pn_bv << endl;
     //cerr << "..." << pn_bv_rank(pn_bv.size()) << endl;
-    return pn_bv_rank(pn_bv.size());
+    return pn_bv.size() ? pn_bv_rank(pn_bv.size()) : 0;
 }
 
 // snoop through the forward table to check if the edge exists
