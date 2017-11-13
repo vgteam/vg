@@ -2622,6 +2622,11 @@ namespace vg {
                     REQUIRE(snarl_manager.in_nontrivial_chain(child3));
                 }
                 
+                SECTION("They should be in the same chain") {
+                    REQUIRE(snarl_manager.chain_of(child1) == snarl_manager.chain_of(child2));
+                    REQUIRE(snarl_manager.chain_of(child2) == snarl_manager.chain_of(child3));
+                }
+                
                 SECTION("We can traverse the chain with iterators") {
                     auto chains = snarl_manager.chains_of(nullptr);
                     
@@ -2631,8 +2636,10 @@ namespace vg {
                     
                     auto begin = chain_begin(chain);
                     auto rbegin = chain_rbegin(chain);
+                    auto rcbegin = chain_rcbegin(chain);
                     auto end = chain_end(chain);
                     auto rend = chain_rend(chain);
+                    auto rcend = chain_rcend(chain);
                     
                     SECTION("Iterator equality works") {
                     
@@ -2697,6 +2704,52 @@ namespace vg {
                         
                         REQUIRE(it == end);
                         REQUIRE(rit == rend);
+                        
+                    }
+                    
+                    SECTION("Reverse complement iterators traverse the chain correctly") {
+                        auto it = rcbegin;
+                        
+                        REQUIRE(*it == make_pair(child3, true));
+                        
+                        REQUIRE(it->first == child3);
+                        REQUIRE(it->second == true);
+                        
+                        ++it;
+                        
+                        REQUIRE(*it == make_pair(child2, true));
+                        
+                        REQUIRE(it->first == child2);
+                        REQUIRE(it->second == true);
+                        
+                        ++it;
+                        
+                        REQUIRE(*it == make_pair(child1, true));
+                        
+                        REQUIRE(it->first == child1);
+                        REQUIRE(it->second == true);
+                        
+                        ++it;
+                        
+                        REQUIRE(it == rcend);
+                        
+                    }
+                    
+                    SECTION("We can view the chain from each end") {
+                        REQUIRE(chain_begin_from(chain, child1, false) == begin);
+                        REQUIRE(chain_end_from(chain, child1, false) == end);
+                        
+                        REQUIRE(chain_begin_from(chain, child3, true) == rcbegin);
+                        REQUIRE(chain_end_from(chain, child3, true) == rcend);
+                        
+                        snarl_manager.flip(child1);
+                        snarl_manager.flip(child3);
+                        
+                        REQUIRE(chain_begin_from(chain, child1, true) == chain_begin(chain));
+                        REQUIRE(chain_end_from(chain, child1, true) == chain_end(chain));
+                        
+                        REQUIRE(chain_begin_from(chain, child3, false) == chain_rcbegin(chain));
+                        REQUIRE(chain_end_from(chain, child3, false) == chain_rcend(chain));
                         
                     }
                     
