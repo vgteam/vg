@@ -1381,6 +1381,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool pinned_alignment,
                                  bool pin_left,
                                  bool banded_global,
+                                 size_t band_padding_override,
                                  bool keep_bonuses) {
     // check if we need to make a vg graph to handle this graph
     Alignment aligned;
@@ -1396,7 +1397,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                pinned_alignment,
                                pin_left,
                                banded_global,
-                               0, // band padding override
+                               band_padding_override,
                                aln.sequence().size());
         } else {
             aligned = vg.align_qual_adjusted(aln,
@@ -1407,7 +1408,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                              pinned_alignment,
                                              pin_left,
                                              banded_global,
-                                             0, // band padding override
+                                             band_padding_override,
                                              aln.sequence().size());
         }
     } else {
@@ -1415,10 +1416,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         aligned = aln;
         if (banded_global) {
             size_t max_span = aln.sequence().size();
-            size_t band_padding_override = 0;
             bool permissive_banding = (band_padding_override == 0);
             size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
-            get_aligner(!aln.quality().empty())->align_global_banded(aligned, graph, band_padding, false);
+            get_aligner(!aln.quality().empty())->align_global_banded(aligned, graph, band_padding, permissive_banding);
         } else if (pinned_alignment) {
             get_aligner(!aln.quality().empty())->align_pinned(aligned, graph, pin_left);
         } else {
@@ -2862,7 +2862,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     return alns;
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool banded_global) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool banded_global, size_t band_padding_override) {
     Alignment aln = base;
     map<id_t, int64_t> node_length;
     if (flip) {
@@ -2891,6 +2891,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool fli
                          pinned_alignment,
                          pinned_reverse,
                          banded_global,
+                         band_padding_override,
                          include_full_length_bonuses);
 
     if (strip_bonuses && !banded_global && traceback) {
@@ -2936,16 +2937,16 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
             ++count_fwd;
         }
     }
-    // get the graph with cluster.hpp's cluster_subgraph
+    // get the graph with cluster.cpp's cluster_subgraph
     Graph graph = cluster_subgraph(*xindex, aln, mems);
     // and test each direction for which we have MEM hits
     Alignment aln_fwd;
     Alignment aln_rev;
     if (count_fwd) {
-        aln_fwd = align_maybe_flip(aln, graph, false, traceback);
+        aln_fwd = align_maybe_flip(aln, graph, false, traceback, false, 0);
     }
     if (count_rev) {
-        aln_rev = align_maybe_flip(aln, graph, true, traceback);
+        aln_rev = align_maybe_flip(aln, graph, true, traceback, false, 0);
     }
     // TODO check if we have soft clipping on the end of the graph and if so try to expand the context
     if (aln_fwd.score() + aln_rev.score() == 0) {
@@ -4026,7 +4027,7 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
 }
 
 // convert one mem into a set of alignments, one for each exact match
-vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
+vector<Alignment> Mapper::mem_to_alignments(const MaximalExactMatch& mem) {
     vector<Alignment> alns;
     const string seq = mem.sequence();
     for (auto& node : mem.nodes) {
@@ -4305,7 +4306,7 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
 
 // make a perfect-match alignment out of a vector of MEMs which each have only one recorded hit
 // use the base alignment sequence (which the SMEMs relate to) to fill in the gaps
-Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems) {
+Alignment Mapper::mems_to_alignment(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
     // base case--- empty alignment
     if (mems.empty()) {
         Alignment aln; return aln;
@@ -4353,7 +4354,7 @@ Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMat
 }
 
 // convert one mem into an alignment; validates that only one node is given
-Alignment Mapper::mem_to_alignment(MaximalExactMatch& mem) {
+Alignment Mapper::mem_to_alignment(const MaximalExactMatch& mem) {
     const string seq = mem.sequence();
     if (mem.nodes.size() > 1) {
         cerr << "[vg::Mapper] warning: generating first alignment from MEM with multiple recorded hits" << endl;
