@@ -1381,6 +1381,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool pinned_alignment,
                                  bool pin_left,
                                  bool banded_global,
+                                 size_t band_padding_override,
                                  bool keep_bonuses) {
     // check if we need to make a vg graph to handle this graph
     Alignment aligned;
@@ -1396,7 +1397,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                pinned_alignment,
                                pin_left,
                                banded_global,
-                               0, // band padding override
+                               band_padding_override,
                                aln.sequence().size());
         } else {
             aligned = vg.align_qual_adjusted(aln,
@@ -1407,7 +1408,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                              pinned_alignment,
                                              pin_left,
                                              banded_global,
-                                             0, // band padding override
+                                             band_padding_override,
                                              aln.sequence().size());
         }
     } else {
@@ -1415,10 +1416,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         aligned = aln;
         if (banded_global) {
             size_t max_span = aln.sequence().size();
-            size_t band_padding_override = 0;
             bool permissive_banding = (band_padding_override == 0);
             size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
-            get_aligner(!aln.quality().empty())->align_global_banded(aligned, graph, band_padding, false);
+            get_aligner(!aln.quality().empty())->align_global_banded(aligned, graph, band_padding, permissive_banding);
         } else if (pinned_alignment) {
             get_aligner(!aln.quality().empty())->align_pinned(aligned, graph, pin_left);
         } else {
@@ -1840,9 +1840,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     auto aligner = get_aligner(!read1.quality().empty());
     int8_t match = aligner->match;
+    int8_t mismatch = aligner->mismatch;
     int8_t gap_extension = aligner->gap_extension;
     int8_t gap_open = aligner->gap_open;
     int8_t full_length_bonus = aligner->full_length_bonus;
+    double max_possible_score = read1.sequence().size() * match + 2*full_length_bonus;
 
     int total_multimaps = max(max_multimaps, extra_multimaps);
     double cluster_mq = 0;
@@ -1919,9 +1921,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double maybe_pair_mq = maybe_mq1+maybe_mq2;
 
     // if estimated mq is high scale difficulty using the estimated mapping quality
+    /*
     if (maybe_pair_mq > max_mapping_quality) {
         total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(maybe_pair_mq)));
     }
+    */
 
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << " " << total_multimaps << endl;
     if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << fraction_filtered2 << " " << max_possible_mq << " " << total_multimaps << endl;
@@ -2078,6 +2082,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
 
     // sort the clusters by unique coverage in the read
+    /*
     map<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*>, int> cluster_cov;
     for (auto& p : cluster_ptrs) {
         cluster_cov[p] = cluster_coverage(*p.first) + cluster_coverage(*p.second);
@@ -2087,6 +2092,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                  const pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*>& p2) {
              return cluster_cov[p1] > cluster_cov[p2];
          });
+    */
 
     auto show_paired_clusters = [&](void) {
         cerr << "clusters: " << endl;
@@ -2127,28 +2133,43 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     
     set<pair<string, string> > seen_alignments;
     int filled1 = 0, filled2 = 0;
-
+    int good1 = 0, good2 = 0;
+    int bad1 = 0, bad2 = 0;
+    int bad_score = (int)(max_possible_score * 0.5);
+    int good_score = (int)max_possible_score - (match + mismatch);
     for (auto& cluster_ptr : cluster_ptrs) {
         // break the cluster into two pieces
         auto& cluster1 = *cluster_ptr.first;
         auto& cluster2 = *cluster_ptr.second;
         alns.emplace_back();
         auto& p = alns.back();
-        if (cluster1.size() && (!to_drop1.count(&cluster1)
-                                || filled1 < min_multimaps)) {
+        if (cluster1.size()
+            && bad1 < 2
+            && good1 < min_multimaps
+            && (!to_drop1.count(&cluster1)
+                || filled1 < min_multimaps)) {
             p.first = align_cluster(read1, cluster1, true);
             ++filled1;
+            if (p.first.score() >= good_score) ++good1;
+            if (p.first.score() < bad_score) ++bad1;
         } else {
+            //if (good1 >= min_multimaps) mq_cap1 = 0;
             p.first = read1;
             p.first.clear_score();
             p.first.clear_identity();
             p.first.clear_path();
         }
-        if (cluster2.size() && (!to_drop2.count(&cluster2)
-                                || filled2 < min_multimaps)) {
+        if (cluster2.size()
+            && bad2 < 2
+            && good2 < min_multimaps
+            && (!to_drop2.count(&cluster2)
+                || filled2 < min_multimaps)) {
             p.second = align_cluster(read2, cluster2, true);
             ++filled2;
+            if (p.second.score() >= good_score) ++good2;
+            if (p.first.score() < bad_score) ++bad2;
         } else {
+            //if (good2 >= min_multimaps) mq_cap2 = 0;
             p.second = read2;
             p.second.clear_score();
             p.second.clear_identity();
@@ -2237,7 +2258,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // now add back in single-ended versions of everything that we can use for rescue
     vector<pair<Alignment, Alignment> > se_alns;
     vector<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*> > se_cluster_ptrs;
-    double max_possible_score = read1.sequence().size() * match + 2*full_length_bonus;
     double hang_threshold = max_possible_score * pair_rescue_hang_threshold;
     double retry_threshold = max_possible_score * pair_rescue_retry_threshold;
     for (auto& p : aln_ptrs) {
@@ -2623,8 +2643,11 @@ Mapper::align_mem_multi(const Alignment& aln,
     
     auto aligner = get_aligner(!aln.quality().empty());
     int8_t match = aligner->match;
+    int8_t mismatch = aligner->mismatch;
     int8_t gap_extension = aligner->gap_extension;
     int8_t gap_open = aligner->gap_open;
+    int8_t full_length_bonus = aligner->full_length_bonus;
+    double max_possible_score = aln.sequence().size() * match + 2*full_length_bonus;
 
     int total_multimaps = max(max_multimaps, additional_multimaps);
     double mq_cap = max_mapping_quality;
@@ -2646,9 +2669,11 @@ Mapper::align_mem_multi(const Alignment& aln,
     }
 
     // scale difficulty using the estimated mapping quality
+    /*
     if (maybe_mq > max_mapping_quality) {
         total_multimaps = max(max(min_multimaps*4, max_multimaps), min(total_multimaps, (int)round(maybe_mq)));
     }
+    */
 
     if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_mq << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << " " << total_multimaps << " " << mem_read_ratio << " " << fraction_filtered << " " << max_possible_mq << " " << total_multimaps << endl;
 
@@ -2764,16 +2789,27 @@ Mapper::align_mem_multi(const Alignment& aln,
     set<string> seen_alignments;
     int multimaps = 0;
     int filled = 0;
+    int good = 0;
+    int bad = 0;
+    int bad_score = (int)(max_possible_score * 0.5);
+    int good_score = (int)max_possible_score - (match + mismatch);
     for (auto& cluster : clusters) {
         if (alns.size() >= total_multimaps) { break; }
         // skip if we've filtered the cluster
-        if (to_drop.count(&cluster) && filled >= min_multimaps*4) {
+        // or if we've already seen a lot of good or bad alignments
+        if (to_drop.count(&cluster)
+            && filled >= min_multimaps*4
+            || bad >= min_multimaps*4
+            || good >= min_multimaps*4) {
+            //if (good >= min_multimaps*4) mq_cap = 0;
             alns.push_back(aln);
             used_clusters.push_back(&cluster);
             continue;
         }
         ++filled;
         Alignment candidate = align_cluster(aln, cluster, true);
+        if (candidate.score() < bad_score) ++bad;
+        if (candidate.score() >= good_score) ++good;
         string sig = signature(candidate);
 
 #ifdef debug_mapper
@@ -2862,7 +2898,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     return alns;
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool banded_global) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool banded_global, size_t band_padding_override) {
     Alignment aln = base;
     map<id_t, int64_t> node_length;
     if (flip) {
@@ -2891,6 +2927,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool fli
                          pinned_alignment,
                          pinned_reverse,
                          banded_global,
+                         band_padding_override,
                          include_full_length_bonuses);
 
     if (strip_bonuses && !banded_global && traceback) {
@@ -2936,16 +2973,16 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
             ++count_fwd;
         }
     }
-    // get the graph with cluster.hpp's cluster_subgraph
+    // get the graph with cluster.cpp's cluster_subgraph
     Graph graph = cluster_subgraph(*xindex, aln, mems);
     // and test each direction for which we have MEM hits
     Alignment aln_fwd;
     Alignment aln_rev;
     if (count_fwd) {
-        aln_fwd = align_maybe_flip(aln, graph, false, traceback);
+        aln_fwd = align_maybe_flip(aln, graph, false, traceback, false, 0);
     }
     if (count_rev) {
-        aln_rev = align_maybe_flip(aln, graph, true, traceback);
+        aln_rev = align_maybe_flip(aln, graph, true, traceback, false, 0);
     }
     // TODO check if we have soft clipping on the end of the graph and if so try to expand the context
     if (aln_fwd.score() + aln_rev.score() == 0) {
@@ -4026,7 +4063,7 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
 }
 
 // convert one mem into a set of alignments, one for each exact match
-vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
+vector<Alignment> Mapper::mem_to_alignments(const MaximalExactMatch& mem) {
     vector<Alignment> alns;
     const string seq = mem.sequence();
     for (auto& node : mem.nodes) {
@@ -4305,7 +4342,7 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
 
 // make a perfect-match alignment out of a vector of MEMs which each have only one recorded hit
 // use the base alignment sequence (which the SMEMs relate to) to fill in the gaps
-Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems) {
+Alignment Mapper::mems_to_alignment(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
     // base case--- empty alignment
     if (mems.empty()) {
         Alignment aln; return aln;
@@ -4353,7 +4390,7 @@ Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMat
 }
 
 // convert one mem into an alignment; validates that only one node is given
-Alignment Mapper::mem_to_alignment(MaximalExactMatch& mem) {
+Alignment Mapper::mem_to_alignment(const MaximalExactMatch& mem) {
     const string seq = mem.sequence();
     if (mem.nodes.size() > 1) {
         cerr << "[vg::Mapper] warning: generating first alignment from MEM with multiple recorded hits" << endl;

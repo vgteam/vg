@@ -388,6 +388,7 @@ private:
                              bool pinned_alignment = false,
                              bool pin_left = false,
                              bool global = false,
+                             size_t band_padding_override = 0,
                              bool keep_bonuses = true);
     vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
                                            const Alignment& aln,
@@ -468,8 +469,8 @@ public:
 
     // takes the input alignment (with seq, etc) so we have reference to the base sequence
     // for reconstruction the alignments from the SMEMs
-    Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
-    Alignment mem_to_alignment(MaximalExactMatch& mem);
+    Alignment mems_to_alignment(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    Alignment mem_to_alignment(const MaximalExactMatch& mem);
     
     /// Use the scoring provided by the internal aligner to re-score the
     /// alignment, scoring gaps between nodes using graph distance from the XG
@@ -490,7 +491,7 @@ public:
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool banded_global = false);
+    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool banded_global = false, size_t band_padding_override = 0);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
@@ -583,7 +584,7 @@ public:
     Alignment walk_match(const string& seq, pos_t pos);
     vector<Alignment> walk_match(const Alignment& base, const string& seq, pos_t pos);
     // convert the set of hits of a MEM into a set of alignments
-    vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
+    vector<Alignment> mem_to_alignments(const MaximalExactMatch& mem);
 
     // fargment length estimation
     map<string, int64_t> min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
