@@ -403,7 +403,7 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         if (parent_start.node_id() != 0 && parent_end.node_id() != 0) {
             // We have a parent that isn't the fake root, so fill in its ends
             *snarl.mutable_parent()->mutable_start() = parent_start;
-            *snarl.mutable_parent()->mutable_start() = parent_end;
+            *snarl.mutable_parent()->mutable_end() = parent_end;
         }
     } 
     
