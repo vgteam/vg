@@ -28,7 +28,8 @@ void help_sim(char** argv) {
          << "options:" << endl
          << "    -x, --xg-name FILE          use the xg index in FILE" << endl
          << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f)" << endl
-         << "    -P, --path PATH             simulate from the given named path (multiple allowed)" << endl
+         << "    -I, --interleaved           reads in FASTQ (-F) are interleaved read pairs" << endl
+         << "    -P, --path PATH             simulate from the given names path (multiple allowed)" << endl
          << "    -l, --read-length N         write reads of length N" << endl
          << "    -n, --num-reads N           simulate N reads or read pairs" << endl
          << "    -s, --random-seed N         use this specific seed for the PRNG" << endl
@@ -64,6 +65,7 @@ int main_sim(int argc, char** argv) {
     bool reads_may_contain_Ns = false;
     string xg_name;
     bool strip_bonuses = false;
+    bool interleaved = false;
     double indel_prop = 0.0;
     double error_scale_factor = 1.0;
     string fastq_name;
@@ -78,6 +80,7 @@ int main_sim(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
             {"fastq", required_argument, 0, 'F'},
+            {"interleaved", no_argument, 0, 'I'},
             {"path", required_argument, 0, 'P'},
             {"read-length", required_argument, 0, 'l'},
             {"num-reads", required_argument, 0, 'n'},
@@ -96,7 +99,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:P:S:",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:P:S:I",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -112,6 +115,10 @@ int main_sim(int argc, char** argv) {
             
         case 'F':
             fastq_name = optarg;
+            break;
+            
+        case 'I':
+            interleaved = true;
             break;
             
         case 'P':
@@ -316,10 +323,18 @@ int main_sim(int argc, char** argv) {
         
         Aligner aligner(default_match, default_mismatch, default_gap_open, default_gap_extension, 5);
         
-        NGSSimulator sampler(*xgidx, fastq_name, path_names, base_error, indel_error, indel_prop,
+        NGSSimulator sampler(*xgidx,
+                             fastq_name,
+                             interleaved,
+                             path_names,
+                             base_error,
+                             indel_error,
+                             indel_prop,
                              fragment_length ? fragment_length : std::numeric_limits<double>::max(), // suppresses warnings about fragment length
                              fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
-                             error_scale_factor, !reads_may_contain_Ns, seed_val);
+                             error_scale_factor,
+                             !reads_may_contain_Ns,
+                             seed_val);
         
         if (fragment_length) {
             for (size_t i = 0; i < num_reads; i++) {
@@ -334,7 +349,7 @@ int main_sim(int argc, char** argv) {
                     }
                     else {
                         function<Alignment(uint64_t)> lambda = [&read_pair](uint64_t n) {
-                            return n % 2 ? read_pair.first : read_pair.second;
+                            return n % 2 == 1 ? read_pair.first : read_pair.second;
                         };
                         stream::write(cout, 2, lambda);
                     }

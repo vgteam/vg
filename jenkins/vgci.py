@@ -223,7 +223,7 @@ class VGCITest(TestCase):
         
         
     def _toil_vg_run(self, sample_name, chrom, graph_path, xg_path, gcsa_path, fq_path,
-                     true_vcf_path, fasta_path, interleaved, multipath, misc_opts, tag):
+                     true_vcf_path, fasta_path, interleaved, multipath, misc_opts, genotype, tag):
         """ Wrap toil-vg run as a shell command.  Expects reads to be in single fastq
         inputs can be None if toil-vg supports not having them (ie don't need to 
         include gcsa_path if want to reindex)
@@ -256,6 +256,8 @@ class VGCITest(TestCase):
             opts += '--multipath '
         if misc_opts:
             opts += ' {} '.format(misc_opts)
+        if genotype:
+            opts += '--genotype '
         # don't waste time sharding reads since we only run on one node
         opts += '--single_reads_chunk '
         opts += '--gcsa_index_cores {} --kmers_cores {} \
@@ -395,7 +397,8 @@ class VGCITest(TestCase):
 
         self.assertGreaterEqual(f1_score, baseline_f1 - threshold)
 
-    def _test_bakeoff(self, region, graph, skip_indexing, multipath=False, tag_ext='', misc_opts=None):
+    def _test_bakeoff(self, region, graph, skip_indexing, multipath=False, tag_ext='', misc_opts=None,
+                      genotype=False):
         """ Run bakeoff F1 test for NA12878 """
         assert not tag_ext or tag_ext.startswith('-')
         tag = '{}-{}{}'.format(region, graph, tag_ext)
@@ -416,7 +419,7 @@ class VGCITest(TestCase):
                           self._input('platinum_NA12878_{}.fq.gz'.format(region)),
                           self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
                           self._input('chr{}.fa.gz'.format(chrom)), True, multipath,
-                          extra_opts, tag)
+                          extra_opts, genotype, tag)
 
         if self.verify:
             self._verify_f1('NA12878', tag)
@@ -993,7 +996,7 @@ class VGCITest(TestCase):
                            assembly="hg19",
                            acc_threshold=0.0075, auc_threshold=0.075, multipath=True, paired_only=True,
                            tag_ext='-trained',
-                           sim_opts='-p 500 -v 50 -S 4 -i 0.002',
+                           sim_opts='-p 500 -v 50 -S 4 -i 0.002 -I',
                            # 800k 148bp reads from Genome in a Bottle NA12878 library
                            # (placeholder while finding something better)
                            sim_fastq='ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz')
@@ -1024,7 +1027,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
                            acc_threshold=0.02,
-                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5',
+                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5 -I',
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
 
     @timeout_decorator.timeout(7200)
@@ -1039,7 +1042,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
                            acc_threshold=0.02, auc_threshold=0.02,
-                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5',
+                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5 -I',
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
 
     @timeout_decorator.timeout(7200)
@@ -1074,6 +1077,13 @@ class VGCITest(TestCase):
         """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'snp1kg', True)
+
+    @timeout_decorator.timeout(400)
+    def test_map_brca1_snp1kg_genotype(self):
+        """ Mapping and calling (with vg genotype) bakeoff F1 test for BRCA1 snp1kg graph """
+        log.info("Test start at {}".format(datetime.now()))
+        self._test_bakeoff('BRCA1', 'snp1kg', True, tag_ext='-genotype', genotype=True,
+                           misc_opts = '--call_chunk_size 40000') 
         
     @timeout_decorator.timeout(600)
     def test_map_brca1_snp1kg_mpmap(self):
@@ -1160,6 +1170,15 @@ class VGCITest(TestCase):
         """ Indexing, mapping and calling bakeoff F1 test for MHC snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'snp1kg', True)
+
+    @skip("skipping test to keep runtime down")        
+    @timeout_decorator.timeout(100000)        
+    def test_map_mhc_snp1kg_genotype(self):
+        """ Mapping and calling (with vg genotype) bakeoff F1 test for MHC snp1kg graph 
+        (small chunk size required to get around genotype memory requirements) """
+        log.info("Test start at {}".format(datetime.now()))
+        self._test_bakeoff('MHC', 'snp1kg', True, tag_ext='-genotype', genotype=True,
+                           misc_opts = '--call_chunk_size 50000')
 
     @skip("skipping test to keep runtime down (baseline missing as well)")          
     @timeout_decorator.timeout(10000)        

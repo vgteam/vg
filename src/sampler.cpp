@@ -545,6 +545,7 @@ const string NGSSimulator::alphabet = "ACGT";
     
 NGSSimulator::NGSSimulator(xg::XG& xg_index,
                            const string& ngs_fastq_file,
+                           bool interleaved_fastq,
                            const vector<string>& source_paths,
                            double substition_polymorphism_rate,
                            double indel_polymorphism_rate,
@@ -571,6 +572,7 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
     , insert_sampler(insert_length_mean, insert_length_stdev)
     , seed(seed)
     , source_paths(source_paths)
+    , joint_initial_distr(seed - 1)
 {
     if (source_paths.empty()) {
         start_pos_samplers.emplace_back(1, xg_index.seq_length);
@@ -626,10 +628,19 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
     }
     
     unordered_map<size_t, size_t> length_count;
-    fastq_unpaired_for_each(ngs_fastq_file, [&](const Alignment& aln) {
-        length_count[aln.quality().size()]++;
-        record_read_quality(aln);
-    });
+    if (interleaved_fastq) {
+        fastq_paired_interleaved_for_each(ngs_fastq_file, [&](const Alignment& aln_1, const Alignment& aln_2) {
+            length_count[aln_1.quality().size()]++;
+            length_count[aln_2.quality().size()]++;
+            record_read_pair_quality(aln_1, aln_2);
+        });
+    }
+    else {
+        fastq_unpaired_for_each(ngs_fastq_file, [&](const Alignment& aln) {
+            length_count[aln.quality().size()]++;
+            record_read_quality(aln);
+        });
+    }
     
     size_t modal_length = 0;
     size_t modal_length_count = 0;
@@ -650,8 +661,16 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
         cerr << "warning:[NGSSimulator] Auto-detected read length of " << modal_length << " is long compared to mean insert length " << insert_length_mean << " and standard deviation " << insert_length_stdev << ", sampling may take additional time and statistical properties of insert length distribution may not reflect input parameters" << endl;
     }
     
-    while (transition_distrs.size() > modal_length) {
-        transition_distrs.pop_back();
+    while (transition_distrs_1.size() > modal_length) {
+        transition_distrs_1.pop_back();
+    }
+    while (transition_distrs_2.size() > modal_length) {
+        transition_distrs_2.pop_back();
+    }
+    
+    if (transition_distrs_1.size() != transition_distrs_2.size() && transition_distrs_2.size() > 0) {
+        cerr << "error:[NGSSimulator] One fragment end in training data has no reads at the modal length, cannot produce joint samples" << endl;
+        exit(1);
     }
     
     finalize();
@@ -703,8 +722,9 @@ Alignment NGSSimulator::sample_read() {
 
 pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     pair<Alignment, Alignment> aln_pair;
-    aln_pair.first.set_quality(sample_read_quality());
-    aln_pair.second.set_quality(sample_read_quality());
+    pair<string, string> qual_pair = sample_read_quality_pair();
+    aln_pair.first.set_quality(qual_pair.first);
+    aln_pair.second.set_quality(qual_pair.second);
     
     // reverse the quality string so that it acts like it's reading from the opposite end
     // when we walk forward from the beginning of the first read
@@ -714,7 +734,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     
     while (!aln_pair.first.has_path() || !aln_pair.second.has_path()) {
         int64_t insert_length = (int64_t) round(insert_sampler(prng));
-        if (insert_length < transition_distrs.size()) {
+        if (insert_length < transition_distrs_1.size()) {
             // don't make reads where the insert length is shorter than one end of the read
             continue;
         }
@@ -744,7 +764,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         }
         
         // walk out the unsequenced part of the insert in the graph
-        int64_t remaining_length = insert_length - 2 * transition_distrs.size();
+        int64_t remaining_length = insert_length - 2 * transition_distrs_1.size();
         if (remaining_length >= 0) {
             // we need to move forward from the end of the first read
             if (advance_by_distance(offset, is_reverse, pos, remaining_length, source_path)) {
@@ -1225,13 +1245,14 @@ tuple<size_t, bool, pos_t, string> NGSSimulator::sample_start_path_pos() {
 
 string NGSSimulator::get_read_name() {
     stringstream sstrm;
-    sstrm << "fragment_" << seed << "_" << sample_counter;
+    sstrm << "seed_" << seed << "_fragment_" << sample_counter;
     sample_counter++;
     return sstrm.str();
 }
 
-void NGSSimulator::record_read_quality(const Alignment& aln) {
+void NGSSimulator::record_read_quality(const Alignment& aln, bool read_2) {
     const string& quality = aln.quality();
+    auto& transition_distrs = read_2 ? transition_distrs_2 : transition_distrs_1;
     if (quality.empty()) {
         return;
     }
@@ -1243,28 +1264,62 @@ void NGSSimulator::record_read_quality(const Alignment& aln) {
         transition_distrs[i].record_transition(quality[i - 1], quality[i]);
     }
 }
-
-void NGSSimulator::finalize() {
-    for (MarkovDistribution& markov_distr : transition_distrs) {
-        markov_distr.finalize();
+    
+void NGSSimulator::record_read_pair_quality(const Alignment& aln_1, const Alignment& aln_2) {
+    record_read_quality(aln_1, false);
+    record_read_quality(aln_2, true);
+    if (!aln_1.quality().empty() && !aln_2.quality().empty()) {
+        joint_initial_distr.record_transition(0, make_pair<uint8_t, uint8_t>(aln_1.quality()[0], aln_2.quality()[0]));
     }
 }
 
+void NGSSimulator::finalize() {
+    for (MarkovDistribution<uint8_t, uint8_t>& markov_distr : transition_distrs_1) {
+        markov_distr.finalize();
+    }
+    for (MarkovDistribution<uint8_t, uint8_t>& markov_distr : transition_distrs_2) {
+        markov_distr.finalize();
+    }
+    joint_initial_distr.finalize();
+}
+
 string NGSSimulator::sample_read_quality() {
-    string quality(transition_distrs.size(), 0);
-    uint8_t at = 0;
-    for (size_t i = 0; i < transition_distrs.size(); i++) {
+    // only use the first trained distribution (on the assumption that it better reflects the properties of
+    // single-ended sequencing)
+    return sample_read_quality_internal(transition_distrs_1[0].sample_transition(0),  transition_distrs_1);
+}
+    
+pair<string, string> NGSSimulator::sample_read_quality_pair() {
+    if (transition_distrs_2.empty()) {
+        // no paired training data, sample qual strings independently
+        return make_pair(sample_read_quality(), sample_read_quality());
+    }
+    else {
+        // paired training data, sample the start quality jointly
+        pair<uint8_t, uint8_t> first_quals = joint_initial_distr.sample_transition(0);
+        return make_pair(sample_read_quality_internal(first_quals.first, transition_distrs_1),
+                         sample_read_quality_internal(first_quals.second, transition_distrs_2));
+    }
+}
+    
+string NGSSimulator::sample_read_quality_internal(uint8_t first,
+                                                  vector<MarkovDistribution<uint8_t, uint8_t>>& transition_distrs) {
+    string quality(transition_distrs.size(), first);
+    uint8_t at = first;
+    for (size_t i = 1; i < transition_distrs.size(); i++) {
         at = transition_distrs[i].sample_transition(at);
         quality[i] = at;
     }
     return quality;
 }
-
-NGSSimulator::MarkovDistribution::MarkovDistribution(size_t seed) : prng(seed) {
+    
+template<class From, class To>
+NGSSimulator::MarkovDistribution<From, To>::MarkovDistribution(size_t seed) : prng(seed) {
     // nothing to do
 }
 
-void NGSSimulator::MarkovDistribution::record_transition(uint8_t from, uint8_t to) {
+template<class From, class To>
+void NGSSimulator::MarkovDistribution<From, To>::record_transition(From from, To to) {
     if (!cond_distrs.count(from)) {
         cond_distrs[from] = vector<size_t>(value_at.size(), 0);
     }
@@ -1272,7 +1327,7 @@ void NGSSimulator::MarkovDistribution::record_transition(uint8_t from, uint8_t t
     if (!column_of.count(to)) {
         column_of[to] = value_at.size();
         value_at.push_back(to);
-        for (pair<const uint8_t, vector<size_t>>& cond_distr : cond_distrs) {
+        for (pair<const From, vector<size_t>>& cond_distr : cond_distrs) {
             cond_distr.second.push_back(0);
         }
     }
@@ -1280,8 +1335,9 @@ void NGSSimulator::MarkovDistribution::record_transition(uint8_t from, uint8_t t
     cond_distrs[from][column_of[to]]++;
 }
 
-void NGSSimulator::MarkovDistribution::finalize() {
-    for (pair<const uint8_t, vector<size_t>>& cond_distr : cond_distrs) {
+template<class From, class To>
+void NGSSimulator::MarkovDistribution<From, To>::finalize() {
+    for (pair<const From, vector<size_t>>& cond_distr : cond_distrs) {
         for (size_t i = 1; i < cond_distr.second.size(); i++) {
             cond_distr.second[i] += cond_distr.second[i - 1];
         }
@@ -1290,8 +1346,8 @@ void NGSSimulator::MarkovDistribution::finalize() {
     }
 }
 
-
-uint8_t NGSSimulator::MarkovDistribution::sample_transition(uint8_t from) {
+template<class From, class To>
+To NGSSimulator::MarkovDistribution<From, To>::sample_transition(From from) {
     // return randomly if a transition has never been observed
     if (!cond_distrs.count(from)) {
         return value_at[uniform_int_distribution<size_t>(0, value_at.size() - 1)(prng)];

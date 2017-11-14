@@ -6497,7 +6497,8 @@ void VG::to_dot(ostream& out,
                     if (i < path.mapping_size()-1) {
                         const Mapping& m2 = path.mapping(i+1);
                         out << m1.position().node_id() << " -> " << m2.position().node_id()
-                            << " [dir=none,tailport=ne,headport=nw,color=\""
+                            << " [dir=none,tailport=" << (m1.position().is_reverse() ? "nw" : "ne") 
+                            << ",headport=" << (m2.position().is_reverse() ? "ne" : "nw") << ",color=\""
                             << color << "\",label=\"     " << path_label << "     \",fontcolor=\"" << color << "\",constraint=false];" << endl;
                     }
                 }
