@@ -172,8 +172,10 @@ struct SwapHaplotypesCommand : public GenomeStateCommand {
 };
 
 struct AppendHaplotypeCommand : public GenomeStateCommand {
-    /// We just feed in a full traversal from one end of a telomere pair to the other.
-    /// Internally the GenomeState has to work out how to divide this into snarls.
+    /// We just feed in a full traversal from one end of a telomere pair to the
+    /// other. Must start and end on the boundary nodes of telomere snarls.
+    /// TODO: unary telomeres will work strangely. Internally the GenomeState
+    /// has to work out how to divide this into snarls.
     vector<handle_t> haplotype;
     
     virtual GenomeStateCommand* execute(GenomeState& state) const;
@@ -210,6 +212,9 @@ struct ReplaceLocalHaplotypeCommand : public GenomeStateCommand {
 class GenomeState {
 
 public:
+    
+    /// Dump internal state to cerr.
+    void dump() const;
     
     /// Make a new GenomeState on the given SnarlManager, manageing snarls in
     /// the given graph, with the given telomere pairs. Each telomere can appear

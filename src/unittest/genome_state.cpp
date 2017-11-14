@@ -1139,6 +1139,123 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
     }
     
 }
+
+TEST_CASE("GenomeState can have haplotypes appended", "[genomestate]") {
+    
+
+    // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
+    // and a snarl from 3 to 5, all nested in each other.
+    VG graph;
+        
+    Node* n1 = graph.create_node("GCA");
+    Node* n2 = graph.create_node("T");
+    Node* n3 = graph.create_node("G");
+    Node* n4 = graph.create_node("CTGA");
+    Node* n5 = graph.create_node("GCA");
+    Node* n6 = graph.create_node("T");
+    Node* n7 = graph.create_node("G");
+    Node* n8 = graph.create_node("CTGA");
+    
+    Edge* e1 = graph.create_edge(n1, n2);
+    Edge* e2 = graph.create_edge(n1, n8);
+    Edge* e3 = graph.create_edge(n2, n3);
+    Edge* e4 = graph.create_edge(n2, n6);
+    Edge* e5 = graph.create_edge(n3, n4);
+    Edge* e6 = graph.create_edge(n3, n5);
+    Edge* e7 = graph.create_edge(n4, n5);
+    Edge* e8 = graph.create_edge(n5, n7);
+    Edge* e9 = graph.create_edge(n6, n7);
+    Edge* e10 = graph.create_edge(n7, n8);
+    
+    // Work out its snarls
+    CactusSnarlFinder bubble_finder(graph);
+    SnarlManager snarl_manager = bubble_finder.find_snarls();
+
+    // Get the top snarl
+    const Snarl* top_snarl = snarl_manager.top_level_snarls().at(0);
+    
+    if (top_snarl->end().node_id() < top_snarl->start().node_id()) {
+        // Put it a consistent way around
+        snarl_manager.flip(top_snarl);
+    }
+    
+    // Make sure it's what we expect.
+    REQUIRE(top_snarl->start().node_id() == 1);
+    REQUIRE(top_snarl->end().node_id() == 8);
+    
+    // Get the middle snarl
+    const Snarl* middle_snarl = snarl_manager.children_of(top_snarl).at(0);
+    
+    if (middle_snarl->end().node_id() < middle_snarl->start().node_id()) {
+        // Put it a consistent way around
+        snarl_manager.flip(middle_snarl);
+    }
+    
+    // And the bottom snarl
+    const Snarl* bottom_snarl = snarl_manager.children_of(middle_snarl).at(0);
+    
+    if (bottom_snarl->end().node_id() < bottom_snarl->start().node_id()) {
+        // Put it a consistent way around
+        snarl_manager.flip(bottom_snarl);
+    }
+    
+    // Define the chromosome by telomere snarls (first and last)
+    auto chromosome = make_pair(top_snarl, top_snarl);
+    
+    // Make a genome state for this genome, with the only top snarl being the
+    // telomere snarls for the main chromosome
+    GenomeState state(snarl_manager, &graph, {chromosome});
+    
+    SECTION("GenomeState starts empty") {
+        REQUIRE(state.count_haplotypes(chromosome) == 0);
+    }
+    
+    SECTION("A haplotype can be appended") {
+        // Define a haplotype across the entire graph, all at once
+        AppendHaplotypeCommand append;
+        
+        append.haplotype.push_back(graph.get_handle(1, false));
+        append.haplotype.push_back(graph.get_handle(2, false));
+        append.haplotype.push_back(graph.get_handle(3, false));
+        append.haplotype.push_back(graph.get_handle(5, false));
+        append.haplotype.push_back(graph.get_handle(7, false));
+        append.haplotype.push_back(graph.get_handle(8, false));
+        
+        // Execute the command and get the undo command
+        GenomeStateCommand* undo = state.execute(&append);
+        
+        SECTION("The added haplotype is counted") {
+            REQUIRE(state.count_haplotypes(chromosome) == 1);
+        }
+        
+        SECTION("The haplotype can be traced") {
+            // We trace out all the handles in the backing graph
+            vector<handle_t> traced;
+            
+            state.trace_haplotype(chromosome, 0, [&](const handle_t& visit) {
+                // Put every handle in the vector
+                traced.push_back(visit);
+            });
+         
+            // We should visit nodes 1, 2, 3, 5, 7, 8 in that order
+            REQUIRE(traced.size() == 6);
+            REQUIRE(traced[0] == graph.get_handle(1, false));
+            REQUIRE(traced[1] == graph.get_handle(2, false));
+            REQUIRE(traced[2] == graph.get_handle(3, false));
+            REQUIRE(traced[3] == graph.get_handle(5, false));
+            REQUIRE(traced[4] == graph.get_handle(7, false));
+            REQUIRE(traced[5] == graph.get_handle(8, false));
+        }
+        
+        SECTION("The haplotype can be removed again") {
+            delete state.execute(undo);
+            
+            REQUIRE(state.count_haplotypes(chromosome) == 0);
+        }
+        
+        delete undo;
+    }
+}
         
 }
 }

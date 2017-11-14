@@ -303,6 +303,124 @@ const NetGraph* GenomeState::get_net_graph(const Snarl* snarl) {
 }
 
 DeleteHaplotypeCommand GenomeState::append_haplotype(const AppendHaplotypeCommand& c) {
+    // We'll populate this with all the stuff we added
+    DeleteHaplotypeCommand to_return;
+    
+    // We can't add an empty haplotype.
+    assert(!c.haplotype.empty());
+    
+    // This holds a stack of all the snarls we are in at a given point in the
+    // haplotype we are adding, and the handles we are putting for the
+    // traversals of them that we are building. Lane assignments are not
+    // necessary since they will always be last.
+    list<pair<const Snarl*, vector<handle_t>>> stack;
+
+    // We know we're at the start of a telomere snarl, so we can just jump right
+    // into the main loop...
+    
+    for (auto& next_handle : c.haplotype) {
+        // For each handle, look at it as a visit in the base graph
+        Visit next_visit = backing_graph->to_visit(next_handle);
+        
+#ifdef debug
+        cerr << "Stack: ";
+        for (auto& frame : stack) {
+            cerr << frame.first->start() << " -> " << frame.first->end() << ", ";
+        }
+        cerr << endl;
+        
+        cerr << "Encountered visit: " << next_visit << endl;
+#endif
+        
+        // Are we going in and out of snarls?
+        auto last_snarl = manager.into_which_snarl(reverse(next_visit));
+        auto next_snarl = manager.into_which_snarl(next_visit);
+        
+        if (last_snarl != nullptr) {
+            // If we're leaving a child snarl
+            
+#ifdef debug
+            cerr << "Leaving snarl " << last_snarl->start() << " -> " << last_snarl->end() << endl;
+#endif
+            
+            // Make sure it's the one we have been working on
+            assert(!stack.empty());
+            assert(stack.front().first == last_snarl);
+            
+            // Make sure the exit handle is in the haplotype
+            stack.front().second.push_back(next_handle);
+            
+            // What state do we have to work on?
+            auto& snarl_state = state.at(last_snarl);
+            
+            // Add in its haplotype, and get the resulting lane assignments.
+            auto& embedded = snarl_state.append(stack.front().second);
+            
+            // Remember to delete the overall lane from this snarl
+            assert(!embedded.empty());
+            to_return.deletions[last_snarl].push_back(embedded.front().second);
+            
+            // Pop from the stack
+            stack.pop_front();
+            
+            // What chain are we in?
+            auto chain = manager.chain_of(last_snarl);
+            
+            if ((next_visit == get_end_of(*chain) || next_visit == reverse(get_start_of(*chain))) && !stack.empty()) {
+                // If we exited a chain, record a traversal of the whole chain in
+                // the parent snarl's haplotype under construction.
+                
+                // Get the parent snarl
+                const Snarl* parent = stack.front().first;
+                // And its net graph
+                auto& net_graph = net_graphs.at(parent);
+                
+                // Get a handle_t representing the whole chain. It is numbered
+                // with the start of the chain and is reverse if we aren't
+                // leaving the end of the chain.
+                handle_t chain_handle = net_graph.get_handle(get_start_of(*chain).node_id(), next_visit != get_end_of(*chain));
+
+                // Tack it on to the parent
+                stack.front().second.push_back(chain_handle);
+            }
+            
+        } else if (next_snarl == nullptr && !stack.empty()) {
+            // Otherwise, we're an ordinary visit in the snarl we're in. So make
+            // sure we're in a snarl (i.e. not the first handle in the whole
+            // haplotype).
+            
+#ifdef debug
+            cerr << "In snarl " << stack.front().first->start() << " -> " << stack.front().first->end() << endl;
+#endif
+            
+            // Add this handle in the backing graph, which is going to be used
+            // to represent a visit to an ordinary node, to the top haplotype on
+            // the stack.
+            stack.front().second.push_back(next_handle);
+        }
+        
+        if (next_snarl != nullptr) {
+            // When we come to a child snarl, descend into a new stack frame.
+            // TODO: relies on the backing graph handles being the end handles
+            // in the snarl's net graph.
+            
+#ifdef debug
+            cerr << "Entering snarl " << next_snarl->start() << " -> " << next_snarl->end() << endl;
+#endif
+            
+            stack.emplace_front(next_snarl, vector<handle_t>{next_handle});
+        }
+    }
+    
+    // By the end we should have exited all the snarls
+    assert(stack.empty());
+    
+    // Reverse all the deletion vectors to delete in reverse insertion order
+    for (auto& kv : to_return.deletions) {
+        reverse(kv.second.begin(), kv.second.end());
+    }
+    
+    return to_return;
 }
 
 ReplaceLocalHaplotypeCommand GenomeState::replace_local_haplotype(const ReplaceLocalHaplotypeCommand& c) {
@@ -352,6 +470,10 @@ InsertHaplotypeCommand GenomeState::delete_haplotype(const DeleteHaplotypeComman
         
         for (auto& overall_lane : overall_lanes) {
             // For each haplotype we want to remove from this snarl, in order...
+            
+#ifdef debug
+            cerr << "Delete " << overall_lane << " from " << kv.first->start() << " -> " << kv.first->end() << endl;
+#endif
             
             // Remove the haplotype and save a copy
             auto removed = state.at(snarl).erase(overall_lane);  
@@ -553,6 +675,13 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
         
         // See if that puts us in another snarl
         next = manager.into_which_snarl(here);
+    }
+}
+
+void GenomeState::dump() const {
+    for (auto& kv : state) {
+        cerr << "State of " << kv.first->start() << " -> " << kv.first->end() << ":" << endl;
+        kv.second.dump();
     }
 }
 
