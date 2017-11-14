@@ -2,6 +2,7 @@
 #include "genotyper.hpp"
 #include "algorithms/topological_sort.hpp"
 
+#define debug
 
 namespace vg {
 
@@ -33,7 +34,6 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
     VG& graph = augmented_graph.graph;
     Translator& translator = augmented_graph.translator;
 
-    assert(graph.paths.has_path("x"));
     if(output_vcf && show_progress) {
 #pragma omp critical (cerr)
         cerr << "Calling against path " << ref_path_name << endl;
@@ -287,7 +287,7 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
                     int tid = omp_get_thread_num();
 
                     // Get all the paths through the site supported by enough reads, or by real named paths
-                    vector<list<NodeTraversal>> paths = get_paths_through_site(graph, site, reads_by_name);
+                    vector<list<Mapping>> paths = get_paths_through_site(graph, site, reads_by_name);
 
                     if(paths.size() == 0) {
                         // TODO: this compensates for inside-out sites from
@@ -296,7 +296,7 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
 
                         // Flip the site around and try again
                         std::swap(site.start, site.end);
-                        vector<list<NodeTraversal>> reverse_paths = get_paths_through_site(graph, site, reads_by_name);
+                        vector<list<Mapping>> reverse_paths = get_paths_through_site(graph, site, reads_by_name);
                         if(reverse_paths.size() != 0) {
                             // We actually got some paths. Use them
                             swap(paths, reverse_paths);
@@ -358,14 +358,14 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
                             for(auto& path : paths) {
                                 // Announce each allele in turn
 #pragma omp critical (cerr)
-                                cerr << "\t" << traversals_to_string(path) << endl;
+                                cerr << "\t" << traversals_to_string(graph, path) << endl;
                             }
                         }
 
                         // Compute the lengths of all the alleles
                         set<size_t> allele_lengths;
                         for(auto& path : paths) {
-                            allele_lengths.insert(traversals_to_string(path).size());
+                            allele_lengths.insert(traversals_to_string(graph, path).size());
                         }
 
                         // Get the affinities for all the paths
@@ -444,10 +444,10 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
                                 for(size_t i = 0; i < score_totals.size(); i++) {
                                     // Spit out average scores of uniquely supporting reads for each allele that has them.
                                     if(score_counts.at(i) > 0) {
-                                        cerr << "\t" << traversals_to_string(paths.at(i)) << ": "
+                                        cerr << "\t" << traversals_to_string(graph, paths.at(i)) << ": "
                                              << score_totals.at(i) / score_counts.at(i) << endl;
                                     } else {
-                                        cerr << "\t" << traversals_to_string(paths.at(i)) << ": --" << endl;
+                                        cerr << "\t" << traversals_to_string(graph, paths.at(i)) << ": --" << endl;
                                     }
                                 }
 
@@ -677,16 +677,27 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const strin
     return to_return;
 }
 
-vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const Site& site,
-                                                              const map<string, Alignment*>& reads_by_name) {
-    // We're going to emit traversals supported by any paths in the graph.
+bool Genotyper::mapping_enters_side(const Mapping& mapping, const Node* node, bool start) {
+    return mapping.position().offset() == 0 && mapping.position().is_reverse() != start;
+}
 
+bool Genotyper::mapping_exits_side(const Mapping& mapping, const Node* node, bool start) {
+    return mapping.position().is_reverse() == start &&
+        mapping.position().offset() + mapping_from_length(mapping) == node->sequence().length() &&
+        mapping.edit(mapping.edit_size() - 1).from_length() ==
+        mapping.edit(mapping.edit_size() - 1).to_length();
+}
+
+vector<list<Mapping>> Genotyper::get_paths_through_site(VG& graph, const Site& site,
+                                                        const map<string, Alignment*>& reads_by_name) {
+    // We're going to emit traversals supported by any paths in the graph.
+    
     // Put all our subpaths in here to deduplicate them by sequence they spell
     // out. And to count occurrences. Note that the occurrence count will be
     // boosted to min_recurrence if a non-read path in the graph supports a
     // certain traversal string, so we don't end up dropping unsupported ref
     // alleles.
-    map<string, pair<list<NodeTraversal>, int>> results;
+    map<string, pair<list<Mapping>, int>> results;
 
 #ifdef debug
 #pragma omp critical (cerr)
@@ -730,16 +741,19 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                 // left, and if both are backward we go right again.
                 bool traversal_direction = mapping->position().is_reverse() != site.start.backward;
 
+                // Does our mapping actually cross through the starting side
+                if (!traversal_direction && !mapping_exits_side(*mapping, site.start.node, site.start.backward) ||
+                    traversal_direction && !mapping_enters_side(*mapping, site.start.node, site.start.backward)) {
+                    continue;
+                }
+
                 // What orientation would we want to find the end node in? If
                 // we're traveling backward, we expect to find it in the
                 // opposite direction to the one we were given.
                 bool expected_end_orientation = site.end.backward != traversal_direction;
 
                 // We're going to fill in this list with traversals.
-                list<NodeTraversal> path_traversed;
-
-                // And we're going to fill this with the sequence
-                stringstream allele_stream;
+                list<Mapping> path_traversed;
 
                 while(mapping != nullptr && traversal_count < max_path_search_steps) {
                     // Traverse along until we hit the end traversal or take too
@@ -751,34 +765,53 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
 #endif
 
                     // Say we visit this node along the path, in this orientation
-                    path_traversed.push_back(NodeTraversal(graph.get_node(mapping->position().node_id()),
-                                                           mapping->position().is_reverse() != traversal_direction));
-
-                    // Stick the sequence of the node (appropriately oriented) in the stream for the allele sequence
-                    string seq = graph.get_node(mapping->position().node_id())->sequence();
-                    allele_stream << (path_traversed.back().backward ? reverse_complement(seq) : seq);
-
+                    path_traversed.push_back(!traversal_direction ? *mapping :
+                                             reverse_complement_mapping(*mapping,[&graph](id_t node_id) {
+                                                     return graph.get_node(node_id)->sequence().length();}));
+                    
                     if(mapping->position().node_id() == site.end.node->id() && mapping->position().is_reverse() == expected_end_orientation) {
+                        // Does our mapping actually cross through the ending side
+                        if (!traversal_direction && !mapping_enters_side(*mapping, site.end.node, !site.end.backward) ||
+                            traversal_direction && !mapping_exits_side(*mapping, site.end.node, !site.end.backward)) {
+                            break;
+                        }
+
+                        // get the string for the sequence
+                        string allele_seq;
+                        for (auto& path_mapping : path_traversed) {
+                            Node* map_node = graph.get_node(path_mapping.position().node_id());
+                            // zap offsets in site endpoints as we do not consider variation
+                            // here (TODO: can/should this be relaxed?)
+                            if (&path_mapping == &path_traversed.front() || &path_mapping == &path_traversed.back()) {
+                                path_mapping.mutable_position()->set_offset(0);
+                                path_mapping.clear_edit();
+                                Edit* edit = path_mapping.add_edit();
+                                edit->set_from_length(map_node->sequence().length());
+                                edit->set_to_length(edit->from_length());
+                            }
+                            allele_seq += mapping_sequence(path_mapping, map_node->sequence());
+                        }
+                        
                         // We have stumbled upon the end node in the orientation we wanted it in.
-                        if(results.count(allele_stream.str())) {
+                        if(results.count(allele_seq)) {
                             // It is already there! Increment the observation count.
 #ifdef debug
 #pragma omp critical (cerr)
-                            cerr << "\tFinished; got known sequence " << allele_stream.str() << endl;
+                            cerr << "\tFinished; got known sequence " << allele_seq << endl;
 #endif
-
+                            
                             if(reads_by_name.count(name)) {
                                 // We are a read. Just increment count
-                                results[allele_stream.str()].second++;
+                                results[allele_seq].second++;
                             } else {
                                 // We are a named path (like "ref")
-                                if(results[allele_stream.str()].second < min_recurrence) {
+                                if(results[allele_seq].second < min_recurrence) {
                                     // Ensure that this allele doesn't get
                                     // eliminated, since ref or some other named
                                     // path supports it.
-                                    results[allele_stream.str()].second = min_recurrence;
+                                    results[allele_seq].second = min_recurrence;
                                 } else {
-                                    results[allele_stream.str()].second++;
+                                    results[allele_seq].second++;
                                 }
                             }
                         } else {
@@ -786,11 +819,11 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                             // and a count of min_recurrence (so it doesn't get
                             // filtered later) if we are a named non-read path
                             // (like "ref").
-                            results[allele_stream.str()] = make_pair(path_traversed,
+                            results[allele_seq] = make_pair(path_traversed,
                                                                      reads_by_name.count(name) ? 1 : min_recurrence);
 #ifdef debug
 #pragma omp critical (cerr)
-                            cerr << "\tFinished; got novel sequence " << allele_stream.str() << endl;
+                            cerr << "\tFinished; got novel sequence " << allele_seq << endl;
 #endif
                         }
 
@@ -826,7 +859,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
     }
 
     // Now collect the unique results
-    vector<list<NodeTraversal>> to_return;
+    vector<list<Mapping>> to_return;
 
     for(auto& result : results) {
         // Break out each result
@@ -848,6 +881,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
 
     return to_return;
 }
+
 
 template<typename T> inline void set_intersection(const unordered_set<T>& set_1, const unordered_set<T>& set_2,
                                                   unordered_set<T>* out_intersection ) {
@@ -1024,7 +1058,7 @@ map<Alignment*, vector<Genotyper::Affinity>>
     Genotyper::get_affinities(VG& graph,
                               const map<string, Alignment*>& reads_by_name,
                               const Site& site,
-                              const vector<list<NodeTraversal>>& ultrabubble_paths) {
+                              const vector<list<Mapping>>& ultrabubble_paths) {
 
     // Grab our thread ID, which determines which aligner we get.
     int tid = omp_get_thread_num();
@@ -1104,7 +1138,7 @@ map<Alignment*, vector<Genotyper::Affinity>>
 
         for(auto it = path.begin(); it != path.end(); ++it) {
             // Add in every node on the path to the new allele graph
-            allele_graph.add_node(*(*it).node);
+            allele_graph.add_node(*graph.get_node(it->position().node_id()));
 
             // Add in just the edge to the previous node on the path
             if(it != path.begin()) {
@@ -1114,11 +1148,11 @@ map<Alignment*, vector<Genotyper::Affinity>>
                 // Make an edge
                 Edge path_edge;
                 // And hook it to the correct side of the last node
-                path_edge.set_from((*prev).node->id());
-                path_edge.set_from_start((*prev).backward);
+                path_edge.set_from(prev->position().node_id());
+                path_edge.set_from_start(prev->position().is_reverse());
                 // And the correct side of the next node
-                path_edge.set_to((*it).node->id());
-                path_edge.set_to_end((*it).backward);
+                path_edge.set_to(it->position().node_id());
+                path_edge.set_to_end(it->position().is_reverse());
 
                 assert(graph.has_edge(path_edge));
 
@@ -1138,7 +1172,7 @@ map<Alignment*, vector<Genotyper::Affinity>>
         // Grab the sequence of the path we are trying the reads against, so we
         // can check for identity across the site and not just globally for the
         // read.
-        auto path_seq = traversals_to_string(path);
+        auto path_seq = traversals_to_string(graph, path);
 
         for(auto& name : relevant_read_names) {
             // For every read that touched the ultrabubble, grab its original
@@ -1236,7 +1270,8 @@ map<Alignment*, vector<Genotyper::Affinity>>
                 read_traversal.reverse();
                 for(auto& item : read_traversal) {
                     // Flip around every traversal as well as reversing their order.
-                    item = item.reverse();
+                    reverse_complement_mapping_in_place(&item, [&graph](id_t node_id) {
+                            return graph.get_node(node_id)->sequence().length();});
                 }
 
             }
@@ -1246,20 +1281,25 @@ map<Alignment*, vector<Genotyper::Affinity>>
             // ends.
 
             // Get the string this read spells out in its best alignment to this allele
-            auto seq = traversals_to_string(read_traversal);
+            auto seq = traversals_to_string(graph, read_traversal);
 
             // Now decide if the read's seq supports this path.
-            if(read_traversal.front() == site.start && read_traversal.back() == site.end) {
+            if(read_traversal.front().position().node_id() == site.start.node->id() &&
+               read_traversal.front().position().is_reverse() == site.start.backward &&
+               read_traversal.back().position().node_id() == site.end.node->id() &&
+               read_traversal.back().position().is_reverse() == site.end.backward) {
                 // Anchored at both ends.
                 // Need an exact match. Record if we have one or not.
                 affinity.consistent = (seq == path_seq);
-            } else if(read_traversal.front() == site.start) {
+            } else if(read_traversal.front().position().node_id() == site.start.node->id() &&
+                      read_traversal.front().position().is_reverse() == site.start.backward) {
                 // Anchored at start only.
                 // seq needs to be a prefix of path_seq
                 auto difference = std::mismatch(seq.begin(), seq.end(), path_seq.begin());
                 // If the first difference is the past-the-end of the prefix, then it's a prefix
                 affinity.consistent = (difference.first == seq.end());
-            } else if(read_traversal.back() == site.end) {
+            } else if(read_traversal.back().position().node_id() == site.end.node->id() &&
+                      read_traversal.back().position().is_reverse() == site.end.backward) {
                 // Anchored at end only.
                 // seq needs to be a suffix of path_seq
                 auto difference = std::mismatch(seq.rbegin(), seq.rend(), path_seq.rbegin());
@@ -1336,38 +1376,49 @@ map<Alignment*, vector<Genotyper::Affinity>>
 }
 
 
-list<NodeTraversal> Genotyper::get_traversal_of_site(VG& graph, const Site& site, const Path& path) {
+list<Mapping> Genotyper::get_traversal_of_site(VG& graph, const Site& site, const Path& path) {
 
     // We'll fill this in
-    list<NodeTraversal> to_return;
+    list<Mapping> to_return;
 
     for(size_t i = 0; i < path.mapping_size(); i++) {
-        // Make a NodeTraversal version of the Mapping
-        NodeTraversal traversal(graph.get_node(path.mapping(i).position().node_id()), path.mapping(i).position().is_reverse());
+        const Mapping& mapping = path.mapping(i);
 
-        if(site.contents.count(traversal.node->id())) {
+        if(site.contents.count(mapping.position().node_id())) {
             // We're inside the bubble. This is super simple when we have the contents!
-            to_return.push_back(traversal);
-        }
+            to_return.push_back(mapping);
 
+            if (mapping.position().node_id() == site.start.node->id() ||
+                mapping.position().node_id() == site.end.node->id()) {
+                // zap offsets in site endpoints as we do not consider variation
+                // here (TODO: can/should this be relaxed?)
+                Node* node = graph.get_node(to_return.back().position().node_id());
+                to_return.back().mutable_position()->set_offset(0);
+                to_return.back().clear_edit();
+                Edit* edit = to_return.back().add_edit();
+                edit->set_from_length(node->sequence().length());
+                edit->set_to_length(edit->from_length());
+            }            
+        }
     }
+
     return to_return;
 }
 
-string Genotyper::traversals_to_string(const list<NodeTraversal>& path) {
-    stringstream seq;
-    for(auto& traversal : path) {
-        // Stick in each sequence in order, with orientation
-        seq << (traversal.backward ? reverse_complement(traversal.node->sequence()) : traversal.node->sequence());
+string Genotyper::traversals_to_string(VG& graph, const list<Mapping>& path) {
+    string seq;
+    for(auto& mapping : path) {
+        const Node* node = graph.get_node(mapping.position().node_id());
+        seq += mapping_sequence(mapping, *node);
     }
-    return seq.str();
+    return seq;
 }
 
 map<Alignment*, vector<Genotyper::Affinity> >
 Genotyper::get_affinities_fast(VG& graph,
                                const map<string, Alignment*>& reads_by_name,
                                const Site& site,
-                               const vector<list<NodeTraversal> >& ultrabubble_paths,
+                               const vector<list<Mapping> >& ultrabubble_paths,
                                bool allow_internal_alignments) {
 
     // We're going to build this up gradually, appending to all the vectors.
@@ -1385,7 +1436,7 @@ Genotyper::get_affinities_fast(VG& graph,
     vector<string> allele_strings;
     for(auto& path : ultrabubble_paths) {
         // Convert all the Paths used for alleles back to their strings.
-        allele_strings.push_back(traversals_to_string(path));
+        allele_strings.push_back(traversals_to_string(graph, path));
     }
 
     for(auto id : site.contents) {
@@ -1413,30 +1464,37 @@ Genotyper::get_affinities_fast(VG& graph,
         // Get the NodeTraversals for this read through this site.
         auto read_traversal = get_traversal_of_site(graph, site, reads_by_name.at(name)->path());
 
-        if(read_traversal.front() == site.end.reverse() || read_traversal.back() == site.start.reverse()) {
+        if((read_traversal.front().position().node_id() == site.end.node->id() &&
+            read_traversal.front().position().is_reverse() != site.end.backward) ||
+           (read_traversal.back().position().node_id() == site.start.node->id() &&
+            read_traversal.back().position().is_reverse() != site.start.backward)) {
+
             // We really traversed this site backward. Flip it around.
             read_traversal.reverse();
             for(auto& item : read_traversal) {
                 // Flip around every traversal as well as reversing their order.
-                item = item.reverse();
+
+                reverse_complement_mapping_in_place(&item, [&graph](id_t node_id) {
+                        return graph.get_node(node_id)->sequence().length();});
             }
 
             // We're on the reverse strand
             base_affinity.is_reverse = true;
         }
 
-        if(read_traversal.size() == 1 && (read_traversal.front() == site.start || read_traversal.back() == site.end)) {
+        if(read_traversal.size() == 1 && (read_traversal.front().position().node_id() == site.start.node->id() ||
+                                          read_traversal.back().position().node_id() == site.end.node->id())) {
             // This read only touches the head or tail of the site, and so
             // cannot possibly be informative.
             cerr << "Non-informative site being removed " << endl
-                 << read_traversal.front() << " to " << read_traversal.back() << endl;  
+                 << pb2json(read_traversal.front()) << " to " << pb2json(read_traversal.back()) << endl;  
             continue;
         }
 
         size_t total_supported = 0;
 
         // Get the string it spells out
-        auto seq = traversals_to_string(read_traversal);
+        auto seq = traversals_to_string(graph, read_traversal);
 
 #ifdef debug
 #pragma omp critical (cerr)
@@ -1447,17 +1505,22 @@ Genotyper::get_affinities_fast(VG& graph,
         for(auto& path_seq : allele_strings) {
             // We'll make an affinity for this allele
             Affinity affinity = base_affinity;
-            if(read_traversal.front() == site.start && read_traversal.back() == site.end) {
+            if(read_traversal.front().position().node_id() == site.start.node->id() &&
+               read_traversal.front().position().is_reverse() == site.start.backward &&
+               read_traversal.back().position().node_id() == site.end.node->id() &&
+               read_traversal.back().position().is_reverse() == site.end.backward) {
                 // Anchored at both ends.
                 // Need an exact match. Record if we have one or not.
                 affinity.consistent = (seq == path_seq);
-            } else if(read_traversal.front() == site.start) {
+            } else if(read_traversal.front().position().node_id() == site.start.node->id() &&
+                      read_traversal.front().position().is_reverse() == site.start.backward) {
                 // Anchored at start only.
                 // seq needs to be a prefix of path_seq
                 auto difference = std::mismatch(seq.begin(), seq.end(), path_seq.begin());
                 // If the first difference is the past-the-end of the prefix, then it's a prefix
                 affinity.consistent = (difference.first == seq.end());
-            } else if(read_traversal.back() == site.end) {
+            } else if(read_traversal.back().position().node_id() == site.end.node->id() &&
+                      read_traversal.back().position().is_reverse() == site.end.backward) {
                 // Anchored at end only.
                 // seq needs to be a suffix of path_seq
                 auto difference = std::mismatch(seq.rbegin(), seq.rend(), path_seq.rbegin());
@@ -1474,7 +1537,7 @@ Genotyper::get_affinities_fast(VG& graph,
 
 #ifdef debug
 #pragma omp critical (cerr)
-            cerr << "\t" << path_seq << " vs observed " << (read_traversal.front() == site.start) << " " << seq << " " << (read_traversal.back() == site.end) << ": " << affinity.consistent << endl;
+            cerr << "\t" << path_seq << " vs observed " << (read_traversal.front().position().node_id() == site.start.node->id()) << " " << seq << " " << (read_traversal.back().position().node_id() == site.end.node->id()) << ": " << affinity.consistent << endl;
 #endif
 
             // Fake a weight
@@ -1835,7 +1898,7 @@ string Genotyper::get_qualities_in_site(VG& graph, const Site& site, const Align
 
 Locus Genotyper::genotype_site(VG& graph,
                                const Site& site,
-                               const vector<list<NodeTraversal>>& ultrabubble_paths,
+                               const vector<list<Mapping>>& ultrabubble_paths,
                                const map<Alignment*, vector<Affinity>>& affinities) {
 
     // Freebayes way (improved with multi-support)
@@ -1845,7 +1908,10 @@ Locus Genotyper::genotype_site(VG& graph,
 
     for(auto& path : ultrabubble_paths) {
         // Convert each allele to a Path and put it in the locus
-        *to_return.add_allele() = path_from_node_traversals(path);
+        Path* allele_path = to_return.add_allele();
+        for (auto& mapping : path) {
+            *allele_path->add_mapping() = mapping;
+        }
     }
 
 #ifdef debug
@@ -1930,8 +1996,8 @@ Locus Genotyper::genotype_site(VG& graph,
     for(int i = 0; i < ultrabubble_paths.size(); i++) {
         // Build a useful name for the allele
         stringstream allele_name;
-        for(auto& traversal : ultrabubble_paths[i]) {
-            allele_name << traversal.node->id() << ",";
+        for(auto& mapping : ultrabubble_paths[i]) {
+            allele_name << mapping.position().node_id() << ",";
         }
 #pragma omp critical (cerr)
         {
