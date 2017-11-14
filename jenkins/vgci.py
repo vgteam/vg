@@ -996,7 +996,7 @@ class VGCITest(TestCase):
                            assembly="hg19",
                            acc_threshold=0.0075, auc_threshold=0.075, multipath=True, paired_only=True,
                            tag_ext='-trained',
-                           sim_opts='-p 500 -v 50 -S 4 -i 0.002',
+                           sim_opts='-p 500 -v 50 -S 4 -i 0.002 -I',
                            # 800k 148bp reads from Genome in a Bottle NA12878 library
                            # (placeholder while finding something better)
                            sim_fastq='ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz')
@@ -1027,7 +1027,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
                            acc_threshold=0.02,
-                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5',
+                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5 -I',
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
 
     @timeout_decorator.timeout(7200)
@@ -1042,7 +1042,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
                            acc_threshold=0.02, auc_threshold=0.02,
-                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5',
+                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5 -I',
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
 
     @timeout_decorator.timeout(7200)
