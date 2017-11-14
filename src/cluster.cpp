@@ -705,7 +705,6 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_fai
                 }
                 return true;
             };
-            
             xgindex->follow_edges(handle, go_left, bucket_using_neighbors);
         }
     }
@@ -783,29 +782,42 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_fai
         }
     }
     
+#ifdef debug_od_clusterer
+    cerr << "using path component index to exclude strand merges" << endl;
+#endif
+    
     // use the component path set index to exclude some distance measurements between groups we can tell are on separate
     // strands a priori
     // TODO: I wonder if there's a way to do this without the quadratic loop (although it's quadratic in number of connected
     // components, so probably not all that bad)
     vector<vector<size_t>> bucketed_groups = component_union_find.all_groups();
+#ifdef debug_od_clusterer
+    cerr << "groups: " << endl;
+    for (auto& group : bucketed_groups) {
+        for (size_t idx : group) {
+            cerr << idx << " ";
+        }
+        cerr << endl;
+    }
+#endif
     for (size_t i = 1; i < bucketed_groups.size(); i++) {
         // find the first member of the 'i' group that is on a path or associated with a neighbor on a path
         vector<size_t>& i_group = bucketed_groups[i];
         size_t i_idx = 0;
-        while (i_idx < i_group.size() ? (non_path_hits.count(i_group[i_idx]) ? non_path_hits[i_group[i_idx]] != 0 : true ) : false) {
+        while (i_idx < i_group.size() ? (non_path_hits.count(i_group[i_idx]) ? non_path_hits[i_group[i_idx]] == 0 : false ) : false) {
             i_idx++;
         }
         
         // check if these two hits are on a path that is on a separate component
         if (i_idx < i_group.size()) {
-            size_t i_node_id = non_path_hits.count(i_group[i_idx]) ? non_path_hits[i_group[i_idx]] : id(get_position(i_group[i_idx]));
+            id_t i_node_id = non_path_hits.count(i_group[i_idx]) ? non_path_hits[i_group[i_idx]] : id(get_position(i_group[i_idx]));
             size_t i_path = paths_of_node_memo->at(i_node_id).front().first;
             
             for (size_t j = 0; j < i; j++) {
                 // find the first member of the 'j' group that is on a path or associated with a neighbor on a path
                 vector<size_t>& j_group = bucketed_groups[j];
                 size_t j_idx = 0;
-                while (j_idx < j_group.size() ? (non_path_hits.count(j_group[j_idx]) ? non_path_hits[j_group[j_idx]] != 0 : true ) : false) {
+                while (j_idx < j_group.size() ? (non_path_hits.count(j_group[j_idx]) ? non_path_hits[j_group[j_idx]] == 0 : false ) : false) {
                     j_idx++;
                 }
                 
