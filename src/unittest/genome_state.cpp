@@ -1247,6 +1247,39 @@ TEST_CASE("GenomeState can have haplotypes appended", "[genomestate]") {
             REQUIRE(traced[5] == graph.get_handle(8, false));
         }
         
+        SECTION("Part of the haplotype can be replaced") {
+            ReplaceSnarlHaplotypeCommand replace;
+            replace.snarl = bottom_snarl;
+            replace.lane = state.count_haplotypes(bottom_snarl) - 1;
+            replace.haplotype.push_back(graph.get_handle(3, false));
+            replace.haplotype.push_back(graph.get_handle(4, false));
+            replace.haplotype.push_back(graph.get_handle(5, false));
+            
+            GenomeStateCommand* unreplace = state.execute(&replace);
+            
+            SECTION("The haplotype can be traced") {
+                // We trace out all the handles in the backing graph
+                vector<handle_t> traced;
+                
+                state.trace_haplotype(chromosome, 0, [&](const handle_t& visit) {
+                    // Put every handle in the vector
+                    traced.push_back(visit);
+                });
+             
+                // We should visit nodes 1, 2, 3, 4, 5, 7, 8 in that order
+                REQUIRE(traced.size() == 7);
+                REQUIRE(traced[0] == graph.get_handle(1, false));
+                REQUIRE(traced[1] == graph.get_handle(2, false));
+                REQUIRE(traced[2] == graph.get_handle(3, false));
+                REQUIRE(traced[3] == graph.get_handle(4, false));
+                REQUIRE(traced[4] == graph.get_handle(5, false));
+                REQUIRE(traced[5] == graph.get_handle(7, false));
+                REQUIRE(traced[6] == graph.get_handle(8, false));
+            }            
+            
+            delete unreplace;
+        }
+        
         SECTION("The haplotype can be removed again") {
             delete state.execute(undo);
             
