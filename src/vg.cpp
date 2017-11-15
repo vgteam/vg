@@ -8579,17 +8579,24 @@ int32_t VG::distance_to_head(NodeTraversal node, int32_t limit) {
     return distance_to_head(node, limit, 0, seen);
 }
 
+// Get the distance from head of node to beginning of graph, or -1 if limit exceeded.
 int32_t VG::distance_to_head(NodeTraversal node, int32_t limit, int32_t dist, set<NodeTraversal>& seen) {
     NodeTraversal n = node;
+    // count() returns 1 if NodeTraversal exists in set
+    // count() returns 0 if NodeTraversal doesn't exist in set
     if (seen.count(n)) return -1;
+    // adds NodeTraversals that are not in the set yet
     seen.insert(n);
     if (limit <= 0) {
         return -1;
     }
+    // dist starts at 0, each recursive call increases dist 
     if (is_head_node(n.node)) {
         return dist;
     }
+    // gets the node to the left of node you are currently on
     for (auto& trav : nodes_prev(n)) {
+        // l = size of the node's sequence of bases 
         size_t l = trav.node->sequence().size();
         size_t t = distance_to_head(trav, limit-l, dist+l, seen);
         if (t != -1) {

@@ -2036,7 +2036,7 @@ TEST_CASE("distance_to_tail() produces expected results", "[vg]") {
         
         REQUIRE(check == 0);
     }
-    SECTION("distance_to_tail() works when NodeTraversal is not at head") {
+    SECTION("distance_to_tail() works when NodeTraversal is not at tail") {
         vg.create_edge(n0, n1);
         vg.create_edge(n1, n2);
         vg.create_edge(n2, n3);
