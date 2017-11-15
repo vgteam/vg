@@ -12,6 +12,8 @@
 #include <fstream>
 
 #include "subcommand.hpp"
+#include "../algorithms/distance_to_head.hpp"
+#include "../algorithms/distance_to_tail.hpp"
 
 #include "../vg.hpp"
 #include "../distributions.hpp"
@@ -19,6 +21,7 @@
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
+using namespace vg::algorithms;
 
 void help_stats(char** argv) {
     cerr << "usage: " << argv[0] << " stats [options] <graph.vg>" << endl
@@ -60,8 +63,8 @@ int main_stats(int argc, char** argv) {
     bool stats_tails = false;
     bool show_sibs = false;
     bool show_components = false;
-    bool distance_to_head = false;
-    bool distance_to_tail = false;
+    bool head_distance = false;
+    bool tail_distance = false;
     bool node_count = false;
     bool edge_count = false;
     bool verbose = false;
@@ -148,11 +151,11 @@ int main_stats(int argc, char** argv) {
             break;
 
         case 'd':
-            distance_to_head = true;
+            head_distance = true;
             break;
 
         case 't':
-            distance_to_tail = true;
+            tail_distance = true;
             break;
 
         case 'n':
@@ -284,17 +287,19 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    if (distance_to_head) {
+    if (head_distance) {
         for (auto id : ids) {
+            auto n = graph->get_handle(id, false);
             cout << id << " to head:\t"
-                << graph->distance_to_head(NodeTraversal(graph->get_node(id), false)) << endl;
+                << distance_to_head(n, 1000, graph) << endl;
         }
     }
 
-    if (distance_to_tail) {
+    if (tail_distance) {
         for (auto id : ids) {
+            auto n = graph->get_handle(id, false);
             cout << id << " to tail:\t"
-                << graph->distance_to_tail(NodeTraversal(graph->get_node(id), false)) << endl;
+                << distance_to_tail(n, 1000, graph) << endl;
         }
     }
 

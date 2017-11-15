@@ -8568,43 +8568,7 @@ vector<Node*> VG::head_nodes(void) {
     return heads;
 }
 
-/*
-// TODO item
-int32_t VG::distance_to_head(Position pos, int32_t limit) {
-}
-*/
 
-int32_t VG::distance_to_head(NodeTraversal node, int32_t limit) {
-    set<NodeTraversal> seen;
-    return distance_to_head(node, limit, 0, seen);
-}
-
-// Get the distance from head of node to beginning of graph, or -1 if limit exceeded.
-int32_t VG::distance_to_head(NodeTraversal node, int32_t limit, int32_t dist, set<NodeTraversal>& seen) {
-    NodeTraversal n = node;
-    // count() returns 1 if NodeTraversal exists in set
-    // count() returns 0 if NodeTraversal doesn't exist in set
-    if (seen.count(n)) return -1;
-    // adds NodeTraversals that are not in the set yet
-    seen.insert(n);
-    if (limit <= 0) {
-        return -1;
-    }
-    // dist starts at 0, each recursive call increases dist 
-    if (is_head_node(n.node)) {
-        return dist;
-    }
-    // gets the node to the left of node you are currently on
-    for (auto& trav : nodes_prev(n)) {
-        // l = size of the node's sequence of bases 
-        size_t l = trav.node->sequence().size();
-        size_t t = distance_to_head(trav, limit-l, dist+l, seen);
-        if (t != -1) {
-            return t;
-        }
-    }
-    return -1;
-}
 
 bool VG::is_tail_node(id_t id) {
     return is_tail_node(get_node(id));
@@ -8629,30 +8593,7 @@ vector<Node*> VG::tail_nodes(void) {
     return tails;
 }
 
-int32_t VG::distance_to_tail(NodeTraversal node, int32_t limit) {
-    set<NodeTraversal> seen;
-    return distance_to_tail(node, limit, 0, seen);
-}
 
-int32_t VG::distance_to_tail(NodeTraversal node, int32_t limit, int32_t dist, set<NodeTraversal>& seen) {
-    NodeTraversal n = node;
-    if (seen.count(n)) return -1;
-    seen.insert(n);
-    if (limit <= 0) {
-        return -1;
-    }
-    if (is_tail_node(n.node)) {
-        return dist;
-    }
-    for (auto& trav : nodes_next(n)) {
-        size_t l = trav.node->sequence().size();
-        size_t t = distance_to_tail(trav, limit-l, dist+l, seen);
-        if (t != -1) {
-            return t;
-        }
-    }
-    return -1;
-}
 
 void VG::wrap_with_null_nodes(void) {
     vector<Node*> heads;
