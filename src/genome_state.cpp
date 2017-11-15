@@ -111,22 +111,42 @@ void SnarlState::insert(const vector<pair<handle_t, size_t>>& haplotype) {
     }
 }
 
-const vector<pair<handle_t, size_t>>& SnarlState::append(const vector<handle_t>& haplotype) {
+const vector<pair<handle_t, size_t>>& SnarlState::append(const vector<handle_t>& haplotype, bool backward) {
     assert(!haplotype.empty());
     
-    if (haplotype.front() != graph->get_start() || haplotype.back() != graph->get_end()) {
-        // Fail if it's not actually from start to end.
-        throw runtime_error("Tried to add a haplotype to a snarl that is not a start-to-end traversal of that snarl.");
+    if (backward) {
+        if (haplotype.back() != graph->flip(graph->get_start()) || haplotype.front() != graph->flip(graph->get_end())) {
+            // Fail if it's not actually from end to start.
+            throw runtime_error("Tried to add a haplotype backward to a snarl that is not a end-to-start traversal of that snarl.");
+        }
+    } else {
+        if (haplotype.front() != graph->get_start() || haplotype.back() != graph->get_end()) {
+            // Fail if it's not actually from start to end.
+            throw runtime_error("Tried to add a haplotype forward to a snarl that is not a start-to-end traversal of that snarl.");
+        }
     }
     
     // Make a new haplotype at the end of our haplotypes vector that's big enough.
     haplotypes.emplace_back(haplotype.size());
     auto& inserted = haplotypes.back();
     
-    // Make an iterator to run through it
-    auto inserted_iterator = inserted.begin();
-    for (auto& handle : haplotype) {
-        // For every handle we need to insert
+    for (size_t i = backward ? (haplotype.size() - 1) : 0;
+        backward ? (i != (size_t) -1) : i < haplotype.size();
+        backward ? i-- : i++) {
+        
+        // For each position in the haplotype, going in the correct direction
+        
+        // Get the handle we want to insert
+        auto handle = haplotype.at(i);
+        if (backward) {
+            // If we're going backward we need to insert everything the other
+            // way around
+            handle = graph->flip(handle);
+        }
+        
+        // Work out where we are putting it. We should insert left to right when
+        // going forward, and right to left when going backward.
+        auto inserted_iterator = inserted.begin() + (backward ? haplotype.size() - 1 - i : i);
         
         // Save the handle
         inserted_iterator->first = handle;
@@ -138,29 +158,52 @@ const vector<pair<handle_t, size_t>>& SnarlState::append(const vector<handle_t>&
         // And do the insert
         node_lanes.emplace_back(inserted_iterator);
         
-        // Insert the next handle in the next slot in the haplotype
-        ++inserted_iterator;
+#ifdef debug
+        cerr << "At haplotype position " << i << "/" << haplotype.size()
+            << " inserted " << graph->get_id(handle) << " " << graph->get_is_reverse(handle)
+            << " at lane " << inserted_iterator->second << "/" << node_lanes.size() << endl;
+#endif
     }
-
+    
     // Return the completed vector with the lane annotations.
     return inserted;
 }
 
-const vector<pair<handle_t, size_t>>& SnarlState::insert(size_t overall_lane, const vector<handle_t>& haplotype) {
+const vector<pair<handle_t, size_t>>& SnarlState::insert(size_t overall_lane, const vector<handle_t>& haplotype, bool backward) {
     assert(!haplotype.empty());
     
-    if (haplotype.front() != graph->get_start() || haplotype.back() != graph->get_end()) {
-        // Fail if it's not actually from start to end.
-        throw runtime_error("Tried to add a haplotype to a snarl that is not a start-to-end traversal of that snarl.");
+    if (backward) {
+        if (haplotype.back() != graph->flip(graph->get_start()) || haplotype.front() != graph->flip(graph->get_end())) {
+            // Fail if it's not actually from end to start.
+            throw runtime_error("Tried to add a haplotype backward to a snarl that is not a end-to-start traversal of that snarl.");
+        }
+    } else {
+        if (haplotype.front() != graph->get_start() || haplotype.back() != graph->get_end()) {
+            // Fail if it's not actually from start to end.
+            throw runtime_error("Tried to add a haplotype forward to a snarl that is not a start-to-end traversal of that snarl.");
+        }
     }
     
     // Insert a haplotype record at the specified overall lane that's big enough.
     auto& inserted = *haplotypes.emplace(haplotypes.begin() + overall_lane, haplotype.size());
     
-    // Make an iterator to run through it
-    auto inserted_iterator = inserted.begin();
-    for (auto& handle : haplotype) {
-        // For every handle we need to insert
+    for (size_t i = backward ? (haplotype.size() - 1) : 0;
+        backward ? (i != (size_t) -1) : i < haplotype.size();
+        backward ? i-- : i++) {
+        
+        // For each position in the haplotype, going in the correct direction
+        
+        // Get the handle we want to insert
+        auto handle = haplotype.at(i);
+        if (backward) {
+            // If we're going backward we need to insert everything the other
+            // way around
+            handle = graph->flip(handle);
+        }
+        
+        // Work out where we are putting it. We should insert left to right when
+        // going forward, and right to left when going backward.
+        auto inserted_iterator = inserted.begin() + + (backward ? haplotype.size() - 1 - i : i);
         
         // Save the handle
         inserted_iterator->first = handle;
@@ -715,12 +758,18 @@ void GenomeState::insert_handles(const vector<handle_t>& to_add,
             // What state do we have to work on?
             auto& snarl_state = state.at(last_snarl);
             
+            // Did we go backward or forward through this child snarl? This only
+            // matters to make sure we get the lane assignments right for its
+            // repeated children. We keep going forward through the haplotype
+            // either way.
+            bool backward = next_visit != last_snarl->end();
+            
             // Add in its haplotype, and get the resulting lane assignments.
             // Make sure to insert at the right lane if we are the last thing on
             // the stack (i.e. the top level snarl) and have a particular lane.
             auto& embedded = (stack.size() == 1 && top_lane != numeric_limits<size_t>::max()) ?
-                snarl_state.insert(top_lane, stack.front().second) :
-                snarl_state.append(stack.front().second);
+                snarl_state.insert(top_lane, stack.front().second, backward) :
+                snarl_state.append(stack.front().second, backward);
             
             // Remember to delete the overall lane from this snarl
             assert(!embedded.empty());
@@ -736,6 +785,10 @@ void GenomeState::insert_handles(const vector<handle_t>& to_add,
                 // If we exited a chain, record a traversal of the whole chain in
                 // the parent snarl's haplotype under construction.
                 
+#ifdef debug
+                cerr << "Snarl was last in its chain of " << chain->size() << endl;
+#endif
+                
                 // Get the parent snarl
                 const Snarl* parent = stack.front().first;
                 // And its net graph
@@ -748,6 +801,12 @@ void GenomeState::insert_handles(const vector<handle_t>& to_add,
 
                 // Tack it on to the parent
                 stack.front().second.push_back(chain_handle);
+            } else {
+#ifdef debug
+                cerr << "Visit " << next_visit << " was in chain of " << chain->size()
+                    << " with " << reverse(get_start_of(*chain)) << " out start and "
+                    << get_end_of(*chain) << " out end and " << stack.size() << " on stack" << endl;
+#endif
             }
             
         } else if (next_snarl == nullptr && !stack.empty()) {
@@ -770,6 +829,9 @@ void GenomeState::insert_handles(const vector<handle_t>& to_add,
             // TODO: relies on the backing graph handles being the end handles
             // in the snarl's net graph.
             
+            // Note that we may enter a snarl we don't finish if we aren't
+            // inserting across all the snarls in a chain.
+            
 #ifdef debug
             cerr << "Entering snarl " << next_snarl->start() << " -> " << next_snarl->end() << endl;
 #endif
@@ -777,9 +839,6 @@ void GenomeState::insert_handles(const vector<handle_t>& to_add,
             stack.emplace_front(next_snarl, vector<handle_t>{next_handle});
         }
     }
-    
-    // By the end we should have exited all the snarls
-    assert(stack.empty());
 
 }
     

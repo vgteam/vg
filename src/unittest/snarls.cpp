@@ -2770,5 +2770,102 @@ namespace vg {
             
         }
         
+        TEST_CASE("Chain start and end functions work on difficult chains", "[snarls]") {
+            // This graph will have a snarl from 1 to 8, a snarl from 2 to 4, and a
+            // snarl from 4 to 7, with a chain in the top snarl. The snarl from 4 to 7
+            // will have a child snarl from 5 to 6 (an insertion of node 9)
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            Node* n9 = graph.create_node("GCA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n8);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n4);
+            Edge* e5 = graph.create_edge(n3, n4);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n4, n7);
+            Edge* e8 = graph.create_edge(n5, n6);
+            Edge* e9 = graph.create_edge(n5, n9);
+            Edge* e10 = graph.create_edge(n9, n6);
+            Edge* e11 = graph.create_edge(n6, n7);
+            Edge* e12 = graph.create_edge(n7, n8);
+            
+            // Work out its snarls
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            
+            // Get the top snarl
+            const Snarl* top_snarl = snarl_manager.top_level_snarls().at(0);
+            
+            if (top_snarl->end().node_id() < top_snarl->start().node_id()) {
+                // Put it a consistent way around
+                snarl_manager.flip(top_snarl);
+            }
+            
+            // Make sure it's what we expect.
+            REQUIRE(top_snarl->start().node_id() == 1);
+            REQUIRE(top_snarl->end().node_id() == 8);
+
+            // Make sure we have one chain    
+            auto& chains = snarl_manager.chains_of(top_snarl);
+            REQUIRE(chains.size() == 1);
+            
+            // Get the chain
+            auto& chain = chains.at(0);
+            REQUIRE(chain.size() == 2);
+            
+            // And the snarls in the chain
+            const Snarl* left_child = chain.at(0);
+            const Snarl* right_child = chain.at(1);
+            
+            REQUIRE(left_child->start().node_id() == 2);
+            REQUIRE(left_child->end().node_id() == 4);
+            
+            // Make sure the right child is BACKWARD in the chain
+            snarl_manager.flip(right_child);
+            
+            REQUIRE(right_child->start().node_id() == 7);
+            REQUIRE(right_child->end().node_id() == 4);
+            
+            const Snarl* right_child_child = snarl_manager.children_of(right_child).at(0);
+            
+            REQUIRE(right_child_child->start().node_id() == 5);
+            REQUIRE(right_child_child->end().node_id() == 6);
+            
+            SECTION("A chain can be found from a backward member snarl") {
+                const Chain* chain = snarl_manager.chain_of(right_child);
+                
+                REQUIRE(chain != nullptr);
+                
+                SECTION("The chain has the two snarls in it") {
+                    REQUIRE(chain->size() == 2);
+                    REQUIRE(chain->at(0) == left_child);
+                    REQUIRE(chain->at(1) == right_child);
+                }
+                
+                SECTION("The chain end orientations are correct") {
+                    REQUIRE(start_backward(*chain) == false);
+                    REQUIRE(end_backward(*chain) == true);
+                }
+                    
+                SECTION("The chain ends are correct") {
+                    REQUIRE(get_start_of(*chain) == left_child->start());
+                    REQUIRE(get_end_of(*chain) == reverse(right_child->start()));
+                }
+                
+            }
+            
+        }
+        
+        
     }
 }
