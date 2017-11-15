@@ -1162,6 +1162,59 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
                 REQUIRE(traced[5] == graph.get_handle(8, false));
             }
             
+            SECTION("The swap can be reversed") {
+                GenomeStateCommand* rereplace = state.execute(unreplace);
+                
+                SECTION("The haplotype can be traced") {
+                    // We trace out all the handles in the backing graph
+                    vector<handle_t> traced;
+                    
+                    state.trace_haplotype(chromosome, 0, [&](const handle_t& visit) {
+                        // Put every handle in the vector
+                        traced.push_back(visit);
+                    });
+                 
+                    // We should visit nodes 1, 2, 3, 4, 5, 9, 6, 7, 8 in that order
+                    REQUIRE(traced.size() == 9);
+                    REQUIRE(traced[0] == graph.get_handle(1, false));
+                    REQUIRE(traced[1] == graph.get_handle(2, false));
+                    REQUIRE(traced[2] == graph.get_handle(3, false));
+                    REQUIRE(traced[3] == graph.get_handle(4, false));
+                    REQUIRE(traced[4] == graph.get_handle(5, false));
+                    REQUIRE(traced[5] == graph.get_handle(9, false));
+                    REQUIRE(traced[6] == graph.get_handle(6, false));
+                    REQUIRE(traced[7] == graph.get_handle(7, false));
+                    REQUIRE(traced[8] == graph.get_handle(8, false));
+                }
+                
+                SECTION("The swap can be redone") {
+                    delete state.execute(rereplace);
+                    
+                    SECTION("The haplotype can be traced") {
+                        // We trace out all the handles in the backing graph
+                        vector<handle_t> traced;
+                        
+                        state.trace_haplotype(chromosome, 0, [&](const handle_t& visit) {
+                            // Put every handle in the vector
+                            traced.push_back(visit);
+                        });
+                     
+                        // We should visit nodes 1, 2, 3, 4, 7, 8 in that order
+                        REQUIRE(traced.size() == 6);
+                        REQUIRE(traced[0] == graph.get_handle(1, false));
+                        REQUIRE(traced[1] == graph.get_handle(2, false));
+                        REQUIRE(traced[2] == graph.get_handle(3, false));
+                        REQUIRE(traced[3] == graph.get_handle(4, false));
+                        REQUIRE(traced[4] == graph.get_handle(7, false));
+                        REQUIRE(traced[5] == graph.get_handle(8, false));
+                    }
+                    
+                }
+                
+                delete rereplace;
+                
+            }
+            
             delete unreplace;
         }
         

@@ -367,6 +367,66 @@ DeleteHaplotypeCommand GenomeState::append_haplotype(const AppendHaplotypeComman
 }
 
 ReplaceLocalHaplotypeCommand GenomeState::replace_local_haplotype(const ReplaceLocalHaplotypeCommand& c) {
+    ReplaceLocalHaplotypeCommand to_return;
+    
+    // We need to do all the deletions and create balancing insertions
+    // TODO: this code is duplicated with delete_haplotype
+    for (auto& kv : c.deletions) {
+        // We can handle each snarl independently.
+        // TODO: do this in parallel?
+        auto& snarl = kv.first;
+        auto& overall_lanes = kv.second;
+        
+        // Find where to log the deletions we need to do
+        auto& haplotype_insertions = to_return.insertions[snarl];
+        
+        for (auto& overall_lane : overall_lanes) {
+            // For each haplotype we want to remove from this snarl, in order...
+            
+#ifdef debug
+            cerr << "Delete " << overall_lane << " from " << kv.first->start() << " -> " << kv.first->end() << endl;
+#endif
+            
+            // Remove the haplotype and save a copy
+            auto removed = state.at(snarl).erase(overall_lane);  
+            
+            // Save the insertion to do by logging the haplotype with all its
+            // tagged lane assignments.
+            haplotype_insertions.emplace_back(removed); 
+        }
+        
+        // Flip the insertions around to happen in reverse order. Things need to
+        // get to the lanes we deleted them from.
+        reverse(haplotype_insertions.begin(), haplotype_insertions.end());
+    }
+    
+    // Then we need to do all the insertions and create balancing deletions
+    // TODO: this is duplicated with insert_haplotype
+    for (auto& kv : c.insertions) {
+        // We can handle each snarl independently.
+        // TODO: do this in parallel?
+        auto& snarl = kv.first;
+        auto& haplotypes = kv.second;
+        
+        // Find where to log the deletions we need to do
+        auto& haplotype_deletions = to_return.deletions[snarl];
+        
+        for (auto& haplotype : haplotypes) {
+            // For each haplotype we want to add to this snarl, in order...
+            
+            // Insert the haplotype
+            state.at(snarl).insert(haplotype);  
+            
+            // Save the deletion to do by logging the overall lane used.
+            haplotype_deletions.emplace_back(haplotype.front().second); 
+        }
+        
+        // Flip the deletions around to happen in reverse order. Things may not
+        // stay in the lane we put them in when we add later things.
+        reverse(haplotype_deletions.begin(), haplotype_deletions.end());
+    }
+    
+    return to_return;
 }
 
 DeleteHaplotypeCommand GenomeState::insert_haplotype(const InsertHaplotypeCommand& c) {
