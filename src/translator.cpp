@@ -37,7 +37,6 @@ bool Translator::has_translation(const Position& position, bool ignore_strand) {
     pos_t node_only = pos;
     get_offset(node_only) = 0;
     get_is_rev(node_only) = ignore_strand ? false : position.is_reverse();
-    cerr << "looking up " << pb2json(make_position(node_only)) << " -- " <<  (pos_to_trans.find(node_only) != pos_to_trans.end()) << endl;
     return pos_to_trans.find(node_only) != pos_to_trans.end();
 }
 

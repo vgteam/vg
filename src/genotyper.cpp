@@ -2,7 +2,6 @@
 #include "genotyper.hpp"
 #include "algorithms/topological_sort.hpp"
 
-#define debug
 
 namespace vg {
 

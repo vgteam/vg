@@ -1384,7 +1384,7 @@ void Call2Vcf::call(
                     // Record the ID
                     id_stream << mapping.position().node_id();
 
-                    if (augmented.translator.has_translation(mapping.position())) {
+                    if (augmented.translator.has_translation(mapping.position(), false)) {
                         // This node is derived from an original graph node. Remember it.
                         original_nodes.insert(augmented.translator.translate(mapping.position()).node_id());
                     }                    
