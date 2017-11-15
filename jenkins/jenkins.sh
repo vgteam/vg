@@ -209,6 +209,14 @@ else
     fi
     VG_VERSION=`docker run jenkins-docker-vg-local vg version`
     printf "vg-docker-version jenkins-docker-vg-local\n" >> vgci_cfg.tsv
+
+    # Pull down the docker images, so time costs (and instability) of doing so doesn't affect
+    # individual test results (looking at you, rocker/tidyverse:3.4.2)
+    # Allow two tries before failing
+    set +e
+    for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
+    set -e
+    for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
 fi
 
 # For the actual test and the cleanup, continue on error
