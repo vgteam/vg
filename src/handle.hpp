@@ -184,40 +184,17 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     
     /// Get a handle from a Visit Protobuf object.
-    inline handle_t get_handle(const Visit& visit) const {
-        return get_handle(visit.node_id(), visit.backward());
-    }
+    handle_t get_handle(const Visit& visit) const;
+    
+    /// Get a Protobuf Visit from a handle.
+    Visit to_visit(const handle_t& handle) const;
     
     /// Get the locally forward version of a handle
-    inline handle_t forward(const handle_t& handle) const {
-        return this->get_is_reverse(handle) ? this->flip(handle) : handle;
-    }
+    handle_t forward(const handle_t& handle) const;
     
     // A pair of handles can be used as an edge. When so used, the handles have a
     // cannonical order and orientation.
-    inline pair<handle_t, handle_t> edge_handle(const handle_t& left, const handle_t& right) const {
-        // The degeneracy is between any pair and a pair of the same nodes but reversed in order and orientation.
-        // We compare those two pairs and construct the smaller one.
-        auto flipped_right = this->flip(right);
-        
-        if (as_integer(left) > as_integer(flipped_right)) {
-            // The other orientation would be smaller.
-            return make_pair(flipped_right, this->flip(left));
-        } else if(as_integer(left) == as_integer(flipped_right)) {
-            // Our left and the flipped pair's left would be equal.
-            auto flipped_left = this->flip(left);
-            if (as_integer(right) > as_integer(flipped_left)) {
-                // And our right is too big, so flip.
-                return make_pair(flipped_right, flipped_left);
-            } else {
-                // No difference or we're smaller.
-                return make_pair(left, right);
-            }
-        } else {
-            // We're smaller
-            return make_pair(left, right);
-        }
-    }
+    pair<handle_t, handle_t> edge_handle(const handle_t& left, const handle_t& right) const;
 };
 
 /**

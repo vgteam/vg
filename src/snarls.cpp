@@ -31,7 +31,7 @@ namespace vg {
     
     Visit get_end_of(const Chain& chain) {
         // Get a bounding visit and return it.
-        return end_backward(chain) ? reverse(chain.front()->start()) : chain.front()->end();
+        return end_backward(chain) ? reverse(chain.back()->start()) : chain.back()->end();
     }
     
     bool ChainIterator::operator==(const ChainIterator& other) const {

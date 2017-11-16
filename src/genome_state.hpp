@@ -79,22 +79,22 @@ public:
     /// strictly increasing.
     void insert(const vector<pair<handle_t, size_t>>& haplotype);
     
-    /// Insert the given traversal of this snarl from start to end, assigning
-    /// each visit to a handle to the next available lane. Returns the haplotype
-    /// annotated with lane assignments. If handles to the same node or child
-    /// snarl appear more than once, their lane numbers will be strictly
-    /// increasing.
-    const vector<pair<handle_t, size_t>>& append(const vector<handle_t>& haplotype);
+    /// Insert the given traversal of this snarl from start to end or end to
+    /// start (as determined by the backward flag), assigning each visit to a
+    /// handle to the next available lane. Returns the haplotype annotated with
+    /// lane assignments. If handles to the same node or child snarl appear more
+    /// than once, their lane numbers will be strictly increasing.
+    const vector<pair<handle_t, size_t>>& append(const vector<handle_t>& haplotype, bool backward = false);
     
-    /// Insert the given traversal of this snarl from start to end, assigning it
-    /// to the given overall lane. Returns the haplotype annotated with lane
-    /// assignments for all the internal handles. If the internal handles
-    /// represent child snarls, this can be used to recurse down and insert
-    /// traversals of them at the right lanes. If handles to the same node or
-    /// child snarl appear more than once, their assigned lane numbers will be
-    /// strictly increasing. Returns the haplotype annotated with lane
-    /// assignments.
-    const vector<pair<handle_t, size_t>>& insert(size_t overall_lane, const vector<handle_t>& haplotype);
+    /// Insert the given traversal of this snarl from start to end or end to
+    /// start (as determined by the backward flag), assigning it to the given
+    /// overall lane. Returns the haplotype annotated with lane assignments for
+    /// all the internal handles. If the internal handles represent child
+    /// snarls, this can be used to recurse down and insert traversals of them
+    /// at the right lanes. If handles to the same node or child snarl appear
+    /// more than once, their assigned lane numbers will be strictly increasing.
+    /// Returns the haplotype annotated with lane assignments.
+    const vector<pair<handle_t, size_t>>& insert(size_t overall_lane, const vector<handle_t>& haplotype, bool backward = false);
     
     // TODO: can we do an efficient replace? Or should we just drop and add.
     
@@ -172,13 +172,31 @@ struct SwapHaplotypesCommand : public GenomeStateCommand {
 };
 
 struct AppendHaplotypeCommand : public GenomeStateCommand {
-    /// We just feed in a full traversal from one end of a telomere pair to the other.
-    /// Internally the GenomeState has to work out how to divide this into snarls.
+    /// We just feed in a full traversal from one end of a telomere pair to the
+    /// other. Must start and end on the boundary nodes of telomere snarls.
+    /// TODO: unary telomeres will work strangely. Internally the GenomeState
+    /// has to work out how to divide this into snarls.
     vector<handle_t> haplotype;
     
     virtual GenomeStateCommand* execute(GenomeState& state) const;
     
     virtual ~AppendHaplotypeCommand() = default;
+};
+
+struct ReplaceSnarlHaplotypeCommand : public GenomeStateCommand {
+    /// Which snarl are we working on?
+    const Snarl* snarl;
+    /// Which lane in the snarl are we changing?
+    size_t lane;
+    /// What fully specified haplotype should we replace it with? This gets
+    /// around any problems to do with increases or decreases in the copy
+    /// numbers of child snarls being underspecified.
+    vector<handle_t> haplotype;
+    
+    virtual GenomeStateCommand* execute(GenomeState& state) const;
+    
+    virtual ~ReplaceSnarlHaplotypeCommand() = default;
+    
 };
 
 /// We can use this to replace a local haplotype within one or more snarls.
@@ -211,6 +229,9 @@ class GenomeState {
 
 public:
     
+    /// Dump internal state to cerr.
+    void dump() const;
+    
     /// Make a new GenomeState on the given SnarlManager, manageing snarls in
     /// the given graph, with the given telomere pairs. Each telomere can appear
     /// in only one pair.
@@ -223,17 +244,24 @@ public:
     
     // We execute commands and return the inverse commands
     
+    // We have high level commands which are easy to sample
+    
     /// Create a haplotype and return a command to delete it
     DeleteHaplotypeCommand append_haplotype(const AppendHaplotypeCommand& c);
+    
+    /// Swap two haplotypes and return a command to swap them back
+    SwapHaplotypesCommand swap_haplotypes(const SwapHaplotypesCommand& c);
+    
+    /// Replace part(s) of some haplotype(s) with other material.
+    ReplaceLocalHaplotypeCommand replace_snarl_haplotype(const ReplaceSnarlHaplotypeCommand& c);
+    
+    // And low level commands which are very specific and good for being undos
     
     /// Insert a haplotype and return a command to delete it
     DeleteHaplotypeCommand insert_haplotype(const InsertHaplotypeCommand& c);
     
     /// Delete a haplotype and return a command to insert it
     InsertHaplotypeCommand delete_haplotype(const DeleteHaplotypeCommand& c);
-    
-    /// Swap two haplotypes and return a command to swap them back
-    SwapHaplotypesCommand swap_haplotypes(const SwapHaplotypesCommand& c);
     
     /// Replace part(s) of some haplotype(s) with other material.
     ReplaceLocalHaplotypeCommand replace_local_haplotype(const ReplaceLocalHaplotypeCommand& c);
@@ -245,13 +273,16 @@ public:
     
     /// Count the number of haplotypes connecting the given pair of telomeres.
     /// It must be a pair of telomeres actually passed during construction.
-    size_t count_haplotypes(const pair<const Snarl*, const Snarl*>& telomere_pair);
+    size_t count_haplotypes(const pair<const Snarl*, const Snarl*>& telomere_pair) const;
+    
+    /// Count the number of haplotypes within a given snarl
+    size_t count_haplotypes(const Snarl* snarl) const;
     
     /// Trace the haplotype starting at the given start telomere snarl with the
     /// given overall lane. Calls the callback with each backing HandleGraph
     /// handle.
     void trace_haplotype(const pair<const Snarl*, const Snarl*>& telomere_pair,
-        size_t overall_lane, const function<void(const handle_t&)>& iteratee);
+        size_t overall_lane, const function<void(const handle_t&)>& iteratee) const;
      
 protected:
     /// We keep track of pairs of telomere snarls. The haplotypes we work on
@@ -275,6 +306,14 @@ protected:
     /// where and which snarl we should look at next after leaving a previous
     /// snarl.
     const SnarlManager& manager;
+    
+    /// We have a generic stack-based handle-vector-to-per-snarl-haplotypes
+    /// insertion walker function. The handles to add have to span one or more
+    /// entire snarls, and we specify the lane in the spanned snarls to put them
+    /// in.
+    void insert_handles(const vector<handle_t>& to_add,
+        unordered_map<const Snarl*, vector<size_t>>& lanes_added,
+        size_t top_lane = numeric_limits<size_t>::max());
 
 };
 
