@@ -211,6 +211,8 @@ namespace vg {
             
         /// Look up the handle for the node with the given ID in the given orientation
         virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
+        // Copy over the visit version which would otherwise be shadowed.
+        using HandleGraph::get_handle;
         
         /// Get the ID from a handle
         virtual id_t get_id(const handle_t& handle) const;
@@ -443,6 +445,9 @@ namespace vg {
         
         /// Execute a function on all top level sites in parallel
         void for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda) const;
+        
+        /// Execute a function on all sites in parallel
+        void for_each_snarl_parallel(const function<void(const Snarl*)>& lambda) const;
         
         /// Given a Snarl that we don't own (like from a Visit), find the
         /// pointer to the managed copy of that Snarl.
