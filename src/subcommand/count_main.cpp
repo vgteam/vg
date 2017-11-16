@@ -18,6 +18,7 @@ void help_count(char** argv) {
          << "    -i, --counts-in FILE   begin by summing coverage counts from each provided FILE" << endl
          << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
          << "    -d, --as-table         write table on stdout representing counts" << endl
+         << "    -n, --no-edits         don't record edits, just coverage" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
 
@@ -29,6 +30,7 @@ int main_count(int argc, char** argv) {
     string gam_in;
     bool write_table = false;
     int thread_count = 1;
+    bool record_edits = true;
 
     if (argc == 2) {
         help_count(argv);
@@ -47,11 +49,12 @@ int main_count(int argc, char** argv) {
             {"gam", required_argument, 0, 'g'},
             {"as-table", no_argument, 0, 'd'},
             {"threads", required_argument, 0, 't'},
+            {"no-edits", no_argument, 0, 'n'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:dt:",
+        c = getopt_long (argc, argv, "hx:o:i:g:dt:n",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -80,6 +83,9 @@ int main_count(int argc, char** argv) {
         case 'd':
             write_table = true;
             break;
+        case 'n':
+            record_edits = false;
+            break;
         case 't':
             thread_count = atoi(optarg);
             break;
@@ -103,11 +109,20 @@ int main_count(int argc, char** argv) {
     // todo one counter per thread and merge
     vg::Counter counter(&xgidx);
     if (!counts_in.empty()) {
-        counter.load(counts_in);
+        counter.load_from_file(counts_in.front());
     }
 
+    if (!gam_in.empty()) {
+        ifstream gam_stream(gam_in);
+        stream::for_each(gam_stream, (const std::function<void(Alignment&)>)[&counter,&record_edits](Alignment& aln) { counter.add(aln, record_edits); });
+        gam_stream.close();
+    }
     if (!counts_out.empty()) {
-        counter.write(counts_out);
+        counter.save_to_file(counts_out);
+    }
+    if (write_table) {
+        counter.make_compact();
+        counter.as_table(cout);
     }
 
     return 0;

@@ -1802,7 +1802,6 @@ size_t XG::edge_graph_idx(const Edge& edge_in) const {
     size_t g = g_bv_select(id_to_rank(id));
     int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
     int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
-    //int64_t t = g + G_NODE_HEADER_LENGTH;
     int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
     int64_t e = f + G_EDGE_LENGTH * edges_from_count;
     vector<Edge> edges;

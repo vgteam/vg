@@ -152,6 +152,7 @@ public:
     size_t node_length(int64_t id) const;
     char pos_char(int64_t id, bool is_rev, size_t off) const; // character at position
     string pos_substr(int64_t id, bool is_rev, size_t off, size_t len = 0) const; // substring in range
+    // these provide a way to get an index for each node and edge in the g_iv structure and are used by gPBWT
     size_t node_graph_idx(int64_t id) const;
     size_t edge_graph_idx(const Edge& edge) const;
     
