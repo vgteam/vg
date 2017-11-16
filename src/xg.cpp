@@ -225,6 +225,8 @@ void XG::load(istream& in) {
             break;
         case 5:
             {
+                cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. For better performance over repeated loads, consider recreating this XG with 'vg index'." << endl;
+                
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
                 sdsl::read_member(edge_count, in);
