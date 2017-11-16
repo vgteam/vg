@@ -8,7 +8,7 @@ namespace vg {
 using namespace std;
 
 
-NestedTraversalFinder::NestedTraversalFinder(AugmentedGraph& augmented,
+NestedTraversalFinder::NestedTraversalFinder(SupportAugmentedGraph& augmented,
     SnarlManager& snarl_manager) : augmented(augmented), snarl_manager(snarl_manager) {
     
     // Nothing to do!

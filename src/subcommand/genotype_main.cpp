@@ -5,6 +5,7 @@
 #include "stream.hpp"
 #include "genotyper.hpp"
 #include "genotypekit.hpp"
+#include "variant_recall.hpp"
 #include "stream.hpp"
 /**
 * GAM sort main
@@ -24,17 +25,18 @@ void help_genotype(char** argv) {
          << "    -V, --recall-vcf VCF    recall variants in a specific VCF file." << endl
          << "    -F, --fasta  FASTA" << endl
          << "    -I, --insertions INS" << endl
-         << "    -r, --ref PATH          use the given path name as the reference path" << std::endl
-         << "    -c, --contig NAME       use the given name as the VCF contig name" << std::endl
-         << "    -s, --sample NAME       name the sample in the VCF with the given name" << std::endl
-         << "    -o, --offset INT        offset variant positions by this amount" << std::endl
-         << "    -l, --length INT        override total sequence length" << std::endl
-         << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
-         << "    -q, --use_mapq          use mapping qualities" << std::endl
-         << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << std::endl
-         << "    -i, --realign_indels    realign at indels" << std::endl
-         << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << std::endl
-         << "    -P, --min_per_strand    min consistent reads per strand for an allele" << std::endl
+         << "    -r, --ref PATH          use the given path name as the reference path" << endl
+         << "    -c, --contig NAME       use the given name as the VCF contig name" << endl
+         << "    -s, --sample NAME       name the sample in the VCF with the given name" << endl
+         << "    -o, --offset INT        offset variant positions by this amount" << endl
+         << "    -l, --length INT        override total sequence length" << endl
+         << "    -a, --augmented FILE    dump augmented graph to FILE" << endl
+         << "    -q, --use_mapq          use mapping qualities" << endl
+         << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << endl
+         << "    -i, --realign_indels    realign at indels" << endl
+         << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << endl
+         << "    -P, --min_per_strand    min consistent reads per strand for an allele" << endl
+         << "    -E, --no_embed          dont embed gam edits into grpah" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -64,6 +66,8 @@ int main_genotype(int argc, char** argv) {
     int64_t variant_offset = 0;
     // What length override should we use
     int64_t length_override = 0;
+    // Should we embed gam edits (for debugging as we move to further decouple augmentation and calling)
+    bool embed_gam_edits = true;
 
     // Should we we just do a quick variant recall,
     // based on this VCF and GAM, then exit?
@@ -114,11 +118,12 @@ int main_genotype(int argc, char** argv) {
                 {"fasta", required_argument, 0, 'F'},
                 {"insertions", required_argument, 0, 'I'},
                 {"call", no_argument, 0, 'z'},
+                {"no_embed", no_argument, 0, 'E'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qSid:P:pt:V:I:G:F:z",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qSid:P:pt:V:I:G:F:zE",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -199,6 +204,9 @@ int main_genotype(int argc, char** argv) {
             gam_file = optarg;
             useindex = false;
             break;
+        case 'E':
+            embed_gam_edits = false;
+            break;
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -229,10 +237,9 @@ int main_genotype(int argc, char** argv) {
     });
 
     if (just_call){
-        Genotyper gt;
         string gamfi(gam_file);
         string rstr(ref_path_name);
-        gt.genotype_svs(graph, gamfi, rstr);
+        genotype_svs(graph, gamfi, rstr);
         exit(0);
     }
 
@@ -263,7 +270,6 @@ int main_genotype(int argc, char** argv) {
     });
 
     if (!(recall_vcf.empty() || fasta.empty())){
-        Genotyper gt;
         vcflib::VariantCallFile* vars = new vcflib::VariantCallFile();
         vars->open(recall_vcf);
         FastaReference* lin_ref = new FastaReference();
@@ -275,7 +281,7 @@ int main_genotype(int argc, char** argv) {
             insertions.emplace_back(ins);
             ins->open(insertions_file);
         }
-        gt.variant_recall(graph, vars, lin_ref, insertions, gam_file, useindex);
+        variant_recall(graph, vars, lin_ref, insertions, gam_file, useindex);
         return 0;
 
     }
@@ -323,7 +329,7 @@ int main_genotype(int argc, char** argv) {
     if(show_progress) {
         cerr << "Loaded " << alignments.size() << " alignments" << endl;
     }
-
+    
     // Make a Genotyper to do the genotyping
     Genotyper genotyper;
     // Configure it
@@ -332,8 +338,34 @@ int main_genotype(int argc, char** argv) {
     assert(het_prior_denominator > 0);
     genotyper.het_prior_logprob = prob_to_logprob(1.0/het_prior_denominator);
     genotyper.min_consistent_per_strand = min_consistent_per_strand;
+
+    // Guess the reference path if not given
+    if(ref_path_name.empty()) {
+        // Guess the ref path name
+        if(graph->paths.size() == 1) {
+            // Autodetect the reference path name as the name of the only path
+            ref_path_name = (*graph->paths._paths.begin()).first;
+        } else {
+            ref_path_name = "ref";
+        }
+    }
+
+    // Augment the graph with all the reads
+    AugmentedGraph augmented_graph;
+
+    // Move our input graph into the augmented graph
+    // TODO: less terrible interface.  also shouldn't have to re-index.
+    swap(augmented_graph.graph, *graph); 
+    swap(augmented_graph.graph.paths, graph->paths);
+    augmented_graph.graph.paths.rebuild_node_mapping();
+    augmented_graph.graph.paths.rebuild_mapping_aux();
+    augmented_graph.graph.paths.to_graph(augmented_graph.graph.graph);    
+
+    // Do the actual augmentation using vg edit.
+    augmented_graph.augment_from_alignment_edits(alignments, true, !embed_gam_edits);
+    
     // TODO: move arguments below up into configuration
-    genotyper.run(*graph,
+    genotyper.run(augmented_graph,
                   alignments,
                   cout,
                   ref_path_name,

@@ -32,6 +32,14 @@ void Translator::build_position_table(void) {
     }
 }
 
+bool Translator::has_translation(const Position& position, bool ignore_strand) {
+    auto pos = make_pos_t(position);
+    pos_t node_only = pos;
+    get_offset(node_only) = 0;
+    get_is_rev(node_only) = ignore_strand ? false : position.is_reverse();
+    return pos_to_trans.find(node_only) != pos_to_trans.end();
+}
+
 Translation Translator::get_translation(const Position& position) {
     auto pos = make_pos_t(position);
     // check that the node is in the translation

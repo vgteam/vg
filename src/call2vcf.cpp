@@ -228,7 +228,7 @@ string get_pileup_line(const map<int64_t, NodePileup>& node_pileups,
     }
 }
 
-Call2Vcf::PrimaryPath::PrimaryPath(AugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size):
+Call2Vcf::PrimaryPath::PrimaryPath(SupportAugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size):
     ref_bin_size(ref_bin_size), index(augmented.graph, ref_path_name, true), name(ref_path_name)  {
 
     // Follow the reference path and extract indexes we need: index by node ID,
@@ -421,7 +421,7 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
  * material used by another traversal. Material used by another traversal only
  * makes half its coverage available to this traversal.
  */
-tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
+tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& augmented,
     SnarlManager& snarl_manager, const Snarl& site, const SnarlTraversal& traversal,
     const SnarlTraversal* already_used = nullptr) {
 
@@ -569,7 +569,7 @@ tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
 /** Get the support for each traversal in a list, using average_support_switch_threshold
     to decide if we use the minimum or average */
 tuple<vector<Support>, vector<size_t> > Call2Vcf::get_traversal_supports_and_sizes(
-    AugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
+    SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
     const vector<SnarlTraversal>& traversals, const SnarlTraversal* minus_traversal) {
 
     // How long is the longest traversal?
@@ -629,7 +629,7 @@ tuple<vector<Support>, vector<size_t> > Call2Vcf::get_traversal_supports_and_siz
         tie(min_supports, sizes);
 }
 
-vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
+vector<SnarlTraversal> Call2Vcf::find_best_traversals(SupportAugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
         const Support& baseline_support, size_t copy_budget, function<void(const Locus&, const Snarl*)> emit_locus) {
 
@@ -1051,7 +1051,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 // this was main() in glenn2vcf
 void Call2Vcf::call(
     // Augmented graph
-    AugmentedGraph& augmented,
+    SupportAugmentedGraph& augmented,
     // Should we load a pileup and print out pileup info as comments after
     // variants?
     string pileup_filename) {
@@ -1126,20 +1126,7 @@ void Call2Vcf::call(
         in.open(pileup_filename.c_str());
         stream::for_each(in, handle_pileup);
     }
-    
-    // Parse the translation so we know what original node and offset, if any,
-    // each new node came from.
-    map<id_t, pos_t> original_positions;
-    for (auto& translation : augmented.translations) {
-        // TODO: we assume every translation is exactly one old mapping to
-        // exactly one new full-node mapping
-        auto& new_mapping = translation.to().mapping(0);
-        auto& old_mapping = translation.from().mapping(0);
         
-        // Store the old source position under the new node ID.
-        original_positions[new_mapping.position().node_id()] = make_pos_t(old_mapping.position());
-    }
-    
     // Make a VCF because we need it in scope later, if we are outputting VCF.
     vcflib::VariantCallFile vcf;
     
@@ -1338,7 +1325,7 @@ void Call2Vcf::call(
         // This function emits the given variant on the given primary path, as
         // VCF. It needs to take the site as an argument because it may be
         // called for children of the site we're working on right now.
-        auto emit_variant = [&contig_names_by_path_name, &vcf, &augmented, &original_positions,
+        auto emit_variant = [&contig_names_by_path_name, &vcf, &augmented,
             &baseline_support, &global_baseline_support, this](
             const Locus& locus, PrimaryPath& primary_path, const Snarl* site) {
         
@@ -1364,7 +1351,7 @@ void Call2Vcf::call(
             vector<string> id_lists;
             // Also the flags for whether alts are reference (i.e. known)
             vector<bool> is_ref;
-            
+
             for (size_t i = 0; i < locus.allele_size(); i++) {
 
                 // For each allele path in the Locus
@@ -1396,12 +1383,11 @@ void Call2Vcf::call(
                     }
                     // Record the ID
                     id_stream << mapping.position().node_id();
-                    
-                    if (original_positions.count(mapping.position().node_id())) {
+
+                    if (augmented.translator.has_translation(mapping.position(), false)) {
                         // This node is derived from an original graph node. Remember it.
-                        original_nodes.insert(id(original_positions[mapping.position().node_id()]));
-                    }
-                    
+                        original_nodes.insert(augmented.translator.translate(mapping.position()).node_id());
+                    }                    
                 }
                 
                 // Remember the descriptions of the alleles
@@ -1958,7 +1944,7 @@ void Call2Vcf::call(
 }
 
 bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented) {
-    
+
     // Keep track of the previous NodeSide
     NodeSide previous;
     
@@ -1972,15 +1958,15 @@ bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmente
             // Consider the edge from the previous visit
             Edge* edge = augmented.graph.get_edge(previous, to_left_side(visit));
             
-            if (augmented.edge_calls.at(edge) != CALL_REFERENCE) {
+            if (augmented.is_novel_edge(edge)) {
                 // Found a novel edge!
                 return false;
             }
         }
-        
-        if (augmented.node_calls.at(augmented.graph.get_node(visit.node_id())) != CALL_REFERENCE) {
+
+        if (augmented.is_novel_node(augmented.graph.get_node(visit.node_id()))) {
             // This node itself is novel
-            return false;
+            return false;         
         }
         
         // Remember we want an edge from this visit when we look at the next
@@ -2012,8 +1998,8 @@ bool Call2Vcf::is_reference(const Path& path, AugmentedGraph& augmented) {
     for (size_t i = 0; i < path.mapping_size(); i++) {
         // Check each mapping
         auto& mapping = path.mapping(i);
-        
-        if (augmented.get_call(augmented.graph.get_node(mapping.position().node_id())) != CALL_REFERENCE) {
+
+        if (augmented.is_novel_node(augmented.graph.get_node(mapping.position().node_id()))) {
             // We use a novel node
             return false;
         }
@@ -2024,7 +2010,7 @@ bool Call2Vcf::is_reference(const Path& path, AugmentedGraph& augmented) {
             
             // And see about the edge to it
             Edge* edge = augmented.graph.get_edge(to_right_side(to_visit(mapping)), to_left_side(to_visit(next_mapping)));
-            if (augmented.get_call(edge) != CALL_REFERENCE) {
+            if (augmented.is_novel_edge(edge)) {
                 // We used a novel edge
                 return false;
             }

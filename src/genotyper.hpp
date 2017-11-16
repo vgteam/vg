@@ -140,35 +140,11 @@ public:
     Aligner normal_aligner;
     QualAdjAligner quality_aligner;
 
-    // Genotype known variants from a VCF file.
-    void variant_recall(VG* graph,
-                                vcflib::VariantCallFile* vars,
-                                FastaReference* ref_genome,
-                                vector<FastaReference*> insertions,
-                                string gamfile, bool isIndex = false);
-    // Genotype new SVs from a GAM
-    void genotype_svs(VG* graph, 
-                        string gamfile, string refpath);
-    // Genotype new SVs from a GAM, and mark them as T/N for somatic calling
-    // void agument_SVs(VG* graph,
-    //                  string gamfile,
-    //                  string aug_prefix,
-    //                  bool do_split,
-    //                  bool do_paired);
-    // void augment_svs(VG* graph, 
-    //                    vector<string> gamfiles,
-    //                    vector<string> aug_prefixes,
-    //                    bool do_split_remapping,
-    //                    boool do_paired_ends);
-    // void somatic_call(VG* augmented, string refpath, vector<pair<string, string> > som_samples);
-
-    // void somatic_call(VG* augmented, vector<pair<string, string> > som_samples);
-
     // Process and write output
-    void run(VG& graph,
+    void run(AugmentedGraph& graph,
              vector<Alignment>& alignments,
              ostream& out,
-             string ref_path_name = "",
+             string ref_path_name,
              string contig_name = "",
              string sample_name = "",
              string augmented_file_name = "",
@@ -213,13 +189,20 @@ public:
      * the ends at all), collect a list of NodeTraversals in order for the part
      * of the path that is inside the site, in the same orientation as the path.
      */
-    list<NodeTraversal> get_traversal_of_site(VG& graph, const Site& site, const Path& path);
+    list<Mapping> get_traversal_of_site(VG& graph, const Site& site, const Path& path);
     
     /**
      * Make a list of NodeTraversals into the string they represent.
      */
-    string traversals_to_string(const list<NodeTraversal>& path);
-    
+    string traversals_to_string(VG& graph, const list<Mapping>& path);
+
+    /**
+     * Check if a mapping corresponds to the beginning or end of site by making 
+     * sure it crosses the given side in the expected direction
+     */
+    static bool mapping_enters_side(const Mapping& mapping, const Node* node, bool start);
+    static bool mapping_exits_side(const Mapping& mapping, const Node* node, bool start);
+   
     /**
      * For the given site, emit all subpaths with unique sequences that run from
      * start to end, out of the paths in the graph. Uses the map of reads by
@@ -227,7 +210,7 @@ public:
      * the site supported only by reads are subject to a min recurrence count,
      * while those supported by actual embedded named paths are not.
      */
-    vector<list<NodeTraversal>> get_paths_through_site(VG& graph, const Site& site,
+    vector<list<Mapping>> get_paths_through_site(VG& graph, const Site& site,
         const map<string, Alignment*>& reads_by_name);
     
     /**
@@ -253,20 +236,20 @@ public:
      * Affinity is a double out of 1.0. Higher is better.
      */ 
     map<Alignment*, vector<Affinity>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
-        const Site& site,  const vector<list<NodeTraversal>>& superbubble_paths);
+        const Site& site,  const vector<list<Mapping>>& superbubble_paths);
         
     /**
      * Get affinities as above but using only string comparison instead of
      * alignment. Affinities are 0 for mismatch and 1 for a perfect match.
      */
     map<Alignment*, vector<Affinity>> get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
-        const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, bool allow_internal_alignments = false);
+        const Site& site, const vector<list<Mapping>>& superbubble_paths, bool allow_internal_alignments = false);
         
     /**
      * Compute annotated genotype from affinities and superbubble paths.
      * Needs access to the graph so it can chop up the alignments, which requires node sizes.
      */
-    Locus genotype_site(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<Affinity>>& affinities);
+    Locus genotype_site(VG& graph, const Site& site, const vector<list<Mapping>>& superbubble_paths, const map<Alignment*, vector<Affinity>>& affinities);
         
     /**
      * Compute the probability of the observed alignments given the genotype.
