@@ -200,9 +200,22 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
     }
 
     if(show_progress) {
+        // Count up the ultrabubbles
+        size_t ultrabubbles = 0;
+        
+        manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+            // For each snarl
+
+            if (snarl->type() != ULTRABUBBLE) {
+                // We only work on ultrabubbles right now
+                return;
+            }
+            ultrabubbles++;
+        });
+    
 #pragma omp critical (cerr)
         {
-            cerr << "Found snarls" << endl;
+            cerr << "Found " << ultrabubbles << " ultrabubbles" << endl;
         }
 
     }
