@@ -31,6 +31,7 @@ void help_call(char** argv, ConfigurableParser& parser) {
         
          << "general options:" << endl
          << "    -Z, --translation FILE      input translation table" << endl
+         << "    -b, --base-graph FILE       base graph.  currently needed for XREF tag" << endl
          << "    -h, --help                  print this help message" << endl
          << "    -p, --progress              show progress" << endl
          << "    -v, --verbose               print information and warnings about vcf generation" << endl
@@ -43,6 +44,10 @@ void help_call(char** argv, ConfigurableParser& parser) {
 int main_call(int argc, char** argv) {
 
     string translation_file_name;
+
+    // todo: get rid of this.  only used to check if deletion edge is novel.  must be some
+    // way to get that out of the translations
+    string base_graph_file_name;
     
     // This manages conversion from an augmented graph to a VCF, and makes the
     // actual calls.
@@ -52,13 +57,14 @@ int main_call(int argc, char** argv) {
     int thread_count = 0;
 
     static const struct option long_options[] = {
+        {"base-graph", required_argument, 0, 'b'},
         {"progress", no_argument, 0, 'p'},
         {"verbose", no_argument, 0, 'v'},
         {"threads", required_argument, 0, 't'},
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "Z:pvt:h";
+    static const char* short_options = "Z:b:pvt:h";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -68,6 +74,9 @@ int main_call(int argc, char** argv) {
         {
         case 'Z':
             translation_file_name = optarg;
+            break;
+        case 'b':
+            base_graph_file_name = optarg;
             break;
         case 'p':
             show_progress = true;
@@ -111,10 +120,6 @@ int main_call(int argc, char** argv) {
         return 1;
     }
     string graph_file_name = get_input_file_name(optind, argc, argv);
-    if (optind >= argc) {
-        help_call(argv, parser);
-        return 1;
-    }
 
     if (string(support_caller.support_file_name).empty()) {
         cerr << "[vg call]: Support file must be specified with -s" << endl;
@@ -123,6 +128,11 @@ int main_call(int argc, char** argv) {
 
     if (translation_file_name.empty()) {
         cerr << "[vg call]: Translation file must be specified with -Z" << endl;
+        return 1;
+    }
+    
+    if (base_graph_file_name.empty()) {
+        cerr << "[vg call]: Base graph file must be specified with -b" << endl;
         return 1;
     }
 
@@ -135,9 +145,23 @@ int main_call(int argc, char** argv) {
         graph = new VG(in);
     });
 
+    // and the base graph
+    VG* base_graph = NULL;
+    get_input_file(base_graph_file_name, [&](istream& in) {
+            base_graph = new VG(in);
+    });
+
     SupportAugmentedGraph augmented_graph;
-    // TODO: clean up loading graphs into AugmentedGraphs!
-    swap(augmented_graph.graph, *graph);
+    // Move our input graph into the augmented graph
+    // TODO: less terrible interface.  also shouldn't have to re-index.
+    swap(augmented_graph.graph, *graph); 
+    swap(augmented_graph.graph.paths, graph->paths);
+    augmented_graph.graph.paths.rebuild_node_mapping();
+    augmented_graph.graph.paths.rebuild_mapping_aux();
+    augmented_graph.graph.paths.to_graph(augmented_graph.graph.graph);    
+
+    augmented_graph.base_graph = base_graph;
+    
     delete graph;
 
     // Load the supports
@@ -165,6 +189,7 @@ int main_call(int argc, char** argv) {
     // in order to create a VCF of calls.
     support_caller.call(augmented_graph, {});
 
+    delete base_graph;
     return 0;
 }
 

@@ -192,7 +192,6 @@ struct AugmentedGraph {
     bool is_novel_node(const Node* augmented_node) {
         Position pos;
         pos.set_node_id(augmented_node->id());
-        cerr << "checking " << augmented_node->id() << " in translator of size " << translator.pos_to_trans.size() << endl;
         return !translator.has_translation(pos);
     }
     
