@@ -114,7 +114,8 @@ int main_count(int argc, char** argv) {
 
     if (!gam_in.empty()) {
         ifstream gam_stream(gam_in);
-        stream::for_each(gam_stream, (const std::function<void(Alignment&)>)[&counter,&record_edits](Alignment& aln) { counter.add(aln, record_edits); });
+        std::function<void(Alignment&)> lambda = [&counter,&record_edits](Alignment& aln) { counter.add(aln, record_edits); };
+        stream::for_each(gam_stream, lambda);
         gam_stream.close();
     }
     if (!counts_out.empty()) {
