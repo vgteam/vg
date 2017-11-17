@@ -1,19 +1,19 @@
 #include <cstdlib>
 #include <stdexcept>
 #include "json2pb.h"
-#include "caller.hpp"
+#include "pileup_augmenter.hpp"
 #include "stream.hpp"
 
 using namespace std;
 
 namespace vg {
 
-const double Caller::Log_zero = (double)-1e100;
+const double PileupAugmenter::Log_zero = (double)-1e100;
 
-const char Caller::Default_default_quality = 30;
-const int Caller::Default_min_aug_support = 2;
+const char PileupAugmenter::Default_default_quality = 30;
+const int PileupAugmenter::Default_min_aug_support = 2;
 
-Caller::Caller(VG* graph,
+PileupAugmenter::PileupAugmenter(VG* graph,
                int default_quality,
                int min_aug_support):
     _graph(graph),
@@ -26,11 +26,11 @@ Caller::Caller(VG* graph,
 }
 
 // delete contents of table
-Caller::~Caller() {
+PileupAugmenter::~PileupAugmenter() {
     clear();
 }
 
-void Caller::clear() {
+void PileupAugmenter::clear() {
     _node_calls.clear();
     _node_supports.clear();
     _insert_calls.clear();
@@ -43,7 +43,7 @@ void Caller::clear() {
     _inserted_nodes.clear();
 }
 
-void Caller::write_augmented_graph(ostream& out, bool json) {
+void PileupAugmenter::write_augmented_graph(ostream& out, bool json) {
     if (json) {
         _augmented_graph.graph.paths.to_graph(_augmented_graph.graph.graph);
         out << pb2json(_augmented_graph.graph.graph);
@@ -52,7 +52,7 @@ void Caller::write_augmented_graph(ostream& out, bool json) {
     }
 }
 
-void Caller::call_node_pileup(const NodePileup& pileup) {
+void PileupAugmenter::call_node_pileup(const NodePileup& pileup) {
 
     _node = _graph->get_node(pileup.node_id());
     assert(_node != NULL);
@@ -93,7 +93,7 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
     _visited_nodes.insert(_node->id());
 }
 
-void Caller::call_edge_pileup(const EdgePileup& pileup) {
+void PileupAugmenter::call_edge_pileup(const EdgePileup& pileup) {
     if (pileup.num_reads() >= 1) {
 
         double qual_sum = 0;
@@ -111,7 +111,7 @@ void Caller::call_edge_pileup(const EdgePileup& pileup) {
     }
 }
 
-void Caller::update_augmented_graph() {
+void PileupAugmenter::update_augmented_graph() {
     
     // Add nodes we don't think necessarily exist.
     function<void(Node*)> add_node = [&](Node* node) {
@@ -213,12 +213,10 @@ void Caller::update_augmented_graph() {
         auto& n = i.second; 
         annotate_augmented_node(n.node, 'I', n.sup, n.orig_id, n.orig_offset);
     }
-    // build the translation table in augmented graph
-    _augmented_graph.translator.build_position_table();
 }
 
 
-void Caller::map_paths() {
+void PileupAugmenter::map_paths() {
     // We don't remove any nodes, so paths always stay connected
     function<void(const Path&)> lambda = [&](const Path& path) {
         list<Mapping>& call_path = _augmented_graph.graph.paths.create_path(path.name());
@@ -273,7 +271,7 @@ void Caller::map_paths() {
     _augmented_graph.graph.paths.to_graph(_augmented_graph.graph.graph);    
 }
 
-void Caller::verify_path(const Path& in_path, const list<Mapping>& call_path) {
+void PileupAugmenter::verify_path(const Path& in_path, const list<Mapping>& call_path) {
     function<string(VG*, const Mapping&)> lambda = [](VG* graph, const Mapping& mapping) {
         const Position& pos = mapping.position();
         const Node* node = graph->get_node(pos.node_id());
@@ -301,7 +299,7 @@ void Caller::verify_path(const Path& in_path, const list<Mapping>& call_path) {
 
 }
 
-void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1, bool aug1,
+void PileupAugmenter::create_augmented_edge(Node* node1, int from_offset, bool left_side1, bool aug1,
                                    Node* node2, int to_offset, bool left_side2, bool aug2, char cat,
                                    StrandSupport support) {
     NodeDivider::Entry call_sides1;
@@ -367,7 +365,7 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
     }
 }
 
-void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool insertion) {
+void PileupAugmenter::call_base_pileup(const NodePileup& np, int64_t offset, bool insertion) {
     const BasePileup& bp = np.base_pileup(offset);
 
     // parse the pilueup structure
@@ -407,7 +405,7 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
     }
 }
 
-void Caller::compute_top_frequencies(const BasePileup& bp,
+void PileupAugmenter::compute_top_frequencies(const BasePileup& bp,
                                      const vector<pair<int64_t, int64_t> >& base_offsets,
                                      string& top_base, int& top_count, int& top_rev_count,
                                      string& second_base, int& second_count, int& second_rev_count,
@@ -567,7 +565,7 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
     second_rev_count = rev_hist[second_base];
 }
 
-double Caller::total_base_quality(const BasePileup& bp,
+double PileupAugmenter::total_base_quality(const BasePileup& bp,
                                   const vector<pair<int64_t, int64_t> >& base_offsets,
                                   const string& val) {
     double qual_sum = 0;
@@ -599,7 +597,7 @@ double Caller::total_base_quality(const BasePileup& bp,
 }
 
 // please refactor me! 
-void Caller::create_node_calls(const NodePileup& np) {
+void PileupAugmenter::create_node_calls(const NodePileup& np) {
     
     int n = _node->sequence().length();
     const string& seq = _node->sequence();
@@ -813,7 +811,7 @@ void Caller::create_node_calls(const NodePileup& np) {
     }
 }
 
-void Caller::annotate_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
+void PileupAugmenter::annotate_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
 {
     _augmented_graph.node_supports[node].set_forward(support.fs);
     _augmented_graph.node_supports[node].set_reverse(support.rs);
@@ -838,14 +836,14 @@ void Caller::annotate_augmented_node(Node* node, char call, StrandSupport suppor
     }
 }
 
-void Caller::annotate_augmented_edge(Edge* edge, char call, StrandSupport support)
+void PileupAugmenter::annotate_augmented_edge(Edge* edge, char call, StrandSupport support)
 {
     _augmented_graph.edge_supports[edge].set_forward(support.fs);
     _augmented_graph.edge_supports[edge].set_reverse(support.rs);
     _augmented_graph.edge_supports[edge].set_quality(support.qual);
 }
 
-void Caller::annotate_augmented_nd()
+void PileupAugmenter::annotate_augmented_nd()
 {
     for (auto& i : _node_divider.index) {
         int64_t orig_node_id = i.first;
@@ -1070,7 +1068,7 @@ ostream& operator<<(ostream& os, NodeDivider::Entry entry) {
     return os;
 }
 
-ostream& operator<<(ostream& os, const Caller::NodeOffSide& no) {
+ostream& operator<<(ostream& os, const PileupAugmenter::NodeOffSide& no) {
     os << "NOS(" << no.first.node << ":" << no.second << ",left=" << !no.first.is_end << ")";
     return os;
 }

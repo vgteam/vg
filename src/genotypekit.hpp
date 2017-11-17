@@ -212,6 +212,16 @@ struct AugmentedGraph {
      */
     void augment_from_alignment_edits(vector<Alignment>& alignments, bool unique_names = true,
                                       bool leave_edits = false);
+
+    /**
+     * Load the translations from a file
+     */
+    void load_translations(istream& in_file);
+
+    /**
+     * Write the translations to a file
+     */
+    void write_translations(ostream& out_file);
 };
 
 /// Augmented Graph that holds some Support annotation data specific to vg call
@@ -243,6 +253,17 @@ struct SupportAugmentedGraph : public AugmentedGraph {
      * Clear the contents.
      */
     virtual void clear();
+
+    /**
+    * Read the supports from protobuf.
+    */
+    void load_supports(istream& in_file);
+
+    /**
+     * Write the supports to protobuf
+     */
+    void write_supports(ostream& out_file);
+    
 };
     
 
