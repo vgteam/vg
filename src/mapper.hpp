@@ -191,7 +191,8 @@ public:
                    bool use_diff_based_fast_reseed = false,
                    bool include_parent_in_sub_mem_count = false,
                    bool record_max_lcp = false,
-                   int reseed_below_count = 0);
+                   int reseed_below_count = 0,
+                   int max_sub_mem_recursion = 1);
     
     // Use the GCSA2 index to find super-maximal exact matches.
     vector<MaximalExactMatch>
@@ -209,6 +210,7 @@ public:
     bool adaptive_reseed_diff; // use an adaptive length difference algorithm in reseed algorithm
     double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
+    bool use_approximate_sub_mem_hit_count;
     
     bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
     bool assume_acyclic; // the indexed graph is acyclic
@@ -221,20 +223,29 @@ protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
     /// that contain it
-    void find_sub_mems(const vector<MaximalExactMatch>& mems,
+    void find_sub_mems(vector<MaximalExactMatch>& mems,
+                       vector<vector<size_t>>& mem_containments,
                        int mem_idx,
+                       int parent_layer_begin,
                        string::const_iterator next_mem_end,
-                       int min_mem_length,
-                       vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
+                       int min_sub_mem_length,
+                       int reseed_length,
+                       int recursion_depth,
+                       int max_recursion_depth);
     
     /// Provides same semantics as find_sub_mems but with a different algorithm. This algorithm uses the
     /// min_mem_length as a pruning tool instead of the LCP index. It can be expected to be faster when both
     /// the min_mem_length reasonably large relative to the reseed_length (e.g. 1/2 of SMEM size or similar).
-    void find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
+    void find_sub_mems_fast(vector<MaximalExactMatch>& mems,
+                            vector<vector<size_t>>& mem_containments,
                             int mem_idx,
+                            int parent_layer_begin,
                             string::const_iterator next_mem_end,
                             int min_sub_mem_length,
-                            vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
+                            int reseed_length,
+                            int recursion_depth,
+                            int max_recursion_depth,
+                            bool use_approximate_hit_count);
     
     /// finds the nodes of sub MEMs that do not occur inside parent MEMs, each sub MEM should be associated
     /// with a vector of the indices of the SMEMs that contain it in the parent MEMs vector
