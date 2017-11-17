@@ -21,6 +21,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
       , fast_reseed_length_diff(0.75)
       , adaptive_reseed_diff(false)
       , use_approximate_sub_mem_hit_count(true)
+      , max_sub_mem_recursion_depth(1)
       , adaptive_diff_exponent(0.05)
       , hit_max(0)
       , alignment_threads(1)
