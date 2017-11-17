@@ -585,17 +585,43 @@ int Genotyper::alignment_qual_score(VG& graph, const Snarl* snarl, const Alignme
 }
 
 bool Genotyper::mapping_enters_side(const Mapping& mapping, const handle_t& side, const HandleGraph* graph) {
-    return mapping.position().node_id() == graph->get_id(side) &&
+
+#ifdef debug
+#pragma omp critical (cerr)
+     cerr << "Does mapping " << pb2json(mapping) << " enter " << graph->get_id(side) << " " << graph->get_is_reverse(side) << endl;
+#endif
+    
+    bool enters = mapping.position().node_id() == graph->get_id(side) &&
         mapping.position().offset() == 0 &&
         mapping.position().is_reverse() == graph->get_is_reverse(side);
+       
+#ifdef debug
+#pragma omp critical (cerr)
+    cerr << enters << endl;
+#endif
+    
+    return enters;
 }
 
 bool Genotyper::mapping_exits_side(const Mapping& mapping, const handle_t& side, const HandleGraph* graph) {
-    return mapping.position().node_id() == graph->get_id(side) &&
+    
+#ifdef debug
+#pragma omp critical (cerr)
+    cerr << "Does mapping " << pb2json(mapping) << " exit " << graph->get_id(side) << " " << graph->get_is_reverse(side) << endl;
+#endif
+    
+    bool exits = mapping.position().node_id() == graph->get_id(side) &&
         mapping.position().is_reverse() != graph->get_is_reverse(side) &&
         mapping.position().offset() + mapping_from_length(mapping) == graph->get_length(side) &&
         mapping.edit(mapping.edit_size() - 1).from_length() ==
         mapping.edit(mapping.edit_size() - 1).to_length();
+        
+#ifdef debug
+#pragma omp critical (cerr)
+    cerr << exits << endl;
+#endif
+    
+    return exits;
 }
 
 vector<list<Mapping>> Genotyper::get_paths_through_snarl(VG& graph, const Snarl* snarl, const SnarlManager& manager,
@@ -639,7 +665,7 @@ vector<list<Mapping>> Genotyper::get_paths_through_snarl(VG& graph, const Snarl*
 
 #ifdef debug
 #pragma omp critical (cerr)
-                cerr << "Trying mapping of read/path " << name_and_mappings.first << endl;
+                cerr << "Trying mapping of read/path " << name_and_mappings.first << " to " << pb2json(mapping->position()) << endl;
 #endif
 
                 // How many times have we gone to the next mapping looking for a
@@ -652,10 +678,24 @@ vector<list<Mapping>> Genotyper::get_paths_through_snarl(VG& graph, const Snarl*
                 // left, and if both are backward we go right again.
                 bool traversal_direction = mapping->position().is_reverse() != snarl->start().backward();
 
-                // Does our mapping actually cross through the starting side
-                if (!traversal_direction && !mapping_exits_side(*mapping, (&graph)->get_handle(snarl->start()), &graph) ||
-                    traversal_direction && !mapping_enters_side(*mapping, graph.get_handle(snarl->start()), &graph)) {
-                    continue;
+                // Now work out if we are entering the snarl or not
+                if (traversal_direction) {
+                    // We are going left, so we want to enter the start of the snarl's end node
+                    bool enter_end = mapping_enters_side(*mapping, graph.get_handle(snarl->end()), &graph);
+                    
+                    if (!enter_end) {
+                        // We only want reads that enter the snarl end
+                        continue;
+                    }
+                    
+                } else {
+                    // We are going right, so we want to exit the end of the snarl's start node
+                    bool exit_start = mapping_exits_side(*mapping, graph.flip(graph.get_handle(snarl->start())), &graph);
+                    
+                    if (!exit_start) {
+                        // We are only interested in reads that enter the snarl
+                        continue;
+                    }
                 }
 
                 // What orientation would we want to find the end node in? If
@@ -681,11 +721,13 @@ vector<list<Mapping>> Genotyper::get_paths_through_snarl(VG& graph, const Snarl*
                                                      return graph.get_node(node_id)->sequence().length();}));
                     
                     if(mapping->position().node_id() == snarl->end().node_id() && mapping->position().is_reverse() == expected_end_orientation) {
-                        // Does our mapping actually cross through the ending side
+                        // Does our mapping actually cross through the ending side?
+                        // It has to either enter the start of the end node, or exit the end of the start node.
+                        // And if it doesn't we try again.
                         if (!traversal_direction &&
-                            !mapping_enters_side(*mapping, graph.flip(graph.get_handle(snarl->end())), &graph) ||
+                            !mapping_enters_side(*mapping, graph.get_handle(snarl->end()), &graph) ||
                             traversal_direction && 
-                            !mapping_exits_side(*mapping, graph.flip(graph.get_handle(snarl->end())), &graph)) {
+                            !mapping_exits_side(*mapping, graph.flip(graph.get_handle(snarl->start())), &graph)) {
                             break;
                         }
 
@@ -794,7 +836,6 @@ vector<list<Mapping>> Genotyper::get_paths_through_snarl(VG& graph, const Snarl*
 
     return to_return;
 }
-
 
 template<typename T> inline void set_intersection(const unordered_set<T>& set_1, const unordered_set<T>& set_2,
                                                   unordered_set<T>* out_intersection ) {
