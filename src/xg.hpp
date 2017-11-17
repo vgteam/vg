@@ -7,6 +7,7 @@
 #include <queue>
 #include <omp.h>
 #include <unordered_map>
+#include <unordered_set>
 #include "cpp/vg.pb.h"
 #include "sdsl/bit_vectors.hpp"
 #include "sdsl/enc_vector.hpp"
@@ -116,9 +117,9 @@ public:
                bool is_sorted_dag);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 5;
+    const static uint32_t MAX_INPUT_VERSION = 6;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 5;
+    const static uint32_t OUTPUT_VERSION = 6;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -307,6 +308,9 @@ public:
     int64_t min_approx_path_distance(int64_t id1, int64_t id2) const;
     /// nearest position that is in a path and the distance between it and the current position
     pair<pos_t, int64_t> next_path_position(pos_t pos, int64_t max_search) const;
+    
+    /// returns true if the paths are on the same connected component of the graph (constant time)
+    bool paths_on_same_component(size_t path_rank_1, size_t path_rank_2) const;
     
     /// returns all of the paths that a node traversal occurs on, the rank of these occurrences on the path
     /// and the orientation of the occurrences. false indicates that the traversal occurs in the same
@@ -658,7 +662,19 @@ private:
     // Holds the names of threads while they are being inserted, before the
     // succinct name representation is built.
     string names_str;
+    
+    // Memoized sets of the path ranks that co-occur on a connected component
+    vector<unordered_set<size_t>> component_path_sets;
+    // An index from a path rank to the set of path ranks that occur on the same connected component as it
+    vector<size_t> component_path_set_of_path;
 
+    // Fill the component path sets indexes
+    void index_component_path_sets();
+    // Create a representation of the component path set indexes in serializable sdsl types
+    void create_succinct_component_path_sets(int_vector<>& path_ranks_iv_out, bit_vector& path_ranks_bv_out) const;
+    // Convert the serializable sdsl representation of the component path set indexes into the in-memory class members
+    void unpack_succinct_component_path_sets(const int_vector<>& path_ranks_iv, const bit_vector& path_ranks_bv);
+    
     // A "destination" is either a local edge number + 2, BS_NULL for stopping,
     // or possibly BS_SEPARATOR for cramming multiple Benedict arrays into one.
     using destination_t = size_t;

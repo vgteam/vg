@@ -252,6 +252,7 @@ private:
                                                  size_t& num_possible_merges_remaining,
                                                  UnionFind& component_union_find,
                                                  unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                                 map<pair<size_t, size_t>, size_t>& num_infinite_dists,
                                                  size_t num_items,
                                                  xg::XG* xgindex,
                                                  const function<pos_t(size_t)>& get_position,
@@ -265,9 +266,11 @@ private:
      * of items that can be directly inferred to share a path based on the memo of
      * node occurrences on paths
      */
-    static void extend_dist_tree_by_path_buckets(size_t& num_possible_merges_remaining,
+    static void extend_dist_tree_by_path_buckets(int64_t max_failed_distance_probes,
+                                                 size_t& num_possible_merges_remaining,
                                                  UnionFind& component_union_find,
                                                  unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                                 map<pair<size_t, size_t>, size_t>& num_infinite_dists,
                                                  size_t num_items,
                                                  xg::XG* xgindex,
                                                  const function<pos_t(size_t)>& get_position,
