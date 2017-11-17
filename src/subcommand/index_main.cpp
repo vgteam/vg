@@ -65,7 +65,7 @@ void help_index(char** argv) {
          << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
          << "    -L, --path-layout      describes the path layout of the graph" << endl
          << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
-        //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
+         << "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
 }
@@ -126,6 +126,7 @@ int main_index(int argc, char** argv) {
     bool store_threads = false; // use gPBWT to store paths
     bool discard_overlaps = false;
     string binary_haplotype_output;
+    string tmp_db_base;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -164,6 +165,7 @@ int main_index(int argc, char** argv) {
             {"dbg-in", required_argument, 0, 'i'},
             {"discard-overlaps", no_argument, 0, 'o'},
             {"write-haps", required_argument, 0, 'H'},
+            {"tmp-db-base", required_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
@@ -300,6 +302,10 @@ int main_index(int argc, char** argv) {
 
         case 'Z':
             size_limit = atoi(optarg);
+            break;
+
+        case 'b':
+            tmp_db_base = optarg;
             break;
 
         case 'T':
