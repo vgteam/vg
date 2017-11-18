@@ -387,10 +387,12 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      xg::XG* xgindex,
                                                      size_t max_expected_dist_approx_error,
                                                      size_t min_mem_length,
-                                                     node_occurrence_on_paths_memo_t* node_path_memo,
+                                                     bool unstranded,
+                                                     paths_of_node_memo_t* paths_of_node_memo,
+                                                     oriented_occurences_memo_t* oriented_occurences_memo,
                                                      handle_memo_t* handle_memo) :
     OrientedDistanceClusterer(alignment, mems, nullptr, &aligner, xgindex, max_expected_dist_approx_error,
-                              min_mem_length, node_path_memo, handle_memo) {
+                              min_mem_length, unstranded, paths_of_node_memo, oriented_occurences_memo, handle_memo) {
     // nothing else to do
 }
 
@@ -400,10 +402,12 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      xg::XG* xgindex,
                                                      size_t max_expected_dist_approx_error,
                                                      size_t min_mem_length,
-                                                     node_occurrence_on_paths_memo_t* node_path_memo,
+                                                     bool unstranded,
+                                                     paths_of_node_memo_t* paths_of_node_memo,
+                                                     oriented_occurences_memo_t* oriented_occurences_memo,
                                                      handle_memo_t* handle_memo) :
     OrientedDistanceClusterer(alignment, mems, &aligner, nullptr, xgindex, max_expected_dist_approx_error,
-                              min_mem_length, node_path_memo, handle_memo) {
+                              min_mem_length, unstranded, paths_of_node_memo, oriented_occurences_memo, handle_memo) {
     // nothing else to do
 }
 
@@ -414,7 +418,9 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      xg::XG* xgindex,
                                                      size_t max_expected_dist_approx_error,
                                                      size_t min_mem_length,
-                                                     node_occurrence_on_paths_memo_t* node_path_memo,
+                                                     bool unstranded,
+                                                     paths_of_node_memo_t* paths_of_node_memo,
+                                                     oriented_occurences_memo_t* oriented_occurences_memo,
                                                      handle_memo_t* handle_memo) : aligner(aligner), qual_adj_aligner(qual_adj_aligner) {
     
     // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
@@ -457,14 +463,15 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     
     // Get all the distances between nodes, in a forrest of unrooted trees of
     // nodes that we know are on a consistent strand.
-    unordered_map<pair<size_t, size_t>, int64_t> recorded_finite_dists = get_on_strand_distance_tree(nodes.size(), xgindex,
+    unordered_map<pair<size_t, size_t>, int64_t> recorded_finite_dists = get_on_strand_distance_tree(nodes.size(), unstranded, xgindex,
                                                                                                      [&](size_t node_number) {
                                                                                                          return nodes[node_number].start_pos;
                                                                                                      },
                                                                                                      [&](size_t node_number) {
                                                                                                          return 0;
                                                                                                      },
-                                                                                                     node_path_memo,
+                                                                                                     paths_of_node_memo,
+                                                                                                     oriented_occurences_memo,
                                                                                                      handle_memo);
     
     // Flatten the trees to maps of relative position by node ID.
@@ -510,7 +517,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
         // the graph distance constrant for each MEM and then checking for read colinearity and the
         // reverse distance constraint
         int64_t last_idx = sorted_pos.size() - 1;
-        int64_t low = 0, hi = last_idx;
+        int64_t low = 0, hi = 0;
         for (int64_t i = 0; i < sorted_pos.size(); i++) {
             
             int64_t strand_pos = sorted_pos[i].first;
@@ -525,13 +532,19 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
             
             // move the lower boundary of the search interval to the lowest value inside the
             // the target interval
-            while (low < sorted_pos.size() ? sorted_pos[low].first < target_low_pos : false) {
-                low++;
+            if (sorted_pos[low].first > target_low_pos) {
+                while (low > 0 ? sorted_pos[low - 1].first > target_low_pos : false) {
+                    low--;
+                }
+            }
+            else {
+                while (low < sorted_pos.size() ? sorted_pos[low].first < target_low_pos : false) {
+                    low++;
+                }
             }
             
             // move the upper boundary of the search interval to the highest value inside the
-            // the target interval (this one can move in either direction because pivots are
-            // different lengths)
+            // the target interval
             if (sorted_pos[hi].first > target_hi_pos) {
                 while (hi > 0 ?  sorted_pos[hi].first > target_hi_pos : false) {
                     hi--;
@@ -599,10 +612,11 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     }
 }
 
-unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_strand_distance_tree(size_t num_items, xg::XG* xgindex,
+unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_strand_distance_tree(size_t num_items, bool unstranded, xg::XG* xgindex,
                                                                                                     const function<pos_t(size_t)>& get_position,
                                                                                                     const function<int64_t(size_t)>& get_offset,
-                                                                                                    node_occurrence_on_paths_memo_t* node_path_memo,
+                                                                                                    paths_of_node_memo_t* paths_of_node_memo,
+                                                                                                    oriented_occurences_memo_t* oriented_occurences_memo,
                                                                                                     handle_memo_t* handle_memo) {
     
     // for recording the distance of any pair that we check with a finite distance
@@ -620,31 +634,33 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     int64_t max_failed_distance_probes = 2;
     
     // an initial pass that only looks at nodes on path
-    extend_dist_tree_by_path_buckets(max_failed_distance_probes, num_possible_merges_remaining,component_union_find, recorded_finite_dists,
-                                     num_infinite_dists, num_items, xgindex, get_position, get_offset, node_path_memo, handle_memo);
+    extend_dist_tree_by_strand_buckets(max_failed_distance_probes, num_possible_merges_remaining,component_union_find, recorded_finite_dists,
+                                       num_infinite_dists, num_items, xgindex, get_position, get_offset, paths_of_node_memo, oriented_occurences_memo,
+                                       handle_memo);
     
     // TODO: permutations that try to assign singletons
     
     // a second pass that tries fill in the tree by traversing to the nearest shared path
     size_t nlogn = ceil(num_items * log(num_items));
     extend_dist_tree_by_permutations(max_failed_distance_probes, 50, nlogn, num_possible_merges_remaining, component_union_find,
-                                     recorded_finite_dists, num_infinite_dists, num_items, xgindex, get_position, get_offset, node_path_memo,
-                                     handle_memo);
+                                     recorded_finite_dists, num_infinite_dists, num_items, xgindex, get_position, get_offset, paths_of_node_memo,
+                                     oriented_occurences_memo, handle_memo);
     
     return recorded_finite_dists;
 }
     
-void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_failed_distance_probes,
-                                                                 size_t& num_possible_merges_remaining,
-                                                                 UnionFind& component_union_find,
-                                                                 unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
-                                                                 map<pair<size_t, size_t>, size_t>& num_infinite_dists,
-                                                                 size_t num_items,
-                                                                 xg::XG* xgindex,
-                                                                 const function<pos_t(size_t)>& get_position,
-                                                                 const function<int64_t(size_t)>& get_offset,
-                                                                 node_occurrence_on_paths_memo_t* paths_of_node_memo,
-                                                                 handle_memo_t* handle_memo) {
+void OrientedDistanceClusterer::extend_dist_tree_by_strand_buckets(int64_t max_failed_distance_probes,
+                                                                   size_t& num_possible_merges_remaining,
+                                                                   UnionFind& component_union_find,
+                                                                   unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                                                   map<pair<size_t, size_t>, size_t>& num_infinite_dists,
+                                                                   size_t num_items,
+                                                                   xg::XG* xgindex,
+                                                                   const function<pos_t(size_t)>& get_position,
+                                                                   const function<int64_t(size_t)>& get_offset,
+                                                                   paths_of_node_memo_t* paths_of_node_memo,
+                                                                   oriented_occurences_memo_t* oriented_occurences_memo,
+                                                                   handle_memo_t* handle_memo) {
     if (!paths_of_node_memo) {
         return;
     }
@@ -653,7 +669,12 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_fai
     for (size_t i = 0; i < num_items; i++) {
         pos_t pos = get_position(i);
         if (!paths_of_node_memo->count(id(pos))) {
-            (*paths_of_node_memo)[id(pos)] = xgindex->oriented_paths_of_node(id(pos));
+            (*paths_of_node_memo)[id(pos)] = xgindex->paths_of_node(id(pos));
+            for (size_t path : paths_of_node_memo->at(id(pos))) {
+                if (!oriented_occurences_memo->count(make_pair(id(pos), path))) {
+                    (*oriented_occurences_memo)[make_pair(id(pos), path)] = xgindex->oriented_occurrences_on_path(id(pos), path);
+                }
+            }
         }
     }
     
@@ -663,15 +684,15 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_fai
     unordered_map<size_t, id_t> non_path_hits;
     for (size_t i = 0; i < num_items; i++) {
         pos_t pos = get_position(i);
-        auto& path_records = paths_of_node_memo->at(id(pos));
-        if (path_records.empty()) {
+        vector<size_t>& paths = paths_of_node_memo->at(id(pos));
+        if (paths.empty()) {
             // just add a sentinel for now
             non_path_hits[i] = 0;
         }
         else {
-            for (pair<size_t, vector<pair<size_t, bool>>>& path_record : path_records) {
-                for (pair<size_t, bool>& node_occurence : path_record.second) {
-                    items_on_path_strand[make_pair(path_record.first, node_occurence.second != is_rev(pos))].push_back(i);
+            for (size_t path : paths) {
+                for (pair<size_t, bool> oriented_occurrence : oriented_occurences_memo->at(make_pair(id(pos), path))) {
+                    items_on_path_strand[make_pair(path, oriented_occurrence.second != is_rev(pos))].push_back(i);
                 }
             }
         }
@@ -691,16 +712,16 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_fai
                 id_t neighbor_id = xgindex->get_id(handle);
                 bool neighbor_rev = xgindex->get_is_reverse(handle);
                 if (!paths_of_node_memo->count(neighbor_id)) {
-                    (*paths_of_node_memo)[neighbor_id] = xgindex->oriented_paths_of_node(neighbor_id);
+                    (*paths_of_node_memo)[neighbor_id] = xgindex->paths_of_node(neighbor_id);
                 }
-                auto& path_records = paths_of_node_memo->at(neighbor_id);
-                for (pair<size_t, vector<pair<size_t, bool>>>& path_record : path_records) {
-                    for (pair<size_t, bool>& node_occurence : path_record.second) {
-                        items_on_path_strand[make_pair(path_record.first, node_occurence.second != neighbor_rev)].push_back(non_path_hit.first);
+                auto& neighbor_paths = paths_of_node_memo->at(neighbor_id);
+                for (size_t path : neighbor_paths) {
+                    for (pair<size_t, bool>& node_occurence : xgindex->memoized_oriented_occurrences_on_path(neighbor_id, path, oriented_occurences_memo)) {
+                        items_on_path_strand[make_pair(path, node_occurence.second != neighbor_rev)].push_back(non_path_hit.first);
                     }
                 }
                 // replace the sentinel value with the actual neighbor's ID (but only if we find a path on it)
-                if (!path_records.empty()) {
+                if (!neighbor_paths.empty()) {
                     non_path_hit.second = neighbor_id;
                 }
                 return true;
@@ -757,7 +778,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_fai
             
             int64_t dist = xgindex->closest_shared_path_oriented_distance(id(pos_prev), offset(pos_prev), is_rev(pos_prev),
                                                                           id(pos_here), offset(pos_here), is_rev(pos_here),
-                                                                          0, paths_of_node_memo, handle_memo);
+                                                                          0, paths_of_node_memo, oriented_occurences_memo, handle_memo);
             
             
             // did we get a successful estimation?
@@ -811,7 +832,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_fai
         // check if these two hits are on a path that is on a separate component
         if (i_idx < i_group.size()) {
             id_t i_node_id = non_path_hits.count(i_group[i_idx]) ? non_path_hits[i_group[i_idx]] : id(get_position(i_group[i_idx]));
-            size_t i_path = paths_of_node_memo->at(i_node_id).front().first;
+            size_t i_path = paths_of_node_memo->at(i_node_id).front();
             
             for (size_t j = 0; j < i; j++) {
                 // find the first member of the 'j' group that is on a path or associated with a neighbor on a path
@@ -826,7 +847,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_fai
                     cerr << "checking for shared component using strand cluster representatives " << get_position(i_group[i_idx]) << " and " << get_position(j_group[j_idx]) << endl;
 #endif
                     size_t j_node_id = non_path_hits.count(j_group[j_idx]) ? non_path_hits[j_group[j_idx]] : id(get_position(j_group[j_idx]));
-                    size_t j_path = paths_of_node_memo->at(j_node_id).front().first;
+                    size_t j_path = paths_of_node_memo->at(j_node_id).front();
                     
                     if (!xgindex->paths_on_same_component(i_path, j_path)) {
                         // these hits are associated with strands that are on separated components of the graph
@@ -860,7 +881,8 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(int64_t max_fai
                                                                  xg::XG* xgindex,
                                                                  const function<pos_t(size_t)>& get_position,
                                                                  const function<int64_t(size_t)>& get_offset,
-                                                                 node_occurrence_on_paths_memo_t* paths_of_node_memo,
+                                                                 paths_of_node_memo_t* paths_of_node_memo,
+                                                                 oriented_occurences_memo_t* oriented_occurences_memo,
                                                                  handle_memo_t* handle_memo) {
     
     // We want to run through all possible pairsets of node numbers in a permuted order.
@@ -951,7 +973,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(int64_t max_fai
         int64_t oriented_dist = xgindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                                id(pos_2), offset(pos_2), is_rev(pos_2),
                                                                                max_search_distance_to_path, paths_of_node_memo,
-                                                                               handle_memo);
+                                                                               oriented_occurences_memo, handle_memo);
         
 #ifdef debug_od_clusterer
         cerr << "distance between " << pos_1 << " and " << pos_2 << " estimated at " << oriented_dist << endl;
@@ -1603,7 +1625,9 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
                                                                                      xg::XG* xgindex,
                                                                                      int64_t min_inter_cluster_distance,
                                                                                      int64_t max_inter_cluster_distance,
-                                                                                     node_occurrence_on_paths_memo_t* node_path_memo,
+                                                                                     bool unstranded,
+                                                                                     paths_of_node_memo_t* paths_of_node_memo,
+                                                                                     oriented_occurences_memo_t* oriented_occurences_memo,
                                                                                      handle_memo_t* handle_memo) {
     
 #ifdef debug_od_clusterer
@@ -1617,7 +1641,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     size_t total_clusters = left_clusters.size() + right_clusters.size();
     
     // Compute distance trees for sets of clusters that are distance-able on consistent strands.
-    unordered_map<pair<size_t, size_t>, int64_t> distance_tree = get_on_strand_distance_tree(total_clusters, xgindex,
+    unordered_map<pair<size_t, size_t>, int64_t> distance_tree = get_on_strand_distance_tree(total_clusters, unstranded, xgindex,
          [&](size_t cluster_num) {
              // Assumes the clusters are nonempty.
              if (cluster_num < left_clusters.size()) {
@@ -1636,7 +1660,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
                  return alignment_2.sequence().begin() - right_clusters[cluster_num - left_clusters.size()]->front().first->begin;
              }
          },
-         node_path_memo, handle_memo);
+         paths_of_node_memo, oriented_occurences_memo, handle_memo);
     
     // Flatten the distance tree to a set of linear spaces, one per tree.
     vector<unordered_map<size_t, int64_t>> linear_spaces = flatten_distance_tree(total_clusters, distance_tree);
