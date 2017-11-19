@@ -265,6 +265,7 @@ private:
                                                  UnionFind& component_union_find,
                                                  unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
                                                  map<pair<size_t, size_t>, size_t>& num_infinite_dists,
+                                                 bool unstranded,
                                                  size_t num_items,
                                                  xg::XG* xgindex,
                                                  const function<pos_t(size_t)>& get_position,
@@ -276,7 +277,7 @@ private:
     
     /**
      * Adds edges into the distance tree by estimating the distance only between pairs
-     * of items that can be directly inferred to share a path based on the memo of
+     * of items that can be directly inferred to share a strand of a path based on the memo of
      * node occurrences on paths
      */
     static void extend_dist_tree_by_strand_buckets(int64_t max_failed_distance_probes,
@@ -291,6 +292,36 @@ private:
                                                    paths_of_node_memo_t* paths_of_node_memo,
                                                    oriented_occurences_memo_t* oriented_occurences_memo,
                                                    handle_memo_t* handle_memo);
+    /**
+     * Adds edges into the distance tree by estimating the distance only between pairs
+     * of items that can be directly inferred to share a path based on the memo of
+     */
+    static void extend_dist_tree_by_path_buckets(int64_t max_failed_distance_probes,
+                                                 size_t& num_possible_merges_remaining,
+                                                 UnionFind& component_union_find,
+                                                 unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                                 map<pair<size_t, size_t>, size_t>& num_infinite_dists,
+                                                 size_t num_items,
+                                                 xg::XG* xgindex,
+                                                 const function<pos_t(size_t)>& get_position,
+                                                 const function<int64_t(size_t)>& get_offset,
+                                                 paths_of_node_memo_t* paths_of_node_memo,
+                                                 oriented_occurences_memo_t* oriented_occurences_memo,
+                                                 handle_memo_t* handle_memo);
+    
+    /**
+     * Automatically blocks off merges in the distance tree between groups that can be inferred
+     * to be on separate components based on the paths they overlap
+     */
+    static void exclude_dist_tree_merges_by_components(int64_t max_failed_distance_probes,
+                                                       size_t& num_possible_merges_remaining,
+                                                       UnionFind& component_union_find,
+                                                       map<pair<size_t, size_t>, size_t>& num_infinite_dists,
+                                                       unordered_map<size_t, id_t> neighbors_on_paths,
+                                                       xg::XG* xgindex,
+                                                       const function<pos_t(size_t)>& get_position,
+                                                       const function<int64_t(size_t)>& get_offset,
+                                                       paths_of_node_memo_t* paths_of_node_memo);
     
     /**
      * Given a number of nodes, and a map from node pair to signed relative

@@ -2681,6 +2681,8 @@ handle_t XG::memoized_get_handle(int64_t id, bool rev, unordered_map<pair<int64_
 int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1, bool rev1,
                                                     int64_t id2, size_t offset2, bool rev2,
                                                     size_t max_search_dist,
+                                                    unordered_map<int64_t, vector<size_t>>* paths_of_node_memo,
+                                                    unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo,
                                                     unordered_map<pair<int64_t, bool>, handle_t>* handle_memo) const {
     
     unordered_map<size_t, tuple<int64_t, bool, int64_t>> path_dists_1, path_dists_2;
@@ -2693,10 +2695,10 @@ int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1,
     // from the positions for the search to explore
     // TODO: this leaves the ambiguity that a node might occur multiple times on the same path, in which case
     // the tie for closest traversal to the path is broken arbitrarily
-    for (size_t path_rank : paths_of_node(id1)) {
+    for (size_t path_rank : memoized_paths_of_node(id1, paths_of_node_memo)) {
         path_dists_1[path_rank] = make_tuple(id1, rev1, (int64_t) offset1);
     }
-    for (size_t path_rank : paths_of_node(id2)) {
+    for (size_t path_rank : memoized_paths_of_node(id2, paths_of_node_memo)) {
         path_dists_2[path_rank] = make_tuple(id2, rev2, (int64_t) offset2);
         if (path_dists_1.count(path_rank)) {
             shared_paths.insert(path_rank);
@@ -2792,7 +2794,7 @@ int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1,
             
             if ((trav_id != id1 || trav_is_rev != rev1) && (trav_id != id2 || trav_is_rev != rev2)) {
                 // this is not one of the start positions, so it might have new paths on it
-                for (size_t path : paths_of_node(trav_id)) {
+                for (size_t path : memoized_paths_of_node(trav_id, paths_of_node_memo)) {
 #ifdef debug_algorithms
                     cerr << "\tnode is on path " << path << endl;
 #endif
@@ -2840,8 +2842,10 @@ int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1,
         tuple<int64_t, bool, int64_t>& path_trav_1 = path_dists_1[path_rank];
         tuple<int64_t, bool, int64_t>& path_trav_2 = path_dists_2[path_rank];
         
-        vector<pair<size_t, bool>> occurrences_1 = oriented_occurrences_on_path(get<0>(path_trav_1), path_rank);
-        vector<pair<size_t, bool>> occurrences_2 = oriented_occurrences_on_path(get<0>(path_trav_2), path_rank);
+        vector<pair<size_t, bool>> occurrences_1 = memoized_oriented_occurrences_on_path(get<0>(path_trav_1), path_rank,
+                                                                                         oriented_occurrences_memo);
+        vector<pair<size_t, bool>> occurrences_2 = memoized_oriented_occurrences_on_path(get<0>(path_trav_2), path_rank,
+                                                                                         oriented_occurrences_memo);
         
         vector<int64_t> path_positions_1(occurrences_1.size());
         vector<int64_t> path_positions_2(occurrences_2.size());

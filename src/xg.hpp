@@ -347,6 +347,8 @@ public:
     int64_t closest_shared_path_unstranded_distance(int64_t id1, size_t offset1, bool rev1,
                                                     int64_t id2, size_t offset2, bool rev2,
                                                     size_t max_search_dist,
+                                                    unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
+                                                    unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
                                                     unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
     
     /// the oriented distance (positive if pos2 is further along the path than pos1, otherwise negative)
