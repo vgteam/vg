@@ -68,7 +68,7 @@ while getopts "hp:t:c:v:r:R:ks3" o; do
             MANAGE_CLUSTER=0
             ;;
         v)
-            VG_DOCKER_OPTS=("--vg_docker" "${OPTARG}")
+            VG_DOCKER_OPTS="--vg_docker ${OPTARG}"
             ;;
         r)
             READ_STEM="${OPTARG}"
@@ -213,7 +213,7 @@ READ_SET="${READ_STEM}-${REGION_NAME}"
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/toil-vg mapeval \
     --whole_genome_config \
     ${RESTART_ARG} \
-    "${VG_DOCKER_OPTS[@]}" \
+    ${VG_DOCKER_OPTS} \
     --fasta `get_input_url "${REGION_NAME}.fa"` \
     --index-bases "${GRAPH_URLS[@]}" \
     --gam-names "${GRAPH_NAMES[@]}" \
