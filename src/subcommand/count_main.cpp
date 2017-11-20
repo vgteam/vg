@@ -18,7 +18,7 @@ void help_count(char** argv) {
          << "    -i, --counts-in FILE   begin by summing coverage counts from each provided FILE" << endl
          << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
          << "    -d, --as-table         write table on stdout representing counts" << endl
-         << "    -n, --no-edits         don't record edits, just coverage" << endl
+         << "    -n, --no-edits         don't record or write edits, just graph-matching coverage" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
 
@@ -123,7 +123,7 @@ int main_count(int argc, char** argv) {
     }
     if (write_table) {
         counter.make_compact();
-        counter.as_table(cout);
+        counter.as_table(cout, record_edits);
     }
 
     return 0;

@@ -77,6 +77,7 @@ void Counter::ensure_edit_tmpfile_open(void) {
 
 void Counter::close_edit_tmpfile(void) {
     if (tmpfstream.is_open()) {
+        tmpfstream << delim; // pad
         tmpfstream.close();
     }
 }
@@ -109,12 +110,7 @@ void Counter::add(const Alignment& aln, bool record_edits) {
             } else if (record_edits) {
                 // we represent things on the forward strand
                 string pos_repr = pos_key(i);
-                string edit_repr;
-                if (mapping.position().is_reverse()) {
-                    reverse_complement_edit(edit).SerializeToString(&edit_repr);
-                } else {
-                    edit.SerializeToString(&edit_repr);
-                }
+                string edit_repr = edit_value(edit, mapping.position().is_reverse());
                 tmpfstream << pos_repr << edit_repr;
             }
             if (mapping.position().is_reverse()) {
@@ -139,10 +135,46 @@ size_t Counter::position_in_basis(const Position& pos) {
 
 string Counter::pos_key(size_t i) {
     Position pos;
-    pos.set_node_id(i);
+    size_t offset = 2;
+    pos.set_node_id(i+offset);
     string pos_repr;
     pos.SerializeToString(&pos_repr);
-    return sep_start + pos_repr + sep_end;
+    return delim + escape_delim(pos_repr);
+}
+
+string Counter::edit_value(const Edit& edit, bool revcomp) {
+    string edit_repr;
+    if (revcomp) {
+        reverse_complement_edit(edit).SerializeToString(&edit_repr);
+    } else {
+        edit.SerializeToString(&edit_repr);
+    }
+    return delim + escape_delim(edit_repr);
+}
+
+string Counter::escape_delim(const string& s) {
+    string escaped; escaped.reserve(s.size());
+    for (size_t i = 0; i < s.size(); ++i) {
+        char c = s[i];
+        escaped.push_back(c);
+        if (c == delim) escaped.push_back(delim);
+    }
+    return escaped;
+}
+
+string Counter::unescape_delim(const string& s) {
+    string unescaped; unescaped.reserve(s.size());
+    for (size_t i = 0; i < s.size()-1; ++i) {
+        char c = s[i];
+        char d = s[i+1];
+        if (c == delim && d == delim) {
+            unescaped.push_back(delim);
+        } else {
+            unescaped.push_back(c);
+            if (i == s.size()-2) unescaped.push_back(d);
+        }
+    }
+    return unescaped;
 }
 
 vector<Edit> Counter::edits_at_position(size_t i) {
@@ -150,15 +182,13 @@ vector<Edit> Counter::edits_at_position(size_t i) {
     if (i == 0) return edits;
     string key = pos_key(i);
     auto occs = locate(edit_csa, key);
-    for (size_t i = 1; i < occs.size(); ++i) {
+    for (size_t i = 0; i < occs.size(); ++i) {
         //cout << occs[i] << endl;
         // walk from after the key to the next end-sep
-        size_t b = occs[i] + key.size();
+        size_t b = occs[i] + key.size() + 1;
         size_t e = b;
-        while (e+1 < edit_csa.size() && extract(edit_csa, e, e+1) != sep_start) {
-            ++e;
-        }
-        string value = extract(edit_csa, b, e);
+        while (!(extract(edit_csa, e, e)[0] == delim && extract(edit_csa, e+1, e+1)[0] != delim)) ++e;
+        string value = unescape_delim(extract(edit_csa, b, e));
         Edit edit;
         //cerr << b << " " << e << endl;
         edit.ParseFromString(value);
@@ -168,11 +198,14 @@ vector<Edit> Counter::edits_at_position(size_t i) {
     return edits;
 }
 
-ostream& Counter::as_table(ostream& out) {
+ostream& Counter::as_table(ostream& out, bool show_edits) {
     // write the coverage as a vector
     for (size_t i = 0; i < coverage_civ.size(); ++i) {
-        out << i << "\t" << coverage_civ[i] << "\t" << count(edit_csa, pos_key(i));
-        for (auto& edit : edits_at_position(i)) out << " " << pb2json(edit);
+        out << i << "\t" << coverage_civ[i];
+        if (show_edits) {
+            out << "\t" << count(edit_csa, pos_key(i));
+            for (auto& edit : edits_at_position(i)) out << " " << pb2json(edit);
+        }
         out << endl;
     }
 }
