@@ -17,12 +17,12 @@ is $(vg chunk -x x.xg -p x -c 10| vg stats - -N) 210 "vg chunk with no options p
 is $(vg chunk -x x.xg -p x -c 10| vg stats - -E) 291 "vg chunk with no options preserves edges"
 
 # check a small chunk
-is $(vg chunk -x x.xg -p x:20-30 | vg view - -j | jq -c '.path[0].mapping[].position' | jq 'select ((.node_id == 9))' | grep node | sed s/,// | sort | uniq | wc -l) 1 "chunk has path going through node 9"
+is $(vg chunk -x x.xg -p x:20-30 -c 0 | vg view - -j | jq -c '.path[0].mapping[].position' | jq 'select ((.node_id == 9))' | grep node | sed s/,// | sort | uniq | wc -l) 1 "chunk has path going through node 9"
 
 # check no crash when using chunk_size, and filenames deterministic
 rm -f _chunk_test*
-vg chunk -x x.xg -p x -s 233 -o 50 -b _chunk_test -t 2
-vg chunk -x x.xg -p x -s 233 -o 50 -b _chunk_test -t 1
+vg chunk -x x.xg -p x -s 233 -o 50 -b _chunk_test -c 0 -t 2
+vg chunk -x x.xg -p x -s 233 -o 50 -b _chunk_test -c 0 -t 1
 is $(ls -l _chunk_test*.vg | wc -l) 6 "-s produces correct number of chunks"
 rm -f _chunk_test*
 
@@ -30,14 +30,14 @@ rm -f _chunk_test*
 vg index -a x.gam -d x.gam.unsrt.index
 vg index -A -d x.gam.unsrt.index | vg index -N - -d x.gam.index
 printf "x\t2\t200\nx\t500\t600\n" > _chunk_test_bed.bed
-vg chunk -x x.xg -a x.gam.index -g -b _chunk_test -e _chunk_test_bed.bed -E _chunk_test_out.bed
+vg chunk -x x.xg -a x.gam.index -g -b _chunk_test -e _chunk_test_bed.bed -E _chunk_test_out.bed -c 0
 is $(ls -l _chunk_test*.vg | wc -l) 2 "gam chunker produces correct number of graphs"
 is $(ls -l _chunk_test*.gam | wc -l) 2 "gam chunker produces correct number of gams"
 is $(grep x _chunk_test_out.bed | wc -l) 2 "gam chunker prodcues bed with correct number of chunks"
 
 #check that id ranges work
-is $(vg chunk -x x.xg -r 1:3 | vg view - -j | jq .node | grep id |  wc -l) 3 "id chunker produces correct chunk size"
-is $(vg chunk -x x.xg -r 1 | vg view - -j | jq .node | grep id | wc -l) 1 "id chunker produces correct single chunk"
+is $(vg chunk -x x.xg -r 1:3 -c 0 | vg view - -j | jq .node | grep id |  wc -l) 3 "id chunker produces correct chunk size"
+is $(vg chunk -x x.xg -r 1 -c 0 | vg view - -j | jq .node | grep id | wc -l) 1 "id chunker produces correct single chunk"
 
 #check that traces work
 is $(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq .node | grep id | wc -l) 5 "id chunker traces correct chunk size"
