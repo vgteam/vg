@@ -48,7 +48,7 @@ void help_chunk(char** argv) {
          << "    -b, --prefix PATH        prefix output chunk paths with PATH. each chunk will have the following name:\n"
          << "                             <PATH>-<i>-<name>-<start>-<length>. <i> is the line# of the chunk in the\n"
          << "                             output bed. [default=./chunk]" << endl
-         << "    -c, --context STEPS      expand the context of the chunk this many steps [0]" << endl
+         << "    -c, --context STEPS      expand the context of the chunk this many steps [1]" << endl
          << "    -T, --trace              Trace haplotype threads in chunks (and only expand forward from input coordinates)" << endl
          << "    -f, --fully-contained    Only return GAM alignments that are fully contained within chunk" << endl
          << "    -A, --search-all         Search all nodes of alignment as opposed just the minimum (gam index must be made with -N)" << endl
@@ -73,7 +73,7 @@ int main_chunk(int argc, char** argv) {
     string in_bed_file;
     string out_bed_file;
     string out_chunk_prefix = "./chunk";
-    int context_steps = 0;
+    int context_steps = -1;
     bool id_range = false;
     string node_range_string;
     string node_ranges_file;
@@ -213,6 +213,16 @@ int main_chunk(int argc, char** argv) {
     if (fully_contained && gam_file.empty()) {
         cerr << "error:[vg chunk] gam file must be specified with -a when using -f" << endl;
         return 1;
+    }
+    // context steps default to 1 if using id_ranges.  otherwise, force user to specify to avoid
+    // misunderstandings
+    if (context_steps < 0) {
+        if (id_range) {
+            context_steps = 1;
+        } else {
+            cerr << "error:[vg chunk] context expansion steps must be specified with -c/--context when chunking on paths" << endl;
+            return 1;
+        }
     }
 
     // figure out which outputs we want.  the graph always
