@@ -4,7 +4,9 @@ namespace vg {
 
 Counter::Counter(void) : xgidx(nullptr) { }
 
-Counter::Counter(xg::XG* xidx) : xgidx(xidx) { coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, 8); }
+Counter::Counter(xg::XG* xidx) : xgidx(xidx) {
+    coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, 8);
+}
 
 Counter::~Counter(void) {
     close_edit_tmpfile();
@@ -53,6 +55,7 @@ void Counter::make_compact(void) {
     }
     util::assign(coverage_civ, coverage_iv);
     construct(edit_csa, edit_tmpfile_name, 1);
+    // construct the record marker bitvector
     remove_edit_tmpfile();
     is_compacted = true;
 }
@@ -139,15 +142,38 @@ string Counter::pos_key(size_t i) {
     pos.set_node_id(i);
     string pos_repr;
     pos.SerializeToString(&pos_repr);
-    string sep_start = string(1, '\xff');
-    string sep_end = string(1, '\xff');
     return sep_start + pos_repr + sep_end;
+}
+
+vector<Edit> Counter::edits_at_position(size_t i) {
+    vector<Edit> edits;
+    if (i == 0) return edits;
+    string key = pos_key(i);
+    auto occs = locate(edit_csa, key);
+    for (size_t i = 1; i < occs.size(); ++i) {
+        //cout << occs[i] << endl;
+        // walk from after the key to the next end-sep
+        size_t b = occs[i] + key.size();
+        size_t e = b;
+        while (e+1 < edit_csa.size() && extract(edit_csa, e, e+1) != sep_start) {
+            ++e;
+        }
+        string value = extract(edit_csa, b, e);
+        Edit edit;
+        //cerr << b << " " << e << endl;
+        edit.ParseFromString(value);
+        //cerr << pb2json(edit) << endl;
+        edits.push_back(edit);
+    }
+    return edits;
 }
 
 ostream& Counter::as_table(ostream& out) {
     // write the coverage as a vector
     for (size_t i = 0; i < coverage_civ.size(); ++i) {
-        out << i << "\t" << coverage_civ[i] << "\t" << count(edit_csa, pos_key(i)) << endl;
+        out << i << "\t" << coverage_civ[i] << "\t" << count(edit_csa, pos_key(i));
+        for (auto& edit : edits_at_position(i)) out << " " << pb2json(edit);
+        out << endl;
     }
 }
 

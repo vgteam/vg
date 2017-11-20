@@ -41,6 +41,7 @@ public:
     void add(const Alignment& aln, bool record_edits = true);
     size_t position_in_basis(const Position& pos);
     string pos_key(size_t i);
+    vector<Edit> edits_at_position(size_t i);
     ostream& as_table(ostream& out);
     ostream& show_structure(ostream& out); // debugging
 private:
@@ -56,6 +57,10 @@ private:
     size_t edit_count;
     vlc_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
     csa_sada<enc_vector<>, 32, 32, sa_order_sa_sampling<>, isa_sampling<>, succinct_byte_alphabet<> > edit_csa;
+    // make separators that are like improbable varints
+    // so that they are unlikely to occur in structured data we write
+    string sep_start = string(2, '\xff');
+    string sep_end = string(2, '\xff');
 };
 
 // for making a combined matrix output and maybe doing other fun operations
