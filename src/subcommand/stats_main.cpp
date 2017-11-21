@@ -764,12 +764,25 @@ int main_stats(int argc, char** argv) {
         // First compute the snarls
         auto manager = CactusSnarlFinder(*graph).find_snarls();
         
+        // We will track depth for each snarl
+        unordered_map<const Snarl*, size_t> depth;
+        
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             // Loop over all the snarls and print stats.
             
             // Snarl metadata
             cout << "ultrabubble\t" << (snarl->type() == ULTRABUBBLE) << endl;
             cout << "unary\t" << (snarl->type() == UNARY) << endl;
+            
+            // Compute depth
+            auto parent = manager.parent_of(snarl);
+            
+            if (parent == nullptr) {
+                depth[snarl] = 0;
+            } else {
+                depth[snarl] = depth[parent] + 1;
+            }
+            cout << "depth\t" << depth[snarl] << endl;
             
             // Number of children (looking inside chains)
             cout << "children\t" << manager.children_of(snarl).size() << endl;
