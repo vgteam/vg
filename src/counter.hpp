@@ -41,7 +41,9 @@ public:
     void add(const Alignment& aln, bool record_edits = true);
     size_t position_in_basis(const Position& pos);
     string pos_key(size_t i);
-    ostream& as_table(ostream& out);
+    string edit_value(const Edit& edit, bool revcomp);
+    vector<Edit> edits_at_position(size_t i);
+    ostream& as_table(ostream& out, bool show_edits = true);
     ostream& show_structure(ostream& out); // debugging
 private:
     bool is_compacted;
@@ -55,7 +57,16 @@ private:
     size_t edit_length;
     size_t edit_count;
     vlc_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
-    csa_sada<enc_vector<>, 32, 32, sa_order_sa_sampling<>, isa_sampling<>, succinct_byte_alphabet<> > edit_csa;
+    //csa_sada<enc_vector<>, 32, 32, sa_order_sa_sampling<>, isa_sampling<>, succinct_byte_alphabet<> > edit_csa;
+    csa_wt<> edit_csa;
+    // make separators that are like improbable varints
+    // so that they are unlikely to occur in structured data we write
+    char delim = '\xff';
+    //string delim_sub = string(1, '\xff');
+    // double the delimiter in the string
+    string escape_delim(const string& s);
+    // take each double delimiter back to a single
+    string unescape_delim(const string& s);
 };
 
 // for making a combined matrix output and maybe doing other fun operations
