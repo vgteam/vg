@@ -19,8 +19,8 @@ PathChunker::~PathChunker() {
 
 }
 
-void PathChunker::extract_subgraph(const Region& region, int context, bool forward_only,
-                                   VG& subgraph, Region& out_region) {
+void PathChunker::extract_subgraph(const Region& region, int context, int length,
+                                   bool forward_only, VG& subgraph, Region& out_region) {
 
     Graph g;
 
@@ -38,7 +38,12 @@ void PathChunker::extract_subgraph(const Region& region, int context, bool forwa
     
     // expand the context and get path information
     // if forward_only true, then we only go forward.
-    xg->expand_context(g, context, true, true, true, !forward_only);
+    if (context) {
+        xg->expand_context(g, context, true, true, true, !forward_only);
+    }
+    if (length) {
+        xg->expand_context(g, context, true, false, true, !forward_only);
+    }
         
     // build the vg
     subgraph.extend(g);
@@ -81,7 +86,7 @@ void PathChunker::extract_subgraph(const Region& region, int context, bool forwa
     }
 }
 
-void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context,
+void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context, int length,
                                    bool forward_only, VG& subgraph, Region& out_region) {
 
     Graph g;
@@ -92,8 +97,13 @@ void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context,
     
     // expand the context and get path information
     // if forward_only true, then we only go forward.
-    xg->expand_context(g, context, true, true, true, !forward_only);
-        
+    if (context) {
+        xg->expand_context(g, context, true, true, true, !forward_only);
+    }
+    if (length) {
+        xg->expand_context(g, context, true, false, true, !forward_only);
+    }
+
     // build the vg
     subgraph.extend(g);
     subgraph.remove_orphan_edges();

@@ -195,8 +195,7 @@ vector<Edit> Counter::edits_at_position(size_t i) {
     string key = pos_key(i);
     auto occs = locate(edit_csa, key);
     for (size_t i = 0; i < occs.size(); ++i) {
-        //cout << occs[i] << endl;
-        // walk from after the key to the next end-sep
+        // walk from after the key and delim1 to the next end-sep
         size_t b = occs[i] + key.size() + 1;
         size_t e = b;
         // look for an odd number of delims
@@ -212,13 +211,9 @@ vector<Edit> Counter::edits_at_position(size_t i) {
                 break;
             }
         }
-        // now run until we don't find a delim
-        //while (!(extract(edit_csa, e, e)[0] == delim && extract(edit_csa, e+1, e+1)[0] != delim)) ++e;
         string value = unescape_delims(extract(edit_csa, b, e));
         Edit edit;
-        //cerr << b << " " << e << endl;
         edit.ParseFromString(value);
-        //cerr << pb2json(edit) << endl;
         edits.push_back(edit);
     }
     return edits;
