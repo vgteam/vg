@@ -215,53 +215,120 @@ void PileupAugmenter::update_augmented_graph() {
     }
 }
 
+void PileupAugmenter::map_path(const Path& path, list<Mapping>& aug_path, bool expect_edits) {
+    int64_t last_rank = -1;
+    int64_t last_call_rank = 0;
+    size_t running_len = 0;
+    size_t path_len = 0;
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        const Mapping& mapping = path.mapping(i);
+        int64_t rank = mapping.rank() == 0 ? i+1 : mapping.rank();
+        size_t len = mapping_from_length(mapping);
+        int64_t node_id = mapping.position().node_id();
+        Node* node = _graph->get_node(node_id);
+        
+        int start = mapping.position().offset();
+        if (mapping.position().is_reverse()) {
+            start = node->sequence().length() - 1 - start;
+        }
+        int end = mapping.position().is_reverse() ? start - len + 1 : start + len - 1;
+
+        // this is a projection onto the augmented graph for the entire "from length"
+        // of the mapping
+        list<Mapping> aug_mappings = _node_divider.map_node(node_id, start, len,
+                                                            mapping.position().is_reverse());
+        // now we apply edits post-hoc to the new mappings
+        if (expect_edits) {
+            apply_mapping_edits(mapping, aug_mappings);
+        }
+        else {
+            assert(mapping.edit_size() == 1
+                   && mapping_from_length(mapping) == mapping_to_length(mapping));
+        }
+
+        // add our new mappings to the augmented path
+        for (auto& cm : aug_mappings) {
+            running_len += mapping_from_length(cm);
+            cm.set_rank(++last_call_rank);
+            aug_path.push_back(cm);
+        }
+        path_len += len;
+        last_rank = rank; 
+    }
+    assert(running_len == path_len);
+    verify_path(path, aug_path);
+}
+
+void PileupAugmenter::apply_mapping_edits(const Mapping& base_mapping, list<Mapping>& aug_mappings) {
+    // current place in aug_mappings list
+    auto aug_mapping_it = aug_mappings.begin();
+    // from length of current mapping
+    size_t aug_mapping_len = mapping_from_length(*aug_mapping_it);
+    // amount of from length we've covered in the current augmented mapping
+    size_t aug_mapping_used = 0;
+    
+    // make new edits in a list then add to protobuf (simpler for now)
+    list<Edit> aug_mapping_edits;
+
+    // sanity checking
+    size_t total_aug_from_length = 0;
+    size_t total_aug_to_length = 0;
+
+    for (size_t base_edit_idx = 0; base_edit_idx < base_mapping.edit_size(); ++base_edit_idx) {
+        const Edit& base_edit = base_mapping.edit(base_edit_idx);
+        // walk along our current base edit, making as many new augmented edits as required
+        for (size_t be_covered = 0; be_covered < base_edit.from_length();) {
+            Edit aug_edit;
+            size_t edit_len = min((size_t)base_edit.from_length(), aug_mapping_len - aug_mapping_used);
+
+            aug_edit.set_from_length(edit_len);
+            if (base_edit.to_length() == base_edit.from_length()) {
+                // match : we need to cut the to length
+                aug_edit.set_to_length(edit_len);
+                if (!base_edit.sequence().empty()) {
+                    aug_edit.set_sequence(base_edit.sequence().substr(be_covered, edit_len));
+                }
+            } else {
+                // indel : we can leave the to length
+                aug_edit.set_to_length(base_edit.to_length());
+            }
+
+            total_aug_from_length += aug_edit.from_length();
+            total_aug_to_length += aug_edit.to_length();
+            
+            aug_mapping_edits.push_back(aug_edit);
+            
+            // advance in base edit
+            be_covered += max(edit_len, (size_t)1);
+            
+            // advance in augmented edit (and mapping if necessary)
+            aug_mapping_used += edit_len;
+            assert(aug_mapping_used <= aug_mapping_len);
+            if (aug_mapping_used == aug_mapping_len) {
+                // appy to protobuf
+                aug_mapping_it->clear_edit();
+                for (auto& aug_edit : aug_mapping_edits) {
+                    *aug_mapping_it->add_edit() = aug_edit;
+                }
+                aug_mapping_edits.clear();
+                // advance to next input mapping
+                ++aug_mapping_it;
+                aug_mapping_len = aug_mapping_it != aug_mappings.end() ? mapping_from_length(*aug_mapping_it) : 0;
+                aug_mapping_used = 0;
+            }
+        }
+    }
+
+    assert(total_aug_to_length == mapping_to_length(base_mapping));
+    assert(total_aug_from_length == mapping_from_length(base_mapping));
+}
 
 void PileupAugmenter::map_paths() {
+    
     // We don't remove any nodes, so paths always stay connected
     function<void(const Path&)> lambda = [&](const Path& path) {
         list<Mapping>& call_path = _augmented_graph.graph.paths.create_path(path.name());
-        int64_t last_rank = -1;
-        int64_t last_call_rank = 0;
-        size_t running_len = 0;
-        size_t path_len = 0;
-        for (int i = 0; i < path.mapping_size(); ++i) {
-            const Mapping& mapping = path.mapping(i);
-            int64_t rank = mapping.rank() == 0 ? i+1 : mapping.rank();
-            size_t len = mapping.edit_size() == 0 ? _graph->get_node(mapping.position().node_id())->sequence().length() :
-                mapping.edit(0).from_length();
-            size_t to_len = mapping.edit_size() == 0 ? len : mapping.edit(0).to_length();
-            if (mapping.edit_size() > 1 || len != to_len || rank <= last_rank) {
-                cerr << "rank " << rank;
-                cerr << "mapping " << pb2json(mapping) << endl;
-                cerr << "last_rank " << last_rank << endl;
-                cerr << "i " << i << endl;
-                cerr << "Skipping input path " << path.name()
-                     << " because ranks out of order or non-trivial edits." << endl;
-                set<string> s;
-                s.insert(path.name());
-                _augmented_graph.graph.paths.remove_paths(s);
-                return;
-            }
-            int64_t node_id = mapping.position().node_id();
-            Node* node = _graph->get_node(node_id);
-            
-            int start = mapping.position().offset();
-            if (mapping.position().is_reverse()) {
-                start = node->sequence().length() - 1 - start;
-            }
-            int end = mapping.position().is_reverse() ? start - len + 1 : start + len - 1;
-            list<Mapping> call_mappings = _node_divider.map_node(node_id, start, len,
-                                                                 mapping.position().is_reverse());
-            for (auto& cm : call_mappings) {
-                running_len += cm.edit(0).from_length();
-                cm.set_rank(++last_call_rank);
-                call_path.push_back(cm);
-            }
-            path_len += len;
-            last_rank = rank; 
-        }
-        assert(running_len == path_len);
-        verify_path(path, call_path);
+        map_path(path, call_path, false);
     };
     _graph->paths.for_each(lambda);
 
@@ -982,7 +1049,7 @@ list<Mapping> NodeDivider::map_node(int64_t node_id, int64_t start_offset, int64
     int cur_len = 0;
     if (!reverse) {
         for (auto i : node_map) {
-            if (i.first >= start_offset && cur_len < length) {
+            if (i.first <= start_offset && cur_len < length) {
                 Node* call_node = i.second.ref;
                 assert(call_node != NULL);
                 Mapping mapping;
