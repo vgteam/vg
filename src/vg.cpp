@@ -96,7 +96,14 @@ handle_t VG::flip(const handle_t& handle) const {
 }
 
 size_t VG::get_length(const handle_t& handle) const {
-    return get_sequence(handle).size();
+    // Don't get the real sequence because it might need a reverse complement calculation
+    auto found = node_by_id.find(get_id(handle));
+    if (found != node_by_id.end()) {
+        // We found a node. Grab its sequence length
+        return (*found).second->sequence().size();
+    } else {
+        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+    }
 }
 
 string VG::get_sequence(const handle_t& handle) const {
