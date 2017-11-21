@@ -573,6 +573,11 @@ int main_index(int argc, char** argv) {
                 // already been generated.
                 vector<int> saved_phase_paths(phases_in_batch, 0);
 
+                // How many phases have been active?
+                std::vector<int> active_phases(samples_in_batch, 0);
+                // Are we in a diploid or a haploid region?
+                std::vector<bool> diploid_region(samples_in_batch, true);
+
                 // What's the first reference position after the last variant?
                 vector<size_t> nonvariant_starts(phases_in_batch, 0);
 
@@ -724,17 +729,47 @@ int main_index(int argc, char** argv) {
                         // Parse it out and see if it's phased.
                         string genotype = variant.getGenotype(sample_name);
 
-                        // Find the phasing bar
-                        auto bar_pos = genotype.find('|');
+                        // Parse the genotype and determine the number of active phases.
+                        int alt_index[2] = { -1, -1 };
+                        int new_active_phases = 0;
+                        bool is_diploid = diploid_region[sample_number - batch_start];
+                        if (!genotype.empty()) {
+                            size_t limit = genotype.find('|');
+                            if (limit == std::string::npos) {
+                                if (genotype.find('/') == std::string::npos) {
+                                    new_active_phases = 1;
+                                    is_diploid = false;
+                                    limit = genotype.size();
+                                }
+                            } else if (limit > 0 && limit + 1 < genotype.size()) {
+                                new_active_phases = 2;
+                                is_diploid = true;
+                            }
+                            if (new_active_phases > 0) {
+                                std::string alt_str = genotype.substr(0, limit);
+                                if (alt_str != ".") {
+                                    alt_index[0] = std::stoi(alt_str);
+                                }
+                            }
+                            if (new_active_phases > 1) {
+                                std::string alt_str = genotype.substr(limit + 1);
+                                if (alt_str != ".") {
+                                    alt_index[1] = std::stoi(alt_str);
+                                }
+                            }
+                        }
 
-                        if (bar_pos == string::npos || bar_pos == 0 || bar_pos + 1 >= genotype.size()) {
-                            // If it isn't phased, or we otherwise don't like
-                            // it, we need to break phasing paths.
-                            for (int phase_offset = 0; phase_offset < 2; phase_offset++) {
-                                // For each of the two phases for the sample
+                        // If the number of phases changes or we enter an unphased region,
+                        // we must break the paths.
+                        if (is_diploid != diploid_region[sample_number - batch_start] ||
+                            (new_active_phases == 0 && active_phases[sample_number - batch_start] > 0)) {
+
+                            size_t phase_id = 2 * sample_number - first_phase;
+                            for (int phase_offset = 0; phase_offset < active_phases[sample_number - batch_start]; phase_offset++) {
+                                // For each active phase for the sample
                                 
                                 // Remember where the end of the last variant was
-                                auto cursor = nonvariant_starts[sample_number * 2 + phase_offset - first_phase];
+                                auto cursor = nonvariant_starts[phase_id + phase_offset];
                                 
                                 // Make the phase thread reference up to the
                                 // start of this variant. Doesn't have to be
@@ -751,25 +786,29 @@ int main_index(int argc, char** argv) {
                                 // reference segment, which we need to do in
                                 // order to properly handle zero-length alleles
                                 // at the ends of phase blocks.
-                                nonvariant_starts[sample_number * 2 + phase_offset - first_phase] = cursor;
+                                nonvariant_starts[phase_id + phase_offset] = cursor;
                                 
                                 // TODO: we still can't handle deletions
                                 // adjacent to SNPs where phasing gets lost. We
                                 // have to have intervening reference bases. But
                                 // that's a defect of the data model.
                             }
-                        }
-                        
-                        // If it is phased, parse out the two alleles and handle
-                        // each separately.
-                        vector<string> alt_indices({genotype.substr(0, bar_pos),
-                                genotype.substr(bar_pos + 1)});
 
-                        for (int phase_offset = 0; phase_offset < 2; phase_offset++) {
+                            // If we move between diploid and haploid regions, we must update
+                            // the starting positions for both phases.
+                            if (is_diploid != diploid_region[sample_number - batch_start]) {
+                                size_t max_pos = std::max(nonvariant_starts[phase_id], nonvariant_starts[phase_id + 1]);
+                                nonvariant_starts[phase_id] = max_pos;
+                                nonvariant_starts[phase_id + 1] = max_pos;
+                            }
+                        }
+                        active_phases[sample_number - batch_start] = new_active_phases;
+                        diploid_region[sample_number - batch_start] = is_diploid;
+
+                        for (int phase_offset = 0; phase_offset < active_phases[sample_number - batch_start]; phase_offset++) {
                             // Handle each phase and its alt
-                            string& alt_string = alt_indices[phase_offset];
                             
-                            if (alt_string == ".") {
+                            if (alt_index[phase_offset] == -1) {
                                 // This is a missing data call. Skip it. TODO:
                                 // that means we'll just treat it like a
                                 // reference call, when really we should break
@@ -782,12 +821,8 @@ int main_index(int argc, char** argv) {
                                 // that's going to be slow.
                                 continue;
                             }
-                            
-                            // Otherwise it must be a proper number reference.
-                            // Parse it.
-                            int alt_index = stoi(alt_string);
 
-                            if (alt_index != 0) {
+                            if (alt_index[phase_offset] != 0) {
                                 // If this sample doesn't take the reference
                                 // path at this variant, we need to actually go
                                 // through it and not just call
@@ -808,7 +843,7 @@ int main_index(int argc, char** argv) {
                                 
                                 // We also need to look for the path for this alt of this
                                 // variant. 
-                                string alt_path_name = "_alt_" + var_name + "_" + to_string(alt_index);
+                                string alt_path_name = "_alt_" + var_name + "_" + to_string(alt_index[phase_offset]);
                                 auto alt_path_iter = alt_paths.find(alt_path_name);
                                 
                                 
@@ -907,7 +942,7 @@ int main_index(int argc, char** argv) {
                 };
 
                 // Process the phases in batches.
-                while(batch_start < sample_range.second) {
+                while (batch_start < sample_range.second) {
 
                     // Look for variants only on this path; seek back if this
                     // is not the first batch.
@@ -958,14 +993,16 @@ int main_index(int argc, char** argv) {
                         // were variants on it.
 
                         // Now finish up all the threads
-                        for (size_t i = first_phase; i < 2 * batch_limit; i++) {
-                            // Each thread runs out until the end of the reference path
-                            append_reference_mappings_until(i, path_length);
+                        for (size_t sample_number = batch_start; sample_number < batch_limit; sample_number++) {
+                            active_phases[sample_number - batch_start] = (diploid_region[sample_number - batch_start] ? 2 : 1);
+                            for (int phase_offset = 0; phase_offset < active_phases[sample_number - batch_start]; phase_offset++) {
+                                append_reference_mappings_until(sample_number * 2 + phase_offset, path_length);
 
-                            // And then we save all the threads
-                            stringstream sn;
-                            sn << "_thread_" << sample_names[i/2] << "_" << path_name << "_" << i%2 << "_" << saved_phase_paths[i - first_phase];
-                            finish_phase(i, sn.str());
+                                // And then we save all the threads
+                                stringstream sn;
+                                sn << "_thread_" << sample_names[sample_number] << "_" << path_name << "_" << phase_offset << "_" << saved_phase_paths[sample_number * 2 + phase_offset - first_phase];
+                                finish_phase(sample_number * 2 + phase_offset, sn.str());
+                            }
                         }
                     }
 
@@ -983,6 +1020,8 @@ int main_index(int argc, char** argv) {
                     batch_limit = std::min(batch_start + samples_in_batch, sample_range.second);
                     first_phase = 2 * batch_start;
                     saved_phase_paths = std::vector<int>(phases_in_batch, 0);
+                    active_phases = std::vector<int>(samples_in_batch, 0);
+                    diploid_region = std::vector<bool>(samples_in_batch, true);
                     nonvariant_starts = std::vector<size_t>(phases_in_batch, 0);
                 }
             }
