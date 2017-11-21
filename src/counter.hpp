@@ -61,12 +61,15 @@ private:
     csa_wt<> edit_csa;
     // make separators that are like improbable varints
     // so that they are unlikely to occur in structured data we write
-    char delim = '\xff';
+    char delim1 = '\xff';
+    char delim2 = '\xfe';
     //string delim_sub = string(1, '\xff');
     // double the delimiter in the string
-    string escape_delim(const string& s);
+    string escape_delim(const string& s, char d);
+    string escape_delims(const string& s);
     // take each double delimiter back to a single
-    string unescape_delim(const string& s);
+    string unescape_delim(const string& s, char d);
+    string unescape_delims(const string& s);
 };
 
 // for making a combined matrix output and maybe doing other fun operations
