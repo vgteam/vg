@@ -33,10 +33,6 @@ int32_t distance_to_tail(handle_t h, int32_t limit, int32_t dist, unordered_set<
 	if(is_tail_node(h, graph)) {
 		return dist;
 	}
-	// vector<handle_t> tails{tail_nodes(graph)};
-	// if (find(tails.begin(), tails.end(), h) != tails.end()) {
-	// 	return dist;
-	// }
 
 	int32_t t = -1; 
 
