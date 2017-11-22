@@ -38,9 +38,7 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     
     // expand the context and get path information
     // if forward_only true, then we only go forward.
-    if (context) {
-        xg->expand_context(g, context, true, true, true, !forward_only);
-    }
+    xg->expand_context(g, context, true, true, true, !forward_only);
     if (length) {
         xg->expand_context(g, context, true, false, true, !forward_only);
     }
@@ -97,9 +95,7 @@ void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context, in
     
     // expand the context and get path information
     // if forward_only true, then we only go forward.
-    if (context) {
-        xg->expand_context(g, context, true, true, true, !forward_only);
-    }
+    xg->expand_context(g, context, true, true, true, !forward_only);
     if (length) {
         xg->expand_context(g, context, true, false, true, !forward_only);
     }

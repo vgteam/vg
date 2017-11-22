@@ -172,7 +172,7 @@ int main_chunk(int argc, char** argv) {
 
         case 'l':
             context_length = atoi(optarg);
-            context_steps = 0;
+            context_steps = (context_steps > 0 ? context_steps : -1);
             break;
 
         case 'r':
@@ -234,7 +234,9 @@ int main_chunk(int argc, char** argv) {
     // misunderstandings
     if (context_steps < 0) {
         if (id_range) {
-            context_steps = 1;
+            if (!context_length) {
+                context_steps = 1;
+            }
         } else {
             cerr << "error:[vg chunk] context expansion steps must be specified with -c/--context when chunking on paths" << endl;
             return 1;
