@@ -77,7 +77,7 @@ void Counter::ensure_edit_tmpfile_open(void) {
 
 void Counter::close_edit_tmpfile(void) {
     if (tmpfstream.is_open()) {
-        tmpfstream << delim; // pad
+        tmpfstream << delim1; // pad
         tmpfstream.close();
     }
 }
@@ -139,7 +139,9 @@ string Counter::pos_key(size_t i) {
     pos.set_node_id(i+offset);
     string pos_repr;
     pos.SerializeToString(&pos_repr);
-    return delim + escape_delim(pos_repr);
+    stringstream s;
+    s << delim1 << delim2 << delim1 << escape_delims(pos_repr);
+    return s.str();
 }
 
 string Counter::edit_value(const Edit& edit, bool revcomp) {
@@ -149,29 +151,39 @@ string Counter::edit_value(const Edit& edit, bool revcomp) {
     } else {
         edit.SerializeToString(&edit_repr);
     }
-    return delim + escape_delim(edit_repr);
+    stringstream s;
+    s << delim1 << escape_delims(edit_repr);
+    return s.str();
 }
 
-string Counter::escape_delim(const string& s) {
+string Counter::escape_delims(const string& s) {
+    return escape_delim(escape_delim(s, delim1), delim2);
+}
+
+string Counter::unescape_delims(const string& s) {
+    return unescape_delim(unescape_delim(s, delim1), delim2);
+}
+
+string Counter::escape_delim(const string& s, char d) {
     string escaped; escaped.reserve(s.size());
     for (size_t i = 0; i < s.size(); ++i) {
         char c = s[i];
         escaped.push_back(c);
-        if (c == delim) escaped.push_back(delim);
+        if (c == d) escaped.push_back(c);
     }
     return escaped;
 }
 
-string Counter::unescape_delim(const string& s) {
+string Counter::unescape_delim(const string& s, char d) {
     string unescaped; unescaped.reserve(s.size());
     for (size_t i = 0; i < s.size()-1; ++i) {
         char c = s[i];
-        char d = s[i+1];
-        if (c == delim && d == delim) {
-            unescaped.push_back(delim);
+        char b = s[i+1];
+        if (c == d && b == d) {
+            unescaped.push_back(c);
         } else {
             unescaped.push_back(c);
-            if (i == s.size()-2) unescaped.push_back(d);
+            if (i == s.size()-2) unescaped.push_back(b);
         }
     }
     return unescaped;
@@ -183,16 +195,25 @@ vector<Edit> Counter::edits_at_position(size_t i) {
     string key = pos_key(i);
     auto occs = locate(edit_csa, key);
     for (size_t i = 0; i < occs.size(); ++i) {
-        //cout << occs[i] << endl;
-        // walk from after the key to the next end-sep
+        // walk from after the key and delim1 to the next end-sep
         size_t b = occs[i] + key.size() + 1;
         size_t e = b;
-        while (!(extract(edit_csa, e, e)[0] == delim && extract(edit_csa, e+1, e+1)[0] != delim)) ++e;
-        string value = unescape_delim(extract(edit_csa, b, e));
+        // look for an odd number of delims
+        // run until we find a delim
+        while (true) {
+            while (extract(edit_csa, e, e)[0] != delim1) ++e;
+            // now we are matching the delim... count them
+            size_t f = e;
+            while (extract(edit_csa, f, f)[0] == delim1) ++f;
+            size_t c = f - e;
+            e = f; // set pointer to last delim
+            if (c % 2 != 0) {
+                break;
+            }
+        }
+        string value = unescape_delims(extract(edit_csa, b, e));
         Edit edit;
-        //cerr << b << " " << e << endl;
         edit.ParseFromString(value);
-        //cerr << pb2json(edit) << endl;
         edits.push_back(edit);
     }
     return edits;
