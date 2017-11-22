@@ -2757,20 +2757,18 @@ void VG::bluntify(void) {
             auto to_seq = trav_sequence(NodeTraversal(get_node(edge->to()), edge->to_end()));
 
             // for now, we assume they perfectly match, and walk back from the matching end for each
-            auto from_overlap = from_seq.substr(from_seq.size() - edge->overlap(), edge->overlap());
-            auto to_overlap = to_seq.substr(0, edge->overlap());
+            string from_overlap = (edge->overlap() > from_seq.size()) ? from_seq : from_seq.substr(from_seq.size() - edge->overlap(), edge->overlap());
+            string to_overlap = (edge->overlap() > to_seq.size()) ? to_seq : to_seq.substr(0, edge->overlap());
 
             // an approximate overlap graph will violate this assumption
             // so perhaps we should simply choose the first and throw a warning
             if (from_overlap != to_overlap) {
                 SSWAligner aligner;
                 auto aln = aligner.align(from_overlap, to_overlap);
-                // find the central match
-                // the alignment from the first to second should match at the very beginning of the from_seq
+                // find the first match and use it as the overlap
                 int correct_overlap = 0;
-                if (aln.path().mapping(0).edit_size() <= 2
+                if (aln.path().mapping_size() && aln.score() > 0
                     && edit_is_match(aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1))) {
-                    // get the length of the first match
                     correct_overlap = aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1).from_length();
 #ifdef debug
                     cerr << "correct overlap is " << correct_overlap << endl;
