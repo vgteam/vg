@@ -669,9 +669,6 @@ void BaseMapper::find_sub_mems(vector<MaximalExactMatch>& mems,
                                int recursion_depth,
                                int max_recursion_depth) {
     
-    // look for sub MEMs in this MEM
-    const MaximalExactMatch& mem = mems[mem_idx];
-    
     // mark the index where the first sub-MEM will be added
     size_t sub_mem_layer_begin = mems.size();
     
@@ -679,7 +676,7 @@ void BaseMapper::find_sub_mems(vector<MaximalExactMatch>& mems,
 #pragma omp critical
     {
         cerr << "find_sub_mems: sequence ";
-        for (auto iter = mem.begin; iter != mem.end; iter++) {
+        for (auto iter = mems[mem_idx].begin; iter != mems[mem_idx].end; iter++) {
             cerr << *iter;
         }
         cerr << ", min mem length " << min_mem_length << endl;
@@ -687,13 +684,13 @@ void BaseMapper::find_sub_mems(vector<MaximalExactMatch>& mems,
 #endif
     
     // how many times does the parent MEM occur in the index?
-    size_t parent_count = gcsa->count(mem.range);
+    size_t parent_count = gcsa->count(mems[mem_idx].range);
     
     // next position where we will look for a match
-    string::const_iterator cursor = mem.end - 1;
+    string::const_iterator cursor = mems[mem_idx].end - 1;
     
     // the righthand end of the sub-MEM we are building
-    string::const_iterator sub_mem_end = mem.end;
+    string::const_iterator sub_mem_end = mems[mem_idx].end;
     
     // the range that matches search_start:sub_mem_end
     gcsa::range_type range = gcsa::range_type(0, gcsa->size() - 1);
@@ -702,7 +699,7 @@ void BaseMapper::find_sub_mems(vector<MaximalExactMatch>& mems,
     bool prev_iter_jumped_lcp = false;
     
     // look for matches that are contained in this MEM and not contained in the next MEM
-    while (cursor >= mem.begin && sub_mem_end > next_mem_end) {
+    while (cursor >= mems[mem_idx].begin && sub_mem_end > next_mem_end) {
         // Note: there should be no need to handle N's or whole-index mismatches in this
         // routine (unlike the SMEM routine) since they should never make it into a parent
         // SMEM in the first place
@@ -778,15 +775,15 @@ void BaseMapper::find_sub_mems(vector<MaximalExactMatch>& mems,
     }
     
     // add a final sub MEM if there is one and it is not contained in the next parent MEM
-    if (sub_mem_end > next_mem_end && sub_mem_end - mem.begin >= min_mem_length && !prev_iter_jumped_lcp) {
-        mems.emplace_back(mem.begin, sub_mem_end, range);
+    if (sub_mem_end > next_mem_end && sub_mem_end - mems[mem_idx].begin >= min_mem_length && !prev_iter_jumped_lcp) {
+        mems.emplace_back(mems[mem_idx].begin, sub_mem_end, range);
         mem_containments.emplace_back(1, mem_idx);
         
 #ifdef debug_mapper
 #pragma omp critical
         {
             cerr << "adding sub-MEM ";
-            for (auto iter = mem.begin; iter != sub_mem_end; iter++) {
+            for (auto iter = mems.back().begin; iter != mems.back().end; iter++) {
                 cerr << *iter;
             }
             cerr << endl;
@@ -816,7 +813,7 @@ void BaseMapper::find_sub_mems(vector<MaximalExactMatch>& mems,
                               mem_containments,
                               i,
                               sub_mem_layer_end,
-                              i+1 < sub_mem_layer_end ? mems[i+1].end : mem.begin,
+                              i+1 < sub_mem_layer_end ? mems[i+1].end : mems[mem_idx].begin,
                               min_sub_mem_length,
                               reseed_length,
                               recursion_depth + 1,
@@ -833,7 +830,7 @@ void BaseMapper::find_sub_mems(vector<MaximalExactMatch>& mems,
 // for each suffix range we keep the starting position fixed then use parent queries to find candidates (avoids excessive count calls)
 // --- hope is that the first call to parent jumps us close to the limit for minimum length ...
 // goal is to get to roughly a linear number of LFs an parent()s per MEM we reseed
-
+    
 void BaseMapper::find_sub_mems_fast(vector<MaximalExactMatch>& mems,
                                     vector<vector<size_t>>& mem_containments,
                                     int mem_idx,
@@ -844,9 +841,6 @@ void BaseMapper::find_sub_mems_fast(vector<MaximalExactMatch>& mems,
                                     int recursion_depth,
                                     int max_recursion_depth,
                                     bool use_approximate_hit_count) {
-
-    // get the indicated MEM
-    const MaximalExactMatch& mem = mems[mem_idx];
     
 #ifdef debug_mapper
 #pragma omp critical
@@ -858,20 +852,20 @@ void BaseMapper::find_sub_mems_fast(vector<MaximalExactMatch>& mems,
 #endif
     
     // how many times does the parent MEM occur in the index?
-    size_t parent_range_count = use_approximate_hit_count ? gcsa::Range::length(mem.range) : gcsa->count(mem.range);
+    size_t parent_range_count = use_approximate_hit_count ? gcsa::Range::length(mems[mem_idx].range) : gcsa->count(mems[mem_idx].range);
     
     // the end of the leftmost substring that is at least the minimum length and not contained
     // in the next SMEM
-    string::const_iterator probe_string_end = mem.begin + min_sub_mem_length;
+    string::const_iterator probe_string_end = mems[mem_idx].begin + min_sub_mem_length;
     if (probe_string_end <= next_mem_end) {
         probe_string_end = next_mem_end + 1;
     }
     // the leftmost possible index of the next sub-MEM
-    string::const_iterator leftmost_bound = mem.begin;
+    string::const_iterator leftmost_bound = mems[mem_idx].begin;
     
     vector<pair<MaximalExactMatch, size_t>> sub_mems;
     
-    while (probe_string_end <= mem.end) {
+    while (probe_string_end <= mems[mem_idx].end) {
         
         // locate the probe substring of length equal to the minimum length for a sub-MEM
         // that we are going to test to see if it's inside any sub-MEM
@@ -879,7 +873,7 @@ void BaseMapper::find_sub_mems_fast(vector<MaximalExactMatch>& mems,
         
 #ifdef debug_mapper
 #pragma omp critical
-        cerr << "probe string is mem[" << probe_string_begin - mem.begin << ":" << probe_string_end - mem.begin << "] ";
+        cerr << "probe string is mem[" << probe_string_begin - mems[mem_idx].begin << ":" << probe_string_end - mems[mem_idx].begin << "] ";
         for (auto iter = probe_string_begin; iter != probe_string_end; iter++) {
             cerr << *iter;
         }
@@ -932,7 +926,7 @@ void BaseMapper::find_sub_mems_fast(vector<MaximalExactMatch>& mems,
             
             // inclusive interval that contains the past-the-last index of the sub-MEM
             string::const_iterator left_search_bound = probe_string_end;
-            string::const_iterator right_search_bound = mem.end;
+            string::const_iterator right_search_bound = mems[mem_idx].end;
             
             // the match range of the longest prefix of the sub-MEM we've found so far (if we initialize
             // it here, the binary search is guaranteed to LF along the full sub-MEM in some iteration)
@@ -946,7 +940,7 @@ void BaseMapper::find_sub_mems_fast(vector<MaximalExactMatch>& mems,
 #ifdef debug_mapper
 #pragma omp critical
                 {
-                    cerr << "checking extension mem[" << probe_string_begin - mem.begin << ":" << middle - mem.begin << "] ";
+                    cerr << "checking extension mem[" << probe_string_begin - mems[mem_idx].begin << ":" << middle - mems[mem_idx].begin << "] ";
                     for (auto iter = probe_string_begin; iter != middle; iter++) {
                         cerr << *iter;
                     }
@@ -989,7 +983,7 @@ void BaseMapper::find_sub_mems_fast(vector<MaximalExactMatch>& mems,
             
 #ifdef debug_mapper
 #pragma omp critical
-            cerr << "final sub-MEM is mem[" << probe_string_begin - mem.begin << ":" << right_search_bound - mem.begin << "] ";
+            cerr << "final sub-MEM is mem[" << probe_string_begin - mems[mem_idx].begin << ":" << right_search_bound - mems[mem_idx].begin << "] ";
             for (auto iter = probe_string_begin; iter != right_search_bound; iter++) {
                 cerr << *iter;
             }
@@ -1055,7 +1049,7 @@ void BaseMapper::find_sub_mems_fast(vector<MaximalExactMatch>& mems,
                                    mem_containments,
                                    i,
                                    sub_mem_layer_end,
-                                   i+1 < sub_mem_layer_end ? mems[i+1].end : mem.begin,
+                                   i+1 < sub_mem_layer_end ? mems[i+1].end : mems[mem_idx].begin,
                                    min_sub_mem_length,
                                    reseed_length,
                                    recursion_depth + 1,
