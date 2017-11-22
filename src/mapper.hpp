@@ -191,8 +191,7 @@ public:
                    bool use_diff_based_fast_reseed = false,
                    bool include_parent_in_sub_mem_count = false,
                    bool record_max_lcp = false,
-                   int reseed_below_count = 0,
-                   int max_sub_mem_recursion = 1);
+                   int reseed_below_count = 0);
     
     // Use the GCSA2 index to find super-maximal exact matches.
     vector<MaximalExactMatch>
@@ -227,7 +226,7 @@ protected:
     void find_sub_mems(vector<MaximalExactMatch>& mems,
                        vector<vector<size_t>>& mem_containments,
                        int mem_idx,
-                       int parent_layer_begin,
+                       int parent_layer_end,
                        string::const_iterator next_mem_end,
                        int min_sub_mem_length,
                        int reseed_length,
@@ -240,7 +239,7 @@ protected:
     void find_sub_mems_fast(vector<MaximalExactMatch>& mems,
                             vector<vector<size_t>>& mem_containments,
                             int mem_idx,
-                            int parent_layer_begin,
+                            int parent_layer_end,
                             string::const_iterator next_mem_end,
                             int min_sub_mem_length,
                             int reseed_length,
