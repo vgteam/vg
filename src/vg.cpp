@@ -2747,7 +2747,8 @@ void VG::bluntify(void) {
 
     // We populate this with edges with incorrect overlaps that we want to delete.
     set<Edge*> bad_edges;
-    for_each_edge([&](Edge* edge) {
+    // Run in parallel as this can be very expensive
+    for_each_edge_parallel([&](Edge* edge) {
         if (edge->overlap() > 0) {
 #ifdef debug
             cerr << "claimed overlap " << edge->overlap() << endl;
@@ -2783,6 +2784,7 @@ void VG::bluntify(void) {
                          << "aln: " << pb2json(aln) << endl;
                     
                     // Drop the edge
+#pragma omp critical (bad_edges)
                     bad_edges.insert(edge);
                 }
 
