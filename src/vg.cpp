@@ -2779,10 +2779,11 @@ void VG::bluntify(void) {
                     cerr << "[VG::bluntify] warning! overlaps of "
                          << pb2json(*edge)
                          << " are not identical and could not be resolved by alignment" << endl;
+                    /*
                     cerr << "o1:  " << from_overlap << endl
                          << "o2:  " << to_overlap << endl
                          << "aln: " << pb2json(aln) << endl;
-                    
+                    */
                     // Drop the edge
 #pragma omp critical (bad_edges)
                     bad_edges.insert(edge);
