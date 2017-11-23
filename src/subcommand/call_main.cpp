@@ -30,7 +30,7 @@ void help_call(char** argv, ConfigurableParser& parser) {
          << "genotyper options:" << endl
         
          << "general options:" << endl
-         << "    -Z, --translation FILE      input translation table" << endl
+         << "    -z, --translation FILE      input translation table" << endl
          << "    -b, --base-graph FILE       base graph.  currently needed for XREF tag" << endl
          << "    -h, --help                  print this help message" << endl
          << "    -p, --progress              show progress" << endl
@@ -58,13 +58,14 @@ int main_call(int argc, char** argv) {
 
     static const struct option long_options[] = {
         {"base-graph", required_argument, 0, 'b'},
+        {"translation", required_argument, 0, 'z'},
         {"progress", no_argument, 0, 'p'},
         {"verbose", no_argument, 0, 'v'},
         {"threads", required_argument, 0, 't'},
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "Z:b:pvt:h";
+    static const char* short_options = "z:b:pvt:h";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -72,7 +73,7 @@ int main_call(int argc, char** argv) {
         // Parse all the options we have defined here.
         switch (c)
         {
-        case 'Z':
+        case 'z':
             translation_file_name = optarg;
             break;
         case 'b':
@@ -194,5 +195,5 @@ int main_call(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_call("call", "call variants on a graph", PIPELINE, 5, main_call);
+static Subcommand vg_call("call", "call variants on an augmented graph", PIPELINE, 5, main_call);
 

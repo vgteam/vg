@@ -279,7 +279,8 @@ void PileupAugmenter::apply_mapping_edits(const Mapping& base_mapping, list<Mapp
         // walk along our current base edit, making as many new augmented edits as required
         for (size_t be_covered = 0; be_covered < base_edit.from_length();) {
             Edit aug_edit;
-            size_t edit_len = min((size_t)base_edit.from_length(), aug_mapping_len - aug_mapping_used);
+            size_t edit_len = min((size_t)base_edit.from_length() - be_covered,
+                                  aug_mapping_len - aug_mapping_used);
 
             aug_edit.set_from_length(edit_len);
             if (base_edit.to_length() == base_edit.from_length()) {
@@ -303,6 +304,7 @@ void PileupAugmenter::apply_mapping_edits(const Mapping& base_mapping, list<Mapp
             
             // advance in augmented edit (and mapping if necessary)
             aug_mapping_used += edit_len;
+
             assert(aug_mapping_used <= aug_mapping_len);
             if (aug_mapping_used == aug_mapping_len) {
                 // appy to protobuf
@@ -342,15 +344,7 @@ void PileupAugmenter::verify_path(const Path& in_path, const list<Mapping>& call
     function<string(VG*, const Mapping&)> lambda = [](VG* graph, const Mapping& mapping) {
         const Position& pos = mapping.position();
         const Node* node = graph->get_node(pos.node_id());
-        string s = node->sequence();
-        int64_t offset = pos.offset();
-        if (mapping.position().is_reverse()) {
-            s = reverse_complement(s);
-        }
-        if (offset > 0) {
-            s = s.substr(pos.offset());
-        }
-        return s;
+        return mapping_sequence(mapping, *node);
     };
 
     string in_string;
@@ -677,7 +671,7 @@ void PileupAugmenter::create_node_calls(const NodePileup& np) {
     // (note: snps will always be 1-base -- never merged)
     for (int next = 1; next <= n; ++next) {
         int next_cat = next == n ? -1 : call_cat(_node_calls[next]);
-
+        
         // for anything but case where we merge consec. ref/refs
         if (cat == 2 || cat != next_cat ||
             _insert_calls[next-1].first[0] == '+' || _insert_calls[next-1].second[0] == '+') {
@@ -1049,8 +1043,8 @@ list<Mapping> NodeDivider::map_node(int64_t node_id, int64_t start_offset, int64
     int cur_len = 0;
     if (!reverse) {
         for (auto i : node_map) {
-            if (i.first <= start_offset && cur_len < length) {
-                Node* call_node = i.second.ref;
+            Node* call_node = i.second.ref;
+            if (i.first + call_node->sequence().length() > start_offset && cur_len < length) {
                 assert(call_node != NULL);
                 Mapping mapping;
                 mapping.mutable_position()->set_node_id(call_node->id());
@@ -1063,6 +1057,7 @@ list<Mapping> NodeDivider::map_node(int64_t node_id, int64_t start_offset, int64
                 if (map_len + cur_len > length) {
                     map_len = length - cur_len;
                 }
+                assert(map_len > 0);
                 Edit* edit = mapping.add_edit();
                 edit->set_from_length(map_len);
                 edit->set_to_length(map_len);
@@ -1074,8 +1069,8 @@ list<Mapping> NodeDivider::map_node(int64_t node_id, int64_t start_offset, int64
         // should fold into above when on less cold meds. 
         for (NodeMap::reverse_iterator i = node_map.rbegin(); i != node_map.rend(); ++i)
         {
+            Node* call_node = i->second.ref;
             if (i->first <= start_offset && cur_len < length) {
-                Node* call_node = i->second.ref;
                 Mapping mapping;
                 mapping.mutable_position()->set_is_reverse(true);
                 mapping.mutable_position()->set_node_id(call_node->id());
