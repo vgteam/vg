@@ -297,6 +297,12 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
         // For every path
         auto& path_mappings = graph.paths.get_path(name);
         
+        if (path_mappings.empty()) {
+            // Not a real useful path, so skip it. Some alt paths used for
+            // haplotype generation are empty.
+            return;
+        }
+        
         // Save the path under the component
         auto component = node_to_component[path_mappings.front().position().node_id()];
         component_paths[component].push_back(name);
