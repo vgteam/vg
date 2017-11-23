@@ -372,7 +372,7 @@ public:
     // where you're calling where_to between the same two sides (but with 
     // different offsets) many times. Otherwise use version above
     int64_t where_to(int64_t current_side, int64_t visit_offset, int64_t new_side,
-      vector<Edge>& edges_into_new, vector<Edge>& edges_out_of_old) const;
+      const vector<Edge>& edges_into_new, const vector<Edge>& edges_out_of_old) const;
     
     // We define a thread visit that's much smaller than a Protobuf Mapping.
     struct ThreadMapping {
