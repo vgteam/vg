@@ -116,8 +116,6 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
         rev.mutable_path()->set_name("read1");
         graph.paths.extend(rev.path());
 
-        cerr << pb2json(rev) << endl;
-
         // Make a map to hold it
         map<string, Alignment*> reads_by_name{{"read1", &rev}};
 

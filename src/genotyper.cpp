@@ -592,8 +592,7 @@ bool Genotyper::mapping_enters_side(const Mapping& mapping, const handle_t& side
 #endif
     
     bool enters = mapping.position().node_id() == graph->get_id(side) &&
-        mapping.position().offset() == 0 &&
-        mapping.position().is_reverse() == graph->get_is_reverse(side);
+        mapping.position().offset() == 0;
        
 #ifdef debug
 #pragma omp critical (cerr)
@@ -611,7 +610,6 @@ bool Genotyper::mapping_exits_side(const Mapping& mapping, const handle_t& side,
 #endif
     
     bool exits = mapping.position().node_id() == graph->get_id(side) &&
-        mapping.position().is_reverse() != graph->get_is_reverse(side) &&
         mapping.position().offset() + mapping_from_length(mapping) == graph->get_length(side) &&
         mapping.edit(mapping.edit_size() - 1).from_length() ==
         mapping.edit(mapping.edit_size() - 1).to_length();
@@ -678,22 +676,40 @@ vector<list<Mapping>> Genotyper::get_paths_through_snarl(VG& graph, const Snarl*
                 // left, and if both are backward we go right again.
                 bool traversal_direction = mapping->position().is_reverse() != snarl->start().backward();
 
+#ifdef debug
+#pragma omp critical (cerr)
+                cerr << "Traversal direction: " << traversal_direction << endl;
+#endif
+
                 // Now work out if we are entering the snarl or not
                 if (traversal_direction) {
-                    // We are going left, so we want to enter the start of the snarl's end node
-                    bool enter_end = mapping_enters_side(*mapping, graph.get_handle(snarl->end()), &graph);
+                
+                    // We are going left in the read but right in the snarl, so
+                    // we want to enter the snarl's start node
+                    bool enter_start = mapping_enters_side(*mapping, graph.get_handle(snarl->start()), &graph);
+
+#ifdef debug
+#pragma omp critical (cerr)
+                    cerr << "Enter start: " << enter_start << endl;
+#endif
                     
-                    if (!enter_end) {
-                        // We only want reads that enter the snarl end
+                    if (!enter_start) {
+                        // We only want reads that enter the snarl
                         continue;
                     }
                     
                 } else {
-                    // We are going right, so we want to exit the end of the snarl's start node
-                    bool exit_start = mapping_exits_side(*mapping, graph.flip(graph.get_handle(snarl->start())), &graph);
+                    // We are going right, so we want to exit the snarl's start
+                    // node
+                    bool exit_start = mapping_exits_side(*mapping, graph.get_handle(snarl->start()), &graph);
+                    
+#ifdef debug
+#pragma omp critical (cerr)
+                    cerr << "Exit start: " << exit_start << endl;
+#endif
                     
                     if (!exit_start) {
-                        // We are only interested in reads that enter the snarl
+                        // We are only interested in reads that exit the snarl
                         continue;
                     }
                 }
@@ -722,12 +738,13 @@ vector<list<Mapping>> Genotyper::get_paths_through_snarl(VG& graph, const Snarl*
                     
                     if(mapping->position().node_id() == snarl->end().node_id() && mapping->position().is_reverse() == expected_end_orientation) {
                         // Does our mapping actually cross through the ending side?
-                        // It has to either enter the start of the end node, or exit the end of the start node.
-                        // And if it doesn't we try again.
+                        // It has to either enter the end node, or exit the end
+                        // node, depending on which way in the read we read. And
+                        // if it doesn't we try again.
                         if (!traversal_direction &&
                             !mapping_enters_side(*mapping, graph.get_handle(snarl->end()), &graph) ||
                             traversal_direction && 
-                            !mapping_exits_side(*mapping, graph.flip(graph.get_handle(snarl->start())), &graph)) {
+                            !mapping_exits_side(*mapping, graph.get_handle(snarl->end()), &graph)) {
                             break;
                         }
 
