@@ -142,4 +142,4 @@ is "$(vg view -Fv overlaps/two_snvs_assembly1.gfa | vg mod --bluntify - | vg sta
 
 is "$(vg view -Fv overlaps/two_snvs_assembly4.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "335" "bluntifying overlaps works in a more complex graph"
 
-is "$(vg view -Fv overlaps/incorrect_overlap.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "355" "bluntifying overlaps works even when we have overlap description errors"
+is "$(vg view -Fv overlaps/incorrect_overlap.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "283" "bluntifying overlaps works even when we have overlap description errors"
