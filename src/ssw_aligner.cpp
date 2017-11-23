@@ -23,7 +23,7 @@ Alignment SSWAligner::align(const string& query, const string& ref) {
                                           gap_extension);
     StripedSmithWaterman::Filter filter;
     StripedSmithWaterman::Alignment alignment;
-    aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment);
+    aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment, (int32_t) max((int)query.size()/2, 15));
     return ssw_to_vg(alignment, query, ref);
 }
 
@@ -41,14 +41,15 @@ Alignment SSWAligner::ssw_to_vg(const StripedSmithWaterman::Alignment& ssw_aln,
     
     Mapping* mapping = path->add_mapping();
     mapping->mutable_position()->set_offset(from_pos);
+    //cerr << ssw_aln.cigar_string << " " << from_pos << endl;
 
     for (auto& elem : vcflib::splitCigar(ssw_aln.cigar_string)) {
         int32_t length = elem.first;
         string type = elem.second;
         Edit* edit;
-        //cerr << e->length << e->type << endl;
+        //cerr << length << type << endl;
         switch (type[0]) {
-	case '=':
+        case '=':
         case 'M':
         case 'X':
         case 'N': {
