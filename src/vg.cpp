@@ -2768,7 +2768,8 @@ void VG::bluntify(void) {
                 auto aln = aligner.align(from_overlap, to_overlap);
                 // find the first match and use it as the overlap
                 int correct_overlap = 0;
-                if (aln.path().mapping_size() && aln.score() > 0
+                if (aln.has_path() && aln.path().mapping_size() && aln.score() > 0
+                    && aln.path().mapping(0).edit_size()
                     && edit_is_match(aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1))) {
                     correct_overlap = aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1).from_length();
 #ifdef debug
