@@ -2757,46 +2757,10 @@ void VG::bluntify(void) {
             auto from_seq = trav_sequence(NodeTraversal(get_node(edge->from()), edge->from_start()));
             auto to_seq = trav_sequence(NodeTraversal(get_node(edge->to()), edge->to_end()));
 
-            // for now, we assume they perfectly match, and walk back from the matching end for each
-            string from_overlap = (edge->overlap() > from_seq.size()) ? from_seq : from_seq.substr(from_seq.size() - edge->overlap(), edge->overlap());
-            string to_overlap = (edge->overlap() > to_seq.size()) ? to_seq : to_seq.substr(0, edge->overlap());
-
-            // an approximate overlap graph will violate this assumption
-            // so perhaps we should simply choose the first and throw a warning
-            if (from_overlap != to_overlap) {
-                SSWAligner aligner;
-                auto aln = aligner.align(from_overlap, to_overlap);
-                // find the first match and use it as the overlap
-                int correct_overlap = 0;
-                if (aln.has_path() && aln.path().mapping_size() && aln.score() > 0
-                    && aln.path().mapping(0).edit_size()
-                    && edit_is_match(aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1))) {
-                    correct_overlap = aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1).from_length();
-#ifdef debug
-                    cerr << "correct overlap is " << correct_overlap << endl;
-#endif
-                    edge->set_overlap(correct_overlap);
-                } else {
-                    cerr << "[VG::bluntify] warning! overlaps of "
-                         << pb2json(*edge)
-                         << " are not identical and could not be resolved by alignment" << endl;
-                    /*
-                    cerr << "o1:  " << from_overlap << endl
-                         << "o2:  " << to_overlap << endl
-                         << "aln: " << pb2json(aln) << endl;
-                    */
-                    // Drop the edge
-#pragma omp critical (bad_edges)
-                    bad_edges.insert(edge);
-                }
-
-            } else {
-#ifdef debug
-                cerr << "overlap as expected" << endl;
-#endif
-            }
+            if (edge->overlap() > from_seq.size()) edge->set_overlap(from_seq.size());
+            if (edge->overlap() > to_seq.size()) edge->set_overlap(to_seq.size());
         }
-    });
+        });
     
     for (auto* edge : bad_edges) {
         // Drop all the edges with incorrect overlaps
