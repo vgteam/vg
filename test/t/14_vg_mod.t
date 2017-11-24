@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 41
+plan tests 42
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep "^P" | cut -f 3 | grep -o "[0-9]\+" |  wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep "^S" | wc -l) \
@@ -141,3 +141,5 @@ rm -f x.vg x.sample.vg
 is "$(vg view -Fv overlaps/two_snvs_assembly1.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "315" "bluntifying overlaps results in a graph with duplicated overlapping bases removed"
 
 is "$(vg view -Fv overlaps/two_snvs_assembly4.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "335" "bluntifying overlaps works in a more complex graph"
+
+is "$(vg view -Fv overlaps/incorrect_overlap.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "283" "bluntifying overlaps works even when we have overlap description errors"

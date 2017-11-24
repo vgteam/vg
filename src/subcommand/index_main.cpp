@@ -921,7 +921,11 @@ int main_index(int argc, char** argv) {
         if (!show_progress) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         
         // Configure its temp directory to the system temp directory
-        gcsa::TempFile::setDirectory(find_temp_dir());
+        if (tmp_db_base.empty()) {
+            gcsa::TempFile::setDirectory(find_temp_dir());
+        } else { // or the user-specified directory
+            gcsa::TempFile::setDirectory(tmp_db_base);
+        }
 
         // Load up the graphs
         vector<string> tmpfiles;
