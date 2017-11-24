@@ -41,6 +41,9 @@ static Pileups* compute_pileups(VG* graph, const string& gam_file_name, int thre
 static void augment_with_pileups(PileupAugmenter& augmenter, Pileups& pileups, bool expect_subgraph,
                                  bool show_progress);
 
+// the pileup augmenter assumes even trivial from/to lengths set for each mappings
+static void add_trivial_edits(VG& graph);
+
 
 void help_augment(char** argv, ConfigurableParser& parser) {
     cerr << "usage: " << argv[0] << " augment [options] <graph.vg> <alignment.gam> > augmented_graph.vg" << endl
@@ -266,7 +269,10 @@ int main_augment(int argc, char** argv) {
             }
             pileups->write(pileup_file);
         }
-        
+
+        // PileupAugmenter wants from/to lengths to be set for all edits
+        add_trivial_edits(*graph);
+
         // The PileupAugmenter object will take care of all augmentation
         PileupAugmenter augmenter(graph, PileupAugmenter::Default_default_quality, min_aug_support);    
 
@@ -422,6 +428,20 @@ void augment_with_pileups(PileupAugmenter& augmenter, Pileups& pileups, bool exp
         cerr << "Mapping paths into augmented graph" << endl;
     }
     augmenter.map_paths();
+}
+
+void add_trivial_edits(VG& graph) {
+    for (auto& name_and_mappings : graph.paths._paths) {
+        for (auto& mapping : name_and_mappings.second) {
+            if (mapping.edit_size() == 0) {
+                Edit* edit = mapping.add_edit();
+                int64_t offset = mapping.position().offset();
+                int64_t length = graph.get_node(mapping.position().node_id())->sequence().length();
+                edit->set_from_length(length);
+                edit->set_to_length(length);
+            }
+        }
+    }
 }
 
 // Register subcommand
