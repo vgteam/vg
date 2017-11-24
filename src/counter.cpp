@@ -29,6 +29,29 @@ void Counter::load(istream& in) {
     edit_csa.load(in);
 }
 
+void Counter::merge_from_files(const vector<string>& file_names) {
+    // load into our dynamic structures, then compact
+    ensure_edit_tmpfile_open();
+    for (auto& file_name : file_names) {
+        Counter c;
+        ifstream f(file_name);
+        c.load(f);
+        c.write_edits(tmpfstream);
+        collect_coverage(c);
+    }
+}
+
+void Counter::write_edits(ostream& out) const {
+    out << extract(edit_csa, 0, edit_csa.size()-2) << delim1; // chomp trailing null, add back delim
+}
+
+void Counter::collect_coverage(const Counter& c) {
+    // assume the same basis vector
+    for (size_t i = 0; i < c.graph_length(); ++i) {
+        coverage_dynamic.increment(i, c.coverage_at_position(i));
+    }
+}
+
 size_t Counter::serialize(std::ostream& out,
                           sdsl::structure_tree_node* s,
                           std::string name) {
@@ -123,7 +146,7 @@ void Counter::add(const Alignment& aln, bool record_edits) {
 }
 
 // find the position on the forward strand in the sequence vector
-size_t Counter::position_in_basis(const Position& pos) {
+size_t Counter::position_in_basis(const Position& pos) const {
     // get position on the forward strand
     if (pos.is_reverse()) {
         return (int64_t)xg_node_start(pos.node_id(), xgidx)
@@ -133,7 +156,7 @@ size_t Counter::position_in_basis(const Position& pos) {
     }
 }
 
-string Counter::pos_key(size_t i) {
+string Counter::pos_key(size_t i) const {
     Position pos;
     size_t offset = 2;
     pos.set_node_id(i+offset);
@@ -144,7 +167,7 @@ string Counter::pos_key(size_t i) {
     return s.str();
 }
 
-string Counter::edit_value(const Edit& edit, bool revcomp) {
+string Counter::edit_value(const Edit& edit, bool revcomp) const {
     string edit_repr;
     if (revcomp) {
         reverse_complement_edit(edit).SerializeToString(&edit_repr);
@@ -156,15 +179,15 @@ string Counter::edit_value(const Edit& edit, bool revcomp) {
     return s.str();
 }
 
-string Counter::escape_delims(const string& s) {
+string Counter::escape_delims(const string& s) const {
     return escape_delim(escape_delim(s, delim1), delim2);
 }
 
-string Counter::unescape_delims(const string& s) {
+string Counter::unescape_delims(const string& s) const {
     return unescape_delim(unescape_delim(s, delim1), delim2);
 }
 
-string Counter::escape_delim(const string& s, char d) {
+string Counter::escape_delim(const string& s, char d) const {
     string escaped; escaped.reserve(s.size());
     for (size_t i = 0; i < s.size(); ++i) {
         char c = s[i];
@@ -174,7 +197,7 @@ string Counter::escape_delim(const string& s, char d) {
     return escaped;
 }
 
-string Counter::unescape_delim(const string& s, char d) {
+string Counter::unescape_delim(const string& s, char d) const {
     string unescaped; unescaped.reserve(s.size());
     for (size_t i = 0; i < s.size()-1; ++i) {
         char c = s[i];
@@ -189,7 +212,15 @@ string Counter::unescape_delim(const string& s, char d) {
     return unescaped;
 }
 
-vector<Edit> Counter::edits_at_position(size_t i) {
+size_t Counter::graph_length(void) const {
+    return coverage_civ.size();
+}
+
+size_t Counter::coverage_at_position(size_t i) const {
+    return coverage_civ[i];
+}
+
+vector<Edit> Counter::edits_at_position(size_t i) const {
     vector<Edit> edits;
     if (i == 0) return edits;
     string key = pos_key(i);
