@@ -22,8 +22,8 @@ is $(vg view -l 2snp.gam.vgpu|  jq '.node_pileups[].base_pileup[].num_bases' | a
 
 vg count -x flat.xg -i 2snp.gam.cx -i 2snp.gam.cx -i 2snp.gam.cx -o 2snp.gam.cx.3x
 
-is $(echo "("$(vg count -x x.xg -di 2snp.gam.cx.3x | awk '{ print $2 }' | paste -sd+ - )")"/3 | bc) $(echo "("$(vg count -x x.xg -di 2snp.gam.cx | awk '{ print $2 }' | paste -sd+ - )")" | bc) "graph coverages are merged from multiple .cx indexes"
+is $(echo "("$(vg count -x 2snp.xg -di 2snp.gam.cx.3x | awk '{ print $2 }' | paste -sd+ - )")"/3 | bc) $(echo "("$(vg count -x 2snp.xg -di 2snp.gam.cx | awk '{ print $2 }' | paste -sd+ - )")" | bc) "graph coverages are merged from multiple .cx indexes"
 
-is $(echo "("$(vg count -x x.xg -di 2snp.gam.cx.3x | awk '{ print $3 }' | paste -sd+ - )")"/3 | bc) $(echo "("$(vg count -x x.xg -di 2snp.gam.cx | awk '{ print $3 }' | paste -sd+ - )")" | bc) "edit records are merged from multiple .cx indexes"
+is $(echo "("$(vg count -x 2snp.xg -di 2snp.gam.cx.3x | awk '{ print $3 }' | paste -sd+ - )")"/3 | bc) $(echo "("$(vg count -x 2snp.xg -di 2snp.gam.cx | awk '{ print $3 }' | paste -sd+ - )")" | bc) "edit records are merged from multiple .cx indexes"
 
 rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim flat.gcsa flat.gcsa.lcp flat.xg 2snp.xg 2snp.gam 2snp.gam.cx 2snp.gam.cx.3x 2snp.gam.vgpu
