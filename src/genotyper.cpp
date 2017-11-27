@@ -429,8 +429,10 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
                     cout << variant << endl;
                 }
             } else {
-                // project into original graph
-                genotyped = translator.translate(genotyped);
+                // project into original graph (only need to do if we augmented with edit)
+                if (!translator.translations.empty()) {
+                    genotyped = translator.translate(genotyped);
+                }
                 // record a consistent name based on the start and end position of the first allele
                 stringstream name;
                 if (genotyped.allele_size() && genotyped.allele(0).mapping_size()) {

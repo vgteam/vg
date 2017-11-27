@@ -231,10 +231,14 @@ int main_augment(int argc, char** argv) {
     }
 
     string graph_file_name = argv[optind++];
-    string gam_file_name = argv[optind++];
+    gam_in_file_name = argv[optind++];
 
-    if (gam_file_name == "-" && graph_file_name == "-") {
+    if (gam_in_file_name == "-" && graph_file_name == "-") {
         cerr << "[vg augment] error: graph and gam can't both be from stdin." << endl;
+        return 1;
+    }
+    if (gam_in_file_name == "-" && !gam_out_file_name.empty()) {
+        cerr << "[vg augment] error: cannot stream input gam when using -A option (as it requires 2 passes)" << endl;
         return 1;
     }
 
@@ -255,7 +259,7 @@ int main_augment(int argc, char** argv) {
     if (augmentation_mode == "pileup") {
         
         // compute the pileups from the graph and gam
-        Pileups* pileups = compute_pileups(graph, gam_file_name, thread_count, min_quality, max_mismatches,
+        Pileups* pileups = compute_pileups(graph, gam_in_file_name, thread_count, min_quality, max_mismatches,
                                            window_size, max_depth, use_mapq, show_progress);
         
         // spit out the pileup
@@ -295,7 +299,7 @@ int main_augment(int argc, char** argv) {
                 cerr << "[vg augment]: Error opening output GAM file: " << gam_out_file_name << endl;
                 return 1;
             }
-            get_input_file(gam_file_name, [&](istream& alignment_stream) {
+            get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
                     vector<Alignment> gam_buffer;
                     function<void(Alignment&)> lambda = [&gam_out_file, &gam_buffer, &augmenter](Alignment& alignment) {
                         list<Mapping> aug_path;

@@ -137,9 +137,14 @@ void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
         // Add the paths to the graphs, but don't embed the edits.  These paths
         // will not be representable as lists of NodeTraversals.  
         for (auto& path : paths) {
-            graph.paths.extend(path);
+            // Note: Paths.extend(Path) is too slow because it re-indexes on each path
+            graph.paths.get_create_path(path.name());
+            for (int i = 0; i < path.mapping_size(); ++i) {
+                graph.paths.append_mapping(path.name(), path.mapping(i));
+            }
         }
         graph.paths.rebuild_node_mapping();
+        graph.paths.sort_by_mapping_rank();
         graph.paths.rebuild_mapping_aux();
 
         // trivial translation map?

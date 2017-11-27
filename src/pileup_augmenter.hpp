@@ -286,7 +286,10 @@ public:
     // Annotate nodes and edges in the augmented graph with call info.
     void annotate_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset);
     void annotate_augmented_edge(Edge* edge, char call, StrandSupport support);
-    void annotate_augmented_nd();
+    void annotate_augmented_nodes();
+
+    // Add nodes that are passed through as-is (ie not augmented at all) to the translation table
+    void annotate_non_augmented_nodes();
 
     // log function that tries to avoid 0s
     static double safe_log(double v) {
