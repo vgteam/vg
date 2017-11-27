@@ -449,4 +449,4 @@ void add_trivial_edits(VG& graph) {
 }
 
 // Register subcommand
-static Subcommand vg_augment("augment", "augment a graph from an alignment or pileup", PIPELINE, 5, main_augment);
+static Subcommand vg_augment("augment", "augment a graph from an alignment", PIPELINE, 5, main_augment);
