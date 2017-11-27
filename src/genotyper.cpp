@@ -1795,17 +1795,59 @@ double Genotyper::get_genotype_log_likelihood(VG& graph, const Snarl* snarl, con
 }
 
 double Genotyper::get_genotype_log_prior(const vector<int>& genotype) {
-    assert(genotype.size() == 2);
-
-
-    // Priors are boring: certain amount for het, inverse of that for everyone else
-    if(genotype[0] != genotype[1]) {
-        // This is a het!
-        return het_prior_logprob;
+    // Start with a prior probability of 100%
+    double prior_logprob = prob_to_logprob(1);
+    
+    // The model we are workign under is:
+    // We may be diploid. If so, we look at het and hom sites.
+    // If not diploid, we may be haploid.
+    // If not haploid, we may be deleted (0-ploid).
+    // If not deleted, we will be polyploid (3+). We follow a geometric distribution on the extra copies.
+    
+    if (genotype.size() == 2) {
+        // It's diploid
+        prior_logprob += diploid_prior_logprob;
+    
+        // Priors are boring: certain amount for het, inverse of that for everyone else
+        if(genotype[0] != genotype[1]) {
+            // This is a het!
+            prior_logprob += het_prior_logprob;
+        } else {
+            // This is a homozygote. Much more common.
+            prior_logprob += logprob_invert(het_prior_logprob);
+        }
     } else {
-        // This is a homozygote. Much more common.
-        return logprob_invert(het_prior_logprob);
+        // Not diploid
+        prior_logprob += logprob_invert(diploid_prior_logprob);
+        
+        if (genotype.size() == 1) {
+            // We're haploid
+            prior_logprob += haploid_prior_logprob;
+        } else {
+            // Not haploid either
+            prior_logprob += logprob_invert(haploid_prior_logprob);
+            
+            if (genotype.empty()) {
+                // We're 0-ploid
+                prior_logprob += deleted_prior_logprob;
+            } else {
+                // We're not 0-ploid either
+                prior_logprob += logprob_invert(deleted_prior_logprob);
+                
+                // We must be polyploid
+                
+                // How much extra ploidy do we have
+                auto extra_copies = genotype.size() - 2;
+                
+                // Charge for each additional copy except the last at the
+                // failure price, and then the last at the success price.
+                prior_logprob += geometric_sampling_prob_ln(polyploid_prior_success_logprob, extra_copies);
+                
+            }
+        }
     }
+    
+    return prior_logprob;
 }
 
 string Genotyper::get_qualities_in_snarl(VG& graph, const Snarl* snarl, const Alignment& alignment) {

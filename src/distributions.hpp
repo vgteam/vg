@@ -127,6 +127,16 @@ real_t binomial_cmf_ln(ProbIn success_logprob, size_t trials, size_t successes) 
     return logprob_sum(case_logprobs);
 }
 
+/**
+ * Get the log probability for sampling the given value from a geometric
+ * distribution with the given success log probability. The geometric
+ * distribution is the distribution of the number of trials, with a given
+ * success probability, required to observe a single success.
+ */
+template <typename ProbIn>
+real_t geometric_sampling_prob_ln(ProbIn success_logprob, size_t trials) {
+    return logprob_invert(success_logprob) * (trials - 1) + success_logprob;
+}
 
 
 }
