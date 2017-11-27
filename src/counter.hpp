@@ -26,7 +26,7 @@ public:
     Counter(xg::XG* xidx);
     ~Counter(void);
     xg::XG* xgidx;
-    //void load(const vector<string>& file_names);
+    void merge_from_files(const vector<string>& file_names);
     void load_from_file(const string& file_name);
     void save_to_file(const string& file_name);
     void load(istream& in);
@@ -39,12 +39,16 @@ public:
     void make_compact(void);
     void make_dynamic(void);
     void add(const Alignment& aln, bool record_edits = true);
-    size_t position_in_basis(const Position& pos);
-    string pos_key(size_t i);
-    string edit_value(const Edit& edit, bool revcomp);
-    vector<Edit> edits_at_position(size_t i);
+    size_t graph_length(void) const;
+    size_t position_in_basis(const Position& pos) const;
+    string pos_key(size_t i) const;
+    string edit_value(const Edit& edit, bool revcomp) const;
+    vector<Edit> edits_at_position(size_t i) const;
+    size_t coverage_at_position(size_t i) const;
+    void collect_coverage(const Counter& c);
     ostream& as_table(ostream& out, bool show_edits = true);
     ostream& show_structure(ostream& out); // debugging
+    void write_edits(ostream& out) const; // for merge
 private:
     bool is_compacted;
     // dynamic model
@@ -59,17 +63,16 @@ private:
     vlc_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
     //csa_sada<enc_vector<>, 32, 32, sa_order_sa_sampling<>, isa_sampling<>, succinct_byte_alphabet<> > edit_csa;
     csa_wt<> edit_csa;
-    // make separators that are like improbable varints
-    // so that they are unlikely to occur in structured data we write
+    // make separators that are somewhat unusual, as we escape these
     char delim1 = '\xff';
     char delim2 = '\xfe';
     //string delim_sub = string(1, '\xff');
     // double the delimiter in the string
-    string escape_delim(const string& s, char d);
-    string escape_delims(const string& s);
+    string escape_delim(const string& s, char d) const;
+    string escape_delims(const string& s) const;
     // take each double delimiter back to a single
-    string unescape_delim(const string& s, char d);
-    string unescape_delims(const string& s);
+    string unescape_delim(const string& s, char d) const;
+    string unescape_delims(const string& s) const;
 };
 
 // for making a combined matrix output and maybe doing other fun operations

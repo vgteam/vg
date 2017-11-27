@@ -108,8 +108,10 @@ int main_count(int argc, char** argv) {
 
     // todo one counter per thread and merge
     vg::Counter counter(&xgidx);
-    if (!counts_in.empty()) {
+    if (counts_in.size() == 1) {
         counter.load_from_file(counts_in.front());
+    } else if (counts_in.size() > 1) {
+        counter.merge_from_files(counts_in);
     }
 
     if (!gam_in.empty()) {
