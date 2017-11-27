@@ -381,12 +381,35 @@ public:
     /// Move constructor.
     VG(VG&& other) noexcept {
         init();
+        // assign class data from source object 
         graph = other.graph;
         paths = other.paths;
+        // assign data from source object to default values
         other.graph.Clear();
-        rebuild_indexes();
-        // should copy over indexes
+        // create move assignment operator
+        VG& operator = (VG&& other) {
+            if (this != &other) {
+                delete[] graph;
+                graph = other.graph;
+                paths = other.paths;
+                other.graph.Clear();
+                rebuild_indexes();
+                // should copy over indexes
+            }
+        }
+        return *this;
     }
+
+    // /// Move constructor using copy constructor.
+    // VG(VG&& other) noexcept {
+    //     init();
+    //     if (this != other) {
+    //         clear_indexes();
+    //         graph = other.graph;
+    //         paths = other.paths;
+    //         build_indexes();
+    //     }
+    // }
 
     /// Copy assignment operator.
     VG& operator=(const VG& other) {
