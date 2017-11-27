@@ -34,10 +34,6 @@ int32_t distance_to_head(handle_t h, int32_t limit, int32_t dist, unordered_set<
 	if(is_head_node(h, graph)) {
 		return dist;
 	}
-	// vector<handle_t> heads{head_nodes(graph)};
-	// if (find(heads.begin(), heads.end(), h) != heads.end()) {
-	// 	return dist;
-	// }
 
 	int32_t t = -1; 
 
