@@ -1827,7 +1827,7 @@ string Genotyper::get_qualities_in_snarl(VG& graph, const Snarl* snarl, const Al
         auto& mapping = alignment.path().mapping(i);
 
         // What Visit is this?
-        Visit traversal = to_visit(mapping);
+        Visit traversal = to_visit(mapping.position().node_id(), mapping.position().is_reverse());
 
         if(!in_snarl) {
             // If we aren't in the snarl, we may be entering
