@@ -802,7 +802,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
 #endif
     
     // how many times does the parent MEM occur in the index?
-    size_t parent_range_length = gcsa::Range::length(mem.range);
+    size_t parent_range_count = use_approx_sub_mem_count ? gcsa::Range::length(mem.range) : gcsa->count(mem.range);
     
     // the end of the leftmost substring that is at least the minimum length and not contained
     // in the next SMEM
@@ -838,7 +838,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             
             range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
             
-            if (gcsa::Range::length(range) <= parent_range_length) {
+            if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
                 probe_string_more_frequent = false;
                 break;
             }
@@ -859,7 +859,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                     gcsa::range_type last_range = range;
                     range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                     
-                    if (gcsa::Range::length(range) <= parent_range_length) {
+                    if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
                         range = last_range;
                         break;
                     }
@@ -905,7 +905,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
 
                     range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                     
-                    if (gcsa::Range::length(range) <= parent_range_length) {
+                    if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
                         // this probe is too long and it no longer is contained in the indendent hit
                         // that we detected
                         contained_in_independent_match = false;
