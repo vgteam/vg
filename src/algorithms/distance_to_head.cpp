@@ -38,7 +38,7 @@ int32_t distance_to_head(handle_t h, int32_t limit, int32_t dist, unordered_set<
 	int32_t t = -1; 
 
 	graph->follow_edges(h, true, [&](const handle_t& current) {
-		int32_t l = graph->get_length(h);
+		int32_t l = graph->get_length(current);
 		t = distance_to_head(current, limit-l, dist+l, seen, graph);
 		if (t != -1) {
 			return false;
