@@ -45,7 +45,7 @@ public:
     void collect_coverage(const Counter& c);
     ostream& as_table(ostream& out, bool show_edits = true);
     ostream& show_structure(ostream& out); // debugging
-    void write_edits(vector<ofstream>& out) const; // for merge
+    void write_edits(vector<ofstream*>& out) const; // for merge
     void write_edits(ostream& out, size_t bin) const; // for merge
     size_t get_bin_size(void) const;
     size_t get_n_bins(void) const;
@@ -57,7 +57,7 @@ private:
     // dynamic model
     gcsa::CounterArray coverage_dynamic;
     vector<string> edit_tmpfile_names;
-    vector<ofstream> tmpfstreams;
+    vector<ofstream*> tmpfstreams;
     // which bin should we use
     size_t bin_for_position(size_t i) const;
     size_t n_bins = 1;

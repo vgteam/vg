@@ -72,9 +72,9 @@ size_t Counter::bin_for_position(size_t i) const {
     }
 }
 
-void Counter::write_edits(vector<ofstream>& out) const {
+void Counter::write_edits(vector<ofstream*>& out) const {
     for (size_t i = 0; i < n_bins; ++i) {
-        write_edits(out[i], i);
+        write_edits(*out[i], i);
     }
 }
 
@@ -144,8 +144,9 @@ void Counter::ensure_edit_tmpfiles_open(void) {
         edit_tmpfile_names.resize(n_bins);
         for (size_t i = 0; i < n_bins; ++i) {
             edit_tmpfile_names[i] = edit_tmpfile_name+"_"+convert(i);
-            tmpfstreams[i].open(edit_tmpfile_names[i]);
-            assert(tmpfstreams[i].is_open());
+            tmpfstreams[i] = new ofstream;
+            tmpfstreams[i]->open(edit_tmpfile_names[i]);
+            assert(tmpfstreams[i]->is_open());
         }
     }
 }
@@ -153,8 +154,9 @@ void Counter::ensure_edit_tmpfiles_open(void) {
 void Counter::close_edit_tmpfiles(void) {
     if (!tmpfstreams.empty()) {
         for (auto& tmpfstream : tmpfstreams) {
-            tmpfstream << delim1; // pad
-            tmpfstream.close();
+            *tmpfstream << delim1; // pad
+            tmpfstream->close();
+            delete tmpfstream;
         }
         tmpfstreams.clear();
     }
@@ -192,7 +194,7 @@ void Counter::add(const Alignment& aln, bool record_edits) {
                 string pos_repr = pos_key(i);
                 string edit_repr = edit_value(edit, mapping.position().is_reverse());
                 size_t bin = bin_for_position(i);
-                tmpfstreams[bin] << pos_repr << edit_repr;
+                *tmpfstreams[bin] << pos_repr << edit_repr;
             }
             if (mapping.position().is_reverse()) {
                 i -= edit.from_length();
