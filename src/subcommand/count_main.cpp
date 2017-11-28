@@ -19,6 +19,7 @@ void help_count(char** argv) {
          << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
          << "    -d, --as-table         write table on stdout representing counts" << endl
          << "    -n, --no-edits         don't record or write edits, just graph-matching coverage" << endl
+         << "    -b, --bin-size N       number of sequence bases per CSA bin" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
 
@@ -31,6 +32,7 @@ int main_count(int argc, char** argv) {
     bool write_table = false;
     int thread_count = 1;
     bool record_edits = true;
+    size_t bin_size = 1 << 20;
 
     if (argc == 2) {
         help_count(argv);
@@ -50,11 +52,12 @@ int main_count(int argc, char** argv) {
             {"as-table", no_argument, 0, 'd'},
             {"threads", required_argument, 0, 't'},
             {"no-edits", no_argument, 0, 'n'},
+            {"bin-size", required_argument, 0, 'b'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:dt:n",
+        c = getopt_long (argc, argv, "hx:o:i:g:dt:nb:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -86,6 +89,9 @@ int main_count(int argc, char** argv) {
         case 'n':
             record_edits = false;
             break;
+        case 'b':
+            bin_size = atoll(optarg);
+            break;
         case 't':
             thread_count = atoi(optarg);
             break;
@@ -107,7 +113,7 @@ int main_count(int argc, char** argv) {
     }
 
     // todo one counter per thread and merge
-    vg::Counter counter(&xgidx);
+    vg::Counter counter(&xgidx, bin_size);
     if (counts_in.size() == 1) {
         counter.load_from_file(counts_in.front());
     } else if (counts_in.size() > 1) {
