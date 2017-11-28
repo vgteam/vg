@@ -19,6 +19,9 @@
 
 namespace vg {
     
+    /// Put subpaths in topological order (assumed to be true for other algorithms)
+    void topologically_order_subpaths(MultipathAlignment& multipath_aln);
+    
     /// Finds the start subpaths (i.e. the source nodes of the multipath DAG) and stores
     /// them in the 'start' field of the MultipathAlignment
     void identify_start_subpaths(MultipathAlignment& multipath_aln);
@@ -90,6 +93,24 @@ namespace vg {
     ///    to      into this
     ///
     void transfer_read_metadata(const MultipathAlignment& from, Alignment& to);
+    
+    /// Copies metadata from an MultipathAlignment object and transfers it to another MultipathAlignment
+    ///
+    ///  Args:
+    ///    from    copy metadata from this
+    ///    to      into this
+    ///
+    void transfer_read_metadata(const MultipathAlignment& from, MultipathAlignment& to);
+    
+    /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
+    /// each connected component
+    vector<vector<int64_t>> connected_components(const MultipathAlignment& multipath_aln);
+    
+    /// Extract the MultipathAlignment consisting of the Subpaths with the given indexes
+    /// into a new MultipathAlignment object
+    void extract_sub_multipath_alignment(const MultipathAlignment& multipath_aln,
+                                         const vector<int64_t>& subpath_indexes,
+                                         MultipathAlignment& sub_multipath_aln);
     
     // TODO: function for adding a graph augmentation to an existing multipath alignment
 }

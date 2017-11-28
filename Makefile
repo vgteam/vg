@@ -23,7 +23,7 @@ include $(wildcard $(ALGORITHMS_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 
-CXXFLAGS:=-O3 -msse4.1 -fopenmp -std=c++11 -ggdb -g -MMD -MP
+CXXFLAGS := -O3 -fopenmp -std=c++11 -ggdb -g -MMD -MP $(CXXFLAGS)
 
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib
@@ -52,7 +52,7 @@ ROCKSDB_PORTABLE=PORTABLE=1 # needed to build rocksdb without weird assembler op
 # the configuration (make_config.mk) won't exist until after RocksDB
 # is built by this Makefile.
 LD_LIB_FLAGS += -lrocksdb
-ROCKSDB_LDFLAGS = $(shell grep PLATFORM_LDFLAGS deps/rocksdb/make_config.mk | cut -d '=' -f2 | sed s/-ljemalloc// | sed s/-ltcmalloc//)
+ROCKSDB_LDFLAGS = $(shell grep PLATFORM_LDFLAGS deps/rocksdb/make_config.mk | cut -d '=' -f2 | sed s/-ljemalloc// | sed s/-ltcmalloc// | sed s/-ltbb//)
 
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
@@ -125,7 +125,6 @@ DEPS += $(INC_DIR)/progress_bar.hpp
 ifneq ($(shell uname -s),Darwin)
 	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
 	LD_LIB_FLAGS += -ltcmalloc_minimal
-	CXXFLAGS += -march=native -mtune=native
 endif
 
 .PHONY: clean get-deps deps test set-path static docs .pre-build
@@ -186,7 +185,12 @@ $(LIB_DIR)/libtcmalloc_minimal.a: $(GPERF_DIR)/src/tcmalloc.cc.bak
 	+. ./source_me.sh && cd $(GPERF_DIR) && ./autogen.sh && ./configure --prefix=`pwd` && $(MAKE) && $(MAKE) install && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r bin/* $(CWD)/$(BIN_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
-	+. ./source_me.sh && cd $(SDSL_DIR) && ./install.sh $(CWD)
+ifeq ($(shell uname -s),Darwin)
+	+. ./source_me.sh && cd $(SDSL_DIR) && AS_INTEGRATED_ASSEMBLER=1 NO_SSE42=1 ./install.sh $(CWD)
+else
+	+. ./source_me.sh && cd $(SDSL_DIR) && NO_SSE42=1 ./install.sh $(CWD)
+endif	
+
 
 $(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.h
 	+. ./source_me.sh && cd $(SSW_DIR) && $(MAKE) && ar rs $(CWD)/$(LIB_DIR)/libssw.a ssw.o ssw_cpp.o && cp ssw_cpp.h ssw.h $(CWD)/$(LIB_DIR)

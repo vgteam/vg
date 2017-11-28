@@ -21,10 +21,13 @@
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "types.hpp"
-#include "bubbles.hpp"
 #include "distributions.hpp"
 #include "snarls.hpp"
 #include "path_index.hpp"
+
+extern "C" {
+#include "sonLib.h"
+}
 
 namespace vg {
 
@@ -164,45 +167,62 @@ public:
 // And now the implementations //
 /////////////////////////////////
 
-// Represents an assertion that an element in the augmented graph results from
-// an event of a certain type.
-enum ElementCall {
-    CALL_DELETION = 'D',
-    CALL_REFERENCE = 'R',
-    CALL_UNCALLED = 'U',
-    CALL_SUBSTITUTION = 'S',
-    CALL_INSERTION = 'I'
-};
-
-/// Data structure for representing an augmented graph, with semantic hints
-/// about how it was generated and how much support each node and edge has.
+/// General interface for an augmented graph.  This is a graph that was constructed
+/// by adding some read information to an original ("base") graph.  We preserve
+/// mappings back to the base graph via translations. Augmented graphs can be
+/// made using edit (such as in vg mod -i) or pileup.
+/// Todo : further abstract to handle graph interface
 struct AugmentedGraph {
     // This holds all the new nodes and edges
     VG graph;
+
+    // This holds the base graph (only required for mapping edges)
+    VG* base_graph = NULL;
+
+    // Translations back to the base graph
+    Translator translator;
     
-    // This holds info about where all the nodes came from
-    map<Node*, ElementCall> node_calls;
-    // And this similarly holds origin information for the edges
-    map<Edge*, ElementCall> edge_calls;
+    // Map an edge back to teh base graph (return NULL if does not exist)
+    // In the special case that an edge in the augmented graph represents
+    // two abutting positions within a node in the base graph, null, true
+    // is returned (todo: less tortured interface?)
+    pair<const Edge*, bool> base_edge(const Edge* augmented_edge);
+
+    // Is this a node novel?  ie does it not map back to the base graph?
+    bool is_novel_node(const Node* augmented_node) {
+        Position pos;
+        pos.set_node_id(augmented_node->id());
+        cerr << "checking " << augmented_node->id() << " in translator of size " << translator.pos_to_trans.size() << endl;
+        return !translator.has_translation(pos);
+    }
     
+    // Is this a node novel?  ie does it not map back to the base graph?
+    bool is_novel_edge(const Edge* augmented_edge) {
+        auto be_ret = base_edge(augmented_edge);
+        return be_ret.first == NULL && be_ret.second == false;
+    }
+    
+    /**
+     * Clear the contents.
+     */
+    virtual void clear();
+
+    /** 
+     * Construct an augmented graph using edit() on a set of alignments
+     */
+    void augment_from_alignment_edits(vector<Alignment>& alignments, bool unique_names = true,
+                                      bool leave_edits = false);
+};
+
+/// Augmented Graph that holds some Support annotation data specific to vg call
+struct SupportAugmentedGraph : public AugmentedGraph {
+        
     // This holds support info for nodes. Note that we discard the "os" other
     // support field from StrandSupport.
     // Supports for nodes are minimum distinct reads that use the node.
     map<Node*, Support> node_supports;
     // And for edges
     map<Edge*, Support> edge_supports;
-    
-    // This holds the log10 likelihood for each node.
-    // TODO: what exactly does that mean?
-    map<Node*, double> node_likelihoods;
-    // And for edges
-    map<Edge*, double> edge_likelihoods;
-    
-    // This records how each new node came from the original graph, if it's not
-    // just a straight copy. Each Translation is a single mapping for a single
-    // whole new node on the forward strand, and the piece of the single old
-    // node it came from, on the forward strand.
-    vector<Translation> translations;
     
     /**
      * Return true if we have support information, and false otherwise.
@@ -217,36 +237,12 @@ struct AugmentedGraph {
     /**
      * Get the Support for a given Edge, or 0 if it has no recorded support.
      */
-    Support get_support(Edge* edge);
-    
-    /**
-     * Get the log10 likelihood for a given node, or 0 if it has no recorded
-     * likelihood.
-     */
-    double get_likelihood(Node* node);
-    
-    /**
-     * Get the log10 likelihood for a edge node, or 0 if it has no recorded
-     * likelihood.
-     */
-    double get_likelihood(Edge* edge);
-    
-    /**
-     * Get the call for a given node, or CALL_UNCALLED if it has no associated
-     * call.
-     */
-    ElementCall get_call(Node* node);
-    
-    /**
-     * Get the call for a given edge, or CALL_UNCALLED if it has no associated
-     * call.
-     */
-    ElementCall get_call(Edge* edge);
+    Support get_support(Edge* edge);    
     
     /**
      * Clear the contents.
      */
-    void clear();
+    virtual void clear();
 };
     
 
@@ -258,29 +254,47 @@ class SimpleConsistencyCalculator : public ConsistencyCalculator{
         const vector<SnarlTraversal>& traversals, const Alignment& read) const;
 };
 
-
-class CactusUltrabubbleFinder : public SnarlFinder {
+/**
+ * Class for finding all snarls using the base-level Cactus snarl decomposition
+ * interface.
+ */
+class CactusSnarlFinder : public SnarlFinder {
     
     /// Holds the vg graph we are looking for sites in.
     VG& graph;
     
-    /// Use this path name as a rooting hint, if present.
-    string hint_path_name;
+    /// Holds the names of reference path hints
+    unordered_set<string> hint_paths;
     
-    /// Indicates whether bubbles that consist of a single edge should be filtered
-    bool filter_trivial_bubbles;
+    /// Create a snarl in the given SnarlManager with the given start and end,
+    /// containing the given child snarls in the list of chains of children and
+    /// the given list of unary children. Recursively creates snarls in the
+    /// SnarlManager for the children. Returns a pointer to the finished snarl
+    /// in the SnarlManager. Start and end may be empty visits, in which case no
+    /// snarl is created, all the child chains are added as root chains, and
+    /// null is returned. If parent_start and parent_end are empty Visits, no
+    /// parent() is added to the produced snarl.
+    const Snarl* recursively_emit_snarls(const Visit& start, const Visit& end,
+        const Visit& parent_start, const Visit& parent_end,
+        stList* chains_list, stList* unary_snarls_list, SnarlManager& destination);
     
 public:
     /**
-     * Make a new CactusSiteFinder to find sites in the given graph.
+     * Make a new CactusSnarlFinder to find snarls in the given graph.
+     * We can't filter trivial bubbles because that would break our chains.
+     *
+     * Optionally takes a hint path name.
      */
-    CactusUltrabubbleFinder(VG& graph,
-                            const string& hint_path_name = "",
-                            bool filter_trivial_bubbles = false);
+    CactusSnarlFinder(VG& graph);
     
     /**
-     * Find all the sites in parallel with Cactus, make the site tree, and call
-     * the given function on all the top-level sites.
+     * Make a new CactusSnarlFinder with a single hinted path to base the
+     * decomposition on.
+     */
+    CactusSnarlFinder(VG& graph, const string& hint_path);
+    
+    /**
+     * Find all the snarls with Cactus, and put them into a SnarlManager.
      */
     virtual SnarlManager find_snarls();
     
@@ -347,7 +361,7 @@ public:
 
 class PathBasedTraversalFinder : public TraversalFinder{
     vg::VG& graph;
-    SnarlManager snarlmanager;
+    SnarlManager& snarlmanager;
     public:
     PathBasedTraversalFinder(vg::VG& graph, SnarlManager& sm);
     virtual ~PathBasedTraversalFinder() = default;
@@ -386,7 +400,7 @@ class RepresentativeTraversalFinder : public TraversalFinder {
 
 protected:
     /// The annotated, augmented graph we're finding traversals in
-    AugmentedGraph& augmented;
+    SupportAugmentedGraph& augmented;
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
     
@@ -471,7 +485,7 @@ public:
      * Uses the given get_index function to try and find a PathIndex for a
      * reference path traversing a child snarl.
      */
-    RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
+    RepresentativeTraversalFinder(SupportAugmentedGraph& augmented, SnarlManager& snarl_manager,
         size_t max_depth, size_t max_width, size_t max_bubble_paths,
         function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
     

@@ -19,7 +19,7 @@ class NestedTraversalFinder : public TraversalFinder {
 
 protected:
     /// The annotated, augmented graph we're finding traversals in
-    AugmentedGraph& augmented;
+    SupportAugmentedGraph& augmented;
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
     
@@ -73,7 +73,7 @@ protected:
     
 public:
 
-    NestedTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager);
+    NestedTraversalFinder(SupportAugmentedGraph& augmented, SnarlManager& snarl_manager);
     
     /// Should we emit verbose debugging info?
     bool verbose = false;

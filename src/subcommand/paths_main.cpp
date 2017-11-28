@@ -24,6 +24,7 @@ void help_paths(char** argv) {
         << "  inspection:" << endl
         << "    -x, --extract         return (as GAM alignments) the stored paths in the graph" << endl
         << "    -L, --list            return (as a list of names, one per line) the path names" << endl
+        << "    -X, --list-xg FILE    return path names (as -L) but from given xg file" << endl  
         << "  generation:" << endl
         << "    -n, --node ID         starting at node with ID" << endl
         << "    -l, --max-length N    generate paths of at most length N" << endl
@@ -45,6 +46,7 @@ int main_paths(int argc, char** argv) {
     bool as_seqs = false;
     bool extract = false;
     bool list_paths = false;
+    string list_paths_xg;
     bool path_only = false;
 
     int c;
@@ -55,6 +57,7 @@ int main_paths(int argc, char** argv) {
         {
             {"extract", no_argument, 0, 'x'},
             {"list", no_argument, 0, 'L'},
+            {"list-xg", required_argument, 0, 'X'},
             {"node", required_argument, 0, 'n'},
             {"max-length", required_argument, 0, 'l'},
             {"edge-max", required_argument, 0, 'e'},
@@ -64,7 +67,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:l:hse:xLp",
+        c = getopt_long (argc, argv, "n:l:hse:xLX:p",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -81,6 +84,10 @@ int main_paths(int argc, char** argv) {
             case 'L':
                 list_paths = true;
                 break;
+
+            case 'X':
+                list_paths_xg = optarg;
+                break;                
 
             case 'n':
                 node_id = atoll(optarg);
@@ -114,6 +121,21 @@ int main_paths(int argc, char** argv) {
     }
 
     if (edge_max == 0) edge_max = max_length + 1;
+
+    if (!list_paths_xg.empty()) {
+        if (optind < argc) {
+            cerr << "[vg paths] paths does not accept postional arguments with -X" << endl;
+            return 1;
+        }
+        xg::XG xindex;
+        ifstream in(list_paths_xg.c_str());
+        xindex.load(in);
+        size_t max_path = xindex.max_path_rank();
+        for (size_t i = 1; i <= max_path; ++i) {
+            cout << xindex.path_name(i) << endl;
+        }
+        return 0;
+    }
 
     VG* graph;
     get_input_file(optind, argc, argv, [&](istream& in) {

@@ -1,6 +1,8 @@
 #include "vg.hpp"
 #include "stream.hpp"
 #include "gssw_aligner.hpp"
+// We need to use ultrabubbles for dot output
+#include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
@@ -94,7 +96,14 @@ handle_t VG::flip(const handle_t& handle) const {
 }
 
 size_t VG::get_length(const handle_t& handle) const {
-    return get_sequence(handle).size();
+    // Don't get the real sequence because it might need a reverse complement calculation
+    auto found = node_by_id.find(get_id(handle));
+    if (found != node_by_id.end()) {
+        // We found a node. Grab its sequence length
+        return (*found).second->sequence().size();
+    } else {
+        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+    }
 }
 
 string VG::get_sequence(const handle_t& handle) const {
@@ -119,7 +128,7 @@ string VG::get_sequence(const handle_t& handle) const {
     
 }
 
-void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+bool VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
     // Are we reverse?
     bool is_reverse = get_is_reverse(handle);
     
@@ -135,10 +144,12 @@ void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
             bool new_reverse = (is_reverse != id_and_flip.second);
             if (!iteratee(get_handle(id_and_flip.first, new_reverse))) {
                 // Iteratee said to stop
-                return;
+                return false;
             }
         }
     }
+    
+    return true;
 }
 
 void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
@@ -2743,7 +2754,8 @@ void VG::bluntify(void) {
 
     // We populate this with edges with incorrect overlaps that we want to delete.
     set<Edge*> bad_edges;
-    for_each_edge([&](Edge* edge) {
+    // Run in parallel as this can be very expensive
+    for_each_edge_parallel([&](Edge* edge) {
         if (edge->overlap() > 0) {
 #ifdef debug
             cerr << "claimed overlap " << edge->overlap() << endl;
@@ -2752,45 +2764,10 @@ void VG::bluntify(void) {
             auto from_seq = trav_sequence(NodeTraversal(get_node(edge->from()), edge->from_start()));
             auto to_seq = trav_sequence(NodeTraversal(get_node(edge->to()), edge->to_end()));
 
-            // for now, we assume they perfectly match, and walk back from the matching end for each
-            auto from_overlap = from_seq.substr(from_seq.size() - edge->overlap(), edge->overlap());
-            auto to_overlap = to_seq.substr(0, edge->overlap());
-
-            // an approximate overlap graph will violate this assumption
-            // so perhaps we should simply choose the first and throw a warning
-            if (from_overlap != to_overlap) {
-                SSWAligner aligner;
-                auto aln = aligner.align(from_overlap, to_overlap);
-                // find the central match
-                // the alignment from the first to second should match at the very beginning of the from_seq
-                int correct_overlap = 0;
-                if (aln.path().mapping(0).edit_size() <= 2
-                    && edit_is_match(aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1))) {
-                    // get the length of the first match
-                    correct_overlap = aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1).from_length();
-#ifdef debug
-                    cerr << "correct overlap is " << correct_overlap << endl;
-#endif
-                    edge->set_overlap(correct_overlap);
-                } else {
-                    cerr << "[VG::bluntify] warning! overlaps of "
-                         << pb2json(*edge)
-                         << " are not identical and could not be resolved by alignment" << endl;
-                    cerr << "o1:  " << from_overlap << endl
-                         << "o2:  " << to_overlap << endl
-                         << "aln: " << pb2json(aln) << endl;
-                    
-                    // Drop the edge
-                    bad_edges.insert(edge);
-                }
-
-            } else {
-#ifdef debug
-                cerr << "overlap as expected" << endl;
-#endif
-            }
+            if (edge->overlap() > from_seq.size()) edge->set_overlap(from_seq.size());
+            if (edge->overlap() > to_seq.size()) edge->set_overlap(to_seq.size());
         }
-    });
+        });
     
     for (auto* edge : bad_edges) {
         // Drop all the edges with incorrect overlaps
@@ -6111,22 +6088,36 @@ void VG::to_dot(ostream& out,
     if (ultrabubble_labeling) {
         Pictographs picts(random_seed);
         Colors colors(random_seed);
-        map<pair<id_t, id_t>, vector<id_t> > sb = ultrabubbles(*this);
-        for (auto& bub : sb) {
-            auto start_node = bub.first.first;
-            auto end_node = bub.first.second;
+        
+        // Go get the snarls.
+        SnarlManager snarl_manager = CactusSnarlFinder(*this).find_snarls();
+
+        snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+            // For every snarl
+            if (!snarl->type() == ULTRABUBBLE) {
+                // Make sure it is an ultrabubble
+                return;
+            }
+            
+            // Get the deep contents of the snarl, which define it and which
+            // need to be labeled with it.
+            auto contents = snarl_manager.deep_contents(snarl, *this, true).first;
+            
+            // Serialize them
             stringstream vb;
-            for (auto& i : bub.second) {
-                vb << i << ",";
+            for (Node* node : contents) {
+                vb << node->id() << ",";
             }
             auto repr = vb.str();
+            
+            // Compute a label for the bubble
             string emoji = ascii_labels ? picts.hashed_char(repr) : picts.hashed(repr);
             string color = colors.hashed(repr);
             auto label = make_pair(color, emoji);
-            for (auto& i : bub.second) {
-                symbols_for_node[i].insert(label);
+            for (Node* node : contents) {
+                symbols_for_node[node->id()].insert(label);
             }
-        }
+        });
     }
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
@@ -6479,7 +6470,8 @@ void VG::to_dot(ostream& out,
                     if (i < path.mapping_size()-1) {
                         const Mapping& m2 = path.mapping(i+1);
                         out << m1.position().node_id() << " -> " << m2.position().node_id()
-                            << " [dir=none,tailport=ne,headport=nw,color=\""
+                            << " [dir=none,tailport=" << (m1.position().is_reverse() ? "nw" : "ne") 
+                            << ",headport=" << (m2.position().is_reverse() ? "ne" : "nw") << ",color=\""
                             << color << "\",label=\"     " << path_label << "     \",fontcolor=\"" << color << "\",constraint=false];" << endl;
                     }
                 }
@@ -8745,7 +8737,7 @@ VG VG::split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation) {
     
     split.build_indexes();
     
-    return std::move(split);
+    return split;
 }
 
 VG VG::unfold(uint32_t max_length,

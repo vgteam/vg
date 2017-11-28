@@ -5,6 +5,7 @@
 #include "stream.hpp"
 #include "genotyper.hpp"
 #include "genotypekit.hpp"
+#include "variant_recall.hpp"
 #include "stream.hpp"
 /**
 * GAM sort main
@@ -20,22 +21,22 @@ void help_genotype(char** argv) {
          << "options:" << endl
          << "    -j, --json              output in JSON" << endl
          << "    -v, --vcf               output in VCF" << endl
-         << "    -G, --gam   GAM         a GAM file to use with variant recall." << endl
+         << "    -G, --gam   GAM         a GAM file to use with variant recall (or in place of index)" << endl
          << "    -V, --recall-vcf VCF    recall variants in a specific VCF file." << endl
          << "    -F, --fasta  FASTA" << endl
          << "    -I, --insertions INS" << endl
-         << "    -r, --ref PATH          use the given path name as the reference path" << std::endl
-         << "    -c, --contig NAME       use the given name as the VCF contig name" << std::endl
-         << "    -s, --sample NAME       name the sample in the VCF with the given name" << std::endl
-         << "    -o, --offset INT        offset variant positions by this amount" << std::endl
-         << "    -l, --length INT        override total sequence length" << std::endl
-         << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
-         << "    -q, --use_mapq          use mapping qualities" << std::endl
-         << "    -C, --cactus            use cactus ultrabubbles for site finding" << std::endl
-         << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << std::endl
-         << "    -i, --realign_indels    realign at indels" << std::endl
-         << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << std::endl
-         << "    -P, --min_per_strand    min consistent reads per strand for an allele" << std::endl
+         << "    -r, --ref PATH          use the given path name as the reference path" << endl
+         << "    -c, --contig NAME       use the given name as the VCF contig name" << endl
+         << "    -s, --sample NAME       name the sample in the VCF with the given name" << endl
+         << "    -o, --offset INT        offset variant positions by this amount" << endl
+         << "    -l, --length INT        override total sequence length" << endl
+         << "    -a, --augmented FILE    dump augmented graph to FILE" << endl
+         << "    -q, --use_mapq          use mapping qualities" << endl
+         << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << endl
+         << "    -i, --realign_indels    realign at indels" << endl
+         << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << endl
+         << "    -P, --min_per_strand    min consistent reads per strand for an allele" << endl
+         << "    -E, --no_embed          dont embed gam edits into grpah" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -65,6 +66,8 @@ int main_genotype(int argc, char** argv) {
     int64_t variant_offset = 0;
     // What length override should we use
     int64_t length_override = 0;
+    // Should we embed gam edits (for debugging as we move to further decouple augmentation and calling)
+    bool embed_gam_edits = true;
 
     // Should we we just do a quick variant recall,
     // based on this VCF and GAM, then exit?
@@ -82,8 +85,6 @@ int main_genotype(int argc, char** argv) {
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
 
-    // Should we do superbubbles/sites with Cactus (true) or supbub (false)
-    bool use_cactus = false;
     // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
     bool subset_graph = false;
     // What should the heterozygous genotype prior be? (1/this)
@@ -106,7 +107,6 @@ int main_genotype(int argc, char** argv) {
                 {"length", required_argument, 0, 'l'},
                 {"augmented", required_argument, 0, 'a'},
                 {"use_mapq", no_argument, 0, 'q'},
-                {"cactus", no_argument, 0, 'C'},
                 {"subset-graph", no_argument, 0, 'S'},
                 {"realign_indels", no_argument, 0, 'i'},
                 {"het_prior_denom", required_argument, 0, 'd'},
@@ -118,11 +118,12 @@ int main_genotype(int argc, char** argv) {
                 {"fasta", required_argument, 0, 'F'},
                 {"insertions", required_argument, 0, 'I'},
                 {"call", no_argument, 0, 'z'},
+                {"no_embed", no_argument, 0, 'E'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSid:P:pt:V:I:G:F:z",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qSid:P:pt:V:I:G:F:zE",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -165,10 +166,6 @@ int main_genotype(int argc, char** argv) {
             // Use mapping qualities
             use_mapq = true;
             break;
-        case 'C':
-            // Use Cactus to find sites
-            use_cactus = true;
-            break;
         case 'S':
             // Find sites on the graph subset with any read support
             subset_graph = true;
@@ -207,6 +204,9 @@ int main_genotype(int argc, char** argv) {
             gam_file = optarg;
             useindex = false;
             break;
+        case 'E':
+            embed_gam_edits = false;
+            break;
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -237,24 +237,24 @@ int main_genotype(int argc, char** argv) {
     });
 
     if (just_call){
-        Genotyper gt;
         string gamfi(gam_file);
         string rstr(ref_path_name);
-        gt.genotype_svs(graph, gamfi, rstr);
+        genotype_svs(graph, gamfi, rstr);
         exit(0);
     }
 
-      // setup reads index
-    if (optind >= argc) {
-        help_genotype(argv);
-        return 1;
-    }
-
+    // setup reads index
     string reads_index_name = "";
     if (optind < argc){
         reads_index_name = get_input_file_name(optind, argc, argv);
 
+    } else {
+        if (gam_file.empty()) {
+            cerr << "[vg genotype] Index argument must be specified when not using -G" << endl;
+            return 1;
+        }
     }
+    
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
     if (useindex){
@@ -270,7 +270,6 @@ int main_genotype(int argc, char** argv) {
     });
 
     if (!(recall_vcf.empty() || fasta.empty())){
-        Genotyper gt;
         vcflib::VariantCallFile* vars = new vcflib::VariantCallFile();
         vars->open(recall_vcf);
         FastaReference* lin_ref = new FastaReference();
@@ -282,14 +281,10 @@ int main_genotype(int argc, char** argv) {
             insertions.emplace_back(ins);
             ins->open(insertions_file);
         }
-        gt.variant_recall(graph, vars, lin_ref, insertions, gam_file, useindex);
+        variant_recall(graph, vars, lin_ref, insertions, gam_file, useindex);
         return 0;
 
     }
-
-  
-
-    
 
     // Load all the reads matching the graph into memory
     vector<Alignment> alignments;
@@ -298,28 +293,43 @@ int main_genotype(int argc, char** argv) {
         cerr << "Loading reads..." << endl;
     }
 
-    index.for_alignment_to_nodes(graph_ids, [&](const Alignment& alignment) {
-        // Extract all the alignments
-
-        // Only take alignments that don't visit nodes not in the graph
-        bool contained = true;
+    function<bool(const Alignment&)> alignment_contained = [&graph](const Alignment& alignment) {
         for(size_t i = 0; i < alignment.path().mapping_size(); i++) {
             if(!graph->has_node(alignment.path().mapping(i).position().node_id())) {
-                // Throw out the read
-                contained = false;
+                return false;
             }
         }
+        return alignment.path().mapping_size() > 0;
+    };
 
-        if(contained) {
-            // This alignment completely falls within the graph
-            alignments.push_back(alignment);
+    if (useindex) {
+        // Extract all the alignments
+        index.for_alignment_to_nodes(graph_ids, [&](const Alignment& alignment) {
+                // Only take alignments that don't visit nodes not in the graph
+                if (alignment_contained(alignment)) {
+                    alignments.push_back(alignment);
+                }
+            });
+    } else {
+        // load in all reads (activated by passing GAM directly with -G).
+        // This is used by, ex., toil-vg, which has already used the gam index
+        // to extract relevant reads
+        ifstream gam_reads(gam_file.c_str());
+        if (!gam_reads) {
+            cerr << "[vg genotype] Error opening gam: " << gam_file << endl;
+            return 1;
         }
-    });
-
+        stream::for_each<Alignment>(gam_reads, [&alignments, &alignment_contained](Alignment& alignment) {
+                if (alignment_contained(alignment)) {
+                    alignments.push_back(alignment);
+                }
+            });
+    }
+    
     if(show_progress) {
         cerr << "Loaded " << alignments.size() << " alignments" << endl;
     }
-
+    
     // Make a Genotyper to do the genotyping
     Genotyper genotyper;
     // Configure it
@@ -328,15 +338,40 @@ int main_genotype(int argc, char** argv) {
     assert(het_prior_denominator > 0);
     genotyper.het_prior_logprob = prob_to_logprob(1.0/het_prior_denominator);
     genotyper.min_consistent_per_strand = min_consistent_per_strand;
+
+    // Guess the reference path if not given
+    if(ref_path_name.empty()) {
+        // Guess the ref path name
+        if(graph->paths.size() == 1) {
+            // Autodetect the reference path name as the name of the only path
+            ref_path_name = (*graph->paths._paths.begin()).first;
+        } else {
+            ref_path_name = "ref";
+        }
+    }
+
+    // Augment the graph with all the reads
+    AugmentedGraph augmented_graph;
+
+    // Move our input graph into the augmented graph
+    // TODO: less terrible interface.  also shouldn't have to re-index.
+    swap(augmented_graph.graph, *graph); 
+    swap(augmented_graph.graph.paths, graph->paths);
+    augmented_graph.graph.paths.rebuild_node_mapping();
+    augmented_graph.graph.paths.rebuild_mapping_aux();
+    augmented_graph.graph.paths.to_graph(augmented_graph.graph.graph);    
+
+    // Do the actual augmentation using vg edit.
+    augmented_graph.augment_from_alignment_edits(alignments, true, !embed_gam_edits);
+    
     // TODO: move arguments below up into configuration
-    genotyper.run(*graph,
+    genotyper.run(augmented_graph,
                   alignments,
                   cout,
                   ref_path_name,
                   contig_name,
                   sample_name,
                   augmented_file_name,
-                  use_cactus,
                   subset_graph,
                   show_progress,
                   output_vcf,

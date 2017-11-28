@@ -34,22 +34,8 @@ size_t MaximalExactMatch::count_Ns(void) const {
     return std::count(begin, end, 'N');
 }
 
-int64_t mem_min_distance(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-    int64_t distance = std::numeric_limits<int64_t>::max();
-    for (auto& seq : m1.positions) {
-        auto& name = seq.first;
-        auto f = m2.positions.find(name);
-        if (f != m2.positions.end()) {
-            auto& pos1 = seq.second;
-            auto& pos2 = f->second;
-            for (auto& p1 : pos1) {
-                for (auto& p2 : pos2) {
-                    distance = min(abs((int64_t)p1 - (int64_t)p2), distance);
-                }
-            }
-        }
-    }
-    return distance;
+pair<int64_t, int64_t> mem_min_oriented_distances(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
+    return min_oriented_distances(m1.positions, m2.positions);
 }
 
 bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
@@ -93,14 +79,20 @@ const string mems_to_json(const vector<MaximalExactMatch>& mems) {
     return s.str();
 }
 
-// rank the clusters by the number of unique read bases they cover
-int cluster_coverage(const vector<MaximalExactMatch>& cluster) {
-    set<string::const_iterator> seen;
+vector<string::const_iterator> cluster_cover(const vector<MaximalExactMatch>& cluster) {
+    vector<string::const_iterator> seen;
     for (auto& mem : cluster) {
         string::const_iterator c = mem.begin;
-        while (c != mem.end) seen.insert(c++);
+        while (c != mem.end) seen.push_back(c++);
     }
-    return seen.size();
+    std::sort(seen.begin(), seen.end());
+    seen.erase(unique(seen.begin(), seen.end()), seen.end());
+    return seen;
+}
+
+// rank the clusters by the number of unique read bases they cover
+int cluster_coverage(const vector<MaximalExactMatch>& cluster) {
+    return cluster_cover(cluster).size();
 }
 
 bool mems_overlap(const MaximalExactMatch& mem1,
@@ -134,14 +126,18 @@ int mems_overlap_length(const MaximalExactMatch& mem1,
 
 bool clusters_overlap_in_read(const vector<MaximalExactMatch>& cluster1,
                               const vector<MaximalExactMatch>& cluster2) {
-    for (auto& mem1 : cluster1) {
-        for (auto& mem2 : cluster2) {
-            if (mems_overlap(mem1, mem2)) {
-                return true;
-            }
-        }
-    }
-    return false;
+    return clusters_overlap_length(cluster1, cluster2) > 0;
+}
+
+int clusters_overlap_length(const vector<MaximalExactMatch>& cluster1,
+                            const vector<MaximalExactMatch>& cluster2) {
+    vector<string::const_iterator> cov1 = cluster_cover(cluster1);
+    vector<string::const_iterator> cov2 = cluster_cover(cluster2);
+    vector<string::const_iterator> both;
+    std::set_intersection(cov1.begin(), cov1.end(),
+                          cov2.begin(), cov2.end(),
+                          std::back_inserter(both));
+    return both.size();
 }
 
 vector<pos_t> cluster_nodes(const vector<MaximalExactMatch>& cluster) {

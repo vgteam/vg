@@ -1311,7 +1311,7 @@ Path trim_hanging_ends(const Path& p) {
         const Mapping& mapping = p.mapping(mi);
         Mapping* new_mapping = r.add_mapping();
         *new_mapping->mutable_position() = mapping.position();
-        new_mapping->set_rank(rank);
+        new_mapping->set_rank(rank++);
         int ei = mi == first_m ? first_e : 0;
         int lei = mi == last_m ? last_e : mapping.edit_size() - 1;
         for (; ei <= lei; ++ei) {

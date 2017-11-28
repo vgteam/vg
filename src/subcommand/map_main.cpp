@@ -22,28 +22,28 @@ void help_map(char** argv) {
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
          << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [1024]" << endl
-         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [0.05]" << endl
+         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [1e-4]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
-         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [64]" << endl
-         << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than INT [0]" << endl
+         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [2]" << endl
+         << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than FLOAT [0]" << endl
          << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
-         << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.5]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0]" << endl
+         << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -m, --acyclic-graph     improves runtime when the graph is acyclic" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [{-w}]" << endl
-         << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [10000:0:0:0:1]" << endl
+         << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [5000:0:0:0:1]" << endl
          << "                            max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
          << "    -U, --fixed-frag-model  don't learn the pair fragment model online, use {-I} without update" << endl
          << "    -p, --print-frag-model  suppress alignment output and print the fragment model on stdout as per {-I} format" << endl
          << "    -F, --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
-         << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [4]" << endl
+         << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -63,7 +63,7 @@ void help_map(char** argv) {
          << "    -R, --read-group NAME   for --reads input, add this read group" << endl
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
-         << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [100]" << endl
+         << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
@@ -110,7 +110,7 @@ int main_map(int argc, char** argv) {
     int min_cluster_length = 0;
     float mem_reseed_factor = 1.5;
     int max_target_factor = 100;
-    int buffer_size = 100;
+    int buffer_size = 512;
     int8_t match = 1;
     int8_t mismatch = 4;
     int8_t gap_open = 6;
@@ -119,24 +119,23 @@ int main_map(int argc, char** argv) {
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
-    int min_multimaps = 64;
+    int min_multimaps = 2;
     int max_mapping_quality = 60;
-    int maybe_mq_threshold = 0;
+    double maybe_mq_threshold = 0;
     double identity_weight = 2;
     string gam_input;
     bool compare_gam = false;
-    int fragment_max = 1e4;
+    int fragment_max = 5000;
     int fragment_size = 0;
     double fragment_mean = 0;
     double fragment_stdev = 0;
     double fragment_sigma = 10;
     bool fragment_orientation = false;
     bool fragment_direction = true;
-    bool use_cluster_mq = false;
-    float chance_match = 0.05;
+    float chance_match = 1e-4;
     bool use_fast_reseed = true;
-    float drop_chain = 0.5;
-    float mq_overlap = 0.5;
+    float drop_chain = 0.0;
+    float mq_overlap = 0.0;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
     int pair_window = 64; // unused
@@ -259,7 +258,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'E':
-            maybe_mq_threshold = atoi(optarg);
+            maybe_mq_threshold = atof(optarg);
             break;
 
         case 'L':
@@ -543,36 +542,50 @@ int main_map(int argc, char** argv) {
     mapper.resize(thread_count);
     vector<vector<Alignment> > output_buffer;
     output_buffer.resize(thread_count);
+    vector<Alignment> empty_alns;
+
+    auto write_json = [](const vector<Alignment>& alns) {
+        for(auto& alignment : alns) {
+            string json = pb2json(alignment);
+            cout << json << "\n";
+        }
+    };
+
+    auto write_refpos = [](const vector<Alignment>& alns) {
+        for(auto& alignment : alns) {
+            Position refpos;
+            if (alignment.refpos_size()) {
+                refpos = alignment.refpos(0);
+            }
+            cout << alignment.name() << "\t"
+            << refpos.name() << "\t"
+            << refpos.offset() << "\t"
+            << alignment.mapping_quality() << "\t"
+            << alignment.score() << "\n";
+        }
+    };
 
     // We have one function to dump alignments into
     // Make sure to flush the buffer at the end of the program!
     auto output_alignments = [&output_buffer,
                               &output_json,
                               &buffer_size,
-                              &refpos_table](vector<Alignment>& alignments) {
-        // for(auto& alignment : alignments){
-        //     cerr << "This is in output_alignments" << alignment.DebugString() << endl;
-        // }
-
+                              &refpos_table,
+                              &write_json,
+                              &write_refpos](const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
         if (output_json) {
             // If we want to convert to JSON, convert them all to JSON and dump them to cout.
-            for(auto& alignment : alignments) {
-                string json = pb2json(alignment);
 #pragma omp critical (cout)
-                cout << json << "\n";
+            {
+                write_json(alns1);
+                write_json(alns2);
             }
         } else if (refpos_table) {
-            for(auto& alignment : alignments) {
-                Position refpos;
-                if (alignment.refpos_size()) {
-                    refpos = alignment.refpos(0);
-                }
+            // keep multi alignments ordered appropriately
 #pragma omp critical (cout)
-                cout << alignment.name() << "\t"
-                     << refpos.name() << "\t"
-                     << refpos.offset() << "\t"
-                     << alignment.mapping_quality() << "\t"
-                     << alignment.score() << "\n";
+            {
+                write_refpos(alns1);
+                write_refpos(alns2);
             }
         } else {
             // Otherwise write them through the buffer for our thread
@@ -580,7 +593,8 @@ int main_map(int argc, char** argv) {
             auto& output_buf = output_buffer[tid];
 
             // Copy all the alignments over to the output buffer
-            copy(alignments.begin(), alignments.end(), back_inserter(output_buf));
+            copy(alns1.begin(), alns1.end(), back_inserter(output_buf));
+            copy(alns2.begin(), alns2.end(), back_inserter(output_buf));
 
             stream::write_buffered(cout, output_buf, buffer_size);
         }
@@ -628,12 +642,11 @@ int main_map(int argc, char** argv) {
             m->frag_stats.fragment_size = fragment_size;
             m->frag_stats.cached_fragment_length_mean = fragment_mean;
             m->frag_stats.cached_fragment_length_stdev = fragment_stdev;
-            m->frag_stats.cached_fragment_orientation = fragment_orientation;
+            m->frag_stats.cached_fragment_orientation_same = fragment_orientation;
             m->frag_stats.cached_fragment_direction = fragment_direction;
         }
         m->frag_stats.fragment_model_update_interval = fragment_model_update;
         m->max_mapping_quality = max_mapping_quality;
-        m->use_cluster_mq = use_cluster_mq;
         m->mate_rescues = mate_rescues;
         m->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
         m->identity_weight = identity_weight;
@@ -665,7 +678,7 @@ int main_map(int argc, char** argv) {
         }
 
         // Output the alignments in JSON or protobuf as appropriate.
-        output_alignments(alignments);
+        output_alignments(alignments, empty_alns);
     }
 
     if (!read_file.empty()) {
@@ -696,7 +709,7 @@ int main_map(int argc, char** argv) {
 
 
                     // Output the alignments in JSON or protobuf as appropriate.
-                    output_alignments(alignments);
+                    output_alignments(alignments, empty_alns);
                 }
             }
         }
@@ -710,7 +723,8 @@ int main_map(int argc, char** argv) {
              &kmer_size,
              &kmer_stride,
              &max_mem_length,
-             &band_width]
+             &band_width,
+             &empty_alns]
                 (Alignment& alignment) {
 
                     if(alignment.is_secondary() && !keep_secondary) {
@@ -722,7 +736,7 @@ int main_map(int argc, char** argv) {
                     vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
 
                     // Output the alignments in JSON or protobuf as appropriate.
-                    output_alignments(alignments);
+                    output_alignments(alignments, empty_alns);
                 };
         // run
         hts_for_each_parallel(hts_file, lambda);
@@ -739,11 +753,7 @@ int main_map(int argc, char** argv) {
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
                 if (!print_fragment_model) {
                     // Output the alignments in JSON or protobuf as appropriate.
-#pragma omp critical (output)
-                    {
-                        output_alignments(alnp.first);
-                        output_alignments(alnp.second);
-                    }
+                    output_alignments(alnp.first, alnp.second);
                 }
             };
             function<void(Alignment&,Alignment&)> lambda =
@@ -804,13 +814,14 @@ int main_map(int argc, char** argv) {
                  &kmer_size,
                  &kmer_stride,
                  &max_mem_length,
-                 &band_width]
+                 &band_width,
+                 &empty_alns]
                     (Alignment& alignment) {
 
                         int tid = omp_get_thread_num();
                         vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
                         //cerr << "This is just before output_alignments" << alignment.DebugString() << endl;
-                        output_alignments(alignments);
+                        output_alignments(alignments, empty_alns);
                     };
             fastq_unpaired_for_each_parallel(fastq1, lambda);
         } else {
@@ -823,11 +834,7 @@ int main_map(int argc, char** argv) {
                 // Make sure we have unaligned "alignments" for things that don't align.
                 // Output the alignments in JSON or protobuf as appropriate.
                 if (!print_fragment_model) {
-#pragma omp critical (output)
-                    {
-                        output_alignments(alnp.first);
-                        output_alignments(alnp.second);
-                    }
+                    output_alignments(alnp.first, alnp.second);
                 }
             };
             function<void(Alignment&,Alignment&)> lambda =
@@ -899,11 +906,7 @@ int main_map(int argc, char** argv) {
                         alnp.first.front().set_correct(overlap(aln1.path(), alnp.first.front().path()));
                         alnp.second.front().set_correct(overlap(aln2.path(), alnp.second.front().path()));
                     }
-#pragma omp critical (output)
-                    {
-                        output_alignments(alnp.first);
-                        output_alignments(alnp.second);
-                    }
+                    output_alignments(alnp.first, alnp.second);
                 }
             };
             function<void(Alignment&,Alignment&)> lambda =
@@ -965,7 +968,8 @@ int main_map(int argc, char** argv) {
                  &kmer_stride,
                  &max_mem_length,
                  &band_width,
-                 &compare_gam]
+                 &compare_gam,
+                 &empty_alns]
                 (Alignment& alignment) {
                 int tid = omp_get_thread_num();
                 std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
@@ -976,7 +980,7 @@ int main_map(int argc, char** argv) {
                 if (compare_gam) {
                     alignments.front().set_correct(overlap(alignment.path(), alignments.front().path()));
                 }
-                output_alignments(alignments);
+                output_alignments(alignments, empty_alns);
             };
             stream::for_each_parallel(gam_in, lambda);
         }
@@ -1016,4 +1020,4 @@ int main_map(int argc, char** argv) {
 
 }
 
-static Subcommand vg_msga("map", "MEM-based read alignment", main_map);
+static Subcommand vg_map("map", "MEM-based read alignment", PIPELINE, 3, main_map);

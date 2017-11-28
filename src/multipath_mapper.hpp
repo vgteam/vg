@@ -51,10 +51,6 @@ namespace vg {
                                   vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
                                   size_t max_alt_mappings);
         
-        /// Prune path anchors from a multipath alignment if their approximate likelihood is this much
-        /// lower than the optimal anchors
-        void set_suboptimal_path_likelihood_ratio(double maximum_acceptable_ratio = 10000.0);
-        
         /// Debugging function to check that multipath alignment meets the formalism's basic
         /// invariants. Returns true if multipath alignment is valid, else false. Does not
         /// validate alignment score.
@@ -71,10 +67,11 @@ namespace vg {
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
-        int32_t max_suboptimal_path_score_diff = 20;
+        double max_suboptimal_path_score_ratio = 2.0;
         size_t num_mapping_attempts = 1;
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
+        size_t max_p_value_memo_size = 500;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -130,6 +127,13 @@ namespace vg {
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                           size_t max_alt_mappings);
         
+        /// Align the read ends independently, but also try to form rescue alignments for each from
+        /// the other. Return true if output obeys pair consistency and false otherwise.
+        bool align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
+                                                 vector<clustergraph_t>& cluster_graphs1,
+                                                 vector<clustergraph_t>& cluster_graphs2,
+                                                 vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                 size_t max_alt_mappings);
         
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable (according to the Mapper's aligner) with
@@ -142,15 +146,23 @@ namespace vg {
                                                     const vector<MaximalExactMatch>& mems,
                                                     const vector<memcluster_t>& clusters);
         
+        /// If there are any MultipathAlignments with multiple connected components, split them
+        /// up and add them to the return vector
+        void split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out) const;
+        
+        /// If there are any MultipathAlignments with multiple connected components, split them
+        /// up and add them to the return vector, also measure the distance between them and add
+        /// a record to the cluster pairs vector
+        void split_multicomponent_alignments(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                             vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
+        
+        
+        
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
         void multipath_align(const Alignment& alignment, VG* vg,
                              memcluster_t& graph_mems,
                              MultipathAlignment& multipath_aln_out) const;
-        
-        /// Reorders the Subpaths in the MultipathAlignment to be in topological
-        /// order according to "next" links (required by .proto specifications)
-        void topologically_order_subpaths(MultipathAlignment& multipath_aln) const;
         
         /// Remove the full length bonus from all source or sink subpaths that received it
         void strip_full_length_bonuses(MultipathAlignment& mulipath_aln) const;
@@ -170,10 +182,36 @@ namespace vg {
         /// Computes the number of read bases a cluster of MEM hits covers.
         static int64_t read_coverage(const memcluster_t& mem_hits);
         
+        /// Would an alignment this good be expected against a graph this big by chance alone
+        bool likely_mismapping(const MultipathAlignment& multipath_aln);
+        
+        /// A scaling of a score so that it approximately follows the distribution of the longest match in p-value test
+        size_t score_pseudo_length(int32_t score) const;
+        
+        /// The approximate p-value for a match length of the given size against the current graph
+        double random_match_p_value(size_t match_length, size_t read_length);
+        
+        /// Compute the approximate distance between two multipath alignments
+        int64_t distance_between(const MultipathAlignment& multipath_aln_1,
+                                 const MultipathAlignment& multipath_aln_2) const;
+        
+        /// Are two multipath alignments consistently placed based on the learned fragment length distribution?
+        bool are_consistent(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
+        
+        /// Is this a consistent inter-pair distance based on the learned fragment length distribution?
+        bool is_consistent(int64_t distance) const;
+        
         /// Computes the Z-score of the number of matches against an equal length random DNA string.
         double read_coverage_z_score(int64_t coverage, const Alignment& alignment) const;
         
+        /// Return true if any of the initial positions of the source Subpaths are shared between the two
+        /// multipath alignments
+        bool share_start_position(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
+        
         SnarlManager* snarl_manager;
+        
+        // a memo for the transcendental p-value function (thread local to maintain threadsafety)
+        static thread_local unordered_map<pair<size_t, size_t>, double> p_value_memo;
     };
     
     // TODO: put in MultipathAlignmentGraph namespace
@@ -195,6 +233,8 @@ namespace vg {
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
         
+        ~MultipathAlignmentGraph();
+        
         /// Fills input vector with node indices of a topological sort
         void topological_sort(vector<size_t>& order_out);
         
@@ -205,7 +245,7 @@ namespace vg {
         /// Removes nodes and edges that are not part of any path that has an estimated score
         /// within some amount of the highest scoring path
         void prune_to_high_scoring_paths(const Alignment& alignment, const BaseAligner* aligner,
-                                         int32_t max_suboptimal_score_diff, const vector<size_t>& topological_order);
+                                         double MultipathAlignmentGraph, const vector<size_t>& topological_order);
         
         /// Reorders adjacency list representation of edges so that they follow the indicated
         /// ordering of their target nodes

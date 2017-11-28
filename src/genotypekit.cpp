@@ -1,5 +1,7 @@
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
+#include "algorithms/is_directed_acyclic.hpp"
+#include "cactus.hpp"
 
 //#define debug
 
@@ -7,36 +9,161 @@ namespace vg {
 
 using namespace std;
 
+pair<const Edge*, bool> AugmentedGraph::base_edge(const Edge* edge) {
+    assert(base_graph != NULL);
 
-bool AugmentedGraph::has_supports() {
+    bool is_trivial = false;
+    const Edge* found_edge = NULL;
+
+    // check if from node is even in the base graph
+    Position from_pos;
+    from_pos.set_node_id(edge->from());
+    if (!translator.has_translation(from_pos)) {
+        return pair<const Edge*, bool>(NULL, false);
+    }
+
+    // check if the to node is even in the base graph
+    Position to_pos;
+    to_pos.set_node_id(edge->to());
+    if (!translator.has_translation(to_pos)) {
+        return pair<const Edge*, bool>(NULL, false);        
+    }
+
+    // work in forward strand since translator doesn't seem strand-aware
+    from_pos.set_is_reverse(false);
+    from_pos.set_offset(edge->from_start() ? 0 :
+                        graph.get_node(edge->from())->sequence().length() - 1);
+
+    to_pos.set_is_reverse(false);
+    to_pos.set_offset(edge->to_end() == false ? 0 :
+                      graph.get_node(edge->to())->sequence().length() - 1);
+
+    // Map to the base graph using our translation table
+    Position base_from_pos = translator.translate(from_pos);
+    Position base_to_pos = translator.translate(to_pos);
+
+    // Make sure we don't have an unexpected reversal
+    assert(base_from_pos.is_reverse() == false);
+    assert(base_to_pos.is_reverse() == false);
+
+    // Test if we're a trivial edge in the base graph (just to consecutive positions)
+    if (base_from_pos.node_id() == base_to_pos.node_id() &&
+        base_from_pos.is_reverse() == base_to_pos.is_reverse() &&
+        abs(base_from_pos.offset() - base_to_pos.offset()) == 1) {
+        is_trivial = true;
+    }
+    // 2) or an existing edge in the base graph (translations are all forward strand,
+    //    so we need to look up sequence lengths to check if we're coming out end)
+    else if (edge->from_start() && !edge->to_end() &&
+             base_from_pos.offset() == 0 &&
+             base_to_pos.offset() == 0) {
+        found_edge = base_graph->get_edge(NodeSide(base_from_pos.node_id(), false),
+                                          NodeSide(base_to_pos.node_id(), false));
+    }
+    else if (edge->from_start() && edge->to_end() &&
+             base_from_pos.offset() == 0 &&
+             base_to_pos.offset() == base_graph->get_node(base_to_pos.node_id())->sequence().length() - 1) {
+        found_edge = base_graph->get_edge(NodeSide(base_from_pos.node_id(), false),
+                                          NodeSide(base_to_pos.node_id(), true));
+    }
+    else if (!edge->from_start() && !edge->to_end() &&
+             base_from_pos.offset() == base_graph->get_node(base_from_pos.node_id())->sequence().length() - 1 &&
+             base_to_pos.offset() == 0) {
+        found_edge = base_graph->get_edge(NodeSide(base_from_pos.node_id(), true),
+                                          NodeSide(base_to_pos.node_id(), false));
+    }
+    else if (!edge->from_start() && edge->to_end() &&
+             base_from_pos.offset() == base_graph->get_node(base_from_pos.node_id())->sequence().length() - 1 &&
+             base_to_pos.offset() == base_graph->get_node(base_to_pos.node_id())->sequence().length() - 1) {
+        found_edge = base_graph->get_edge(NodeSide(base_from_pos.node_id(), true),
+                                          NodeSide(base_to_pos.node_id(), true));
+    }
+
+    return pair<const Edge*, bool>(found_edge, is_trivial);
+}
+
+void AugmentedGraph::clear() {
+    // Reset to default state
+    *this = AugmentedGraph();
+}
+
+void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
+                                                  bool unique_names, bool leave_edits) {
+
+    if (unique_names) { 
+        // Make sure they have unique names.
+        set<string> names_seen;
+        // We warn about duplicate names, but only once.
+        bool duplicate_names_warned = false;
+        for(size_t i = 0; i < alignments.size(); i++) {
+            if(alignments[i].name().empty()) {
+                // Generate a name
+                alignments[i].set_name("_unnamed_alignment_" + to_string(i));
+            }
+            if(names_seen.count(alignments[i].name())) {
+                // This name is duplicated
+                if(!duplicate_names_warned) {
+                    // Warn, but only once
+                    cerr << "Warning: duplicate alignment names present! Example: " << alignments[i].name() << endl;
+                    duplicate_names_warned = true;
+                }
+
+                // Generate a new name
+                // TODO: we assume this is unique
+                alignments[i].set_name("_renamed_alignment_" + to_string(i));
+                assert(!names_seen.count(alignments[i].name()));
+            }
+            names_seen.insert(alignments[i].name());
+        }
+        names_seen.clear();
+    }
+    
+    // Suck out paths
+    vector<Path> paths;
+    for(auto& alignment : alignments) {
+        // Copy over each path, naming it after its alignment
+        // and trimming so that it begins and ends with a match to avoid
+        // creating a bunch of stubs.
+        Path path = trim_hanging_ends(alignment.path());
+        path.set_name(alignment.name());
+        paths.push_back(path);
+    }
+
+    if (!leave_edits) {
+        // Run them through vg::edit() to add them to the graph. Save the translations.
+        vector<Translation> augmentation_translations = graph.edit(paths);
+        translator.load(augmentation_translations);
+    } else {
+        // Add the paths to the graphs, but don't embed the edits.  These paths
+        // will not be representable as lists of NodeTraversals.  
+        for (auto& path : paths) {
+            graph.paths.extend(path);
+        }
+        graph.paths.rebuild_node_mapping();
+        graph.paths.rebuild_mapping_aux();
+
+        // trivial translation map?
+    }
+    
+}
+
+void SupportAugmentedGraph::clear() {
+    // Reset to default state
+    *this = SupportAugmentedGraph();
+}
+
+bool SupportAugmentedGraph::has_supports() {
     return !node_supports.empty() || !edge_supports.empty();
 }
 
-Support AugmentedGraph::get_support(Node* node) {
+Support SupportAugmentedGraph::get_support(Node* node) {
     return node_supports.count(node) ? node_supports.at(node) : Support();
 }
 
-Support AugmentedGraph::get_support(Edge* edge) {
+Support SupportAugmentedGraph::get_support(Edge* edge) {
     return edge_supports.count(edge) ? edge_supports.at(edge) : Support();
 }
-
-double AugmentedGraph::get_likelihood(Node* node) {
-    return node_likelihoods.count(node) ? node_likelihoods.at(node) : 0;
-}
-
-double AugmentedGraph::get_likelihood(Edge* edge) {
-    return edge_likelihoods.count(edge) ? edge_likelihoods.at(edge) : 0;
-}
-
-ElementCall AugmentedGraph::get_call(Node* node) {
-    return node_calls.count(node) ? node_calls.at(node) : CALL_UNCALLED;
-}
-
-ElementCall AugmentedGraph::get_call(Edge* edge) {
-    return edge_calls.count(edge) ? edge_calls.at(edge) : CALL_UNCALLED;
-}
     
-
 SimpleConsistencyCalculator::~SimpleConsistencyCalculator(){
 
 }
@@ -206,16 +333,6 @@ vector<Support> SimpleTraversalSupportCalculator::calculate_supports(const Snarl
         return site_supports;
         }
 
-CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
-                                                 const string& hint_path_name,
-                                                 bool filter_trivial_bubbles) :
-    graph(graph), hint_path_name(hint_path_name), filter_trivial_bubbles(filter_trivial_bubbles) {
-    // Make sure the graph is sorted.
-    // cactus needs the nodes to be sorted in order to find a source and sink.
-    algorithms::sort(&graph);
-}
-
-
 PathBasedTraversalFinder::PathBasedTraversalFinder(vg::VG& g, SnarlManager& sm) : graph(g), snarlmanager(sm){
 }
 vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
@@ -333,73 +450,367 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     return ret;
 }
 
-SnarlManager CactusUltrabubbleFinder::find_snarls() {
+CactusSnarlFinder::CactusSnarlFinder(VG& graph) :
+    graph(graph) {
+    // Make sure the graph is sorted.
+    algorithms::sort(&graph);
+}
+
+CactusSnarlFinder::CactusSnarlFinder(VG& graph, const string& hint_path) :
+    CactusSnarlFinder(graph) {
     
-    // Get the bubble tree in Cactus format
-    BubbleTree* bubble_tree = ultrabubble_tree(graph);
+    // Save the hint path
+    hint_paths.insert(hint_path);
     
-    // Convert to Snarls
+    // TODO: actually use it
+}
+
+SnarlManager CactusSnarlFinder::find_snarls() {
     
-    vector<Snarl> converted_snarls;
+    if (graph.size() == 0) {
+        // No snarls here!
+        return SnarlManager();
+    }
+    // convert to cactus
+    pair<stCactusGraph*, stList*> cac_pair = vg_to_cactus(graph, hint_paths);
+    stCactusGraph* cactus_graph = cac_pair.first;
+    stList* telomeres = cac_pair.second;
+
+    // get the snarl decomposition as a C struct
+    stSnarlDecomposition *snarls = stCactusGraph_getSnarlDecomposition(cactus_graph, telomeres);
     
-    bubble_tree->for_each_preorder([&](BubbleTree::Node* node) {
+    // Get a non-owning pointer to the list of chains (which are themselves lists of snarls).
+    stList* cactus_chains_list = snarls->topLevelChains;
+    
+    // And one to the list of top-level unary snarls
+    stList* cactus_unary_snarls_list = snarls->topLevelUnarySnarls;
+    
+    
+    // We'll fill this with all the snarls
+    SnarlManager snarl_manager;
+    
+    // Fill the manager with all of the snarls, recursively.
+    recursively_emit_snarls(Visit(), Visit(), Visit(), Visit(), cactus_chains_list, cactus_unary_snarls_list, snarl_manager);
+    
+    // Free the decomposition
+    stSnarlDecomposition_destruct(snarls);
+    
+    // Free the telomeres
+    stList_destruct(telomeres);
+
+    // free the cactus graph
+    stCactusGraph_destruct(cactus_graph);
+    
+    // Return the completed SnarlManager
+    return snarl_manager;
+    
+}
+
+const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, const Visit& end,
+    const Visit& parent_start, const Visit& parent_end,
+    stList* chains_list, stList* unary_snarls_list, SnarlManager& destination) {
         
-        Bubble& bubble = node->v;
-        if (node != bubble_tree->root) {
-            // If we aren't the root node of the tree, we need to be a Snarl
+#ifdef debug    
+    cerr << "Explore snarl " << start << " -> " << end << endl;
+#endif
+           
+    // This is the snarl we are filling in to add to the SnarlManger, or an
+    // empty snarl if we're a fake root snarl.
+    Snarl snarl;
+        
+    if (start.node_id() != 0 && end.node_id() != 0) {
+        // This is a real snarl
+                
+        // Set up the start and end
+        *snarl.mutable_start() = start;
+        *snarl.mutable_end() = end;
+        
+        if (parent_start.node_id() != 0 && parent_end.node_id() != 0) {
+            // We have a parent that isn't the fake root, so fill in its ends
+            *snarl.mutable_parent()->mutable_start() = parent_start;
+            *snarl.mutable_parent()->mutable_end() = parent_end;
+        }
+    } 
+    
+    // This will hold the pointer to the copy of the snarl in the SnarlManager,
+    // or null if the snarl is a fake root and we don't add it.
+    const Snarl* managed = nullptr;
+    
+    // Before we can pass our snarl to the snarl manager, we need to look at all
+    // its children so we can get connectivity info.
+    
+    // We have a vector of the snarls made for the child snarls in each ordinary
+    // chain, plus trivial chains for the unary snarls.
+    vector<Chain> child_chains;
+    
+#ifdef debug
+    cerr << "Look at " << stList_length(chains_list) << " child chains" << endl;
+#endif
+    
+    int chain_offset = 0;
+    for (int64_t i = 0; i < stList_length(chains_list); i++) {
+        // For each child chain
+        stList* cactus_chain = (stList*)stList_get(chains_list, i);
             
-            if (filter_trivial_bubbles) {
+        // Make a new chain
+        child_chains.emplace_back();
+        auto& chain = child_chains.back();
+        
+#ifdef debug
+        cerr << "Chain " << i << " has " << stList_length(cactus_chain) << " child snarls" << endl;
+#endif
+        
+        for (int64_t j = 0; j < stList_length(cactus_chain); j++) {
+            // for each child snarl in the chain
+            stSnarl* child_snarl = (stSnarl*)stList_get(cactus_chain, j);
+
+            // scrape the vg coordinate information out of the cactus ends where we stuck
+            // it during cactus construction
+            CactusSide* cac_child_side1 = (CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd1);
+            CactusSide* cac_child_side2 = (CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd2);
+            
+            // Convert from CactusSide (the interior endpoint of each node) to Visit (inward at start, outward at end)
+            Visit child_start;
+            child_start.set_node_id(cac_child_side1->node);
+            // Start is backward if the interior is not an end
+            child_start.set_backward(!cac_child_side1->is_end);
+            Visit child_end;
+            child_end.set_node_id(cac_child_side2->node);
+            // End is backward if the interior is an end
+            child_end.set_backward(cac_child_side2->is_end);
                 
-                // Check whether the bubble consists of a single edge
+            // Recursively create a snarl for the child, and then add it to this chain in us.
+            chain.push_back(recursively_emit_snarls(child_start, child_end, start, end,
+                child_snarl->chains, child_snarl->unarySnarls, destination));
+        }
+    }
+    
+#ifdef debug
+    cerr << "Look at " << stList_length(unary_snarls_list) << " child unary snarls" << endl;
+#endif
+    
+    for (int64_t i = 0; i < stList_length(unary_snarls_list); i++) {
+        // for each child unary snarl
+        stSnarl* child_snarl = (stSnarl*)stList_get(unary_snarls_list, i);
+
+        // TODO: deduplicate this code
+
+        // scrape the vg coordinate information out of the cactus ends where we stuck
+        // it during cactus construction
+        CactusSide* cac_child_side1 = (CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd1);
+        CactusSide* cac_child_side2 = (CactusSide*)stCactusEdgeEnd_getObject(child_snarl->edgeEnd2);
+        
+        // Convert from CactusSide (the interior endpoint of each node) to Visit (inward at start, outward at end)
+        Visit child_start;
+        child_start.set_node_id(cac_child_side1->node);
+        // Start is backward if the interior is not an end
+        child_start.set_backward(!cac_child_side1->is_end);
+        Visit child_end;
+        child_end.set_node_id(cac_child_side2->node);
+        // End is backward if the interior is an end
+        child_end.set_backward(cac_child_side2->is_end);
+        
+        // Make a trivial chain
+        child_chains.emplace_back();
+        auto& chain = child_chains.back();
+        
+        // Recursively create a snarl for the child, and then add it to the trivial chain
+        chain.push_back(recursively_emit_snarls(child_start, child_end, start, end,
+            child_snarl->chains, child_snarl->unarySnarls, destination));
+    }
+
+    if (snarl.start().node_id() != 0 || snarl.end().node_id() != 0) {
+        // This snarl is real, we care about type and connectivity.
+
+        // First determine connectivity
+        {
+
+            // Make a net graph for the snarl that uses internal connectivity
+            NetGraph connectivity_net_graph(start, end, child_chains, &graph, true);
+            
+            // Evaluate connectivity
+            // A snarl is minimal, so we know out start and end will be normal nodes.
+            handle_t start_handle = connectivity_net_graph.get_handle(start.node_id(), start.backward());
+            handle_t end_handle = connectivity_net_graph.get_handle(end.node_id(), end.backward());
+            
+            // Start out by assuming we aren't connected
+            bool connected_start_start = false;
+            bool connected_end_end = false;
+            bool connected_start_end = false;
+            
+            // We do a couple of direcred walk searches to test connectivity.
+            list<handle_t> queue{start_handle};
+            unordered_set<handle_t> queued{start_handle};
+            auto handle_edge = [&](const handle_t& other) {
+#ifdef debug
+                cerr << "\tCan reach " << connectivity_net_graph.get_id(other)
+                    << " " << connectivity_net_graph.get_is_reverse(other) << endl;
+#endif
                 
-                set<NodeSide> start_connections = graph.sides_of(bubble.start);
-                set<NodeSide> end_connections = graph.sides_of(bubble.end);
+                // Whenever we see a new node orientation, queue it.
+                if (!queued.count(other)) {
+                    queue.push_back(other);
+                    queued.insert(other);
+                }
+            };
+            
+#ifdef debug
+            cerr << "Looking for start-start turnarounds and through connections from "
+                << connectivity_net_graph.get_id(start_handle) << " " <<
+                connectivity_net_graph.get_is_reverse(start_handle) << endl;
+#endif
+            
+            while (!queue.empty()) {
+                handle_t here = queue.front();
+                queue.pop_front();
                 
-                if (start_connections.size() == 1
-                    && start_connections.count(bubble.end)
-                    && end_connections.size() == 1
-                    && end_connections.count(bubble.start)) {
-                    // This is a single edge bubble, skip it
-                    return;
+                if (here == end_handle) {
+                    // Start can reach the end
+                    connected_start_end = true;
+                }
+                
+                if (here == connectivity_net_graph.flip(start_handle)) {
+                    // Start can reach itself the other way around
+                    connected_start_start = true;
+                }
+                
+                if (connected_start_end && connected_start_start) {
+                    // No more searching needed
+                    break;
+                }
+                
+                // Look at everything reachable on a proper rightward directed walk.
+                connectivity_net_graph.follow_edges(here, false, handle_edge);
+            }
+            
+            auto end_inward = connectivity_net_graph.flip(end_handle);
+            
+#ifdef debug
+            cerr << "Looking for end-end turnarounds from " << connectivity_net_graph.get_id(end_inward)
+                << " " << connectivity_net_graph.get_is_reverse(end_inward) << endl;
+#endif
+            
+            // Reset and search the other way from the end to see if it can find itself.
+            queue = {end_inward};
+            queued = {end_inward};
+            while (!queue.empty()) {
+                handle_t here = queue.front();
+                queue.pop_front();
+                
+#ifdef debug
+                cerr << "Got to " << connectivity_net_graph.get_id(here) << " "
+                    << connectivity_net_graph.get_is_reverse(here) << endl;
+#endif
+                
+                if (here == end_handle) {
+                    // End can reach itself the other way around
+                    connected_end_end = true;
+                    break;
+                }
+                
+                // Look at everything reachable on a proper rightward directed walk.
+                connectivity_net_graph.follow_edges(here, false, handle_edge);
+            }
+            
+            // Save the connectivity info. TODO: should the connectivity flags be
+            // calculated based on just the net graph, or based on actual connectivity
+            // within child snarls.
+            snarl.set_start_self_reachable(connected_start_start);
+            snarl.set_end_self_reachable(connected_end_end);
+            snarl.set_start_end_reachable(connected_start_end);
+
+#ifdef debug
+            cerr << "Connectivity: " << connected_start_start << " " << connected_end_end << " " << connected_start_end << endl;
+#endif
+            
+        
+        }
+        
+        {
+            // Determine cyclicity/acyclicity
+        
+            // Make a net graph that just pretends child snarls/chains are ordinary nodes
+            NetGraph flat_net_graph(start, end, child_chains, &graph);
+            
+            // This definitely should be calculated based on the internal-connectivity-ignoring net graph.
+            snarl.set_directed_acyclic_net_graph(algorithms::is_directed_acyclic(&flat_net_graph));
+        }
+
+        // Now we need to work out if the snarl can be a unary snarl or an ultrabubble or what.
+        if (start.node_id() == end.node_id()) {
+            // Snarl has the same start and end (or no start or end, in which case we don't care).
+            snarl.set_type(UNARY);
+#ifdef debug
+            cerr << "Snarl is UNARY" << endl;
+#endif
+        } else if (!snarl.start_end_reachable()) {
+            // Can't be an ultrabubble if we're not connected through.
+            snarl.set_type(UNCLASSIFIED);
+#ifdef debug
+            cerr << "Snarl is UNCLASSIFIED because it doesn't connect through" << endl;
+#endif
+        } else if (snarl.start_self_reachable() || snarl.end_self_reachable()) {
+            // Can't be an ultrabubble if we have these cycles
+            snarl.set_type(UNCLASSIFIED);
+            
+#ifdef debug
+            cerr << "Snarl is UNCLASSIFIED because it allows turning around, creating a directed cycle" << endl;
+#endif
+
+        } else {
+            // See if we have all ultrabubble children
+            bool all_ultrabubble_children = true;
+            for (auto& chain : child_chains) {
+                for (auto& child : chain) {
+                    if (child->type() != ULTRABUBBLE) {
+                        all_ultrabubble_children = false;
+                        break;
+                    }
+                }
+                if (!all_ultrabubble_children) {
+                    break;
                 }
             }
             
-            // We're going to fill in this Snarl.
-            Snarl snarl;
+            // Note that ultrabubbles *can* loop back on their start or end.
             
-            // Set up the start and end
-
-            // Make sure to preserve original endpoint
-            // ordering, because swapping them without flipping their
-            // orientation flags will make an inside-out site.
-            snarl.mutable_start()->set_node_id(bubble.start.node);
-            snarl.mutable_start()->set_backward(!bubble.start.is_end);
-            snarl.mutable_end()->set_node_id(bubble.end.node);
-            snarl.mutable_end()->set_backward(bubble.end.is_end);
-            
-            // Mark snarl as an ultrabubble if it's acyclic
-            snarl.set_type(bubble.dag ? ULTRABUBBLE : UNCLASSIFIED);
-            
-            // If not a top level site, add parent info
-            if (node->parent != bubble_tree->root) {
-                Bubble& bubble_parent = node->parent->v;
-                Snarl* snarl_parent = snarl.mutable_parent();
-                snarl_parent->mutable_start()->set_node_id(bubble_parent.start.node);
-                snarl_parent->mutable_start()->set_backward(!bubble_parent.start.is_end);
-                snarl_parent->mutable_end()->set_node_id(bubble_parent.end.node);
-                snarl_parent->mutable_end()->set_backward(bubble_parent.end.is_end);
+            if (!all_ultrabubble_children) {
+                // If we have non-ultrabubble children, we can't be an ultrabubble.
+                snarl.set_type(UNCLASSIFIED);
+#ifdef debug
+                cerr << "Snarl is UNCLASSIFIED because it has non-ultrabubble children" << endl;
+#endif
+            } else if (!snarl.directed_acyclic_net_graph()) {
+                // If all our children are ultrabubbles but we ourselves are cyclic, we can't be an ultrabubble
+                snarl.set_type(UNCLASSIFIED);
+                
+#ifdef debug
+                cerr << "Snarl is UNCLASSIFIED because it is not directed-acyclic" << endl;
+#endif
+            } else {
+                // We have only ultrabubble children and are acyclic.
+                // We're an ultrabubble.
+                snarl.set_type(ULTRABUBBLE);
+#ifdef debug
+                cerr << "Snarl is an ULTRABUBBLE" << endl;
+#endif
             }
-            
-            converted_snarls.push_back(snarl);
         }
-    });
+        
+        // Now we know enough aboiut the snarl to actually put it in the SnarlManager
+        managed = destination.add_snarl(snarl);
+        
+    }
     
-    delete bubble_tree;
-    
-    // Now form the SnarlManager and return
-    return SnarlManager(converted_snarls.begin(), converted_snarls.end());
+    // Now add all the child chains as children of the snarl we just added (or
+    // as root chains if we didn't just add a snarl)
+    for (auto& chain : child_chains) {
+        destination.add_chain(chain, managed);
+    }
+
+    // Return a pointer to the managed snarl.
+    return managed;
 }
-    
    
 ExhaustiveTraversalFinder::ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager,
                                                      bool include_reversing_traversals) :
@@ -515,6 +926,16 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
         // does this traversal point into a child snarl?
         const Snarl* into_snarl = snarl_manager.into_which_snarl(node_traversal.node->id(),
                                                                  node_traversal.backward);
+                                                                 
+#ifdef debug
+        cerr << "Traversal " << node_traversal.node->id() << " " << node_traversal.backward << " enters";
+        if (into_snarl != nullptr) {
+            cerr << " " << pb2json(*into_snarl) << endl;
+        } else {
+            cerr << " NULL" << endl; 
+        }
+#endif
+                                                                 
         if (into_snarl && !(node_traversal == traversal_start)) {
             // add a visit for the child snarl
             path.emplace_back();
@@ -527,23 +948,49 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
             // which side of the snarl does the traversal point into?
             if (into_snarl->start().node_id() == node_traversal.node->id()
                 && into_snarl->start().backward() == node_traversal.backward) {
-                
-                // skip to the other side
-                stack.push_back(to_node_traversal(into_snarl->end(), graph));
+                // Into the start
+#ifdef debug
+                cerr << "Entered child through its start" << endl;
+#endif
+                if (into_snarl->start_end_reachable()) {
+                    // skip to the other side and proceed in the orientation that the end node takes.
+                    stack.push_back(to_node_traversal(into_snarl->end(), graph));
+#ifdef debug
+                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+#endif
+                }
                 
                 // if the same side is also reachable, add it to the stack too
                 if (into_snarl->start_self_reachable()) {
-                    stack.push_back(to_rev_node_traversal(into_snarl->start(), graph));
+                    // Make sure to flip it around so we come out of the snarl instead of going in again,
+                    stack.push_back(to_rev_node_traversal(into_snarl->start(), graph).reverse());
+#ifdef debug
+                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+#endif
                 }
                 
             }
             else {
-                // skip to the other side
-                stack.push_back(to_node_traversal(into_snarl->start(), graph));
+                // Into the end
+#ifdef debug
+                cerr << "Entered child through its end" << endl;
+#endif
+                if (into_snarl->start_end_reachable()) {
+                    // skip to the other side and proceed in the orientation
+                    // *opposite* what the start node takes (i.e. out of the
+                    // snarl)
+                    stack.push_back(to_node_traversal(into_snarl->start(), graph).reverse());
+#ifdef debug
+                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+#endif
+                }
                 
                 // if the same side is also reachable, add it to the stack too
-                if (into_snarl->start_self_reachable()) {
+                if (into_snarl->end_self_reachable()) {
                     stack.push_back(to_rev_node_traversal(into_snarl->end(), graph));
+#ifdef debug
+                    cerr << "Stack up " << stack.back().node->id() << " " << stack.back().backward << endl;
+#endif
                 }
             }
         }
@@ -949,7 +1396,7 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
 }
 
 
-RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
+RepresentativeTraversalFinder::RepresentativeTraversalFinder(SupportAugmentedGraph& augmented,
     SnarlManager& snarl_manager, size_t max_depth, size_t max_width, size_t max_bubble_paths,
     function<PathIndex*(const Snarl&)> get_index) : augmented(augmented), snarl_manager(snarl_manager),
     max_depth(max_depth), max_width(max_width), max_bubble_paths(max_bubble_paths), get_index(get_index) {

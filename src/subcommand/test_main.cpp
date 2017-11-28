@@ -27,5 +27,5 @@ int main_test(int argc, char** argv){
 }
 
 // Register subcommand
-static Subcommand vg_test("test", "run unit tests", main_test);
+static Subcommand vg_test("test", "run unit tests", DEVELOPMENT, main_test);
 

@@ -28,7 +28,7 @@ void help_ids(char** argv) {
         << "    -d, --decrement N    decrease ids by N" << endl
         << "    -j, --join           make a joint id space for all the graphs that are supplied" << endl
         << "                         by iterating through the supplied graphs and incrementing" << endl
-        << "                         their ids to be non-conflicting" << endl
+        << "                         their ids to be non-conflicting (modifies original files)" << endl
         << "    -s, --sort           assign new node IDs in (generalized) topological sort order" << endl;
 }
 
@@ -144,5 +144,5 @@ int main_ids(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_ids("ids", "manipulate node ids", main_ids);
+static Subcommand vg_ids("ids", "manipulate node ids", TOOLKIT, main_ids);
 

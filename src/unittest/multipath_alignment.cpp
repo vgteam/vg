@@ -541,6 +541,351 @@ namespace vg {
                 REQUIRE(found);
             }
         }
+        
+        TEST_CASE( "Algorithm returns correct connected components for MultipathAlignments",
+                  "[alignment][multipath]" ){
+            
+            SECTION("Works for a single component MultipathAlignment") {
+                
+                
+                string read = "CACCCTGA";
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence(read);
+                
+                // add subpaths
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                Subpath* subpath2 = multipath_aln.add_subpath();
+                
+                // set edges between subpaths
+                subpath0->add_next(1);
+                subpath1->add_next(2);
+                
+                // set scores
+                subpath0->set_score(3);
+                subpath1->set_score(4);
+                subpath2->set_score(7);
+                
+                auto comps = connected_components(multipath_aln);
+                
+                REQUIRE(comps.size() == 1);
+                
+                bool found_1 = false;
+                for (size_t i = 0; i < comps.size(); i++) {
+                    bool this_is_1 = true;
+                    for (int j : {0, 1, 2}) {
+                        bool found_this_item = false;
+                        for (size_t k = 0; k < comps[i].size(); k++) {
+                            if (comps[i][k] == j) {
+                                found_this_item = true;
+                                break;
+                            }
+                        }
+                        this_is_1 = this_is_1 && found_this_item;
+                    }
+                    found_1 = this_is_1 || found_1;
+                }
+                
+                REQUIRE(found_1);
+            }
+            
+            SECTION("Works for a two component MultipathAlignment") {
+                
+                string read = "CACCCTGA";
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence(read);
+                
+                // add subpaths
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                Subpath* subpath2 = multipath_aln.add_subpath();
+                
+                // set edges between subpaths
+                subpath0->add_next(1);
+                
+                // set scores
+                subpath0->set_score(3);
+                subpath1->set_score(4);
+                subpath2->set_score(7);
+                
+                auto comps = connected_components(multipath_aln);
+                
+                REQUIRE(comps.size() == 2);
+                
+                bool found_1 = false;
+                bool found_2 = false;
+                for (size_t i = 0; i < comps.size(); i++) {
+                    bool is_this_comp;
+                    is_this_comp = true;
+                    for (int j : {0, 1}) {
+                        bool found_this_item = false;
+                        for (size_t k = 0; k < comps[i].size(); k++) {
+                            if (comps[i][k] == j) {
+                                found_this_item = true;
+                                break;
+                            }
+                        }
+                        is_this_comp = is_this_comp && found_this_item;
+                    }
+                    found_1 = is_this_comp || found_1;
+                    
+                    is_this_comp = true;
+                    for (int j : {2}) {
+                        bool found_this_item = false;
+                        for (size_t k = 0; k < comps[i].size(); k++) {
+                            if (comps[i][k] == j) {
+                                found_this_item = true;
+                                break;
+                            }
+                        }
+                        is_this_comp = is_this_comp && found_this_item;
+                    }
+                    found_2 = is_this_comp || found_2;
+                }
+                
+                REQUIRE(found_1);
+                REQUIRE(found_2);
+            }
+            
+            SECTION("Works for a multi-component MultipathAlignment with complicated edge structure") {
+                
+                MultipathAlignment multipath_aln;
+                
+                // add subpaths
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                Subpath* subpath2 = multipath_aln.add_subpath();
+                Subpath* subpath3 = multipath_aln.add_subpath();
+                Subpath* subpath4 = multipath_aln.add_subpath();
+                Subpath* subpath5 = multipath_aln.add_subpath();
+                Subpath* subpath6 = multipath_aln.add_subpath();
+                
+                // set edges between subpaths
+                subpath0->add_next(1);
+                subpath1->add_next(5);
+                subpath2->add_next(4);
+                subpath3->add_next(5);
+                
+                // set scores
+                subpath0->set_score(3);
+                subpath1->set_score(0);
+                subpath2->set_score(1);
+                subpath3->set_score(0);
+                subpath4->set_score(4);
+                subpath5->set_score(0);
+                subpath5->set_score(9);
+                
+                auto comps = connected_components(multipath_aln);
+                
+                REQUIRE(comps.size() == 3);
+                
+                bool found_1 = false;
+                bool found_2 = false;
+                bool found_3 = false;
+                for (size_t i = 0; i < comps.size(); i++) {
+                    bool is_this_comp;
+                    is_this_comp = true;
+                    for (int j : {0, 1, 3, 5}) {
+                        bool found_this_item = false;
+                        for (size_t k = 0; k < comps[i].size(); k++) {
+                            if (comps[i][k] == j) {
+                                found_this_item = true;
+                                break;
+                            }
+                        }
+                        is_this_comp = is_this_comp && found_this_item;
+                    }
+                    found_1 = is_this_comp || found_1;
+                    
+                    is_this_comp = true;
+                    for (int j : {2, 4}) {
+                        bool found_this_item = false;
+                        for (size_t k = 0; k < comps[i].size(); k++) {
+                            if (comps[i][k] == j) {
+                                found_this_item = true;
+                                break;
+                            }
+                        }
+                        is_this_comp = is_this_comp && found_this_item;
+                    }
+                    found_2 = is_this_comp || found_2;
+                    
+                    is_this_comp = true;
+                    for (int j : {6}) {
+                        bool found_this_item = false;
+                        for (size_t k = 0; k < comps[i].size(); k++) {
+                            if (comps[i][k] == j) {
+                                found_this_item = true;
+                                break;
+                            }
+                        }
+                        is_this_comp = is_this_comp && found_this_item;
+                    }
+                    found_3 = is_this_comp || found_3;
+                }
+                
+                REQUIRE(found_1);
+                REQUIRE(found_2);
+                REQUIRE(found_3);
+            }
+        }
+        
+        TEST_CASE("We can extract subgraphs of a MultipathAlignment",
+                  "[alignment][multipath]" ) {
+            
+            SECTION("Works correctly when splitting by connected components") {
+                
+                MultipathAlignment multipath_aln;
+                
+                // add subpaths
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                Subpath* subpath2 = multipath_aln.add_subpath();
+                Subpath* subpath3 = multipath_aln.add_subpath();
+                Subpath* subpath4 = multipath_aln.add_subpath();
+                Subpath* subpath5 = multipath_aln.add_subpath();
+                Subpath* subpath6 = multipath_aln.add_subpath();
+                
+                // set edges between subpaths
+                subpath0->add_next(1);
+                subpath1->add_next(5);
+                subpath2->add_next(4);
+                subpath3->add_next(5);
+                
+                // set scores (hijacking them here to label subpaths with their original index)
+                subpath0->set_score(0);
+                subpath1->set_score(1);
+                subpath2->set_score(2);
+                subpath3->set_score(3);
+                subpath4->set_score(4);
+                subpath5->set_score(5);
+                subpath5->set_score(6);
+                
+                auto comps = connected_components(multipath_aln);
+                
+                REQUIRE(comps.size() == 3);
+                
+                for (size_t i = 0; i < comps.size(); i++) {
+                    
+                    MultipathAlignment sub;
+                    extract_sub_multipath_alignment(multipath_aln, comps[i], sub);
+                                        
+                    bool is_this_comp;
+                    bool finds_all_subpaths;
+                    
+                    is_this_comp = true;
+                    for (int j : {0, 1, 3, 5}) {
+                        bool found_this_item = false;
+                        for (size_t k = 0; k < comps[i].size(); k++) {
+                            if (comps[i][k] == j) {
+                                found_this_item = true;
+                                break;
+                            }
+                        }
+                        is_this_comp = is_this_comp && found_this_item;
+                    }
+                    
+                    if (is_this_comp) {
+                        
+                        REQUIRE(sub.subpath_size() == 4);
+                        
+                        finds_all_subpaths = true;
+                        for (int j : {0, 1, 3, 5}) {
+                            bool found_this_item = false;
+                            for (size_t k = 0; k < sub.subpath_size(); k++) {
+                                if (sub.subpath(k).score() == j) {
+                                    REQUIRE(sub.subpath(k).next_size() == multipath_aln.subpath(j).next_size());
+                                    for (size_t l = 0; l < sub.subpath(k).next_size(); l++) {
+                                        bool found_this_next = false;
+                                        for (size_t m = 0; m < multipath_aln.subpath(j).next_size(); m++) {
+                                            if (sub.subpath(sub.subpath(k).next(l)).score() == multipath_aln.subpath(j).next(m)) {
+                                                found_this_next = true;
+                                            }
+                                        }
+                                        found_this_item = found_this_item && found_this_next;
+                                    }
+                                }
+                            }
+                            finds_all_subpaths = finds_all_subpaths && found_this_item;
+                        }
+                    }
+                    
+                    is_this_comp = true;
+                    for (int j : {2, 4}) {
+                        bool found_this_item = false;
+                        for (size_t k = 0; k < comps[i].size(); k++) {
+                            if (comps[i][k] == j) {
+                                found_this_item = true;
+                                break;
+                            }
+                        }
+                        is_this_comp = is_this_comp && found_this_item;
+                    }
+                    
+                    if (is_this_comp) {
+                        
+                        REQUIRE(sub.subpath_size() == 2);
+                        
+                        finds_all_subpaths = true;
+                        for (int j : {2, 4}) {
+                            bool found_this_item = false;
+                            for (size_t k = 0; k < sub.subpath_size(); k++) {
+                                if (sub.subpath(k).score() == j) {
+                                    REQUIRE(sub.subpath(k).next_size() == multipath_aln.subpath(j).next_size());
+                                    for (size_t l = 0; l < sub.subpath(k).next_size(); l++) {
+                                        bool found_this_next = false;
+                                        for (size_t m = 0; m < multipath_aln.subpath(j).next_size(); m++) {
+                                            if (sub.subpath(sub.subpath(k).next(l)).score() == multipath_aln.subpath(j).next(m)) {
+                                                found_this_next = true;
+                                            }
+                                        }
+                                        found_this_item = found_this_item && found_this_next;
+                                    }
+                                }
+                            }
+                            finds_all_subpaths = finds_all_subpaths && found_this_item;
+                        }
+                    }
+                    
+                    is_this_comp = true;
+                    for (int j : {6}) {
+                        bool found_this_item = false;
+                        for (size_t k = 0; k < comps[i].size(); k++) {
+                            if (comps[i][k] == j) {
+                                found_this_item = true;
+                                break;
+                            }
+                        }
+                        is_this_comp = is_this_comp && found_this_item;
+                    }
+                    
+                    if (is_this_comp) {
+                        
+                        REQUIRE(sub.subpath_size() == 1);
+                        
+                        finds_all_subpaths = true;
+                        for (int j : {6}) {
+                            bool found_this_item = false;
+                            for (size_t k = 0; k < sub.subpath_size(); k++) {
+                                if (sub.subpath(k).score() == j) {
+                                    REQUIRE(sub.subpath(k).next_size() == multipath_aln.subpath(j).next_size());
+                                    for (size_t l = 0; l < sub.subpath(k).next_size(); l++) {
+                                        bool found_this_next = false;
+                                        for (size_t m = 0; m < multipath_aln.subpath(j).next_size(); m++) {
+                                            if (sub.subpath(sub.subpath(k).next(l)).score() == multipath_aln.subpath(j).next(m)) {
+                                                found_this_next = true;
+                                            }
+                                        }
+                                        found_this_item = found_this_item && found_this_next;
+                                    }
+                                }
+                            }
+                            finds_all_subpaths = finds_all_subpaths && found_this_item;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -114,5 +114,5 @@ int main_validate(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_validate("validate", "validate the semantics of a graph", main_validate);
+static Subcommand vg_validate("validate", "validate the semantics of a graph", DEVELOPMENT, main_validate);
 

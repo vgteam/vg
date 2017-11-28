@@ -146,11 +146,22 @@ namespace vg {
 
         // Find snarls
         // Snarls are variant sites ("bubbles")
-        SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph, refpath, true);
+        SnarlFinder* snarl_finder = new CactusSnarlFinder(*graph, refpath);
         SnarlManager snarl_manager = snarl_finder->find_snarls();
         vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
         TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
         for (const Snarl* snarl: snarl_roots){
+            // For each top level snarl
+            
+            // Except the trivial ones
+            if (snarl->type() == ULTRABUBBLE) {
+                auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
+                if (contents.first.empty()) {
+                    // Nothing but the boundary nodes in this snarl
+                    continue;
+                }
+            }
+            
             vcflib::Variant v;
             // SnarlTraversals are the (possible) alleles of our variant site.
             vector<SnarlTraversal> travs = trav_finder->find_traversals(*snarl);

@@ -24,7 +24,7 @@ KEEP_OUTPUT=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@5a2337003e58ef4db7d167cb85faf7dea0ae555a"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@4a41dbb79af09ef49cec3b8d47dd74db957f94b3"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
@@ -143,14 +143,14 @@ export PATH=$PATH:${PWD}/bin
 # Dependencies for running tests.  Need numpy, scipy and sklearn
 # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
 pip install numpy
-pip install scipy
+pip install scipy==1.0.0rc2
 pip install sklearn
 pip install dateutils
 pip install requests
 pip install timeout_decorator
 pip install pytest
 pip install pygithub
-pip install toil[aws,mesos]
+pip install toil[aws,mesos]==3.11.0
 # Don't manually install boto since toil just installs its preferred version
 
 # Install toil-vg itself
@@ -209,6 +209,14 @@ else
     fi
     VG_VERSION=`docker run jenkins-docker-vg-local vg version`
     printf "vg-docker-version jenkins-docker-vg-local\n" >> vgci_cfg.tsv
+
+    # Pull down the docker images, so time costs (and instability) of doing so doesn't affect
+    # individual test results (looking at you, rocker/tidyverse:3.4.2)
+    # Allow two tries before failing
+    set +e
+    for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
+    set -e
+    for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
 fi
 
 # For the actual test and the cleanup, continue on error

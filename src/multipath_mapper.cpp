@@ -52,7 +52,8 @@ namespace vg {
         // query MEMs using GCSA2
         double dummy1; double dummy2;
         vector<MaximalExactMatch> mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(),
-                                                        dummy1, dummy2, 0, min_mem_length, mem_reseed_length, false, true);
+                                                        dummy1, dummy2, 0, min_mem_length, mem_reseed_length,
+                                                        false, true, true, false);
         
 #ifdef debug_multipath_mapper
         cerr << "obtained MEMs:" << endl;
@@ -114,21 +115,6 @@ namespace vg {
         for (auto cluster_graph : cluster_graphs) {
             delete get<0>(cluster_graph);
         }
-        
-        // for debugging: an expensive check for invariant validity that can be turned on
-        // with a preprocessor flag
-#ifdef debug_validate_multipath_alignments
-        for (MultipathAlignment& multipath_aln : multipath_alns_out) {
-#ifdef debug_multipath_mapper
-            cerr << "validating multipath alignment:" << endl;
-            cerr << pb2json(multipath_aln) << endl;
-#endif
-            if (!validate_multipath_alignment(multipath_aln)) {
-                cerr << "### WARNING ###" << endl;
-                cerr << "multipath alignment of read " << multipath_aln.name() << " failed to validate" << endl;
-            }
-        }
-#endif
     }
     
     void MultipathMapper::align_to_cluster_graphs(const Alignment& alignment,
@@ -187,6 +173,9 @@ namespace vg {
             num_mappings++;
         }
         
+        // split up any alignments that ended up being disconnected
+        split_multicomponent_alignments(multipath_alns_out);
+        
 #ifdef debug_multipath_mapper
         cerr << "topologically ordering " << multipath_alns_out.size() << " multipath alignments" << endl;
 #endif
@@ -199,9 +188,28 @@ namespace vg {
 #endif
         sort_and_compute_mapping_quality(multipath_alns_out, mapq_method);
         
+        if (!multipath_alns_out.empty() ? likely_mismapping(multipath_alns_out.front()) : false) {
+            multipath_alns_out.front().set_mapping_quality(0);
+        }
+        
+        // for debugging: an expensive check for invariant validity that can be turned on
+        // with a preprocessor flag
+#ifdef debug_validate_multipath_alignments
+        for (MultipathAlignment& multipath_aln : multipath_alns_out) {
+#ifdef debug_multipath_mapper
+            cerr << "validating multipath alignment:" << endl;
+            cerr << pb2json(multipath_aln) << endl;
+#endif
+            if (!validate_multipath_alignment(multipath_aln)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln.name() << " failed to validate" << endl;
+            }
+        }
+#endif
+        
         // if we computed extra alignments to get a mapping quality, remove them
-        while (multipath_alns_out.size() > max_alt_mappings) {
-            multipath_alns_out.pop_back();
+        if (multipath_alns_out.size() > max_alt_mappings) {
+            multipath_alns_out.resize(max_alt_mappings);
         }
         
         if (strip_bonuses) {
@@ -324,9 +332,6 @@ namespace vg {
     bool MultipathMapper::attempt_rescue(const MultipathAlignment& multipath_aln, const Alignment& other_aln,
                                          bool rescue_forward, MultipathAlignment& rescue_multipath_aln) {
         
-        double mean = fragment_length_distr.mean();
-        double stdev = fragment_length_distr.stdev();
-        
 #ifdef debug_multipath_mapper
         cerr << "attemping pair rescue in " << (rescue_forward ? "forward" : "backward") << " direction from " << pb2json(multipath_aln) << endl;
 #endif
@@ -335,15 +340,25 @@ namespace vg {
         Alignment opt_anchoring_aln;
         optimal_alignment(multipath_aln, opt_anchoring_aln);
         pos_t pos_from = initial_position(opt_anchoring_aln.path());
-        int64_t jump_dist = rescue_forward ? mean : -mean;
+        int64_t jump_dist = rescue_forward ? fragment_length_distr.mean() : -fragment_length_distr.mean();
         
         // get the seed position(s) for the rescue by jumping along paths
         vector<pos_t> jump_positions = xindex->jump_along_closest_path(id(pos_from), is_rev(pos_from), offset(pos_from), jump_dist, 250);
-        vector<size_t> backward_dist(jump_positions.size(), 4 * stdev);
-        vector<size_t> forward_dist(jump_positions.size(), 4 * stdev + other_aln.sequence().size());
+        
+#ifdef debug_multipath_mapper
+        cerr << "found jump positions:" << endl;
+        for (pos_t& pos : jump_positions) {
+            cerr << "\t" << pos << endl;
+        }
+#endif
+        if (jump_positions.empty()) {
+            return false;
+        }
         
         // pull out the graph around the position(s) we jumped to
         VG rescue_graph;
+        vector<size_t> backward_dist(jump_positions.size(), 4 * fragment_length_distr.stdev());
+        vector<size_t> forward_dist(jump_positions.size(), 4 * fragment_length_distr.stdev() + other_aln.sequence().size());
         algorithms::extract_containing_graph(xindex, rescue_graph.graph, jump_positions, backward_dist, forward_dist);
         rescue_graph.build_indexes();
         
@@ -384,17 +399,350 @@ namespace vg {
         identify_start_subpaths(rescue_multipath_aln);
         
         vector<double> score(1, aln.score());
-        int32_t raw_mapq = get_aligner()->compute_mapping_quality(score, mapping_quality_method == None ? true : mapping_quality_method == Approx);
+        int32_t raw_mapq = get_aligner()->compute_mapping_quality(score, mapping_quality_method == None || mapping_quality_method == Approx);
         int32_t adjusted_mapq = min(raw_mapq, min(max_mapping_quality, multipath_aln.mapping_quality()));
         rescue_multipath_aln.set_mapping_quality(adjusted_mapq);
         
 #ifdef debug_multipath_mapper
         cerr << "rescued alignment is " << pb2json(rescue_multipath_aln) << endl;
 #endif
+        return (raw_mapq >= min(25, max_mapping_quality)
+                && random_match_p_value(score_pseudo_length(aln.score()), multipath_aln.sequence().size()) < 0.005);
+    }
+    
+    bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) {
+#ifdef debug_multipath_mapper
+        cerr << "effective match length of " << multipath_aln.name() << " is " << score_pseudo_length(optimal_alignment_score(multipath_aln)) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(score_pseudo_length(optimal_alignment_score(multipath_aln)), multipath_aln.sequence().size()) << endl;
+#endif
         
-        // TODO: get rid of magic numbers
-        int32_t max_score = get_aligner()->match * other_aln.sequence().size() + get_aligner()->full_length_bonus * 2;
-        return raw_mapq >= min(25, max_mapping_quality) && score.front() > .5 * max_score;
+        return random_match_p_value(score_pseudo_length(optimal_alignment_score(multipath_aln)), multipath_aln.sequence().size()) > 0.05;
+    }
+    
+    size_t MultipathMapper::score_pseudo_length(int32_t score) const {
+        const BaseAligner* aligner = get_aligner();
+        // empirically, scaling it down seems to give better results
+        return score * aligner->log_base / (3 * aligner->match);
+    }
+    
+    // make the memo live in this .o file
+    thread_local unordered_map<pair<size_t, size_t>, double> MultipathMapper::p_value_memo;
+    
+    double MultipathMapper::random_match_p_value(size_t match_length, size_t read_length) {
+        // memoized to avoid transcendental functions (at least in cases where read lengths
+        // don't vary too much)
+        auto iter = p_value_memo.find(make_pair(match_length, read_length));
+        if (iter != p_value_memo.end()) {
+            return iter->second;
+        }
+        else {
+            double p_value = 1.0 - pow(1.0 - pow(0.25, match_length), xindex->seq_length * read_length);
+            if (p_value_memo.size() < max_p_value_memo_size) {
+                p_value_memo[make_pair(match_length, read_length)] = p_value;
+            }
+            return p_value;
+        }
+    }
+    
+    int64_t MultipathMapper::distance_between(const MultipathAlignment& multipath_aln_1,
+                                              const MultipathAlignment& multipath_aln_2) const {
+        Alignment aln_1;
+        optimal_alignment(multipath_aln_1, aln_1);
+        pos_t pos_1 = initial_position(aln_1.path());
+        
+        Alignment aln_2;
+        optimal_alignment(multipath_aln_2, aln_2);
+        pos_t pos_2 = initial_position(aln_2.path());
+        
+        return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
+                                                             id(pos_2), offset(pos_2), is_rev(pos_2));
+    }
+    
+    bool MultipathMapper::is_consistent(int64_t distance) const {
+        return (distance < fragment_length_distr.mean() + 10.0 * fragment_length_distr.stdev()
+                && distance > fragment_length_distr.mean() - 10.0 * fragment_length_distr.stdev());
+    }
+    
+    bool MultipathMapper::are_consistent(const MultipathAlignment& multipath_aln_1,
+                                         const MultipathAlignment& multipath_aln_2) const {
+        
+        return is_consistent(distance_between(multipath_aln_1, multipath_aln_2));
+    }
+    
+    bool MultipathMapper::share_start_position(const MultipathAlignment& multipath_aln_1,
+                                               const MultipathAlignment& multipath_aln_2) const {
+        
+        unordered_set<pos_t> starts;
+        for (size_t i = 0; i < multipath_aln_1.start_size(); i++) {
+            starts.insert(make_pos_t(multipath_aln_1.subpath(multipath_aln_1.start(i)).path().mapping(0).position()));
+        }
+        
+        for (size_t i = 0; i < multipath_aln_2.start_size(); i++) {
+            if (starts.count(make_pos_t(multipath_aln_2.subpath(multipath_aln_2.start(i)).path().mapping(0).position()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    bool MultipathMapper::align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
+                                                              vector<clustergraph_t>& cluster_graphs1,
+                                                              vector<clustergraph_t>& cluster_graphs2,
+                                                              vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                              size_t max_alt_mappings) {
+        
+        vector<MultipathAlignment> multipath_alns_1, multipath_alns_2;
+        align_to_cluster_graphs(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
+                                cluster_graphs1, multipath_alns_1, max_alt_mappings);
+        align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
+                                cluster_graphs2, multipath_alns_2, max_alt_mappings);
+        
+        bool found_consistent = false;
+        
+        if (multipath_alns_1.empty() || multipath_alns_2.empty() ? false :
+            are_consistent(multipath_alns_1.front(), multipath_alns_2.front())
+            && multipath_alns_1.front().mapping_quality() >= min(25, max_mapping_quality)
+            && multipath_alns_2.front().mapping_quality() >= min(25, max_mapping_quality)) {
+            
+            // we are able to obtain confident matches that satisfy the pairing constraints
+#ifdef debug_multipath_mapper
+            cerr << "found consistent, confident pair mapping from independent end mapping" << endl;
+#endif
+            // TODO: recalculate mapping quality as a pair?
+            multipath_aln_pairs_out.emplace_back(move(multipath_alns_1.front()), move(multipath_alns_2.front()));
+            found_consistent = true;
+        }
+        else {
+            
+            // we find either unconfident or inconsistent mappings, so we try to rescue off each end to see if
+            // we can correct them
+            
+            
+#ifdef debug_multipath_mapper
+            cerr << "performing rescue from top independent end mappings to try to find consistent pair" << endl;
+#endif
+            
+            MultipathAlignment rescue_multipath_aln_1, rescue_multipath_aln_2;
+            bool rescued_forward = false;
+            bool rescued_backward = false;
+            if (!multipath_alns_1.empty() ? !likely_mismapping(multipath_alns_1.front()) : false) {
+                rescued_forward = attempt_rescue(multipath_alns_1.front(), alignment2, true, rescue_multipath_aln_2);
+            }
+            if (!multipath_alns_2.empty() ? !likely_mismapping(multipath_alns_2.front()) : false) {
+                rescued_backward = attempt_rescue(multipath_alns_2.front(), alignment1, false, rescue_multipath_aln_1);
+            }
+            
+            // a vector with dummy index pairs to match the signature of sort_and_compute_mapping_quality
+            vector<pair<pair<size_t, size_t>, int64_t>> pair_distances;
+            
+            if (rescued_forward && rescued_backward) {
+#ifdef debug_multipath_mapper
+                cerr << "rescue succeeded for both ends" << endl;
+#endif
+                found_consistent = true;
+                
+                // check if the distance between the original and the rescue mappings are small enough that they
+                // are probably the same mappings
+                // TODO: magic number
+                bool same_alignment_1 = abs(distance_between(multipath_alns_1.front(), rescue_multipath_aln_1)) < 30;
+                bool same_alignment_2 = abs(distance_between(multipath_alns_2.front(), rescue_multipath_aln_2)) < 30;
+                
+                // compute the distances between the other mappings
+                int64_t rescue_dist_1 = distance_between(multipath_alns_1.front(), rescue_multipath_aln_2);
+                int64_t rescue_dist_2 = distance_between(rescue_multipath_aln_1, multipath_alns_2.front());
+                int64_t independent_dist = distance_between(multipath_alns_1.front(), multipath_alns_2.front());
+                
+                // the mapping quality of the single ended mapping
+                int32_t initial_mapq_1 = multipath_alns_1.front().mapping_quality();
+                int32_t initial_mapq_2 = multipath_alns_2.front().mapping_quality();
+                
+                // the most confident mapping quality of the pair
+                int32_t initial_mapq_joint = max(initial_mapq_1, initial_mapq_2);
+                
+                if (same_alignment_1 && same_alignment_2) {
+                    // these are probably the same alignment
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "rescued alignments are the same as the original" << endl;
+#endif
+                    
+                    pair_distances.emplace_back(pair<size_t, size_t>(), independent_dist);
+                    multipath_aln_pairs_out.emplace_back(move(multipath_alns_1.front()), move(multipath_alns_2.front()));
+                    // how confident can we be from this paired alignment alone?
+                    sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
+                    
+                    // the mapping quality can be as confident as the entire pair is or the most confident individual end
+                    int32_t conditional_mapq = min(initial_mapq_joint, multipath_aln_pairs_out.front().first.mapping_quality());
+                    multipath_aln_pairs_out.front().first.set_mapping_quality(conditional_mapq);
+                    multipath_aln_pairs_out.front().second.set_mapping_quality(conditional_mapq);
+                }
+                else if (same_alignment_1) {
+#ifdef debug_multipath_mapper
+                    cerr << "read 1 rescue is the same as original" << endl;
+#endif
+                    
+                    // one end is the same, but the other isn't
+                    multipath_aln_pairs_out.emplace_back(multipath_alns_1.front(), move(multipath_alns_2.front()));
+                    pair_distances.emplace_back(pair<size_t, size_t>(), independent_dist);
+                    
+                    multipath_aln_pairs_out.emplace_back(move(multipath_alns_1.front()), rescue_multipath_aln_2);
+                    pair_distances.emplace_back(pair<size_t, size_t>(), rescue_dist_1);
+                    
+                    // choose a primary
+                    sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
+                    int32_t joint_mapq = min(initial_mapq_joint, multipath_aln_pairs_out.front().second.mapping_quality());
+                    auto secondary = move(multipath_aln_pairs_out.back());
+                    
+                    // compute the unambiguous end's mapping quality
+                    multipath_aln_pairs_out.pop_back();
+                    pair_distances.pop_back();
+                    sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
+                    
+                    // TODO: should I use initial_mapq_joint or initial_mapq_2 here?
+                    int32_t conditional_mapq = min(initial_mapq_joint, multipath_aln_pairs_out.front().first.mapping_quality());
+                    multipath_aln_pairs_out.front().first.set_mapping_quality(conditional_mapq);
+                    // reset the mapping quality of the ambiguous end
+                    multipath_aln_pairs_out.front().second.set_mapping_quality(joint_mapq);
+                    
+                    multipath_aln_pairs_out.emplace_back(move(secondary));
+                }
+                else if (same_alignment_2) {
+#ifdef debug_multipath_mapper
+                    cerr << "read 2 rescue is the same as original" << endl;
+#endif
+                    
+                    // one end is the same, but the other isn't
+                    multipath_aln_pairs_out.emplace_back(move(multipath_alns_1.front()), multipath_alns_2.front());
+                    pair_distances.emplace_back(pair<size_t, size_t>(), independent_dist);
+                    
+                    multipath_aln_pairs_out.emplace_back(rescue_multipath_aln_1, move(multipath_alns_2.front()));
+                    pair_distances.emplace_back(pair<size_t, size_t>(), rescue_dist_2);
+                    
+                    // choose a primary
+                    sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
+                    int32_t joint_mapq = min(initial_mapq_joint, multipath_aln_pairs_out.front().first.mapping_quality());
+                    auto secondary = move(multipath_aln_pairs_out.back());
+                    
+                    // compute the unambiguous end's mapping quality
+                    multipath_aln_pairs_out.pop_back();
+                    pair_distances.pop_back();
+                    sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
+                    
+                    // TODO: should I use initial_mapq_joint or initial_mapq_2 here?
+                    int32_t conditional_mapq = min(initial_mapq_joint, multipath_aln_pairs_out.front().second.mapping_quality());
+                    multipath_aln_pairs_out.front().second.set_mapping_quality(conditional_mapq);
+                    // reset the mapping quality of the ambiguous end
+                    multipath_aln_pairs_out.front().first.set_mapping_quality(joint_mapq);
+                    
+                    multipath_aln_pairs_out.emplace_back(move(secondary));
+                }
+                else {
+#ifdef debug_multipath_mapper
+                    cerr << "rescue produces two ambiguous consisent pairs" << endl;
+#endif
+                    
+                    // we have an ambiguous mapping for both reads, but both pairs are consistent by construction
+                    multipath_aln_pairs_out.emplace_back(move(multipath_alns_1.front()), move(rescue_multipath_aln_2));
+                    pair_distances.emplace_back(pair<size_t, size_t>(), rescue_dist_1);
+                    
+                    multipath_aln_pairs_out.emplace_back(move(rescue_multipath_aln_1), move(multipath_alns_2.front()));
+                    pair_distances.emplace_back(pair<size_t, size_t>(), rescue_dist_2);
+                    
+                    // sort to decide a primary
+                    sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
+                    
+                    // adjust its mapping quality
+                    bool swapped = pair_distances.front().second != rescue_dist_1;
+                    int32_t conditional_mapq = min(multipath_aln_pairs_out.front().first.mapping_quality(),
+                                                   swapped ? initial_mapq_2 : initial_mapq_1);
+                    
+                    multipath_aln_pairs_out.front().first.set_mapping_quality(conditional_mapq);
+                    multipath_aln_pairs_out.front().second.set_mapping_quality(conditional_mapq);
+                }
+            }
+            else if (rescued_forward) {
+#ifdef debug_multipath_mapper
+                cerr << "rescue succeeded from read 1" << endl;
+#endif
+                
+                found_consistent = true;
+                int64_t rescue_dist = distance_between(multipath_alns_1.front(), rescue_multipath_aln_2);
+                multipath_aln_pairs_out.emplace_back(move(multipath_alns_1.front()), move(rescue_multipath_aln_2));
+                pair_distances.emplace_back(pair<size_t, size_t>(), rescue_dist);
+                sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
+            }
+            else if (rescued_backward) {
+                
+#ifdef debug_multipath_mapper
+                cerr << "rescue succeeded from read 2" << endl;
+#endif
+                
+                found_consistent = true;
+                int64_t rescue_dist = distance_between(rescue_multipath_aln_1, multipath_alns_2.front());
+                multipath_aln_pairs_out.emplace_back(move(rescue_multipath_aln_1), move(multipath_alns_2.front()));
+                pair_distances.emplace_back(pair<size_t, size_t>(), rescue_dist);
+                sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
+            }
+            else {
+#ifdef debug_multipath_mapper
+                cerr << "rescue failed to find a consistent pair" << endl;
+#endif
+                
+                // rescue failed, so we just report these as independent mappings
+                size_t num_pairs_to_report = min(max_alt_mappings, max(multipath_alns_1.size(), multipath_alns_2.size()));
+                
+                // move the multipath alignments to the return vector
+                multipath_aln_pairs_out.reserve(num_pairs_to_report);
+                for (size_t i = 0; i < num_pairs_to_report; i++) {
+                    if (i < multipath_alns_1.size() && i < multipath_alns_2.size()) {
+                        multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(multipath_alns_2[i]));
+                        
+                    }
+                    else if (i < multipath_alns_1.size()) {
+                        multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), MultipathAlignment());
+                        to_multipath_alignment(alignment2, multipath_aln_pairs_out.back().second);
+                        multipath_aln_pairs_out.back().second.clear_subpath();
+                        multipath_aln_pairs_out.back().second.clear_start();
+                    }
+                    else {
+                        multipath_aln_pairs_out.emplace_back(MultipathAlignment(), move(multipath_alns_2[i]));
+                        to_multipath_alignment(alignment1, multipath_aln_pairs_out.back().first);
+                        multipath_aln_pairs_out.back().first.clear_subpath();
+                        multipath_aln_pairs_out.back().first.clear_start();
+                    }
+                }
+            }
+        }
+        
+#ifdef debug_validate_multipath_alignments
+        for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
+#ifdef debug_multipath_mapper
+            cerr << "validating multipath alignments:" << endl;
+            cerr << pb2json(multipath_aln_pair.first) << endl;
+            cerr << pb2json(multipath_aln_pair.second) << endl;
+#endif
+            if (!validate_multipath_alignment(multipath_aln_pair.first)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
+            }
+            if (!validate_multipath_alignment(multipath_aln_pair.second)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
+            }
+        }
+#endif
+        
+        if (multipath_aln_pairs_out.size() > max_alt_mappings) {
+            multipath_aln_pairs_out.resize(max_alt_mappings);
+        }
+        
+        if (mapping_quality_method == None) {
+            for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
+                multipath_aln_pair.first.clear_mapping_quality();
+                multipath_aln_pair.second.clear_mapping_quality();
+            }
+        }
+        
+        return found_consistent;
     }
     
     void MultipathMapper::multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
@@ -423,10 +771,10 @@ namespace vg {
     
         // query MEMs using GCSA2
         double dummy1, dummy2;
-        vector<MaximalExactMatch> mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(),
-                                                         dummy1, dummy2, 0, min_mem_length, mem_reseed_length, false, true, true);
-        vector<MaximalExactMatch> mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(),
-                                                         dummy1, dummy2, 0, min_mem_length, mem_reseed_length, false, true, true);
+        vector<MaximalExactMatch> mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(), dummy1, dummy2,
+                                                         0, min_mem_length, mem_reseed_length, false, true, true, false);
+        vector<MaximalExactMatch> mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(), dummy1, dummy2,
+                                                         0, min_mem_length, mem_reseed_length, false, true, true, false);
         
 #ifdef debug_multipath_mapper
         cerr << "obtained read1 MEMs:" << endl;
@@ -471,7 +819,7 @@ namespace vg {
         auto cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
         
 #ifdef debug_multipath_mapper
-        cerr << "obtained independent clusters pairs:" << endl;
+        cerr << "obtained independent clusters:" << endl;
         cerr << "read 1" << endl;
         for (int i = 0; i < clusters1.size(); i++) {
             cerr << "\tcluster " << i << endl;
@@ -542,12 +890,70 @@ namespace vg {
         multipath_aln_pairs_out.clear();
         
         // do we find any pairs that satisfy the distance requirements?
-        
         if (!cluster_pairs.empty()) {
             // only perform the mappings that satisfy the expectations on distance
             
             align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
                                          multipath_aln_pairs_out, max_alt_mappings);
+            
+            bool consistent = true;
+            bool likely_mismapped_1 = likely_mismapping(multipath_aln_pairs_out.front().first);
+            bool likely_mismapped_2 = likely_mismapping(multipath_aln_pairs_out.front().second);
+            if (likely_mismapped_1 || likely_mismapped_2) {
+                
+                // we suspect that one or both of the ends of this read are actually false mappings that got
+                // tricked by bad MEM, so we see if we can do better by aligning the ends independently and
+                // rescuing (in general, this should at least give us more appropriately bad mapping quality)
+                
+#ifdef debug_multipath_mapper
+                cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
+#endif
+                vector<pair<MultipathAlignment, MultipathAlignment>> rescue_pairs;
+                bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                                   rescue_pairs, max_alt_mappings);
+                
+                // TODO: would it make more sense to just add it into the list and resort/recompute mapping quality?
+                
+                // if we find a better pair that aren't the same mappings again, swap the output vectors
+                auto& clustered_primary = multipath_aln_pairs_out.front();
+                auto& rescued_primary = rescue_pairs.front();
+                if (abs(distance_between(clustered_primary.first, rescued_primary.first)) >= 20
+                    || abs(distance_between(clustered_primary.second, rescued_primary.second)) >= 20) {
+                    
+                    int64_t clust_dist = distance_between(clustered_primary.first, clustered_primary.second);
+                    double frag_score_clust = fragment_length_log_likelihood(clust_dist) / get_aligner()->log_base;
+                    int32_t align_score_clust = optimal_alignment_score(clustered_primary.first) + optimal_alignment_score(clustered_primary.second);
+                    
+                    int64_t rescue_dist = distance_between(rescued_primary.first, rescued_primary.second);
+                    double frag_score_rescue = fragment_length_log_likelihood(rescue_dist) / get_aligner()->log_base;
+                    int32_t align_score_rescue = optimal_alignment_score(rescued_primary.first) + optimal_alignment_score(rescued_primary.second);
+                    
+                    if (frag_score_rescue + align_score_rescue > frag_score_clust + align_score_clust) {
+                        std::swap(multipath_aln_pairs_out, rescue_pairs);
+                        likely_mismapped_1 = likely_mismapping(multipath_aln_pairs_out.front().first);
+                        likely_mismapped_2 = likely_mismapping(multipath_aln_pairs_out.front().second);
+                        consistent = rescued;
+                    }
+                }
+                
+            }
+            // mark reads that are probably mismappings, and penalize their pairs if the pair mapping was chosen to
+            // be consistent with this mapping
+            // TODO: very much a hack. wouldn't it be better just to let it do independent mapping if we really disbelieve
+            // these mappings so much?
+            if (likely_mismapped_1) {
+                multipath_aln_pairs_out.front().first.set_mapping_quality(0);
+                if (consistent) {
+                    multipath_aln_pairs_out.front().second.set_mapping_quality(multipath_aln_pairs_out.front().second.mapping_quality() / 2);
+                }
+                
+            }
+            if (likely_mismapped_2) {
+                multipath_aln_pairs_out.front().second.set_mapping_quality(0);
+                if (consistent) {
+                    multipath_aln_pairs_out.front().first.set_mapping_quality(multipath_aln_pairs_out.front().first.mapping_quality() / 2);
+                }
+            }
         }
         else {
             // revert to independent single ended mappings
@@ -555,82 +961,9 @@ namespace vg {
 #ifdef debug_multipath_mapper
             cerr << "could not find a consistent pair, reverting to single ended mapping" << endl;
 #endif
+            align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                multipath_aln_pairs_out, max_alt_mappings);
             
-            vector<MultipathAlignment> multipath_alns_1, multipath_alns_2;
-            align_to_cluster_graphs(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                    cluster_graphs1, multipath_alns_1, max_alt_mappings);
-            align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                    cluster_graphs2, multipath_alns_2, max_alt_mappings);
-            
-            // attempt rescue if we found a good mapping for one read in the pair but not the other
-            // TODO: get rid of magic numbers
-            auto should_rescue = [&](const vector<MultipathAlignment>& rescuer, const vector<MultipathAlignment>& rescuee) {
-                if (!rescuer.empty()) {
-                    const MultipathAlignment& rescuer_mp_aln = rescuer.front();
-                    if (rescuee.empty()) {
-                        return rescuer_mp_aln.mapping_quality() >= min(max_mapping_quality, 10);
-                    }
-                    else {
-                        const MultipathAlignment& rescuee_mp_aln = rescuee.front();
-                        return rescuer_mp_aln.mapping_quality() >= rescuee_mp_aln.mapping_quality() + 20;
-                    }
-                }
-                return false;
-            };
-            
-            bool rescued_forward = false;
-            bool rescued_backward = false;
-            MultipathAlignment rescue_multipath_aln;
-            if (should_rescue(multipath_alns_1, multipath_alns_2)) {
-                    
-                rescued_forward = attempt_rescue(multipath_alns_1.front(), alignment2, true, rescue_multipath_aln);
-            }
-            else if (should_rescue(multipath_alns_2, multipath_alns_1)) {
-                         
-                rescued_backward = attempt_rescue(multipath_alns_2.front(), alignment1, false, rescue_multipath_aln);
-            }
-            
-            if (rescued_forward) {
-                multipath_aln_pairs_out.emplace_back(move(multipath_alns_1.front()), move(rescue_multipath_aln));
-            }
-            else if (rescued_backward) {
-                multipath_aln_pairs_out.emplace_back(move(rescue_multipath_aln), move(multipath_alns_2.front()));
-            }
-            else {
-                // we didn't attempt a rescue or rescue failed, so report results from the independent mappings
-                
-                // have to report in pairs, so calculate the largest number of pairs we can/should report
-                // TODO: this is ugly, would be better to have some alternate return path for independent mappings
-                size_t num_pairs_to_report = min(max_alt_mappings, max(multipath_alns_1.size(), multipath_alns_2.size()));
-                
-                // move the multipath alignments to the return vector
-                multipath_aln_pairs_out.reserve(num_pairs_to_report);
-                for (size_t i = 0; i < num_pairs_to_report; i++) {
-                    if (i < multipath_alns_1.size() && i < multipath_alns_2.size()) {
-                        multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(multipath_alns_2[i]));
-                        
-                    }
-                    else if (i < multipath_alns_1.size()) {
-                        multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), MultipathAlignment());
-                        to_multipath_alignment(alignment2, multipath_aln_pairs_out.back().second);
-                        multipath_aln_pairs_out.back().second.clear_subpath();
-                        multipath_aln_pairs_out.back().second.clear_start();
-                    }
-                    else {
-                        multipath_aln_pairs_out.emplace_back(MultipathAlignment(), move(multipath_alns_2[i]));
-                        to_multipath_alignment(alignment1, multipath_aln_pairs_out.back().first);
-                        multipath_aln_pairs_out.back().first.clear_subpath();
-                        multipath_aln_pairs_out.back().first.clear_start();
-                    }
-                }
-            }
-            
-            if (mapping_quality_method == None) {
-                for (pair<MultipathAlignment, MultipathAlignment> multipath_aln_pair : multipath_aln_pairs_out) {
-                    multipath_aln_pair.first.clear_mapping_quality();
-                    multipath_aln_pair.second.clear_mapping_quality();
-                }
-            }
         }
         
         if (multipath_aln_pairs_out.empty()) {
@@ -658,6 +991,165 @@ namespace vg {
         for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
             multipath_aln_pair.first.set_paired_read_name(multipath_aln_pair.second.name());
             multipath_aln_pair.second.set_paired_read_name(multipath_aln_pair.first.name());
+        }
+    }
+    
+    void MultipathMapper::split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out) const {
+        
+        for (size_t i = 0; i < multipath_alns_out.size(); i++) {
+            
+            vector<vector<int64_t>> comps = connected_components(multipath_alns_out[i]);
+            
+            if (comps.size() > 1) {
+#ifdef debug_multipath_mapper
+                cerr << "splitting multicomponent alignment " << pb2json(multipath_alns_out[i]) << endl;
+#endif
+                // split this multipath alignment into its connected components
+                for (size_t j = 1; j < comps.size(); j++) {
+                    multipath_alns_out.emplace_back();
+                    extract_sub_multipath_alignment(multipath_alns_out[i], comps[j],
+                                                    multipath_alns_out.back());;
+                }
+                // put the first component into the original location
+                MultipathAlignment last_component;
+                extract_sub_multipath_alignment(multipath_alns_out[i], comps[0], last_component);
+                multipath_alns_out[i] = last_component;
+            }
+        }
+    }
+    
+    void MultipathMapper::split_multicomponent_alignments(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const {
+        
+        for (size_t i = 0; i < multipath_aln_pairs_out.size(); i++) {
+            vector<vector<int64_t>> connected_components_1 = connected_components(multipath_aln_pairs_out[i].first);
+            vector<vector<int64_t>> connected_components_2 = connected_components(multipath_aln_pairs_out[i].second);
+            
+#ifdef debug_multipath_mapper
+            cerr << "finding connected components for mapping:" << endl;
+            cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
+            cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
+            cerr << "read 1 connected components:" << endl;
+            for (vector<int64_t>& comp : connected_components_1) {
+                cerr << "\t";
+                for (int64_t j : comp) {
+                    cerr << j << " ";
+                }
+                cerr << endl;
+            }
+            cerr << "read 2 connected components:" << endl;
+            for (vector<int64_t>& comp : connected_components_2) {
+                cerr << "\t";
+                for (int64_t j : comp) {
+                    cerr << j << " ";
+                }
+                cerr << endl;
+            }
+#endif
+            
+            
+            if (connected_components_1.size() > 1 && connected_components_2.size() > 1) {
+#ifdef debug_multipath_mapper
+                cerr << "splitting both multicomponent alignments" << endl;
+#endif
+                // need to split both ends
+                for (size_t j = 0; j < connected_components_1.size(); j++) {
+                    for (size_t k = 0; k < connected_components_2.size(); k++) {
+                        if (j == 0 && k == 0) {
+                            // save the first component to go back into the original index in the return vector
+                            continue;
+                        }
+                        multipath_aln_pairs_out.emplace_back();
+                        extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[j],
+                                                        multipath_aln_pairs_out.back().first);
+                        extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[k],
+                                                        multipath_aln_pairs_out.back().second);
+                        // add a distance for scoring purposes
+                        cluster_pairs.emplace_back(cluster_pairs[i].first,
+                                                   distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+#ifdef debug_multipath_mapper
+                        cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
+                        cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
+                        cerr  << pb2json(multipath_aln_pairs_out.back().second) << endl;
+#endif                    
+                    }
+                }
+                // put the first component pair into the original location
+                MultipathAlignment last_component;
+                extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[0], last_component);
+                multipath_aln_pairs_out[i].first = last_component;
+                last_component.Clear();
+                extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[0], last_component);
+                multipath_aln_pairs_out[i].second = last_component;
+                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second);
+                
+#ifdef debug_multipath_mapper
+                cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
+                cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
+                cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
+#endif
+                
+            }
+            else if (connected_components_1.size() > 1) {
+#ifdef debug_multipath_mapper
+                cerr << "splitting read 1 multicomponent alignments" << endl;
+#endif
+                // only need to split first end
+                for (size_t j = 1; j < connected_components_1.size(); j++) {
+                    multipath_aln_pairs_out.emplace_back(MultipathAlignment(), multipath_aln_pairs_out[i].second);
+                    extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[j],
+                                                    multipath_aln_pairs_out.back().first);
+                    // add a distance for scoring purposes
+                    cluster_pairs.emplace_back(cluster_pairs[i].first,
+                                               distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+#ifdef debug_multipath_mapper
+                    cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
+                    cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
+                    cerr  << pb2json(multipath_aln_pairs_out.back().second) << endl;
+#endif
+                }
+                // put the first component into the original location
+                MultipathAlignment last_component;
+                extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[0], last_component);
+                multipath_aln_pairs_out[i].first = last_component;
+                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second);
+                
+#ifdef debug_multipath_mapper
+                cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
+                cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
+                cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
+#endif
+            }
+            else if (connected_components_2.size() > 1) {
+#ifdef debug_multipath_mapper
+                cerr << "splitting read 2 multicomponent alignments" << endl;
+#endif
+                // only need to split second end
+                for (size_t j = 1; j < connected_components_2.size(); j++) {
+                    multipath_aln_pairs_out.emplace_back(multipath_aln_pairs_out[i].first, MultipathAlignment());
+                    extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[j],
+                                                    multipath_aln_pairs_out.back().second);
+                    // add a distance for scoring purposes
+                    cluster_pairs.emplace_back(cluster_pairs[i].first,
+                                               distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+#ifdef debug_multipath_mapper
+                    cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
+                    cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
+                    cerr  << pb2json(multipath_aln_pairs_out.back().second) << endl;
+#endif
+                }
+                // put the first component into the original location
+                MultipathAlignment last_component;
+                extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[0], last_component);
+                multipath_aln_pairs_out[i].second = last_component;
+                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second);
+                
+#ifdef debug_multipath_mapper
+                cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
+                cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
+                cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
+#endif
+            }
         }
     }
     
@@ -724,6 +1216,9 @@ namespace vg {
             num_mappings++;
         }
         
+        // split up any multi-component multipath alignments
+        split_multicomponent_alignments(multipath_aln_pairs_out, cluster_pairs);
+        
         // downstream algorithms assume multipath alignments are topologically sorted (including the scoring
         // algorithm in the next step)
         for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
@@ -733,6 +1228,24 @@ namespace vg {
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score
         sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs);
+        
+#ifdef debug_validate_multipath_alignments
+        for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
+#ifdef debug_multipath_mapper
+            cerr << "validating multipath alignments:" << endl;
+            cerr << pb2json(multipath_aln_pair.first) << endl;
+            cerr << pb2json(multipath_aln_pair.second) << endl;
+#endif
+            if (!validate_multipath_alignment(multipath_aln_pair.first)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
+            }
+            if (!validate_multipath_alignment(multipath_aln_pair.second)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
+            }
+        }
+#endif
         
         // if we computed extra alignments to get a mapping quality or investigate ambiguous clusters, remove them
         if (multipath_aln_pairs_out.size() > max_alt_mappings) {
@@ -1053,6 +1566,8 @@ namespace vg {
             node_trans = align_graph.overlay_node_translations(dagify_trans, node_trans);
         }
         
+        // put the internal graph in topological order for the MultipathAlignmentGraph algorithm
+        align_graph.lazy_sort();
         
 #ifdef debug_multipath_mapper
         cerr << "making multipath alignment MEM graph" << endl;
@@ -1097,7 +1612,7 @@ namespace vg {
         
         // prune this graph down the paths that have reasonably high likelihood
         multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
-                                                    max_suboptimal_path_score_diff, topological_order);
+                                                    max_suboptimal_path_score_ratio, topological_order);
         
 #ifdef debug_multipath_mapper
         cerr << "pruned to high scoring paths, topology is:" << endl;
@@ -1439,7 +1954,6 @@ namespace vg {
         for (size_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
             ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
             if (match_node.edges.empty()) {
-                const Mapping& final_mapping = match_node.path.mapping(match_node.path.mapping_size() - 1);
                 if (match_node.end != alignment.sequence().end()) {
                     
                     Subpath* sink_subpath = multipath_aln_out.mutable_subpath(j);
@@ -1510,7 +2024,10 @@ namespace vg {
                     cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
 #endif
                     
+                    const Mapping& final_mapping = match_node.path.mapping(match_node.path.mapping_size() - 1);
+                    
                     for (Alignment& tail_alignment : alt_alignments) {
+                        
                         sink_subpath->add_next(multipath_aln_out.subpath_size());
                         
                         Subpath* tail_subpath = multipath_aln_out.add_subpath();
@@ -1521,6 +2038,16 @@ namespace vg {
                         Mapping* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
                         if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
                             first_mapping->mutable_position()->set_offset(offset(end_pos));
+                        }
+                        else if (tail_alignment.path().mapping_size() == 1 && first_mapping->edit_size() == 1
+                                 && first_mapping->edit(0).from_length() == 0 && first_mapping->edit(0).to_length() > 0
+                                 && first_mapping->position().node_id() != final_mapping.position().node_id()) {
+                            // this is a pure soft-clip on the beginning of the next node, we'll move it to the end
+                            // of the match node to match invariants expected by other parts of the code base
+                            Position* pos = first_mapping->mutable_position();
+                            pos->set_node_id(final_mapping.position().node_id());
+                            pos->set_is_reverse(final_mapping.position().is_reverse());
+                            pos->set_offset(final_mapping.position().offset() + mapping_from_length(final_mapping));
                         }
 #ifdef debug_multipath_mapper
                         cerr << "subpath from " << j << " to right tail:" << endl;
@@ -1596,7 +2123,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
                     cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
 #endif
-                    
+                    const Mapping& first_mapping = match_node.path.mapping(0);
                     for (Alignment& tail_alignment : alt_alignments) {
                         Subpath* tail_subpath = multipath_aln_out.add_subpath();
                         *tail_subpath->mutable_path() = tail_alignment.path();
@@ -1610,6 +2137,14 @@ namespace vg {
                         cerr << "subpath from " << j << " to left tail:" << endl;
                         cerr << pb2json(*tail_subpath) << endl;
 #endif
+                        Mapping* final_mapping = tail_subpath->mutable_path()->mutable_mapping(tail_subpath->path().mapping_size() - 1);
+                        if (tail_subpath->path().mapping_size() == 1 && final_mapping->edit_size() == 1
+                            && final_mapping->edit(0).from_length() == 0 && final_mapping->edit(0).to_length() > 0
+                            && final_mapping->position().node_id() != first_mapping.position().node_id()) {
+                            // this is a pure soft clip on the end of the previous node, so we move it over to the
+                            // beginning of the match node to match invariants in rest of code base
+                            *final_mapping->mutable_position() = first_mapping.position();
+                        }
                     }
                 }
                 else {
@@ -1628,71 +2163,6 @@ namespace vg {
         cerr << "completed multipath alignment: " << pb2json(multipath_aln_out) << endl;
 #endif
         
-    }
-    
-    void MultipathMapper::topologically_order_subpaths(MultipathAlignment& multipath_aln) const {
-        // Kahn's algorithm
-        
-        vector<size_t> index(multipath_aln.subpath_size(), 0);
-        size_t order_idx = 0;
-        
-        vector<size_t> stack;
-        vector<size_t> in_degree(multipath_aln.subpath_size(), 0);
-        
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            const Subpath& subpath = multipath_aln.subpath(i);
-            for (size_t j = 0; j < subpath.next_size(); j++) {
-                in_degree[subpath.next(j)]++;
-            }
-        }
-        
-        // identify the source nodes and add them to the stack
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            if (!in_degree[i]) {
-                stack.push_back(i);
-            }
-        }
-        
-        while (!stack.empty()) {
-            // pop a source node and add it to the topological order
-            size_t here = stack.back();
-            stack.pop_back();
-            
-            index[here] = order_idx;
-            order_idx++;
-            
-            // remove the node's edges
-            const Subpath& subpath = multipath_aln.subpath(here);
-            for (size_t i = 0; i < subpath.next_size(); i++) {
-                size_t next = subpath.next(i);
-                in_degree[next]--;
-                // if a node is now a source, stack it up
-                if (!in_degree[next]) {
-                    stack.push_back(next);
-                }
-            }
-        }
-        
-        // translate the edges to the new indices
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            Subpath* subpath = multipath_aln.mutable_subpath(i);
-            for (size_t j = 0; j < subpath->next_size(); j++) {
-                subpath->set_next(j, index[subpath->next(j)]);
-            }
-        }
-        
-        // translate the start nodes
-        for (size_t i = 0; i < multipath_aln.start_size(); i++) {
-            multipath_aln.set_start(i, index[multipath_aln.start(i)]);
-        }
-        
-        // in place permutation according to the topological order
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            while (index[i] != i) {
-                std::swap(*multipath_aln.mutable_subpath(i), *multipath_aln.mutable_subpath(index[i]));
-                std::swap(index[i], index[index[i]]);
-            }
-        }
     }
     
     int64_t MultipathMapper::read_coverage(const memcluster_t& mem_hits) {
@@ -1857,6 +2327,7 @@ namespace vg {
 #endif
         
         if (mapping_quality_method != None) {
+            
             int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
 #ifdef debug_multipath_mapper
             cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
@@ -1864,6 +2335,76 @@ namespace vg {
             int32_t mapq = min<int32_t>(raw_mapq, max_mapping_quality);
             multipath_aln_pairs.front().first.set_mapping_quality(mapq);
             multipath_aln_pairs.front().second.set_mapping_quality(mapq);
+            
+            if (multipath_aln_pairs.size() > 1) {
+                // detect duplicate alignments that arise from breaking up clusters whose MultipathAlignments turned
+                // out to be disconnected
+                
+                // TODO: technically should do this method whenever any of the sides of any alignment is a duplicate,
+                // but it should work fine for the fast approximate MAPQ method to only look at the first two
+                bool duplicate_1 = share_start_position(multipath_aln_pairs[0].first, multipath_aln_pairs[1].first);
+                bool duplicate_2 = share_start_position(multipath_aln_pairs[0].second, multipath_aln_pairs[1].second);
+                // if we got duplicates of both ends, pop them until we don't
+                while (duplicate_1 && duplicate_2) {
+                    multipath_aln_pairs.erase(multipath_aln_pairs.begin() + 1);
+                    scores.erase(scores.begin() + 1);
+                    cluster_pairs.erase(cluster_pairs.begin() + 1);
+                    
+                    // TODO: wasteful to recompute these in the inner loop, but I expect this condition to be very
+                    // rare or non-existent in the current code
+                    int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
+#ifdef debug_multipath_mapper
+                    cerr << "deduplicated scores yield a raw MAPQ of " << raw_mapq << endl;
+#endif
+                    int32_t mapq = min<int32_t>(raw_mapq, max_mapping_quality);
+                    multipath_aln_pairs.front().first.set_mapping_quality(mapq);
+                    multipath_aln_pairs.front().second.set_mapping_quality(mapq);
+                    
+                    if (multipath_aln_pairs.size() <= 1) {
+                        duplicate_1 = false;
+                        duplicate_2 = false;
+                    }
+                    else {
+                        duplicate_1 = share_start_position(multipath_aln_pairs[0].first, multipath_aln_pairs[1].first);
+                        duplicate_2 = share_start_position(multipath_aln_pairs[0].second, multipath_aln_pairs[1].second);
+                    }
+                }
+                
+                // set the mapping quality of the duplicated side to the maximum of what it is now and what it would
+                // be if the duplicates were removed
+                // TODO: in some ways this is unfair to this side, which actually has at least two very good mappings,
+                // which arguably should increase its MAPQ even more
+                if (duplicate_1) {
+                    vector<double> non_duplicate_scores{scores[0]};
+                    for (size_t i = 2; i < multipath_aln_pairs.size(); i++) {
+                        if (!share_start_position(multipath_aln_pairs[0].first, multipath_aln_pairs[i].first)) {
+                            non_duplicate_scores.push_back(scores[i]);
+                        }
+                    }
+                    int32_t raw_non_dup_mapq = get_aligner()->compute_mapping_quality(non_duplicate_scores,
+                                                                                      mapping_quality_method == Approx);
+                    
+                    int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
+                    
+                    multipath_aln_pairs[0].first.set_mapping_quality(max<int32_t>(non_dup_mapq,
+                                                                                  multipath_aln_pairs[0].first.mapping_quality()));
+                }
+                else if (duplicate_2) {
+                    vector<double> non_duplicate_scores{scores[0]};
+                    for (size_t i = 2; i < multipath_aln_pairs.size(); i++) {
+                        if (!share_start_position(multipath_aln_pairs[0].second, multipath_aln_pairs[i].second)) {
+                            non_duplicate_scores.push_back(scores[i]);
+                        }
+                    }
+                    int32_t raw_non_dup_mapq = get_aligner()->compute_mapping_quality(non_duplicate_scores,
+                                                                                      mapping_quality_method == Approx);
+                    
+                    int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
+                    
+                    multipath_aln_pairs[0].second.set_mapping_quality(max<int32_t>(non_dup_mapq,
+                                                                                   multipath_aln_pairs[0].second.mapping_quality()));
+                }
+            }
         }
     }
             
@@ -1872,11 +2413,6 @@ namespace vg {
         double stdev = fragment_length_distr.stdev();
         double dev = length - mean;
         return -dev * dev / (2.0 * stdev * stdev);
-    }
-    
-    void MultipathMapper::set_suboptimal_path_likelihood_ratio(double maximum_acceptable_ratio) {
-        double log_base = get_aligner()->log_base;
-        max_suboptimal_path_score_diff = (int32_t) ceil(log(maximum_acceptable_ratio) / log_base);
     }
     
     void MultipathMapper::set_automatic_min_clustering_length(double random_mem_probability) {
@@ -3901,8 +4437,12 @@ namespace vg {
         }
     }
     
+    MultipathAlignmentGraph::~MultipathAlignmentGraph() {
+        
+    }
+    
     void MultipathAlignmentGraph::prune_to_high_scoring_paths(const Alignment& alignment, const BaseAligner* aligner,
-                                                              int32_t max_suboptimal_score_diff, const vector<size_t>& topological_order) {
+                                                              double max_suboptimal_score_ratio, const vector<size_t>& topological_order) {
         
         if (match_nodes.empty()) {
             return;
@@ -3972,7 +4512,7 @@ namespace vg {
         }
         
         // compute the minimum score we will require of a node or edge
-        int32_t min_path_score = *std::max_element(forward_scores.begin(), forward_scores.end()) - max_suboptimal_score_diff;
+        int32_t min_path_score = *std::max_element(forward_scores.begin(), forward_scores.end()) / max_suboptimal_score_ratio;
         
         // use forward-backward to find nodes/edges on some path with a score above the minimum
         unordered_set<size_t> keep_nodes;
@@ -4020,23 +4560,6 @@ namespace vg {
             }
         }
         match_nodes.resize(next);
-        
-#ifdef debug_multipath_mapper
-        cerr << "mem graph after pruning:" << endl;
-        for (size_t i = 0; i < match_nodes.size(); i++) {
-            ExactMatchNode& match_node = match_nodes[i];
-            cerr << i << " " << pb2json(match_node.path) << " ";
-            for (auto iter = match_node.begin; iter != match_node.end; iter++) {
-                cerr << *iter;
-            }
-            cerr << endl;
-            cerr << "\t";
-            for (auto edge : match_node.edges) {
-                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (match_nodes[edge.first].begin - match_node.end) << ") ";
-            }
-            cerr << endl;
-        }
-#endif
     }
 }
 

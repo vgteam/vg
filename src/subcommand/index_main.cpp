@@ -36,7 +36,7 @@ void help_index(char** argv) {
          << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
-         << "    -b, --batch-size N     number of samples per batch (default 200)" << endl
+         << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -G, --gbwt-name FILE   write the paths generated from the VCF file as GBWT to FILE (don't write gPBWT)" << endl
          << "    -H, --write-haps FILE  write the paths generated from the VCF file in binary to FILE (don't write gPBWT)" << endl
@@ -69,6 +69,7 @@ void help_index(char** argv) {
          << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
          << "    -L, --path-layout      describes the path layout of the graph" << endl
          << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
+         << "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
 }
@@ -153,6 +154,7 @@ int main_index(int argc, char** argv) {
     bool store_threads = false; // use gPBWT to store paths
     bool discard_overlaps = false;
     string binary_haplotype_output;
+    string tmp_db_base;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -190,15 +192,16 @@ int main_index(int argc, char** argv) {
             {"node-alignments", no_argument, 0, 'N'},
             {"dbg-in", required_argument, 0, 'i'},
             {"discard-overlaps", no_argument, 0, 'o'},
-            {"batch-size", required_argument, 0, 'b'},
+            {"batch-size", required_argument, 0, 'B'},
             {"range", required_argument, 0, 'R'},
             {"gbwt-name", required_argument, 0, 'G'},
             {"write-haps", required_argument, 0, 'H'},
+            {"tmp-db-base", required_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNob:R:G:H:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNoB:R:G:H:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -219,7 +222,7 @@ int main_index(int argc, char** argv) {
             vcf_name = optarg;
             break;
 
-        case 'b':
+        case 'B':
             samples_in_batch = std::stoul(optarg);
             break;
 
@@ -352,6 +355,10 @@ int main_index(int argc, char** argv) {
 
         case 'Z':
             size_limit = atoi(optarg);
+            break;
+
+        case 'b':
+            tmp_db_base = optarg;
             break;
 
         case 'T':
@@ -1063,7 +1070,11 @@ int main_index(int argc, char** argv) {
         if (!show_progress) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         
         // Configure its temp directory to the system temp directory
-        gcsa::TempFile::setDirectory(find_temp_dir());
+        if (tmp_db_base.empty()) {
+            gcsa::TempFile::setDirectory(find_temp_dir());
+        } else { // or the user-specified directory
+            gcsa::TempFile::setDirectory(tmp_db_base);
+        }
 
         // Load up the graphs
         vector<string> tmpfiles;
@@ -1269,4 +1280,4 @@ int main_index(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_construct("index", "index graphs or alignments for random access or mapping", main_index);
+static Subcommand vg_construct("index", "index graphs or alignments for random access or mapping", PIPELINE, 2, main_index);
