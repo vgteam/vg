@@ -1772,10 +1772,13 @@ double Genotyper::get_genotype_log_likelihood(VG& graph, const Snarl* snarl, con
              << " = " << logprob_to_prob(alleles_as_specified) << endl;
 #endif
 
-    } else if(genotype.size() != 2) {
+    } else if(genotype.size() > 2) {
 #pragma omp critical (cerr)
-        cerr << "Warning: not accounting for allele assignment likelihood in non-diploid genotype!" << endl;
+        cerr << "Warning: not accounting for allele assignment likelihood in polyploid genotype!" << endl;
     }
+    // Haploid or 0-ploid genotypes will always have all the reads drawn from
+    // their source alleles in the distribution observed, as only one is
+    // possible.
 
     // Now we've looked at all the reads, so AND everything together
     double total_logprob = all_non_supporting_wrong + all_supporting_drawn + strands_as_specified + alleles_as_specified;
