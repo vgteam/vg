@@ -20,11 +20,11 @@ namespace vg {
 
 using namespace sdsl;
 
-class Counter {
+class Packer {
 public:
-    Counter(void);
-    Counter(xg::XG* xidx, size_t bin_size);
-    ~Counter(void);
+    Packer(void);
+    Packer(xg::XG* xidx, size_t bin_size);
+    ~Packer(void);
     xg::XG* xgidx;
     void merge_from_files(const vector<string>& file_names);
     void load_from_file(const string& file_name);
@@ -42,7 +42,7 @@ public:
     string edit_value(const Edit& edit, bool revcomp) const;
     vector<Edit> edits_at_position(size_t i) const;
     size_t coverage_at_position(size_t i) const;
-    void collect_coverage(const Counter& c);
+    void collect_coverage(const Packer& c);
     ostream& as_table(ostream& out, bool show_edits = true);
     ostream& show_structure(ostream& out); // debugging
     void write_edits(vector<ofstream*>& out) const; // for merge
@@ -79,7 +79,7 @@ private:
 };
 
 // for making a combined matrix output and maybe doing other fun operations
-class Counters : public vector<Counter> {
+class Packers : public vector<Packer> {
     void load(const vector<string>& file_names);
     ostream& as_table(ostream& out);
 };

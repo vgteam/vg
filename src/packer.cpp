@@ -1,31 +1,31 @@
-#include "counter.hpp"
+#include "packer.hpp"
 
 namespace vg {
 
-Counter::Counter(void) : xgidx(nullptr) { }
+Packer::Packer(void) : xgidx(nullptr) { }
 
-Counter::Counter(xg::XG* xidx, size_t binsz) : xgidx(xidx), bin_size(binsz) {
+Packer::Packer(xg::XG* xidx, size_t binsz) : xgidx(xidx), bin_size(binsz) {
     coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, 8);
     n_bins = xgidx->seq_length / bin_size + 1;
 }
 
-Counter::~Counter(void) {
+Packer::~Packer(void) {
     close_edit_tmpfiles();
     remove_edit_tmpfiles();
 }
 
-void Counter::load_from_file(const string& file_name) {
+void Packer::load_from_file(const string& file_name) {
     ifstream in(file_name);
     load(in);
     is_compacted = true;
 }
 
-void Counter::save_to_file(const string& file_name) {
+void Packer::save_to_file(const string& file_name) {
     ofstream out(file_name);
     serialize(out);
 }
 
-void Counter::load(istream& in) {
+void Packer::load(istream& in) {
     sdsl::read_member(bin_size, in);
     sdsl::read_member(n_bins, in);
     coverage_civ.load(in);
@@ -35,11 +35,11 @@ void Counter::load(istream& in) {
     }
 }
 
-void Counter::merge_from_files(const vector<string>& file_names) {
+void Packer::merge_from_files(const vector<string>& file_names) {
     // load into our dynamic structures, then compact
     bool first = true;
     for (auto& file_name : file_names) {
-        Counter c;
+        Packer c;
         ifstream f(file_name);
         c.load(f);
         // take bin size and counts from the first, assume they are all the same
@@ -56,15 +56,15 @@ void Counter::merge_from_files(const vector<string>& file_names) {
     }
 }
 
-size_t Counter::get_bin_size(void) const {
+size_t Packer::get_bin_size(void) const {
     return bin_size;
 }
 
-size_t Counter::get_n_bins(void) const {
+size_t Packer::get_n_bins(void) const {
     return n_bins;
 }
 
-size_t Counter::bin_for_position(size_t i) const {
+size_t Packer::bin_for_position(size_t i) const {
     if (bin_size > 0) {
         return i / bin_size;
     } else {
@@ -72,24 +72,24 @@ size_t Counter::bin_for_position(size_t i) const {
     }
 }
 
-void Counter::write_edits(vector<ofstream*>& out) const {
+void Packer::write_edits(vector<ofstream*>& out) const {
     for (size_t i = 0; i < n_bins; ++i) {
         write_edits(*out[i], i);
     }
 }
 
-void Counter::write_edits(ostream& out, size_t bin) const {
+void Packer::write_edits(ostream& out, size_t bin) const {
     out << extract(edit_csas[bin], 0, edit_csas[bin].size()-2) << delim1; // chomp trailing null, add back delim
 }
 
-void Counter::collect_coverage(const Counter& c) {
+void Packer::collect_coverage(const Packer& c) {
     // assume the same basis vector
     for (size_t i = 0; i < c.graph_length(); ++i) {
         coverage_dynamic.increment(i, c.coverage_at_position(i));
     }
 }
 
-size_t Counter::serialize(std::ostream& out,
+size_t Packer::serialize(std::ostream& out,
                           sdsl::structure_tree_node* s,
                           std::string name) {
     make_compact();
@@ -105,7 +105,7 @@ size_t Counter::serialize(std::ostream& out,
     return written;
 }
 
-void Counter::make_compact(void) {
+void Packer::make_compact(void) {
     // pack the dynamic countarry and edit coverage into the compact data structure
     if (is_compacted) return;
     // sync edit file
@@ -127,14 +127,14 @@ void Counter::make_compact(void) {
     is_compacted = true;
 }
 
-void Counter::make_dynamic(void) {
+void Packer::make_dynamic(void) {
     if (!is_compacted) return;
     // unpack the compact represenation into the countarray
     assert(false); // not implemented
     is_compacted = false;
 }
 
-void Counter::ensure_edit_tmpfiles_open(void) {
+void Packer::ensure_edit_tmpfiles_open(void) {
     if (tmpfstreams.empty()) {
         string base = ".vg-counter";
         string edit_tmpfile_name = tmpfilename(base);
@@ -151,7 +151,7 @@ void Counter::ensure_edit_tmpfiles_open(void) {
     }
 }
 
-void Counter::close_edit_tmpfiles(void) {
+void Packer::close_edit_tmpfiles(void) {
     if (!tmpfstreams.empty()) {
         for (auto& tmpfstream : tmpfstreams) {
             *tmpfstream << delim1; // pad
@@ -162,7 +162,7 @@ void Counter::close_edit_tmpfiles(void) {
     }
 }
 
-void Counter::remove_edit_tmpfiles(void) {
+void Packer::remove_edit_tmpfiles(void) {
     if (!edit_tmpfile_names.empty()) {
         for (auto& name : edit_tmpfile_names) {
             std::remove(name.c_str());
@@ -171,7 +171,7 @@ void Counter::remove_edit_tmpfiles(void) {
     }
 }
 
-void Counter::add(const Alignment& aln, bool record_edits) {
+void Packer::add(const Alignment& aln, bool record_edits) {
     // open tmpfile if needed
     ensure_edit_tmpfiles_open();
     // count the nodes, edges, and edits
@@ -206,7 +206,7 @@ void Counter::add(const Alignment& aln, bool record_edits) {
 }
 
 // find the position on the forward strand in the sequence vector
-size_t Counter::position_in_basis(const Position& pos) const {
+size_t Packer::position_in_basis(const Position& pos) const {
     // get position on the forward strand
     if (pos.is_reverse()) {
         return (int64_t)xg_node_start(pos.node_id(), xgidx)
@@ -216,7 +216,7 @@ size_t Counter::position_in_basis(const Position& pos) const {
     }
 }
 
-string Counter::pos_key(size_t i) const {
+string Packer::pos_key(size_t i) const {
     Position pos;
     size_t offset = 2;
     pos.set_node_id(i+offset);
@@ -227,7 +227,7 @@ string Counter::pos_key(size_t i) const {
     return s.str();
 }
 
-string Counter::edit_value(const Edit& edit, bool revcomp) const {
+string Packer::edit_value(const Edit& edit, bool revcomp) const {
     string edit_repr;
     if (revcomp) {
         reverse_complement_edit(edit).SerializeToString(&edit_repr);
@@ -239,15 +239,15 @@ string Counter::edit_value(const Edit& edit, bool revcomp) const {
     return s.str();
 }
 
-string Counter::escape_delims(const string& s) const {
+string Packer::escape_delims(const string& s) const {
     return escape_delim(escape_delim(s, delim1), delim2);
 }
 
-string Counter::unescape_delims(const string& s) const {
+string Packer::unescape_delims(const string& s) const {
     return unescape_delim(unescape_delim(s, delim1), delim2);
 }
 
-string Counter::escape_delim(const string& s, char d) const {
+string Packer::escape_delim(const string& s, char d) const {
     string escaped; escaped.reserve(s.size());
     for (size_t i = 0; i < s.size(); ++i) {
         char c = s[i];
@@ -257,7 +257,7 @@ string Counter::escape_delim(const string& s, char d) const {
     return escaped;
 }
 
-string Counter::unescape_delim(const string& s, char d) const {
+string Packer::unescape_delim(const string& s, char d) const {
     string unescaped; unescaped.reserve(s.size());
     for (size_t i = 0; i < s.size()-1; ++i) {
         char c = s[i];
@@ -272,15 +272,15 @@ string Counter::unescape_delim(const string& s, char d) const {
     return unescaped;
 }
 
-size_t Counter::graph_length(void) const {
+size_t Packer::graph_length(void) const {
     return coverage_civ.size();
 }
 
-size_t Counter::coverage_at_position(size_t i) const {
+size_t Packer::coverage_at_position(size_t i) const {
     return coverage_civ[i];
 }
 
-vector<Edit> Counter::edits_at_position(size_t i) const {
+vector<Edit> Packer::edits_at_position(size_t i) const {
     vector<Edit> edits;
     if (i == 0) return edits;
     string key = pos_key(i);
@@ -312,7 +312,7 @@ vector<Edit> Counter::edits_at_position(size_t i) const {
     return edits;
 }
 
-ostream& Counter::as_table(ostream& out, bool show_edits) {
+ostream& Packer::as_table(ostream& out, bool show_edits) {
     // write the coverage as a vector
     for (size_t i = 0; i < coverage_civ.size(); ++i) {
         out << i << "\t" << coverage_civ[i];
@@ -324,7 +324,7 @@ ostream& Counter::as_table(ostream& out, bool show_edits) {
     }
 }
 
-ostream& Counter::show_structure(ostream& out) {
+ostream& Packer::show_structure(ostream& out) {
     out << coverage_civ << endl; // graph coverage (compacted coverage_dynamic)
     for (auto& edit_csa : edit_csas) {
         out << edit_csa << endl;
