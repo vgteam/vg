@@ -1,19 +1,19 @@
 #include <cstdlib>
 #include <stdexcept>
 #include "json2pb.h"
-#include "caller.hpp"
+#include "pileup_augmenter.hpp"
 #include "stream.hpp"
 
 using namespace std;
 
 namespace vg {
 
-const double Caller::Log_zero = (double)-1e100;
+const double PileupAugmenter::Log_zero = (double)-1e100;
 
-const char Caller::Default_default_quality = 30;
-const int Caller::Default_min_aug_support = 2;
+const char PileupAugmenter::Default_default_quality = 30;
+const int PileupAugmenter::Default_min_aug_support = 2;
 
-Caller::Caller(VG* graph,
+PileupAugmenter::PileupAugmenter(VG* graph,
                int default_quality,
                int min_aug_support):
     _graph(graph),
@@ -26,11 +26,11 @@ Caller::Caller(VG* graph,
 }
 
 // delete contents of table
-Caller::~Caller() {
+PileupAugmenter::~PileupAugmenter() {
     clear();
 }
 
-void Caller::clear() {
+void PileupAugmenter::clear() {
     _node_calls.clear();
     _node_supports.clear();
     _insert_calls.clear();
@@ -43,7 +43,7 @@ void Caller::clear() {
     _inserted_nodes.clear();
 }
 
-void Caller::write_augmented_graph(ostream& out, bool json) {
+void PileupAugmenter::write_augmented_graph(ostream& out, bool json) {
     if (json) {
         _augmented_graph.graph.paths.to_graph(_augmented_graph.graph.graph);
         out << pb2json(_augmented_graph.graph.graph);
@@ -52,7 +52,7 @@ void Caller::write_augmented_graph(ostream& out, bool json) {
     }
 }
 
-void Caller::call_node_pileup(const NodePileup& pileup) {
+void PileupAugmenter::call_node_pileup(const NodePileup& pileup) {
 
     _node = _graph->get_node(pileup.node_id());
     assert(_node != NULL);
@@ -93,7 +93,7 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
     _visited_nodes.insert(_node->id());
 }
 
-void Caller::call_edge_pileup(const EdgePileup& pileup) {
+void PileupAugmenter::call_edge_pileup(const EdgePileup& pileup) {
     if (pileup.num_reads() >= 1) {
 
         double qual_sum = 0;
@@ -111,7 +111,7 @@ void Caller::call_edge_pileup(const EdgePileup& pileup) {
     }
 }
 
-void Caller::update_augmented_graph() {
+void PileupAugmenter::update_augmented_graph() {
     
     // Add nodes we don't think necessarily exist.
     function<void(Node*)> add_node = [&](Node* node) {
@@ -207,63 +207,156 @@ void Caller::update_augmented_graph() {
     process_augmented_edges(false);
 
     // Annotate all the nodes in the divider structure in the AugmentedGraph
-    annotate_augmented_nd();
+    annotate_augmented_nodes();
     // add on the inserted nodes
     for (auto i : _inserted_nodes) {
         auto& n = i.second; 
         annotate_augmented_node(n.node, 'I', n.sup, n.orig_id, n.orig_offset);
     }
-    // build the translation table in augmented graph
-    _augmented_graph.translator.build_position_table();
+    annotate_non_augmented_nodes();
 }
 
+void PileupAugmenter::map_path(const Path& path, list<Mapping>& aug_path, bool expect_edits) {
+    int64_t last_rank = -1;
+    int64_t last_call_rank = 0;
+    size_t running_len = 0;
+    size_t path_len = 0;
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        const Mapping& mapping = path.mapping(i);
+        int64_t rank = mapping.rank() == 0 ? i+1 : mapping.rank();
+        size_t len = mapping_from_length(mapping);
+        // force length so that insertions come back through map_node()
+        // (they will be corrected in apply_edits)
+        if (len == 0) {
+            assert(expect_edits);
+            len = 1;
+        }
+        
+        int64_t node_id = mapping.position().node_id();
+        Node* node = _graph->get_node(node_id);
+        
+        int start = mapping.position().offset();
+        if (mapping.position().is_reverse()) {
+            start = node->sequence().length() - 1 - start;
+        }
+        int end = mapping.position().is_reverse() ? start - len + 1 : start + len - 1;
 
-void Caller::map_paths() {
+        // this is a projection onto the augmented graph for the entire "from length"
+        // of the mapping
+        list<Mapping> aug_mappings = _node_divider.map_node(node_id, start, len,
+                                                            mapping.position().is_reverse());
+
+        // undo insertion length hack above
+        if (len == 1 && mapping_from_length(mapping) == 0) {
+            assert(aug_mappings.size() == 1 && aug_mappings.front().edit_size() == 1);
+            aug_mappings.front().mutable_edit(0)->set_from_length(0);
+        }
+        
+        // now we apply edits post-hoc to the new mappings
+        if (expect_edits) {
+            apply_mapping_edits(mapping, aug_mappings);
+        }
+        else {
+            assert(mapping.edit_size() == 1
+                   && mapping_from_length(mapping) == mapping_to_length(mapping));
+        }
+
+        // add our new mappings to the augmented path
+        for (auto& cm : aug_mappings) {
+            running_len += mapping_from_length(cm);
+            cm.set_rank(++last_call_rank);
+            aug_path.push_back(cm);
+        }
+        path_len += len;
+        last_rank = rank; 
+    }
+    assert(running_len == path_len);
+    verify_path(path, aug_path);
+}
+
+void PileupAugmenter::apply_mapping_edits(const Mapping& base_mapping, list<Mapping>& aug_mappings) {
+    // current place in aug_mappings list
+    auto aug_mapping_it = aug_mappings.begin();
+    // from length of current mapping
+    size_t aug_mapping_len = mapping_from_length(*aug_mapping_it);
+    // amount of from length we've covered in the current augmented mapping
+    size_t aug_mapping_used = 0;
+    
+    // make new edits in a list then add to protobuf (simpler for now)
+    list<Edit> aug_mapping_edits;
+
+    // sanity checking
+    size_t total_aug_from_length = 0;
+    size_t total_aug_to_length = 0;
+
+    for (size_t base_edit_idx = 0; base_edit_idx < base_mapping.edit_size(); ++base_edit_idx) {
+        const Edit& base_edit = base_mapping.edit(base_edit_idx);
+        const Edit* next_base_edit = base_edit_idx < base_mapping.edit_size() - 1 ?
+                                                     &base_mapping.edit(base_edit_idx + 1) : NULL;
+        // walk along our current base edit, making as many new augmented edits as required
+        // the max(1, from_length) below is a hack for insertions
+        for (size_t be_covered = 0; be_covered < max(1, base_edit.from_length());) {
+            Edit aug_edit;
+            size_t edit_len = min((size_t)base_edit.from_length() - be_covered,
+                                  aug_mapping_len - aug_mapping_used);
+
+            aug_edit.set_from_length(edit_len);
+            if (base_edit.to_length() == base_edit.from_length()) {
+                // match : we need to cut the to length
+                aug_edit.set_to_length(edit_len);
+                if (!base_edit.sequence().empty()) {
+                    aug_edit.set_sequence(base_edit.sequence().substr(be_covered, edit_len));
+                }
+            } else {
+                // indel : we can leave the to length
+                aug_edit.set_to_length(base_edit.to_length());
+                // insertion sequence
+                if (!base_edit.sequence().empty()) {
+                    aug_edit.set_sequence(base_edit.sequence());
+                }
+            }
+
+            total_aug_from_length += aug_edit.from_length();
+            total_aug_to_length += aug_edit.to_length();
+
+            aug_mapping_edits.push_back(aug_edit);
+            
+            // advance in base edit
+            be_covered += max(edit_len, (size_t)1);
+            
+            // advance in augmented edit (and mapping if necessary)
+            aug_mapping_used += edit_len;
+
+            assert(aug_mapping_used <= aug_mapping_len);
+            if (aug_mapping_used == aug_mapping_len &&
+                // we don't advance to the next mapping if we've got an insertion (0 from length) next
+                (be_covered != base_edit.from_length() || !next_base_edit ||
+                 next_base_edit->from_length() > 0)) {
+                // appy to protobuf
+                assert(aug_mapping_it != aug_mappings.end());
+                aug_mapping_it->clear_edit();
+                for (auto& aug_edit : aug_mapping_edits) {
+                    *aug_mapping_it->add_edit() = aug_edit;
+                }
+                aug_mapping_edits.clear();
+                // advance to next input mapping
+                ++aug_mapping_it;
+                aug_mapping_len = aug_mapping_it != aug_mappings.end() ? mapping_from_length(*aug_mapping_it) : 0;
+                aug_mapping_used = 0;
+            }
+        }
+    }
+
+    assert(total_aug_to_length == mapping_to_length(base_mapping));
+    assert(total_aug_from_length == mapping_from_length(base_mapping));
+}
+
+void PileupAugmenter::map_paths() {
+    
     // We don't remove any nodes, so paths always stay connected
     function<void(const Path&)> lambda = [&](const Path& path) {
         list<Mapping>& call_path = _augmented_graph.graph.paths.create_path(path.name());
-        int64_t last_rank = -1;
-        int64_t last_call_rank = 0;
-        size_t running_len = 0;
-        size_t path_len = 0;
-        for (int i = 0; i < path.mapping_size(); ++i) {
-            const Mapping& mapping = path.mapping(i);
-            int64_t rank = mapping.rank() == 0 ? i+1 : mapping.rank();
-            size_t len = mapping.edit_size() == 0 ? _graph->get_node(mapping.position().node_id())->sequence().length() :
-                mapping.edit(0).from_length();
-            size_t to_len = mapping.edit_size() == 0 ? len : mapping.edit(0).to_length();
-            if (mapping.edit_size() > 1 || len != to_len || rank <= last_rank) {
-                cerr << "rank " << rank;
-                cerr << "mapping " << pb2json(mapping) << endl;
-                cerr << "last_rank " << last_rank << endl;
-                cerr << "i " << i << endl;
-                cerr << "Skipping input path " << path.name()
-                     << " because ranks out of order or non-trivial edits." << endl;
-                set<string> s;
-                s.insert(path.name());
-                _augmented_graph.graph.paths.remove_paths(s);
-                return;
-            }
-            int64_t node_id = mapping.position().node_id();
-            Node* node = _graph->get_node(node_id);
-            
-            int start = mapping.position().offset();
-            if (mapping.position().is_reverse()) {
-                start = node->sequence().length() - 1 - start;
-            }
-            int end = mapping.position().is_reverse() ? start - len + 1 : start + len - 1;
-            list<Mapping> call_mappings = _node_divider.map_node(node_id, start, len,
-                                                                 mapping.position().is_reverse());
-            for (auto& cm : call_mappings) {
-                running_len += cm.edit(0).from_length();
-                cm.set_rank(++last_call_rank);
-                call_path.push_back(cm);
-            }
-            path_len += len;
-            last_rank = rank; 
-        }
-        assert(running_len == path_len);
-        verify_path(path, call_path);
+        map_path(path, call_path, false);
     };
     _graph->paths.for_each(lambda);
 
@@ -273,19 +366,11 @@ void Caller::map_paths() {
     _augmented_graph.graph.paths.to_graph(_augmented_graph.graph.graph);    
 }
 
-void Caller::verify_path(const Path& in_path, const list<Mapping>& call_path) {
+void PileupAugmenter::verify_path(const Path& in_path, const list<Mapping>& call_path) {
     function<string(VG*, const Mapping&)> lambda = [](VG* graph, const Mapping& mapping) {
         const Position& pos = mapping.position();
         const Node* node = graph->get_node(pos.node_id());
-        string s = node->sequence();
-        int64_t offset = pos.offset();
-        if (mapping.position().is_reverse()) {
-            s = reverse_complement(s);
-        }
-        if (offset > 0) {
-            s = s.substr(pos.offset());
-        }
-        return s;
+        return mapping_sequence(mapping, *node);
     };
 
     string in_string;
@@ -301,7 +386,7 @@ void Caller::verify_path(const Path& in_path, const list<Mapping>& call_path) {
 
 }
 
-void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1, bool aug1,
+void PileupAugmenter::create_augmented_edge(Node* node1, int from_offset, bool left_side1, bool aug1,
                                    Node* node2, int to_offset, bool left_side2, bool aug2, char cat,
                                    StrandSupport support) {
     NodeDivider::Entry call_sides1;
@@ -367,7 +452,7 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
     }
 }
 
-void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool insertion) {
+void PileupAugmenter::call_base_pileup(const NodePileup& np, int64_t offset, bool insertion) {
     const BasePileup& bp = np.base_pileup(offset);
 
     // parse the pilueup structure
@@ -407,7 +492,7 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
     }
 }
 
-void Caller::compute_top_frequencies(const BasePileup& bp,
+void PileupAugmenter::compute_top_frequencies(const BasePileup& bp,
                                      const vector<pair<int64_t, int64_t> >& base_offsets,
                                      string& top_base, int& top_count, int& top_rev_count,
                                      string& second_base, int& second_count, int& second_rev_count,
@@ -567,7 +652,7 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
     second_rev_count = rev_hist[second_base];
 }
 
-double Caller::total_base_quality(const BasePileup& bp,
+double PileupAugmenter::total_base_quality(const BasePileup& bp,
                                   const vector<pair<int64_t, int64_t> >& base_offsets,
                                   const string& val) {
     double qual_sum = 0;
@@ -599,7 +684,7 @@ double Caller::total_base_quality(const BasePileup& bp,
 }
 
 // please refactor me! 
-void Caller::create_node_calls(const NodePileup& np) {
+void PileupAugmenter::create_node_calls(const NodePileup& np) {
     
     int n = _node->sequence().length();
     const string& seq = _node->sequence();
@@ -612,7 +697,7 @@ void Caller::create_node_calls(const NodePileup& np) {
     // (note: snps will always be 1-base -- never merged)
     for (int next = 1; next <= n; ++next) {
         int next_cat = next == n ? -1 : call_cat(_node_calls[next]);
-
+        
         // for anything but case where we merge consec. ref/refs
         if (cat == 2 || cat != next_cat ||
             _insert_calls[next-1].first[0] == '+' || _insert_calls[next-1].second[0] == '+') {
@@ -813,7 +898,7 @@ void Caller::create_node_calls(const NodePileup& np) {
     }
 }
 
-void Caller::annotate_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
+void PileupAugmenter::annotate_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
 {
     _augmented_graph.node_supports[node].set_forward(support.fs);
     _augmented_graph.node_supports[node].set_reverse(support.rs);
@@ -838,14 +923,14 @@ void Caller::annotate_augmented_node(Node* node, char call, StrandSupport suppor
     }
 }
 
-void Caller::annotate_augmented_edge(Edge* edge, char call, StrandSupport support)
+void PileupAugmenter::annotate_augmented_edge(Edge* edge, char call, StrandSupport support)
 {
     _augmented_graph.edge_supports[edge].set_forward(support.fs);
     _augmented_graph.edge_supports[edge].set_reverse(support.rs);
     _augmented_graph.edge_supports[edge].set_quality(support.qual);
 }
 
-void Caller::annotate_augmented_nd()
+void PileupAugmenter::annotate_augmented_nodes()
 {
     for (auto& i : _node_divider.index) {
         int64_t orig_node_id = i.first;
@@ -862,6 +947,26 @@ void Caller::annotate_augmented_nd()
             }
         }
     }
+}
+
+void PileupAugmenter::annotate_non_augmented_nodes() {
+    _graph->for_each_node([&](Node* node) {
+            if (!_node_divider.index.count(node->id())) {
+                Translation trans;
+                auto* new_mapping = trans.mutable_to()->add_mapping();
+                new_mapping->mutable_position()->set_node_id(node->id());
+                auto* new_edit = new_mapping->add_edit();
+                new_edit->set_from_length(node->sequence().size());
+                new_edit->set_to_length(node->sequence().size());
+                auto* old_mapping = trans.mutable_from()->add_mapping();
+                old_mapping->mutable_position()->set_node_id(node->id());
+                old_mapping->mutable_position()->set_offset(0);
+                auto* old_edit = old_mapping->add_edit();
+                old_edit->set_from_length(node->sequence().size());
+                old_edit->set_to_length(node->sequence().size());
+                _augmented_graph.translator.translations.push_back(trans);        
+            }                
+        });
 }
 
 void NodeDivider::add_fragment(const Node* orig_node, int offset, Node* fragment,
@@ -984,8 +1089,8 @@ list<Mapping> NodeDivider::map_node(int64_t node_id, int64_t start_offset, int64
     int cur_len = 0;
     if (!reverse) {
         for (auto i : node_map) {
-            if (i.first >= start_offset && cur_len < length) {
-                Node* call_node = i.second.ref;
+            Node* call_node = i.second.ref;
+            if (i.first + call_node->sequence().length() > start_offset && cur_len < length) {
                 assert(call_node != NULL);
                 Mapping mapping;
                 mapping.mutable_position()->set_node_id(call_node->id());
@@ -998,6 +1103,7 @@ list<Mapping> NodeDivider::map_node(int64_t node_id, int64_t start_offset, int64
                 if (map_len + cur_len > length) {
                     map_len = length - cur_len;
                 }
+                assert(map_len > 0);
                 Edit* edit = mapping.add_edit();
                 edit->set_from_length(map_len);
                 edit->set_to_length(map_len);
@@ -1009,8 +1115,8 @@ list<Mapping> NodeDivider::map_node(int64_t node_id, int64_t start_offset, int64
         // should fold into above when on less cold meds. 
         for (NodeMap::reverse_iterator i = node_map.rbegin(); i != node_map.rend(); ++i)
         {
+            Node* call_node = i->second.ref;
             if (i->first <= start_offset && cur_len < length) {
-                Node* call_node = i->second.ref;
                 Mapping mapping;
                 mapping.mutable_position()->set_is_reverse(true);
                 mapping.mutable_position()->set_node_id(call_node->id());
@@ -1070,7 +1176,7 @@ ostream& operator<<(ostream& os, NodeDivider::Entry entry) {
     return os;
 }
 
-ostream& operator<<(ostream& os, const Caller::NodeOffSide& no) {
+ostream& operator<<(ostream& os, const PileupAugmenter::NodeOffSide& no) {
     os << "NOS(" << no.first.node << ":" << no.second << ",left=" << !no.first.is_end << ")";
     return os;
 }

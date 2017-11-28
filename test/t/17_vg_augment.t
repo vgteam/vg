@@ -13,7 +13,7 @@ plan tests 1
 # Will also test some vg view functionality. 
 vg view -J -a -G pileup/alignment.json > alignment.gam
 vg view -J -v pileup/tiny.json > tiny.vg
-vg pileup tiny.vg alignment.gam > tiny.gpu
+vg augment tiny.vg alignment.gam -P tiny.gpu > /dev/null
 vg view tiny.gpu -l -j | jq . > tiny.gpu.json
 is $(jq --argfile a tiny.gpu.json --argfile b pileup/truth.json -n '($a == $b)') true "vg pileup produces the expected output for test case on tiny graph."
 rm -f alignment.gam tiny.vg tiny.gpu tiny.gpu.json

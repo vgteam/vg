@@ -137,14 +137,32 @@ void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
         // Add the paths to the graphs, but don't embed the edits.  These paths
         // will not be representable as lists of NodeTraversals.  
         for (auto& path : paths) {
-            graph.paths.extend(path);
+            // Note: Paths.extend(Path) is too slow because it re-indexes on each path
+            graph.paths.get_create_path(path.name());
+            for (int i = 0; i < path.mapping_size(); ++i) {
+                graph.paths.append_mapping(path.name(), path.mapping(i));
+            }
         }
         graph.paths.rebuild_node_mapping();
+        graph.paths.sort_by_mapping_rank();
         graph.paths.rebuild_mapping_aux();
 
         // trivial translation map?
     }
     
+}
+
+void AugmentedGraph::load_translations(istream& in_file) {
+    translator.translations.clear();
+    function<void(Translation&)> lambda = [&](Translation& translation) {
+        translator.translations.push_back(translation);
+    };
+    stream::for_each(in_file, lambda);
+    translator.build_position_table();
+}
+
+void AugmentedGraph::write_translations(ostream& out_file) {
+    stream::write_buffered(out_file, translator.translations, 0);
 }
 
 void SupportAugmentedGraph::clear() {
@@ -163,7 +181,41 @@ Support SupportAugmentedGraph::get_support(Node* node) {
 Support SupportAugmentedGraph::get_support(Edge* edge) {
     return edge_supports.count(edge) ? edge_supports.at(edge) : Support();
 }
-    
+
+void SupportAugmentedGraph::load_supports(istream& in_file) {
+    node_supports.clear();
+    edge_supports.clear();
+    function<void(LocationSupport&)> lambda = [&](LocationSupport& location_support) {
+        if (location_support.oneof_location_case() == LocationSupport::kNodeId) {
+            node_supports[graph.get_node(location_support.node_id())] = location_support.support();
+        } else {
+            const Edge& edge = location_support.edge();
+            edge_supports[graph.get_edge(NodeSide(edge.from(), !edge.from_start()),
+                                         NodeSide(edge.to(), edge.to_end()))] = location_support.support();
+        }
+    };
+    stream::for_each(in_file, lambda);    
+}
+
+void SupportAugmentedGraph::write_supports(ostream& out_file) {
+    vector<LocationSupport> buffer;
+    for (auto& node_support : node_supports) {
+        LocationSupport location_support;
+        *location_support.mutable_support() = node_support.second;
+        location_support.set_node_id(node_support.first->id());
+        buffer.push_back(location_support);
+        stream::write_buffered(out_file, buffer, 500);
+    }
+    for (auto& edge_support : edge_supports) {
+        LocationSupport location_support;
+        *location_support.mutable_support() = edge_support.second;        
+        *location_support.mutable_edge() = *edge_support.first;
+        buffer.push_back(location_support);
+        stream::write_buffered(out_file, buffer, 500);
+    }
+    stream::write_buffered(out_file, buffer, 0);
+}
+
 SimpleConsistencyCalculator::~SimpleConsistencyCalculator(){
 
 }
