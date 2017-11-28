@@ -522,22 +522,16 @@ pair<pair<int64_t, int64_t>, bool> Genotyper::get_snarl_reference_bounds(const S
 }
 
 /**
- * Turn the given path (which must be a thread) into an allele. Drops the first
+ * Turn the given path into an allele. Drops the first
  * and last mappings and looks up the sequences for the nodes of the others.
  */
 string allele_to_string(VG& graph, const Path& allele) {
     stringstream stream;
 
     for(size_t i = 1; i < allele.mapping_size() - 1; i++) {
-        // Get the sequence for each node
-        string node_string = graph.get_node(allele.mapping(i).position().node_id())->sequence();
-
-        if(allele.mapping(i).position().is_reverse()) {
-            // Flip it
-            node_string = reverse_complement(node_string);
-        }
-        // Add it to the stream
-        stream << node_string;
+        // Get the sequence for each node mapping
+        const Node* node = graph.get_node(allele.mapping(i).position().node_id());
+        stream << mapping_sequence(allele.mapping(i), *node);
     }
 
     return stream.str();
@@ -1469,7 +1463,7 @@ Genotyper::get_affinities_fast(VG& graph,
                                           read_traversal.back().position().node_id() == snarl->end().node_id())) {
             // This read only touches the head or tail of the snarl, and so
             // cannot possibly be informative.
-            cerr << "Non-informative snarl being removed " << endl
+            cerr << "Non-informative read traversal being removed " << endl
                  << pb2json(read_traversal.front()) << " to " << pb2json(read_traversal.back()) << endl;  
             continue;
         }
