@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 5
+plan tests 6
 
 vg construct -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
@@ -30,5 +30,13 @@ x=$(vg count -x flat.xg -di 2snp.gam.cx | wc -c )
 vg count -x flat.xg -o 2snp.gam.cx -b 10 -g 2snp.gam
 y=$(vg count -x flat.xg -di 2snp.gam.cx | wc -c )
 is $x $y "binned edit accumulation does not affect the result"
+
+vg count -x flat.xg -o 2snp.gam.cx -g 2snp.gam
+vg count -x flat.xg -o 2snp.gam.cx.3x -i 2snp.gam.cx -i 2snp.gam.cx -i 2snp.gam.cx
+x=$(vg count -x flat.xg -di 2snp.gam.cx.3x | wc -c)
+cat 2snp.gam 2snp.gam 2snp.gam | vg count -x flat.xg -o 2snp.gam.cx -g -
+y=$(vg count -x flat.xg -di 2snp.gam.cx.3x | wc -c)
+
+is $x $y "count index merging produces the expected result"
 
 rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim flat.gcsa flat.gcsa.lcp flat.xg 2snp.xg 2snp.gam 2snp.gam.cx 2snp.gam.cx.3x 2snp.gam.vgpu

@@ -37,14 +37,31 @@ void Counter::load(istream& in) {
 
 void Counter::merge_from_files(const vector<string>& file_names) {
     // load into our dynamic structures, then compact
-    ensure_edit_tmpfiles_open();
+    bool first = true;
     for (auto& file_name : file_names) {
         Counter c;
         ifstream f(file_name);
         c.load(f);
+        // take bin size and counts from the first, assume they are all the same
+        if (first) {
+            bin_size = c.get_bin_size();
+            n_bins = c.get_n_bins();
+            ensure_edit_tmpfiles_open();
+        } else {
+            assert(bin_size == c.get_bin_size());
+            assert(n_bins == c.get_n_bins());
+        }
         c.write_edits(tmpfstreams);
         collect_coverage(c);
     }
+}
+
+size_t Counter::get_bin_size(void) const {
+    return bin_size;
+}
+
+size_t Counter::get_n_bins(void) const {
+    return n_bins;
 }
 
 size_t Counter::bin_for_position(size_t i) const {

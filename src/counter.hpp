@@ -47,6 +47,8 @@ public:
     ostream& show_structure(ostream& out); // debugging
     void write_edits(vector<ofstream>& out) const; // for merge
     void write_edits(ostream& out, size_t bin) const; // for merge
+    size_t get_bin_size(void) const;
+    size_t get_n_bins(void) const;
 private:
     void ensure_edit_tmpfiles_open(void);
     void close_edit_tmpfiles(void);
