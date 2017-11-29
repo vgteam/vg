@@ -75,6 +75,36 @@ inline real_t choose_ln(int n, int k) {
 }
 
 /**
+ * Compute the number of ways to select k_1, k_2, ... k_i items into i buckets
+ * from a collection of n distinguishable items, ignoring order. All of the
+ * items have to go into the buckets, so all k_i must sum to n. To compute
+ * choose you have to call this function with a 2-element vector, to represent
+ * the chosen and not-chosen buckets. Returns the natural log of the (integer)
+ * result.
+ */
+inline real_t multinomial_choose_ln(int n, vector<int> k) {
+    // We use the product-of-binomial-coefficients approach from
+    // <https://en.wikipedia.org/wiki/Multinomial_theorem#Multinomial_coefficients>
+    real_t product_of_binomials_ln = 0;
+    
+    // We sum up the bucket sizes as we go
+    int bucket_sum = 0;
+    
+    for (auto& bucket_size : k) {
+        // Increment the size of what we choose from
+        bucket_sum += bucket_size;
+        // Choose this many
+        product_of_binomials_ln += choose_ln(bucket_sum, bucket_size);
+    }
+    
+    // Make sure they actually gave us a proper decomposition of the items into
+    // buckets.
+    assert(bucket_sum == n);
+    
+    return product_of_binomials_ln;
+}
+
+/**
  * Compute the log probability of a Poisson-distributed process: observed events
  * in an interval where expected events happen on average.
  */
@@ -138,7 +168,250 @@ real_t geometric_sampling_prob_ln(ProbIn success_logprob, size_t trials) {
     return logprob_invert(success_logprob) * (trials - 1) + success_logprob;
 }
 
+/**
+ * Given a split of items across a certain number of categories, as ints between
+ * the two given bidirectional iterators, advance to the next split and return
+ * true. If there is no next split, leave the collection unchanged and return
+ * false.
+ */
+template<typename Iter>
+bool advance_split(Iter start, Iter end) {
+    if (start == end) {
+        // Base case: we hit the end. No more possible splits.
+        return false;
+    } else {
+        // Try advancing what comes after us.
+        auto next = start;
+        ++next;
+        if (advance_split(next, end)) {
+            // It worked.
+            return true;
+        }
+        
+        // If that didn't work, try moving an item from here to what comes after us.
+        // We also need to reset what comes after us to its initial state of everything in the first category.
+        // This is easy because we know everything in what comes after us has made its way to the end.
+        if (*start != 0 && next != end) {
+            // We have something to move
+            *start--;
+            *next++;
+            
+            // Do the reset so everything after us is in the first category
+            // after us.
+            auto next_to_last = end;
+            --next_to_last;
+            if (next_to_last != next) {
+                *next += *next_to_last;
+                *next_to_last = 0;
+            }
+            
+            return true;
+        }
+        
+        // If that didn't work, we're out of stuff to do.
+        return false;
+    }
+}
+
+
+/**
+ * Get the log probability for sampling any actual set of category counts that
+ * is consistent with the constraints specified by obs, using the per-category
+ * probabilities defined in probs.
+ *
+ * Obs maps from a vector of per-category flags (called a "class") to a number
+ * of items that might be in any of the flagged categories.
+ *
+ * For example, if there are two equally likely categories, and one item flagged
+ * as potentially from either category, the probability of sampling a set of
+ * category counts consistent with that constraint is 1. If instead there are
+ * three equally likely categories, and one item flagged as potentially from two
+ * of the three but not the third, the probability of sampling a set of category
+ * counts consistent with that constraint is 2/3.
+ */
+template<typename ProbIn>
+real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const unordered_map<vector<bool>, int>& obs) {
+    // We have a state. We advance this state until we can't anymore.
+    //
+    // The state is, for each ambiguity class, a vector of length equal to
+    // the number of set bits in the valence, and sum equal to the number of
+    // reads int he category.
+    //
+    // We start with all the reads in the first spot in each class, and
+    // advance/reset until we have iterated over all combinations of category
+    // assignments for all classes.
+    unordered_map<vector<bool>, vector<int>> splits_by_class;
+    
+    // Prepare the state
+    for (auto& kv : obs) {
+        // For each class, find the vector we will use to describe its read-to-
+        // category assignments.
+        auto& class_state = splits_by_class[kv.first];
+        
+        for (auto& bit : kv.first) {
+            // Allocate a spot for each set bit
+            if (bit) {
+                class_state.push_back(0);
+            }
+        }
+        // Make sure all our classes have at least one category in them.
+        // No magic reads from nowhere allowed.
+        assert(!class_state.empty());
+        
+        // Drop all the reads in the first category
+        class_state.front() = kv.second;
+    }
+    
+    // Now we loop over all the combinations of class states using a stack thing.
+    list<decltype(splits_by_class)::iterator> stack;
+    
+    // And we keep these multinomial coefficients up to date, describing the
+    // number of ways each state on the stack can be realized
+    list<real_t> atom_counts_ln;
+    
+    // And maintain this vector of category counts for the state we are in. We
+    // incrementally update it so we aren't always looping over all the classes
+    // to rebuild it.
+    vector<int> category_counts(probs.size());
+    
+    // We have a function to add in the contribution of a class's state
+    auto add_class_state = [&](const pair<vector<bool>, vector<int>>& class_state) {
+        auto count_it = class_state.second.begin();
+        for (size_t i = 0; i < category_counts.size(); i++) {
+            // For each category
+            if (class_state.first.at(i)) {
+                // If this ambiguity class touches it
+                
+                assert(count_it != class_state.second.end());
+                
+                // Add in the state's count
+                category_counts.at(i) += *count_it;
+                
+                // And consume that state entry
+                ++count_it;
+            }
+        }
+        assert(count_it == class_state.second.end());
+    };
+    
+    // And a function to back it out again
+    auto remove_class_state = [&](const pair<vector<bool>, vector<int>>& class_state) {
+        auto count_it = class_state.second.begin();
+        for (size_t i = 0; i < category_counts.size(); i++) {
+            // For each category
+            if (class_state.first.at(i)) {
+                // If this ambiguity class touches it
+                
+                assert(count_it != class_state.second.end());
+                
+                // Back out the state's count
+                category_counts.at(i) -= *count_it;
+                
+                // And consume that state entry
+                ++count_it;
+            }
+        }
+        assert(count_it == class_state.second.end());
+    };
+    
+    for (auto it = splits_by_class.begin(); it != splits_by_class.end(); ++it) {
+        // Populate the stack with everything
+        stack.push_back(it);
+        
+        // Calculate first multinomial coefficients
+        atom_counts_ln.push_back(multinomial_choose_ln(obs.at(it->first), it->second));
+        
+        // And make sure the category counts are up to date.
+        add_class_state(*it);
+    }
+    
+    do {
+        // Emit the current state
+        // TODO: add its likelihood scaled by its multinomials
+        cerr << "Category counts:" << endl;
+        for (auto& count : category_counts) {
+            cerr << count << endl;
+        }
+        
+        
+        do {
+            // See if we can advance what's at the bottom of the stack
+            // First clear it out of the category counts.
+            remove_class_state(*stack.back());
+            if (advance_split(stack.back()->second.begin(), stack.back()->second.end())) {
+                // We advanced it successfully.
+                
+                // Put it back in the category counts
+                add_class_state(*stack.back());
+                
+                // Calculate its multinomial coefficient again
+                atom_counts_ln.back() = multinomial_choose_ln(obs.at(stack.back()->first), stack.back()->second);
+                
+                // We finally found something to advance, so stop ascending the stack.
+                break;
+            } else {
+                // Pop off the back of the stack.
+                stack.pop_back();
+                atom_counts_ln.pop_back();
+                
+                // Keep looking up
+            }
+        } while (!stack.empty());
+        
+        if (!stack.empty()) {
+            // We found *something* to advance and haven't finished.
+            
+            // Now fill in the whole stack again with the first split for every category.
+            auto it = stack.back();
+            ++it;
+            
+            while (it != splits_by_class.end()) {
+                // Reset the split to all 0s except for the first entry.
+                for (auto& entry : it->second) {
+                    entry = 0;
+                }
+                it->second.front() = obs.at(it->first);
+            
+                // Populate the stack with the next class
+                stack.push_back(it);
+                
+                // Calculate multinomial coefficient
+                atom_counts_ln.push_back(multinomial_choose_ln(obs.at(it->first), it->second));
+                
+                // And make sure the category counts are up to date.
+                add_class_state(*it);
+                
+                // Look for the next class
+                ++it;
+            }
+        }
+        
+        // Otherwise we have finished looping over everything and so we should leave the stack empty.
+        
+    } while (!stack.empty());
+    
+    // Now we return the total likelihood
+    // TODO: calculate
+    return 0;
+}
 
 }
 
 #endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
