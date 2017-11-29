@@ -168,6 +168,7 @@ real_t geometric_sampling_prob_ln(ProbIn success_logprob, size_t trials) {
     return logprob_invert(success_logprob) * (trials - 1) + success_logprob;
 }
 
+#define debug
 /**
  * Given a split of items across a certain number of categories, as ints between
  * the two given bidirectional iterators, advance to the next split and return
@@ -178,37 +179,67 @@ template<typename Iter>
 bool advance_split(Iter start, Iter end) {
     if (start == end) {
         // Base case: we hit the end. No more possible splits.
+#ifdef debug
+        cerr << "Not advancing empty split" << endl;
+#endif
         return false;
     } else {
+        
+#ifdef debug
+        cerr << "Trying to advance split with " << *start << " items in first category" << endl;
+#endif
+    
         // Try advancing what comes after us.
         auto next = start;
         ++next;
         if (advance_split(next, end)) {
             // It worked.
+#ifdef debug
+            cerr << "Advanced child split" << endl;
+#endif
             return true;
         }
+        
+#ifdef debug
+        cerr << "Could not advance child split" << endl;
+#endif
         
         // If that didn't work, try moving an item from here to what comes after us.
         // We also need to reset what comes after us to its initial state of everything in the first category.
         // This is easy because we know everything in what comes after us has made its way to the end.
         if (*start != 0 && next != end) {
             // We have something to move
-            *start--;
-            *next++;
             
             // Do the reset so everything after us is in the first category
             // after us.
             auto next_to_last = end;
             --next_to_last;
+            
+#ifdef debug
+            cerr << "Want to move " << *next_to_last << " items to next which has " << *next << " and also move one from start which has " << *start << endl;
+#endif
+            
             if (next_to_last != next) {
-                *next += *next_to_last;
+                (*next) += *next_to_last;
                 *next_to_last = 0;
             }
+            
+            (*start)--;
+            (*next)++;
+            
+#ifdef debug
+            cerr << "Reset child split to have " << *next << " items vs. our " << *start << endl;
+#endif
             
             return true;
         }
         
         // If that didn't work, we're out of stuff to do.
+#ifdef debug
+        cerr << "Could not advance or reset child split" << endl;
+#endif
+        
+
         return false;
     }
 }
@@ -248,7 +279,7 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
         // category assignments.
         auto& class_state = splits_by_class[kv.first];
         
-        for (auto& bit : kv.first) {
+        for (const auto& bit : kv.first) {
             // Allocate a spot for each set bit
             if (bit) {
                 class_state.push_back(0);
@@ -341,6 +372,10 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
             if (advance_split(stack.back()->second.begin(), stack.back()->second.end())) {
                 // We advanced it successfully.
                 
+#ifdef debug
+                cerr << "Advanced class at stack depth " << stack.size() - 1 << endl;
+#endif
+                
                 // Put it back in the category counts
                 add_class_state(*stack.back());
                 
@@ -350,6 +385,11 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
                 // We finally found something to advance, so stop ascending the stack.
                 break;
             } else {
+    
+#ifdef debug
+                cerr << "Could not advanced class at stack depth " << stack.size() - 1 << endl;
+#endif
+            
                 // Pop off the back of the stack.
                 stack.pop_back();
                 atom_counts_ln.pop_back();
@@ -381,6 +421,10 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
                 // And make sure the category counts are up to date.
                 add_class_state(*it);
                 
+#ifdef debug
+                cerr << "Reset class at stack depth " << stack.size() - 1 << endl;
+#endif
+                
                 // Look for the next class
                 ++it;
             }
@@ -394,6 +438,8 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
     // TODO: calculate
     return 0;
 }
+
+#undef debug
 
 }
 

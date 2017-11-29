@@ -16,5 +16,14 @@ TEST_CASE( "Factorials are computed", "[distributions][factorial]" ) {
     REQUIRE(factorial_ln(10) == Approx(log(3628800)).epsilon(1E-10));
 }
 
+TEST_CASE( "Ambiguous multinomial works", "[distributions][multinomial]" ) {
+
+    vector<double> probs{0.5, 0.25, 0.25};
+    unordered_map<vector<bool>, int> obs{{{true, false, false}, 1}, {{false, true, true}, 2}};
+
+    REQUIRE(multinomial_censored_sampling_prob_ln(probs, obs) == Approx(log(0.125)).epsilon(1E-10));
+
+}
+
 }
 }
