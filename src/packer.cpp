@@ -47,6 +47,28 @@ void Packer::merge_from_files(const vector<string>& file_names) {
             bin_size = c.get_bin_size();
             n_bins = c.get_n_bins();
             ensure_edit_tmpfiles_open();
+            first = false;
+        } else {
+            assert(bin_size == c.get_bin_size());
+            assert(n_bins == c.get_n_bins());
+        }
+        c.write_edits(tmpfstreams);
+        collect_coverage(c);
+    }
+}
+
+void Packer::merge_from_dynamic(vector<Packer*>& packers) {
+    // load dynamic packs into our dynamic structures, then compact
+    bool first = true;
+    for (auto& p : packers) {
+        auto& c = *p;
+        c.close_edit_tmpfiles(); // flush and close temporaries
+        // take bin size and counts from the first, assume they are all the same
+        if (first) {
+            bin_size = c.get_bin_size();
+            n_bins = c.get_n_bins();
+            ensure_edit_tmpfiles_open();
+            first = false;
         } else {
             assert(bin_size == c.get_bin_size());
             assert(n_bins == c.get_n_bins());
@@ -79,11 +101,20 @@ void Packer::write_edits(vector<ofstream*>& out) const {
 }
 
 void Packer::write_edits(ostream& out, size_t bin) const {
-    out << extract(edit_csas[bin], 0, edit_csas[bin].size()-2) << delim1; // chomp trailing null, add back delim
+    if (is_compacted) {
+        out << extract(edit_csas[bin], 0, edit_csas[bin].size()-2) << delim1; // chomp trailing null, add back delim        
+    } else {
+        // uncompacted, so just cat the edit file for this bin onto out
+        if (edit_tmpfile_names.size()) {
+            ifstream edits(edit_tmpfile_names[bin], std::ios_base::binary);
+            out << edits.rdbuf() << delim1;
+        }
+    }
 }
 
 void Packer::collect_coverage(const Packer& c) {
     // assume the same basis vector
+    assert(!is_compacted);
     for (size_t i = 0; i < c.graph_length(); ++i) {
         coverage_dynamic.increment(i, c.coverage_at_position(i));
     }
@@ -119,6 +150,7 @@ void Packer::make_compact(void) {
     }
     edit_csas.resize(edit_tmpfile_names.size());
     util::assign(coverage_civ, coverage_iv);
+#pragma omp parallel for
     for (size_t i = 0; i < edit_tmpfile_names.size(); ++i) {
         construct(edit_csas[i], edit_tmpfile_names[i], 1);
     }
@@ -134,9 +166,13 @@ void Packer::make_dynamic(void) {
     is_compacted = false;
 }
 
+bool Packer::is_dynamic(void) {
+    return !is_compacted;
+}
+
 void Packer::ensure_edit_tmpfiles_open(void) {
     if (tmpfstreams.empty()) {
-        string base = ".vg-counter";
+        string base = ".vg-pack_";
         string edit_tmpfile_name = tmpfilename(base);
         std::remove(edit_tmpfile_name.c_str()); // remove this; we'll use it as a base name
         // for as many bins as we have, make a temp file
@@ -145,7 +181,7 @@ void Packer::ensure_edit_tmpfiles_open(void) {
         for (size_t i = 0; i < n_bins; ++i) {
             edit_tmpfile_names[i] = edit_tmpfile_name+"_"+convert(i);
             tmpfstreams[i] = new ofstream;
-            tmpfstreams[i]->open(edit_tmpfile_names[i]);
+            tmpfstreams[i]->open(edit_tmpfile_names[i], std::ios_base::binary);
             assert(tmpfstreams[i]->is_open());
         }
     }
@@ -273,11 +309,19 @@ string Packer::unescape_delim(const string& s, char d) const {
 }
 
 size_t Packer::graph_length(void) const {
-    return coverage_civ.size();
+    if (is_compacted) {
+        return coverage_civ.size();
+    } else {
+        return coverage_dynamic.size();
+    }
 }
 
 size_t Packer::coverage_at_position(size_t i) const {
-    return coverage_civ[i];
+    if (is_compacted) {
+        return coverage_civ[i];
+    } else {
+        return coverage_dynamic[i];
+    }
 }
 
 vector<Edit> Packer::edits_at_position(size_t i) const {

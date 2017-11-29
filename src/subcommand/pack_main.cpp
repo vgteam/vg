@@ -113,6 +113,7 @@ int main_pack(int argc, char** argv) {
     }
 
     // todo one packer per thread and merge
+
     vg::Packer packer(&xgidx, bin_size);
     if (packs_in.size() == 1) {
         packer.load_from_file(packs_in.front());
@@ -121,15 +122,33 @@ int main_pack(int argc, char** argv) {
     }
 
     if (!gam_in.empty()) {
-        std::function<void(Alignment&)> lambda = [&packer,&record_edits](Alignment& aln) { packer.add(aln, record_edits); };
+        vector<vg::Packer*> packers;
+        if (thread_count == 1) {
+            packers.push_back(&packer);
+        } else {
+            for (size_t i = 0; i < thread_count; ++i) {
+                packers.push_back(new Packer(&xgidx, bin_size));
+            }
+        }
+        std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers](Alignment& aln) { packers[omp_get_thread_num()]->add(aln, record_edits); };
         if (gam_in == "-") {
-            stream::for_each(std::cin, lambda);
+            stream::for_each_parallel(std::cin, lambda);
         } else {
             ifstream gam_stream(gam_in);
-            stream::for_each(gam_stream, lambda);
+            stream::for_each_parallel(gam_stream, lambda);
             gam_stream.close();
         }
+        if (thread_count == 1) {
+            packers.clear();
+        } else {
+            packer.merge_from_dynamic(packers);
+            for (auto& p : packers) {
+                delete p;
+            }
+            packers.clear();
+        }
     }
+
     if (!packs_out.empty()) {
         packer.save_to_file(packs_out);
     }

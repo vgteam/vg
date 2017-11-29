@@ -27,6 +27,7 @@ public:
     ~Packer(void);
     xg::XG* xgidx;
     void merge_from_files(const vector<string>& file_names);
+    void merge_from_dynamic(vector<Packer*>& packers);
     void load_from_file(const string& file_name);
     void save_to_file(const string& file_name);
     void load(istream& in);
@@ -49,6 +50,7 @@ public:
     void write_edits(ostream& out, size_t bin) const; // for merge
     size_t get_bin_size(void) const;
     size_t get_n_bins(void) const;
+    bool is_dynamic(void);
 private:
     void ensure_edit_tmpfiles_open(void);
     void close_edit_tmpfiles(void);
@@ -64,7 +66,7 @@ private:
     size_t bin_size = 0;
     size_t edit_length;
     size_t edit_count;
-    vlc_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
+    dac_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
     //
     vector<csa_sada<enc_vector<>, 32, 32, sa_order_sa_sampling<>, isa_sampling<>, succinct_byte_alphabet<> > > edit_csas;
     // make separators that are somewhat unusual, as we escape these
