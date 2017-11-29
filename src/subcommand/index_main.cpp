@@ -544,10 +544,6 @@ int main_index(int argc, char** argv) {
                 cerr << "Processing samples " << sample_range.first << " to " << (sample_range.second - 1) << " with batch size " << samples_in_batch << endl;
             }
 
-            // Process the samples in batches to save memory.
-            size_t batch_start = sample_range.first, batch_limit = std::min(batch_start + samples_in_batch, sample_range.second);
-            size_t first_phase = 2 * batch_start, phases_in_batch = 2 * samples_in_batch;
-
             for (size_t path_rank = 1; path_rank <= index.max_path_rank(); path_rank++) {
                 // Find all the reference paths and loop over them. We'll just
                 // assume paths that don't start with "_" might appear in the
@@ -573,6 +569,10 @@ int main_index(int argc, char** argv) {
                 // We're going to extract it and index it, so we don't keep
                 // making queries against it for every sample.
                 PathIndex path_index(index.path(path_name));
+
+                // Process the samples in batches to save memory.
+                size_t batch_start = sample_range.first, batch_limit = std::min(batch_start + samples_in_batch, sample_range.second);
+                size_t first_phase = 2 * batch_start, phases_in_batch = 2 * samples_in_batch;
 
                 // Allocate some threads to store phase threads
                 vector<vector<gbwt::node_type>> active_phase_threads(phases_in_batch);
