@@ -8593,8 +8593,6 @@ vector<Node*> VG::tail_nodes(void) {
     return tails;
 }
 
-
-
 void VG::wrap_with_null_nodes(void) {
     vector<Node*> heads;
     head_nodes(heads);

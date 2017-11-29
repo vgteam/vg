@@ -1355,10 +1355,8 @@ public:
     void join_heads(Node* node, bool from_start = false);
     /// Join tail nodes of graph to specified node. Optionally from the start/to the end of the new node.
     void join_tails(Node* node, bool to_end = false);
-
     /// Add singular head and tail null nodes to graph.
     void wrap_with_null_nodes(void);
-
     /// Add a start node and an end node, where all existing heads in the graph
     /// are connected to the start node, and all existing tails in the graph are
     /// connected to the end node. Any connected components in the graph which do

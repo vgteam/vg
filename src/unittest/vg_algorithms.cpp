@@ -2936,7 +2936,7 @@ namespace vg {
 
                 int32_t check = algorithms::distance_to_head(n, limit, 0, trav, &vg);
                 
-                REQUIRE(check == 10);
+                REQUIRE(check == 9);
             }
             SECTION("distance_to_head() using HandleGraph works when limit is less than the distance") {
                 vg.create_edge(n0, n1);
@@ -2987,11 +2987,11 @@ namespace vg {
                 // if there are 2 previous nodes, gets the distance of previous node that was made first
                 int32_t check = algorithms::distance_to_head(n, limit, 0, trav, &vg);
                 
-                REQUIRE(check == 12);
+                REQUIRE(check == 9);
             }
         }
 
-        TEST_CASE("Simplified distance_to_head() produces expected results", "[vg]") {
+        TEST_CASE("Simplified distance_to_head() using HandleGraph produces expected results", "[vg]") {
             VG vg;
             Node* n0 = vg.create_node("AA");
             Node* n1 = vg.create_node("ACTGA");
@@ -3018,7 +3018,7 @@ namespace vg {
 
                 int32_t check = algorithms::distance_to_head(n, limit, &vg);
                 
-                REQUIRE(check == 10);
+                REQUIRE(check == 9);
             }
             SECTION("Simplified distance_to_head() using HandleGraph works when limit is less than the distance") {
                 vg.create_edge(n0, n1);
@@ -3061,15 +3061,16 @@ namespace vg {
                 vg.create_edge(n0, n4);
                 vg.create_edge(n4, n5);
                 vg.create_edge(n0, n6);
-                vg.create_edge(n6, n1);
                 vg.create_edge(n5, n1);
+                vg.create_edge(n6, n1);
+        
                 // Set handle to the node you are currently on
                 n = vg.get_handle(n1->id(),false);
                 int32_t limit = 100;
                 // if there are 2 previous nodes, gets the distance of previous node that was made first
                 int32_t check = algorithms::distance_to_head(n, limit, &vg);
                 
-                REQUIRE(check == 12);
+                REQUIRE(check == 6);
             }
         }
 
@@ -3101,7 +3102,7 @@ namespace vg {
 
                 int32_t check = algorithms::distance_to_tail(n, limit, 0, trav, &vg);
                 
-                REQUIRE(check == 9);
+                REQUIRE(check == 10);
             }
             SECTION("distance_to_tail() using HandleGraph works when limit is less than the distance") {
                 vg.create_edge(n0, n1);
@@ -3157,7 +3158,7 @@ namespace vg {
                 // if there are 3 next nodes, gets the distance of next node that was made first
                 int32_t check = algorithms::distance_to_tail(n, limit, 0, trav, &vg);
                 
-                REQUIRE(check == 9);
+                REQUIRE(check == 12);
             }
         }
         TEST_CASE("Simplified distance_to_tail() using HandleGraph produces expected results", "[vg]") {
@@ -3188,7 +3189,7 @@ namespace vg {
 
                 int32_t check = algorithms::distance_to_tail(n, limit, &vg);
                 
-                REQUIRE(check == 9);
+                REQUIRE(check == 10);
             }
             SECTION("Simplified distance_to_tail() using HandleGraph works when limit is less than the distance") {
                 vg.create_edge(n0, n1);
@@ -3244,7 +3245,7 @@ namespace vg {
                 // if there are 3 next nodes, gets the distance of next node that was made first
                 int32_t check = algorithms::distance_to_tail(n, limit, &vg);
                 
-                REQUIRE(check == 9);
+                REQUIRE(check == 12);
             }
         }
 
