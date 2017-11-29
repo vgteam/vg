@@ -527,8 +527,15 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
             int64_t suffix_length = alignment.sequence().end() - pivot.mem->end;
             
             // the limits of how far away we might detect edges to add to the clustering graph
-            int64_t target_low_pos = strand_pos - max_expected_dist_approx_error;
-            int64_t target_hi_pos = strand_pos + suffix_length + forward_gap_length;
+            int64_t target_hi_pos, target_low_pos;
+            if (unstranded) {
+                target_low_pos = strand_pos - suffix_length - forward_gap_length;
+                target_hi_pos = strand_pos + suffix_length + forward_gap_length;
+            }
+            else {
+                target_low_pos = strand_pos - max_expected_dist_approx_error;
+                target_hi_pos = strand_pos + suffix_length + forward_gap_length;
+            }
             
             // move the lower boundary of the search interval to the lowest value inside the
             // the target interval
@@ -574,11 +581,18 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                     
                     continue;
                 }
-                
                 // the length of the sequence in between the MEMs (can be negative if they overlap)
                 int64_t between_length = next.mem->begin - pivot.mem->end;
+                
                 // the estimated distance between the end of the pivot and the start of the next MEM in the graph
-                int64_t graph_dist = sorted_pos[j].first - strand_pos - pivot_length;
+                int64_t graph_dist;
+                if (unstranded) {
+                    // here we make the charitable assumption that it is on the correct strand
+                    graph_dist = abs(sorted_pos[j].first - strand_pos) - pivot_length;
+                }
+                else {
+                    graph_dist = sorted_pos[j].first - strand_pos - pivot_length;
+                }
                 
                 int32_t edge_score;
                 if (between_length < 0) {
@@ -818,7 +832,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_fai
     sort(buckets.begin(), buckets.end());
     
 #ifdef debug_od_clusterer
-    cerr << "strand buckets:" << endl;
+    cerr << "path buckets:" << endl;
     for (auto buck : buckets) {
         cerr << "\t";
         for (auto i : items_on_path[buck]) {

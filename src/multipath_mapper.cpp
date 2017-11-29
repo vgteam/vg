@@ -856,8 +856,16 @@ namespace vg {
         double stdev = fragment_length_distr.stdev();
         
         // Chebyshev bound for 99% of all fragments regardless of distribution
-        int64_t max_separation = (int64_t) ceil(mean + 10.0 * stdev);
-        int64_t min_separation = (int64_t) mean - 10.0 * stdev;
+        // TODO: I don't love having this internal aspect of the stranded/unstranded clustering outside the clusterer...
+        int64_t max_separation, min_separation;
+        if (unstranded_clustering) {
+            max_separation = (int64_t) ceil(abs(mean) + 10.0 * stdev);
+            min_separation = -max_separation;
+        }
+        else {
+            max_separation = (int64_t) ceil(mean + 10.0 * stdev);
+            min_separation = (int64_t) mean - 10.0 * stdev;
+        }
         
         // Compute the pairs of cluster graphs and their approximate distances from each other
         vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs = OrientedDistanceClusterer::pair_clusters(alignment1,
@@ -867,7 +875,7 @@ namespace vg {
                                                                                                              xindex,
                                                                                                              min_separation,
                                                                                                              max_separation,
-                                                                                                             false,
+                                                                                                             unstranded_clustering,
                                                                                                              &paths_of_node_memo,
                                                                                                              &oriented_occurences_memo,
                                                                                                              &handle_memo);

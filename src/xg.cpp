@@ -3284,6 +3284,164 @@ vector<tuple<int64_t, bool, size_t>> XG::jump_along_closest_path(int64_t id, boo
     
     return std::move(to_return);
 }
+    
+bool XG::validate_strand_consistency(int64_t id1, size_t offset1, bool rev1,
+                                     int64_t id2, size_t offset2, bool rev2,
+                                     size_t max_search_dist,
+                                     unordered_map<int64_t, vector<size_t>>* paths_of_node_memo,
+                                     unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo,
+                                     unordered_map<pair<int64_t, bool>, handle_t>* handle_memo) const{
+    
+    unordered_set<pair<size_t, bool>> path_strands_1;
+    unordered_set<pair<size_t, bool>> path_strands_2;
+    
+    // ensure that the paths of the start nodes are added, even if their ends are too far away
+    // from the positions for the search to explore
+    for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : memoized_oriented_paths_of_node(id1, paths_of_node_memo, oriented_occurrences_memo)) {
+        for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
+            pair<size_t, bool> path_occurrence(oriented_occurrences.first, occurrence.second != rev1);
+            pair<size_t, bool> opposite_path_occurrence(path_occurrence.first, !path_occurrence.second);
+            if (path_strands_1.count(opposite_path_occurrence)) {
+                continue;
+            }
+            path_strands_1.insert(path_occurrence);
+        }
+    }
+    for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : memoized_oriented_paths_of_node(id2, paths_of_node_memo, oriented_occurrences_memo)) {
+        for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
+            pair<size_t, bool> path_occurrence(oriented_occurrences.first, occurrence.second != rev2);
+            pair<size_t, bool> opposite_path_occurrence(path_occurrence.first, !path_occurrence.second);
+            
+            if (path_strands_2.count(opposite_path_occurrence)) {
+                continue;
+            }
+            
+            if (path_strands_1.count(path_occurrence)) {
+                return true;
+            }
+            
+            path_strands_2.insert(path_occurrence);
+        }
+    }
+    
+    // a local struct for traversals that are ordered by search distance and keep
+    // track of whether we're searching to the left or right
+    struct Traversal {
+        Traversal() {}
+        Traversal(int64_t dist, handle_t handle, bool search_left) :
+        dist(dist), handle(handle), search_left(search_left) {}
+        handle_t handle;
+        int64_t dist;
+        bool search_left;
+        inline bool operator<(const Traversal& other) const {
+            return dist > other.dist; // opposite order so priority queue selects minimum
+        }
+    };
+    
+    // if we already found shared paths on the start nodes, don't search anymore
+    if (max_search_dist > 0) {
+#ifdef debug_algorithms
+        cerr << "[XG] no shared paths detected, beginning traversals" << endl;
+#endif
+        // priority queues over traversals
+        // distance is measure at the end of the node, so it's actually the distance
+        // to the next nodes we will traverse to
+        // there is a separate queue for each of the positions
+        priority_queue<Traversal> queue_1, queue_2;
+        unordered_set<handle_t> queued_1, queued_2;
+        
+#ifdef debug_algorithms
+        cerr << "[XG] getting handles for search starts" << endl;
+#endif
+        // get handles to the starting positions
+        handle_t handle1 = memoized_get_handle(id1, rev1, handle_memo);
+        handle_t handle2 = memoized_get_handle(id2, rev2, handle_memo);
+        
+#ifdef debug_algorithms
+        cerr << "[XG] initializing queues" << endl;
+#endif
+        
+        // add in the initial traversals toward each other
+        queue_1.emplace(-((int64_t) offset1), handle1, false);
+        queue_2.emplace((int64_t) offset2 - (int64_t) get_length(handle2), handle2, true);
+        
+        // mark the initial traversals as queued
+        queued_1.insert(handle1);
+        queued_2.insert(handle2);
+        
+        while (!(queue_1.empty() && queue_2.empty())) {
+            // get the queue that has the next shortest path
+#ifdef debug_algorithms
+            cerr << "[XG] choosing queue for next traversal" << endl;
+#endif
+            auto curr_queue = &queue_1;
+            auto curr_queued = &queued_1;
+            auto other_queued = &queued_2;
+            auto curr_path_strands = &path_strands_1;
+            auto other_path_strands = &path_strands_2;
+            if (queue_1.empty() ? true : (queue_2.empty() ? false : queue_1.top().dist > queue_2.top().dist)) {
+                curr_queue = &queue_2;
+                std::swap(curr_queued, other_queued);
+                std::swap(curr_path_strands, other_path_strands);
+            }
+            
+            Traversal trav = curr_queue->top();
+            curr_queue->pop();
+            
+#ifdef debug_algorithms
+            cerr << "[XG] traversing " << get_id(trav.handle) << (get_is_reverse(trav.handle) ? "-" : "+") << " in " << (trav.search_left ? "leftward" : "rightward") << " direction at distance " << trav.dist << endl;
+#endif
+            
+            // don't look any further if the next closest traversal is beyond the maximum distance
+            if ( trav.dist > (int64_t) max_search_dist) {
+                break;
+            }
+            
+            int64_t dist = trav.dist + get_length(trav.handle);
+            
+            int64_t trav_id = get_id(trav.handle);
+            bool trav_is_rev = get_is_reverse(trav.handle);
+            
+            if ((trav_id != id1 || trav_is_rev != rev1) && (trav_id != id2 || trav_is_rev != rev2)) {
+                // this is not one of the start positions, so it might have new paths on it
+                for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : memoized_oriented_paths_of_node(trav_id, paths_of_node_memo, oriented_occurrences_memo)) {
+                    for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
+#ifdef debug_algorithms
+                        cerr << "\tnode is on path " << oriented_occurrences.first << " in " << (occurrence.second ? "reverse" : "forward") << " orientation" << endl;
+#endif
+                        pair<size_t, bool> path_orientation(oriented_occurrences.first, occurrence.second != trav_is_rev);
+                        pair<size_t, bool> opposite_orientation(path_orientation.first, !path_orientation.second);
+                        
+                        if (curr_path_strands->count(opposite_orientation)) {
+                            continue;
+                        }
+                        
+                        if (other_path_strands->count(path_orientation) || other_queued->count(trav.handle)) {
+                            return true;
+                        }
+                        
+                        curr_path_strands->insert(path_orientation);
+                    }
+                }
+            }
+            
+            function<bool(const handle_t& next)> enqueue_next = [&](const handle_t& next) {
+                if (!curr_queued->count(next)) {
+#ifdef debug_algorithms
+                    cerr << "\tfollowing edge to " << get_id(next) << (get_is_reverse(trav.handle) ? "-" : "+") << " at dist " << dist << endl;
+#endif
+                    curr_queued->emplace(next);
+                    curr_queue->emplace(dist, next, trav.search_left);
+                }
+                return true;
+            };
+            
+            follow_edges(trav.handle, trav.search_left, enqueue_next);
+        }
+    }
+    
+    return false;
+}
 
 void XG::for_path_range(const string& name, int64_t start, int64_t stop,
                         function<void(int64_t)> lambda, bool is_rev) const {
