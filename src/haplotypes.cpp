@@ -51,6 +51,22 @@ hDP_graph_accessor::hDP_graph_accessor(xg::XG& graph,
     
 }
 
+bool hDP_graph_accessor::has_edge() const {
+  vg::Edge edge_taken = xg::make_edge(old_node.node_id, old_node.is_reverse, new_node.node_id, new_node.is_reverse);
+
+  bool edge_found = false;
+
+  for(auto& edge : edges.edges_out()) {
+    // Look at every edge in order.
+    if(xg::edges_equivalent(edge, edge_taken)) {
+      // If we found the edge we're taking, break.
+      edge_found = true;
+      break;
+    }
+  }
+  return edge_found;
+}
+
 int64_t hDP_graph_accessor::new_side() const {
   return graph.id_to_rank(new_node.node_id) * 2 + new_node.is_reverse;
 }
@@ -206,7 +222,6 @@ void haplo_DP_column::update_inner_values() {
   (entries.back())->calculate_I(0);
 }
 
-
 // void haplo_DP_column::binary_extend_intervals(hDP_graph_accessor& ga, int_itvl_t indices, int_itvl_t ss_deltas, int_itvl_t state_sizes) {
 //   if(indices.size() <= 1) {
 //     return;
@@ -251,7 +266,7 @@ void haplo_DP_column::update_score_vector(RRMemo& memo) {
     double logpS1S2RRS = previous_sum + 
                          memo.log_recombination_penalty() + 
                          memo.logS(r_0->interval_size(), length);
-    double logS1 = int_weighted_sum(continuing_Rs, continuing_counts);
+    double logS1 = haploMath::int_weighted_sum(continuing_Rs, continuing_counts);
     double logS1RRD = logS1 + memo.logRRDiff(r_0->interval_size(), length);
     size_t i = 0;
     if(r_0->prev_idx() == -1) {
@@ -263,19 +278,19 @@ void haplo_DP_column::update_score_vector(RRMemo& memo) {
         double logLHS = memo.logT_base +
                         previous_R(i) +
                         memo.logT(length);
-        entries[i]->R = logsum(logLHS, logpS1S2RRS);
+        entries[i]->R = haploMath::logsum(logLHS, logpS1S2RRS);
       }
     } else {
       for(i; i < entries.size(); i++) {
         double logLHS = memo.logT_base +
-                        logsum(logS1RRD, previous_R(i) + memo.logT(length));
-        entries[i]->R = logsum(logLHS, logpS1S2RRS);
+                        haploMath::logsum(logS1RRD, previous_R(i) + memo.logT(length));
+        entries[i]->R = haploMath::logsum(logLHS, logpS1S2RRS);
       }
     }
   }
   previous_values = get_scores();
   previous_sizes = get_sizes();
-  sum = int_weighted_sum(previous_values, previous_sizes);
+  sum = haploMath::int_weighted_sum(previous_values, previous_sizes);
 }
 
 double haplo_DP_column::previous_R(size_t i) const {
@@ -310,18 +325,21 @@ haplo_DP::haplo_DP(hDP_graph_accessor& ga) : DP_column(haplo_DP_column(ga)) {
   
 }
 
-double haplo_DP::score(const vg::Path& path, xg::XG& graph, RRMemo& memo) {
+haplo_score_type haplo_DP::score(const vg::Path& path, xg::XG& graph, RRMemo& memo) {
   return score(path_to_thread_t(path), graph, memo);
 }
 
-double haplo_DP::score(const thread_t& thread, xg::XG& graph, RRMemo& memo) {
+haplo_score_type haplo_DP::score(const thread_t& thread, xg::XG& graph, RRMemo& memo) {
   hDP_graph_accessor ga_i(graph, thread[0], thread[0], memo);
   haplo_DP hdp(ga_i);
   for(size_t i = 1; i < thread.size(); i++) {
     hDP_graph_accessor ga(graph, thread[i-1], thread[i], memo);
+    if(!ga.has_edge()) {
+      return pair<double, bool>(0.0, false);
+    }
     hdp.DP_column.extend(ga);
   }
-  return hdp.DP_column.current_sum();
+  return pair<double, bool>(hdp.DP_column.current_sum(), true);
 }
 
 void haplo_DP::print(ostream& out) const {
@@ -370,7 +388,7 @@ RRMemo::RRMemo(double recombination_penalty, size_t population_size) :
   }
 }
 
-double logdiff(double a, double b) {
+double haploMath::logdiff(double a, double b) {
   if(b > a) {
     double c = a;
     a = b;
@@ -379,7 +397,7 @@ double logdiff(double a, double b) {
   return a + log1p(-exp(b - a));
 }
 
-double logsum(double a, double b) {
+double haploMath::logsum(double a, double b) {
   if(b > a) {
     double c = a;
     a = b;
@@ -388,7 +406,32 @@ double logsum(double a, double b) {
   return a + log1p(exp(b - a));
 }
 
-double int_weighted_sum(vector<double> values, vector<int64_t> counts) {
+double haploMath::int_weighted_sum(double* values, int64_t* counts, size_t n_values) {
+  if(n_values == 1) {
+    return values[0] + log(counts[0]);
+  } else {
+    double max_summand = values[0] + log(counts[0]);
+    int max_index = 0;
+    vector<double> summands;
+    for(int i = 0; i < n_values; i++){
+      summands.push_back(values[i] + log(counts[i]));
+      if(summands.back() > max_summand) {
+        max_summand = summands.back();
+        max_index = i;
+      }
+    }
+    double sum = 0;
+    for(int i = 0; i < summands.size(); i++) {
+      if(i != max_index) {
+        sum += exp(summands[i]-max_summand);
+      }
+    }
+    return max_summand + log1p(sum);
+  }
+}
+
+
+double haploMath::int_weighted_sum(vector<double> values, vector<int64_t> counts) {
   if(values.size() == 1) {
     return values[0] + log(counts[0]);
   } else {
@@ -422,7 +465,7 @@ double RRMemo::logS(int height, int width) {
 
 double RRMemo::logRRDiff(int height, int width) {
 
-  return logdiff(logS(height,width),logT(width)) - log(height);
+  return haploMath::logdiff(logS(height,width),logT(width)) - log(height);
 }
 
 double RRMemo::log_continue_factor(int64_t totwidth) {
@@ -505,26 +548,4 @@ double RRMemo::rr_all(int height, int width) {
   }
 
   return S_value(height, width);
-}
-
-// Unmemoized implementations of same polynomials
-
-double rr_diff(int height, int width, double recombination_penalty) {
-  double exp_rho = exp(-recombination_penalty);
-  return (pow(1.0 + (height - 1.0) * exp_rho, width - 1.0) - pow(1.0 - exp_rho, width - 1.0)) / height;
-}
-
-double rr_same(int height, int width, double recombination_penalty) {
-  double exp_rho = exp(-recombination_penalty);
-  double T_val = pow(1.0 - exp_rho, width - 1.0);
-  return (pow(1.0 + (height - 1.0) * exp_rho, width - 1.0) - T_val) / height + T_val;
-}
-
-double rr_adj(int width, double recombination_penalty) {
-  return pow(1.0 - exp(-recombination_penalty), width - 1.0);
-}
-
-double rr_all(int height, int width, double recombination_penalty) {
-  double exp_rho = exp(-recombination_penalty);
-  return exp_rho * pow(1.0 + (height - 1.0) * exp_rho, width - 1.0);
 }

@@ -10,12 +10,20 @@
 using namespace std;
 using thread_t = vector<xg::XG::ThreadMapping>;
 
-double logsum(double a, double b);
-double logdiff(double a, double b);
-double int_weighted_sum(vector<double> values, vector<int64_t> counts);
+namespace haploMath{
+  double logsum(double a, double b);
+  double logdiff(double a, double b);
+  double int_weighted_sum(vector<double> values, vector<int64_t> counts);
+  double int_weighted_sum(double* values, int64_t* counts, size_t n_entries);
+}
 
-//  RRMemo functions
-//  Created by Jordan Eizenga on 6/21/16.
+// -----------------------------------------------------------------------------
+//  RRMemo
+//  Created by Jordan Eizenga on 6/21/16
+// -----------------------------------------------------------------------------
+//  Stores memoized values of constants and scaling factors which are used in
+//  the forward matrix extension
+// -----------------------------------------------------------------------------
 struct RRMemo {
 private:
   std::vector<double> S_multipliers;
@@ -57,6 +65,8 @@ public:
   double logRRDiff(int height, int width);
 };
 
+// -----------------------------------------------------------------------------
+
 struct int_itvl_t{
   int64_t bottom;
   int64_t top;
@@ -68,6 +78,8 @@ struct int_itvl_t{
   // unions or differences
   static int_itvl_t intersection(const int_itvl_t& A, const int_itvl_t& B);
 };
+
+// -----------------------------------------------------------------------------
 
 struct haplo_DP_edge_memo {
 private:  
@@ -81,6 +93,8 @@ public:
   const vector<vg::Edge>& edges_in() const;
   const vector<vg::Edge>& edges_out() const;
 };
+
+// -----------------------------------------------------------------------------
 
 struct hDP_graph_accessor {
   const xg::XG::ThreadMapping old_node;
@@ -104,7 +118,17 @@ struct hDP_graph_accessor {
   int64_t new_height() const;
   int64_t old_height() const;
   int64_t new_length() const;
+  
+  bool has_edge() const;
 };
+
+// -----------------------------------------------------------------------------
+
+// struct hDP_gbwt_graph_accessor {
+//   
+// };
+
+// -----------------------------------------------------------------------------
 
 struct haplo_DP_rectangle{
 private:
@@ -122,6 +146,8 @@ public:
   bool is_new() const;
   void calculate_I(int64_t succ_o_val);
 };
+
+// -----------------------------------------------------------------------------
 
 struct haplo_DP_column {
 private:
@@ -149,6 +175,10 @@ public:
 
 thread_t path_to_thread_t(const vg::Path& path);
 
+// -----------------------------------------------------------------------------
+
+typedef pair<double, bool> haplo_score_type;
+
 struct haplo_DP {
 private:
   haplo_DP_column DP_column;
@@ -157,8 +187,8 @@ public:
   haplo_DP_column* get_current_column();
   void print(ostream& out) const;
   
-  static double score(const vg::Path& path, xg::XG& graph, RRMemo& memo);
-  static double score(const thread_t& thread, xg::XG& graph, RRMemo& memo);
+  static haplo_score_type score(const vg::Path& path, xg::XG& graph, RRMemo& memo);
+  static haplo_score_type score(const thread_t& thread, xg::XG& graph, RRMemo& memo);
 };
 
 #endif

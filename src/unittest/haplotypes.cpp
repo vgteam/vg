@@ -127,7 +127,15 @@ TEST_CASE("We can score haplotypes", "[haplo-score]") {
   
   last_sum = hdpc.current_sum();
 
-  REQUIRE(fabs(haplo_DP::score(query, xg_index, memo) - last_sum) < 0.000001);
+  REQUIRE(haplo_DP::score(query, xg_index, memo).second);
+  REQUIRE(fabs(haplo_DP::score(query, xg_index, memo).first - last_sum) < 0.000001);
+  
+  // recognize nonexistent edge
+  hDP_graph_accessor ga14(xg_index, tm[1], tm[4], memo);
+  REQUIRE(!ga14.has_edge());
+  
+  thread_t bad_query = {tm[1], tm[4], tm[2]};
+  REQUIRE(!(haplo_DP::score(bad_query, xg_index, memo).second));
 }
 }
 }
