@@ -485,6 +485,31 @@ namespace vg {
         return false;
     }
     
+    void MultipathMapper::remove_strand_inconsistent_pairs(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
+                                                           OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
+                                                           OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
+                                                           OrientedDistanceClusterer::handle_memo_t* handle_memo) {
+        
+        int64_t search_dist = 0.5 * fragment_length_distr.mean() + 5.0 * fragment_length_distr.stdev();
+        auto end = remove_if(multipath_aln_pairs.begin(), multipath_aln_pairs.end(),
+                             [&](const pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair) {
+                                 Alignment optimal_aln_1, optimal_aln_2;
+                                 optimal_alignment(multipath_aln_pair.first, optimal_aln_1);
+                                 optimal_alignment(multipath_aln_pair.second, optimal_aln_2);
+                                 pos_t pos_1 = initial_position(optimal_aln_1.path());
+                                 pos_t pos_2 = initial_position(optimal_aln_2.path());
+                                 
+                                 return xindex->validate_strand_consistency(id(pos_1), offset(pos_1), is_rev(pos_1),
+                                                                            id(pos_2), offset(pos_2), is_rev(pos_2),
+                                                                            search_dist, paths_of_node_memo, oriented_occurences_memo,
+                                                                            handle_memo);
+                             });
+        
+        if (end != multipath_aln_pairs.end()) {
+            multipath_aln_pairs.resize(end - multipath_aln_pairs.begin());
+        }
+    }
+    
     bool MultipathMapper::align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
                                                               vector<clustergraph_t>& cluster_graphs1,
                                                               vector<clustergraph_t>& cluster_graphs2,
@@ -849,22 +874,16 @@ namespace vg {
             cluster_mems_2[i] = &(get<1>(cluster_graphs2[i]));
         }
         
-        // for debugging:
-        // we can circumvent the fragment estimation code at compile time so we can map individual reads with a
-        // known fragment length distribution without mapping all of the reads used to estimate the distribution
-        double mean = fragment_length_distr.mean();
-        double stdev = fragment_length_distr.stdev();
-        
         // Chebyshev bound for 99% of all fragments regardless of distribution
         // TODO: I don't love having this internal aspect of the stranded/unstranded clustering outside the clusterer...
         int64_t max_separation, min_separation;
         if (unstranded_clustering) {
-            max_separation = (int64_t) ceil(abs(mean) + 10.0 * stdev);
+            max_separation = (int64_t) ceil(abs(fragment_length_distr.mean()) + 10.0 * fragment_length_distr.stdev());
             min_separation = -max_separation;
         }
         else {
-            max_separation = (int64_t) ceil(mean + 10.0 * stdev);
-            min_separation = (int64_t) mean - 10.0 * stdev;
+            max_separation = (int64_t) ceil(fragment_length_distr.mean() + 10.0 * fragment_length_distr.stdev());
+            min_separation = (int64_t) fragment_length_distr.mean() - 10.0 * fragment_length_distr.stdev();
         }
         
         // Compute the pairs of cluster graphs and their approximate distances from each other
@@ -906,7 +925,8 @@ namespace vg {
             // only perform the mappings that satisfy the expectations on distance
             
             align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
-                                         multipath_aln_pairs_out, max_alt_mappings);
+                                         multipath_aln_pairs_out, max_alt_mappings, &paths_of_node_memo,
+                                         &oriented_occurences_memo, &handle_memo);
             
             bool consistent = true;
             bool likely_mismapped_1 = likely_mismapping(multipath_aln_pairs_out.front().first);
@@ -1170,7 +1190,10 @@ namespace vg {
                                                        vector<clustergraph_t>& cluster_graphs2,
                                                        vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                        vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                       size_t max_alt_mappings) {
+                                                       size_t max_alt_mappings,
+                                                       OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
+                                                       OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
+                                                       OrientedDistanceClusterer::handle_memo_t* handle_memo) {
         
         auto get_pair_coverage = [&](const pair<size_t, size_t>& cluster_pair) {
             return get<2>(cluster_graphs1[cluster_pair.first]) + get<2>(cluster_graphs2[cluster_pair.second]);
@@ -1236,6 +1259,10 @@ namespace vg {
         for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
             topologically_order_subpaths(multipath_aln_pair.first);
             topologically_order_subpaths(multipath_aln_pair.second);
+        }
+        
+        if (unstranded_clustering) {
+            remove_strand_inconsistent_pairs(multipath_aln_pairs_out, paths_of_node_memo, oriented_occurences_memo, handle_memo);
         }
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score

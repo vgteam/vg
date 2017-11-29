@@ -126,7 +126,10 @@ namespace vg {
                                           vector<clustergraph_t>& cluster_graphs2,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                          size_t max_alt_mappings);
+                                          size_t max_alt_mappings,
+                                          OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
+                                          OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
+                                          OrientedDistanceClusterer::handle_memo_t* handle_memo);
         
         /// Align the read ends independently, but also try to form rescue alignments for each from
         /// the other. Return true if output obeys pair consistency and false otherwise.
@@ -208,6 +211,12 @@ namespace vg {
         /// Return true if any of the initial positions of the source Subpaths are shared between the two
         /// multipath alignments
         bool share_start_position(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
+        
+        /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them
+        void remove_strand_inconsistent_pairs(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
+                                              OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
+                                              OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
+                                              OrientedDistanceClusterer::handle_memo_t* handle_memo);
         
         SnarlManager* snarl_manager;
         
