@@ -168,7 +168,6 @@ real_t geometric_sampling_prob_ln(ProbIn success_logprob, size_t trials) {
     return logprob_invert(success_logprob) * (trials - 1) + success_logprob;
 }
 
-#define debug
 /**
  * Given a split of items across a certain number of categories, as ints between
  * the two given bidirectional iterators, advance to the next split and return
@@ -262,6 +261,10 @@ bool advance_split(Iter start, Iter end) {
  */
 template<typename ProbIn>
 real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const unordered_map<vector<bool>, int>& obs) {
+    // We fill this with logprobs for all the different cases and then sum them
+    // up.
+    vector<real_t> case_logprobs;
+    
     // We have a state. We advance this state until we can't anymore.
     //
     // The state is, for each ambiguity class, a vector of length equal to
@@ -363,7 +366,13 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
         for (auto& count : category_counts) {
             cerr << count << endl;
         }
+        auto case_logprob = multinomial_sampling_prob_ln(probs, category_counts);
+        cerr << "Case probability: " << logprob_to_prob(case_logprob) << endl;
         
+        auto atom_counts_product_ln = sum(atom_counts_ln);
+        cerr << "Total atoms: " << logprob_to_prob(atom_counts_product_ln) << endl;
+        
+        case_logprobs.push_back(case_logprob);// + atom_counts_product_ln);
         
         do {
             // See if we can advance what's at the bottom of the stack
@@ -434,12 +443,9 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
         
     } while (!stack.empty());
     
-    // Now we return the total likelihood
-    // TODO: calculate
-    return 0;
+    // Sum up all those per-case probabilities
+    return logprob_sum(case_logprobs);
 }
-
-#undef debug
 
 }
 
