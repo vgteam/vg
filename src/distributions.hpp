@@ -81,6 +81,9 @@ inline real_t choose_ln(int n, int k) {
  * choose you have to call this function with a 2-element vector, to represent
  * the chosen and not-chosen buckets. Returns the natural log of the (integer)
  * result.
+ *
+ * TODO: Turns out we don't actually need this for the ambiguous multinomial
+ * after all.
  */
 inline real_t multinomial_choose_ln(int n, vector<int> k) {
     // We use the product-of-binomial-coefficients approach from
@@ -278,6 +281,29 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
     
     // Prepare the state
     for (auto& kv : obs) {
+        // For each input class
+        
+        if (kv.second == 0) {
+            // No reads are in this class, so we can skip it.
+            continue;
+        }
+        
+        // Work out if it actually matches any categories
+        bool has_any_categories = false;
+        for (const auto& bit : kv.first) {
+            if (bit) {
+                has_any_categories = true;
+                break;
+            }
+        }
+        if (!has_any_categories) {
+            // There are reads and they match nothing.
+            // So this case is impossible.
+            return prob_to_logprob(0);
+        }
+        
+        // Otherwise there are reads and they match something.
+        
         // For each class, find the vector we will use to describe its read-to-
         // category assignments.
         auto& class_state = splits_by_class[kv.first];
@@ -288,20 +314,19 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
                 class_state.push_back(0);
             }
         }
-        // Make sure all our classes have at least one category in them.
-        // No magic reads from nowhere allowed.
-        assert(!class_state.empty());
         
         // Drop all the reads in the first category
         class_state.front() = kv.second;
     }
     
+    if (splits_by_class.empty()) {
+        // There are no classes with any reads.
+        // P(nothing happened) = 1.
+        return prob_to_logprob(1);
+    }
+    
     // Now we loop over all the combinations of class states using a stack thing.
     list<decltype(splits_by_class)::iterator> stack;
-    
-    // And we keep these multinomial coefficients up to date, describing the
-    // number of ways each state on the stack can be realized
-    list<real_t> atom_counts_ln;
     
     // And maintain this vector of category counts for the state we are in. We
     // incrementally update it so we aren't always looping over all the classes
@@ -352,29 +377,30 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
         // Populate the stack with everything
         stack.push_back(it);
         
-        // Calculate first multinomial coefficients
-        atom_counts_ln.push_back(multinomial_choose_ln(obs.at(it->first), it->second));
-        
         // And make sure the category counts are up to date.
         add_class_state(*it);
     }
     
-    do {
+    while (!stack.empty()) {
         // Emit the current state
-        // TODO: add its likelihood scaled by its multinomials
+
+#ifdef debug
         cerr << "Category counts:" << endl;
         for (auto& count : category_counts) {
             cerr << count << endl;
         }
+#endif
+
         auto case_logprob = multinomial_sampling_prob_ln(probs, category_counts);
+        
+#ifdef debug
         cerr << "Case probability: " << logprob_to_prob(case_logprob) << endl;
+#endif
         
-        auto atom_counts_product_ln = sum(atom_counts_ln);
-        cerr << "Total atoms: " << logprob_to_prob(atom_counts_product_ln) << endl;
+        // Put in the logprob for this case.
+        case_logprobs.push_back(case_logprob);
         
-        case_logprobs.push_back(case_logprob);// + atom_counts_product_ln);
-        
-        do {
+        while (!stack.empty()) {
             // See if we can advance what's at the bottom of the stack
             // First clear it out of the category counts.
             remove_class_state(*stack.back());
@@ -388,9 +414,6 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
                 // Put it back in the category counts
                 add_class_state(*stack.back());
                 
-                // Calculate its multinomial coefficient again
-                atom_counts_ln.back() = multinomial_choose_ln(obs.at(stack.back()->first), stack.back()->second);
-                
                 // We finally found something to advance, so stop ascending the stack.
                 break;
             } else {
@@ -401,11 +424,10 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
             
                 // Pop off the back of the stack.
                 stack.pop_back();
-                atom_counts_ln.pop_back();
                 
                 // Keep looking up
             }
-        } while (!stack.empty());
+        }
         
         if (!stack.empty()) {
             // We found *something* to advance and haven't finished.
@@ -424,9 +446,6 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
                 // Populate the stack with the next class
                 stack.push_back(it);
                 
-                // Calculate multinomial coefficient
-                atom_counts_ln.push_back(multinomial_choose_ln(obs.at(it->first), it->second));
-                
                 // And make sure the category counts are up to date.
                 add_class_state(*it);
                 
@@ -441,7 +460,7 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
         
         // Otherwise we have finished looping over everything and so we should leave the stack empty.
         
-    } while (!stack.empty());
+    }
     
     // Sum up all those per-case probabilities
     return logprob_sum(case_logprobs);
