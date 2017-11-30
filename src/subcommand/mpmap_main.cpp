@@ -608,6 +608,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mem_reseed_length = reseed_length;
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
+    multipath_mapper.max_sub_mem_recursion_depth = 2;
+    multipath_mapper.use_approximate_sub_mem_hit_count = false;
     multipath_mapper.min_mem_length = min_mem_length;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;

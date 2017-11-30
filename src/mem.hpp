@@ -26,14 +26,13 @@ class MaximalExactMatch {
 
 public:
 
-    //const string* source;
     string::const_iterator begin;
     string::const_iterator end;
     gcsa::range_type range;
     size_t match_count;
     int fragment;
     bool primary; // if not a sub-MEM
-    std::vector<gcsa::node_type> nodes;
+    vector<gcsa::node_type> nodes;
     map<string, vector<pair<size_t, bool> > > positions;
     
     MaximalExactMatch(string::const_iterator b,
