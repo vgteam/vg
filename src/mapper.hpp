@@ -209,6 +209,7 @@ public:
     bool adaptive_reseed_diff; // use an adaptive length difference algorithm in reseed algorithm
     double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
+    bool use_approx_sub_mem_count = true;
     
     bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
     bool assume_acyclic; // the indexed graph is acyclic

@@ -611,6 +611,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.min_mem_length = min_mem_length;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
+    multipath_mapper.use_approx_sub_mem_count = false;
     if (min_clustering_mem_length) {
         multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
     }
