@@ -92,7 +92,7 @@ public:
     int default_sequence_quality = 15;
     
     // How many times must a path recur before we try aligning to it? Also, how
-    // many times must a node in the graph be visnarld before we use it in indel
+    // many times must a node in the graph be visited before we use it in indel
     // realignment for nearby indels? Note that the primary path counts as a
     // recurrence. TODO: novel inserts can't recur, and novel deletions can't be
     // filtered in this way.
@@ -179,12 +179,12 @@ public:
      * the ends at all), collect a list of NodeTraversals in order for the part
      * of the path that is inside the snarl, in the same orientation as the path.
      */
-    list<Mapping> get_traversal_of_snarl(VG& graph, const Snarl* snarl, const SnarlManager& manager, const Path& path);
+    SnarlTraversal get_traversal_of_snarl(VG& graph, const Snarl* snarl, const SnarlManager& manager, const Path& path);
     
     /**
      * Make a list of NodeTraversals into the string they represent.
      */
-    string traversals_to_string(VG& graph, const list<Mapping>& path);
+    string traversals_to_string(VG& graph, const SnarlTraversal& path);
 
     /**
      * Check if a mapping corresponds to the beginning or end of snarl by making
@@ -201,7 +201,7 @@ public:
      * the snarl supported only by reads are subject to a min recurrence count,
      * while those supported by actual embedded named paths are not.
      */
-    vector<list<Mapping>> get_paths_through_snarl(VG& graph, const Snarl* snarl,
+    vector<SnarlTraversal> get_paths_through_snarl(VG& graph, const Snarl* snarl,
         const SnarlManager& manager, const map<string, Alignment*>& reads_by_name);
     
     /**
@@ -227,21 +227,21 @@ public:
      * Affinity is a double out of 1.0. Higher is better.
      */ 
     map<Alignment*, vector<Affinity>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
-        const Snarl* snarl, const SnarlManager& manager, const vector<list<Mapping>>& superbubble_paths);
+        const Snarl* snarl, const SnarlManager& manager, const vector<SnarlTraversal>& superbubble_paths);
         
     /**
      * Get affinities as above but using only string comparison instead of
      * alignment. Affinities are 0 for mismatch and 1 for a perfect match.
      */
     map<Alignment*, vector<Affinity>> get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
-        const Snarl* snarl, const SnarlManager& manager, const vector<list<Mapping>>& superbubble_paths,
+        const Snarl* snarl, const SnarlManager& manager, const vector<SnarlTraversal>& superbubble_paths,
         bool allow_internal_alignments = false);
         
     /**
      * Compute annotated genotype from affinities and superbubble paths.
      * Needs access to the graph so it can chop up the alignments, which requires node sizes.
      */
-    Locus genotype_snarl(VG& graph, const Snarl* snarl, const vector<list<Mapping>>& superbubble_paths, const map<Alignment*, vector<Affinity>>& affinities);
+    Locus genotype_snarl(VG& graph, const Snarl* snarl, const vector<SnarlTraversal>& superbubble_paths, const map<Alignment*, vector<Affinity>>& affinities);
         
     /**
      * Compute the probability of the observed alignments given the genotype.
