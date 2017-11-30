@@ -7,7 +7,7 @@
 #include "lru_cache.h"
 #include "utility.hpp"
 #include "json2pb.h"
-#include "gcsa.h"
+#include <gcsa/gcsa.h>
 #include <iostream>
 
 /** \file 

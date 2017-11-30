@@ -10,7 +10,7 @@
 #include "vg.pb.h"
 #include "fml.h"
 #include "vg.hpp"
-#include "gcsa.h"
+#include <gcsa/gcsa.h>
 #include "alignment.hpp"
 #include "genotypekit.hpp"
 using namespace std;
