@@ -300,7 +300,11 @@ namespace vg {
 #ifdef debug_multipath_mapper
             cerr << "couldn't find unambiguous mapping, adding pair to ambiguous buffer" << endl;
 #endif
-            ambiguous_pair_buffer.emplace_back(alignment1, alignment2);
+            
+#pragma omp critical (ambiguous_pair_buffer)
+            {
+                ambiguous_pair_buffer.emplace_back(alignment1, alignment2);
+            }
         }
         
         
