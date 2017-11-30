@@ -422,7 +422,7 @@ namespace vg {
     size_t MultipathMapper::score_pseudo_length(int32_t score) const {
         const BaseAligner* aligner = get_aligner();
         // empirically, scaling it down seems to give better results
-        return score * aligner->log_base / (3 * aligner->match);
+        return score * aligner->log_base / (4 * aligner->match);
     }
     
     // make the memo live in this .o file
