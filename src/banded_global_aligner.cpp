@@ -1029,9 +1029,9 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
     }
     
     BAMatrix* traceback_seed = nullptr;
-    int64_t traceback_seed_row;
-    int64_t traceback_seed_col;
-    matrix_t traceback_mat;
+    int64_t traceback_seed_row = std::numeric_limits<int64_t>::min();
+    int64_t traceback_seed_col = std::numeric_limits<int64_t>::min();
+    matrix_t traceback_mat = Match;
     
     int64_t curr_diag = top_diag + i;
     

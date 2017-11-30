@@ -526,7 +526,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             auto& mem = mems[i];
             // invalid mem
             if (mem.begin < seq_begin || mem.end > seq_end) continue;
-            int lcpmax = lcp_maxima[i];
+            int lcpmax = 0;
+            if (record_max_lcp) lcpmax = lcp_maxima[i];
             // reseed when...
             if (mem.length() >= min_mem_length // our mem is greater than the min mem length (should be by default)
                 && (use_lcp_reseed_heuristic ? lcpmax : mem.length()) >= reseed_length // is the right length to reseed
