@@ -301,10 +301,7 @@ namespace vg {
             cerr << "couldn't find unambiguous mapping, adding pair to ambiguous buffer" << endl;
 #endif
             
-#pragma omp critical (ambiguous_pair_buffer)
-            {
-                ambiguous_pair_buffer.emplace_back(alignment1, alignment2);
-            }
+            ambiguous_pair_buffer.emplace_back(alignment1, alignment2);
         }
         
         
