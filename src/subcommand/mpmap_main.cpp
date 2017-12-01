@@ -40,8 +40,6 @@ void help_mpmap(char** argv) {
     << "algorithm:" << endl
     << "  -S, --single-path-mode    produce single-path alignments (GAM) instead of multipath alignments (GAMP) (ignores -sua)" << endl
     << "  -s, --snarls FILE         align to alternate paths in these snarls" << endl
-    << "scoring:" << endl
-    << "  -A, --no-qual-adjust      do not perform base quality adjusted alignments (required if input does not have base qualities)" << endl
     << endl
     << "advanced options:" << endl
     << "algorithm:" << endl
@@ -65,6 +63,7 @@ void help_mpmap(char** argv) {
     << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
     << "  -R, --prune-exp FLOAT     prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [2.0]" << endl
     << "scoring:" << endl
+    << "  -A, --qual-adjust         perform base quality adjusted alignments" << endl
     << "  -q, --match INT           use this match score [1]" << endl
     << "  -z, --mismatch INT        use this mismatch penalty [4]" << endl
     << "  -o, --gap-open INT        use this gap open penalty [6]" << endl
@@ -109,7 +108,7 @@ int main_mpmap(int argc, char** argv) {
     double reseed_exp = 0.065;
     bool use_adaptive_reseed = true;
     double cluster_ratio = 0.2;
-    bool qual_adjusted = true;
+    bool qual_adjusted = false;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Approx;
     int band_padding = 2;
@@ -362,7 +361,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'A':
-                qual_adjusted = false;
+                qual_adjusted = true;
                 break;
                 
             case 't':
