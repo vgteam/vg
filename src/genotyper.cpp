@@ -307,14 +307,14 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
                 for(auto& path : paths) {
                     // Announce each allele in turn
 #pragma omp critical (cerr)
-                    cerr << "\t" << traversals_to_string(graph, path) << endl;
+                    cerr << "\t" << traversal_to_string(graph, path) << endl;
                 }
             }
 
             // Compute the lengths of all the alleles
             set<size_t> allele_lengths;
             for(auto& path : paths) {
-                allele_lengths.insert(traversals_to_string(graph, path).size());
+                allele_lengths.insert(traversal_to_string(graph, path).size());
             }
 
             // Get the affinities for all the paths
@@ -393,10 +393,10 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
                     for(size_t i = 0; i < score_totals.size(); i++) {
                         // Spit out average scores of uniquely supporting reads for each allele that has them.
                         if(score_counts.at(i) > 0) {
-                            cerr << "\t" << traversals_to_string(graph, paths.at(i)) << ": "
+                            cerr << "\t" << traversal_to_string(graph, paths.at(i)) << ": "
                                  << score_totals.at(i) / score_counts.at(i) << endl;
                         } else {
-                            cerr << "\t" << traversals_to_string(graph, paths.at(i)) << ": --" << endl;
+                            cerr << "\t" << traversal_to_string(graph, paths.at(i)) << ": --" << endl;
                         }
                     }
 
@@ -1134,7 +1134,7 @@ map<Alignment*, vector<Genotyper::Affinity>>
         // Grab the sequence of the path we are trying the reads against, so we
         // can check for identity across the snarl and not just globally for the
         // read.
-        auto path_seq = traversals_to_string(graph, path);
+        auto path_seq = traversal_to_string(graph, path);
 
         for(auto& name : relevant_read_names) {
             // For every read that touched the ultrabubble, grab its original
@@ -1242,7 +1242,7 @@ map<Alignment*, vector<Genotyper::Affinity>>
             // ends.
 
             // Get the string this read spells out in its best alignment to this allele
-            auto seq = traversals_to_string(graph, read_traversal);
+            auto seq = traversal_to_string(graph, read_traversal);
 
             // Now decide if the read's seq supports this path.
             if(read_traversal.visits(0) == snarl->start() &&
@@ -1352,11 +1352,20 @@ SnarlTraversal Genotyper::get_traversal_of_snarl(VG& graph, const Snarl* snarl, 
     return to_return;
 }
 
-string Genotyper::traversals_to_string(VG& graph, const SnarlTraversal& path) {
+string Genotyper::traversal_to_string(VG& graph, const SnarlTraversal& path) {
     string seq;
-    for (size_t i = 0; i < path.visits_size(); i++) {
-        const Node* node = graph.get_node(path.visits(i).node_id());
-        seq += path.visits(i).backward() ? reverse_complement(node->sequence()) : node->sequence();
+    for (const auto& visit : path.visit()) {
+        // For every visit
+        if (visit.node_id() != 0) {
+            // If it's to a node, but the node's sequenece
+            const Node* node = graph.get_node(visit.node_id());
+            seq += visit.backward() ? reverse_complement(node->sequence()) : node->sequence();
+        } else {
+            // Put a description of the child snarl
+            stringstream s;
+            s << "(" << visit << ")";
+            seq += s.str();
+        }
     }
     return seq;
 }
@@ -1387,7 +1396,7 @@ Genotyper::get_affinities_fast(VG& graph,
     vector<string> allele_strings;
     for(auto& path : snarl_paths) {
         // Convert all the Paths used for alleles back to their strings.
-        allele_strings.push_back(traversals_to_string(graph, path));
+        allele_strings.push_back(traversal_to_string(graph, path));
     }
 
     for(Node* node : contents.first) {
@@ -1448,7 +1457,7 @@ Genotyper::get_affinities_fast(VG& graph,
         size_t total_supported = 0;
 
         // Get the string it spells out
-        auto seq = traversals_to_string(graph, read_traversal);
+        auto seq = traversal_to_string(graph, read_traversal);
 
 #ifdef debug
 #pragma omp critical (cerr)

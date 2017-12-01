@@ -182,9 +182,9 @@ public:
     SnarlTraversal get_traversal_of_snarl(VG& graph, const Snarl* snarl, const SnarlManager& manager, const Path& path);
     
     /**
-     * Make a list of NodeTraversals into the string they represent.
+     * Make a SnarlTraversal into the string it represents, including notes for nested child snarls.
      */
-    string traversals_to_string(VG& graph, const SnarlTraversal& path);
+    string traversal_to_string(VG& graph, const SnarlTraversal& path);
 
     /**
      * Check if a mapping corresponds to the beginning or end of snarl by making
