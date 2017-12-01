@@ -731,7 +731,7 @@ vector<SnarlTraversal> Genotyper::get_paths_through_snarl(VG& graph, const Snarl
                     *path_traversed.add_visit() = to_visit(!traversal_direction ? *mapping :
                         reverse_complement_mapping(*mapping,[&graph](id_t node_id) {
                             return graph.get_node(node_id)->sequence().length();
-                        }));
+                        }), true);
                     
                     if(mapping->position().node_id() == snarl->end().node_id() && mapping->position().is_reverse() == expected_end_orientation) {
                         // Does our mapping actually cross through the ending side?
@@ -1345,7 +1345,7 @@ SnarlTraversal Genotyper::get_traversal_of_snarl(VG& graph, const Snarl* snarl, 
 
         if(contents.first.count(graph.get_node(mapping.position().node_id()))) {
             // We're inside the bubble. This is super simple when we have the contents!
-            *to_return.add_visit() = to_visit(mapping);
+            *to_return.add_visit() = to_visit(mapping, true);
         }
     }
 
