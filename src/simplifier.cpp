@@ -161,9 +161,9 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         
         // Determine the length of the new traversal
         size_t new_site_length = 0;
-        for (size_t i = 1; i < traversal.visits_size() - 1; i++) {
+        for (size_t i = 1; i < traversal.visit_size() - 1; i++) {
             // For every non-anchoring node
-            const Visit& visit = traversal.visits(i);
+            const Visit& visit = traversal.visit(i);
             // Total up the lengths of all the nodes that are newly visited.
             assert(visit.node_id());
             new_site_length += graph.get_node(visit.node_id())->sequence().size();
@@ -528,13 +528,13 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 // traversal backwards along the path we are splicing. If
                 // it's a forward path this is just right to left, but if
                 // it's a reverse path it has to be left to right.
-                for (size_t i = 0; i < traversal.visits_size(); i++) {
+                for (size_t i = 0; i < traversal.visit_size(); i++) {
                     // Find the visit we need next, as a function of which
                     // way we need to insert this run of visits. Normally we
                     // go through the visits right to left, but when we have
                     // a backward path we go left to right.
-                    const Visit& visit = backward ? traversal.visits(i)
-                                                  : traversal.visits(traversal.visits_size() - i - 1);
+                    const Visit& visit = backward ? traversal.visit(i)
+                                                  : traversal.visit(traversal.visit_size() - i - 1);
                     
                     // Make a Mapping to represent it
                     Mapping new_mapping;
@@ -649,11 +649,11 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         // Now delete all edges that aren't connecting adjacent nodes on the
         // blessed traversal (before we delete their nodes).
         set<Edge*> blessed_edges;
-        for (int i = 0; i < traversal.visits_size() - 1; ++i) {
+        for (int i = 0; i < traversal.visit_size() - 1; ++i) {
             // For each node and the next node (which won't be the end)
             
-            const Visit visit = traversal.visits(i);
-            const Visit next = traversal.visits(i);
+            const Visit visit = traversal.visit(i);
+            const Visit next = traversal.visit(i);
             
             // Find the edge between them
             NodeTraversal here(graph.get_node(visit.node_id()), visit.backward());
@@ -666,9 +666,9 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         }
         
         // Also get the edges from the boundary nodes into the traversal
-        if (traversal.visits_size() > 0) {
-            NodeTraversal first_visit = to_node_traversal(traversal.visits(0), graph);
-            NodeTraversal last_visit = to_node_traversal(traversal.visits(traversal.visits_size() - 1),
+        if (traversal.visit_size() > 0) {
+            NodeTraversal first_visit = to_node_traversal(traversal.visit(0), graph);
+            NodeTraversal last_visit = to_node_traversal(traversal.visit(traversal.visit_size() - 1),
                                                          graph);
             blessed_edges.insert(graph.get_edge(to_node_traversal(leaf->start(), graph), first_visit));
             blessed_edges.insert(graph.get_edge(last_visit, to_node_traversal(leaf->end(), graph)));
@@ -697,8 +697,8 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         
         // What nodes are on it?
         set<Node*> blessed_nodes;
-        for (int i = 0; i < traversal.visits_size(); i++) {
-            const Visit& visit = traversal.visits(i);
+        for (int i = 0; i < traversal.visit_size(); i++) {
+            const Visit& visit = traversal.visit(i);
             blessed_nodes.insert(graph.get_node(visit.node_id()));
         }
         

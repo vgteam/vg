@@ -234,8 +234,8 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
                     }
                 }
 
-                for (int i = 0; i < s.visits_size(); ++i){
-                    Visit v = s.visits(i);
+                for (int i = 0; i < s.visit_size(); ++i){
+                    Visit v = s.visit(i);
                     if (v.node_id() != 0){
                         trav_ids.insert(v.node_id());
                     }
@@ -270,8 +270,8 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
                 // A read may map to a node multiple times, or it may skip a node
                 // and put an insert there.
                 set<int64_t> common_ids = shared_sites(read, trav);
-                bool maps_to_front = common_ids.count(trav.visits(0).node_id());
-                bool maps_to_end = common_ids.count(trav.visits(trav.visits_size() - 1).node_id());
+                bool maps_to_front = common_ids.count(trav.visit(0).node_id());
+                bool maps_to_end = common_ids.count(trav.visit(trav.visit_size() - 1).node_id());
                 bool maps_internally = false;
 
                 Path read_path;
@@ -470,18 +470,18 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
                 fresh_trav.set_name(a);
                 
                 // Add the start node to the traversal
-                *fresh_trav.add_visits() = site.start();
+                *fresh_trav.add_visit() = site.start();
                 // Fill in our traversal
                 list<Mapping> ms = gpaths[a];
                 for (auto m : ms){
                     int64_t n_id = m.position().node_id();
                     bool backward = m.position().is_reverse();
-                    Visit* v = fresh_trav.add_visits();
+                    Visit* v = fresh_trav.add_visit();
                     v->set_node_id(n_id);
                     v->set_backward(backward);
                 }
                 // Add the end node to the traversal
-                *fresh_trav.add_visits() = site.end();
+                *fresh_trav.add_visit() = site.end();
                 ret.push_back(fresh_trav);
                 //cerr << "Finished path: " << a << endl;
                 path_processed[a] = true;
@@ -957,10 +957,10 @@ void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversal
                 
                 // record the traversal in the return value
                 for (auto iter = path.begin(); iter != path.end(); iter++) {
-                    *traversals.back().add_visits() = *iter;
+                    *traversals.back().add_visit() = *iter;
                 }
                 // add the final visit
-                *traversals.back().add_visits() = to_visit(node_traversal);
+                *traversals.back().add_visit() = to_visit(node_traversal);
             }
             
             // don't proceed to add more onto the DFS stack
@@ -1341,7 +1341,7 @@ vector<SnarlTraversal> ReadRestrictedTraversalFinder::find_traversals(const Snar
         // Send out each list of visits
         to_return.emplace_back();
         for (Visit& visit : visits) {
-            *to_return.back().add_visits() = visit;
+            *to_return.back().add_visit() = visit;
         }
     }
     
@@ -1420,7 +1420,7 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
             
             // Translate the path into the traversal
             for (NodeTraversal node_traversal : path) {
-                *(to_return.back().add_visits()) = to_visit(node_traversal);
+                *(to_return.back().add_visit()) = to_visit(node_traversal);
             }
             
             // Stop early after having found one path
@@ -1471,8 +1471,8 @@ Path RepresentativeTraversalFinder::find_backbone(const Snarl& site) {
     
     // Convert it into a path that includes the boundary nodes
     Path to_return;
-    for (size_t i = 0; i < traversal.visits_size(); i++) {
-        *to_return.add_mapping() = to_mapping(traversal.visits(i), augmented.graph);
+    for (size_t i = 0; i < traversal.visit_size(); i++) {
+        *to_return.add_mapping() = to_mapping(traversal.visit(i), augmented.graph);
     }
     
     return to_return;
@@ -2022,7 +2022,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             for(size_t i = 0; i < visits.size(); i++) {
                 // Record a Visit for each Visit but the first and last,
                 // but backward and in reverse order.
-                *trav.add_visits() = reverse(visits[visits.size() - i - 1]);
+                *trav.add_visit() = reverse(visits[visits.size() - i - 1]);
             }
             
         } else {
@@ -2030,7 +2030,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             
             for(size_t i = 0; i < visits.size(); i++) {
                 // Make a Visit for each NodeTraversal but the first and last
-                *trav.add_visits() = visits[i];
+                *trav.add_visit() = visits[i];
             }
             
         }
