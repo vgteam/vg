@@ -408,40 +408,129 @@ namespace vg {
         cerr << "rescued alignment is " << pb2json(rescue_multipath_aln) << endl;
 #endif
         return (raw_mapq >= min(25, max_mapping_quality)
-                && random_match_p_value(score_pseudo_length(aln.score()), multipath_aln.sequence().size()) < 0.005);
+                && random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size()) < 0.005);
     }
     
     bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) {
 #ifdef debug_multipath_mapper
-        cerr << "effective match length of " << multipath_aln.name() << " is " << score_pseudo_length(optimal_alignment_score(multipath_aln)) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(score_pseudo_length(optimal_alignment_score(multipath_aln)), multipath_aln.sequence().size()) << endl;
+        cerr << "effective match length of " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size()) << endl;
 #endif
         
-        return random_match_p_value(score_pseudo_length(optimal_alignment_score(multipath_aln)), multipath_aln.sequence().size()) > 0.05;
+        return random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size()) > 0.05;
     }
     
-    size_t MultipathMapper::score_pseudo_length(int32_t score) const {
-        const BaseAligner* aligner = get_aligner();
-        // empirically, scaling it down seems to give better results
-        return score * aligner->log_base / (3 * aligner->match);
+    size_t MultipathMapper::pseudo_length(const MultipathAlignment& multipath_aln) const {
+        Alignment alignment;
+        optimal_alignment(multipath_aln, alignment);
+        const Path& path = alignment.path();
+        
+        int64_t net_matches = 0;
+        for (size_t i = 0; i < path.mapping_size(); i++) {
+            const Mapping& mapping = path.mapping(i);
+            for (size_t j = 0; j < mapping.edit_size(); j++) {
+                const Edit& edit = mapping.edit(j);
+                if (edit.from_length() == edit.to_length() && edit.sequence().empty()) {
+                    net_matches += edit.from_length();
+                }
+                else {
+                    net_matches -= max(edit.from_length(), edit.to_length());
+                }
+            }
+        }
+        
+        return max<int64_t>(0, net_matches);
     }
     
     // make the memo live in this .o file
     thread_local unordered_map<pair<size_t, size_t>, double> MultipathMapper::p_value_memo;
     
     double MultipathMapper::random_match_p_value(size_t match_length, size_t read_length) {
-        // memoized to avoid transcendental functions (at least in cases where read lengths
-        // don't vary too much)
+        // memoized to avoid transcendental functions (at least in cases where read lengths don't vary too much)
         auto iter = p_value_memo.find(make_pair(match_length, read_length));
         if (iter != p_value_memo.end()) {
             return iter->second;
         }
         else {
-            double p_value = 1.0 - pow(1.0 - pow(0.25, match_length), xindex->seq_length * read_length);
+            double p_value = 1.0 - pow(1.0 - exp(-(match_length * pseudo_length_multiplier)), xindex->seq_length * read_length);
             if (p_value_memo.size() < max_p_value_memo_size) {
                 p_value_memo[make_pair(match_length, read_length)] = p_value;
             }
             return p_value;
         }
+    }
+    
+    void MultipathMapper::calibrate_mismapping_detection(size_t num_simulations, size_t simulated_read_length) {
+        // we don't want to do base quality adjusted alignments for this stage since we are just simulating random sequences
+        // with no base qualities
+        bool reset_quality_adjustments = adjust_alignments_for_base_quality;
+        adjust_alignments_for_base_quality = false;
+        
+        // compute the pseudo length of a bunch of randomly generated sequences
+        vector<double> lengths(num_simulations, 0.0);
+        double length_sum = 0.0;
+        double max_length = numeric_limits<double>::min();
+        for (size_t i = 0; i < num_simulations; i++) {
+            Alignment alignment;
+            alignment.set_sequence(random_sequence(simulated_read_length));
+            vector<MultipathAlignment> multipath_alns;
+            multipath_map(alignment, multipath_alns, 1);
+            
+            if (!multipath_alns.empty()) {
+                lengths[i] = pseudo_length(multipath_alns.front());
+                length_sum += lengths[i];
+                max_length = max(lengths[i], max_length);
+            }
+        }
+        
+        // compute the log of the 1st and 2nd derivatives for the log likelihood (split up by positive and negative summands)
+        // we have to do it this wonky way because the exponentiated numbers get very large and cause overflow otherwise
+        
+        double log_deriv_neg_part = log(length_sum);
+        
+        function<double(double)> log_deriv_pos_part = [&](double scale) {
+            double accumulator = numeric_limits<double>::lowest();
+            for (size_t i = 0; i < lengths.size(); i++) {
+                double length = lengths[i];
+                accumulator = add_log(accumulator, log(length) - scale * length - log(1.0 - exp(-scale * length)));
+            }
+            accumulator += log(xindex->seq_length * simulated_read_length - 1.0);
+            return add_log(accumulator, log(num_simulations / scale));
+        };
+        
+        function<double(double)> log_deriv2_neg_part = [&](double scale) {
+            double accumulator = numeric_limits<double>::lowest();
+            for (size_t i = 0; i < lengths.size(); i++) {
+                double length = lengths[i];
+                accumulator = add_log(accumulator, 2.0 * log(length) - scale * length - 2.0 * log(1.0 - exp(-scale * length)));
+            }
+            accumulator += log(xindex->seq_length * simulated_read_length - 1.0);
+            return add_log(accumulator, log(num_simulations / (scale * scale)));
+        };
+        
+        // use Newton's method to find the MLE
+        double tolerance = 1e-10;
+        double scale = 1.0 / max_length;
+        double prev_scale = scale * (1.0 + 10.0 * tolerance);
+        while (abs(prev_scale / scale - 1.0) > tolerance) {
+            cerr << "scale " << scale << endl;
+            prev_scale = scale;
+            double log_d2 = log_deriv2_neg_part(scale);
+            double log_d_pos = log_deriv_pos_part(scale);
+            double log_d_neg = log_deriv_neg_part;
+            // determine if the value of the 1st deriv is positive or negative, and compute the
+            // whole ratio to the 2nd deriv from the positive and negative parts accordingly
+            if (log_d_pos > log_d_neg) {
+                scale += exp(subtract_log(log_d_pos, log_d_neg) - log_d2);
+            }
+            else {
+                scale -= exp(subtract_log(log_d_neg, log_d_pos) - log_d2);
+            }
+        }
+        
+        // set the multipler to the maximimum likelihood
+        pseudo_length_multiplier = scale;
+        
+        adjust_alignments_for_base_quality = reset_quality_adjustments;
     }
     
     int64_t MultipathMapper::distance_between(const MultipathAlignment& multipath_aln_1,

@@ -631,4 +631,16 @@ size_t modular_exponent(uint64_t base, uint64_t exponent, uint64_t modulus) {
     }
     return result;
 }
+    
+string random_sequence(size_t length) {
+    static const string alphabet = "ACGT";
+    uniform_int_distribution<char> distr(0, 3);
+    default_random_engine gen(102);
+    
+    string seq(length, '\0');
+    for (size_t i = 0; i < length; i++) {
+        seq[i] = alphabet[distr(gen)];
+    }
+    return seq;
+}
 }
