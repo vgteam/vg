@@ -512,7 +512,7 @@ namespace vg {
         double scale = 1.0 / max_length;
         double prev_scale = scale * (1.0 + 10.0 * tolerance);
         while (abs(prev_scale / scale - 1.0) > tolerance) {
-            cerr << "scale " << scale << endl;
+            //cerr << "scale " << scale << endl;
             prev_scale = scale;
             double log_d2 = log_deriv2_neg_part(scale);
             double log_d_pos = log_deriv_pos_part(scale);
