@@ -184,6 +184,7 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     
     /// Get a handle from a Visit Protobuf object.
+    /// Must be using'd to avoid shadowing.
     handle_t get_handle(const Visit& visit) const;
     
     /// Get a Protobuf Visit from a handle.

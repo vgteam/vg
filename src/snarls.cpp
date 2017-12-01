@@ -313,7 +313,7 @@ namespace vg {
     }
     
     void SnarlManager::for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda) const {
-#pragma omp parallel for
+        #pragma omp parallel for
         for (int i = 0; i < roots.size(); i++) {
             lambda(roots[i]);
         }
@@ -338,6 +338,24 @@ namespace vg {
         
         // Then we run that on the root of each tree of snarls.
         for_each_top_level_snarl(process);
+    }
+    
+    void SnarlManager::for_each_snarl_parallel(const function<void(const Snarl*)>& lambda) const {
+        // We define a recursive function to apply the lambda in a preorder traversal of the snarl tree.
+        std::function<void(const Snarl*)> process = [&](const Snarl* parent) {
+            // Do the parent
+            lambda(parent);
+            
+            auto& children = children_of(parent);
+            
+            #pragma omp parallel for
+            for (size_t i = 0; i < children.size(); i++) {
+                // Then do each child in parallel
+                process(children[i]);
+            }
+        };
+        
+        for_each_top_level_snarl_parallel(process);
     }
     
     void SnarlManager::flip(const Snarl* snarl) {

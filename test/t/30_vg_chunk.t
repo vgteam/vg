@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 10
+plan tests 11
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -v small/x.vcf.gz  x.vg 2> /dev/null
@@ -41,5 +41,11 @@ is $(vg chunk -x x.xg -r 1 -c 0 | vg view - -j | jq .node | grep id | wc -l) 1 "
 
 #check that traces work
 is $(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq .node | grep id | wc -l) 5 "id chunker traces correct chunk size"
-rm -rf x.gam.index x.gam.unsrt.index _chunk_test_bed.bed _chunk_test*
+
+#check that n-chunking works
+mkdir x.chunk
+vg chunk -x x.xg -n 5 -b x.chunk/
+is $(cat x.chunk/*vg | vg view -V - 2>/dev/null | md5sum | cut -f 1 -d\ ) $(vg view x.vg | md5sum | cut -f 1 -d\ ) "n-chunking works and chunks over the full graph"
+
+rm -rf x.gam.index x.gam.unsrt.index _chunk_test_bed.bed _chunk_test* x.chunk
 rm -f x.vg x.xg x.gam x.gam.json filter_chunk*.gam chunks.bed
