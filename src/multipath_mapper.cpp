@@ -478,6 +478,7 @@ namespace vg {
         vector<double> lengths(num_simulations, 0.0);
         double length_sum = 0.0;
         double max_length = numeric_limits<double>::min();
+#pragma omp parallel for
         for (size_t i = 0; i < num_simulations; i++) {
             
             Alignment alignment;
@@ -487,8 +488,11 @@ namespace vg {
             
             if (!multipath_alns.empty()) {
                 lengths[i] = pseudo_length(multipath_alns.front());
-                length_sum += lengths[i];
-                max_length = max(lengths[i], max_length);
+#pragma omp critical
+                {
+                    length_sum += lengths[i];
+                    max_length = max(lengths[i], max_length);
+                }
             }
         }
         

@@ -126,7 +126,7 @@ int main_mpmap(int argc, char** argv) {
     double frag_length_stddev = NAN;
     bool same_strand = false;
     bool auto_calibrate_mismapping_detection = true;
-    size_t num_calibration_simulations = 100;
+    size_t num_calibration_simulations = 250;
     size_t calibration_read_length = 150;
     
     int c;
