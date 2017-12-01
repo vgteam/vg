@@ -38,16 +38,14 @@ size_t fastq_paired_interleaved_for_each_parallel(const string& filename,
     
 size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filename,
                                                              function<void(Alignment&, Alignment&)> lambda,
-                                                             function<bool(void)> wait_until_true,
-                                                             function<void(void)> call_on_complete);
+                                                             function<bool(void)> single_threaded_until_true);
     
 size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2,
                                                 function<void(Alignment&, Alignment&)> lambda);
     
 size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, const string& file2,
                                                            function<void(Alignment&, Alignment&)> lambda,
-                                                           function<bool(void)> wait_until_true,
-                                                           function<void(void)> call_on_complete);
+                                                           function<bool(void)> single_threaded_until_true);
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,

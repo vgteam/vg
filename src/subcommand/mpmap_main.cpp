@@ -611,6 +611,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.min_mem_length = min_mem_length;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
+    multipath_mapper.use_approx_sub_mem_count = false;
     if (min_clustering_mem_length) {
         multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
     }
@@ -792,18 +793,7 @@ int main_mpmap(int argc, char** argv) {
 #endif
     };
     
-    // for FASTQ input all but the first thread go into spinlock until the distribution is estimated or abandoned
-    bool input_finished = false;
-    function<bool(void)> distribution_spinlock = [&](void) {
-        return omp_get_thread_num() == 0 || multipath_mapper.has_fixed_fragment_length_distr() || input_finished;
-    };
-    
-    // mark the input as finished to get any remaining threads out of the spinlock
-    function<void(void)> abandon_distribution = [&](void) {
-        input_finished = true;
-    };
-    
-    // for GAM input, don't spawn new tasks unless this evalutes to true
+    // for streaming paired input, don't spawn new tasks unless this evalutes to true
     function<bool(void)> multi_threaded_condition = [&](void) {
         return multipath_mapper.has_fixed_fragment_length_distr();
     };
@@ -813,14 +803,14 @@ int main_mpmap(int argc, char** argv) {
     if (!fastq_name_1.empty()) {
         if (interleaved_input) {
             fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name_1, do_paired_alignments,
-                                                                  distribution_spinlock, abandon_distribution);
+                                                                  multi_threaded_condition);
         }
         else if (fastq_name_2.empty()) {
             fastq_unpaired_for_each_parallel(fastq_name_1, do_unpaired_alignments);
         }
         else {
             fastq_paired_two_files_for_each_parallel_after_wait(fastq_name_1, fastq_name_2, do_paired_alignments,
-                                                                distribution_spinlock, abandon_distribution);
+                                                                multi_threaded_condition);
         }
     }
     
