@@ -1670,6 +1670,7 @@ double Genotyper::get_genotype_log_likelihood(VG& graph, const Snarl* snarl, con
         double logprob = multinomial_sampling_prob_ln(probs_by_orientation, obs);
 
 #ifdef debug
+#pragma omp critical (cerr)
         cerr << "Allele "  << kv.first << " supported by " << forward_count << " forward, "
              << reverse_count << " reverse (P=" << logprob_to_prob(logprob) << ")" << endl;
 #endif
@@ -1716,8 +1717,10 @@ double Genotyper::get_genotype_log_likelihood(VG& graph, const Snarl* snarl, con
                     // And also second, so it's ambiguous
                     ambiguous_reads++;
 #ifdef debug
+#pragma omp critical (cerr)
                     cerr << "Ambiguous read: " << read_and_consistency.first->sequence() << endl;
                     for(int i = 0; i < consistency.size(); i++) {
+#pragma omp critical (cerr)
                         cerr << "\t" << i << ": " << consistency[i].consistent << endl;
                     }
 #endif
@@ -1768,10 +1771,64 @@ double Genotyper::get_genotype_log_likelihood(VG& graph, const Snarl* snarl, con
              << " = " << logprob_to_prob(alleles_as_specified) << endl;
 #endif
 
-    } else if(genotype.size() != 2) {
+    } else if(genotype.size() > 2) {
+        // This is tougher. We have to use a censored multinomial.
+        
+        // First we want to compress things down to distinct alleles in the
+        // genotype, and weight them by the number of times they occur. This
+        // saves us work because the multinomial will have fewer categories and
+        // less ambiguity.
+        double per_allele_prob = 1.0/genotype.size();
+        
+        // We'll put unique alleles in this set and store the total probability
+        // of each under it.
+        unordered_map<int, double> unique_alleles;
+        
+        for (auto& allele : genotype) {
+            unique_alleles[allele] += per_allele_prob;
+        }
+        
+        // Now convert to probs format (vector)
+        vector<double> probs;
+        for (auto& kv : unique_alleles) {
+            // For each allele in whatever order the set gave them, put in the probability.
+            probs.push_back(kv.second);
+        }
+        
+        // Now we will assign reads to ambiguity classes and count them in here.
+        unordered_map<vector<bool>, int> reads_by_class;
+        
+        for(auto& read_and_consistency : alignment_consistency) {
+            // For each read, look at what it is consistent with
+            auto& consistency = read_and_consistency.second;
+            
+            // Compute an ambiguity class for it
+            vector<bool> ambiguity_class;
+
+            for (auto& kv : unique_alleles) {
+                // For each unique allele number in the genotype, in their assigned order
+                const auto& allele_number = kv.first;
+                
+                // Add the consistency bit for this read against this allele to the class
+                ambiguity_class.push_back(consistency.at(allele_number).consistent);
+            }
+            
+            // Count the read as being in its class.
+            reads_by_class[ambiguity_class]++;    
+        }
+        
+        // Compute the censored multinomial probability of these potentially ambiguous reads given these class probabilities.
+        alleles_as_specified = multinomial_censored_sampling_prob_ln(probs, reads_by_class);
+        
+#ifdef debug
 #pragma omp critical (cerr)
-        cerr << "Warning: not accounting for allele assignment likelihood in non-diploid genotype!" << endl;
+        cerr << "P(reads drawn match specified ambiguity classes) = " << alleles_as_specified << endl;
+#endif
+        
     }
+    // Haploid or 0-ploid genotypes will always have all the reads drawn from
+    // their source alleles in the distribution observed, as only one is
+    // possible.
 
     // Now we've looked at all the reads, so AND everything together
     double total_logprob = all_non_supporting_wrong + all_supporting_drawn + strands_as_specified + alleles_as_specified;
@@ -1791,17 +1848,59 @@ double Genotyper::get_genotype_log_likelihood(VG& graph, const Snarl* snarl, con
 }
 
 double Genotyper::get_genotype_log_prior(const vector<int>& genotype) {
-    assert(genotype.size() == 2);
-
-
-    // Priors are boring: certain amount for het, inverse of that for everyone else
-    if(genotype[0] != genotype[1]) {
-        // This is a het!
-        return het_prior_logprob;
+    // Start with a prior probability of 100%
+    double prior_logprob = prob_to_logprob(1);
+    
+    // The model we are workign under is:
+    // We may be diploid. If so, we look at het and hom sites.
+    // If not diploid, we may be haploid.
+    // If not haploid, we may be deleted (0-ploid).
+    // If not deleted, we will be polyploid (3+). We follow a geometric distribution on the extra copies.
+    
+    if (genotype.size() == 2) {
+        // It's diploid
+        prior_logprob += diploid_prior_logprob;
+    
+        // Priors are boring: certain amount for het, inverse of that for everyone else
+        if(genotype[0] != genotype[1]) {
+            // This is a het!
+            prior_logprob += het_prior_logprob;
+        } else {
+            // This is a homozygote. Much more common.
+            prior_logprob += logprob_invert(het_prior_logprob);
+        }
     } else {
-        // This is a homozygote. Much more common.
-        return logprob_invert(het_prior_logprob);
+        // Not diploid
+        prior_logprob += logprob_invert(diploid_prior_logprob);
+        
+        if (genotype.size() == 1) {
+            // We're haploid
+            prior_logprob += haploid_prior_logprob;
+        } else {
+            // Not haploid either
+            prior_logprob += logprob_invert(haploid_prior_logprob);
+            
+            if (genotype.empty()) {
+                // We're 0-ploid
+                prior_logprob += deleted_prior_logprob;
+            } else {
+                // We're not 0-ploid either
+                prior_logprob += logprob_invert(deleted_prior_logprob);
+                
+                // We must be polyploid
+                
+                // How much extra ploidy do we have
+                auto extra_copies = genotype.size() - 2;
+                
+                // Charge for each additional copy except the last at the
+                // failure price, and then the last at the success price.
+                prior_logprob += geometric_sampling_prob_ln(polyploid_prior_success_logprob, extra_copies);
+                
+            }
+        }
     }
+    
+    return prior_logprob;
 }
 
 string Genotyper::get_qualities_in_snarl(VG& graph, const Snarl* snarl, const Alignment& alignment) {
