@@ -76,7 +76,7 @@ namespace vg {
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
-        double pseudo_length_multiplier = log(4) / 3.0;
+        double pseudo_length_multiplier = 1.65;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;

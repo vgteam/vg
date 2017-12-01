@@ -50,7 +50,7 @@ void help_mpmap(char** argv) {
     << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
     << "  -I, --frag-mean           mean for fixed fragment length distribution" << endl
     << "  -D, --frag-stddev         standard deviation for fixed fragment length distribution" << endl
-    << "  -B, --calibrate           auto-calibrate mismapping dectection" << endl
+    << "  -B, --no-calibrate        do not auto-calibrate mismapping dectection" << endl
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
@@ -125,8 +125,8 @@ int main_mpmap(int argc, char** argv) {
     double frag_length_mean = NAN;
     double frag_length_stddev = NAN;
     bool same_strand = false;
-    bool auto_calibrate_mismapping_detection = false;
-    size_t num_calibration_simulations = 2500;
+    bool auto_calibrate_mismapping_detection = true;
+    size_t num_calibration_simulations = 100;
     size_t calibration_read_length = 150;
     
     int c;
@@ -148,7 +148,7 @@ int main_mpmap(int argc, char** argv) {
             {"frag-sample", required_argument, 0, 'b'},
             {"frag-mean", required_argument, 0, 'I'},
             {"frag-stddev", required_argument, 0, 'D'},
-            {"calibrate", no_argument, 0, 'B'},
+            {"no-calibrate", no_argument, 0, 'B'},
             {"mq-method", required_argument, 0, 'v'},
             {"mq-max", required_argument, 0, 'Q'},
             {"band-padding", required_argument, 0, 'p'},
@@ -272,7 +272,8 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'B':
-                auto_calibrate_mismapping_detection = true;
+                auto_calibrate_mismapping_detection = false;
+                break;
                 
             case 'v':
             {

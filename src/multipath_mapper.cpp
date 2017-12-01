@@ -408,15 +408,16 @@ namespace vg {
         cerr << "rescued alignment is " << pb2json(rescue_multipath_aln) << endl;
 #endif
         return (raw_mapq >= min(25, max_mapping_quality)
-                && random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size()) < 0.005);
+                && random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size()) < 0.000001);
     }
     
     bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) {
 #ifdef debug_multipath_mapper
-        cerr << "effective match length of " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size()) << endl;
+        cerr << "effective match length of " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) / 2 << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(pseudo_length(multipath_aln) / 2, multipath_aln.sequence().size()) << endl;
 #endif
         
-        return random_match_p_value(pseudo_length(multipath_aln), multipath_aln.sequence().size()) > 0.05;
+        // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
+        return random_match_p_value(pseudo_length(multipath_aln) / 2, multipath_aln.sequence().size()) > 0.00001;
     }
     
     size_t MultipathMapper::pseudo_length(const MultipathAlignment& multipath_aln) const {
@@ -429,6 +430,14 @@ namespace vg {
             const Mapping& mapping = path.mapping(i);
             for (size_t j = 0; j < mapping.edit_size(); j++) {
                 const Edit& edit = mapping.edit(j);
+                
+                // skip soft clips
+                if (((i == 0 && j == 0) || (i == path.mapping_size() - 1 && j == mapping.edit_size() - 1))
+                     && edit.from_length() == 0 && edit.to_length() > 0) {
+                    continue;
+                }
+                
+                // add matches and subtract mismatches/indels
                 if (edit.from_length() == edit.to_length() && edit.sequence().empty()) {
                     net_matches += edit.from_length();
                 }
@@ -470,6 +479,7 @@ namespace vg {
         double length_sum = 0.0;
         double max_length = numeric_limits<double>::min();
         for (size_t i = 0; i < num_simulations; i++) {
+            
             Alignment alignment;
             alignment.set_sequence(random_sequence(simulated_read_length));
             vector<MultipathAlignment> multipath_alns;
@@ -481,6 +491,19 @@ namespace vg {
                 max_length = max(lengths[i], max_length);
             }
         }
+        
+        // reset the memo of p-values (which we are calibrating) for any updates using the default parameter during the null mappings
+        p_value_memo.clear();
+        
+        // model the lengths as the maximum of genome_size * read_length exponential variables, which gives density function:
+        //
+        //   GLS exp(-Sx) (1 - exp(-Sx))^(GL - 1)
+        //
+        // where:
+        //   G = genome size
+        //   R = read length
+        //   S = scale parameter (which we optimize below)
+        
         
         // compute the log of the 1st and 2nd derivatives for the log likelihood (split up by positive and negative summands)
         // we have to do it this wonky way because the exponentiated numbers get very large and cause overflow otherwise
@@ -512,7 +535,6 @@ namespace vg {
         double scale = 1.0 / max_length;
         double prev_scale = scale * (1.0 + 10.0 * tolerance);
         while (abs(prev_scale / scale - 1.0) > tolerance) {
-            //cerr << "scale " << scale << endl;
             prev_scale = scale;
             double log_d2 = log_deriv2_neg_part(scale);
             double log_d_pos = log_deriv_pos_part(scale);
