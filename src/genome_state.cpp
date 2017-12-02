@@ -1,4 +1,7 @@
 #include "genome_state.hpp"
+#include "utility.hpp"
+
+#include <signal.h>
 
 namespace vg {
 

@@ -139,7 +139,7 @@ T normal_pdf(T x, T m, T s)
 }
 
 // Emit a stack trace when something bad happens.
-void emit_stacktrace();
+void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContext);
 
 // This is an internal function used by the above.
 string demangle_frame(string mangled);
