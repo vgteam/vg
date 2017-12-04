@@ -355,16 +355,8 @@ TEST_CASE("SnarlState can hold and manipulate haplotypes", "[snarlstate][genomes
         annotated_haplotype.emplace_back(net_graph.get_handle(2, true), 0);
         annotated_haplotype.emplace_back(net_graph.get_handle(1, true), 0);
         
-        try {
-            cerr << "Try insert" << endl;
-            state.insert(annotated_haplotype);
-            // Should never happen
-            cerr << "Insert worked" << endl;
-            REQUIRE(false);
-        } catch(const std::exception& e) {
-            // Do nothing.
-            cerr << "Insert failed" << endl;
-        }
+        // Try and fail to put it in the state
+        REQUIRE_THROWS(state.insert(annotated_haplotype));
         
     }
 }

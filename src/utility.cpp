@@ -743,7 +743,7 @@ void stacktrace_with_backtrace_and_exit(int signalNumber) {
     // Free our stacktrace memory.
     free(traceMessages);
     
-    exit(1);
+    exit(signalNumber + 128);
 }
 
 void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContext) {
@@ -754,96 +754,103 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
     
     cerr << "Manual stack trace:" << endl;
     
-    // Now we compute our own stack trace, because backtrace() isn't so good on OS X.
-    // We operate on the same principles as <https://stackoverflow.com/a/5426269>
-    
-    // TODO: This assumes x86
-    // Fetch out the registers
-    // We model IP as a pointer to void (i.e. into code)
-    void* ip;
-    // We model BP as an array of two things: previous BP, and previous IP.
-    void** bp;
-    
     #ifdef __APPLE__
+        // On OS X we need to do our own stack tracing since backtrace() doesn't seem to work
+        
+        // Now we compute our own stack trace, because backtrace() isn't so good on OS X.
+        // We operate on the same principles as <https://stackoverflow.com/a/5426269>
+        
+        // TODO: This assumes x86
+        // Fetch out the registers
+        // We model IP as a pointer to void (i.e. into code)
+        void* ip;
+        // We model BP as an array of two things: previous BP, and previous IP.
+        void** bp;
+        
         // OS X 64 bit does it this way
         ip = (void*)context->uc_mcontext->__ss.__rip;
         bp = (void**)context->uc_mcontext->__ss.__rbp;
-    #else
-        // Linux 64 bit does it this way
-        ip = (void*)context->uc_mcontext.gregs[REG_RIP];
-        bp = (void**)context->uc_mcontext.gregs[REG_RBP];
-    #endif 
-    
-     
-    
-    // Allocate a place to keep the dynamic library info for the address the stack is executing at
-    Dl_info address_library;
-    
-    cerr << endl;
-    cerr << "Next ip: " << ip << " Next bp: " << bp << endl;
-    while (true) {
-        // Work out where the ip is.
-        if (!dladdr(ip, &address_library)) {
-            // This address doesn't belong to anything!
-            cerr << "Stack leaves code at ip=" << ip << endl;
-            break;
-        }
-
-        if (address_library.dli_sname != nullptr) {
-            // Make a place for the demangling function to save its status
-            int status;
-            
-            // Do the demangling
-            char* demangledName = abi::__cxa_demangle(address_library.dli_sname, NULL, NULL, &status);
-            
-            if(status == 0) {
-                // Successfully demangled
-                cerr << "Address " << ip << " in demangled symbol " << demangledName
-                    << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_saddr))
-                    << ", in library " << address_library.dli_fname
-                    << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_fbase)) << endl;
-                free(demangledName);
-            } else {
-                // Leave mangled
-                cerr << "Address " << ip << " in mangled symbol " << address_library.dli_sname
-                    << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_saddr))
-                    << ", in library " << address_library.dli_fname
-                    << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_fbase)) << endl;
-            }
-            
-            #ifdef __APPLE__
-                // Try running atos on this process to print a line number
-                stringstream command;
-                
-                command << "atos -o " << address_library.dli_fname << " -l " << address_library.dli_fbase << " " << ip;
-                cerr << "Running " << command.str() << "..." << endl;
-                system(command.str().c_str());
-            #endif
-            
-        } else {
-            cerr << "Address " << ip << " out of symbol in library " << address_library.dli_fname << endl;
-        }
-
-        if(address_library.dli_sname != nullptr && !strcmp(address_library.dli_sname, "main")) {
-            cerr << "Stack hit main" << endl;
-            break;
-        }
-
-        if (bp != nullptr) {
-            // Simulate a return
-            ip = bp[1];
-            bp = (void**) bp[0];
-        } else {
-            break;
-        }
+        
+        // If this were Linux it would be (void*)context->uc_mcontext.gregs[REG_RIP] or REG_RBP
+        
+        // Allocate a place to keep the dynamic library info for the address the stack is executing at
+        Dl_info address_library;
         
         cerr << endl;
         cerr << "Next ip: " << ip << " Next bp: " << bp << endl;
-    }
+        while (true) {
+            // Work out where the ip is.
+            if (!dladdr(ip, &address_library)) {
+                // This address doesn't belong to anything!
+                cerr << "Stack leaves code at ip=" << ip << endl;
+                break;
+            }
+
+            if (address_library.dli_sname != nullptr) {
+                // Make a place for the demangling function to save its status
+                int status;
+                
+                // Do the demangling
+                char* demangledName = abi::__cxa_demangle(address_library.dli_sname, NULL, NULL, &status);
+                
+                if(status == 0) {
+                    // Successfully demangled
+                    cerr << "Address " << ip << " in demangled symbol " << demangledName
+                        << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_saddr))
+                        << ", in library " << address_library.dli_fname
+                        << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_fbase)) << endl;
+                    free(demangledName);
+                } else {
+                    // Leave mangled
+                    cerr << "Address " << ip << " in mangled symbol " << address_library.dli_sname
+                        << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_saddr))
+                        << ", in library " << address_library.dli_fname
+                        << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_fbase)) << endl;
+                }
+                
+                #ifdef __APPLE__
+                    // Try running atos on this process to print a line number
+                    stringstream command;
+                    
+                    command << "atos -o " << address_library.dli_fname << " -l " << address_library.dli_fbase << " " << ip;
+                    cerr << "Running " << command.str() << "..." << endl;
+                    system(command.str().c_str());
+                #endif
+                
+            } else {
+                cerr << "Address " << ip << " out of symbol in library " << address_library.dli_fname << endl;
+            }
+
+            if(address_library.dli_sname != nullptr && !strcmp(address_library.dli_sname, "main")) {
+                cerr << "Stack hit main" << endl;
+                break;
+            }
+
+            if (bp != nullptr) {
+                // Simulate a return
+                ip = bp[1];
+                bp = (void**) bp[0];
+            } else {
+                break;
+            }
+            
+            cerr << endl;
+            cerr << "Next ip: " << ip << " Next bp: " << bp << endl;
+        }
+        
+        cerr << endl;
+        
+        // Make sure to exit with the right code
+        exit(signalNumber + 128);
+        
+    #else
+        // On Linux we should just use Backtrace
+        stacktrace_with_backtrace_and_exit(signalNumber);
+    #endif
     
-    cerr << endl;
     
-    stacktrace_with_backtrace_and_exit(signalNumber);
+    
+    
 }
 
 }
