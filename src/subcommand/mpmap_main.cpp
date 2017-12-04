@@ -61,7 +61,7 @@ void help_mpmap(char** argv) {
     << "  -K, --clust-length INT    minimum MEM length form clusters [automatic]" << endl
     << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
-    << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
+    << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [7.5]" << endl
     << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
     << "  -R, --prune-exp FLOAT     prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [2.0]" << endl
     << "scoring:" << endl
@@ -116,7 +116,7 @@ int main_mpmap(int argc, char** argv) {
     int max_dist_error = 8;
     int num_alt_alns = 4;
     double suboptimal_path_exponent = 2.0;
-    double likelihood_approx_exp = 6.5;
+    double likelihood_approx_exp = 7.5;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
     size_t frag_length_sample_size = 1000;
