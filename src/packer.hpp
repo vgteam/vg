@@ -55,7 +55,7 @@ private:
     void ensure_edit_tmpfiles_open(void);
     void close_edit_tmpfiles(void);
     void remove_edit_tmpfiles(void);
-    bool is_compacted;
+    bool is_compacted = false;
     // dynamic model
     gcsa::CounterArray coverage_dynamic;
     vector<string> edit_tmpfile_names;
@@ -64,8 +64,8 @@ private:
     size_t bin_for_position(size_t i) const;
     size_t n_bins = 1;
     size_t bin_size = 0;
-    size_t edit_length;
-    size_t edit_count;
+    size_t edit_length = 0;
+    size_t edit_count = 0;
     dac_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
     //
     vector<csa_sada<enc_vector<>, 32, 32, sa_order_sa_sampling<>, isa_sampling<>, succinct_byte_alphabet<> > > edit_csas;
