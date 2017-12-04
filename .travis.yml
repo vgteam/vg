@@ -31,7 +31,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -y install cmake; fi
   # Record that we are building these deps with gcc 4.9
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then touch deps/gcc49; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc49; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm install ruby-2.3.3; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm use 2.3.3; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
@@ -46,7 +46,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which g++-6` ./bin/g++; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which gcc-6` ./bin/gcc; fi
   # Record that we are building these deps with gcc 6
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then touch deps/gcc6; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir -p deps; touch deps/gcc6; fi
   - python ./configure.py
   - source ./source_me.sh
 install:
