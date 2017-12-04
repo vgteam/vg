@@ -4,9 +4,10 @@
 //
 //
 
-//#define debug_multipath_mapper
+//#define debug_multipath_mapper_mapping
+//#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
-//#define debug_report_frag_distr
+//#define debug_report_startup_training
 
 #include "multipath_mapper.hpp"
 
@@ -44,7 +45,7 @@ namespace vg {
                                                  vector<MultipathAlignment>& multipath_alns_out,
                                                  size_t max_alt_mappings) {
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "multipath mapping read " << pb2json(alignment) << endl;
         cerr << "querying MEMs..." << endl;
 #endif
@@ -55,7 +56,7 @@ namespace vg {
                                                         dummy1, dummy2, 0, min_mem_length, mem_reseed_length,
                                                         false, true, true, false);
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "obtained MEMs:" << endl;
         for (MaximalExactMatch mem : mems) {
             cerr << "\t" << mem << " (" << mem.nodes.size() << " hits)" << endl;
@@ -83,7 +84,7 @@ namespace vg {
             clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "obtained clusters:" << endl;
         for (int i = 0; i < clusters.size(); i++) {
             cerr << "\tcluster " << i << endl;
@@ -123,7 +124,7 @@ namespace vg {
                                                   vector<MultipathAlignment>& multipath_alns_out,
                                                   size_t max_alt_mappings) {
     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "sorting subgraphs by read coverage..." << endl;
 #endif
         
@@ -135,7 +136,7 @@ namespace vg {
             return get<2>(cluster_graph_1) > get<2>(cluster_graph_2);
         });
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "aligning to subgraphs..." << endl;
 #endif
       
@@ -154,7 +155,7 @@ namespace vg {
             // the maximum number of alignments we stop producing alternate alignments
             if (get<2>(cluster_graph) < mem_coverage_min_ratio * get<2>(cluster_graphs[0])
                 || num_mappings >= num_mappings_to_compute) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "halting further alignments, either because MEM coverage of " << get<2>(cluster_graph) << " is too far below optimum of " << get<2>(cluster_graphs[0]) << " or because already made " << num_mappings << " of " << num_mappings_to_compute << " mappings" << endl;
 #endif
                 
@@ -163,7 +164,7 @@ namespace vg {
                 break;
             }
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
             cerr << "performing alignment to subgraph " << pb2json(get<0>(cluster_graph)->graph) << endl;
 #endif
             
@@ -176,14 +177,14 @@ namespace vg {
         // split up any alignments that ended up being disconnected
         split_multicomponent_alignments(multipath_alns_out);
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "topologically ordering " << multipath_alns_out.size() << " multipath alignments" << endl;
 #endif
         for (MultipathAlignment& multipath_aln : multipath_alns_out) {
             topologically_order_subpaths(multipath_aln);
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "computing mapping quality and sorting mappings" << endl;
 #endif
         sort_and_compute_mapping_quality(multipath_alns_out, mapq_method);
@@ -196,7 +197,7 @@ namespace vg {
         // with a preprocessor flag
 #ifdef debug_validate_multipath_alignments
         for (MultipathAlignment& multipath_aln : multipath_alns_out) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "validating multipath alignment:" << endl;
             cerr << pb2json(multipath_aln) << endl;
 #endif
@@ -213,7 +214,7 @@ namespace vg {
         }
         
         if (strip_bonuses) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "removing full length bonuses" << endl;
 #endif
             for (MultipathAlignment& multipath_aln : multipath_alns_out) {
@@ -247,7 +248,7 @@ namespace vg {
             int32_t max_score_1 = multipath_aln_1.sequence().size() * match_score + 2 * full_length_bonus * !strip_bonuses;
             int32_t max_score_2 = multipath_aln_2.sequence().size() * match_score + 2 * full_length_bonus * !strip_bonuses;
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "single ended mappings achieves scores " << optimal_alignment_score(multipath_aln_1) << " and " << optimal_alignment_score(multipath_aln_2) << ", looking for scores " << .8 * max_score_1 << " and " << .8 * max_score_2 << endl;
             cerr << "single ended mappings achieves mapping qualities " << multipath_aln_1.mapping_quality() << " and " << multipath_aln_2.mapping_quality() << ", looking for mapq " << min(max_mapping_quality, 45) << endl;
 #endif
@@ -269,7 +270,7 @@ namespace vg {
                 int64_t fragment_length = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                                         id(pos_2), offset(pos_2), is_rev(pos_2));
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "fragment length between mappings measured at " << fragment_length << endl;
 #endif
                 
@@ -279,7 +280,7 @@ namespace vg {
                     // record the unambiguous mappings and the fragment length
                     
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "registering measurement, now have " << fragment_length_distr.curr_sample_size() << " of " << fragment_length_distr.max_sample_size() << endl;
 #endif
                     
@@ -297,7 +298,7 @@ namespace vg {
         if (is_ambiguous) {
             // we didn't find an unambiguous pairing in single-ended mode, buffer these for once
             // the paired mode is finalized
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "couldn't find unambiguous mapping, adding pair to ambiguous buffer" << endl;
 #endif
             
@@ -307,7 +308,7 @@ namespace vg {
         
         // for debugging:
         // we must have just finalized the distribution or else we wouldn't have entered this function
-#ifdef debug_report_frag_distr
+#ifdef debug_report_startup_training
         if (fragment_length_distr.is_finalized()) {
             cerr << "finalized read distribution with " << fragment_length_distr.max_sample_size() << " measurements on read pair " << alignment1.name() << ", " << alignment2.name() << endl;
             cerr << "mean: " << fragment_length_distr.mean() << endl;
@@ -333,7 +334,7 @@ namespace vg {
     bool MultipathMapper::attempt_rescue(const MultipathAlignment& multipath_aln, const Alignment& other_aln,
                                          bool rescue_forward, MultipathAlignment& rescue_multipath_aln) {
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "attemping pair rescue in " << (rescue_forward ? "forward" : "backward") << " direction from " << pb2json(multipath_aln) << endl;
 #endif
         
@@ -346,7 +347,7 @@ namespace vg {
         // get the seed position(s) for the rescue by jumping along paths
         vector<pos_t> jump_positions = xindex->jump_along_closest_path(id(pos_from), is_rev(pos_from), offset(pos_from), jump_dist, 250);
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "found jump positions:" << endl;
         for (pos_t& pos : jump_positions) {
             cerr << "\t" << pos << endl;
@@ -358,12 +359,12 @@ namespace vg {
         
         // pull out the graph around the position(s) we jumped to
         VG rescue_graph;
-        vector<size_t> backward_dist(jump_positions.size(), 4 * fragment_length_distr.stdev());
-        vector<size_t> forward_dist(jump_positions.size(), 4 * fragment_length_distr.stdev() + other_aln.sequence().size());
+        vector<size_t> backward_dist(jump_positions.size(), 8 * fragment_length_distr.stdev());
+        vector<size_t> forward_dist(jump_positions.size(), 8 * fragment_length_distr.stdev() + other_aln.sequence().size());
         algorithms::extract_containing_graph(xindex, rescue_graph.graph, jump_positions, backward_dist, forward_dist);
         rescue_graph.build_indexes();
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "got rescue graph " << pb2json(rescue_graph.graph) << endl;
 #endif
         
@@ -404,20 +405,21 @@ namespace vg {
         int32_t adjusted_mapq = min(raw_mapq, min(max_mapping_quality, multipath_aln.mapping_quality()));
         rescue_multipath_aln.set_mapping_quality(adjusted_mapq);
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "rescued alignment is " << pb2json(rescue_multipath_aln) << endl;
+        cerr << "rescued alignments has effective match length " << pseudo_length(rescue_multipath_aln) / 3 << ", which gives p-value " << random_match_p_value(pseudo_length(rescue_multipath_aln) / 3, rescue_multipath_aln.sequence().size()) << endl;
 #endif
         return (raw_mapq >= min(25, max_mapping_quality)
-                && random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size()) < 0.000001);
+                && random_match_p_value(pseudo_length(rescue_multipath_aln) / 3, rescue_multipath_aln.sequence().size()) < 0.000001);
     }
     
     bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) {
-#ifdef debug_multipath_mapper
-        cerr << "effective match length of " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) / 2 << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(pseudo_length(multipath_aln) / 2, multipath_aln.sequence().size()) << endl;
+#ifdef debug_multipath_mapper_mapping
+        cerr << "effective match length of " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) / 3 << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(pseudo_length(multipath_aln) / 3, multipath_aln.sequence().size()) << endl;
 #endif
         
         // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
-        return random_match_p_value(pseudo_length(multipath_aln) / 2, multipath_aln.sequence().size()) > 0.00001;
+        return random_match_p_value(pseudo_length(multipath_aln) / 3, multipath_aln.sequence().size()) > 0.00001;
     }
     
     size_t MultipathMapper::pseudo_length(const MultipathAlignment& multipath_aln) const {
@@ -553,6 +555,10 @@ namespace vg {
             }
         }
         
+#ifdef debug_report_startup_training
+        cerr << "trained scale: " << scale << endl;
+#endif
+        
         // set the multipler to the maximimum likelihood
         pseudo_length_multiplier = scale;
         
@@ -620,7 +626,7 @@ namespace vg {
             && multipath_alns_2.front().mapping_quality() >= min(25, max_mapping_quality)) {
             
             // we are able to obtain confident matches that satisfy the pairing constraints
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "found consistent, confident pair mapping from independent end mapping" << endl;
 #endif
             // TODO: recalculate mapping quality as a pair?
@@ -633,7 +639,7 @@ namespace vg {
             // we can correct them
             
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "performing rescue from top independent end mappings to try to find consistent pair" << endl;
 #endif
             
@@ -651,7 +657,7 @@ namespace vg {
             vector<pair<pair<size_t, size_t>, int64_t>> pair_distances;
             
             if (rescued_forward && rescued_backward) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "rescue succeeded for both ends" << endl;
 #endif
                 found_consistent = true;
@@ -677,7 +683,7 @@ namespace vg {
                 if (same_alignment_1 && same_alignment_2) {
                     // these are probably the same alignment
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "rescued alignments are the same as the original" << endl;
 #endif
                     
@@ -692,7 +698,7 @@ namespace vg {
                     multipath_aln_pairs_out.front().second.set_mapping_quality(conditional_mapq);
                 }
                 else if (same_alignment_1) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "read 1 rescue is the same as original" << endl;
 #endif
                     
@@ -722,7 +728,7 @@ namespace vg {
                     multipath_aln_pairs_out.emplace_back(move(secondary));
                 }
                 else if (same_alignment_2) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "read 2 rescue is the same as original" << endl;
 #endif
                     
@@ -752,7 +758,7 @@ namespace vg {
                     multipath_aln_pairs_out.emplace_back(move(secondary));
                 }
                 else {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "rescue produces two ambiguous consisent pairs" << endl;
 #endif
                     
@@ -776,7 +782,7 @@ namespace vg {
                 }
             }
             else if (rescued_forward) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "rescue succeeded from read 1" << endl;
 #endif
                 
@@ -788,7 +794,7 @@ namespace vg {
             }
             else if (rescued_backward) {
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "rescue succeeded from read 2" << endl;
 #endif
                 
@@ -799,7 +805,7 @@ namespace vg {
                 sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
             }
             else {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "rescue failed to find a consistent pair" << endl;
 #endif
                 
@@ -831,7 +837,7 @@ namespace vg {
         
 #ifdef debug_validate_multipath_alignments
         for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "validating multipath alignments:" << endl;
             cerr << pb2json(multipath_aln_pair.first) << endl;
             cerr << pb2json(multipath_aln_pair.second) << endl;
@@ -866,7 +872,7 @@ namespace vg {
                                                vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
                                                size_t max_alt_mappings) {
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "multipath mapping paired reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
 #endif
         
@@ -874,7 +880,7 @@ namespace vg {
             // we have not estimated a fragment length distribution yet, so we revert to single ended mode and look
             // for unambiguous pairings
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "no fragment length distribution yet, looking for unambiguous single ended pairs" << endl;
 #endif
             
@@ -892,7 +898,7 @@ namespace vg {
         vector<MaximalExactMatch> mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(), dummy1, dummy2,
                                                          0, min_mem_length, mem_reseed_length, false, true, true, false);
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "obtained read1 MEMs:" << endl;
         for (MaximalExactMatch mem : mems1) {
             cerr << "\t" << mem << " (" << mem.nodes.size() << " hits)" << endl;
@@ -934,7 +940,7 @@ namespace vg {
         auto cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
         auto cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "obtained independent clusters:" << endl;
         cerr << "read 1" << endl;
         for (int i = 0; i < clusters1.size(); i++) {
@@ -983,7 +989,7 @@ namespace vg {
                                                                                                              max_separation,
                                                                                                              &node_path_occurrence_memo,
                                                                                                              &handle_memo);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "obtained cluster pairs:" << endl;
         for (int i = 0; i < cluster_pairs.size(); i++) {
             pos_t pos_1 = get<1>(cluster_graphs1[cluster_pairs[i].first.first]).front().second;
@@ -1021,7 +1027,7 @@ namespace vg {
                 // tricked by bad MEM, so we see if we can do better by aligning the ends independently and
                 // rescuing (in general, this should at least give us more appropriately bad mapping quality)
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
 #endif
                 vector<pair<MultipathAlignment, MultipathAlignment>> rescue_pairs;
@@ -1074,7 +1080,7 @@ namespace vg {
         else {
             // revert to independent single ended mappings
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "could not find a consistent pair, reverting to single ended mapping" << endl;
 #endif
             align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
@@ -1117,7 +1123,7 @@ namespace vg {
             vector<vector<int64_t>> comps = connected_components(multipath_alns_out[i]);
             
             if (comps.size() > 1) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "splitting multicomponent alignment " << pb2json(multipath_alns_out[i]) << endl;
 #endif
                 // split this multipath alignment into its connected components
@@ -1141,7 +1147,7 @@ namespace vg {
             vector<vector<int64_t>> connected_components_1 = connected_components(multipath_aln_pairs_out[i].first);
             vector<vector<int64_t>> connected_components_2 = connected_components(multipath_aln_pairs_out[i].second);
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "finding connected components for mapping:" << endl;
             cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
             cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
@@ -1165,7 +1171,7 @@ namespace vg {
             
             
             if (connected_components_1.size() > 1 && connected_components_2.size() > 1) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "splitting both multicomponent alignments" << endl;
 #endif
                 // need to split both ends
@@ -1183,7 +1189,7 @@ namespace vg {
                         // add a distance for scoring purposes
                         cluster_pairs.emplace_back(cluster_pairs[i].first,
                                                    distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                         cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
                         cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
                         cerr  << pb2json(multipath_aln_pairs_out.back().second) << endl;
@@ -1199,7 +1205,7 @@ namespace vg {
                 multipath_aln_pairs_out[i].second = last_component;
                 cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second);
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
                 cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
                 cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
@@ -1207,7 +1213,7 @@ namespace vg {
                 
             }
             else if (connected_components_1.size() > 1) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "splitting read 1 multicomponent alignments" << endl;
 #endif
                 // only need to split first end
@@ -1218,7 +1224,7 @@ namespace vg {
                     // add a distance for scoring purposes
                     cluster_pairs.emplace_back(cluster_pairs[i].first,
                                                distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
                     cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
                     cerr  << pb2json(multipath_aln_pairs_out.back().second) << endl;
@@ -1230,14 +1236,14 @@ namespace vg {
                 multipath_aln_pairs_out[i].first = last_component;
                 cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second);
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
                 cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
                 cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
 #endif
             }
             else if (connected_components_2.size() > 1) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "splitting read 2 multicomponent alignments" << endl;
 #endif
                 // only need to split second end
@@ -1248,7 +1254,7 @@ namespace vg {
                     // add a distance for scoring purposes
                     cluster_pairs.emplace_back(cluster_pairs[i].first,
                                                distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
                     cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
                     cerr  << pb2json(multipath_aln_pairs_out.back().second) << endl;
@@ -1260,7 +1266,7 @@ namespace vg {
                 multipath_aln_pairs_out[i].second = last_component;
                 cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second);
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
                 cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
                 cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
@@ -1289,7 +1295,7 @@ namespace vg {
                       return get_pair_coverage(a.first) > get_pair_coverage(b.first);
                   });
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "aligning to cluster pairs..." << endl;
 #endif
         
@@ -1319,7 +1325,7 @@ namespace vg {
             memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first.first]);
             memcluster_t& graph_mems2 = get<1>(cluster_graphs2[cluster_pair.first.second]);
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "doing pair " << cluster_pair.first.first << " " << cluster_pair.first.second << endl;
             cerr << "performing alignments to subgraphs " << pb2json(vg1->graph) << " and " << pb2json(vg2->graph) << endl;
 #endif
@@ -1347,7 +1353,7 @@ namespace vg {
         
 #ifdef debug_validate_multipath_alignments
         for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "validating multipath alignments:" << endl;
             cerr << pb2json(multipath_aln_pair.first) << endl;
             cerr << pb2json(multipath_aln_pair.second) << endl;
@@ -1398,7 +1404,7 @@ namespace vg {
         
         for (size_t i = 0; i < clusters.size(); i++) {
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "extracting subgraph for cluster " << i << endl;
 #endif
             
@@ -1452,7 +1458,7 @@ namespace vg {
             if (overlapping_graphs.empty()) {
                 // there is no overlap with any other graph, suggesting a new unique hit
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "cluster graph does not overlap with any other cluster graphs, adding as cluster " << i << endl;
 #endif
                 cluster_graphs[i] = cluster_graph;
@@ -1464,7 +1470,7 @@ namespace vg {
             else {
                 // this graph overlaps at least one other graph, so we merge them into one
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "cluster graph overlaps with the following graphs:" << endl;
                 for (auto idx : overlapping_graphs) {
                     cerr << "\t" << idx << endl;
@@ -1477,7 +1483,7 @@ namespace vg {
                 }
                 size_t remaining_idx = union_find.find_group(i);
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "merging as cluster " << remaining_idx << endl;
 #endif
                 
@@ -1531,7 +1537,7 @@ namespace vg {
         for (pair<size_t, vector<unordered_set<id_t>>>& multicomponent_graph : multicomponent_graphs) {
             max_graph_idx++;
             // make a new graph for each of the components
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "cluster graph " << multicomponent_graph.first << " has multiple connected components, splitting now" << endl;
             for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
                 cerr << "component " << max_graph_idx + i << ":" << endl;
@@ -1571,7 +1577,7 @@ namespace vg {
                 }
             }
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "split graphs:" << endl;
             for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
                 cerr << "component " << max_graph_idx + i << ":" << endl;
@@ -1591,7 +1597,7 @@ namespace vg {
         cluster_graphs_out.reserve(cluster_graphs.size());
         unordered_map<size_t, size_t> cluster_to_idx;
         for (const auto& cluster_graph : cluster_graphs) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "adding cluster graph " << cluster_graph.first << " to return vector at index " << cluster_graphs_out.size() << endl;
 #endif
             cluster_to_idx[cluster_graph.first] = cluster_graphs_out.size();
@@ -1599,7 +1605,7 @@ namespace vg {
         }
 
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "computing MEM assignments to cluster graphs" << endl;
 #endif
         // which MEMs are in play for which cluster?
@@ -1609,7 +1615,7 @@ namespace vg {
                 if (node_id_to_cluster.count(node_id)) {
                     size_t cluster_idx = cluster_to_idx[node_id_to_cluster[node_id]];
                     get<1>(cluster_graphs_out[cluster_idx]).push_back(make_pair(&mem, make_pos_t(hit)));
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "\tMEM " << mem.sequence() << " at " << make_pos_t(hit) << " found in cluster " << node_id_to_cluster[node_id] << " at index " << cluster_idx << endl;
 #endif
                 }
@@ -1620,7 +1626,7 @@ namespace vg {
         for (size_t i = 0; i < cluster_graphs_out.size(); i++) {
             auto& cluster_graph = cluster_graphs_out[i];
             get<2>(cluster_graph) = read_coverage(get<1>(cluster_graph));
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "compute read coverage of cluster at index " << i << " to be " << get<2>(cluster_graph) << endl;
 #endif
             sort(get<1>(cluster_graph).begin(), get<1>(cluster_graph).end(),
@@ -1639,7 +1645,7 @@ namespace vg {
                                           memcluster_t& graph_mems,
                                           MultipathAlignment& multipath_aln_out) const {
 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "constructing alignment graph" << endl;
 #endif
         
@@ -1685,7 +1691,7 @@ namespace vg {
         // put the internal graph in topological order for the MultipathAlignmentGraph algorithm
         align_graph.lazy_sort();
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "making multipath alignment MEM graph" << endl;
 #endif
         
@@ -1695,7 +1701,7 @@ namespace vg {
         vector<size_t> topological_order;
         multi_aln_graph.topological_sort(topological_order);
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "computed topological sort, topology is: " << endl;
         for (size_t i = 0; i < multi_aln_graph.match_nodes.size(); i++) {
             cerr << "node " << i << ", " << pb2json(multi_aln_graph.match_nodes[i].path.mapping(0).position()) << " ";
@@ -1712,7 +1718,7 @@ namespace vg {
         // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
         multi_aln_graph.remove_transitive_edges(topological_order);
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "removed transitive edges, topology is:" << endl;
         for (size_t i = 0; i < multi_aln_graph.match_nodes.size(); i++) {
             cerr << "node " << i << ", " << pb2json(multi_aln_graph.match_nodes[i].path.mapping(0).position()) << " ";
@@ -1730,7 +1736,7 @@ namespace vg {
         multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
                                                     max_suboptimal_path_score_ratio, topological_order);
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "pruned to high scoring paths, topology is:" << endl;
         for (size_t i = 0; i < multi_aln_graph.match_nodes.size(); i++) {
             cerr << "node " << i << ", " << pb2json(multi_aln_graph.match_nodes[i].path.mapping(0).position()) << " ";
@@ -1751,7 +1757,7 @@ namespace vg {
         multipath_aln_out.set_sample_name(alignment.sample_name());
         multipath_aln_out.set_read_group(alignment.read_group());
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "transferred over read information" << endl;
 #endif
         
@@ -1768,13 +1774,13 @@ namespace vg {
                 (match_node.end == alignment.sequence().end())));
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "doing DP between MEMs" << endl;
 #endif
         
         // perform alignment in the intervening sections
         for (int64_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
             cerr << "checking for intervening alignments from match node " << j << endl;
 #endif
             
@@ -1791,7 +1797,7 @@ namespace vg {
                 // are at node boundaries, but even then the best alignment would be from the empty sequence to
                 // the path of length 0
                 if (src_match_node.end == multi_aln_graph.match_nodes[edge.first].begin && edge.second == 0) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "match node has a simple split connection onto node " << edge.first << endl;
 #endif
                     // connect the subpath directly without an intervening alignment
@@ -1817,7 +1823,7 @@ namespace vg {
                 ExactMatchNode& dest_match_node = multi_aln_graph.match_nodes[edge.first];
                 pos_t dest_pos = make_pos_t(multipath_aln_out.subpath(edge.first).path().mapping(0).position());
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "forming intervening alignment for edge to node " << edge.first << endl;
 #endif
                 
@@ -1825,7 +1831,7 @@ namespace vg {
                 size_t max_dist = intervening_length +
                     std::min(src_max_gap, get_aligner()->longest_detectable_gap(alignment, dest_match_node.begin)) + 1;
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "read dist: " << intervening_length << ", source max gap: "
                      << src_max_gap << ", dest max gap "
                      << get_aligner()->longest_detectable_gap(alignment, dest_match_node.begin) << endl;
@@ -1860,7 +1866,7 @@ namespace vg {
                                                                                 dest_match_node.begin - src_match_node.end));
                 }
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "aligning sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph) << endl;
 #endif
                 
@@ -1872,7 +1878,7 @@ namespace vg {
                                                          connecting_graph, num_alt_alns, band_padding, true);
                 
                 for (Alignment& connecting_alignment : alt_alignments) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "translating connecting alignment: " << pb2json(connecting_alignment) << endl;
 #endif
                     
@@ -1907,7 +1913,7 @@ namespace vg {
                         Mapping* mapping = subpath_path->add_mapping();
                         *mapping = first_mapping;
                         mapping->set_rank(rank);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "first mapping is not empty, formed mapping: " << pb2json(*mapping) << endl;
 #endif
                         rank++;
@@ -1917,7 +1923,7 @@ namespace vg {
                         Mapping* mapping = subpath_path->add_mapping();
                         *mapping = aligned_path.mapping(j);
                         mapping->set_rank(rank);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "added middle mapping: " << pb2json(*mapping) << endl;
 #endif
                         rank++;
@@ -1927,7 +1933,7 @@ namespace vg {
                         Mapping* mapping = subpath_path->add_mapping();
                         *mapping = last_mapping;
                         mapping->set_rank(rank);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "final mapping is not empty, formed mapping: " << pb2json(*mapping) << endl;
 #endif
                     }
@@ -1945,7 +1951,7 @@ namespace vg {
                         }
                     }
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "subpath from " << j << " to " << edge.first << ":" << endl;
                     cerr << pb2json(*connecting_subpath) << endl;
 #endif
@@ -2100,7 +2106,7 @@ namespace vg {
                                                                                    alignment.sequence().end() - match_node.end));
                     }
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "aligning sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph: " << pb2json(tail_graph) << endl;
 #endif
                     
@@ -2124,7 +2130,7 @@ namespace vg {
                         anchoring_position->set_node_id(anchoring_mapping.position().node_id());
                         anchoring_position->set_is_reverse(anchoring_mapping.position().is_reverse());
                         anchoring_position->set_offset(anchoring_mapping.position().offset() + mapping_from_length(anchoring_mapping));
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
 #endif
                         // the ID translator is empty, so add this ID here so it doesn't give an out of index error
@@ -2136,7 +2142,7 @@ namespace vg {
                         get_aligner()->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
                     }
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
 #endif
                     
@@ -2165,7 +2171,7 @@ namespace vg {
                             pos->set_is_reverse(final_mapping.position().is_reverse());
                             pos->set_offset(final_mapping.position().offset() + mapping_from_length(final_mapping));
                         }
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "subpath from " << j << " to right tail:" << endl;
                         cerr << pb2json(*tail_subpath) << endl;
 #endif
@@ -2207,7 +2213,7 @@ namespace vg {
                     }
                     
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "aligning sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph: " << pb2json(tail_graph) << endl;
 #endif
                     vector<Alignment> alt_alignments;
@@ -2225,7 +2231,7 @@ namespace vg {
                         
                         // make it at the correct position
                         *insert_mapping->mutable_position() = multi_aln_graph.match_nodes[j].path.mapping(0).position();
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
 #endif
                         // the ID translator is empty, so add this ID here so it doesn't give an out of index error
@@ -2236,7 +2242,7 @@ namespace vg {
                         get_aligner()->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                     }
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
 #endif
                     const Mapping& first_mapping = match_node.path.mapping(0);
@@ -2249,7 +2255,7 @@ namespace vg {
                         multipath_aln_out.add_start(multipath_aln_out.subpath_size() - 1);
                         
                         translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "subpath from " << j << " to left tail:" << endl;
                         cerr << pb2json(*tail_subpath) << endl;
 #endif
@@ -2269,13 +2275,13 @@ namespace vg {
             }
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "multipath alignment before translation: " << pb2json(multipath_aln_out) << endl;
 #endif
         for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
             translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), node_trans);
         }
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "completed multipath alignment: " << pb2json(multipath_aln_out) << endl;
 #endif
         
@@ -2379,7 +2385,7 @@ namespace vg {
             }
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "scores obtained of multi-mappings:" << endl;
         for (auto score : scores) {
             cerr << "\t" << score << endl;
@@ -2388,7 +2394,7 @@ namespace vg {
         
         if (mapq_method != None) {
             int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapq_method == Approx);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
             multipath_alns.front().set_mapping_quality(min<int32_t>(raw_mapq, max_mapping_quality));
@@ -2435,7 +2441,7 @@ namespace vg {
             }
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
         cerr << "scores and distances obtained of multi-mappings:" << endl;
         for (int i = 0; i < multipath_aln_pairs.size(); i++) {
             cerr << "\talign:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second) << ", length: " << cluster_pairs[i].second << ", combined: " << scores[i] << endl;
@@ -2445,7 +2451,7 @@ namespace vg {
         if (mapping_quality_method != None) {
             
             int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
             cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
             int32_t mapq = min<int32_t>(raw_mapq, max_mapping_quality);
@@ -2469,7 +2475,7 @@ namespace vg {
                     // TODO: wasteful to recompute these in the inner loop, but I expect this condition to be very
                     // rare or non-existent in the current code
                     int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "deduplicated scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
                     int32_t mapq = min<int32_t>(raw_mapq, max_mapping_quality);
@@ -2543,7 +2549,7 @@ namespace vg {
             const Subpath& subpath = multipath_aln.subpath(i);
             for (size_t j = 0; j < subpath.next_size(); j++) {
                 if (subpath.next(j) <= i) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "validation failure on topological order" << endl;
 #endif
                     return false;
@@ -2568,7 +2574,7 @@ namespace vg {
             }
             
             if (num_starts != multipath_aln.start_size()) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "validation failure on correct number of starts" << endl;
                 for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
                     if (is_source[i]) {
@@ -2582,7 +2588,7 @@ namespace vg {
             
             for (size_t i = 0; i < multipath_aln.start_size(); i++) {
                 if (!is_source[multipath_aln.start(i)]) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "validation failure on correctly identified starts" << endl;
                     for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
                         if (is_source[i]) {
@@ -2611,7 +2617,7 @@ namespace vg {
             
             if (!subpath.next_size()) {
                 if (subpath_read_interval[i].second != multipath_aln.sequence().size()) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "validation failure on using complete read" << endl;
                     cerr << "subpath " <<  i << " ends on sequence index " << subpath_read_interval[i].second << " of " << multipath_aln.sequence().size() << endl;
                     cerr << pb2json(subpath) << endl;
@@ -2630,7 +2636,7 @@ namespace vg {
                 for (size_t j = 0; j < subpath.next_size(); j++) {
                     if (subpath_read_interval[subpath.next(j)].first >= 0) {
                         if (subpath_read_interval[subpath.next(j)].first != subpath_read_interval[i].second) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                             cerr << "validation failure on read contiguity" << endl;
 #endif
                             return false;
@@ -2647,7 +2653,7 @@ namespace vg {
         
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             if (multipath_aln.subpath(i).path().mapping_size() == 0) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                 cerr << "validation failure on containing only nonempty paths" << endl;
                 cerr << "subpath " << i << ": " << pb2json(multipath_aln.subpath(i)) << endl;
 #endif
@@ -2655,7 +2661,7 @@ namespace vg {
             }
             for (size_t j = 0; j < multipath_aln.subpath(i).path().mapping_size(); j++) {
                 if (multipath_aln.subpath(i).path().mapping(j).edit_size() == 0) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "validation failure on containing only nonempty mappings" << endl;
                     cerr << "subpath " << i << ": " << pb2json(multipath_aln.subpath(i)) << endl;
 #endif
@@ -2672,7 +2678,7 @@ namespace vg {
             if (mapping_from.position().node_id() == mapping_to.position().node_id() &&
                 mapping_from.position().is_reverse() == mapping_to.position().is_reverse()) {
                 if (mapping_to.position().offset() != mapping_from_end_offset) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "validation failure on within-node adjacency" << endl;
                     cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
 #endif
@@ -2681,7 +2687,7 @@ namespace vg {
             }
             else {
                 if (mapping_from_end_offset != xindex->node_length(mapping_from.position().node_id())) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "validation failure on using edge at middle of node" << endl;
                     cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
 #endif
@@ -2710,7 +2716,7 @@ namespace vg {
                 }
                 
                 if (!found_edge) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                     cerr << "validation failure on nodes not connected by an edge" << endl;
                     cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
 #endif
@@ -2749,7 +2755,7 @@ namespace vg {
                 if (edit_is_match(edit)) {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
                         if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) != subseq[seq_idx]) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                             cerr << "validation failure on match that does not match" << endl;
                             cerr << pb2json(mapping) << ", " << subseq << endl;
 #endif
@@ -2760,14 +2766,14 @@ namespace vg {
                 else if (edit_is_sub(edit)) {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
                         if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) == subseq[seq_idx]) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                             cerr << "validation failure on mismatch that matches" << endl;
                             cerr << pb2json(mapping) << ", " << subseq << endl;
 #endif
                             return false;
                         }
                         if (edit.sequence()[j] != subseq[seq_idx]) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                             cerr << "validation failure on substitution sequence that does not match read" << endl;
                             cerr << pb2json(mapping) << ", " << subseq << endl;
 #endif
@@ -2778,7 +2784,7 @@ namespace vg {
                 else if (edit_is_insertion(edit)) {
                     for (size_t j = 0; j < edit.to_length(); j++, seq_idx++) {
                         if (edit.sequence()[j] != subseq[seq_idx]) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_mapping
                             cerr << "validation failure on insertion sequence that does not match read" << endl;
                             cerr << pb2json(mapping) << ", " << subseq << endl;
 #endif
@@ -2846,14 +2852,14 @@ namespace vg {
         // in the dagified graph
         unordered_multimap<id_t, pair<id_t, bool> > injection_trans;
         for (const auto& trans_record : projection_trans) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
             cerr << trans_record.second.first << "->" << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
 #endif
             injection_trans.insert(make_pair(trans_record.second.first,
                                              make_pair(trans_record.first, trans_record.second.second)));
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "walking out MEMs in graph" << endl;
 #endif
         
@@ -2872,7 +2878,7 @@ namespace vg {
             // the start of the hit in the original graph
             const pos_t& hit_pos = hit.second;
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
             cerr << "walking MEM hit " << hit_pos << " " << hit.first->sequence() << endl;
 #endif
             
@@ -2886,14 +2892,14 @@ namespace vg {
                 // an id that corresponds to the original node
                 id_t injected_id = (*iter).second.first;
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "hit node exists in graph as " << injected_id << endl;
 #endif
                 
                 // check all MEMs that traversed this node to see if this is a redundant sub-MEM
                 bool is_partial_mem = false;
                 if (node_matches.count(injected_id)) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "we need to check if this is a redundant sub MEM, there are previous that visited this hit" << endl;
 #endif
                     
@@ -2901,7 +2907,7 @@ namespace vg {
                         ExactMatchNode& match_node = match_nodes[j];
                         
                         if (begin < match_node.begin || end > match_node.end) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                             if (begin < match_node.begin) {
                                 cerr << "this MEM is earlier in the read than the other, so this is not redundant" << endl;
                             }
@@ -2915,7 +2921,7 @@ namespace vg {
                         }
                         
                         int64_t relative_offset = begin - match_node.begin;
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "the match on node " << j << " has an relative offset of " << relative_offset << " to the this MEM in the read" << endl;
 #endif
                         
@@ -2924,14 +2930,14 @@ namespace vg {
                         // if this is a partial MEM, we should be able to predict its hit location by traversing the path
                         // of the parent MEM by a distance equal to the relative offset
                         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "traversing putative parent MEM with path " << pb2json(path) << endl;
 #endif
                         
                         int64_t prefix_length = 0;
                         for (size_t k = 0; k < path.mapping_size(); k++) {
                             if (prefix_length > relative_offset) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                                 cerr << "we have passed where the location would be, breaking out of loop" << endl;
 #endif
                                 break;
@@ -2939,7 +2945,7 @@ namespace vg {
                             const Mapping& mapping = path.mapping(k);
                             // the length through this mapping
                             int64_t prefix_through_length = prefix_length + mapping_from_length(mapping);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                             cerr << "after traversing the " << k << "-th step, we have covered a distance of " << prefix_through_length << endl;
 #endif
                             if (prefix_through_length > relative_offset) {
@@ -2949,7 +2955,7 @@ namespace vg {
                                 is_partial_mem = is_partial_mem || (injected_id == node_id_here
                                                                     && offset(hit_pos) == mapping.position().offset() + relative_offset - prefix_length
                                                                     && projection_trans.at(node_id_here).second == is_rev(hit_pos));
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                                 cerr << "this mapping crosses where we would expect a child to be: " << node_id_here << (projection_trans.at(node_id_here).second ? "-" : "+") << ":" << mapping.position().offset() + relative_offset - prefix_length << endl;
                                 cerr << "this MEM is actually at: " << injected_id << (is_rev(hit_pos) ? "-" : "+") << ":" << offset(hit_pos) << endl;
 #endif
@@ -2965,13 +2971,13 @@ namespace vg {
                 
                 // don't walk the match of false partial hits
                 if (is_partial_mem) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "this MEM is identified as a redundant sub-MEM, so we skip it" << endl;
 #endif
                     continue;
                 }
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "performing DFS to walk out match" << endl;
 #endif
                 
@@ -2983,7 +2989,7 @@ namespace vg {
                 while (!stack.empty()) {
                     auto& back = stack.back();
                     if (get<2>(back) == get<3>(back).size()) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "traversed all edges out of current traversal" << endl;
 #endif
                         stack.pop_back();
@@ -2992,7 +2998,7 @@ namespace vg {
                     NodeTraversal trav = get<3>(back)[get<2>(back)];
                     get<2>(back)++;
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "checking node " << trav.node->id() << endl;
 #endif
                     
@@ -3003,7 +3009,7 @@ namespace vg {
                     // look for a match along the entire node sequence
                     for (; node_idx < node_seq.size() && read_iter != end; node_idx++, read_iter++) {
                         if (node_seq[node_idx] != *read_iter) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                             cerr << "node sequence does not match read" << endl;
 #endif
                             break;
@@ -3012,7 +3018,7 @@ namespace vg {
                     
                     if (read_iter == end) {
                         // finished walking match
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "reached end of read sequence, finished walking match" << endl;
 #endif
                         break;
@@ -3028,13 +3034,13 @@ namespace vg {
                 // the edge of the subraph find their way in (only when they are not part of the alignment
                 // represented by the cluster used to query the subgraph) in which case we just skip this MEM
                 if (stack.empty()) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "this MEM overhangs the end of the graph" << endl;
 #endif
                     continue;
                 }
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "converting into a Path at idx " << match_nodes.size() << endl;
 #endif
                 
@@ -3067,7 +3073,7 @@ namespace vg {
                     
                     // record that each node occurs in this match so we can filter out sub-MEMs
                     node_matches[node->id()].push_back(match_node_idx);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "associating node " << node->id() << " with a match at idx " << match_node_idx << endl;
 #endif
                     
@@ -3075,14 +3081,14 @@ namespace vg {
                     length_remaining -= length;
                 }
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << pb2json(path) << endl;
 #endif
             }
         }
         
         if (cutting_snarls) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
             cerr << "cutting with snarls" << endl;
 #endif
             // we indicated a snarl manager that owns the snarls we want to cut out of exact matches
@@ -3095,7 +3101,7 @@ namespace vg {
                 ExactMatchNode* match_node = &match_nodes[i];
                 Path* path = &match_node->path;
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "cutting node at index " << i << " with path " << pb2json(*path) << endl;
 #endif
                 
@@ -3167,7 +3173,7 @@ namespace vg {
                 
                 // did we cut out any segments?
                 if (!cut_segments.empty()) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "found cut segments:" << endl;
                     for (auto seg : cut_segments) {
                         cerr << "\t" << seg.first << ":" << seg.second << endl;
@@ -3205,7 +3211,7 @@ namespace vg {
                     size_t prefix_length = 0;
                     size_t prefix_idx = 0;
                     for (auto iter = keep_segments.end() - 1; iter != keep_segments.begin(); iter--) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "making path for keep segment " << iter->first << ":" << iter->second << " at idx " << match_nodes.size() << endl;
 #endif
                         match_nodes.emplace_back();
@@ -3238,7 +3244,7 @@ namespace vg {
                         
                         prefix_length += keep_segment_length;
                         prefix_idx = iter->second;
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "new cut path: " << pb2json(cut_path) << endl;
 #endif
                         
@@ -3264,14 +3270,14 @@ namespace vg {
                     // update the substring of MEM to match the path
                     match_node->begin += prefix_length;
                     match_node->end = match_node->begin + keep_segment_length;
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "new in place cut path for keep segment " << keep_segments.front().first << ":" << keep_segments.front().second << " " << pb2json(new_path) << endl;
 #endif
                 }
             }
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "computing reachability" << endl;
 #endif
         
@@ -3314,7 +3320,7 @@ namespace vg {
             exact_match_ends[path.mapping(path.mapping_size() - 1).position().node_id()].push_back(i);
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "recorded starts: " << endl;
         for (const auto& rec : exact_match_starts) {
             cerr << "\t" << rec.first << ": ";
@@ -3373,7 +3379,7 @@ namespace vg {
             Node* node = graph.mutable_node(i);
             id_t node_id = node->id();
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
             cerr << "DP step for node " << node_id << endl;
 #endif
             
@@ -3391,7 +3397,7 @@ namespace vg {
                 // since there are both starts and ends on this node, we have to traverse both lists simultaneously
                 // to assess reachability within the same node
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "node " << node_id << " contains both starts and ends of MEMs" << endl;
 #endif
                 
@@ -3417,7 +3423,7 @@ namespace vg {
                     start_range_end++;
                 }
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "first starts in range " << start_range_begin << ":" << start_range_end << " are located at initial offset " << curr_start_offset << endl;
                 cerr << "first ends in range " << end_range_begin << ":" << end_range_end << " are located at initial offset " << curr_end_offset << endl;
 #endif
@@ -3446,7 +3452,7 @@ namespace vg {
                     prev_range_begin = &prev_end_range_begin;
                     curr_offset = &curr_end_offset;
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "first endpoint is an end" << endl;
 #endif
                 }
@@ -3460,20 +3466,20 @@ namespace vg {
                     prev_range_begin = &prev_start_range_begin;
                     curr_offset = &curr_start_offset;
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "first endpoint is a start" << endl;
 #endif
                 }
                 
                 for (size_t j = *range_begin; j < *range_end; j++) {
                     for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "identifying end " << incoming_end.first << " as reachable from endpoint " << endpoints->at(j) << endl;
 #endif
                         (*reachable_ends_from_endpoint)[endpoints->at(j)].emplace_back(incoming_end.first, incoming_end.second + *curr_offset);
                     }
                     for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "identifying start " << incoming_start.first << " as reachable from endpoint " << endpoints->at(j) << endl;
 #endif
                         (*reachable_starts_from_endpoint)[endpoints->at(j)].emplace_back(incoming_start.first, incoming_start.second + *curr_offset);
@@ -3491,7 +3497,7 @@ namespace vg {
                     }
                 }
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "next range is " << *range_begin << ":" << *range_end << " at offset " << *curr_offset << endl;
 #endif
                 
@@ -3519,7 +3525,7 @@ namespace vg {
                         prev_range_begin = &prev_start_range_begin;
                         curr_offset = &curr_start_offset;
                     }
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "at " << (at_end ? "end" : "start") << "s in range " << *range_begin << ":" << *range_end << endl;
 #endif
                     
@@ -3527,12 +3533,12 @@ namespace vg {
                     
                     // connect this range to the previous range
                     if (prev_is_end) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "looking backwards to ends in range " << prev_end_range_begin << ":" << end_range_begin << endl;
 #endif
                         for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
                             for (size_t k = *range_begin; k < *range_end; k++) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                                 cerr << "identifying end " << ends[j] << " as reachable from " << (at_end ? "end" : "start") << " " << endpoints->at(k) << endl;
 #endif
                                 (*reachable_ends_from_endpoint)[endpoints->at(k)].emplace_back(ends[j], dist_between);
@@ -3540,12 +3546,12 @@ namespace vg {
                         }
                     }
                     else {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "looking backwards to starts in range " << prev_start_range_begin << ":" << start_range_begin << endl;
 #endif
                         for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
                             for (size_t k = *range_begin; k < *range_end; k++) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                                 cerr << "identifying start " << starts[j] << " as reachable from " << (at_end ? "end" : "start") << " " << endpoints->at(k) << endl;
 #endif
                                 (*reachable_starts_from_endpoint)[endpoints->at(k)].emplace_back(starts[j], dist_between);
@@ -3567,7 +3573,7 @@ namespace vg {
                         }
                     }
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "next range is " << *range_begin << ":" << *range_end << " at offset " << *curr_offset << endl;
 #endif
                 }
@@ -3585,7 +3591,7 @@ namespace vg {
                     prev_range_begin = &prev_end_range_begin;
                     curr_offset = &curr_end_offset;
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "final endpoint(s) are end(s)" << endl;
 #endif
                 }
@@ -3599,7 +3605,7 @@ namespace vg {
                     prev_range_begin = &prev_start_range_begin;
                     curr_offset = &curr_start_offset;
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "final endpoint(s) are start(s)" << endl;
 #endif
                 }
@@ -3609,12 +3615,12 @@ namespace vg {
                     size_t dist_between = *curr_offset - prev_offset;
                     
                     if (prev_is_end) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "looking backwards to ends in range " << prev_end_range_begin << ":" << end_range_begin << endl;
 #endif
                         for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
                             for (size_t k = *range_begin; k < *range_end; k++) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                                 cerr << "identifying end " << ends[j] << " as reachable from endpoint " << endpoints->at(k) << endl;
 #endif
                                 (*reachable_ends_from_endpoint)[endpoints->at(k)].push_back(make_pair(ends[j], dist_between));
@@ -3622,12 +3628,12 @@ namespace vg {
                         }
                     }
                     else {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "looking backwards to starts in range " << prev_start_range_begin << ":" << start_range_begin << endl;
 #endif
                         for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
                             for (size_t k = *range_begin; k < *range_end; k++) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                                 cerr << "identifying start " << starts[j] << " as reachable from endpoint " << endpoints->at(k) << endl;
 #endif
                                 (*reachable_starts_from_endpoint)[endpoints->at(k)].push_back(make_pair(starts[j], dist_between));
@@ -3635,7 +3641,7 @@ namespace vg {
                         }
                     }
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "moving to next endpoint range" << endl;
 #endif
                     
@@ -3651,7 +3657,7 @@ namespace vg {
                         }
                     }
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "next range is " << *range_begin << ":" << *range_end << " at offset " << *curr_offset << endl;
 #endif
                 }
@@ -3659,7 +3665,7 @@ namespace vg {
                 // carry forward the reachability of the last range onto the next nodes
                 size_t dist_thru = node_length - *curr_offset;
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "carrying forward reachability onto next nodes at distance " << dist_thru << endl;
 #endif
                 
@@ -3685,7 +3691,7 @@ namespace vg {
                 unordered_map<size_t, vector<pair<size_t, size_t>>>* reachable_endpoints_from_endpoint;
                 vector<size_t>* endpoints;
                 if (contains_ends) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "node " << node_id << " contains only ends of MEMs" << endl;
 #endif
                     reachable_endpoints = &reachable_ends;
@@ -3695,7 +3701,7 @@ namespace vg {
                     endpoints = &exact_match_ends[node_id];
                 }
                 else {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "node " << node_id << " contains only starts of MEMs" << endl;
 #endif
                     reachable_endpoints = &reachable_starts;
@@ -3715,20 +3721,20 @@ namespace vg {
                     range_end++;
                 }
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "initial range " << range_begin << ":" << range_end << " is at offset " << curr_offset << endl;
 #endif
                 
                 // connect the range to the incoming starts/ends
                 for (size_t j = range_begin; j < range_end; j++) {
                     for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "identifying start " << incoming_start.first << " as reachable from " << (contains_ends ? "end" : "start") << " " << endpoints->at(j) << endl;
 #endif
                         (*reachable_starts_from_endpoint)[endpoints->at(j)].emplace_back(incoming_start.first, incoming_start.second + curr_offset);
                     }
                     for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "identifying end " << incoming_end.first << " as reachable from " << (contains_ends ? "end" : "start") << " " << endpoints->at(j) << endl;
 #endif
                         (*reachable_ends_from_endpoint)[endpoints->at(j)].emplace_back(incoming_end.first, incoming_end.second + curr_offset);
@@ -3746,7 +3752,7 @@ namespace vg {
                         range_end++;
                     }
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "next range " << range_begin << ":" << range_end << " is at offset " << curr_offset << endl;
 #endif
                     
@@ -3755,7 +3761,7 @@ namespace vg {
                     // connect this range to the previous range
                     for (size_t j = range_begin; j < range_end; j++) {
                         for (size_t k = prev_range_begin; k < range_begin; k++) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                             cerr << "identifying " << (contains_ends ? "end" : "start") << " " << endpoints->at(k) << " as reachable from " << (contains_ends ? "end" : "start") << " " << endpoints->at(j) << endl;
 #endif
                             (*reachable_endpoints_from_endpoint)[endpoints->at(j)].push_back(make_pair(endpoints->at(k), dist_between));
@@ -3770,7 +3776,7 @@ namespace vg {
                 
                 size_t dist_thru = node_length - curr_offset;
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "carrying forward reachability onto next nodes at distance " << dist_thru << endl;
 #endif
                 
@@ -3791,7 +3797,7 @@ namespace vg {
                 // this node doesn't contain the start or end of any MEM, so we carry forward the reachability
                 // into this node onto the next nodes
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "node " << node_id << " does not contain starts or ends of MEMs, carrying forward reachability" << endl;
 #endif
                 
@@ -3799,7 +3805,7 @@ namespace vg {
                     unordered_map<size_t, size_t>& reachable_ends_next = reachable_ends[next.node->id()];
                     for (const pair<size_t, size_t>& reachable_end : reachable_ends[node_id]) {
                         size_t dist_thru = reachable_end.second + node_length;
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "\tend " << reachable_end.first << " at dist " << dist_thru << " to node " << next.node->id() << endl;
 #endif
                         if (reachable_ends_next.count(reachable_end.first)) {
@@ -3814,7 +3820,7 @@ namespace vg {
                     unordered_map<size_t, size_t>& reachable_starts_next = reachable_starts[next.node->id()];
                     for (const pair<size_t, size_t>& reachable_start : reachable_starts[node_id]) {
                         size_t dist_thru = reachable_start.second + node_length;
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "\tstart " << reachable_start.first << " at dist " << dist_thru << " to node " << next.node->id() << endl;
 #endif
                         if (reachable_starts_next.count(reachable_start.first)) {
@@ -3829,7 +3835,7 @@ namespace vg {
             }
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "final reachability:" << endl;
         cerr << "\tstarts from starts" << endl;
         for (const auto& record : reachable_starts_from_start) {
@@ -3878,12 +3884,12 @@ namespace vg {
         for (size_t i = 0; i < graph.node_size(); i++) {
             id_t node_id = graph.node(i).id();
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
             cerr << "looking for edges for starts on node " << node_id << endl;
 #endif
             
             if (!exact_match_starts.count(node_id)) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "there are no starts on this node" << endl;
 #endif
                 continue;
@@ -3904,7 +3910,7 @@ namespace vg {
                 // traverse all of the reachable starts to find the adjacent ends that might be colinear
                 
                 size_t start = starts[start_idx];
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "searching backward from start " << start << endl;
 #endif
                 
@@ -3925,7 +3931,7 @@ namespace vg {
                         continue;
                     }
                     traversed_start.insert(start_here.second);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "traversing initial start " << start_here.second << " at distance " << start_here.first << endl;
 #endif
                     
@@ -3933,7 +3939,7 @@ namespace vg {
                     // between them and the distance already traversed
                     for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.second]) {
                         end_queue.emplace(start_here.first + end.second, end.first);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "found reachable end " << end.first << " at distance " << start_here.first + end.second << endl;
 #endif
                     }
@@ -3956,7 +3962,7 @@ namespace vg {
                     if (traversed_end.count(candidate_end)) {
                         continue;
                     }
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "considering end " << candidate_end << " as candidate for edge of dist " << candidate_dist << endl;
 #endif
                     traversed_end.insert(candidate_end);
@@ -3967,14 +3973,14 @@ namespace vg {
                         // these MEMs are read colinear and graph reachable, so connect them
                         candidate_end_node.edges.push_back(make_pair(start, candidate_dist));
                         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "connection is read colinear, adding edge" << endl;
 #endif
                         
                         // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
                         // this connection
                         for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                             cerr << "enqueueing " << shell_pred.first << " at dist " << shell_pred.second + candidate_dist << " from noncolinear shell" << endl;
 #endif
                             end_queue.emplace(candidate_dist + shell_pred.second, shell_pred.first);
@@ -3985,7 +3991,7 @@ namespace vg {
                         size_t overlap = candidate_end_node.end - start_node.begin;
                         confirmed_overlaps.emplace_back(overlap, start, candidate_end, candidate_dist + overlap);
                         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "connection is overlap colinear, recording to add edge later" << endl;
 #endif
                         
@@ -3995,7 +4001,7 @@ namespace vg {
                         // add any ends directly reachable from the end
                         for (const pair<size_t, size_t>& exposed_end : reachable_ends_from_end[candidate_end]) {
                             end_queue.emplace(candidate_dist + exposed_end.second, exposed_end.first);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                             cerr << "found reachable exposed end " << exposed_end.first << " at distance " << candidate_dist + exposed_end.second << endl;
 #endif
                         }
@@ -4006,7 +4012,7 @@ namespace vg {
                         
                         // inialize the queue with the directly reachable exposed starts
                         for (const pair<size_t, size_t>& exposed_start : reachable_starts_from_end[candidate_end]) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                             cerr << "initializing exposed start traversal with " << exposed_start.first << " at distance " << candidate_dist + exposed_start.second << endl;
 #endif
                             exposed_start_queue.emplace(candidate_dist + exposed_start.second, exposed_start.first);
@@ -4019,7 +4025,7 @@ namespace vg {
                                 continue;
                             }
                             traversed_exposed_start.insert(start_here.second);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                             cerr << "traversing exposed start " << start_here.second << " at distance " << start_here.first << endl;
 #endif
                             
@@ -4027,7 +4033,7 @@ namespace vg {
                             // between them and the distance already traversed
                             for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.second]) {
                                 end_queue.emplace(start_here.first + end.second, end.first);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                                 cerr << "found reachable exposed end " << end.first << " at distance " << start_here.first + end.second << endl;
 #endif
                             }
@@ -4040,7 +4046,7 @@ namespace vg {
                         // also skip to the predecessor's noncolinear shell, whose connections might not be blocked by
                         // this connection
                         for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                             cerr << "enqueueing " << shell_pred.first << " at dist " << candidate_dist + shell_pred.second << " from noncolinear shell" << endl;
 #endif
                             end_queue.emplace(candidate_dist + shell_pred.second, shell_pred.first);
@@ -4056,7 +4062,7 @@ namespace vg {
                             noncolinear_shell[candidate_end] = candidate_dist + (start_node.end - start_node.begin);
                         }
                         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "connection is noncolinear, add to shell at dist " << candidate_dist + (start_node.end - start_node.begin) << " and continue to search backwards" << endl;
 #endif
                         
@@ -4066,7 +4072,7 @@ namespace vg {
                         // find the ends that can reach it directly
                         for (const pair<size_t, size_t>& pred_end : reachable_ends_from_end[candidate_end]) {
                             end_queue.emplace(candidate_dist + pred_end.second, pred_end.first);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                             cerr << "found reachable end " << pred_end.first << " at distance " << candidate_dist + pred_end.second << endl;
 #endif
                         }
@@ -4091,19 +4097,19 @@ namespace vg {
                             }
                             pred_traversed.insert(start_here);
                             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                             cerr << "traversing predecessor start " << start_here << " at distance " << start_dist << endl;
 #endif
                             
                             for (const pair<size_t, size_t>& pred_end : reachable_ends_from_start[start_here]) {
                                 end_queue.emplace(start_dist + pred_end.second, pred_end.first);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                                 cerr << "found reachable end " << pred_end.first << " at distance " << candidate_dist + pred_end.second << endl;
 #endif
                             }
                             for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here]) {
                                 pred_start_queue.emplace(start_dist + start_next.second, start_next.first);
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                                 cerr << "found intermediate start " << start_next.first << " at distance " << start_dist + start_next.second << endl;
 #endif
                             }
@@ -4111,7 +4117,7 @@ namespace vg {
                     }
                 }
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "walking path to look for overlaps" << endl;
 #endif
                 
@@ -4137,7 +4143,7 @@ namespace vg {
                 if (match_path.mapping_size() == 1) {
                     // TODO: this edge case is a little duplicative, probably could merge
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "path is one mapping long" << endl;
 #endif
                     
@@ -4162,7 +4168,7 @@ namespace vg {
                     }
                 }
                 else {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "path is multiple mappings long" << endl;
 #endif
                     
@@ -4216,7 +4222,7 @@ namespace vg {
                 }
                 
                 for (const pair<size_t, size_t>& overlap_candidate : overlap_candidates) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "considering candidate overlap from " << overlap_candidate.first << " at dist " << overlap_candidate.second << endl;
 #endif
                     
@@ -4232,13 +4238,13 @@ namespace vg {
                     
                     // are the matches read colinear after removing the overlap?
                     if (start_node.begin + overlap >= overlap_node.end) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "confirmed overlap colinear with overlap of " << overlap << endl;
 #endif
                         confirmed_overlaps.emplace_back(overlap, start, overlap_candidate.first, 0);
                     }
                     else if (overlap_node.begin < start_node.begin && overlap_node.end < start_node.end) {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "confirmed overlap colinear with longer read overlap of " << overlap_node.end - start_node.begin << endl;
 #endif
                         // there is still an even longer read overlap we need to remove
@@ -4246,7 +4252,7 @@ namespace vg {
                         confirmed_overlaps.emplace_back(read_overlap, start, overlap_candidate.first, read_overlap - overlap);
                     }
                     else {
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                         cerr << "not colinear even with overlap, adding to non-colinear shell at distance " << overlap_candidate.second << endl;
 #endif
                         // the overlapping node is still not reachable so it is in the noncolinear shell of this node
@@ -4256,7 +4262,7 @@ namespace vg {
             }
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "breaking nodes at overlap edges (" << confirmed_overlaps.size() << " times)" << endl;
 #endif
         
@@ -4283,14 +4289,14 @@ namespace vg {
                 }
             }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
             cerr << "performing an overlap split onto " << get<1>(*iter) << " of length " << get<0>(*iter) << endl;
 #endif
             
             
             ExactMatchNode* onto_node = &match_nodes[get<1>(*iter)];
             
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
             cerr << "before splitting:" << endl;
             cerr << "onto node:" << endl << "\t";
             for (auto node_iter = onto_node->begin; node_iter != onto_node->end; node_iter++) {
@@ -4390,7 +4396,7 @@ namespace vg {
                     *suffix_node.path.add_mapping() = full_path.mapping(mapping_idx);
                 }
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                 cerr << "after splitting:" << endl;
                 cerr << "onto node:" << endl << "\t";
                 for (auto node_iter = onto_node->begin; node_iter != onto_node->end; node_iter++) {
@@ -4408,7 +4414,7 @@ namespace vg {
                     // index of the node that contains the end of the original node we recorded the overlap from
                     size_t splitting_idx = node_with_suffix.count(get<2>(*iter)) ? node_with_suffix[get<2>(*iter)] : get<2>(*iter);
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
                     cerr << "adding an overlap edge from node " << splitting_idx << " at distance " << get<3>(*iter) << endl;
                     cerr << "\t";
                     for (auto node_iter = match_nodes[splitting_idx].begin; node_iter != match_nodes[splitting_idx].end; node_iter++) {
@@ -4425,7 +4431,7 @@ namespace vg {
             }
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_multipath_mapper_alignment
         cerr << "final mem graph:" << endl;
         for (size_t i = 0; i < match_nodes.size(); i++) {
             ExactMatchNode& match_node = match_nodes[i];
