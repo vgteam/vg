@@ -17,7 +17,6 @@ Packer::~Packer(void) {
 void Packer::load_from_file(const string& file_name) {
     ifstream in(file_name);
     load(in);
-    is_compacted = true;
 }
 
 void Packer::save_to_file(const string& file_name) {
@@ -33,9 +32,15 @@ void Packer::load(istream& in) {
     for (size_t i = 0; i < n_bins; ++i) {
         edit_csas[i].load(in);
     }
+    // We can only load compacted.
+    is_compacted = true;
 }
 
 void Packer::merge_from_files(const vector<string>& file_names) {
+#ifdef debug
+    cerr << "Merging " << file_names.size() << " pack files" << endl;
+#endif
+    
     // load into our dynamic structures, then compact
     bool first = true;
     for (auto& file_name : file_names) {
@@ -136,7 +141,6 @@ size_t Packer::serialize(std::ostream& out,
     return written;
 }
 
-#define debug
 void Packer::make_compact(void) {
     // pack the dynamic countarry and edit coverage into the compact data structure
     if (is_compacted) {
@@ -168,7 +172,6 @@ void Packer::make_compact(void) {
     remove_edit_tmpfiles();
     is_compacted = true;
 }
-#undef debug
 
 void Packer::make_dynamic(void) {
     if (!is_compacted) return;
@@ -218,7 +221,6 @@ void Packer::remove_edit_tmpfiles(void) {
     }
 }
 
-#define debug
 void Packer::add(const Alignment& aln, bool record_edits) {
     // open tmpfile if needed
     ensure_edit_tmpfiles_open();
@@ -260,7 +262,6 @@ void Packer::add(const Alignment& aln, bool record_edits) {
         }
     }
 }
-#undef debug
 
 // find the position on the forward strand in the sequence vector
 size_t Packer::position_in_basis(const Position& pos) const {
@@ -377,7 +378,6 @@ vector<Edit> Packer::edits_at_position(size_t i) const {
     return edits;
 }
 
-#define debug
 ostream& Packer::as_table(ostream& out, bool show_edits) {
 #ifdef debug
     cerr << "Packer table of " << coverage_civ.size() << " rows:" << endl;
@@ -393,7 +393,6 @@ ostream& Packer::as_table(ostream& out, bool show_edits) {
         out << endl;
     }
 }
-#undef debug
 
 ostream& Packer::show_structure(ostream& out) {
     out << coverage_civ << endl; // graph coverage (compacted coverage_dynamic)
