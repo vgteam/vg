@@ -22,6 +22,7 @@
 #include "mem.hpp"
 #include "cluster.hpp"
 #include "graph.hpp"
+#include "translator.hpp"
 
 namespace vg {
 
@@ -545,9 +546,7 @@ public:
                                 set<string>& path_names,
                                 string& path_name,
                                 int64_t& path_pos,
-                                bool& path_reverse,
-                                int window);
-
+                                bool& path_reverse);
     
     // compute a mapping quality component based only on the MEMs we've obtained
     double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);

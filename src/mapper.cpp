@@ -4378,8 +4378,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
                                     set<string>& path_names,
                                     string& path_name,
                                     int64_t& path_pos,
-                                    bool& path_reverse,
-                                    int window) {
+                                    bool& path_reverse) {
 
     Alignment surjection = source;
     // Leave the original mapping quality in place (because that's the quality
@@ -4389,7 +4388,6 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     surjection.clear_path();
 
     // get start and end nodes in path
-    // get range between +/- window
     if (!source.has_path() || source.path().mapping_size() == 0) {
 #ifdef debug_mapper
 
@@ -4411,32 +4409,186 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     xindex->expand_context(graph.graph, context_depth, true); // get connected edges and path
     graph.paths.append(graph.graph);
     graph.rebuild_indexes();
+    VG base_graph = graph;
+
+    // non-fiddly approach, rest on augmentation
+    // 0) remove softclips from the read
+    // 1) augment the graph with the read
+    // 2) keep the ref path and the aln path
+    // 3) detach the nodes on the other sides of the aln path start and end from all other nodes
+    // 4) remove the non-path component
+    //cerr << "before" << endl;
+    //cerr << pb2json(source) << endl;
+    Alignment trimmed_source = strip_from_end(strip_from_start(source, non_match_start(source)), non_match_end(source));
+    //cerr << "after" << endl;
+    vector<Path> source_path;
+    source_path.push_back(trimmed_source.path());
+    source_path.back().set_name(source.name());
+    auto translation = graph.edit(source_path);
+    Translator translator(translation);
+    //cerr << "raw source " << pb2json(source) << endl;
+    //cerr << "trimmed source " << pb2json(trimmed_source) << endl;
+    //
+    
+    Path source_in_graph = graph.paths.path(source.name());
+    //cerr << "source in graph " << pb2json(source_in_graph) << endl;
+    Position start_pos = make_position(initial_position(source_in_graph));
+    Position end_pos = make_position(final_position(source_in_graph));
+    //cerr << "start and end pos " << pb2json(start_pos) << " " << pb2json(end_pos) << endl;
+
+    // find then unlink the next and previous path nodes from the rest of the graph to isolate the graph-specific component
+    handle_t start = graph.get_handle(start_pos.node_id(), start_pos.is_reverse());
+    handle_t end = graph.get_handle(end_pos.node_id(), end_pos.is_reverse());
+    handle_t cut;
+    bool found = false;
+    unordered_set<handle_t> curr;
+    unordered_set<handle_t> next;
+    auto find_path = [&](const handle_t& h) {
+        vector<string> path_intersection;
+        set<string> node_paths = graph.paths.of_node(graph.get_id(h));
+        //cerr << "Node paths for " << graph.get_id(h) << " " << node_paths.size() << endl;
+        if (!node_paths.empty()) {
+            std::set_intersection(path_names.begin(), path_names.end(),
+                                  node_paths.begin(), node_paths.end(),
+                                  std::back_inserter(path_intersection));
+        }
+        cut = h;
+        found = path_intersection.size() > 0;
+        //cerr << "path intersection size " << path_intersection.size() << endl;
+        next.insert(h);
+        return !found;
+    };
+    found = false;
+    curr.insert(start);
+    //cerr << "going back" << endl;
+    while (!curr.empty()) {
+        bool finished = false;
+        //cerr << "cur has " << curr.size() << endl;
+        for (auto& h : curr) {
+            finished |= !graph.follow_edges(h, true, find_path);
+            if (finished) break;
+        }
+        if (finished) {
+            curr.clear();
+            next.clear();
+            break;
+        } else {
+            curr = next;
+            next.clear();
+        }
+    }
+    handle_t cut_before = cut;
+    bool found_forward = found;
+    curr.insert(end);
+    //cerr << "going forward" << endl;
+    while (!curr.empty()) {
+        bool finished = false;
+        //cerr << "cur has " << curr.size() << endl;
+        for (auto& h : curr) {
+            finished |= !graph.follow_edges(h, false, find_path);
+            if (finished) break;
+        }
+        if (finished) {
+            curr.clear();
+            next.clear();
+            break;
+        } else {
+            curr = next;
+            next.clear();
+        }
+    }
+    //graph.follow_edges(end, false, find_path);
+    //graph.follow_edges(end, false, find_path);
+    handle_t cut_after = cut;
+    bool found_reverse = found;
+    //cerr << "cut before/after " << graph.get_id(cut_before) << " " << graph.get_id(cut_after) << endl;
+    //graph.serialize_to_file("before-" + source.name() + ".vg");
 
     set<string> kept_paths;
     graph.keep_paths(path_names, kept_paths);
+    graph.remove_non_path();
+    // by definition we have found path
+    if (!found_forward || !found_reverse) {
+        graph.serialize_to_file(source.name() + ".vg");
+        assert(false);
+    }
+    graph.destroy_handle(cut_before);
+    graph.destroy_handle(cut_after);
 
-    // We need this for inverting mappings to the correct strand
-    function<int64_t(id_t)> node_length = [&graph](id_t node) {
-        return graph.get_node(node)->sequence().size();
-    };
+//#define debug_mapper
+#ifdef debug_mapper
+    cerr << "src " << pb2json(source) << endl;
+    cerr << "start " << pb2json(start_pos) << endl;
+    cerr << "end " << pb2json(end_pos) << endl;
+    cerr << "graph " << pb2json(graph.graph) << endl;
+#endif
+    //Position end_pos = alignment_end(source);
+    // assume DAG
+    vg::id_t target_id = graph.get_id(start);
+
+    //Node* nullhead = graph.join_heads();
+    //cerr << pb2json(graph.graph) << endl;
+    // otherwise, two cuts
+    // remove the links in both cases
+    // we can clean up by removing 
     
-    // What is our alignment to surject spelled the other way around? We can't
-    // just use the normal alignment RC function because the mappings reference
-    // nonexistent nodes.
-    // Make sure to copy all the things about the alignment (name, etc.)
-
-    Alignment surjection_rc = surjection;
-    surjection_rc.set_sequence(reverse_complement(surjection.sequence()));
+    // get only the subgraph that we want to align to
+    list<VG> subgraphs;
+    graph.disjoint_subgraphs(subgraphs);
     
     // Align the old alignment to the graph in both orientations. Apparently
     // align only does a single oriantation, and we have no idea, even looking
     // at the mappings, which of the orientations will correspond to the one the
     // alignment is actually in.
 
-    Graph subgraph = graph.graph;
+    Graph subgraph;
+    for (auto& graph : subgraphs) {
+        //cerr << pb2json(graph.graph) << endl;
+        if (graph.has_node(target_id)) {
+            subgraph = graph.graph;
+            break;
+        }
+    }
+    if (subgraph.node_size() == 0) {
+        subgraph = graph.graph;
+    }
+    
     sort_by_id_dedup_and_clean(subgraph);
-    auto surjection_forward = align_to_graph(surjection, subgraph, max_query_graph_ratio, true);
-    auto surjection_reverse = align_to_graph(surjection_rc, subgraph, max_query_graph_ratio, true);
+#ifdef debug_mapper
+    cerr << "sub " << pb2json(subgraph) << endl;
+#endif
+
+    int count_forward=0, count_reverse=0;
+    for (auto& mapping : surjection.path().mapping()) {
+        if (mapping.position().is_reverse()) {
+            ++count_reverse;
+        } else {
+            ++count_forward;
+        }
+    }
+
+    Alignment surjection_rc = surjection;
+    surjection_rc.set_sequence(reverse_complement(surjection.sequence()));
+
+    Alignment surjection_forward, surjection_reverse;
+    if (count_forward) {
+        surjection_forward = simplify(align_to_graph(surjection, subgraph, max_query_graph_ratio, true, false, false, true));
+    }
+    if (count_reverse) {
+        surjection_reverse = simplify(align_to_graph(surjection_rc, subgraph, max_query_graph_ratio, true, false, false, true));
+    }
+
+#ifdef debug_mapper
+    cerr << "target " << target_id << endl;
+    cerr << "fwd " << pb2json(surjection_forward) << endl;
+    cerr << "rev " << pb2json(surjection_reverse) << endl;
+#endif
+
+    graph = base_graph;
+    // We need this for inverting mappings to the correct strand
+    function<int64_t(id_t)> node_length = [&graph](id_t node) {
+        return graph.get_node(node)->sequence().size();
+    };
 
 #ifdef debug_mapper
 #pragma omp critical (cerr)
@@ -4445,11 +4597,10 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     
     if(surjection_reverse.score() > surjection_forward.score()) {
         // Even if we have to surject backwards, we have to send the same string out as we got in.
-        surjection = reverse_complement_alignment(surjection_reverse, node_length);
+        surjection = reverse_complement_alignment(translator.translate(surjection_reverse), node_length);
     } else {
-        surjection = surjection_forward;
+        surjection = translator.translate(surjection_forward);
     }
-    
     
 #ifdef debug_mapper
 
@@ -4457,7 +4608,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         cerr << surjection.path().mapping_size() << " mappings, " << kept_paths.size() << " paths" << endl;
 
 #endif
-
+        //assert(check_alignment(surjection));
     if (surjection.path().mapping_size() > 0 && kept_paths.size() == 1) {
         // determine the paths of the node we mapped into
         //  ... get the id of the first node, get the paths of it
@@ -4470,6 +4621,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         bool hit_backward = surjection.path().mapping(0).position().is_reverse();
         // we pick up positional information using the index
 
+        //cerr << "hit id " << hit_id << endl;
         auto path_posns = xindex->position_in_path(hit_id, path_name);
         if (path_posns.size() > 1) {
             cerr << "[vg map] surject_alignment: warning, multiple positions for node " << hit_id << " in " << path_name << " but will use only first: " << path_posns.front() << endl;
@@ -4483,7 +4635,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         bool reversed_path = xindex->mapping_at_path_position(path_name, path_pos).position().is_reverse();
         if (reversed_path) {
             // if we got the start of the node position relative to the path
-            // we need to offset to make thinsg right
+            // we need to offset to make things right
             // but which direction
             if (hit_backward) {
                 path_pos = path_posns.front() + first_pos.offset();
@@ -4502,6 +4654,10 @@ Alignment Mapper::surject_alignment(const Alignment& source,
             path_reverse = hit_backward;
         }
 
+#ifdef debug_mapper
+        cerr << "path position " << path_name << ":" << path_pos << endl;
+#endif
+        
     } else {
 
         surjection = source;

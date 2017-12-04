@@ -1003,6 +1003,38 @@ void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_
     }
 }
 
+int non_match_start(const Alignment& alignment) {
+    int length = 0;
+    auto& path = alignment.path();
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        for (int j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            if (edit_is_match(edit)) {
+                return length;
+            }
+            length += edit.to_length();
+        }
+    }
+    return length;
+}
+
+int non_match_end(const Alignment& alignment) {
+    int length = 0;
+    auto& path = alignment.path();
+    for (int i = path.mapping_size()-1; i >= 0; --i) {
+        auto& mapping = path.mapping(i);
+        for (int j = mapping.edit_size()-1; j >= 0; --j) {
+            auto& edit = mapping.edit(j);
+            if (edit_is_match(edit)) {
+                return length;
+            }
+            length += edit.to_length();
+        }
+    }
+    return length;
+}
+
 int softclip_start(const Alignment& alignment) {
     if (alignment.path().mapping_size() > 0) {
         auto& path = alignment.path();
@@ -1169,6 +1201,24 @@ void parse_bed_regions(istream& bedstream,
             out_alignments->push_back(alignment);
         }
     }
+}
+
+Position alignment_start(const Alignment& aln) {
+    Position pos;
+    if (aln.path().mapping_size()) {
+        pos = aln.path().mapping(0).position();
+    }
+    return pos;
+}
+
+Position alignment_end(const Alignment& aln) {
+    Position pos;
+    if (aln.path().mapping_size()) {
+        auto& last = aln.path().mapping(aln.path().mapping_size()-1);
+        pos = last.position();
+        pos.set_offset(pos.offset() + mapping_from_length(last));
+    }
+    return pos;
 }
 
 }

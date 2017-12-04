@@ -21,23 +21,17 @@ using namespace vg::subcommand;
 
 void help_surject(char** argv) {
     cerr << "usage: " << argv[0] << " surject [options] <aln.gam> >[proj.cram]" << endl
-        << "Transforms alignments to be relative to particular paths." << endl
-        << endl
-        << "options:" << endl
-        << "    -x, --xg-name FILE      use the graph in this xg index" << endl
-        << "    -t, --threads N         number of threads to use" << endl
-        << "    -p, --into-path NAME    surject into just this path" << endl
-        << "    -i, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
-        //<< "    -P, --into-prefix NAME  surject into all paths with NAME as their prefix" << endl
-        //<< "    -H, --header-from FILE  use the header in the SAM/CRAM/BAM file for the output" << endl
-        // todo, reenable
-        // << "    -c, --cram-output       write CRAM to stdout (default is vg::Aligment/GAM format)" << endl
-        // << "    -f, --reference FILE    use this file when writing CRAM to rebuild sequence header" << endl
-         << "    -n, --context-depth N     expand this many steps when preparing graph for surjection (default: 3)" << endl
-        << "    -b, --bam-output        write BAM to stdout" << endl
-        << "    -s, --sam-output        write SAM to stdout" << endl
-        << "    -C, --compression N     level for compression [0-9]" << endl
-        << "    -w, --window N          use N nodes on either side of the alignment to surject (default 5)" << endl;
+         << "Transforms alignments to be relative to particular paths." << endl
+         << endl
+         << "options:" << endl
+         << "    -x, --xg-name FILE      use the graph in this xg index" << endl
+         << "    -t, --threads N         number of threads to use" << endl
+         << "    -p, --into-path NAME    surject into just this path" << endl
+         << "    -i, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
+         << "    -n, --context-depth N   expand this many steps when collecting graph for surjection (default: 3)" << endl
+         << "    -b, --bam-output        write BAM to stdout" << endl
+         << "    -s, --sam-output        write SAM to stdout" << endl
+         << "    -C, --compression N     level for compression [0-9]" << endl;
 }
 
 int main_surject(int argc, char** argv) {
@@ -55,7 +49,6 @@ int main_surject(int argc, char** argv) {
     string input_type = "gam";
     string header_file;
     int compress_level = 9;
-    int window = 5;
     string fasta_filename;
     int context_depth = 3;
 
@@ -76,13 +69,12 @@ int main_surject(int argc, char** argv) {
             {"sam-output", no_argument, 0, 's'},
             {"header-from", required_argument, 0, 'H'},
             {"compress", required_argument, 0, 'C'},
-            {"window", required_argument, 0, 'w'},
             {"context-depth", required_argument, 0, 'n'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:i:P:cbsH:C:t:w:f:n:",
+        c = getopt_long (argc, argv, "hx:p:i:P:cbsH:C:t:f:n:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -135,10 +127,6 @@ int main_surject(int argc, char** argv) {
 
         case 'C':
             compress_level = atoi(optarg);
-            break;
-
-        case 'w':
-            window = atoi(optarg);
             break;
 
         case 'n':
@@ -207,7 +195,7 @@ int main_surject(int argc, char** argv) {
             int thread_count = get_thread_count();
             vector<vector<Alignment> > buffer;
             buffer.resize(thread_count);
-            function<void(Alignment&)> lambda = [&xgidx, &path_names, &buffer, &window, &mapper](Alignment& src) {
+            function<void(Alignment&)> lambda = [&xgidx, &path_names, &buffer, &mapper](Alignment& src) {
                 int tid = omp_get_thread_num();
                 Alignment surj;
                 // Since we're outputting full GAM, we ignore all this info
@@ -216,7 +204,7 @@ int main_surject(int argc, char** argv) {
                 string path_name;
                 int64_t path_pos;
                 bool path_reverse;
-                buffer[tid].push_back(mapper[tid]->surject_alignment(src, path_names,path_name, path_pos, path_reverse, window));
+                buffer[tid].push_back(mapper[tid]->surject_alignment(src, path_names,path_name, path_pos, path_reverse));
                 stream::write_buffered(cout, buffer[tid], 100);
             };
             get_input_file(file_name, [&](istream& in) {
@@ -320,7 +308,6 @@ int main_surject(int argc, char** argv) {
                                                  &mapper,
                                                  &path_names,
                                                  &path_length,
-                                                 &window,
                                                  &rg_sample,
                                                  &header,
                                                  &out,
@@ -333,7 +320,7 @@ int main_surject(int argc, char** argv) {
                     int64_t path_pos;
                     bool path_reverse;
                     int tid = omp_get_thread_num();
-                    auto surj = mapper[tid]->surject_alignment(src, path_names, path_name, path_pos, path_reverse, window);
+                    auto surj = mapper[tid]->surject_alignment(src, path_names, path_name, path_pos, path_reverse);
                     if (!surj.path().mapping_size()) {
                         surj = src;
                     }
