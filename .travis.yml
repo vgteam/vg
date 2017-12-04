@@ -15,7 +15,10 @@ before_install:
   - git submodule update --init --recursive
   - rsync -rv --checksum deps/ deps_cached/
   - rm -Rf deps
-  - mv deps_cached deps
+  # Keep the cached deps if the right compiler version was used.
+  # Otherwise start fresk
+  - if [[ "$TRAVIS_OS_NAME" == "linux" && -e deps_cached/gcc49 ]]; then mv deps_cached deps; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
   - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
@@ -27,6 +30,8 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq bc rs jq samtools; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -y install cmake; fi
+  # Record that we are building these deps with gcc 4.9
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then touch deps/gcc49; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm install ruby-2.3.3; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm use 2.3.3; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
@@ -40,13 +45,15 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir -p ./bin; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which g++-6` ./bin/g++; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which gcc-6` ./bin/gcc; fi
+  # Record that we are building these deps with gcc 6
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then touch deps/gcc6; fi
   - python ./configure.py
   - source ./source_me.sh
 install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps;fi
 script:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then git submodule update --recursive && make -j4 && make test && make static -j4; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make -j4 && make test; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then git submodule update --recursive && make -j4 && make test; fi
 # Cache all our dependency directories, and our lib and include
 cache:
   directories:
