@@ -4559,13 +4559,14 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #endif
 
     int count_forward=0, count_reverse=0;
-    for (auto& mapping : surjection.path().mapping()) {
+    for (auto& mapping : source.path().mapping()) {
         if (mapping.position().is_reverse()) {
             ++count_reverse;
         } else {
             ++count_forward;
         }
     }
+    //cerr << "fwd " << count_forward << " rev " << count_reverse << endl;
 
     Alignment surjection_rc = surjection;
     surjection_rc.set_sequence(reverse_complement(surjection.sequence()));

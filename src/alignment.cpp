@@ -650,23 +650,27 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
 // *matches* from_length == to_length, or from_length > 0 and offset unset
             // match state
             cigar.push_back(make_pair(edit.from_length(), 'M'));
+            //cerr << "match " << edit.from_length() << endl;
         } else {
             // mismatch/sub state
 // *snps* from_length == to_length; sequence = alt
             if (edit.from_length() == edit.to_length()) {
                 cigar.push_back(make_pair(edit.from_length(), 'M'));
+                //cerr << "match " << edit.from_length() << endl;
             } else if (edit.from_length() > edit.to_length()) {
 // *deletions* from_length > to_length; sequence may be unset or empty
                 int32_t del = edit.from_length() - edit.to_length();
                 int32_t eq = edit.to_length();
                 if (eq) cigar.push_back(make_pair(eq, 'M'));
                 cigar.push_back(make_pair(del, 'D'));
+                //cerr << "del " << edit.from_length() - edit.to_length() << endl;
             } else if (edit.from_length() < edit.to_length()) {
 // *insertions* from_length < to_length; sequence contains relative insertion
                 int32_t ins = edit.to_length() - edit.from_length();
                 int32_t eq = edit.from_length();
                 if (eq) cigar.push_back(make_pair(eq, 'M'));
                 cigar.push_back(make_pair(ins, 'I'));
+                //cerr << "ins " << edit.to_length() - edit.from_length() << endl;
             }
         }
     }
