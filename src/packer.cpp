@@ -136,9 +136,19 @@ size_t Packer::serialize(std::ostream& out,
     return written;
 }
 
+#define debug
 void Packer::make_compact(void) {
     // pack the dynamic countarry and edit coverage into the compact data structure
-    if (is_compacted) return;
+    if (is_compacted) {
+#ifdef debug
+        cerr << "Packer is already compact" << endl;
+#endif
+        return;
+    } else {
+#ifdef debug
+        cerr << "Need to make packer compact" << endl;
+#endif
+    }
     // sync edit file
     close_edit_tmpfiles();
     // temporaries for construction
@@ -158,6 +168,7 @@ void Packer::make_compact(void) {
     remove_edit_tmpfiles();
     is_compacted = true;
 }
+#undef debug
 
 void Packer::make_dynamic(void) {
     if (!is_compacted) return;
@@ -207,15 +218,24 @@ void Packer::remove_edit_tmpfiles(void) {
     }
 }
 
+#define debug
 void Packer::add(const Alignment& aln, bool record_edits) {
     // open tmpfile if needed
     ensure_edit_tmpfiles_open();
     // count the nodes, edges, and edits
     for (auto& mapping : aln.path().mapping()) {
-        if (!mapping.has_position()) continue;
+        if (!mapping.has_position()) {
+#ifdef debug
+            cerr << "Mapping has no position" << endl;
+#endif
+            continue;
+        }
         size_t i = position_in_basis(mapping.position());
         for (auto& edit : mapping.edit()) {
             if (edit_is_match(edit)) {
+#ifdef debug
+                cerr << "Recording a match" << endl;
+#endif
                 if (mapping.position().is_reverse()) {
                     for (size_t j = 0; j < edit.from_length(); ++j) {
                         coverage_dynamic.increment(i-j);
@@ -240,6 +260,7 @@ void Packer::add(const Alignment& aln, bool record_edits) {
         }
     }
 }
+#undef debug
 
 // find the position on the forward strand in the sequence vector
 size_t Packer::position_in_basis(const Position& pos) const {
@@ -356,7 +377,12 @@ vector<Edit> Packer::edits_at_position(size_t i) const {
     return edits;
 }
 
+#define debug
 ostream& Packer::as_table(ostream& out, bool show_edits) {
+#ifdef debug
+    cerr << "Packer table of " << coverage_civ.size() << " rows:" << endl;
+#endif
+
     // write the coverage as a vector
     for (size_t i = 0; i < coverage_civ.size(); ++i) {
         out << i << "\t" << coverage_civ[i];
@@ -367,6 +393,7 @@ ostream& Packer::as_table(ostream& out, bool show_edits) {
         out << endl;
     }
 }
+#undef debug
 
 ostream& Packer::show_structure(ostream& out) {
     out << coverage_civ << endl; // graph coverage (compacted coverage_dynamic)
