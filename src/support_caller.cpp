@@ -1,5 +1,4 @@
-// copied from https://github.com/adamnovak/glenn2vcf/blob/master/main.cpp
-// as this logic really belongs in vg call
+// Call variants using an augmented graphs with annotated supports
 
 #include <iostream>
 #include <fstream>
@@ -17,7 +16,7 @@
 #include "genotypekit.hpp"
 #include "snarls.hpp"
 #include "path_index.hpp"
-#include "caller.hpp"
+#include "support_caller.hpp"
 #include "stream.hpp"
 #include "nested_traversal_finder.hpp"
 
@@ -228,7 +227,7 @@ string get_pileup_line(const map<int64_t, NodePileup>& node_pileups,
     }
 }
 
-Call2Vcf::PrimaryPath::PrimaryPath(SupportAugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size):
+SupportCaller::PrimaryPath::PrimaryPath(SupportAugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size):
     ref_bin_size(ref_bin_size), index(augmented.graph, ref_path_name, true), name(ref_path_name)  {
 
     // Follow the reference path and extract indexes we need: index by node ID,
@@ -288,11 +287,11 @@ Call2Vcf::PrimaryPath::PrimaryPath(SupportAugmentedGraph& augmented, const strin
 
 }
 
-const Support& Call2Vcf::PrimaryPath::get_support_at(size_t primary_path_offset) const {
+const Support& SupportCaller::PrimaryPath::get_support_at(size_t primary_path_offset) const {
     return get_bin(get_bin_index(primary_path_offset));
 }
         
-size_t Call2Vcf::PrimaryPath::get_bin_index(size_t primary_path_offset) const {
+size_t SupportCaller::PrimaryPath::get_bin_index(size_t primary_path_offset) const {
     // Find which coordinate bin the position is in
     size_t bin = primary_path_offset / ref_bin_size;
     if (bin == get_total_bins()) {
@@ -301,27 +300,27 @@ size_t Call2Vcf::PrimaryPath::get_bin_index(size_t primary_path_offset) const {
     return bin;
 }
     
-size_t Call2Vcf::PrimaryPath::get_min_bin() const {
+size_t SupportCaller::PrimaryPath::get_min_bin() const {
     return min_bin;
 }
     
-size_t Call2Vcf::PrimaryPath::get_max_bin() const {
+size_t SupportCaller::PrimaryPath::get_max_bin() const {
     return max_bin;
 }
     
-const Support& Call2Vcf::PrimaryPath::get_bin(size_t bin) const {
+const Support& SupportCaller::PrimaryPath::get_bin(size_t bin) const {
     return binned_support[bin];
 }
         
-size_t Call2Vcf::PrimaryPath::get_total_bins() const {
+size_t SupportCaller::PrimaryPath::get_total_bins() const {
     return binned_support.size();
 }
         
-Support Call2Vcf::PrimaryPath::get_average_support() const {
+Support SupportCaller::PrimaryPath::get_average_support() const {
     return get_total_support() / get_index().sequence.size();
 }
 
-Support Call2Vcf::PrimaryPath::get_average_support(const map<string, PrimaryPath>& paths) {
+Support SupportCaller::PrimaryPath::get_average_support(const map<string, PrimaryPath>& paths) {
     // Track the total support overall
     Support total;
     // And the total number of bases
@@ -337,23 +336,23 @@ Support Call2Vcf::PrimaryPath::get_average_support(const map<string, PrimaryPath
     return total / bases;
 }
         
-Support Call2Vcf::PrimaryPath::get_total_support() const {
+Support SupportCaller::PrimaryPath::get_total_support() const {
     return total_support;
 }
   
-PathIndex& Call2Vcf::PrimaryPath::get_index() {
+PathIndex& SupportCaller::PrimaryPath::get_index() {
     return index;
 }
     
-const PathIndex& Call2Vcf::PrimaryPath::get_index() const {
+const PathIndex& SupportCaller::PrimaryPath::get_index() const {
     return index;
 }
 
-const string& Call2Vcf::PrimaryPath::get_name() const {
+const string& SupportCaller::PrimaryPath::get_name() const {
     return name;
 }
 
-map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths) {
+map<string, SupportCaller::PrimaryPath>::iterator SupportCaller::find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths) {
     for(auto i = primary_paths.begin(); i != primary_paths.end(); ++i) {
         // Scan the whole map with an iterator
         
@@ -568,7 +567,7 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
 
 /** Get the support for each traversal in a list, using average_support_switch_threshold
     to decide if we use the minimum or average */
-tuple<vector<Support>, vector<size_t> > Call2Vcf::get_traversal_supports_and_sizes(
+tuple<vector<Support>, vector<size_t> > SupportCaller::get_traversal_supports_and_sizes(
     SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
     const vector<SnarlTraversal>& traversals, const SnarlTraversal* minus_traversal) {
 
@@ -629,7 +628,7 @@ tuple<vector<Support>, vector<size_t> > Call2Vcf::get_traversal_supports_and_siz
         tie(min_supports, sizes);
 }
 
-vector<SnarlTraversal> Call2Vcf::find_best_traversals(SupportAugmentedGraph& augmented,
+vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
         const Support& baseline_support, size_t copy_budget, function<void(const Locus&, const Snarl*)> emit_locus) {
 
@@ -1049,7 +1048,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(SupportAugmentedGraph& aug
 }
 
 // this was main() in glenn2vcf
-void Call2Vcf::call(
+void SupportCaller::call(
     // Augmented graph
     SupportAugmentedGraph& augmented,
     // Should we load a pileup and print out pileup info as comments after
@@ -1943,7 +1942,7 @@ void Call2Vcf::call(
     
 }
 
-bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented) {
+bool SupportCaller::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented) {
 
     // Keep track of the previous NodeSide
     NodeSide previous;
@@ -1989,7 +1988,7 @@ bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmente
         
 }
 
-bool Call2Vcf::is_reference(const Path& path, AugmentedGraph& augmented) {
+bool SupportCaller::is_reference(const Path& path, AugmentedGraph& augmented) {
     
     // The path can't be empty because it's not clear if an empty path should be
     // reference or not.

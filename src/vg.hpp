@@ -15,8 +15,8 @@
 #include <random>
 
 #include "gssw.h"
-#include "gcsa/gcsa.h"
-#include "gcsa/lcp.h"
+#include <gcsa/gcsa.h>
+#include <gcsa/lcp.h>
 #include "gssw_aligner.hpp"
 #include "ssw_aligner.hpp"
 #include "region.hpp"
@@ -87,6 +87,9 @@ public:
     
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
+    
+    // Copy over the visit version which would otherwise be shadowed.
+    using HandleGraph::get_handle;
     
     /// Get the ID from a handle
     virtual id_t get_id(const handle_t& handle) const;

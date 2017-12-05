@@ -67,3 +67,6 @@
 [submodule "deps/gperftools"]
 	path = deps/gperftools
 	url = https://github.com/gperftools/gperftools.git
+[submodule "deps/gbwt"]
+	path = deps/gbwt
+	url = https://github.com/jltsiren/gbwt.git

@@ -209,6 +209,8 @@ public:
     
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
+    // Copy over the visit version which would otherwise be shadowed.
+    using HandleGraph::get_handle;
     /// Get the ID from a handle
     virtual id_t get_id(const handle_t& handle) const;
     /// Get the orientation of a handle
@@ -426,6 +428,10 @@ public:
     using thread_t = vector<ThreadMapping>;
     
     // Count matches to a subthread among embedded threads
+
+    /// Replace the existing thread names with the new names. Each name must
+    /// be unique.
+    void set_thread_names(const vector<string>& names);
 
     /// Insert a thread. Name must be unique or empty.
     /// bs_bake() and tn_bake() need to be called before queries.
