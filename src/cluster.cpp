@@ -761,6 +761,10 @@ void OrientedDistanceClusterer::extend_dist_tree_by_path_buckets(int64_t max_fai
                                                                  oriented_occurences_memo_t* oriented_occurences_memo,
                                                                  handle_memo_t* handle_memo) {
     
+#ifdef debug_od_clusterer
+    cerr << "using paths to bucket distance comparisons" << endl;
+#endif
+    
     if (!paths_of_node_memo) {
         return;
     }
@@ -913,18 +917,36 @@ void OrientedDistanceClusterer::extend_dist_tree_by_strand_buckets(int64_t max_f
         return;
     }
     
+#ifdef debug_od_clusterer
+    cerr << "using strands to bucket distance comparisons" << endl;
+#endif
+    
     // enter which paths occur on the nodes of each hit into the memo
     for (size_t i = 0; i < num_items; i++) {
         pos_t pos = get_position(i);
+#ifdef debug_od_clusterer
+        cerr << "adding position " << pos << " to memo" << endl;
+#endif
+
         if (!paths_of_node_memo->count(id(pos))) {
             (*paths_of_node_memo)[id(pos)] = xgindex->paths_of_node(id(pos));
-            for (size_t path : paths_of_node_memo->at(id(pos))) {
-                if (!oriented_occurences_memo->count(make_pair(id(pos), path))) {
-                    (*oriented_occurences_memo)[make_pair(id(pos), path)] = xgindex->oriented_occurrences_on_path(id(pos), path);
+        }
+        for (size_t path : paths_of_node_memo->at(id(pos))) {
+            if (!oriented_occurences_memo->count(make_pair(id(pos), path))) {
+                (*oriented_occurences_memo)[make_pair(id(pos), path)] = xgindex->oriented_occurrences_on_path(id(pos), path);
+#ifdef debug_od_clusterer
+                cerr << "node " << id(pos) << " has occurrences on path " << path << ":" << endl;
+                for (auto occurrence : (*oriented_occurences_memo)[make_pair(id(pos), path)]) {
+                    cerr << "\t" << occurrence.first << " " << (occurrence.second ? "rev" : "fwd") << endl;
                 }
+#endif
             }
         }
     }
+    
+#ifdef debug_od_clusterer
+    cerr << "reversing node to strand memo" << endl;
+#endif
     
     // reverse the memo so that it tells us which hits occur on a strand of a path and identify hits with no paths
     unordered_map<pair<size_t, bool>, vector<size_t>> items_on_path_strand;
@@ -940,6 +962,9 @@ void OrientedDistanceClusterer::extend_dist_tree_by_strand_buckets(int64_t max_f
         else {
             for (size_t path : paths) {
                 for (pair<size_t, bool> oriented_occurrence : oriented_occurences_memo->at(make_pair(id(pos), path))) {
+#ifdef debug_od_clusterer
+                    cerr << "position " << pos << " is on strand " << path << (oriented_occurrence.second != is_rev(pos) ? "-" : "+") << endl;
+#endif
                     items_on_path_strand[make_pair(path, oriented_occurrence.second != is_rev(pos))].push_back(i);
                 }
             }
@@ -964,6 +989,9 @@ void OrientedDistanceClusterer::extend_dist_tree_by_strand_buckets(int64_t max_f
                 auto& neighbor_paths = paths_of_node_memo->at(neighbor_id);
                 for (size_t path : neighbor_paths) {
                     for (pair<size_t, bool>& node_occurence : xgindex->memoized_oriented_occurrences_on_path(neighbor_id, path, oriented_occurences_memo)) {
+#ifdef debug_od_clusterer
+                        cerr << "position " << pos << " has neighbor " << neighbor_id << " on strand " << path  << (node_occurence.second != neighbor_rev ? "-" : "+") << endl;
+#endif
                         items_on_path_strand[make_pair(path, node_occurence.second != neighbor_rev)].push_back(non_path_hit.first);
                     }
                 }

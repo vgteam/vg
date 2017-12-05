@@ -500,13 +500,16 @@ namespace vg {
                                  pos_t pos_1 = initial_position(optimal_aln_1.path());
                                  pos_t pos_2 = initial_position(optimal_aln_2.path());
                                  
-                                 return xindex->validate_strand_consistency(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                            id(pos_2), offset(pos_2), is_rev(pos_2),
-                                                                            search_dist, paths_of_node_memo, oriented_occurences_memo,
-                                                                            handle_memo);
+                                 return !xindex->validate_strand_consistency(id(pos_1), offset(pos_1), is_rev(pos_1),
+                                                                             id(pos_2), offset(pos_2), is_rev(pos_2),
+                                                                             search_dist, paths_of_node_memo, oriented_occurences_memo,
+                                                                             handle_memo);
                              });
         
         if (end != multipath_aln_pairs.end()) {
+#ifdef debug_multipath_mapper
+            cerr << "found " << multipath_aln_pairs.end() - end << " strand inconsitent pairs, removing now" << endl;
+#endif
             multipath_aln_pairs.resize(end - multipath_aln_pairs.begin());
         }
     }
@@ -826,19 +829,19 @@ namespace vg {
         // TODO: Making OrientedDistanceClusterers is the only place we actually
         // need to distinguish between regular_aligner and qual_adj_aligner
         if (adjust_alignments_for_base_quality) {
-            OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error,
-                                                 min_clustering_mem_length, false, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+            OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                 unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
             clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
-            OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error,
-                                                 min_clustering_mem_length, false, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+            OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                 unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
             clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         else {
-            OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error,
-                                                 min_clustering_mem_length, false, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+            OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                 unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
             clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
-            OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error,
-                                                 min_clustering_mem_length, false, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+            OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                 unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
             clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         
@@ -929,63 +932,76 @@ namespace vg {
                                          multipath_aln_pairs_out, max_alt_mappings, &paths_of_node_memo,
                                          &oriented_occurences_memo, &handle_memo);
             
-            bool consistent = true;
-            bool likely_mismapped_1 = likely_mismapping(multipath_aln_pairs_out.front().first);
-            bool likely_mismapped_2 = likely_mismapping(multipath_aln_pairs_out.front().second);
-            if (likely_mismapped_1 || likely_mismapped_2) {
+            // did any alignments pass the filters in the alignment function?
+            if (!multipath_aln_pairs_out.empty()) {
                 
-                // we suspect that one or both of the ends of this read are actually false mappings that got
-                // tricked by bad MEM, so we see if we can do better by aligning the ends independently and
-                // rescuing (in general, this should at least give us more appropriately bad mapping quality)
-                
+                bool consistent = true;
+                bool likely_mismapped_1 = likely_mismapping(multipath_aln_pairs_out.front().first);
+                bool likely_mismapped_2 = likely_mismapping(multipath_aln_pairs_out.front().second);
+                if (likely_mismapped_1 || likely_mismapped_2) {
+                    
+                    // we suspect that one or both of the ends of this read are actually false mappings that got
+                    // tricked by bad MEM, so we see if we can do better by aligning the ends independently and
+                    // rescuing (in general, this should at least give us more appropriately bad mapping quality)
+                    
 #ifdef debug_multipath_mapper
-                cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
+                    cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
 #endif
-                vector<pair<MultipathAlignment, MultipathAlignment>> rescue_pairs;
-                bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                                   rescue_pairs, max_alt_mappings);
-                
-                // TODO: would it make more sense to just add it into the list and resort/recompute mapping quality?
-                
-                // if we find a better pair that aren't the same mappings again, swap the output vectors
-                auto& clustered_primary = multipath_aln_pairs_out.front();
-                auto& rescued_primary = rescue_pairs.front();
-                if (abs(distance_between(clustered_primary.first, rescued_primary.first)) >= 20
-                    || abs(distance_between(clustered_primary.second, rescued_primary.second)) >= 20) {
+                    vector<pair<MultipathAlignment, MultipathAlignment>> rescue_pairs;
+                    bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                                       rescue_pairs, max_alt_mappings);
                     
-                    int64_t clust_dist = distance_between(clustered_primary.first, clustered_primary.second);
-                    double frag_score_clust = fragment_length_log_likelihood(clust_dist) / get_aligner()->log_base;
-                    int32_t align_score_clust = optimal_alignment_score(clustered_primary.first) + optimal_alignment_score(clustered_primary.second);
+                    // TODO: would it make more sense to just add it into the list and resort/recompute mapping quality?
                     
-                    int64_t rescue_dist = distance_between(rescued_primary.first, rescued_primary.second);
-                    double frag_score_rescue = fragment_length_log_likelihood(rescue_dist) / get_aligner()->log_base;
-                    int32_t align_score_rescue = optimal_alignment_score(rescued_primary.first) + optimal_alignment_score(rescued_primary.second);
+                    // if we find a better pair that aren't the same mappings again, swap the output vectors
+                    auto& clustered_primary = multipath_aln_pairs_out.front();
+                    auto& rescued_primary = rescue_pairs.front();
+                    if (abs(distance_between(clustered_primary.first, rescued_primary.first)) >= 20
+                        || abs(distance_between(clustered_primary.second, rescued_primary.second)) >= 20) {
+                        
+                        int64_t clust_dist = distance_between(clustered_primary.first, clustered_primary.second);
+                        double frag_score_clust = fragment_length_log_likelihood(clust_dist) / get_aligner()->log_base;
+                        int32_t align_score_clust = optimal_alignment_score(clustered_primary.first) + optimal_alignment_score(clustered_primary.second);
+                        
+                        int64_t rescue_dist = distance_between(rescued_primary.first, rescued_primary.second);
+                        double frag_score_rescue = fragment_length_log_likelihood(rescue_dist) / get_aligner()->log_base;
+                        int32_t align_score_rescue = optimal_alignment_score(rescued_primary.first) + optimal_alignment_score(rescued_primary.second);
+                        
+                        if (frag_score_rescue + align_score_rescue > frag_score_clust + align_score_clust) {
+                            std::swap(multipath_aln_pairs_out, rescue_pairs);
+                            likely_mismapped_1 = likely_mismapping(multipath_aln_pairs_out.front().first);
+                            likely_mismapped_2 = likely_mismapping(multipath_aln_pairs_out.front().second);
+                            consistent = rescued;
+                        }
+                    }
                     
-                    if (frag_score_rescue + align_score_rescue > frag_score_clust + align_score_clust) {
-                        std::swap(multipath_aln_pairs_out, rescue_pairs);
-                        likely_mismapped_1 = likely_mismapping(multipath_aln_pairs_out.front().first);
-                        likely_mismapped_2 = likely_mismapping(multipath_aln_pairs_out.front().second);
-                        consistent = rescued;
+                }
+                // mark reads that are probably mismappings, and penalize their pairs if the pair mapping was chosen to
+                // be consistent with this mapping
+                // TODO: very much a hack. wouldn't it be better just to let it do independent mapping if we really disbelieve
+                // these mappings so much?
+                if (likely_mismapped_1) {
+                    multipath_aln_pairs_out.front().first.set_mapping_quality(0);
+                    if (consistent) {
+                        multipath_aln_pairs_out.front().second.set_mapping_quality(multipath_aln_pairs_out.front().second.mapping_quality() / 2);
+                    }
+                    
+                }
+                if (likely_mismapped_2) {
+                    multipath_aln_pairs_out.front().second.set_mapping_quality(0);
+                    if (consistent) {
+                        multipath_aln_pairs_out.front().first.set_mapping_quality(multipath_aln_pairs_out.front().first.mapping_quality() / 2);
                     }
                 }
-                
             }
-            // mark reads that are probably mismappings, and penalize their pairs if the pair mapping was chosen to
-            // be consistent with this mapping
-            // TODO: very much a hack. wouldn't it be better just to let it do independent mapping if we really disbelieve
-            // these mappings so much?
-            if (likely_mismapped_1) {
-                multipath_aln_pairs_out.front().first.set_mapping_quality(0);
-                if (consistent) {
-                    multipath_aln_pairs_out.front().second.set_mapping_quality(multipath_aln_pairs_out.front().second.mapping_quality() / 2);
-                }
+            else {
+                // we filtered out all of the pairs, try to do it with single ended mapping
                 
-            }
-            if (likely_mismapped_2) {
-                multipath_aln_pairs_out.front().second.set_mapping_quality(0);
-                if (consistent) {
-                    multipath_aln_pairs_out.front().first.set_mapping_quality(multipath_aln_pairs_out.front().first.mapping_quality() / 2);
-                }
+#ifdef debug_multipath_mapper
+                cerr << "could not find a consistent pair, reverting to single ended mapping" << endl;
+#endif
+                align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                    multipath_aln_pairs_out, max_alt_mappings);
             }
         }
         else {
@@ -1262,8 +1278,16 @@ namespace vg {
             topologically_order_subpaths(multipath_aln_pair.second);
         }
         
+        // if we haven't been checking strand consistency, enforce it now at the end
         if (unstranded_clustering) {
+            bool has_mappings = !multipath_aln_pairs_out.empty();
             remove_strand_inconsistent_pairs(multipath_aln_pairs_out, paths_of_node_memo, oriented_occurences_memo, handle_memo);
+            
+            // did we filter out all of the alignments?
+            if (has_mappings && multipath_aln_pairs_out.empty()) {
+                align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                    multipath_aln_pairs_out, max_alt_mappings);
+            }
         }
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score
