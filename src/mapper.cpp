@@ -4497,8 +4497,6 @@ Alignment Mapper::surject_alignment(const Alignment& source,
             next.clear();
         }
     }
-    //graph.follow_edges(end, false, find_path);
-    //graph.follow_edges(end, false, find_path);
     handle_t cut_after = cut;
     bool found_reverse = found;
     //cerr << "cut before/after " << graph.get_id(cut_before) << " " << graph.get_id(cut_after) << endl;
@@ -4508,12 +4506,19 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     graph.keep_paths(path_names, kept_paths);
     graph.remove_non_path();
     // by definition we have found path
+    /*
     if (!found_forward || !found_reverse) {
         graph.serialize_to_file(source.name() + ".vg");
-        assert(false);
+        base_graph.serialize_to_file(source.name() + "-base" + ".vg");
+        VG augmented_graph = base_graph;
+        augmented_graph.edit(source_path);
+        augmented_graph.serialize_to_file(source.name() + "-aug" + ".vg");
+        //assert(false);
     }
-    graph.destroy_handle(cut_before);
-    graph.destroy_handle(cut_after);
+    */
+    if (found_forward) graph.destroy_handle(cut_before);
+    if (found_reverse) graph.destroy_handle(cut_after);
+    //graph.serialize_to_file("after-" + source.name() + ".vg");
 
 //#define debug_mapper
 #ifdef debug_mapper
@@ -4595,12 +4600,19 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #pragma omp critical (cerr)
     cerr << surjection.name() << " " << surjection_forward.score() << " forward score, " << surjection_reverse.score() << " reverse score" << endl;
 #endif
-    
-    if(surjection_reverse.score() > surjection_forward.score()) {
-        // Even if we have to surject backwards, we have to send the same string out as we got in.
-        surjection = reverse_complement_alignment(translator.translate(surjection_reverse), node_length);
+
+    if (count_reverse && count_forward) {
+        if (surjection_reverse.score() > surjection_forward.score()) {
+             surjection = reverse_complement_alignment(translator.translate(surjection_reverse), node_length);
+        } else {
+            surjection = translator.translate(surjection_forward);
+        }
     } else {
-        surjection = translator.translate(surjection_forward);
+        if (count_reverse) {
+            surjection = reverse_complement_alignment(translator.translate(surjection_reverse), node_length);
+        } else {
+            surjection = translator.translate(surjection_forward);
+        }
     }
     
 #ifdef debug_mapper

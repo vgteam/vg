@@ -40,15 +40,13 @@ is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surjec
 #is $(vg map -G <(vg sim -a -s 1337 -n 100 x.vg) x.vg | vg surject -p x -g x.gcsa -x x.xg -c - | samtools view - | wc -l) \
 #    100 "vg surject produces valid CRAM output"
 
-echo '{"sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7, "sequence": "GATTACA"}]}]}, "mapping_quality": 99}' | vg view -JGa - > read.gam
+echo '{"sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "mapping_quality": 99}' | vg view -JGa - > read.gam
 is "$(vg surject -p x -x x.xg read.gam | vg view -aj - | jq '.mapping_quality')" "99" "mapping quality is preserved through surjection"
 
-echo '{"name": "read/2", "sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7, "sequence": "GATTACA"}]}]}, "fragment_prev": {"name": "read/1"}}' | vg view -JGa - > read.gam
+echo '{"name": "read/2", "sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_prev": {"name": "read/1"}}' | vg view -JGa - > read.gam
 is "$(vg surject -p x -x x.xg read.gam | vg view -aj - | jq -r '.fragment_prev.name')" "read/1" "read pairing is preserved through GAM->GAM surjection"
 
-echo '{"name": "read/1", "sequence": "GATT", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 4, "to_length": 4, "sequence": "GATT"}]}]}, "fragment_next": {"name": "read/2"}}{"name": "read/2", "sequence": "ACA", "path": {
-"mapping": [{"position": {"node_id": 1, "offset": 4}, "edit": [{"from_length": 3, "to_length": 3, "sequence": "ACA"}]}]}, "fragment_prev": {"name": "read/1"}}' | vg view -JGa - > reads.gam
-vg surject -s -p x -x x.xg reads.gam > surjected.sam
+vg map -d x -iG <(vg sim -a -s 13241 -n 1 -p 500 -v 300 -x x.xg | vg view -a - | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) | vg surject -x x.xg -p x -s - >surjected.sam
 is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "1" "surjection of paired reads to SAM yields properly matched QNAMEs"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '=\n=')" "surjection of paired reads to SAM produces crossreferences"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 2 | sort -n)" "$(printf '83\n131')" "surjection of paired reads to SAM produces correct flags"
