@@ -3195,7 +3195,8 @@ map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const 
             bool dir = path.directions[i] != is_rev(pos);
             size_t off;
             if (dir) {
-                off = path.offsets.size() - (path.positions[i] + node_length(path.ids[i])) + offset(pos);
+                size_t start = i + 1 < path.positions.size() ? path.positions[i + 1] : path.offsets.size();
+                off = path.offsets.size() - start + offset(pos);
             }
             else {
                 off = path.positions[i] + offset(pos);
