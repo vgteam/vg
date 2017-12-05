@@ -14,7 +14,7 @@ namespace vg {
 namespace unittest {
 using namespace std;
 
-TEST_CASE("Alignment simplification removes deletions on the edges of Mappings", "[alignment]") {
+TEST_CASE("Alignment simplification does not remove deletions on the edges of Mappings", "[alignment]") {
     
     string alignment_string = R"(
         {
@@ -42,7 +42,7 @@ TEST_CASE("Alignment simplification removes deletions on the edges of Mappings",
         
     auto simple = simplify(a);
     REQUIRE(simple.path().mapping_size() == 2);
-    REQUIRE(simple.path().mapping(0).edit_size() == 1);
+    REQUIRE(simple.path().mapping(0).edit_size() == 2);
     
 }
 
