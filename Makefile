@@ -162,7 +162,7 @@ get-deps:
 deps: $(DEPS)
 
 test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf
-	. ./source_me.sh && cd test && $(MAKE) $(FILTER)
+	. ./source_me.sh && cd test && prove -v t
 
 docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(CPP_DIR)/vg.pb.cc
 	doxygen
