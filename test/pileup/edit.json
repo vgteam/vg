@@ -1,0 +1,1 @@
+{"sequence": "AAATTTTCTTGAGTTCTAT", "path": {"mapping": [{"rank": 1, "position": {"node_id": 9}, "edit": [{"from_length": 9, "to_length": 9},{"from_length": 1, "to_length": 1, "sequence": "T"},{"from_length": 10, "to_length": 1}]}]}}
