@@ -2854,7 +2854,8 @@ int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1,
         
         for (size_t i = 0; i < occurrences_1.size(); i++) {
             if (occurrences_1[i].second != get<1>(path_trav_1)) {
-                path_positions_1[i] = path->positions[occurrences_1[i].first] + node_length(get<0>(path_trav_1)) - get<2>(path_trav_1);
+                size_t node_start = occurrences_1[i].first + 1 < path->positions.size() ? path->positions[occurrences_1[i].first + 1] : path->offsets.size();
+                path_positions_1[i] = node_start - get<2>(path_trav_1);
             }
             else {
                 path_positions_1[i] = path->positions[occurrences_1[i].first] + get<2>(path_trav_1);
@@ -2863,7 +2864,8 @@ int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1,
         
         for (size_t i = 0; i < occurrences_2.size(); i++) {
             if (occurrences_2[i].second != get<1>(path_trav_2)) {
-                path_positions_2[i] = path->positions[occurrences_2[i].first] + node_length(get<0>(path_trav_2)) - get<2>(path_trav_2);
+                size_t node_start = occurrences_2[i].first + 1 < path->positions.size() ? path->positions[occurrences_2[i].first + 1] : path->offsets.size();
+                path_positions_2[i] = node_start - get<2>(path_trav_2);
             }
             else {
                 path_positions_2[i] = path->positions[occurrences_2[i].first] + get<2>(path_trav_2);
