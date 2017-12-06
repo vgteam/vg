@@ -4953,7 +4953,7 @@ vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool u
     return make_translation(node_translation, added_nodes, orig_node_sizes);
 }
 
-// The not quite as robust but actually efficient way to edit the graph.
+// The not quite as robust (TODO: how?) but actually efficient way to edit the graph.
 vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;

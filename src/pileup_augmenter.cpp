@@ -11,7 +11,7 @@ namespace vg {
 const double PileupAugmenter::Log_zero = (double)-1e100;
 
 const char PileupAugmenter::Default_default_quality = 30;
-const int PileupAugmenter::Default_min_aug_support = 2;
+const int PileupAugmenter::Default_min_aug_support = 1;
 
 PileupAugmenter::PileupAugmenter(VG* graph,
                int default_quality,

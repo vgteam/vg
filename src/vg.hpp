@@ -521,9 +521,14 @@ public:
     /// fragment. Completely novel nodes are not mentioned, and nodes with no
     /// Translations are assumed to be carried through unchanged. Invalidates
     /// the rank-based Paths index. Does not sort the graph. Suitable for
-    /// calling in a loop. Can attach newly created nodes on the left of the
-    /// path to the given set of dangling NodeSides, and populates the set at
-    /// the end with the NodeSide corresponding to the end of the path.
+    /// calling in a loop.
+    ///
+    /// Can attach newly created nodes on the left of the path to the given set
+    /// of dangling NodeSides, and populates the set at the end with the
+    /// NodeSide corresponding to the end of the path. This mechanism allows
+    /// edits that hit the end of a node to be attached to what comes
+    /// before/after the node by the caller, as this function doesn't handle
+    /// that.
     vector<Translation> edit_fast(const Path& path, set<NodeSide>& dangling);
 
     /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
