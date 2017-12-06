@@ -5148,7 +5148,7 @@ map<id_t, set<pos_t>> VG::forwardize_breakpoints(const map<id_t, set<pos_t>>& br
 }
 
 // returns breakpoints on the forward strand of the nodes
-void VG::find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints) {
+void VG::find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints, bool break_ends) {
     // We need to work out what offsets we will need to break each node at, if
     // we want to add in all the new material and edges in this path.
 
@@ -5196,11 +5196,12 @@ void VG::find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints) 
             cerr << pb2json(e) << endl;
 #endif
 
-            if (!edit_is_match(e) || j == 0) {
+            if (!edit_is_match(e) || (j == 0 && (i != 0 || break_ends))) {
                 // If this edit is not a perfect match, or if this is the first
-                // edit in this mapping and we had a previous mapping we may
-                // need to connect to, we need to make sure we have a breakpoint
-                // at the start of this edit.
+                // edit in this mapping and either we had a previous mapping we
+                // may need to connect to or we want to break at the path's
+                // start, we need to make sure we have a breakpoint at the start
+                // of this edit.
 
 #ifdef debug
                 cerr << "Need to break " << node_id << " at edit lower end " <<
@@ -5212,11 +5213,11 @@ void VG::find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints) 
                 breakpoints[node_id].insert(edit_first_position);
             }
 
-            if (!edit_is_match(e) || (j == m.edit_size() - 1)) {
+            if (!edit_is_match(e) || (j == m.edit_size() - 1 && (i != path.mapping_size() - 1 || break_ends))) {
                 // If this edit is not a perfect match, or if it is the last
                 // edit in a mapping and we have a subsequent mapping we might
-                // need to connect to, make sure we have a breakpoint at the end
-                // of this edit.
+                // need to connect to or we want to break at the path ends, make
+                // sure we have a breakpoint at the end of this edit.
 
 #ifdef debug
                 cerr << "Need to break " << node_id << " at past edit upper end " <<

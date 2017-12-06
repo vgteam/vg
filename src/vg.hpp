@@ -521,7 +521,10 @@ public:
     /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
     /// them to the given map by node ID of sets of bases in the node that will need
     /// to become the starts of new nodes.
-    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
+    ///
+    /// If break_ends is true, emits breakpoints at the ends of the path, even
+    /// if it starts/ends with perfect matches.
+    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints, bool break_ends = true);
     /// Take a map from node ID to a set of offsets at which new nodes should
     /// start (which may include 0 and 1-past-the-end, which should be ignored),
     /// break the specified nodes at those positions. Returns a map from old
