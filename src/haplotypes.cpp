@@ -2,6 +2,8 @@
 #include "path.hpp"
 #include "position.hpp"
 
+namespace haplo {
+
 /*******************************************************************************
 haplo_DP_edge_memo
 *******************************************************************************/
@@ -36,7 +38,7 @@ hDP_graph_accessor
 
 hDP_graph_accessor::hDP_graph_accessor(xg::XG& graph, 
                                        xg::XG::ThreadMapping new_node, 
-                                       RRMemo& memo) :
+                                       haploMath::RRMemo& memo) :
   graph(graph), edges(haplo_DP_edge_memo()), 
   old_node(xg::XG::ThreadMapping()), new_node(new_node), memo(memo) {
     
@@ -45,7 +47,7 @@ hDP_graph_accessor::hDP_graph_accessor(xg::XG& graph,
 hDP_graph_accessor::hDP_graph_accessor(xg::XG& graph, 
                                        xg::XG::ThreadMapping old_node, 
                                        xg::XG::ThreadMapping new_node, 
-                                       RRMemo& memo) :
+                                       haploMath::RRMemo& memo) :
   graph(graph), edges(haplo_DP_edge_memo(graph, old_node, new_node)), 
   old_node(old_node), new_node(new_node), memo(memo) {
     
@@ -85,36 +87,88 @@ int64_t hDP_graph_accessor::new_length() const {
 
 
 /*******************************************************************************
+hDP_gbwt_graph_accessor
+*******************************************************************************/
+
+gbwt_thread_t::gbwt_thread_t() {
+}
+
+gbwt_thread_t::gbwt_thread_t(const vector<gbwt::node_type>& nodes, const vector<size_t>& node_lengths) : nodes(nodes), node_lengths(node_lengths) {
+}
+
+void gbwt_thread_t::push_back(gbwt::node_type node, size_t node_length) {
+  nodes.push_back(node);
+  node_lengths.push_back(node_length);
+}
+
+gbwt::node_type& gbwt_thread_t::operator[](size_t i) {
+  return nodes[i];  
+}
+
+const gbwt::node_type& gbwt_thread_t::operator[](size_t i) const {
+  return nodes[i];  
+}
+
+gbwt::node_type& gbwt_thread_t::back() {
+  return nodes.back();
+}
+
+const gbwt::node_type& gbwt_thread_t::back() const {
+  return nodes.back();
+}
+
+size_t gbwt_thread_t::nodelength(size_t i) const {
+  return node_lengths[i];  
+}
+
+size_t gbwt_thread_t::size() const {
+  return nodes.size();
+}
+
+gbwt_thread_t path_to_gbwt_thread_t(const vg::Path& path) {
+  gbwt_thread_t t;
+  for(size_t i = 0; i < path.mapping_size(); i++) {
+    vg::Mapping mapping = path.mapping(i);
+    auto pos = mapping.position();
+    gbwt::node_type n = gbwt::Node::encode(pos.node_id(), pos.is_reverse());
+    size_t node_length = vg::mapping_from_length(mapping);
+    t.push_back(n, node_length);
+  }
+  return t;
+}
+
+/*******************************************************************************
 haplo_DP_rectangle
 *******************************************************************************/
 
-void haplo_DP_rectangle::extend(hDP_graph_accessor& ga) {
-  int64_t new_side = ga.new_side();
-  if(state.current_side == 0) {
-    // We're extending an empty state
-    state.range_start = 0;
-    state.range_end = ga.new_height();
-  } else {
-    state.range_start = ga.graph.where_to(state.current_side, 
-                                          state.range_start, 
-                                          new_side, 
-                                          ga.edges.edges_in(), 
-                                          ga.edges.edges_out());
-    state.range_end = ga.graph.where_to(state.current_side, 
-                                        state.range_end, 
-                                        new_side, 
-                                        ga.edges.edges_in(), 
-                                        ga.edges.edges_out());
-  }
-  state.current_side = new_side;
-  inner_value = -1;
+haplo_DP_rectangle::haplo_DP_rectangle() {
+  
 }
 
-void haplo_DP_rectangle::false_extend(hDP_graph_accessor& ga, 
-                                      int_itvl_t delta) {
-  state.current_side = ga.new_side();
-  state.range_start -= delta.bottom;
-  state.range_end -= delta.top;
+haplo_DP_rectangle::haplo_DP_rectangle(bool inclusive_interval) : int_is_inc(inclusive_interval) {
+  
+}
+
+void haplo_DP_rectangle::extend(hDP_graph_accessor& ga) {
+  int64_t new_side = ga.new_side();
+  if(previous_index == -1) {
+    // We're extending an empty state
+    state.first = 0;
+    state.second = ga.new_height();
+  } else {
+    state.first = ga.graph.where_to(flat_node, 
+                                    state.first, 
+                                    new_side, 
+                                    ga.edges.edges_in(), 
+                                    ga.edges.edges_out());
+    state.second = ga.graph.where_to(flat_node, 
+                                    state.second, 
+                                    new_side, 
+                                    ga.edges.edges_in(), 
+                                    ga.edges.edges_out());
+  }
+  flat_node = new_side;
+  inner_value = -1;
 }
 
 void haplo_DP_rectangle::calculate_I(int64_t succ_o_val) {
@@ -126,7 +180,7 @@ int64_t haplo_DP_rectangle::I() const {
 }
 
 int64_t haplo_DP_rectangle::interval_size() const {
-  return state.range_end - state.range_start;
+  return state.second - state.first + int_is_inc;
 }
 
 void haplo_DP_rectangle::set_prev_idx(int64_t index) {
@@ -177,42 +231,10 @@ int_itvl_t int_itvl_t::intersection(const int_itvl_t& A, const int_itvl_t& B) {
 haplo_DP_column
 *******************************************************************************/
 
-haplo_DP_column::haplo_DP_column(hDP_graph_accessor& ga) {
-  haplo_DP_rectangle* first_rectangle = new haplo_DP_rectangle();
-  entries = {first_rectangle};
-  first_rectangle->extend(ga);
-  update_inner_values();
-  update_score_vector(ga.memo);
-}
-
-void haplo_DP_column::standard_extend(hDP_graph_accessor& ga) {
-  previous_values = get_scores();
-  previous_sizes = get_sizes();
-  haplo_DP_rectangle* new_rectangle = new haplo_DP_rectangle();
-  new_rectangle->extend(ga);
-  vector<haplo_DP_rectangle*> new_entries = {new_rectangle};
+haplo_DP_column::~haplo_DP_column() {
   for(size_t i = 0; i < entries.size(); i++) {
-    // extend candidate
-    haplo_DP_rectangle* candidate = entries[i];
-    candidate->extend(ga);
-    candidate->set_prev_idx(i);
-    // check if the last rectangle added is nonempty
-    if(candidate->interval_size() == new_entries.back()->interval_size()) {
-      haplo_DP_rectangle* to_delete = new_entries.back();
-      new_entries.pop_back();
-      if(to_delete->prev_idx() != -1) {
-        entries[to_delete->prev_idx()] = nullptr;
-      }
-      delete to_delete;
-    }
-    if(candidate->interval_size() != 0) {
-      new_entries.push_back(candidate);
-    } else {
-      break;
-    }
+    delete entries[i];
   }
-  entries = new_entries;
-  update_inner_values();
 }
 
 void haplo_DP_column::update_inner_values() {
@@ -238,16 +260,10 @@ void haplo_DP_column::update_inner_values() {
 //   }
 // }
 
-void haplo_DP_column::extend(hDP_graph_accessor& ga) {
-  standard_extend(ga);
-  length = (double)(ga.new_length());
-  update_score_vector(ga.memo);
-}
-
-void haplo_DP_column::update_score_vector(RRMemo& memo) {
+void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
   haplo_DP_rectangle* r_0 = entries[0];
   if(entries.size() == 1 && entries[0]->prev_idx() == -1) {
-    r_0->R = -log(memo.population_size);
+    r_0->R = -memo.log_population_size();
     sum = r_0->R + log(r_0->interval_size());
     previous_values = {r_0->R};
     previous_sizes = {r_0->interval_size()};
@@ -317,20 +333,26 @@ double haplo_DP_column::current_sum() const {
   return sum;
 }
 
+void haplo_DP_column::print(ostream& out) const {
+  for(size_t i = 0; i < get_sizes().size(); i++) {
+    out << "[";
+    for(size_t j = 0; j < get_sizes().size() - i - 1; j++) {
+      out << "  ";
+    }
+    out << entries[i]->I() << "] : " << entries[i]->interval_size() << endl;
+  }
+}
+
 /*******************************************************************************
 haplo_DP
 *******************************************************************************/
 
-haplo_DP::haplo_DP(hDP_graph_accessor& ga) : DP_column(haplo_DP_column(ga)) {
-  
-}
-
-haplo_score_type haplo_DP::score(const vg::Path& path, xg::XG& graph, RRMemo& memo) {
+haplo_score_type haplo_DP::score(const vg::Path& path, xg::XG& graph, haploMath::RRMemo& memo) {
   return score(path_to_thread_t(path), graph, memo);
 }
 
-haplo_score_type haplo_DP::score(const thread_t& thread, xg::XG& graph, RRMemo& memo) {
-  hDP_graph_accessor ga_i(graph, thread[0], thread[0], memo);
+haplo_score_type haplo_DP::score(const thread_t& thread, xg::XG& graph, haploMath::RRMemo& memo) {
+  hDP_graph_accessor ga_i(graph, thread[0], memo);
   haplo_DP hdp(ga_i);
   for(size_t i = 1; i < thread.size(); i++) {
     hDP_graph_accessor ga(graph, thread[i-1], thread[i], memo);
@@ -340,10 +362,6 @@ haplo_score_type haplo_DP::score(const thread_t& thread, xg::XG& graph, RRMemo& 
     hdp.DP_column.extend(ga);
   }
   return pair<double, bool>(hdp.DP_column.current_sum(), true);
-}
-
-void haplo_DP::print(ostream& out) const {
-  //TODO
 }
 
 haplo_DP_column* haplo_DP::get_current_column() {
@@ -369,17 +387,16 @@ thread_t path_to_thread_t(const vg::Path& path) {
 math functions
 *******************************************************************************/
 
+namespace haploMath {
+
 RRMemo::RRMemo(double recombination_penalty, size_t population_size) : 
-    rho(recombination_penalty), population_size(population_size) {
-  exp_rho = exp(-rho);
+    population_size(population_size) {
+  
+  rho = -recombination_penalty - log(population_size - 1);
+  exp_rho = exp(rho);
   assert(exp_rho < 1);
-  continue_probability = 1 - population_size * exp_rho;
-  exp_rho = exp_rho/continue_probability;
-  rho = -log(exp_rho);
-  S.push_back(std::vector<double>(1, 1.0));
-  S_multipliers.push_back(1.0);
-  T.push_back(1.0);
-  T_multiplier = 1.0 - exp_rho;
+  
+  log_continue_probability = log1p(- exp_rho * (population_size - 1));
 
   // log versions
   logT_base = log1p(-exp_rho);
@@ -388,7 +405,7 @@ RRMemo::RRMemo(double recombination_penalty, size_t population_size) :
   }
 }
 
-double haploMath::logdiff(double a, double b) {
+double logdiff(double a, double b) {
   if(b > a) {
     double c = a;
     a = b;
@@ -397,7 +414,7 @@ double haploMath::logdiff(double a, double b) {
   return a + log1p(-exp(b - a));
 }
 
-double haploMath::logsum(double a, double b) {
+double logsum(double a, double b) {
   if(b > a) {
     double c = a;
     a = b;
@@ -406,7 +423,7 @@ double haploMath::logsum(double a, double b) {
   return a + log1p(exp(b - a));
 }
 
-double haploMath::int_weighted_sum(double* values, int64_t* counts, size_t n_values) {
+double int_weighted_sum(double* values, int64_t* counts, size_t n_values) {
   if(n_values == 1) {
     return values[0] + log(counts[0]);
   } else {
@@ -431,7 +448,7 @@ double haploMath::int_weighted_sum(double* values, int64_t* counts, size_t n_val
 }
 
 
-double haploMath::int_weighted_sum(vector<double> values, vector<int64_t> counts) {
+double int_weighted_sum(vector<double> values, vector<int64_t> counts) {
   if(values.size() == 1) {
     return values[0] + log(counts[0]);
   } else {
@@ -464,88 +481,21 @@ double RRMemo::logS(int height, int width) {
 }
 
 double RRMemo::logRRDiff(int height, int width) {
-
   return haploMath::logdiff(logS(height,width),logT(width)) - log(height);
 }
 
 double RRMemo::log_continue_factor(int64_t totwidth) {
-  return totwidth * log(continue_probability);
-}
-
-double RRMemo::continue_factor(int64_t totwidth) {
-  return exp(log_continue_factor(totwidth));
-}
-
-double RRMemo::recombination_penalty() {
-  return exp_rho;
+  return totwidth * log_continue_probability;
 }
 
 double RRMemo::log_recombination_penalty() {
-  return -rho;
+  return rho;
 }
 
-double RRMemo::cont_probability() {
-  return continue_probability;
+double RRMemo::log_population_size() {
+  return log(population_size);
 }
 
-double RRMemo::S_value(int height, int width) {
+} // namespace haploMath
 
-  while (S.size() < height) {
-    S_multipliers.push_back(S_multipliers[S_multipliers.size() - 1] + exp_rho);
-    S.push_back(std::vector<double>(1, 1.0));
-  }
-  std::vector<double>& S_row = S[height - 1];
-  double S_multiplier = S_multipliers[height - 1];
-
-  while (S_row.size() < width) {
-    S_row.push_back(S_row[S_row.size() - 1] * S_multiplier);
-  }
-
-  return S_row[width - 1];
-}
-
-double RRMemo::T_value(int width) {
-
-  while (T.size() < width) {
-    T.push_back(T[T.size() - 1] * T_multiplier);
-  }
-
-  return T[width - 1];
-}
-
-double RRMemo::rr_diff(int height, int width) {
-
-  if (height < 1 || width < 1) {
-    cerr << "error:[RRMemo] height and width of recombination rectangle must be >= 1" << endl;
-  }
-
-  return (S_value(height, width) - T_value(width)) / height;
-}
-
-double RRMemo::rr_same(int height, int width) {
-
-  if (height < 1 || width < 1) {
-    cerr << "error:[RRMemo] height and width of recombination rectangle must be >= 1" << endl;
-  }
-
-  double T_val = T_value(width);
-  return (S_value(height, width) - T_val) / height + T_val;
-}
-
-double RRMemo::rr_adj(int width) {
-
-  if (width < 1) {
-    cerr << "error:[RRMemo] height and width of recombination rectangle must be >= 1" << endl;
-  }
-
-  return T_value(width);
-}
-
-double RRMemo::rr_all(int height, int width) {
-
-  if (height < 1 || width < 1) {
-    cerr << "error:[RRMemo] height and width of recombination rectangle must be >= 1" << endl;
-  }
-
-  return S_value(height, width);
-}
+} // namespace haplo
