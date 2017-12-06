@@ -808,8 +808,8 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
                         << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_fbase)) << endl;
                 }
                 
-                #ifdef __APPLE__
-                    // Try running atos on this process to print a line number
+                #ifdef VG_DO_ATOS
+                    // Try running atos to print a line number. This can be slow so we don't do it by default.
                     stringstream command;
                     
                     command << "atos -o " << address_library.dli_fname << " -l " << address_library.dli_fbase << " " << ip;
@@ -838,6 +838,7 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
             cerr << "Next ip: " << ip << " Next bp: " << bp << endl;
         }
         
+        cerr << "Stack trace complete" << endl;
         cerr << endl;
         
         // Make sure to exit with the right code
