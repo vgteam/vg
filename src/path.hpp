@@ -235,11 +235,11 @@ void reverse_complement_path_in_place(Path* path,
 /// mappings that are merely single deletions, merge adjacent edits of the same
 /// type, strip leading and trailing deletion edits on mappings, and make sure no
 /// mappings have missing positions.
-Path simplify(const Path& p);
+Path simplify(const Path& p, bool trim_internal_deletions = true);
 /// Merge adjacent edits of the same type, strip leading and trailing deletion
 /// edits (while updating positions if necessary), and makes sure position is
 /// actually set.
-Mapping simplify(const Mapping& m);
+Mapping simplify(const Mapping& m, bool trim_internal_deletions = true);
 
 /// Merge adjacent edits of the same type
 Path merge_adjacent_edits(const Path& m);

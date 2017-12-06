@@ -1126,9 +1126,9 @@ const string hash_alignment(const Alignment& aln) {
     return sha1sum(data);
 }
 
-Alignment simplify(const Alignment& a) {
+Alignment simplify(const Alignment& a, bool trim_internal_deletions) {
     auto aln = a;
-    *aln.mutable_path() = simplify(aln.path());
+    *aln.mutable_path() = simplify(aln.path(), trim_internal_deletions);
     if (!aln.path().mapping_size()) {
         aln.clear_path();
     }
