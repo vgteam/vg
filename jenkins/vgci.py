@@ -1082,8 +1082,7 @@ class VGCITest(TestCase):
     def test_map_brca1_snp1kg_genotype(self):
         """ Mapping and calling (with vg genotype) bakeoff F1 test for BRCA1 snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
-        self._test_bakeoff('BRCA1', 'snp1kg', True, tag_ext='-genotype', genotype=True,
-                           misc_opts = '--call_chunk_size 40000') 
+        self._test_bakeoff('BRCA1', 'snp1kg', True, tag_ext='-genotype', genotype=True)
         
     @timeout_decorator.timeout(600)
     def test_map_brca1_snp1kg_mpmap(self):
@@ -1171,14 +1170,19 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'snp1kg', True)
 
-    @skip("skipping test to keep runtime down")        
+    @timeout_decorator.timeout(100000)        
+    def test_map_mhc_primary_genotype(self):
+        """ Mapping and calling (with vg genotype) bakeoff F1 test for MHC primary graph 
+        """
+        log.info("Test start at {}".format(datetime.now()))
+        self._test_bakeoff('MHC', 'primary', True, tag_ext='-genotype', genotype=True)
+        
     @timeout_decorator.timeout(100000)        
     def test_map_mhc_snp1kg_genotype(self):
         """ Mapping and calling (with vg genotype) bakeoff F1 test for MHC snp1kg graph 
-        (small chunk size required to get around genotype memory requirements) """
+        """
         log.info("Test start at {}".format(datetime.now()))
-        self._test_bakeoff('MHC', 'snp1kg', True, tag_ext='-genotype', genotype=True,
-                           misc_opts = '--call_chunk_size 50000')
+        self._test_bakeoff('MHC', 'snp1kg', True, tag_ext='-genotype', genotype=True)
 
     @skip("skipping test to keep runtime down (baseline missing as well)")          
     @timeout_decorator.timeout(10000)        
