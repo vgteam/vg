@@ -105,8 +105,21 @@ public:
     // order to actually use it as supporting the thing we just aligned it to?
     double min_score_per_base = 0.90;
     
-    // What should our prior on being heterozygous at a snarl be?
+    // Now define the prior distribution on genotypes.
+    
+    // What should the prior probability of a snarl being diploid be?
+    double diploid_prior_logprob = prob_to_logprob(0.999);
+    // What should our prior on being heterozygous at a snarl be, given that it is diploid?
     double het_prior_logprob = prob_to_logprob(0.1);
+    // What should the prior probability of a non-diploid snarl being haploid be?
+    double haploid_prior_logprob = prob_to_logprob(0.5);
+    // What should the prior probability of a non-diploid, non-haploid snarl
+    // being completely deleted be?
+    double deleted_prior_logprob = prob_to_logprob(0.1);
+    // If not diploid, not haploid, and not deleted, the snarl is polyploid. We
+    // model the number of additional copies over 2 with a geometric prior. What
+    // should the parameter (success probability for stopping adding copies) be?
+    double polyploid_prior_success_logprob = prob_to_logprob(0.5);
 
     // Provides a mechanism to translate back to the original graph
     Translator translator;

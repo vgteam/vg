@@ -1,8 +1,8 @@
 #ifndef VG_CLUSTER_HPP_INCLUDED
 #define VG_CLUSTER_HPP_INCLUDED
 
-#include "gcsa/gcsa.h"
-#include "gcsa/lcp.h"
+#include <gcsa/gcsa.h>
+#include <gcsa/lcp.h>
 #include "position.hpp"
 #include "gssw_aligner.hpp"
 #include "utility.hpp"
