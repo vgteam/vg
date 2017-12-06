@@ -2899,7 +2899,9 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
 #endif
                 int64_t interval_dist = relative_offset;
                 if (oriented_path.second) {
-                    interval_dist += (path.positions[oriented_occurrences_1[i].first] + node_length(get<0>(node_trav_1))) - (path.positions[oriented_occurrences_2[j].first] + node_length(get<0>(node_trav_2)));
+                    size_t node_start_1 = oriented_occurrences_1[i].first + 1 < path.positions.size() ? path.positions[oriented_occurrences_1[i].first + 1] : path.offsets.size();
+                    size_t node_start_2 = oriented_occurrences_2[j].first + 1 < path.positions.size() ? path.positions[oriented_occurrences_2[j].first + 1] : path.offsets.size();
+                    interval_dist += node_start_1 - node_start_2;
                 }
                 else {
                     interval_dist += path.positions[oriented_occurrences_2[j].first] - path.positions[oriented_occurrences_1[i].first];
