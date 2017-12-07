@@ -508,6 +508,19 @@ public:
     /// not be called in a loop.
     vector<Translation> edit(const vector<Path>& paths);
     
+    /// %Edit the graph to include all the sequence and edges added by the given
+    /// paths. Can handle paths that visit nodes in any orientation. Returns a
+    /// vector of Translations, one per node existing after the edit, describing
+    /// how each new or conserved node is embedded in the old graph. Note that
+    /// this method sorts the graph and rebuilds the path index, so it should
+    /// not be called in a loop.
+    ///
+    /// If update_paths is true, the paths will be modified to reflect their
+    /// embedding in the modified graph. If break_at_ends is true, nodes will be
+    /// broken at the ends of paths that start/end woth perfect matches, so the
+    /// paths can be added to the vg graph's paths object.
+    vector<Translation> edit(vector<Path>& paths, bool update_paths, bool break_at_ends);
+    
     /// %Edit the graph to include all the sequences and edges added by the
     /// given path. Returns a vector of Translations, one per original-node
     /// fragment. Completely novel nodes are not mentioned, and nodes with no
@@ -555,7 +568,10 @@ public:
     /// is nonempty, left edges of nodes created for initial inserts will
     /// connect to the specified sides. At the end, dangling is populated with
     /// the side corresponding to the last edit in the path.
-    void add_nodes_and_edges(const Path& path,
+    ///
+    /// Returns a fully embedded version of the path, after all node insertions,
+    /// divisions, and translations.
+    Path add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
@@ -564,7 +580,7 @@ public:
                              size_t max_node_size = 1024);
     
     /// This version doesn't require a set of dangling sides to populate                         
-    void add_nodes_and_edges(const Path& path,
+    Path add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,

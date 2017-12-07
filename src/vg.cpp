@@ -4856,6 +4856,90 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 }
 
 // The correct way to edit the graph
+vector<Translation> VG::edit(vector<Path>& paths_to_add, bool update_paths, bool break_at_ends) {
+    // Collect the breakpoints
+    map<id_t, set<pos_t>> breakpoints;
+
+#ifdef debug
+    for (auto& p : paths_to_add) {
+        cerr << pb2json(p) << endl;
+    }
+#endif
+
+    std::vector<Path> simplified_paths;
+
+    for(auto path : paths_to_add) {
+        // Simplify the path, just to eliminate adjacent match Edits in the same
+        // Mapping (because we don't have or want a breakpoint there)
+        simplified_paths.push_back(simplify(path));
+    }
+
+    for(auto path : simplified_paths) {
+        // Add in breakpoints from each path
+        find_breakpoints(path, breakpoints, break_at_ends);
+    }
+
+    // Invert the breakpoints that are on the reverse strand
+    breakpoints = forwardize_breakpoints(breakpoints);
+
+    // Clear existing path ranks.
+    paths.clear_mapping_ranks();
+
+    // get the node sizes, for use when making the translation
+    map<id_t, size_t> orig_node_sizes;
+    for_each_node([&](Node* node) {
+            orig_node_sizes[node->id()] = node->sequence().size();
+        });
+
+    // Break any nodes that need to be broken. Save the map we need to translate
+    // from offsets on old nodes to new nodes. Note that this would mess up the
+    // ranks of nodes in their existing paths, which is why we clear and rebuild
+    // them.
+    auto node_translation = ensure_breakpoints(breakpoints);
+
+    // we remember the sequences of nodes we've added at particular positions on the forward strand
+    map<pair<pos_t, string>, vector<Node*>> added_seqs;
+    // we will record the nodes that we add, so we can correctly make the returned translation
+    map<Node*, Path> added_nodes;
+    for(auto path : simplified_paths) {
+        // Now go through each new path again, and create new nodes/wire things up.
+        add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
+    }
+
+    if (update_paths) {
+        // Now we need to modify the paths to embed them
+    }
+
+    // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
+    paths.compact_ranks();
+
+    // something is off about this check.
+    // with the paths sorted, let's double-check that the edges are here
+    paths.for_each([&](const Path& path) {
+            for (size_t i = 1; i < path.mapping_size(); ++i) {
+                auto& m1 = path.mapping(i-1);
+                auto& m2 = path.mapping(i);
+                //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+                auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
+                auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
+                // check that we always have an edge between the two nodes in the correct direction
+                if (!has_edge(s1, s2)) {
+                    //cerr << "edge missing! " << s1 << " " << s2 << endl;
+                    // force these edges in
+                    create_edge(s1, s2);
+                }
+            }
+        });
+
+    // execute a semi partial order sort on the nodes
+    algorithms::sort(this);
+
+    // make the translation
+    return make_translation(node_translation, added_nodes, orig_node_sizes);
+}
+
+// Const version of the above
+// TODO: make this just use a const_cast and tell the other version not to modify things.
 vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
@@ -5335,7 +5419,7 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoint
     return toReturn;
 }
 
-void VG::add_nodes_and_edges(const Path& path,
+Path VG::add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
@@ -5353,7 +5437,7 @@ void VG::add_nodes_and_edges(const Path& path,
 
 }
 
-void VG::add_nodes_and_edges(const Path& path,
+Path VG::add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
@@ -5378,14 +5462,10 @@ void VG::add_nodes_and_edges(const Path& path,
     // We need orig_node_sizes so we can remember the sizes of nodes that we
     // modified, so we can interpret the paths. It only holds sizes for modified
     // nodes.
-
-    if(!path.name().empty()) {
-        // If the path has a name, we're going to add it to our collection of
-        // paths, as we make all the new nodes and edges it requires. But, we
-        // can't already have any mappings under that path name, or we won't be
-        // able to just append in all the new mappings.
-        assert(!paths.has_path(path.name()));
-    }
+    
+    // This is where we will keep the version of the path articulated as
+    // actually embedded in the graph.
+    Path embedded;
 
     // We use this function to get the node that contains a position on an
     // original node.
@@ -5597,24 +5677,20 @@ void VG::add_nodes_and_edges(const Path& path,
                     
                 }
 
-                if (!path.name().empty()) {
-                    for (auto* new_node : new_nodes) {
-                        // Add a mapping to each newly created node
-                        Mapping nm;
-                        nm.mutable_position()->set_node_id(new_node->id());
-                        nm.mutable_position()->set_is_reverse(m.position().is_reverse());
+                for (auto* new_node : new_nodes) {
+                    // Add a mapping to each newly created node
+                    Mapping& nm = *embedded.add_mapping();
+                    nm.mutable_position()->set_node_id(new_node->id());
+                    nm.mutable_position()->set_is_reverse(m.position().is_reverse());
 
-                        // Don't set a rank; since we're going through the input
-                        // path in order, the auto-generated ranks will put our
-                        // newly created mappings in order.
+                    // Don't set a rank; since we're going through the input
+                    // path in order, the auto-generated ranks will put our
+                    // newly created mappings in order.
 
-                        Edit* e = nm.add_edit();
-                        size_t l = new_node->sequence().size();
-                        e->set_from_length(l);
-                        e->set_to_length(l);
-                        // insert the mapping at the right place
-                        paths.append_mapping(path.name(), nm);
-                    }
+                    Edit* e = nm.add_edit();
+                    size_t l = new_node->sequence().size();
+                    e->set_from_length(l);
+                    e->set_to_length(l);
                 }
 
                 for (auto& dangler : dangling) {
@@ -5653,22 +5729,18 @@ void VG::add_nodes_and_edges(const Path& path,
                 // the right places. They should be if we cut the breakpoints
                 // right.
 
-                // TODO include path
                 // get the set of new nodes that we map to
                 // and use the lengths of each to create new mappings
                 // and append them to the path we are including
-                if (!path.name().empty()) {
-                    for (auto nm : create_new_mappings(edit_first_position,
-                                                       edit_last_position,
-                                                       m.position().is_reverse())) {
-                        //cerr << "in match, adding " << pb2json(nm) << endl;
+                for (auto nm : create_new_mappings(edit_first_position,
+                                                   edit_last_position,
+                                                   m.position().is_reverse())) {
 
-                        // Don't set a rank; since we're going through the input
-                        // path in order, the auto-generated ranks will put our
-                        // newly created mappings in order.
+                    *embedded.add_mapping() = nm;
 
-                        paths.append_mapping(path.name(), nm);
-                    }
+                    // Don't set a rank; since we're going through the input
+                    // path in order, the auto-generated ranks will put our
+                    // newly created mappings in order.
                 }
 
 #ifdef debug_edit
