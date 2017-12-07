@@ -172,12 +172,10 @@ int main_surject(int argc, char** argv) {
         }
     }
 
-    map<string, int64_t> path_by_id;// = index.paths_by_id();
     map<string, int64_t> path_length;
     int num_paths = xgidx->max_path_rank();
     for (int i = 1; i <= num_paths; ++i) {
         auto name = xgidx->path_name(i);
-        path_by_id[name] = i;
         path_length[name] = xgidx->path_length(name);
     }
 
