@@ -668,23 +668,27 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
 // *matches* from_length == to_length, or from_length > 0 and offset unset
             // match state
             cigar.push_back(make_pair(edit.from_length(), 'M'));
+            //cerr << "match " << edit.from_length() << endl;
         } else {
             // mismatch/sub state
 // *snps* from_length == to_length; sequence = alt
             if (edit.from_length() == edit.to_length()) {
                 cigar.push_back(make_pair(edit.from_length(), 'M'));
+                //cerr << "match " << edit.from_length() << endl;
             } else if (edit.from_length() > edit.to_length()) {
 // *deletions* from_length > to_length; sequence may be unset or empty
                 int32_t del = edit.from_length() - edit.to_length();
                 int32_t eq = edit.to_length();
                 if (eq) cigar.push_back(make_pair(eq, 'M'));
                 cigar.push_back(make_pair(del, 'D'));
+                //cerr << "del " << edit.from_length() - edit.to_length() << endl;
             } else if (edit.from_length() < edit.to_length()) {
 // *insertions* from_length < to_length; sequence contains relative insertion
                 int32_t ins = edit.to_length() - edit.from_length();
                 int32_t eq = edit.from_length();
                 if (eq) cigar.push_back(make_pair(eq, 'M'));
                 cigar.push_back(make_pair(ins, 'I'));
+                //cerr << "ins " << edit.to_length() - edit.from_length() << endl;
             }
         }
     }
@@ -1021,6 +1025,38 @@ void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_
     }
 }
 
+int non_match_start(const Alignment& alignment) {
+    int length = 0;
+    auto& path = alignment.path();
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        for (int j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            if (edit_is_match(edit)) {
+                return length;
+            }
+            length += edit.to_length();
+        }
+    }
+    return length;
+}
+
+int non_match_end(const Alignment& alignment) {
+    int length = 0;
+    auto& path = alignment.path();
+    for (int i = path.mapping_size()-1; i >= 0; --i) {
+        auto& mapping = path.mapping(i);
+        for (int j = mapping.edit_size()-1; j >= 0; --j) {
+            auto& edit = mapping.edit(j);
+            if (edit_is_match(edit)) {
+                return length;
+            }
+            length += edit.to_length();
+        }
+    }
+    return length;
+}
+
 int softclip_start(const Alignment& alignment) {
     if (alignment.path().mapping_size() > 0) {
         auto& path = alignment.path();
@@ -1090,9 +1126,9 @@ const string hash_alignment(const Alignment& aln) {
     return sha1sum(data);
 }
 
-Alignment simplify(const Alignment& a) {
+Alignment simplify(const Alignment& a, bool trim_internal_deletions) {
     auto aln = a;
-    *aln.mutable_path() = simplify(aln.path());
+    *aln.mutable_path() = simplify(aln.path(), trim_internal_deletions);
     if (!aln.path().mapping_size()) {
         aln.clear_path();
     }
@@ -1187,6 +1223,24 @@ void parse_bed_regions(istream& bedstream,
             out_alignments->push_back(alignment);
         }
     }
+}
+
+Position alignment_start(const Alignment& aln) {
+    Position pos;
+    if (aln.path().mapping_size()) {
+        pos = aln.path().mapping(0).position();
+    }
+    return pos;
+}
+
+Position alignment_end(const Alignment& aln) {
+    Position pos;
+    if (aln.path().mapping_size()) {
+        auto& last = aln.path().mapping(aln.path().mapping_size()-1);
+        pos = last.position();
+        pos.set_offset(pos.offset() + mapping_from_length(last));
+    }
+    return pos;
 }
 
 }
