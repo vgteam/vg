@@ -5776,6 +5776,9 @@ Path VG::add_nodes_and_edges(const Path& path,
         }
 
     }
+    
+    // Actually return the embedded path.
+    return embedded;
 
 }
 
