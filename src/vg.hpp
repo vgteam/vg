@@ -506,14 +506,6 @@ public:
     /// how each new or conserved node is embedded in the old graph. Note that
     /// this method sorts the graph and rebuilds the path index, so it should
     /// not be called in a loop.
-    vector<Translation> edit(const vector<Path>& paths_to_add);
-    
-    /// %Edit the graph to include all the sequence and edges added by the given
-    /// paths. Can handle paths that visit nodes in any orientation. Returns a
-    /// vector of Translations, one per node existing after the edit, describing
-    /// how each new or conserved node is embedded in the old graph. Note that
-    /// this method sorts the graph and rebuilds the path index, so it should
-    /// not be called in a loop.
     ///
     /// If update_paths is true, the paths will be modified to reflect their
     /// embedding in the modified graph. If add_paths is true, the paths as
