@@ -506,7 +506,7 @@ public:
     /// how each new or conserved node is embedded in the old graph. Note that
     /// this method sorts the graph and rebuilds the path index, so it should
     /// not be called in a loop.
-    vector<Translation> edit(const vector<Path>& paths);
+    vector<Translation> edit(const vector<Path>& paths_to_add);
     
     /// %Edit the graph to include all the sequence and edges added by the given
     /// paths. Can handle paths that visit nodes in any orientation. Returns a
@@ -516,10 +516,13 @@ public:
     /// not be called in a loop.
     ///
     /// If update_paths is true, the paths will be modified to reflect their
-    /// embedding in the modified graph. If break_at_ends is true, nodes will be
-    /// broken at the ends of paths that start/end woth perfect matches, so the
-    /// paths can be added to the vg graph's paths object.
-    vector<Translation> edit(vector<Path>& paths, bool update_paths, bool break_at_ends);
+    /// embedding in the modified graph. If add_paths is true, the paths as
+    /// embedded in the graph will be added to the graph's set of paths. If
+    /// break_at_ends is true (or save_paths is true), nodes will be broken at
+    /// the ends of paths that start/end woth perfect matches, so the paths can
+    /// be added to the vg graph's paths object.
+    vector<Translation> edit(vector<Path>& paths_to_add, bool save_paths = false,
+        bool update_paths = false, bool break_at_ends = false);
     
     /// %Edit the graph to include all the sequences and edges added by the
     /// given path. Returns a vector of Translations, one per original-node

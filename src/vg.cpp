@@ -4856,7 +4856,7 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 }
 
 // The correct way to edit the graph
-vector<Translation> VG::edit(vector<Path>& paths_to_add, bool update_paths, bool break_at_ends) {
+vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool update_paths, bool break_at_ends) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
@@ -4873,6 +4873,9 @@ vector<Translation> VG::edit(vector<Path>& paths_to_add, bool update_paths, bool
         // Mapping (because we don't have or want a breakpoint there)
         simplified_paths.push_back(simplify(path));
     }
+
+    // If we are going to actually add the paths to the graph, we need to break at path ends
+    break_at_ends |= save_paths;
 
     for(auto path : simplified_paths) {
         // Add in breakpoints from each path
@@ -4903,11 +4906,23 @@ vector<Translation> VG::edit(vector<Path>& paths_to_add, bool update_paths, bool
     map<Node*, Path> added_nodes;
     for(auto path : simplified_paths) {
         // Now go through each new path again, and create new nodes/wire things up.
-        add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
+        // Get the added version of the path.
+        Path added = add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
+        
+        if (save_paths) {
+            // Add this path to the graph's paths object
+            paths.extend(added);
+        }
+        
+        if (update_paths) {
+            // Replace the simplified path in original graph space with one in new graph space.
+            path = added;
+        }
     }
 
     if (update_paths) {
-        // Now we need to modify the paths to embed them
+        // We replaced all the paths in simplifies_paths, so send those back out as the embedded versions.
+        std::swap(simplified_paths, paths_to_add);
     }
 
     // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
@@ -5466,6 +5481,7 @@ Path VG::add_nodes_and_edges(const Path& path,
     // This is where we will keep the version of the path articulated as
     // actually embedded in the graph.
     Path embedded;
+    embedded.set_name(path.name());
 
     // We use this function to get the node that contains a position on an
     // original node.
