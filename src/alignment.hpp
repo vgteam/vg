@@ -9,7 +9,7 @@
 #include "position.hpp"
 #include "vg.pb.h"
 #include "xg.hpp"
-
+#include "edit.hpp"
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
 #include "htslib/sam.h"
@@ -112,6 +112,8 @@ const string hash_alignment(const Alignment& aln);
 Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(id_t)>& node_length);
 void reverse_complement_alignment_in_place(Alignment* aln, const function<int64_t(id_t)>& node_length);
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
+int non_match_start(const Alignment& alignment);
+int non_match_end(const Alignment& alignment);
 int softclip_start(const Alignment& alignment);
 int softclip_end(const Alignment& alignment);
 int query_overlap(const Alignment& aln1, const Alignment& aln2);
@@ -135,12 +137,15 @@ void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_
 /// Simplifies the Path in the Alignment. Note that this removes deletions at
 /// the start and end of Mappings, so code that handles simplified Alignments
 /// needs to handle offsets on internal Mappings.
-Alignment simplify(const Alignment& a);
+Alignment simplify(const Alignment& a, bool trim_internal_deletions = true);
 
 // quality information; a kind of poor man's pileup
 map<id_t, int> alignment_quality_per_node(const Alignment& aln);
 
 void parse_bed_regions(istream& bedstream, xg::XG* xgindex, vector<Alignment>* out_alignments);
+
+Position alignment_start(const Alignment& aln);
+Position alignment_end(const Alignment& aln);Position alignment_start(const Alignment& aln);
 
 }
 

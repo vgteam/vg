@@ -1075,7 +1075,7 @@ Path concat_paths(const Path& path1, const Path& path2) {
     return res;
 }
 
-Path simplify(const Path& p) {
+Path simplify(const Path& p, bool trim_internal_deletions) {
     Path s;
     s.set_name(p.name());
     //cerr << "simplifying " << pb2json(p) << endl;
@@ -1084,11 +1084,17 @@ Path simplify(const Path& p) {
     // when possible, merge a mapping with the previous mapping
     // push inserted sequences to the left
     for (size_t i = 0; i < p.mapping_size(); ++i) {
-        auto m = simplify(p.mapping(i));
+        auto m = simplify(p.mapping(i), trim_internal_deletions);
         //cerr << "simplified " << pb2json(m) << endl;
-        // remove wholly-deleted or empty mappings as these are redundant
-        if ((m.edit_size() == 1 && edit_is_deletion(m.edit(0)))
-            || m.edit_size() == 0) continue;
+        // remove empty mappings as these are redundant
+        if (trim_internal_deletions) {
+            // remove wholly-deleted or empty mappings as these are redundant
+            if ((m.edit_size() == 1 && edit_is_deletion(m.edit(0)))
+                || m.edit_size() == 0) continue;
+        } else {
+            // remove empty mappings as these are redundant
+            if (m.edit_size() == 0) continue;
+        }
         if (s.mapping_size()
             && m.position().is_reverse() == s.mapping(s.mapping_size()-1).position().is_reverse()) {
             // if this isn't the first mapping
@@ -1141,13 +1147,68 @@ Path simplify(const Path& p) {
         if (!m.edit_size()) continue; // skips empty mappings
         *r.add_mapping() = m;
     }
-    // now set ranks
+    Path q;
+    // remove leading and trailing deletions (these might result from global alignment)
+    int total_to_length = path_to_length(r);
+    int seen_to_length = 0;
     for (size_t i = 0; i < r.mapping_size(); ++i) {
-        auto* m = r.mutable_mapping(i);
+        auto& m = r.mapping(i);
+        int curr_to_length = mapping_to_length(m);
+        // skip bits at the beginning and end
+        if (!seen_to_length && !curr_to_length
+            || seen_to_length == total_to_length) continue;
+        Mapping n;
+        *n.mutable_position() = m.position();
+        if (seen_to_length) {
+            if (seen_to_length + curr_to_length == total_to_length) {
+                // this is the last mapping before we should trim
+                // so trim any dels from the end of the mapping
+                size_t j = m.edit_size()-1;
+                for ( ; j >= 0; --j) {
+                    if (!edit_is_deletion(m.edit(j))) {
+                        ++j; // pointer to end
+                        break;
+                    }
+                }
+                for (size_t h = 0; h < j; ++h) {
+                    *n.add_edit() = m.edit(h);
+                }
+            } else {
+                // internal segment
+                n = m;
+            }
+        } else {
+            // our first matching mapping
+            if (mapping_to_length(m)) {
+                size_t j = 0;
+                size_t seen = 0;
+                for ( ; j < m.edit_size(); ++j) {
+                    if (!edit_is_deletion(m.edit(j))) {
+                        break;
+                    } else {
+                        seen += m.edit(j).from_length();
+                    }
+                }
+                // adjust position
+                n.mutable_position()->set_offset(n.position().offset()+seen);
+                for ( ; j < m.edit_size(); ++j) {
+                    *n.add_edit() = m.edit(j);
+                }
+            }
+        }
+        *q.add_mapping() = n;
+        seen_to_length += mapping_to_length(n);
+    }
+    q.set_name(r.name());
+    assert(path_to_length(q) == path_to_length(r));
+
+    // now set ranks
+    for (size_t i = 0; i < q.mapping_size(); ++i) {
+        auto* m = q.mutable_mapping(i);
         m->set_rank(i+1);
     }
     //cerr << "simplified " << pb2json(s) << endl;
-    return r;
+    return q;
 }
 
 // simple merge
@@ -1161,7 +1222,7 @@ Mapping concat_mappings(const Mapping& m, const Mapping& n) {
     return simplify(c);
 }
 
-Mapping simplify(const Mapping& m) {
+Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
     Mapping n;
     if (m.rank()) n.set_rank(m.rank());
     //cerr << "pre simplify " << pb2json(m) << endl;
@@ -1169,28 +1230,30 @@ Mapping simplify(const Mapping& m) {
     *n.mutable_position() = m.position();
 
     size_t j = 0;
-    // to simplify, we skip deletions at the very start of the node
-    // these are implied by jumps in the path from other nodes
-    if (m.position().offset() == 0) {
-        for ( ; j < m.edit_size(); ++j) {
-            if (!edit_is_deletion(m.edit(j))) {
-                break;
-            } else {
-                if (n.position().node_id() == 0) {
-                    // Complain if a Mapping has no position *and* has edit-initial
-                    // deletions, which we need to remove but can't.
-                    throw runtime_error(
-                        "Cannot simplify Mapping with no position: need to update position when removing leading deletion");
+    if (trim_internal_deletions) {
+        // to simplify, we skip deletions at the very start of the node
+        // these are implied by jumps in the path from other nodes
+        if (m.position().offset() == 0) {
+            for ( ; j < m.edit_size(); ++j) {
+                if (!edit_is_deletion(m.edit(j))) {
+                    break;
+                } else {
+                    if (n.position().node_id() == 0) {
+                        // Complain if a Mapping has no position *and* has edit-initial
+                        // deletions, which we need to remove but can't.
+                        throw runtime_error(
+                            "Cannot simplify Mapping with no position: need to update position when removing leading deletion");
+                    }
+                    
+                    // Adjust the offset by the size of the deletion.
+                    n.mutable_position()->set_offset(n.position().offset()
+                                                     + m.edit(j).from_length());
                 }
-                
-                // Adjust the offset by the size of the deletion.
-                n.mutable_position()->set_offset(n.position().offset()
-                                                 + m.edit(j).from_length());
             }
         }
     }
-
-    // now go through the rest of the edits and see if we can merge them
+    
+    // go through the rest of the edits and see if we can merge them
     if (j < m.edit_size()) {
         Edit e = m.edit(j++);
         for ( ; j < m.edit_size(); ++j) {
@@ -1212,9 +1275,11 @@ Mapping simplify(const Mapping& m) {
                 e = f;
             }
         }
-        // and keep the last edit
-        // if it isn't a deletion
-        if (!edit_is_deletion(e)) *n.add_edit() = e;
+        if (trim_internal_deletions) {
+            if (!edit_is_deletion(e)) *n.add_edit() = e;
+        } else {
+            *n.add_edit() = e;
+        }
     }
     //cerr << "post simplify " << pb2json(n) << endl;
     return n;
