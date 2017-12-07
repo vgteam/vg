@@ -739,7 +739,7 @@ int main_mod(int argc, char** argv) {
         }
         if (!label_paths) {
             // execute the edits
-            auto translation = graph->edit(paths);
+            auto translation = graph->edit(paths, true);
             if (!translation_file.empty()) {
                 ofstream out(translation_file);
                 stream::write_buffered(out, translation, 0);
