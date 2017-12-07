@@ -131,7 +131,7 @@ void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
 
     if (!leave_edits) {
         // Run them through vg::edit() to add them to the graph. Save the translations.
-        vector<Translation> augmentation_translations = graph.edit(paths);
+        vector<Translation> augmentation_translations = graph.edit(paths, true);
         translator.load(augmentation_translations);
     } else {
         // Add the paths to the graphs, but don't embed the edits.  These paths
