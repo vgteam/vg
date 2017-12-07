@@ -182,20 +182,20 @@ struct AugmentedGraph {
     // Translations back to the base graph
     Translator translator;
     
-    // Map an edge back to teh base graph (return NULL if does not exist)
+    // Map an edge back to the base graph (return NULL if does not exist)
     // In the special case that an edge in the augmented graph represents
     // two abutting positions within a node in the base graph, null, true
     // is returned (todo: less tortured interface?)
     pair<const Edge*, bool> base_edge(const Edge* augmented_edge);
 
-    // Is this a node novel?  ie does it not map back to the base graph?
+    // Is this node novel?  ie does it not map back to the base graph?
     bool is_novel_node(const Node* augmented_node) {
         Position pos;
         pos.set_node_id(augmented_node->id());
         return !translator.has_translation(pos);
     }
     
-    // Is this a node novel?  ie does it not map back to the base graph?
+    // Is this edge novel?  ie does it not map back to the base graph?
     bool is_novel_edge(const Edge* augmented_edge) {
         auto be_ret = base_edge(augmented_edge);
         return be_ret.first == NULL && be_ret.second == false;

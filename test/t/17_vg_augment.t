@@ -16,10 +16,10 @@ vg view -J -v pileup/tiny.json > tiny.vg
 vg view -J -a -G pileup/alignment.json > alignment.gam
 vg augment tiny.vg alignment.gam -P tiny.gpu > /dev/null
 vg view tiny.gpu -l -j | jq . > tiny.gpu.json
-is $(jq --argfile a tiny.gpu.json --argfile b pileup/truth.json -n '($a == $b)') true "vg pileup produces the expected output for test case on tiny graph."
+is $(jq --argfile a tiny.gpu.json --argfile b pileup/truth.json -n '($a == $b)') true "vg augment -P produces the expected output for test case on tiny graph."
 rm -f alignment.gam tiny.gpu tiny.gpu.json
 
-# Make sure well-suppeorted edits are augmented in
+# Make sure well-supported edits are augmented in
 vg view -J -a -G pileup/edits.json > edits.gam
 vg augment tiny.vg edits.gam -A edits-embedded.gam > augmented.vg
 

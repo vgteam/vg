@@ -50,7 +50,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "Embed GAM alignments into a graph to facilitate variant calling" << endl
          << endl
          << "general options:" << endl
-         << "    -a, --augmentation-mode M   augmentation mode.  M = {pileup} [pileup]" << endl
+         << "    -a, --augmentation-mode M   augmentation mode.  M = {pileup, direct} [direct]" << endl
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
          << "    -h, --help                  print this help message" << endl
@@ -75,7 +75,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
 int main_augment(int argc, char** argv) {
 
     // augmentation mode
-    string augmentation_mode = "pileup";
+    string augmentation_mode = "direct";
     
     // load pileupes from here
     string pileup_file_name;
@@ -242,8 +242,8 @@ int main_augment(int argc, char** argv) {
         return 1;
     }
 
-    if (augmentation_mode != "pileup") {
-        cerr << "[vg augment] error: pileup is currently the only supported augmentation mode (-a)" << endl;
+    if (augmentation_mode != "pileup" && augmentation_mode != "direct") {
+        cerr << "[vg augment] error: pileup and direct are currently the only supported augmentation modes (-a)" << endl;
         return 1;
     }
 
@@ -255,25 +255,110 @@ int main_augment(int argc, char** argv) {
     get_input_file(graph_file_name, [&](istream& in) {
         graph = new VG(in);
     });
-
-    if (augmentation_mode == "pileup") {
+    
+    
+    Pileups* pileups = nullptr;
+    
+    if (!pileup_file_name.empty() || augmentation_mode == "pileup") {
+        // We will need the computed pileups
         
         // compute the pileups from the graph and gam
         Pileups* pileups = compute_pileups(graph, gam_in_file_name, thread_count, min_quality, max_mismatches,
                                            window_size, max_depth, use_mapq, show_progress);
+    }
         
-        // spit out the pileup
-        if (!pileup_file_name.empty()) {
-            if (show_progress) {
-                cerr << "Writing pileups" << endl;
-            }
-            ofstream pileup_file(pileup_file_name);
-            if (!pileup_file) {
-                cerr << "[vg augment] error: unable to open output pileup file: " << pileup_file_name << endl;
-            }
-            pileups->write(pileup_file);
+    if (!pileup_file_name.empty()) {
+        // We want to write out pileups.
+        if (show_progress) {
+            cerr << "Writing pileups" << endl;
         }
+        ofstream pileup_file(pileup_file_name);
+        if (!pileup_file) {
+            cerr << "[vg augment] error: unable to open output pileup file: " << pileup_file_name << endl;
+            exit(1);
+        }
+        pileups->write(pileup_file);
+    }
 
+    if (augmentation_mode == "direct") {
+        // Augment with the reads
+        
+        if (!support_file_name.empty()) {
+            cerr << "[vg augment] error: support calculation in direct augmentation mode is unimplemented" << endl;
+            exit(1);
+        }
+        
+        // We don't need any pileups
+        if (pileups != nullptr) {
+            delete pileups;
+            pileups = nullptr;
+        }
+    
+        // Load all the reads
+        vector<Alignment> reads;
+        // And pull out their paths
+        vector<Path> read_paths;
+        get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
+            stream::for_each<Alignment>(alignment_stream, [&](Alignment& alignment) {
+                // Save every read
+                reads.push_back(alignment);
+                // And the path for the read, separately
+                // TODO: Make edit use callbacks or something so it doesn't need a vector of paths necessarily
+                read_paths.push_back(alignment.path());
+            });
+        });
+        
+        // Augment the graph, rewriting the paths.
+        // Don't embed paths or break at ends.
+        auto translation = graph->edit(read_paths, false, true, false);
+        
+        // Write the augmented graph
+        if (show_progress) {
+            cerr << "Writing augmented graph" << endl;
+        }
+        graph->serialize_to_ostream(cout);
+        
+        if (!translation_file_name.empty()) {
+            // Write the translations
+            if (show_progress) {
+                cerr << "Writing translation table" << endl;
+            }
+            ofstream translation_file(translation_file_name);
+            if (!translation_file) {
+                cerr << "[vg augment]: Error opening translation file: " << translation_file_name << endl;
+                return 1;
+            }
+            stream::write_buffered(translation_file, translation, 0);
+            translation_file.close();
+        }        
+        
+        if (!gam_out_file_name.empty()) {
+            // Write out the modified GAM
+            
+            ofstream gam_out_file(gam_out_file_name);
+            if (!gam_out_file) {
+                cerr << "[vg augment]: Error opening output GAM file: " << gam_out_file_name << endl;
+                return 1;
+            }
+            
+            // We use this buffer and do a buffered write
+            vector<Alignment> gam_buffer;
+            for (size_t i = 0; i < reads.size(); i++) {
+                // Say we are going to write out the alignment
+                gam_buffer.push_back(reads[i]);
+                
+                // Set its path to the corrected embedded path
+                *gam_buffer.back().mutable_path() = read_paths[i];
+                
+                // Write it back out
+                stream::write_buffered(gam_out_file, gam_buffer, 100);
+            }
+            // Flush the buffer
+            stream::write_buffered(gam_out_file, gam_buffer, 0);
+        }
+    } else if (augmentation_mode == "pileup") {
+        // We want to augment with pileups
+        
         // PileupAugmenter wants from/to lengths to be set for all edits
         add_trivial_edits(*graph);
 
@@ -285,6 +370,7 @@ int main_augment(int argc, char** argv) {
         //       pileup_file_name
         augment_with_pileups(augmenter, *pileups, expect_subgraph, show_progress);
         delete pileups;
+        pileups = nullptr;
 
         // write the augmented graph
         if (show_progress) {
@@ -324,7 +410,7 @@ int main_augment(int argc, char** argv) {
             }
             ofstream translation_file(translation_file_name);
             if (!translation_file) {
-                cerr << "[vg augment]: Error opening translation file: " << translation_file_name << endl;
+                cerr << "[vg augment] error: error opening translation file: " << translation_file_name << endl;
                 return 1;
             }
             augmenter._augmented_graph.write_translations(translation_file);
@@ -339,14 +425,22 @@ int main_augment(int argc, char** argv) {
             }
             ofstream support_file(support_file_name);
             if (!support_file) {
-                cerr << "[vg augment]: Error opening supports file: " << support_file_name << endl;
+                cerr << "[vg augment] error: error opening supports file: " << support_file_name << endl;
                 return 1;
             }
             augmenter._augmented_graph.write_supports(support_file);
             support_file.close();
         }       
+    } else {
+        cerr << "[vg augment] error: unrecognized augmentation mode" << endl;
+        exit(1);
     }
 
+    if (pileups != nullptr) {
+        delete pileups;
+        pileups = nullptr;
+    }    
+    
     delete graph;
 
     return 0;
