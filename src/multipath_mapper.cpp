@@ -75,12 +75,12 @@ namespace vg {
         // need to distinguish between regular_aligner and qual_adj_aligner
         if (adjust_alignments_for_base_quality) {
             OrientedDistanceClusterer clusterer(alignment, mems, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error,
-                                                min_clustering_mem_length, false, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+                                                min_clustering_mem_length, unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
             clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         else {
             OrientedDistanceClusterer clusterer(alignment, mems, *get_regular_aligner(), xindex, max_expected_dist_approx_error,
-                                                min_clustering_mem_length, false, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+                                                min_clustering_mem_length, unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
             clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         
