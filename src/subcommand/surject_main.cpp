@@ -26,7 +26,7 @@ void help_surject(char** argv) {
          << "options:" << endl
          << "    -x, --xg-name FILE      use the graph in this xg index" << endl
          << "    -t, --threads N         number of threads to use" << endl
-         << "    -p, --into-path NAME    surject into just this path" << endl
+         << "    -p, --into-path NAME    surject into this path (many allowed, default: all in xg)" << endl
          << "    -i, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
          << "    -n, --context-depth N   expand this many steps when collecting graph for surjection (default: 3)" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
@@ -42,7 +42,7 @@ int main_surject(int argc, char** argv) {
     }
 
     string xg_name;
-    string path_name;
+    set<string> path_names;
     string path_prefix;
     string path_file;
     string output_type = "gam";
@@ -89,7 +89,7 @@ int main_surject(int argc, char** argv) {
             break;
 
         case 'p':
-            path_name = optarg;
+            path_names.insert(optarg);
             break;
 
         case 'i':
@@ -146,7 +146,6 @@ int main_surject(int argc, char** argv) {
 
     string file_name = get_input_file_name(optind, argc, argv);
 
-    set<string> path_names;
     if (!path_file.empty()){
         // open the file
         ifstream in(path_file);
@@ -154,12 +153,6 @@ int main_surject(int argc, char** argv) {
         while (std::getline(in,line)) {
             path_names.insert(line);
         }
-    } else if (!path_name.empty()) {
-        path_names.insert(path_name);
-    }
-
-    if (path_names.empty()) {
-        cerr << "[vg surject] Warning: No path name(s) specified with -i or -p" << endl;
     }
 
     xg::XG* xgidx = nullptr;
@@ -170,6 +163,13 @@ int main_surject(int argc, char** argv) {
     if (!xg_stream || xgidx == nullptr) {
         cerr << "[vg surject] error: could not open xg index" << endl;
         return 1;
+    }
+
+    // if no paths were given take all of those in the index
+    if (path_names.empty()) {
+        for (size_t i = 1; i <= xgidx->path_count; ++i) {
+            path_names.insert(xgidx->path_name(i));
+        }
     }
 
     map<string, int64_t> path_by_id;// = index.paths_by_id();

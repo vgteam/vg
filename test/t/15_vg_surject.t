@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 16
+plan tests 17
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -18,6 +18,9 @@ is $(vg map -G <(vg sim -a -s 1337 -n 100 -x j.xg) -g x.gcsa -x x.xg | vg surjec
     
 is $(vg map -G <(vg sim -a -s 1337 -n 100 -x j.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -t 1 -s - | grep -v "@" | cut -f3 | grep x | wc -l) \
     100 "vg surject actually places reads on the correct path"
+
+is $(vg map -G <(vg sim -a -s 1337 -n 100 -x j.xg) -g x.gcsa -x x.xg | vg surject -x x.xg -t 1 -s - | grep -v "@" | cut -f3 | grep x | wc -l) \
+    100 "vg surject doesn't need to be told which path to use"
 
 is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -t 1 - | vg view -a - | wc -l) \
     100 "vg surject works for every read simulated from a dense graph"
