@@ -2887,6 +2887,7 @@ int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1,
     
 int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, bool rev1,
                                                   int64_t id2, size_t offset2, bool rev2,
+                                                  bool forward_strand,
                                                   size_t max_search_dist,
                                                   unordered_map<int64_t, vector<size_t>>* paths_of_node_memo,
                                                   unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo,
@@ -3079,6 +3080,7 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
     
     // we will look for minimum absolute distance, so set it to the max to begin
     int64_t approx_dist = std::numeric_limits<int64_t>::max();
+    bool on_reverse_strand = false;
     for (const pair<size_t, bool>& oriented_path : shared_path_strands) {
 #ifdef debug_algorithms
         cerr << "[XG] estimating distance with shared path " << oriented_path.first << (oriented_path.second ? "-" : "+") << endl;
@@ -3142,12 +3144,13 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
                 // find the minimum absolute distance, but retain signing
                 if (abs(interval_dist) < abs(approx_dist)) {
                     approx_dist = interval_dist;
+                    on_reverse_strand = oriented_path.second;
                 }
             }
         }
     }
     
-    return approx_dist;
+    return (on_reverse_strand && forward_strand) ? -approx_dist : approx_dist;
 }
     
 vector<tuple<int64_t, bool, size_t>> XG::jump_along_closest_path(int64_t id, bool is_rev, size_t offset, int64_t jump_dist, size_t max_search_dist,
@@ -3287,25 +3290,29 @@ vector<tuple<int64_t, bool, size_t>> XG::jump_along_closest_path(int64_t id, boo
     return std::move(to_return);
 }
     
-bool XG::validate_strand_consistency(int64_t id1, size_t offset1, bool rev1,
-                                     int64_t id2, size_t offset2, bool rev2,
-                                     size_t max_search_dist,
-                                     unordered_map<int64_t, vector<size_t>>* paths_of_node_memo,
-                                     unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo,
-                                     unordered_map<pair<int64_t, bool>, handle_t>* handle_memo) const{
+pair<bool, bool> XG::validate_strand_consistency(int64_t id1, size_t offset1, bool rev1,
+                                                 int64_t id2, size_t offset2, bool rev2,
+                                                 size_t max_search_dist,
+                                                 unordered_map<int64_t, vector<size_t>>* paths_of_node_memo,
+                                                 unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo,
+                                                 unordered_map<pair<int64_t, bool>, handle_t>* handle_memo) const{
     
     unordered_set<pair<size_t, bool>> path_strands_1;
     unordered_set<pair<size_t, bool>> path_strands_2;
     
     // ensure that the paths of the start nodes are added, even if their ends are too far away
     // from the positions for the search to explore
+    bool set_original_orientation = false;
+    bool original_orientation = false;
     for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : memoized_oriented_paths_of_node(id1, paths_of_node_memo, oriented_occurrences_memo)) {
         for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
             pair<size_t, bool> path_occurrence(oriented_occurrences.first, occurrence.second != rev1);
-            pair<size_t, bool> opposite_path_occurrence(path_occurrence.first, !path_occurrence.second);
-            if (path_strands_1.count(opposite_path_occurrence)) {
-                continue;
+            
+            if (!set_original_orientation) {
+                set_original_orientation = true;
+                original_orientation = path_occurrence.second;
             }
+            
             path_strands_1.insert(path_occurrence);
         }
     }
@@ -3313,13 +3320,14 @@ bool XG::validate_strand_consistency(int64_t id1, size_t offset1, bool rev1,
         for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
             pair<size_t, bool> path_occurrence(oriented_occurrences.first, occurrence.second != rev2);
             pair<size_t, bool> opposite_path_occurrence(path_occurrence.first, !path_occurrence.second);
-            
-            if (path_strands_2.count(opposite_path_occurrence)) {
-                continue;
+
+            if (!set_original_orientation) {
+                set_original_orientation = true;
+                original_orientation = path_occurrence.second;
             }
             
             if (path_strands_1.count(path_occurrence)) {
-                return true;
+                return make_pair(path_occurrence.second, path_occurrence.second);
             }
             
             path_strands_2.insert(path_occurrence);
@@ -3407,6 +3415,7 @@ bool XG::validate_strand_consistency(int64_t id1, size_t offset1, bool rev1,
             if ((trav_id != id1 || trav_is_rev != rev1) && (trav_id != id2 || trav_is_rev != rev2)) {
                 // this is not one of the start positions, so it might have new paths on it
                 for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : memoized_oriented_paths_of_node(trav_id, paths_of_node_memo, oriented_occurrences_memo)) {
+                    vector<pair<size_t, bool>> path_orientations;
                     for (const pair<size_t, bool>& occurrence : oriented_occurrences.second) {
 #ifdef debug_algorithms
                         cerr << "\tnode is on path " << oriented_occurrences.first << " in " << (occurrence.second ? "reverse" : "forward") << " orientation" << endl;
@@ -3414,14 +3423,32 @@ bool XG::validate_strand_consistency(int64_t id1, size_t offset1, bool rev1,
                         pair<size_t, bool> path_orientation(oriented_occurrences.first, occurrence.second != trav_is_rev);
                         pair<size_t, bool> opposite_orientation(path_orientation.first, !path_orientation.second);
                         
+                        if (!set_original_orientation) {
+                            set_original_orientation = true;
+                            original_orientation = path_orientation.second;
+                        }
+                        
+                        // can the two positions navigate to each other directly
+                        if (other_queued->count(trav.handle)) {
+                            return make_pair(original_orientation, original_orientation);
+                        }
+                        
+                        // have we already assigned this node to the opposite orientation of the path?
                         if (curr_path_strands->count(opposite_orientation)) {
                             continue;
                         }
                         
-                        if (other_path_strands->count(path_orientation) || other_queued->count(trav.handle)) {
-                            return true;
+                        // have we seen this orientation of the path on te other position?
+                        if (other_path_strands->count(path_orientation)) {
+                            return make_pair(path_orientation.second, path_orientation.second);
                         }
                         
+                        // mark this path orientation as one to assign the position to
+                        path_orientations.push_back(path_orientation);
+                    }
+                    
+                    // assign the position to all marked path orientations
+                    for (const pair<size_t, bool>& path_orientation : path_orientations) {
                         curr_path_strands->insert(path_orientation);
                     }
                 }
@@ -3442,7 +3469,7 @@ bool XG::validate_strand_consistency(int64_t id1, size_t offset1, bool rev1,
         }
     }
     
-    return false;
+    return make_pair(true, false);
 }
 
 void XG::for_path_range(const string& name, int64_t start, int64_t stop,

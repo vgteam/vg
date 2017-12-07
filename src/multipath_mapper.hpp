@@ -197,7 +197,8 @@ namespace vg {
         
         /// Compute the approximate distance between two multipath alignments
         int64_t distance_between(const MultipathAlignment& multipath_aln_1,
-                                 const MultipathAlignment& multipath_aln_2) const;
+                                 const MultipathAlignment& multipath_aln_2,
+                                 bool forward_strand = false) const;
         
         /// Are two multipath alignments consistently placed based on the learned fragment length distribution?
         bool are_consistent(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
@@ -212,11 +213,13 @@ namespace vg {
         /// multipath alignments
         bool share_start_position(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
-        /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them
-        void remove_strand_inconsistent_pairs(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
-                                              OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
-                                              OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
-                                              OrientedDistanceClusterer::handle_memo_t* handle_memo);
+        /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also
+        /// inverts the distances in the cluster pairs vector according to the strand
+        void establish_strand_consistency(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
+                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                          OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
+                                          OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
+                                          OrientedDistanceClusterer::handle_memo_t* handle_memo);
         
         SnarlManager* snarl_manager;
         

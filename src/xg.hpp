@@ -357,9 +357,10 @@ public:
     /// estimated by the distance along the nearest shared path to the two positions plus the distance
     /// to traverse to that path. returns numeric_limits<int64_t>::max() if no pair of nodes that occur same
     /// on the strand of a path are reachable within the max search distance (measured in sequence length,
-    /// not node length).
+    /// not node length). optionally returns the distance along the forward strand
     int64_t closest_shared_path_oriented_distance(int64_t id1, size_t offset1, bool rev1,
                                                   int64_t id2, size_t offset2, bool rev2,
+                                                  bool forward_strand = false,
                                                   size_t max_search_dist = 100,
                                                   unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
                                                   unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
@@ -375,14 +376,15 @@ public:
                                                                  unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
     
     /// checks whether two positions are on or near the same strand of some path. if the position can reach both strands of a
-    /// path, it is only considered to be on the nearer of the two strands. function will also return true if the two positions
-    /// can traverse to each other within the maximum search distance
-    bool validate_strand_consistency(int64_t id1, size_t offset1, bool rev1,
-                                     int64_t id2, size_t offset2, bool rev2,
-                                     size_t max_search_dist,
-                                     unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                     unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
-                                     unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
+    /// path, it is only considered to be on the nearer of the two strands. positions are also considered consistent if they
+    /// can traverse to each other within the maximum search distance. returns a pair of orientations that are the same and
+    /// equal to the orientation on the strand if they are consistent, and different if they are inconsistent
+    pair<bool, bool> validate_strand_consistency(int64_t id1, size_t offset1, bool rev1,
+                                                 int64_t id2, size_t offset2, bool rev2,
+                                                 size_t max_search_dist,
+                                                 unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
+                                                 unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
+                                                 unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // gPBWT API
