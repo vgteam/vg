@@ -21,21 +21,21 @@ rm -f alignment.gam tiny.gpu tiny.gpu.json
 
 # Make sure well-supported edits are augmented in
 vg view -J -a -G pileup/edits.json > edits.gam
-vg augment tiny.vg edits.gam -A edits-embedded.gam > augmented.vg
+vg augment -a direct tiny.vg edits.gam -A edits-embedded.gam > augmented.vg
 
 # We want 3 edits with no sequence per read, and we have 12 reads in this file.
-is "$(vg view -aj edits-embedded.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l)" "36" "augmentation embeds reads fully for well-supported SNPs"
-is "$(vg stats -N augmented.vg)" "18" "adding a well-supported SNP by augmentation adds 3 more nodes"
+is "$(vg view -aj edits-embedded.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l)" "36" "direct augmentation embeds reads fully for well-supported SNPs"
+is "$(vg stats -N augmented.vg)" "18" "adding a well-supported SNP by direct augmentation adds 3 more nodes"
 
 rm -f edits.gam edits-embedded.gam augmented.vg
 
 # Make sure every edit is augmented in
 vg view -J -a -G pileup/edit.json > edit.gam
-vg augment tiny.vg edit.gam -A edit-embedded.gam > augmented.vg
+vg augment -a direct tiny.vg edit.gam -A edit-embedded.gam > augmented.vg
 
 # This file only has one read.
-is "$(vg view -aj edit-embedded.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l)" "3" "augmentation embeds reads fully for probable errors"
-is "$(vg stats -N augmented.vg)" "18" "adding a probable error by augmentation adds 3 more nodes"
+is "$(vg view -aj edit-embedded.gam | jq -c '.path.mapping[].edit[].sequence' | grep null | wc -l)" "3" "direct augmentation embeds reads fully for probable errors"
+is "$(vg stats -N augmented.vg)" "18" "adding a probable error by direct augmentation adds 3 more nodes"
 
 rm -f edit.gam edit-embedded.gam augmented.vg
 

@@ -263,8 +263,8 @@ int main_augment(int argc, char** argv) {
         // We will need the computed pileups
         
         // compute the pileups from the graph and gam
-        Pileups* pileups = compute_pileups(graph, gam_in_file_name, thread_count, min_quality, max_mismatches,
-                                           window_size, max_depth, use_mapq, show_progress);
+        pileups = compute_pileups(graph, gam_in_file_name, thread_count, min_quality, max_mismatches,
+                                  window_size, max_depth, use_mapq, show_progress);
     }
         
     if (!pileup_file_name.empty()) {
