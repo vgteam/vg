@@ -63,6 +63,7 @@ void help_map(char** argv) {
          << "    -R, --read-group NAME   for --reads input, add this read group" << endl
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
+         << "    --surject-to TYPE       surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
@@ -94,6 +95,7 @@ int main_map(int argc, char** argv) {
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
+    string surject_type;
     bool debug = false;
     float min_score = 0;
     string sample_name;
@@ -206,11 +208,12 @@ int main_map(int argc, char** argv) {
                 {"frag-calc", required_argument, 0, 'F'},
                 {"id-mq-weight", required_argument, 0, '7'},
                 {"refpos-table", no_argument, 0, 'v'},
+                {"surject-to", required_argument, 0, '5'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:n:E:X:UpF:m7:v",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:n:E:X:UpF:m7:v5:",
                          long_options, &option_index);
 
 
@@ -403,6 +406,10 @@ int main_map(int argc, char** argv) {
             refpos_table = true;
             break;
 
+        case '5':
+            surject_type = optarg;
+            break;
+
         case 'I':
         {
             vector<string> parts = split_delims(string(optarg), ":");
@@ -501,7 +508,7 @@ int main_map(int argc, char** argv) {
     gcsa::TempFile::setDirectory(find_temp_dir());
 
     // Load up our indexes.
-    xg::XG* xindex = nullptr;
+    xg::XG* xgidx = nullptr;
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
 
@@ -513,7 +520,7 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
-        xindex = new xg::XG(xg_stream);
+        xgidx = new xg::XG(xg_stream);
     }
 
     ifstream gcsa_stream(gcsa_name);
@@ -544,6 +551,96 @@ int main_map(int argc, char** argv) {
     output_buffer.resize(thread_count);
     vector<Alignment> empty_alns;
 
+    // bam/sam/cram output
+    samFile* sam_out = 0;
+    int buffer_limit = 100;
+    bam_hdr_t* hdr = nullptr;
+    int compress_level = 9; // hard coded
+    map<string, string> rg_sample;
+    string sam_header;
+
+    // if no paths were given take all of those in the index
+    set<string> path_names;
+    if (!surject_type.empty() && path_names.empty()) {
+        for (size_t i = 1; i <= xgidx->path_count; ++i) {
+            path_names.insert(xgidx->path_name(i));
+        }
+    }
+
+    // for SAM header generation
+    auto setup_sam_header = [&hdr, &sam_out, &surject_type, &compress_level, &xgidx, &rg_sample, &sam_header] (void) {
+#pragma omp critical (hts_header)
+        if (!hdr) {
+            char out_mode[5];
+            string out_format = "";
+            strcpy(out_mode, "w");
+            if (surject_type == "bam") { out_format = "b"; }
+            else if (surject_type == "cram") { out_format = "c"; }
+            else { out_format = ""; }
+            strcat(out_mode, out_format.c_str());
+            if (compress_level >= 0) {
+                char tmp[2];
+                tmp[0] = compress_level + '0'; tmp[1] = '\0';
+                strcat(out_mode, tmp);
+            }
+            map<string, int64_t> path_length;
+            int num_paths = xgidx->max_path_rank();
+            for (int i = 1; i <= num_paths; ++i) {
+                auto name = xgidx->path_name(i);
+                path_length[name] = xgidx->path_length(name);
+            }
+            hdr = hts_string_header(sam_header, path_length, rg_sample);
+            if ((sam_out = sam_open("-", out_mode)) == 0) {
+                cerr << "[vg surject] failed to open stdout for writing HTS output" << endl;
+                exit(1);
+            } else {
+                // write the header
+                if (sam_hdr_write(sam_out, hdr) != 0) {
+                    cerr << "[vg surject] error: failed to write the SAM header" << endl;
+                }
+            }
+        }
+    };
+
+    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out] (const vector<Alignment>& alns) {
+        if (alns.empty()) return;
+        setup_sam_header();
+        vector<tuple<string, int64_t, bool, Alignment> > surjects;
+        int tid = omp_get_thread_num();
+        for (auto& aln : alns) {
+            string path_name; int64_t path_pos; bool path_reverse;
+            auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse);
+            surjects.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
+            // hack: if we haven't established the header, we look at the reads to guess which read groups to put in it
+            if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {
+#pragma omp critical (hts_header)
+                rg_sample[surj.read_group()] = surj.sample_name();
+            }
+        }
+        // write out the surjections
+        for (auto& s : surjects) {
+            auto& path_nom = get<0>(s);
+            auto& path_pos = get<1>(s);
+            auto& path_reverse = get<2>(s);
+            auto& surj = get<3>(s);
+            string cigar = cigar_against_path(surj, path_reverse);
+            bam1_t* b = alignment_to_bam(sam_header,
+                                         surj,
+                                         path_nom,
+                                         path_pos,
+                                         path_reverse,
+                                         cigar,
+                                         "=",
+                                         path_pos,
+                                         0);
+            int r = 0;
+#pragma omp critical (cout)
+            r = sam_write1(sam_out, hdr, b);
+            if (r == 0) { cerr << "[vg surject] error: writing to stdout failed" << endl; exit(1); }
+            bam_destroy1(b);
+        }
+    };
+
     auto write_json = [](const vector<Alignment>& alns) {
         for(auto& alignment : alns) {
             string json = pb2json(alignment);
@@ -569,6 +666,8 @@ int main_map(int argc, char** argv) {
     // Make sure to flush the buffer at the end of the program!
     auto output_alignments = [&output_buffer,
                               &output_json,
+                              &surject_type,
+                              &surject_alignments,
                               &buffer_size,
                               &refpos_table,
                               &write_json,
@@ -587,6 +686,10 @@ int main_map(int argc, char** argv) {
                 write_refpos(alns1);
                 write_refpos(alns2);
             }
+        } else if (!surject_type.empty()) {
+            // surject
+            surject_alignments(alns1);
+            surject_alignments(alns2);
         } else {
             // Otherwise write them through the buffer for our thread
             int tid = omp_get_thread_num();
@@ -602,9 +705,9 @@ int main_map(int argc, char** argv) {
 
     for (int i = 0; i < thread_count; ++i) {
         Mapper* m = nullptr;
-        if(xindex && gcsa && lcp) {
+        if(xgidx && gcsa && lcp) {
             // We have the xg and GCSA indexes, so use them
-            m = new Mapper(xindex, gcsa, lcp);
+            m = new Mapper(xgidx, gcsa, lcp);
         } else {
             // Can't continue with null
             throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
@@ -1000,18 +1103,25 @@ int main_map(int argc, char** argv) {
     for (int i = 0; i < thread_count; ++i) {
         delete mapper[i];
         auto& output_buf = output_buffer[i];
-        if (!output_json && !refpos_table) {
+        if (!output_json && !refpos_table && surject_type.empty()) {
             stream::write_buffered(cout, output_buf, 0);
         }
+    }
+
+    // special cleanup for htslib outputs
+    if (!surject_type.empty()) {
+        if (hdr != nullptr) bam_hdr_destroy(hdr);
+        sam_close(sam_out);
+        cout.flush();
     }
 
     if(gcsa) {
         delete gcsa;
         gcsa = nullptr;
     }
-    if(xindex) {
-        delete xindex;
-        xindex = nullptr;
+    if(xgidx) {
+        delete xgidx;
+        xgidx = nullptr;
     }
 
     cout.flush();

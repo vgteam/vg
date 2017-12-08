@@ -14,8 +14,8 @@ namespace vg {
 namespace unittest {
 using namespace std;
 
-TEST_CASE("Alignment simplification removes deletions on the edges of Mappings", "[alignment]") {
-    
+TEST_CASE("Default alignment simplification removes deletions on the edges of Mappings", "[alignment]") {
+
     string alignment_string = R"(
         {
             "sequence": "A",
@@ -36,14 +36,46 @@ TEST_CASE("Alignment simplification removes deletions on the edges of Mappings",
             ]}
         }
     )";
-    
+
     Alignment a;
     json2pb(a, alignment_string.c_str(), alignment_string.size());
-        
+
     auto simple = simplify(a);
     REQUIRE(simple.path().mapping_size() == 2);
     REQUIRE(simple.path().mapping(0).edit_size() == 1);
-    
+
+}
+
+TEST_CASE("Non-trim alignment simplification does not remove deletions on the edges of Mappings", "[alignment]") {
+
+    string alignment_string = R"(
+        {
+            "sequence": "A",
+            "path": {"mapping": [
+                {
+                    "position": {"node_id": 1},
+                    "edit": [
+                        {"from_length": 1, "to_length": 1},
+                        {"from_length": 1}
+                    ]
+                },
+                {
+                    "position": {"node_id": 2},
+                    "edit": [
+                        {"from_length": 1, "to_length": 1}
+                    ]
+                }
+            ]}
+        }
+    )";
+
+    Alignment a;
+    json2pb(a, alignment_string.c_str(), alignment_string.size());
+
+    auto simple = simplify(a, false);
+    REQUIRE(simple.path().mapping_size() == 2);
+    REQUIRE(simple.path().mapping(0).edit_size() == 2);
+
 }
 
 TEST_CASE("Alignment simplification handles unaligned alignments", "[alignment]") {
