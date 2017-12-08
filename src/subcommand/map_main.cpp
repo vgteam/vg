@@ -181,7 +181,6 @@ int main_map(int argc, char** argv) {
                 {"reseed-x", required_argument, 0, 'r'},
                 {"min-chain", required_argument, 0, 'W'},
                 {"fast-reseed", no_argument, 0, '6'},
-                {"id-clustering", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
                 {"match", required_argument, 0, 'q'},
@@ -211,7 +210,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:n:E:X:UpF:m7:v",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:n:E:X:UpF:m7:v",
                          long_options, &option_index);
 
 
@@ -450,8 +449,9 @@ int main_map(int argc, char** argv) {
             break;
 
 
-            default:
-                abort ();
+        default:
+            cerr << "Unimplemented option " << (char) c << endl;
+            exit(1);
         }
     }
 
