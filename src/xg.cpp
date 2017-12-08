@@ -3150,6 +3150,10 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
         }
     }
     
+#ifdef debug_algorithms
+    cerr << "[XG] minimum distance is " << (on_reverse_strand ? "" : "not ") << "on the reverse strand, and we are " << (forward_strand ? "" : "not ") << "measuring forward strand distance, so reported distance is " << ((on_reverse_strand && forward_strand) ? -approx_dist : approx_dist) << endl;
+#endif
+    
     return (on_reverse_strand && forward_strand) ? -approx_dist : approx_dist;
 }
     

@@ -1052,7 +1052,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_strand_buckets(int64_t max_f
             
             int64_t dist = xgindex->closest_shared_path_oriented_distance(id(pos_prev), offset(pos_prev), is_rev(pos_prev),
                                                                           id(pos_here), offset(pos_here), is_rev(pos_here),
-                                                                          50, false, paths_of_node_memo, oriented_occurences_memo, handle_memo);
+                                                                          false, 50, paths_of_node_memo, oriented_occurences_memo, handle_memo);
             
             
             // did we get a successful estimation?
