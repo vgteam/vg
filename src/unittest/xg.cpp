@@ -350,14 +350,14 @@ TEST_CASE("Path-based distance approximation in XG produces expected results", "
     SECTION("Distance approxmation produces exactly correct path distances when positions are on path") {
         
         int64_t dist = xg_index.closest_shared_path_oriented_distance(n2->id(), 0, false,
-                                                                      n5->id(), 0, false, 10);
+                                                                      n5->id(), 0, false, false, 10);
         REQUIRE(dist == 7);
     }
     
     SECTION("Distance approxmation produces negative distance when order is reversed when positions are on path") {
         
         int64_t dist = xg_index.closest_shared_path_oriented_distance(n5->id(), 0, false,
-                                                                      n2->id(), 0, false, 10);
+                                                                      n2->id(), 0, false, false, 10);
         REQUIRE(dist == -7);
         
     }
@@ -370,6 +370,7 @@ TEST_CASE("Path-based distance approximation in XG produces expected results", "
                                                                       n2->id(),
                                                                       n2->sequence().size(),
                                                                       true,
+                                                                      false,
                                                                       10);
         REQUIRE(dist == 7);
         
@@ -379,6 +380,7 @@ TEST_CASE("Path-based distance approximation in XG produces expected results", "
                                                               n5->id(),
                                                               n5->sequence().size(),
                                                               true,
+                                                              false,
                                                               10);
         REQUIRE(dist == -7);
         
@@ -392,6 +394,7 @@ TEST_CASE("Path-based distance approximation in XG produces expected results", "
                                                                       n7->id(),
                                                                       3,
                                                                       true,
+                                                                      false,
                                                                       10);
         REQUIRE(dist == 15);
         
@@ -401,6 +404,7 @@ TEST_CASE("Path-based distance approximation in XG produces expected results", "
                                                               n1->id(),
                                                               3,
                                                               false ,
+                                                              false,
                                                               10);
         REQUIRE(dist == -15);
         
@@ -414,6 +418,7 @@ TEST_CASE("Path-based distance approximation in XG produces expected results", "
                                                                       n15->id(),
                                                                       1,
                                                                       false,
+                                                                      false,
                                                                       20);
         REQUIRE(dist == 22);
         
@@ -426,6 +431,7 @@ TEST_CASE("Path-based distance approximation in XG produces expected results", "
                                                                       n7->id(),
                                                                       3,
                                                                       true,
+                                                                      false,
                                                                       10);
         REQUIRE(dist == std::numeric_limits<int64_t>::max());
     }
@@ -437,6 +443,7 @@ TEST_CASE("Path-based distance approximation in XG produces expected results", "
                                                                       n7->id(),
                                                                       3,
                                                                       true,
+                                                                      false,
                                                                       0);
         REQUIRE(dist == std::numeric_limits<int64_t>::max());
     }
