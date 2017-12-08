@@ -4415,7 +4415,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // non-fiddly approach, rest on augmentation
     // 0) remove softclips from the read
     // 1) augment the graph with the read
-    // 2) keep the ref path and the aln path
+    // 2) keep the ref path and the aln path both in the graph
     // 3) detach the nodes on the other sides of the aln path start and end from all other nodes
     // 4) remove the non-path component
     //cerr << "before" << endl;
@@ -4425,7 +4425,8 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     vector<Path> source_path;
     source_path.push_back(trimmed_source.path());
     source_path.back().set_name(source.name());
-    auto translation = graph.edit(source_path);
+    // Make sure to pass true here to embed the alignment
+    auto translation = graph.edit(source_path, true);
     Translator translator(translation);
     //cerr << "raw source " << pb2json(source) << endl;
     //cerr << "trimmed source " << pb2json(trimmed_source) << endl;
