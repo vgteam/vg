@@ -300,6 +300,18 @@ int main_augment(int argc, char** argv) {
         vector<Path> read_paths;
         get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
             stream::for_each<Alignment>(alignment_stream, [&](Alignment& alignment) {
+                // Trim the softclips off of every read
+                // Work out were to cut
+                int cut_start = softclip_start(alignment);
+                int cut_end = softclip_end(alignment);
+                // Cut the sequence and quality
+                alignment.set_sequence(alignment.sequence().substr(cut_start, alignment.sequence().size() - cut_start - cut_end));
+                if (alignment.quality().size() != 0) {
+                    alignment.set_quality(alignment.quality().substr(cut_start, alignment.quality().size() - cut_start - cut_end));
+                }
+                // Trim the path
+                *alignment.mutable_path() = trim_hanging_ends(alignment.path());
+                
                 // Save every read
                 reads.push_back(alignment);
                 // And the path for the read, separately
