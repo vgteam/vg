@@ -24,7 +24,7 @@ KEEP_OUTPUT=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@7823e1c81f681d0baadba25c83250ca3a4ce7b73"
+TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@955b87983aeeed93cf81a9129d255e3f1e5857c3"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
