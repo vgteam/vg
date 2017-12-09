@@ -3605,9 +3605,17 @@ map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const 
         auto& path = *paths[prank-1];
         auto& pos_in_path = positions[path_name(prank)];
         for (auto i : node_ranks_in_path(node_id, prank)) {
-            size_t off = path.positions[i] + offset(pos);
             // relative direction to this traversal
             bool dir = path.directions[i] != is_rev(pos);
+            size_t off;
+            if (dir) {
+                size_t start = i + 1 < path.positions.size() ? path.positions[i + 1] : path.offsets.size();
+                off = path.offsets.size() - start + offset(pos);
+            }
+            else {
+                off = path.positions[i] + offset(pos);
+            }
+            
             pos_in_path.push_back(make_pair(off, dir));
         }
     }
