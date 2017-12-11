@@ -1035,9 +1035,8 @@ namespace vg {
                                          &oriented_occurences_memo, &handle_memo);
             
             // did any alignments pass the filters or do the top mappings look like mismappings?
-            if (multipath_aln_pairs_out.empty() ? true :
-                likely_mismapping(multipath_aln_pairs_out.front().first) ||
-                likely_mismapping(multipath_aln_pairs_out.front().second)) {
+            if (multipath_aln_pairs_out.empty() ? true : (likely_mismapping(multipath_aln_pairs_out.front().first) ||
+                                                          likely_mismapping(multipath_aln_pairs_out.front().second))) {
                 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;

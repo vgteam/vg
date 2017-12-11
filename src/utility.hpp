@@ -11,6 +11,7 @@
 #include <cmath>
 #include <unordered_set>
 #include <random>
+#include <signal.h>
 #include <unistd.h>
 #include "vg.pb.h"
 #include "sha1.hpp"
