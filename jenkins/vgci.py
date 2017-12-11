@@ -427,7 +427,7 @@ class VGCITest(TestCase):
     def _mapeval_vg_run(self, reads, base_xg_path, sim_xg_paths,
                         source_path_names, fasta_path, test_index_bases,
                         test_names, score_baseline_name,  multipath,
-                        paired_only, sim_opts, sim_fastq, tag):
+                        paired_only, sim_opts, sim_fastq, more_mpmap_opts, tag):
         """ Wrap toil-vg mapeval. 
         
         Evaluates realignments (to the linear reference and to a set of graphs)
@@ -501,12 +501,13 @@ class VGCITest(TestCase):
             # toil-vg map options
             # don't waste time sharding reads since we only run on one node
             single_reads_chunk = True,
-            mpmap_opts = ['-B', '-S']
+            mpmap_opts = ['-B', '-S'],
+            more_mpmap_opts = more_mpmap_opts
         )
         
         # Make the context
         context = Context(out_store, overrides)
-        
+
         # And what options to configure the mapeval run do we want? These have
         # to get turned into a plan in order to import all the files with names
         # derived algorithmically from the names given here. TODO: move
@@ -527,7 +528,9 @@ class VGCITest(TestCase):
         if score_baseline_name is not None:
             mapeval_options.compare_gam_scores = score_baseline_name
         mapeval_options.multipath = multipath
-        mapeval_options.ignore_quals = multipath and not sim_fastq            
+        mapeval_options.ignore_quals = multipath and not sim_fastq
+        # If we're doing more than one mpmap test, disable vg map
+        mapeval_options.multipath_only = multipath and more_mpmap_opts
         
         # Make Toil
         with context.get_toil(job_store) as toil:
@@ -771,7 +774,7 @@ class VGCITest(TestCase):
                         stat_val = '↑ {}'.format(stat_val)
                 row.append(stat_val)
                 row.append(baseline_val)
-                               
+
             print '\t'.join(row)
         self._end_message()
 
@@ -881,7 +884,8 @@ class VGCITest(TestCase):
                       positive_control=None, negative_control=None, sample=None,
                       source_path_names=set(), multipath=False, paired_only=False,
                       assembly="hg38", tag_ext="", acc_threshold=0, auc_threshold=0,
-                      sim_opts='-l 150 -p 500 -v 50 -e 0.05 -i 0.01', sim_fastq=None):
+                      sim_opts='-l 150 -p 500 -v 50 -e 0.05 -i 0.01', sim_fastq=None,
+                      more_mpmap_opts=None):
         """ Run simulation on a bakeoff graph
         
         Simulate the given number of reads from the given baseline_graph
@@ -948,7 +952,8 @@ class VGCITest(TestCase):
             test_tag = '{}-{}'.format(test_graph, region)
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
         self._mapeval_vg_run(reads, xg_path, sim_xg_paths, source_path_names, fasta_path, test_index_bases,
-                             test_graphs, score_baseline_graph, multipath, paired_only, sim_opts, sim_fastq, tag)
+                             test_graphs, score_baseline_graph, multipath, paired_only, sim_opts, sim_fastq,
+                             more_mpmap_opts, tag)
         if self.verify:
             self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
                                  positive_control, negative_control, tag,
@@ -1040,11 +1045,11 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_mapeval(50000, 'MHC', 'snp1kg',
                            ['primary', 'snp1kg'],
-                           score_baseline_graph='primary',
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
                            acc_threshold=0.02, auc_threshold=0.02,
                            sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5 -I',
-                           sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
+                           sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'),
+                           more_mpmap_opts=['-n'])
 
     @timeout_decorator.timeout(1800)
     def test_sim_yeast_cactus(self):
