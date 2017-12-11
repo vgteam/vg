@@ -708,6 +708,7 @@ namespace vg {
         int32_t top_score_1 = multipath_alns_1.empty() ? 0 : optimal_alignment_score(multipath_alns_1.front());
         int32_t top_score_2 = multipath_alns_2.empty() ? 0 : optimal_alignment_score(multipath_alns_2.front());
         
+        
         for (size_t i = 0; i < multipath_alns_1.size(); i++){
             if (likely_mismapping(multipath_alns_1[i]) ||
                 (i > 0 ? optimal_alignment_score(multipath_alns_1[i]) < top_score_1 - max_score_diff : false)) {
@@ -725,7 +726,7 @@ namespace vg {
         
         vector<MultipathAlignment> rescue_multipath_alns_1(num_rescuable_alns_2), rescue_multipath_alns_2(num_rescuable_alns_1);
         
-        size_t num_rescued_1 = 0, num_rescued_2 = 0;
+        unordered_set<size_t> rescued_from_1, rescued_from_2;
         
 #ifdef debug_multipath_mapper_mapping
         cerr << "rescuing from " << num_rescuable_alns_1 << " read1's" << endl;
@@ -734,7 +735,7 @@ namespace vg {
         for (size_t i = 0; i < num_rescuable_alns_1; i++) {
             MultipathAlignment rescue_multipath_aln;
             if (attempt_rescue(multipath_alns_1[i], alignment2, true, rescue_multipath_aln)) {
-                num_rescued_1++;
+                rescued_from_1.insert(i);
                 rescue_multipath_alns_2[i] = move(rescue_multipath_aln);
             }
         }
@@ -746,7 +747,7 @@ namespace vg {
         for (size_t i = 0; i < num_rescuable_alns_2; i++) {
             MultipathAlignment rescue_multipath_aln;
             if (attempt_rescue(multipath_alns_2[i], alignment1, false, rescue_multipath_aln)) {
-                num_rescued_2++;
+                rescued_from_2.insert(i);
                 rescue_multipath_alns_1[i] = move(rescue_multipath_aln);
             }
         }
@@ -754,25 +755,17 @@ namespace vg {
         vector<pair<pair<size_t, size_t>, int64_t>> pair_distances;
         
         bool found_consistent = true;
-        if (num_rescued_1 > 0 && num_rescued_2 > 0) {
+        if (!rescued_from_1.empty() && !rescued_from_2.empty()) {
 #ifdef debug_multipath_mapper_mapping
             cerr << "successfully rescued from both read ends" << endl;
 #endif
             
-            vector<bool> found_duplicate(num_rescuable_alns_2, false);
+            unordered_set<size_t> found_duplicate;
             
             // for each rescue attempt from a read 1
-            for (size_t i = 0; i < num_rescuable_alns_1; i++) {
-                if (rescue_multipath_alns_2[i].sequence().empty()) {
-                    // this read 1 had a rescue failure
-                    continue;
-                }
+            for (size_t i  : rescued_from_1) {
                 bool duplicate = false;
-                for (size_t j = 0; j < num_rescuable_alns_2; j++) {
-                    if (rescue_multipath_alns_1[j].sequence().empty()) {
-                        // this read 2 had a rescue failure
-                        continue;
-                    }
+                for (size_t j : rescued_from_2) {
                     
 #ifdef debug_multipath_mapper_mapping
                     cerr << "checking duplication between mapped read1 " << i << " and rescued read1 " << j << endl;
@@ -787,7 +780,7 @@ namespace vg {
 #endif
                             // these two alignments found each other with their rescue, we don't want to add duplicate mappings
                             duplicate = true;
-                            found_duplicate[j] = true;
+                            found_duplicate.insert(j);
                             
                             // move the original mappings
                             multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(multipath_alns_2[j]));
@@ -806,9 +799,9 @@ namespace vg {
             }
             
             // for each rescue attempt from a read 2
-            for (size_t j = 0; j < num_rescuable_alns_2; j++) {
-                if (found_duplicate[j] || rescue_multipath_alns_2[j].sequence().empty()) {
-                    // this read 2 had a rescue failure or we already moved it as part of a duplicate pair
+            for (size_t j : rescued_from_2) {
+                if (found_duplicate.count(j)) {
+                    // we already moved it as part of a duplicate pair
                     continue;
                 }
                 
@@ -816,28 +809,21 @@ namespace vg {
                 pair_distances.emplace_back(pair<size_t, size_t>(), distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
             }
         }
-        else if (num_rescued_1 > 0) {
+        else if (!rescued_from_1.empty()) {
 #ifdef debug_multipath_mapper_mapping
             cerr << "successfully rescued from only read 1" << endl;
 #endif
-            for (size_t i = 0; i < rescue_multipath_alns_2.size(); i++) {
-                if (rescue_multipath_alns_2[i].sequence().empty()) {
-                    // we didn't actually rescue this one
-                    continue;
-                }
+            for (size_t i: rescued_from_1) {
+
                 multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(rescue_multipath_alns_2[i]));
                 pair_distances.emplace_back(pair<size_t, size_t>(), distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
             }
         }
-        else if (num_rescued_2 > 0) {
+        else if (!rescued_from_2.empty()) {
 #ifdef debug_multipath_mapper_mapping
             cerr << "successfully rescued from only read 2" << endl;
 #endif
-            for (size_t i = 0; i < rescue_multipath_alns_1.size(); i++) {
-                if (rescue_multipath_alns_1[i].sequence().empty()) {
-                    // we didn't actually rescue this one
-                    continue;
-                }
+            for (size_t i : rescued_from_2) {
                 multipath_aln_pairs_out.emplace_back(move(rescue_multipath_alns_1[i]), move(multipath_alns_2[i]));
                 pair_distances.emplace_back(pair<size_t, size_t>(), distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
             }
