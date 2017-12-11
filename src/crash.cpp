@@ -13,7 +13,13 @@
 #endif
 // Needed to generate stacktraces ourselves
 #include <dlfcn.h>
- 
+
+// iostream wants this on Travis on Mac
+#include <pthread.h>
+
+// We need strcmp
+#include <cstring>
+
 #include <cstdlib>
 #include <string>
 #include <iostream>
