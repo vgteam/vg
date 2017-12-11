@@ -911,11 +911,11 @@ namespace vg {
 #ifdef debug_multipath_mapper_mapping
         cerr << "obtained read1 MEMs:" << endl;
         for (MaximalExactMatch mem : mems1) {
-            cerr << "\t" << mem << " (" << mem.nodes.size() << " hits)" << endl;
+            cerr << "\t" << mem << " (" << mem.nodes.size() << " hits filled out of " << mem.match_count << ")" << endl;
         }
         cerr << "obtained read2 MEMs:" << endl;
         for (MaximalExactMatch mem : mems2) {
-            cerr << "\t" << mem << " (" << mem.nodes.size() << " hits)" << endl;
+            cerr << "\t" << mem << " (" << mem.nodes.size() << " hits filled out of " << mem.match_count << ")" << endl;
         }
         cerr << "clustering MEMs..." << endl;
 #endif
