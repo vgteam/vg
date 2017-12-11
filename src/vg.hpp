@@ -1341,13 +1341,6 @@ public:
     bool is_head_node(id_t id);
     /// Determine if a node is a head node.
     bool is_head_node(Node* node);
-    /// Get the distance in bases from start of node to closest head node of graph, or -1 if that distance exceeds the limit.
-    int32_t distance_to_head(NodeTraversal node, int32_t limit = 1000);
-    /// Get the distance in bases from start of node to closest head node of graph, or -1 if that distance exceeds the limit.
-    /// dist increases by the number of bases of each previous node until you reach the head node
-    /// seen is a set that holds the nodes that you have already gotten the distance of, but starts off empty
-    int32_t distance_to_head(NodeTraversal node, int32_t limit,
-                             int32_t dist, set<NodeTraversal>& seen);
     /// Get the tail nodes (nodes with edges only to their left sides). These are required to be oriented forward.
     vector<Node*> tail_nodes(void);
     /// Get the tail nodes (nodes with edges only to their left sides). These are required to be oriented forward.
@@ -1356,15 +1349,6 @@ public:
     bool is_tail_node(id_t id);
     /// Determine if a node is a tail node.
     bool is_tail_node(Node* node);
-    /// Get the distance from tail of node to end of graph, or -1 if limit exceeded.
-    int32_t distance_to_tail(NodeTraversal node, int32_t limit = 1000);
-    /// Get the distance in bases from end of node to closest tail of graph, or -1 if that distance exceeds the limit.
-    /// dist increases by the number of bases of each next node until you reach the tail node
-    /// seen is a set that holds the nodes that you have already gotten the distance of, but starts off empty
-    int32_t distance_to_tail(NodeTraversal node, int32_t limit,
-                             int32_t dist, set<NodeTraversal>& seen);
-    /// Get the distance from tail of node to end of graph, or -1 if limit exceeded.
-    int32_t distance_to_tail(id_t id, int32_t limit = 1000);
     /// Collect the subgraph of a Node. TODO: what does that mean?
     void collect_subgraph(Node* node, set<Node*>& subgraph);
 
@@ -1374,10 +1358,8 @@ public:
     void join_heads(Node* node, bool from_start = false);
     /// Join tail nodes of graph to specified node. Optionally from the start/to the end of the new node.
     void join_tails(Node* node, bool to_end = false);
-
     /// Add singular head and tail null nodes to graph.
     void wrap_with_null_nodes(void);
-
     /// Add a start node and an end node, where all existing heads in the graph
     /// are connected to the start node, and all existing tails in the graph are
     /// connected to the end node. Any connected components in the graph which do
