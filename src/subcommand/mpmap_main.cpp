@@ -47,6 +47,7 @@ void help_mpmap(char** argv) {
     << "algorithm:" << endl
     << "  -U, --snarl-max-cut INT   do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
     << "  -a, --alt-paths INT       align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
+    << "  -n, --unstranded          use lazy strand consistency when clustering MEMs" << endl
     << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
     << "  -I, --frag-mean           mean for fixed fragment length distribution" << endl
     << "  -D, --frag-stddev         standard deviation for fixed fragment length distribution" << endl
@@ -128,6 +129,7 @@ int main_mpmap(int argc, char** argv) {
     bool auto_calibrate_mismapping_detection = true;
     size_t num_calibration_simulations = 250;
     size_t calibration_read_length = 150;
+    bool unstranded_clustering = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -145,6 +147,7 @@ int main_mpmap(int argc, char** argv) {
             {"snarls", required_argument, 0, 's'},
             {"snarl-max-cut", required_argument, 0, 'U'},
             {"alt-paths", required_argument, 0, 'a'},
+            {"unstranded", no_argument, 0, 'n'},
             {"frag-sample", required_argument, 0, 'b'},
             {"frag-mean", required_argument, 0, 'I'},
             {"frag-stddev", required_argument, 0, 'D'},
@@ -176,7 +179,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:b:I:D:Bv:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:nb:I:D:Bv:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -257,6 +260,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'a':
                 num_alt_alns = atoi(optarg);
+                break;
+                
+            case 'n':
+                unstranded_clustering = true;
                 break;
                 
             case 'b':
@@ -637,6 +644,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
     multipath_mapper.num_mapping_attempts = max_map_attempts ? max_map_attempts : numeric_limits<int>::max();
+    multipath_mapper.unstranded_clustering = unstranded_clustering;
     
     // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;

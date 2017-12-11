@@ -130,7 +130,9 @@ int main_pack(int argc, char** argv) {
                 packers.push_back(new Packer(&xgidx, bin_size));
             }
         }
-        std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers](Alignment& aln) { packers[omp_get_thread_num()]->add(aln, record_edits); };
+        std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers](Alignment& aln) {
+            packers[omp_get_thread_num()]->add(aln, record_edits);
+        };
         if (gam_in == "-") {
             stream::for_each_parallel(std::cin, lambda);
         } else {

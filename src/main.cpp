@@ -2,11 +2,13 @@
 #include <fstream>
 #include <ctime>
 #include <cstdio>
+#include <csignal>
 #include <getopt.h>
 #include <sys/stat.h>
 
 #include "google/protobuf/stubs/common.h"
 #include "version.hpp"
+#include "utility.hpp"
 
 // New subcommand system provides all the subcommands that used to live here
 #include "subcommand/subcommand.hpp"
@@ -37,6 +39,22 @@ void vg_help(char** argv) {
 
 int main(int argc, char *argv[])
 {
+
+    // Set up stack trace support
+    
+    // We do it the cleverer sigaction way to try and make OS X backtrace not just tell us that the signal handler is being called.
+    struct sigaction sig_config;
+    sig_config.sa_flags = SA_SIGINFO; // Use the new API and not the old signal() API for the handler.
+    sig_config.sa_sigaction = emit_stacktrace;
+    sigemptyset(&sig_config.sa_mask);
+ 
+    sigaction(SIGABRT, &sig_config, nullptr);
+    sigaction(SIGSEGV, &sig_config, nullptr);
+    sigaction(SIGBUS, &sig_config, nullptr);
+    sigaction(SIGILL, &sig_config, nullptr);
+    
+    // We don't set_terminate for aborts because we still want the standard
+    // library's message about what the exception was.
 
     // set a higher value for tcmalloc warnings
     setenv("TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD", "1000000000000000", 1);

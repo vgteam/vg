@@ -69,18 +69,19 @@ namespace vg {
         // cluster the MEMs
         vector<memcluster_t> clusters;
         // memos for the results of expensive succinct operations that we may need to do multiple times
-        OrientedDistanceClusterer::node_occurrence_on_paths_memo_t node_path_occurrence_memo;
+        OrientedDistanceClusterer::paths_of_node_memo_t paths_of_node_memo;
+        OrientedDistanceClusterer::oriented_occurences_memo_t oriented_occurences_memo;
         OrientedDistanceClusterer::handle_memo_t handle_memo;
         // TODO: Making OrientedDistanceClusterers is the only place we actually
         // need to distinguish between regular_aligner and qual_adj_aligner
         if (adjust_alignments_for_base_quality) {
             OrientedDistanceClusterer clusterer(alignment, mems, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error,
-                                                min_clustering_mem_length, &node_path_occurrence_memo, &handle_memo);
+                                                min_clustering_mem_length, unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
             clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         else {
             OrientedDistanceClusterer clusterer(alignment, mems, *get_regular_aligner(), xindex, max_expected_dist_approx_error,
-                                                min_clustering_mem_length, &node_path_occurrence_memo, &handle_memo);
+                                                min_clustering_mem_length, unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
             clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         
@@ -262,15 +263,7 @@ namespace vg {
                 && optimal_alignment_score(multipath_aln_1) >= .8 * max_score_1
                 && optimal_alignment_score(multipath_aln_2) >= .8 * max_score_2) {
                 
-                // find the initial position of both mappings
-                Alignment optimal_aln_1, optimal_aln_2;
-                optimal_alignment(multipath_aln_1, optimal_aln_1);
-                optimal_alignment(multipath_aln_2, optimal_aln_2);
-                pos_t pos_1 = initial_position(optimal_aln_1.path());
-                pos_t pos_2 = initial_position(optimal_aln_2.path());
-                
-                int64_t fragment_length = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                                        id(pos_2), offset(pos_2), is_rev(pos_2));
+                int64_t fragment_length = distance_between(multipath_aln_1, multipath_aln_2);
                 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "fragment length between mappings measured at " << fragment_length << endl;
@@ -568,7 +561,8 @@ namespace vg {
     }
     
     int64_t MultipathMapper::distance_between(const MultipathAlignment& multipath_aln_1,
-                                              const MultipathAlignment& multipath_aln_2) const {
+                                              const MultipathAlignment& multipath_aln_2,
+                                              bool forward_strand) const {
         Alignment aln_1;
         optimal_alignment(multipath_aln_1, aln_1);
         pos_t pos_1 = initial_position(aln_1.path());
@@ -580,7 +574,8 @@ namespace vg {
         cerr << "measuring distance between " << pos_1 << " and " << pos_2 << endl;
 #endif
         return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                             id(pos_2), offset(pos_2), is_rev(pos_2));
+                                                             id(pos_2), offset(pos_2), is_rev(pos_2),
+                                                             forward_strand);
     }
     
     bool MultipathMapper::is_consistent(int64_t distance) const {
@@ -608,6 +603,74 @@ namespace vg {
             }
         }
         return false;
+    }
+    
+    void MultipathMapper::establish_strand_consistency(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
+                                                       vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                       OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
+                                                       OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
+                                                       OrientedDistanceClusterer::handle_memo_t* handle_memo) {
+        
+#ifdef debug_multipath_mapper_mapping
+        cerr << "establishing consistency between mapped pairs" << endl;
+#endif
+        
+        int64_t search_dist = 0.5 * fragment_length_distr.mean() + 5.0 * fragment_length_distr.stdev();
+        vector<pair<bool, bool>> strand_assignments;
+        strand_assignments.reserve(multipath_aln_pairs.size());
+        for (const pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs) {
+            Alignment optimal_aln_1, optimal_aln_2;
+            optimal_alignment(multipath_aln_pair.first, optimal_aln_1);
+            optimal_alignment(multipath_aln_pair.second, optimal_aln_2);
+            pos_t pos_1 = initial_position(optimal_aln_1.path());
+            pos_t pos_2 = initial_position(optimal_aln_2.path());
+            
+            strand_assignments.push_back(xindex->validate_strand_consistency(id(pos_1), offset(pos_1), is_rev(pos_1),
+                                                                             id(pos_2), offset(pos_2), is_rev(pos_2),
+                                                                             search_dist, paths_of_node_memo,
+                                                                             oriented_occurences_memo, handle_memo));
+            
+#ifdef debug_multipath_mapper_mapping
+            cerr << "pair has initial positions " << pos_1 << " and " << pos_2 << " on strands " << (strand_assignments.back().first ? "-" : "+") << " and " << (strand_assignments.back().second ? "-" : "+") << endl;
+#endif
+        }
+        
+        size_t end = multipath_aln_pairs.size();
+        for (size_t i = 0; i < end; ) {
+            // move strand inconsistent mappings to the end
+            if (strand_assignments[i].first != strand_assignments[i].second) {
+#ifdef debug_multipath_mapper_mapping
+                cerr << "removing inconsistent strand at " << i << " and not advancing index" << endl;
+#endif                
+                std::swap(multipath_aln_pairs[i], multipath_aln_pairs[end - 1]);
+                std::swap(strand_assignments[i], strand_assignments[end - 1]);
+                std::swap(cluster_pairs[i], cluster_pairs[end - 1]);
+                
+                --end;
+            }
+            else {
+#ifdef debug_multipath_mapper_mapping
+                cerr << "identifying " << i << " as consistent" << endl;
+#endif
+                // reverse the distance if it's on the reverse strand
+                if (strand_assignments[i].first) {
+#ifdef debug_multipath_mapper_mapping
+                    cerr << "\tinverting distance " << cluster_pairs[i].second << " because on negative strand" << endl;
+#endif
+                    cluster_pairs[i].second = -cluster_pairs[i].second;
+                }
+                ++i;
+            }
+        }
+        
+        // remove the inconsistent mappings
+        if (end != multipath_aln_pairs.size()) {
+#ifdef debug_multipath_mapper_mapping
+            cerr << "found " << multipath_aln_pairs.size() - end << " strand inconsitent pairs, removing now" << endl;
+#endif
+            multipath_aln_pairs.resize(end);
+            cluster_pairs.resize(end);
+        }
     }
     
     bool MultipathMapper::align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
@@ -919,24 +982,25 @@ namespace vg {
         vector<memcluster_t> clusters1;
         vector<memcluster_t> clusters2;
         // memos for the results of expensive succinct operations that we may need to do multiple times
-        OrientedDistanceClusterer::node_occurrence_on_paths_memo_t node_path_occurrence_memo;
+        OrientedDistanceClusterer::paths_of_node_memo_t paths_of_node_memo;
+        OrientedDistanceClusterer::oriented_occurences_memo_t oriented_occurences_memo;
         OrientedDistanceClusterer::handle_memo_t handle_memo;
         // TODO: Making OrientedDistanceClusterers is the only place we actually
         // need to distinguish between regular_aligner and qual_adj_aligner
         if (adjust_alignments_for_base_quality) {
-            OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error,
-                                                 min_clustering_mem_length, &node_path_occurrence_memo, &handle_memo);
-            OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error,
-                                                 min_clustering_mem_length, &node_path_occurrence_memo, &handle_memo);
+            OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                 unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
             clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                 unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
             clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         else {
-            OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error,
-                                                 min_clustering_mem_length, &node_path_occurrence_memo, &handle_memo);
-            OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error,
-                                                 min_clustering_mem_length, &node_path_occurrence_memo, &handle_memo);
+            OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                 unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
             clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                 unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
             clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         
@@ -973,15 +1037,17 @@ namespace vg {
             cluster_mems_2[i] = &(get<1>(cluster_graphs2[i]));
         }
         
-        // for debugging:
-        // we can circumvent the fragment estimation code at compile time so we can map individual reads with a
-        // known fragment length distribution without mapping all of the reads used to estimate the distribution
-        double mean = fragment_length_distr.mean();
-        double stdev = fragment_length_distr.stdev();
-        
         // Chebyshev bound for 99% of all fragments regardless of distribution
-        int64_t max_separation = (int64_t) ceil(mean + 10.0 * stdev);
-        int64_t min_separation = (int64_t) mean - 10.0 * stdev;
+        // TODO: I don't love having this internal aspect of the stranded/unstranded clustering outside the clusterer...
+        int64_t max_separation, min_separation;
+        if (unstranded_clustering) {
+            max_separation = (int64_t) ceil(abs(fragment_length_distr.mean()) + 10.0 * fragment_length_distr.stdev());
+            min_separation = -max_separation;
+        }
+        else {
+            max_separation = (int64_t) ceil(fragment_length_distr.mean() + 10.0 * fragment_length_distr.stdev());
+            min_separation = (int64_t) fragment_length_distr.mean() - 10.0 * fragment_length_distr.stdev();
+        }
         
         // Compute the pairs of cluster graphs and their approximate distances from each other
         vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs = OrientedDistanceClusterer::pair_clusters(alignment1,
@@ -991,7 +1057,9 @@ namespace vg {
                                                                                                              xindex,
                                                                                                              min_separation,
                                                                                                              max_separation,
-                                                                                                             &node_path_occurrence_memo,
+                                                                                                             unstranded_clustering,
+                                                                                                             &paths_of_node_memo,
+                                                                                                             &oriented_occurences_memo,
                                                                                                              &handle_memo);
 #ifdef debug_multipath_mapper_mapping
         cerr << "obtained cluster pairs:" << endl;
@@ -1020,16 +1088,13 @@ namespace vg {
             // only perform the mappings that satisfy the expectations on distance
             
             align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
-                                         multipath_aln_pairs_out, max_alt_mappings);
+                                         multipath_aln_pairs_out, max_alt_mappings, &paths_of_node_memo,
+                                         &oriented_occurences_memo, &handle_memo);
             
-            bool consistent = true;
-            bool likely_mismapped_1 = likely_mismapping(multipath_aln_pairs_out.front().first);
-            bool likely_mismapped_2 = likely_mismapping(multipath_aln_pairs_out.front().second);
-            if (likely_mismapped_1 || likely_mismapped_2) {
-                
-                // we suspect that one or both of the ends of this read are actually false mappings that got
-                // tricked by bad MEM, so we see if we can do better by aligning the ends independently and
-                // rescuing (in general, this should at least give us more appropriately bad mapping quality)
+            // did any alignments pass the filters in the alignment function?
+            if (!multipath_aln_pairs_out.empty() ? true :
+                likely_mismapping(multipath_aln_pairs_out.front().first) ||
+                likely_mismapping(multipath_aln_pairs_out.front().second)) {
                 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
@@ -1187,9 +1252,10 @@ namespace vg {
                                                         multipath_aln_pairs_out.back().first);
                         extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[k],
                                                         multipath_aln_pairs_out.back().second);
-                        // add a distance for scoring purposes
+                        // add a distance for scoring purposes (possibly unstranded since this comes before enforcing strand consistency)
                         cluster_pairs.emplace_back(cluster_pairs[i].first,
-                                                   distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+                                                   distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second,
+                                                                    unstranded_clustering));
 #ifdef debug_multipath_mapper_mapping
                         cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
                         cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
@@ -1204,7 +1270,8 @@ namespace vg {
                 last_component.Clear();
                 extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[0], last_component);
                 multipath_aln_pairs_out[i].second = last_component;
-                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second);
+                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second,
+                                                           unstranded_clustering);
                 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
@@ -1222,9 +1289,10 @@ namespace vg {
                     multipath_aln_pairs_out.emplace_back(MultipathAlignment(), multipath_aln_pairs_out[i].second);
                     extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[j],
                                                     multipath_aln_pairs_out.back().first);
-                    // add a distance for scoring purposes
+                    // add a distance for scoring purposes (possibly unstranded since this comes before enforcing strand consistency)
                     cluster_pairs.emplace_back(cluster_pairs[i].first,
-                                               distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+                                               distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second,
+                                                                unstranded_clustering));
 #ifdef debug_multipath_mapper_mapping
                     cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
                     cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
@@ -1235,7 +1303,8 @@ namespace vg {
                 MultipathAlignment last_component;
                 extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[0], last_component);
                 multipath_aln_pairs_out[i].first = last_component;
-                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second);
+                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second,
+                                                           unstranded_clustering);
                 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
@@ -1252,9 +1321,10 @@ namespace vg {
                     multipath_aln_pairs_out.emplace_back(multipath_aln_pairs_out[i].first, MultipathAlignment());
                     extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[j],
                                                     multipath_aln_pairs_out.back().second);
-                    // add a distance for scoring purposes
+                    // add a distance for scoring purposes (possibly unstranded since this comes before enforcing strand consistency)
                     cluster_pairs.emplace_back(cluster_pairs[i].first,
-                                               distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+                                               distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second,
+                                                                unstranded_clustering));
 #ifdef debug_multipath_mapper_mapping
                     cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
                     cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
@@ -1265,7 +1335,8 @@ namespace vg {
                 MultipathAlignment last_component;
                 extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[0], last_component);
                 multipath_aln_pairs_out[i].second = last_component;
-                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second);
+                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second,
+                                                           unstranded_clustering);
                 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
@@ -1281,7 +1352,10 @@ namespace vg {
                                                        vector<clustergraph_t>& cluster_graphs2,
                                                        vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                        vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                       size_t max_alt_mappings) {
+                                                       size_t max_alt_mappings,
+                                                       OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
+                                                       OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
+                                                       OrientedDistanceClusterer::handle_memo_t* handle_memo) {
         
         assert(multipath_aln_pairs_out.empty());
         
@@ -1355,6 +1429,11 @@ namespace vg {
         for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
             topologically_order_subpaths(multipath_aln_pair.first);
             topologically_order_subpaths(multipath_aln_pair.second);
+        }
+        
+        // if we haven't been checking strand consistency, enforce it now at the end
+        if (unstranded_clustering) {
+            establish_strand_consistency(multipath_aln_pairs_out, cluster_pairs, paths_of_node_memo, oriented_occurences_memo, handle_memo);
         }
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score

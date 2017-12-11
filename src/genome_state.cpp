@@ -1,4 +1,7 @@
 #include "genome_state.hpp"
+#include "utility.hpp"
+
+#include <signal.h>
 
 namespace vg {
 
@@ -61,7 +64,9 @@ void SnarlState::trace(size_t overall_lane, bool backward, const function<void(c
 }
 
 void SnarlState::insert(const vector<pair<handle_t, size_t>>& haplotype) {
-    assert(!haplotype.empty());
+    if (haplotype.empty()) {
+        throw runtime_error("Tried to add an empty haplotype to a snarl");
+    }
     
     if (haplotype.front().first != graph->get_start() || haplotype.back().first != graph->get_end()) {
         // Fail if it's not actually from start to end.
