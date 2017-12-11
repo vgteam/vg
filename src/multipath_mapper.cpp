@@ -2441,7 +2441,15 @@ namespace vg {
 #endif
         
         if (mapq_method != None) {
-            int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapq_method == Approx);
+            int32_t raw_mapq;
+            if (mapq_method == Adaptive) {
+                raw_mapq = get_aligner()->compute_mapping_quality(scores, scores.size() < 2 ? true :
+                                                                  (scores[1] < scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)));
+            }
+            else {
+                raw_mapq = get_aligner()->compute_mapping_quality(scores, mapq_method == Approx);
+            }
+            
 #ifdef debug_multipath_mapper_mapping
             cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
@@ -2499,8 +2507,14 @@ namespace vg {
 #endif
         
         if (mapping_quality_method != None) {
-            
-            int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
+            int32_t raw_mapq;
+            if (mapping_quality_method == Adaptive) {
+                raw_mapq = get_aligner()->compute_mapping_quality(scores, scores.size() < 2 ? true :
+                                                                  (scores[1] < scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)));
+            }
+            else {
+                raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
+            }
 #ifdef debug_multipath_mapper_mapping
             cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
@@ -2524,7 +2538,14 @@ namespace vg {
                     
                     // TODO: wasteful to recompute these in the inner loop, but I expect this condition to be very
                     // rare or non-existent in the current code
-                    int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
+                    int32_t raw_mapq;
+                    if (mapping_quality_method == Adaptive) {
+                        raw_mapq = get_aligner()->compute_mapping_quality(scores, scores.size() < 2 ? true :
+                                                                          (scores[1] < scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)));
+                    }
+                    else {
+                        raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
+                    }
 #ifdef debug_multipath_mapper_mapping
                     cerr << "deduplicated scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
@@ -2553,8 +2574,14 @@ namespace vg {
                             non_duplicate_scores.push_back(scores[i]);
                         }
                     }
-                    int32_t raw_non_dup_mapq = get_aligner()->compute_mapping_quality(non_duplicate_scores,
-                                                                                      mapping_quality_method == Approx);
+                    int32_t raw_non_dup_mapq;
+                    if (mapping_quality_method == Adaptive) {
+                        raw_non_dup_mapq = get_aligner()->compute_mapping_quality(non_duplicate_scores, non_duplicate_scores.size() < 2 ? true :
+                                                                                  (non_duplicate_scores[1] < non_duplicate_scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)));
+                    }
+                    else {
+                        raw_non_dup_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
+                    }
                     
                     int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
                     
@@ -2568,8 +2595,14 @@ namespace vg {
                             non_duplicate_scores.push_back(scores[i]);
                         }
                     }
-                    int32_t raw_non_dup_mapq = get_aligner()->compute_mapping_quality(non_duplicate_scores,
-                                                                                      mapping_quality_method == Approx);
+                    int32_t raw_non_dup_mapq;
+                    if (mapping_quality_method == Adaptive) {
+                        raw_non_dup_mapq = get_aligner()->compute_mapping_quality(non_duplicate_scores, non_duplicate_scores.size() < 2 ? true :
+                                                                                  (non_duplicate_scores[1] < non_duplicate_scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)));
+                    }
+                    else {
+                        raw_non_dup_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
+                    }
                     
                     int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
                     

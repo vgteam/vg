@@ -52,7 +52,7 @@ void help_mpmap(char** argv) {
     << "  -I, --frag-mean           mean for fixed fragment length distribution" << endl
     << "  -D, --frag-stddev         standard deviation for fixed fragment length distribution" << endl
     << "  -B, --no-calibrate        do not auto-calibrate mismapping dectection" << endl
-    << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
+    << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - adaptive, 3 - exact [1]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [64]" << endl
@@ -113,7 +113,7 @@ int main_mpmap(int argc, char** argv) {
     double cluster_ratio = 0.2;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
-    MappingQualityMethod mapq_method = Approx;
+    MappingQualityMethod mapq_method = Adaptive;
     int band_padding = 2;
     int max_dist_error = 8;
     int num_alt_alns = 4;
@@ -292,6 +292,9 @@ int main_mpmap(int argc, char** argv) {
                     mapq_method = Approx;
                 }
                 else if (mapq_arg == 2) {
+                    mapq_method = Adaptive;
+                }
+                else if (mapq_arg == 3) {
                     mapq_method = Exact;
                 }
                 else {
