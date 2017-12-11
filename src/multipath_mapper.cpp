@@ -1047,10 +1047,20 @@ namespace vg {
                 
                 // if we find consistent pairs, merge the to lists
                 if (rescued) {
+                    size_t num_unrescued_pairs = multipath_aln_pairs_out.size();
                     for (pair<MultipathAlignment, MultipathAlignment>& rescue_pair : rescue_pairs) {
-                        if (abs(distance_between(multipath_aln_pairs_out.front().first, rescue_pair.first)) >= 20
-                            || abs(distance_between(multipath_aln_pairs_out.front().second, rescue_pair.second)) >= 20) {
-                            
+                        // make sure this pair isn't a duplicate with any of the original pairs
+                        bool duplicate = false;
+                        for (size_t i = 0; i < num_unrescued_pairs; i++) {
+                            if (abs(distance_between(multipath_aln_pairs_out[i].first, rescue_pair.first)) < 20) {
+                                if (abs(distance_between(multipath_aln_pairs_out[i].second, rescue_pair.second)) < 20) {
+                                    duplicate = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (!duplicate) {
                             // add a dummy pair to hold the distance
                             cluster_pairs.emplace_back(pair<size_t, size_t>(), distance_between(rescue_pair.first, rescue_pair.second));
                             multipath_aln_pairs_out.emplace_back(move(rescue_pair));
