@@ -156,8 +156,11 @@ public:
     /// Each cluster is a vector of hits.
     using cluster_t = vector<hit_t>;
     
-    /// A memo for the results of XG::oriented_paths_of_node
-    using node_occurrence_on_paths_memo_t = unordered_map<id_t, vector<pair<size_t, vector<pair<size_t, bool>>>>>;
+    /// A memo for the results of XG::paths_of_node
+    using paths_of_node_memo_t = unordered_map<id_t, vector<size_t>>;
+    
+    /// A memo for the results of XG::oriented_occurrences_on_path
+    using oriented_occurences_memo_t = unordered_map<pair<id_t, size_t>, vector<pair<size_t, bool>>>;
     
     /// A memo for the results of XG::get_handle
     using handle_memo_t = unordered_map<pair<int64_t, bool>, handle_t>;
@@ -169,7 +172,9 @@ public:
                               xg::XG* xgindex,
                               size_t max_expected_dist_approx_error = 8,
                               size_t min_mem_length = 1,
-                              node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
+                              bool unstranded = false,
+                              paths_of_node_memo_t* paths_of_node_memo = nullptr,
+                              oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
                               handle_memo_t* handle_memo = nullptr);
     
     /// Constructor using Aligner, optionally memoizing succinct data structure operations
@@ -179,7 +184,9 @@ public:
                               xg::XG* xgindex,
                               size_t max_expected_dist_approx_error = 8,
                               size_t min_mem_length = 1,
-                              node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
+                              bool unstranded = false,
+                              paths_of_node_memo_t* paths_of_node_memo = nullptr,
+                              oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
                               handle_memo_t* handle_memo = nullptr);
     
     /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
@@ -198,7 +205,9 @@ public:
                                                                      xg::XG* xgindex,
                                                                      int64_t min_inter_cluster_distance,
                                                                      int64_t max_inter_cluster_distance,
-                                                                     node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
+                                                                     bool unstranded,
+                                                                     paths_of_node_memo_t* paths_of_node_memo = nullptr,
+                                                                     oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
                                                                      handle_memo_t* handle_memo = nullptr);
     
     //static size_t PRUNE_COUNTER;
@@ -219,7 +228,9 @@ private:
                               xg::XG* xgindex,
                               size_t max_expected_dist_approx_error,
                               size_t min_mem_length,
-                              node_occurrence_on_paths_memo_t* paths_of_node_memo,
+                              bool unstranded,
+                              paths_of_node_memo_t* paths_of_node_memo,
+                              oriented_occurences_memo_t* oriented_occurences_memo,
                               handle_memo_t* handle_memo);
     
     /**
@@ -236,11 +247,12 @@ private:
      * be negative) from the first to the second along the items' forward
      * strand.
      */
-    static unordered_map<pair<size_t, size_t>, int64_t> get_on_strand_distance_tree(size_t num_items, xg::XG* xgindex,
+    static unordered_map<pair<size_t, size_t>, int64_t> get_on_strand_distance_tree(size_t num_items, bool unstranded, xg::XG* xgindex,
                                                                                     const function<pos_t(size_t)>& get_position,
                                                                                     const function<int64_t(size_t)>& get_offset,
-                                                                                    node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
-                                                                                    handle_memo_t* handle_memo = nullptr);
+                                                                                    paths_of_node_memo_t* paths_of_node_memo,
+                                                                                    oriented_occurences_memo_t* oriented_occurences_memo,
+                                                                                    handle_memo_t* handle_memo);
     
     /**
      * Adds edges into the distance tree by estimating the distance between pairs
@@ -253,18 +265,36 @@ private:
                                                  UnionFind& component_union_find,
                                                  unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
                                                  map<pair<size_t, size_t>, size_t>& num_infinite_dists,
+                                                 bool unstranded,
                                                  size_t num_items,
                                                  xg::XG* xgindex,
                                                  const function<pos_t(size_t)>& get_position,
                                                  const function<int64_t(size_t)>& get_offset,
-                                                 node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
-                                                 handle_memo_t* handle_memo = nullptr);
+                                                 paths_of_node_memo_t* paths_of_node_memo,
+                                                 oriented_occurences_memo_t* oriented_occurences_memo,
+                                                 handle_memo_t* handle_memo);
     
     
     /**
      * Adds edges into the distance tree by estimating the distance only between pairs
-     * of items that can be directly inferred to share a path based on the memo of
+     * of items that can be directly inferred to share a strand of a path based on the memo of
      * node occurrences on paths
+     */
+    static void extend_dist_tree_by_strand_buckets(int64_t max_failed_distance_probes,
+                                                   size_t& num_possible_merges_remaining,
+                                                   UnionFind& component_union_find,
+                                                   unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                                   map<pair<size_t, size_t>, size_t>& num_infinite_dists,
+                                                   size_t num_items,
+                                                   xg::XG* xgindex,
+                                                   const function<pos_t(size_t)>& get_position,
+                                                   const function<int64_t(size_t)>& get_offset,
+                                                   paths_of_node_memo_t* paths_of_node_memo,
+                                                   oriented_occurences_memo_t* oriented_occurences_memo,
+                                                   handle_memo_t* handle_memo);
+    /**
+     * Adds edges into the distance tree by estimating the distance only between pairs
+     * of items that can be directly inferred to share a path based on the memo of
      */
     static void extend_dist_tree_by_path_buckets(int64_t max_failed_distance_probes,
                                                  size_t& num_possible_merges_remaining,
@@ -275,8 +305,23 @@ private:
                                                  xg::XG* xgindex,
                                                  const function<pos_t(size_t)>& get_position,
                                                  const function<int64_t(size_t)>& get_offset,
-                                                 node_occurrence_on_paths_memo_t* paths_of_node_memo = nullptr,
-                                                 handle_memo_t* handle_memo = nullptr);
+                                                 paths_of_node_memo_t* paths_of_node_memo,
+                                                 oriented_occurences_memo_t* oriented_occurences_memo,
+                                                 handle_memo_t* handle_memo);
+    
+    /**
+     * Automatically blocks off merges in the distance tree between groups that can be inferred
+     * to be on separate components based on the paths they overlap
+     */
+    static void exclude_dist_tree_merges_by_components(int64_t max_failed_distance_probes,
+                                                       size_t& num_possible_merges_remaining,
+                                                       UnionFind& component_union_find,
+                                                       map<pair<size_t, size_t>, size_t>& num_infinite_dists,
+                                                       unordered_map<size_t, id_t> neighbors_on_paths,
+                                                       xg::XG* xgindex,
+                                                       const function<pos_t(size_t)>& get_position,
+                                                       const function<int64_t(size_t)>& get_offset,
+                                                       paths_of_node_memo_t* paths_of_node_memo);
     
     /**
      * Given a number of nodes, and a map from node pair to signed relative
