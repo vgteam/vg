@@ -50,7 +50,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "Embed GAM alignments into a graph to facilitate variant calling" << endl
          << endl
          << "general options:" << endl
-         << "    -a, --augmentation-mode M   augmentation mode.  M = {pileup, direct} [direct]" << endl
+         << "    -a, --augmentation-mode M   augmentation mode.  M = {pileup, direct} [pileup]" << endl
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
          << "    -h, --help                  print this help message" << endl
@@ -75,7 +75,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
 int main_augment(int argc, char** argv) {
 
     // augmentation mode
-    string augmentation_mode = "direct";
+    string augmentation_mode = "pileup";
     
     // load pileupes from here
     string pileup_file_name;
