@@ -723,6 +723,10 @@ namespace vg {
         
         size_t num_rescued_1 = 0, num_rescued_2 = 0;
         
+#ifdef debug_multipath_mapper_mapping
+        cerr << "rescuing from " << num_rescuable_alns_1 << " read1's" << endl;
+#endif
+        
         for (size_t i = 0; i < num_rescuable_alns_1; i++) {
             MultipathAlignment rescue_multipath_aln;
             if (attempt_rescue(multipath_alns_1[i], alignment2, true, rescue_multipath_aln)) {
@@ -730,6 +734,10 @@ namespace vg {
                 rescue_multipath_alns_2[i] = move(rescue_multipath_aln);
             }
         }
+        
+#ifdef debug_multipath_mapper_mapping
+        cerr << "rescuing from " << num_rescuable_alns_2 << " read2's" << endl;
+#endif
         
         for (size_t i = 0; i < num_rescuable_alns_2; i++) {
             MultipathAlignment rescue_multipath_aln;
@@ -743,6 +751,9 @@ namespace vg {
         
         bool found_consistent = true;
         if (num_rescued_1 > 0 && num_rescued_2 > 0) {
+#ifdef debug_multipath_mapper_mapping
+            cerr << "successfully rescued from both read ends" << endl;
+#endif
             
             vector<bool> found_duplicate(num_rescuable_alns_2, false);
             
@@ -759,8 +770,17 @@ namespace vg {
                         continue;
                     }
                     
+#ifdef debug_multipath_mapper_mapping
+                    cerr << "checking duplication between mapped read1 " << i << " and rescued read1 " << j << endl;
+#endif
                     if (abs(distance_between(multipath_alns_1[i], rescue_multipath_alns_1[j])) < 20) {
+#ifdef debug_multipath_mapper_mapping
+                        cerr << "found duplicate, now checking rescued read2 " << i << " and mapped read2 " << j << endl;
+#endif
                         if (abs(distance_between(rescue_multipath_alns_2[i], multipath_alns_2[j])) < 20) {
+#ifdef debug_multipath_mapper_mapping
+                            cerr << "found duplicate, marking entire pair as duplicate" << endl;
+#endif
                             // these two alignments found each other with their rescue, we don't want to add duplicate mappings
                             duplicate = true;
                             found_duplicate[j] = true;
@@ -793,6 +813,9 @@ namespace vg {
             }
         }
         else if (num_rescued_1 > 0) {
+#ifdef debug_multipath_mapper_mapping
+            cerr << "successfully rescued from only read 1" << endl;
+#endif
             for (size_t i = 0; i < rescue_multipath_alns_2.size(); i++) {
                 if (rescue_multipath_alns_2[i].sequence().empty()) {
                     // we didn't actually rescue this one
@@ -803,6 +826,9 @@ namespace vg {
             }
         }
         else if (num_rescued_2 > 0) {
+#ifdef debug_multipath_mapper_mapping
+            cerr << "successfully rescued from only read 2" << endl;
+#endif
             for (size_t i = 0; i < rescue_multipath_alns_1.size(); i++) {
                 if (rescue_multipath_alns_1[i].sequence().empty()) {
                     // we didn't actually rescue this one
@@ -813,6 +839,9 @@ namespace vg {
             }
         }
         else {
+#ifdef debug_multipath_mapper_mapping
+            cerr << "failed to successfully rescue from either read end, reporting independent mappings" << endl;
+#endif
             found_consistent = false;
             
             // rescue failed, so we just report these as independent mappings
