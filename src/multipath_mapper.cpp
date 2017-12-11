@@ -114,6 +114,10 @@ namespace vg {
         
         if (likely_mismapping(multipath_alns_out.front())) {
             // we can't distinguish this alignment from the longest MEM of a random sequence
+#ifdef debug_multipath_mapper_mapping
+            cerr << "mapping is not distinguishable from a random sequence, snapping MAPQ to 0" << endl;
+#endif
+            
             multipath_alns_out.front().set_mapping_quality(0);
         }
         
@@ -410,11 +414,11 @@ namespace vg {
     
     bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) {
 #ifdef debug_multipath_mapper_mapping
-        cerr << "effective match length of " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) / 3 << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(pseudo_length(multipath_aln) / 3, multipath_aln.sequence().size()) << endl;
+        cerr << "effective match length of read " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) / 3 << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(pseudo_length(multipath_aln) / 3, multipath_aln.sequence().size()) << endl;
 #endif
         
         // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
-        return random_match_p_value(pseudo_length(multipath_aln) / 3, multipath_aln.sequence().size()) > 0.00001;
+        return random_match_p_value(pseudo_length(multipath_aln) / 3, multipath_aln.sequence().size()) > 0.001;
     }
     
     size_t MultipathMapper::pseudo_length(const MultipathAlignment& multipath_aln) const {
