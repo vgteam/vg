@@ -9,35 +9,212 @@ namespace vg {
 
 using namespace std;
 
+pair<const Edge*, bool> AugmentedGraph::base_edge(const Edge* edge) {
+    assert(base_graph != NULL);
 
-bool AugmentedGraph::has_supports() {
+    bool is_trivial = false;
+    const Edge* found_edge = NULL;
+
+    // check if from node is even in the base graph
+    Position from_pos;
+    from_pos.set_node_id(edge->from());
+    if (!translator.has_translation(from_pos)) {
+        return pair<const Edge*, bool>(NULL, false);
+    }
+
+    // check if the to node is even in the base graph
+    Position to_pos;
+    to_pos.set_node_id(edge->to());
+    if (!translator.has_translation(to_pos)) {
+        return pair<const Edge*, bool>(NULL, false);        
+    }
+
+    // work in forward strand since translator doesn't seem strand-aware
+    from_pos.set_is_reverse(false);
+    from_pos.set_offset(edge->from_start() ? 0 :
+                        graph.get_node(edge->from())->sequence().length() - 1);
+
+    to_pos.set_is_reverse(false);
+    to_pos.set_offset(edge->to_end() == false ? 0 :
+                      graph.get_node(edge->to())->sequence().length() - 1);
+
+    // Map to the base graph using our translation table
+    Position base_from_pos = translator.translate(from_pos);
+    Position base_to_pos = translator.translate(to_pos);
+
+    // Make sure we don't have an unexpected reversal
+    assert(base_from_pos.is_reverse() == false);
+    assert(base_to_pos.is_reverse() == false);
+
+    // Test if we're a trivial edge in the base graph (just to consecutive positions)
+    if (base_from_pos.node_id() == base_to_pos.node_id() &&
+        base_from_pos.is_reverse() == base_to_pos.is_reverse() &&
+        abs(base_from_pos.offset() - base_to_pos.offset()) == 1) {
+        is_trivial = true;
+    }
+    // 2) or an existing edge in the base graph (translations are all forward strand,
+    //    so we need to look up sequence lengths to check if we're coming out end)
+    else if (edge->from_start() && !edge->to_end() &&
+             base_from_pos.offset() == 0 &&
+             base_to_pos.offset() == 0) {
+        found_edge = base_graph->get_edge(NodeSide(base_from_pos.node_id(), false),
+                                          NodeSide(base_to_pos.node_id(), false));
+    }
+    else if (edge->from_start() && edge->to_end() &&
+             base_from_pos.offset() == 0 &&
+             base_to_pos.offset() == base_graph->get_node(base_to_pos.node_id())->sequence().length() - 1) {
+        found_edge = base_graph->get_edge(NodeSide(base_from_pos.node_id(), false),
+                                          NodeSide(base_to_pos.node_id(), true));
+    }
+    else if (!edge->from_start() && !edge->to_end() &&
+             base_from_pos.offset() == base_graph->get_node(base_from_pos.node_id())->sequence().length() - 1 &&
+             base_to_pos.offset() == 0) {
+        found_edge = base_graph->get_edge(NodeSide(base_from_pos.node_id(), true),
+                                          NodeSide(base_to_pos.node_id(), false));
+    }
+    else if (!edge->from_start() && edge->to_end() &&
+             base_from_pos.offset() == base_graph->get_node(base_from_pos.node_id())->sequence().length() - 1 &&
+             base_to_pos.offset() == base_graph->get_node(base_to_pos.node_id())->sequence().length() - 1) {
+        found_edge = base_graph->get_edge(NodeSide(base_from_pos.node_id(), true),
+                                          NodeSide(base_to_pos.node_id(), true));
+    }
+
+    return pair<const Edge*, bool>(found_edge, is_trivial);
+}
+
+void AugmentedGraph::clear() {
+    // Reset to default state
+    *this = AugmentedGraph();
+}
+
+void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
+                                                  bool unique_names, bool leave_edits) {
+
+    if (unique_names) { 
+        // Make sure they have unique names.
+        set<string> names_seen;
+        // We warn about duplicate names, but only once.
+        bool duplicate_names_warned = false;
+        for(size_t i = 0; i < alignments.size(); i++) {
+            if(alignments[i].name().empty()) {
+                // Generate a name
+                alignments[i].set_name("_unnamed_alignment_" + to_string(i));
+            }
+            if(names_seen.count(alignments[i].name())) {
+                // This name is duplicated
+                if(!duplicate_names_warned) {
+                    // Warn, but only once
+                    cerr << "Warning: duplicate alignment names present! Example: " << alignments[i].name() << endl;
+                    duplicate_names_warned = true;
+                }
+
+                // Generate a new name
+                // TODO: we assume this is unique
+                alignments[i].set_name("_renamed_alignment_" + to_string(i));
+                assert(!names_seen.count(alignments[i].name()));
+            }
+            names_seen.insert(alignments[i].name());
+        }
+        names_seen.clear();
+    }
+    
+    // Suck out paths
+    vector<Path> paths;
+    for(auto& alignment : alignments) {
+        // Copy over each path, naming it after its alignment
+        // and trimming so that it begins and ends with a match to avoid
+        // creating a bunch of stubs.
+        Path path = trim_hanging_ends(alignment.path());
+        path.set_name(alignment.name());
+        paths.push_back(path);
+    }
+
+    if (!leave_edits) {
+        // Run them through vg::edit() to add them to the graph. Save the translations.
+        vector<Translation> augmentation_translations = graph.edit(paths);
+        translator.load(augmentation_translations);
+    } else {
+        // Add the paths to the graphs, but don't embed the edits.  These paths
+        // will not be representable as lists of NodeTraversals.  
+        for (auto& path : paths) {
+            // Note: Paths.extend(Path) is too slow because it re-indexes on each path
+            graph.paths.get_create_path(path.name());
+            for (int i = 0; i < path.mapping_size(); ++i) {
+                graph.paths.append_mapping(path.name(), path.mapping(i));
+            }
+        }
+        graph.paths.rebuild_node_mapping();
+        graph.paths.sort_by_mapping_rank();
+        graph.paths.rebuild_mapping_aux();
+
+        // trivial translation map?
+    }
+    
+}
+
+void AugmentedGraph::load_translations(istream& in_file) {
+    translator.translations.clear();
+    function<void(Translation&)> lambda = [&](Translation& translation) {
+        translator.translations.push_back(translation);
+    };
+    stream::for_each(in_file, lambda);
+    translator.build_position_table();
+}
+
+void AugmentedGraph::write_translations(ostream& out_file) {
+    stream::write_buffered(out_file, translator.translations, 0);
+}
+
+void SupportAugmentedGraph::clear() {
+    // Reset to default state
+    *this = SupportAugmentedGraph();
+}
+
+bool SupportAugmentedGraph::has_supports() {
     return !node_supports.empty() || !edge_supports.empty();
 }
 
-Support AugmentedGraph::get_support(Node* node) {
+Support SupportAugmentedGraph::get_support(Node* node) {
     return node_supports.count(node) ? node_supports.at(node) : Support();
 }
 
-Support AugmentedGraph::get_support(Edge* edge) {
+Support SupportAugmentedGraph::get_support(Edge* edge) {
     return edge_supports.count(edge) ? edge_supports.at(edge) : Support();
 }
 
-double AugmentedGraph::get_likelihood(Node* node) {
-    return node_likelihoods.count(node) ? node_likelihoods.at(node) : 0;
+void SupportAugmentedGraph::load_supports(istream& in_file) {
+    node_supports.clear();
+    edge_supports.clear();
+    function<void(LocationSupport&)> lambda = [&](LocationSupport& location_support) {
+        if (location_support.oneof_location_case() == LocationSupport::kNodeId) {
+            node_supports[graph.get_node(location_support.node_id())] = location_support.support();
+        } else {
+            const Edge& edge = location_support.edge();
+            edge_supports[graph.get_edge(NodeSide(edge.from(), !edge.from_start()),
+                                         NodeSide(edge.to(), edge.to_end()))] = location_support.support();
+        }
+    };
+    stream::for_each(in_file, lambda);    
 }
 
-double AugmentedGraph::get_likelihood(Edge* edge) {
-    return edge_likelihoods.count(edge) ? edge_likelihoods.at(edge) : 0;
+void SupportAugmentedGraph::write_supports(ostream& out_file) {
+    vector<LocationSupport> buffer;
+    for (auto& node_support : node_supports) {
+        LocationSupport location_support;
+        *location_support.mutable_support() = node_support.second;
+        location_support.set_node_id(node_support.first->id());
+        buffer.push_back(location_support);
+        stream::write_buffered(out_file, buffer, 500);
+    }
+    for (auto& edge_support : edge_supports) {
+        LocationSupport location_support;
+        *location_support.mutable_support() = edge_support.second;        
+        *location_support.mutable_edge() = *edge_support.first;
+        buffer.push_back(location_support);
+        stream::write_buffered(out_file, buffer, 500);
+    }
+    stream::write_buffered(out_file, buffer, 0);
 }
-
-ElementCall AugmentedGraph::get_call(Node* node) {
-    return node_calls.count(node) ? node_calls.at(node) : CALL_UNCALLED;
-}
-
-ElementCall AugmentedGraph::get_call(Edge* edge) {
-    return edge_calls.count(edge) ? edge_calls.at(edge) : CALL_UNCALLED;
-}
-    
 
 SimpleConsistencyCalculator::~SimpleConsistencyCalculator(){
 
@@ -403,7 +580,7 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
         if (parent_start.node_id() != 0 && parent_end.node_id() != 0) {
             // We have a parent that isn't the fake root, so fill in its ends
             *snarl.mutable_parent()->mutable_start() = parent_start;
-            *snarl.mutable_parent()->mutable_start() = parent_end;
+            *snarl.mutable_parent()->mutable_end() = parent_end;
         }
     } 
     
@@ -1271,7 +1448,7 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
 }
 
 
-RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
+RepresentativeTraversalFinder::RepresentativeTraversalFinder(SupportAugmentedGraph& augmented,
     SnarlManager& snarl_manager, size_t max_depth, size_t max_width, size_t max_bubble_paths,
     function<PathIndex*(const Snarl&)> get_index) : augmented(augmented), snarl_manager(snarl_manager),
     max_depth(max_depth), max_width(max_width), max_bubble_paths(max_bubble_paths), get_index(get_index) {

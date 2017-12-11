@@ -48,11 +48,15 @@ Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
 
 VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen
+    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen clang-3.8
 
 To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
 
     sudo port select gcc mp-gcc49
+
+Some OSX users also need to have the MacPorts clang assembler for dependencies (use `none` instead of `mp-clang-3.8` to revert back):
+
+    sudo port select clang mp-clang-3.8
 
 VG can now be cloned and built:
 
@@ -158,17 +162,20 @@ vg surject -p x -b -d x.vg.index aln.gam >aln.bam
 ```
 ### Variant Calling
 
-The following example shows how to construct a VCF file from a read alignment and graph.  This has been tested on 50X short read sequencing for relatively small pilot regions.   
+The following example shows how to construct a VCF file from a read alignment and graph.  Input must be split into chunks (see vg chunk) in order to run on whole genome.
 
 ```sh
 # filter secondary and ambiguous read mappings out of the gam
-vg filter graph.vg alignment.gam -r 0.90 -afu -s 2 -o 0 --defray_ends 999 > filtered.gam
+vg filter alignment.gam -r 0.90 -fu -s 2 -o 0 -D 999 -x graph.xg > filtered.gam
 
-# create pileup for every graph position and edge in the graph
-vg pileup graph.vg filtered.gam -w 40 -m 10 -q 10 > graph.pileup
+# create an augmented graph by adding variation from the reads
+vg augment graph.vg filtered.gam -q 10 -S aug_graph.support -Z aug_graph.trans -A aug_alignment.gam > aug_graph.vg
 
-# create "augmented graph" (original graph plus new newly called stuff) and project to calls in vcf format
-vg call graph.vg graph.pileup > calls.vcf
+# Make calls by thresholding based on read support for graph path SEQ
+vg call aug_graph.vg -b graph.vg -s aug_graph.support -z aug_graph.trans -r SEQ > calls.vcf
+
+# Or Make calls using a Freebayes-like genotyping algorithm for graph path SEQ
+vg genotype aug_graph.vg -G aug_alignment.gam -E -v -r SEQ > calls.vcf
 
 # for comparison purposes, it's very useful to normalize the vcf output, especially for more complex graphs which can make large variant blocks that contain a lot of reference bases (Note: requires [vt](http://genome.sph.umich.edu/wiki/Vt)):
 vt decompose_blocksub -a calls.vcf | vt normalize -r FASTA_FILE - > calls.clean.vcf
@@ -199,8 +206,8 @@ A variety of commands are available:
 - *msga*: construct a graph from an assembly of multiple sequences
 - *validate*: determine if graph is valid
 - *filter*: filter reads out of an alignment
-- *pileup*: pileup reads onto graph positions and edges
-- *call*: call graph positions from a pileup
+- *augment*: adds variation from aligned reads into the graph
+- *call/genotype*: call variants from an augmented graph
 
 ## Implementation notes
 

@@ -6,10 +6,8 @@
 #include <functional>
 #include <omp.h>
 #include "subcommand.hpp"
-#include "gcsa.h"
+#include <gcsa/gcsa.h>
 #include "stream.hpp"
-// From gcsa2
-#include "files.h"
 #include "json2pb.h"
 #include "vg.hpp"
 #include "vg.pb.h"

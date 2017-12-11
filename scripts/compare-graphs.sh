@@ -4,7 +4,7 @@
 set -ex
 
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@3cf10b35715712ea554b13ce1a5e7b4b109df71d"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@5825de9279fe5028d64965e6a4d4f12cafe1f9c5"
 
 # What Toil should we use?
 TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:3.11.0
@@ -68,7 +68,7 @@ while getopts "hp:t:c:v:r:R:ks3" o; do
             MANAGE_CLUSTER=0
             ;;
         v)
-            VG_DOCKER_OPTS=("--vg_docker" "${OPTARG}")
+            VG_DOCKER_OPTS="--vg_docker ${OPTARG}"
             ;;
         r)
             READ_STEM="${OPTARG}"
@@ -115,8 +115,8 @@ while [[ "$#" -gt "0" ]]; do
 done
 
 # Where do we keep our input files
-if [ "$REGION_NAME" == "B37" ]; then
-     STORE_TAG="B37"
+if [ "$REGION_NAME" == "B37" ] || [ "$REGION_NAME" == "HS37D5" ]; then
+     STORE_TAG="$REGION_NAME"
 else
      STORE_TAG="bakeoff"
 fi
@@ -213,7 +213,7 @@ READ_SET="${READ_STEM}-${REGION_NAME}"
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/toil-vg mapeval \
     --whole_genome_config \
     ${RESTART_ARG} \
-    "${VG_DOCKER_OPTS[@]}" \
+    ${VG_DOCKER_OPTS} \
     --fasta `get_input_url "${REGION_NAME}.fa"` \
     --index-bases "${GRAPH_URLS[@]}" \
     --gam-names "${GRAPH_NAMES[@]}" \

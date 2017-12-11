@@ -326,6 +326,17 @@ message Support {
     double right = 5;
 }
 
+// Support pinned to a location, which can be either a node or an edge
+message LocationSupport {
+    // The support
+    Support support = 1;
+    // The location
+    oneof oneof_location {
+        Edge edge = 2;
+        int64 node_id = 3;
+    }
+}
+
 // Translations map from one graph to another.
 // A collection of these provides a covering mapping between a from and to graph.
 // If each "from" path through the base graph corresponds to a "to" path in an updated graph,

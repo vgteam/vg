@@ -1,4 +1,4 @@
-// index.cpp: define the "vg index" subcommand, which makes xg, GCSA2, and RocksDB indexes
+// index.cpp: define the "vg index" subcommand, which makes xg, GCSA2, GBWT, and RocksDB indexes
 
 #include <omp.h>
 #include <unistd.h>
@@ -17,8 +17,9 @@
 #include "../utility.hpp"
 #include "../path_index.hpp"
 
-#include "gcsa/gcsa.h"
-#include "gcsa/algorithms.h"
+#include <gcsa/gcsa.h>
+#include <gcsa/algorithms.h>
+#include <gbwt/dynamic_gbwt.h>
 
 using namespace std;
 using namespace vg;
@@ -35,6 +36,9 @@ void help_index(char** argv) {
          << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
+         << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
+         << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
+         << "    -G, --gbwt-name FILE   write the paths generated from the VCF file as GBWT to FILE (don't write gPBWT)" << endl
          << "    -H, --write-haps FILE  write the paths generated from the VCF file in binary to FILE (don't write gPBWT)" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
@@ -65,28 +69,49 @@ void help_index(char** argv) {
          << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
          << "    -L, --path-layout      describes the path layout of the graph" << endl
          << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
-        //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
+         << "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
 }
 
-bool write_phase_threads(const vector<xg::XG::thread_t>& phase_threads, const string& output_filename) {
-    ofstream output(output_filename, std::ios::binary);
-    if (!output.is_open()) return false;
-    for (auto& thread : phase_threads) {
-        for (const xg::XG::ThreadMapping& mapping : thread) {
-            int64_t i = mapping.node_id;
-            if (mapping.is_reverse) i *= -1;
-            output.write((const char*)&i, sizeof(int64_t));
-        }
-        int64_t j = 0;
-        output.write((const char*)&j, sizeof(int64_t));
-    }
-    output.close();
-    return true;
+// Convert gbwt::node_type to ThreadMapping.
+xg::XG::ThreadMapping gbwt_to_thread_mapping(gbwt::node_type node) {
+    xg::XG::ThreadMapping thread_mapping = { (int64_t)(gbwt::Node::id(node)), gbwt::Node::is_reverse(node) };
+    return thread_mapping;
 }
 
-#define debug
+// Convert Mapping to gbwt::node_type.
+gbwt::node_type mapping_to_gbwt(const Mapping& mapping) {
+    return gbwt::Node::encode(mapping.position().node_id(), mapping.position().is_reverse());
+};
+
+// Convert NodeSide to gbwt::node_type.
+gbwt::node_type node_side_to_gbwt(const NodeSide& side) {
+    return gbwt::Node::encode(side.node, side.is_end);
+};
+
+// Buffer recent node lengths for faster access.
+struct NodeLengthBuffer
+{
+    typedef std::pair<xg::id_t, size_t> entry_type;
+
+    const xg::XG&           index;
+    std::vector<entry_type> buffer;
+    std::hash<xg::id_t>     hash;
+
+    const static size_t BUFFER_SIZE = 251;
+
+    NodeLengthBuffer(const xg::XG& xg_index) : index(xg_index), buffer(BUFFER_SIZE, entry_type(-1, 0)) {}
+
+    size_t operator() (xg::id_t id) {
+        size_t h = this->hash(id) % BUFFER_SIZE;
+        if (this->buffer[h].first != id) {
+            this->buffer[h] = entry_type(id, this->index.node_length(id));
+        }
+        return this->buffer[h].second;
+    }
+};
+
 int main_index(int argc, char** argv) {
 
     if (argc == 2) {
@@ -96,6 +121,7 @@ int main_index(int argc, char** argv) {
 
     string rocksdb_name;
     string gcsa_name;
+    string gbwt_name;
     string xg_name;
     // Where should we import haplotype phasing paths from, if anywhere?
     string vcf_name;
@@ -123,9 +149,12 @@ int main_index(int argc, char** argv) {
     bool verify_index = false;
     bool forward_only = false;
     size_t size_limit = 200; // in gigabytes
+    size_t samples_in_batch = 200; // Samples per batch in GBWT construction.
+    std::pair<size_t, size_t> sample_range(0, ~(size_t)0);  // The semiopen range of samples to process.
     bool store_threads = false; // use gPBWT to store paths
     bool discard_overlaps = false;
     string binary_haplotype_output;
+    string tmp_db_base;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -163,12 +192,16 @@ int main_index(int argc, char** argv) {
             {"node-alignments", no_argument, 0, 'N'},
             {"dbg-in", required_argument, 0, 'i'},
             {"discard-overlaps", no_argument, 0, 'o'},
+            {"batch-size", required_argument, 0, 'B'},
+            {"range", required_argument, 0, 'R'},
+            {"gbwt-name", required_argument, 0, 'G'},
             {"write-haps", required_argument, 0, 'H'},
+            {"tmp-db-base", required_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNoH:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNoB:R:G:H:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -187,6 +220,28 @@ int main_index(int argc, char** argv) {
 
         case 'v':
             vcf_name = optarg;
+            break;
+
+        case 'B':
+            samples_in_batch = std::stoul(optarg);
+            break;
+
+        case 'R':
+            {
+                // Parse first..last
+                string temp(optarg);
+                size_t found = temp.find("..");
+                if(found == string::npos || found == 0 || found + 2 == temp.size()) {
+                    cerr << "error:[vg construct] could not parse range " << temp << endl;
+                    exit(1);
+                }
+                sample_range.first = std::stoul(temp.substr(0, found));
+                sample_range.second = std::stoul(temp.substr(found + 2)) + 1;
+            }
+            break;
+
+        case 'G':
+            gbwt_name = optarg;
             break;
 
         case 'H':
@@ -302,6 +357,10 @@ int main_index(int argc, char** argv) {
             size_limit = atoi(optarg);
             break;
 
+        case 'b':
+            tmp_db_base = optarg;
+            break;
+
         case 'T':
             store_threads = true;
             break;
@@ -357,7 +416,17 @@ int main_index(int argc, char** argv) {
         cerr << "error:[vg index] kmer stride must be positive and nonzero" << endl;
         return 1;
     }
-    
+
+    if (!vcf_name.empty() && samples_in_batch < 1) {
+        cerr << "error:[vg index] Batch size must be positive and nonzero" << endl;
+        return 1;
+    }
+
+    if (!vcf_name.empty() && !gbwt_name.empty() && !binary_haplotype_output.empty()) {
+        cerr << "error:[vg index] Cannot use both --gbwt-name and --write-haps" << endl;
+        return 1;
+    }
+
     if (!gcsa_name.empty() && rocksdb_name.empty()) {
         // We need to make a gcsa index and not a RocksDB index.
         
@@ -418,23 +487,62 @@ int main_index(int argc, char** argv) {
             cerr << "Built base XG index" << endl;
         }
 
-        // We're going to collect all the phase threads as XG threads (which
-        // aren't huge like Protobuf Paths), and then insert them all into xg in
-        // a batch, for speed. This will take a lot of memory (although not as
-        // much as a real vg::Paths index or vector<Path> would)
-        vector<xg::XG::thread_t> all_phase_threads;
-
+        // Build gPBWT / GBWT or output the threads in binary.
         if (variant_file.is_open()) {
-            // Now go through and add the varaints.
 
-            // How many phases are there?
+            // Apparently there is no efficient way of determining the max id.
+            size_t id_width = 64;
+            {
+                xg::id_t max_id = 0;
+                size_t max_rank = index.max_node_rank();
+                for (size_t i = 1; i <= max_rank; i++) { max_id = std::max(max_id, index.rank_to_id(i)); }
+                id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
+            }
+            if (show_progress) {
+                cerr << "Node id width: " << id_width << endl;
+            }
+
+            // Do we build GBWT?
+            gbwt::GBWTBuilder* gbwt_builder = 0;
+            if (!gbwt_name.empty()) {
+                if (show_progress) { cerr << "Building GBWT index" << endl; }
+                gbwt::Verbosity::set(gbwt::Verbosity::SILENT);  // Make the construction thread silent.
+                gbwt_builder = new gbwt::GBWTBuilder(id_width);
+            }
+
+            // Do we output the threads in binary instead of building GBWT?
+            gbwt::text_buffer_type binary_file;
+            if (!binary_haplotype_output.empty()) {
+                if (show_progress) { cerr << "Writing the haplotypes to " << binary_haplotype_output << endl; }
+                binary_file = gbwt::text_buffer_type(binary_haplotype_output, std::ios::out, gbwt::MEGABYTE, id_width);
+            }
+
+            // We're going to collect all the phase threads as XG threads (which
+            // aren't huge like Protobuf Paths), and then insert them all into xg in
+            // a batch, for speed. This will take a lot of memory (although not as
+            // much as a real vg::Paths index or vector<Path> would)
+            vector<xg::XG::thread_t> all_phase_threads;
+
+            // Buffer recent node lengths for faster access.
+            NodeLengthBuffer node_length(index);
+
+            // How many samples are there?
             size_t num_samples = variant_file.sampleNames.size();
+            if (num_samples == 0) {
+                cerr << "error:[vg index] The variant file does not contain phasings" << endl;
+                return 1;
+            }
+
             // Remember the sample names
             const vector<string>& sample_names = variant_file.sampleNames;
-            // And how many phases?
-            size_t num_phases = num_samples * 2;
             // We'll want to keep track of names too
             vector<string> thread_names;
+
+            // Determine the range of samples.
+            sample_range.second = std::min(sample_range.second, num_samples);
+            if (show_progress) {
+                cerr << "Processing samples " << sample_range.first << " to " << (sample_range.second - 1) << " with batch size " << samples_in_batch << endl;
+            }
 
             for (size_t path_rank = 1; path_rank <= index.max_path_rank(); path_rank++) {
                 // Find all the reference paths and loop over them. We'll just
@@ -462,14 +570,23 @@ int main_index(int argc, char** argv) {
                 // making queries against it for every sample.
                 PathIndex path_index(index.path(path_name));
 
+                // Process the samples in batches to save memory.
+                size_t batch_start = sample_range.first, batch_limit = std::min(batch_start + samples_in_batch, sample_range.second);
+                size_t first_phase = 2 * batch_start, phases_in_batch = 2 * samples_in_batch;
+
                 // Allocate some threads to store phase threads
-                vector<xg::XG::thread_t> active_phase_threads{num_phases};
+                vector<vector<gbwt::node_type>> active_phase_threads(phases_in_batch);
                 // We need to remember how many paths of a particular phase have
                 // already been generated.
-                vector<int> saved_phase_paths(num_phases, 0);
+                vector<int> saved_phase_paths(phases_in_batch, 0);
+
+                // How many phases have been active?
+                std::vector<int> active_phases(samples_in_batch, 0);
+                // Are we in a diploid or a haploid region?
+                std::vector<bool> diploid_region(samples_in_batch, true);
 
                 // What's the first reference position after the last variant?
-                vector<size_t> nonvariant_starts(num_phases, 0);
+                vector<size_t> nonvariant_starts(phases_in_batch, 0);
 
                 // Completed ones just get dumped into the index
                 auto finish_phase = [&](size_t phase_number, string name) {
@@ -478,81 +595,76 @@ int main_index(int argc, char** argv) {
                     // index under a name and make a new Path for that phase.
 
                     // Find where this path is in our vector
-                    xg::XG::thread_t& to_save = active_phase_threads[phase_number];
+                    std::vector<gbwt::node_type>& to_save = active_phase_threads[phase_number - first_phase];
 
                     if (to_save.size() > 0) {
                         // Only actually do anything if we put in some mappings.
 
+                        if (!gbwt_name.empty()) {
+                            gbwt_builder->insert(to_save, true); // Insert in both orientations.
+                        } else if (!binary_haplotype_output.empty()) {
+                            for (auto node : to_save) { binary_file.push_back(node); }
+                            binary_file.push_back(gbwt::ENDMARKER);
+                        } else {
+                            // Copy the thread over to our batch that we GPBWT all
+                            // at once, exploiting the fact that VCF-derived graphs
+                            // are DAGs.
+                            xg::XG::thread_t temp;
+                            temp.reserve(to_save.size());
+                            for (auto node : to_save) { temp.push_back(gbwt_to_thread_mapping(node)); }
+                            all_phase_threads.push_back(temp);
+                        }
+
+                        // Some threads are much longer than the average, so
+                        // it's better to deallocate the memory here.
+                        to_save = std::vector<gbwt::node_type>();
+
                         // Count this thread from this phase as being saved.
-                        saved_phase_paths[phase_number]++;
+                        saved_phase_paths[phase_number - first_phase]++;
 
                         // We use a hierarchical naming convention to tie together threads from the same phase.
                         thread_names.push_back(name);
-
-                        // Copy the thread over to our batch that we GPBWT all
-                        // at once, exploiting the fact that VCF-derived graphs
-                        // are DAGs.
-                        all_phase_threads.push_back(to_save);
-
-                        // Clear it out for re-use
-                        to_save.clear();
                     }
                 };
 
-                // We need a way to convert Mappings to ThreadMappings
-                // TODO: add a converting constructor?
-                auto mapping_to_thread_mapping = [](const Mapping& mapping) {
-                    xg::XG::ThreadMapping thread_mapping;
-                    thread_mapping.node_id = mapping.position().node_id();
-                    thread_mapping.is_reverse = mapping.position().is_reverse();
-                    return thread_mapping;
-                };
-                // And NodeSides to thread mappings
-                auto node_side_to_thread_mapping = [](const NodeSide& side) {
-                    xg::XG::ThreadMapping thread_mapping;
-                    thread_mapping.node_id = side.node;
-                    thread_mapping.is_reverse = side.is_end;
-                    return thread_mapping;
-                };
-
-                // We need a way to dump mappings into pahse threads. The
+                // We need a way to dump mappings into phase threads. The
                 // mapping edits and rank and offset info will be ignored; the
                 // Mapping just represents an oriented node traversal.
-                auto append_mapping = [&](size_t phase_number, const xg::XG::ThreadMapping& mapping) {
+                auto append_node = [&](size_t phase_number, gbwt::node_type next) {
                     // Find the path to add to
-                    xg::XG::thread_t& to_extend = active_phase_threads[phase_number];
+                    std::vector<gbwt::node_type>& to_extend = active_phase_threads[phase_number - first_phase];
 
                     // See if the edge we need to follow exists
                     if (to_extend.size() > 0) {
-                        // If there's a previous mapping, go find it
-                        const xg::XG::ThreadMapping& previous = to_extend[to_extend.size() - 1];
+                        gbwt::node_type previous = to_extend.back();
 
-                        // Break out the IDs and flags we need to check for the edge
-                        const int64_t& last_node = previous.node_id;
-                        const bool& last_from_start = previous.is_reverse;
-
-                        const int64_t& new_node = mapping.node_id;
-                        const bool& new_to_end = mapping.is_reverse;
-
-                        if (!index.has_edge(xg::make_edge(last_node, last_from_start, new_node, new_to_end))) {
+                        if (!index.has_edge(xg::make_edge(gbwt::Node::id(previous), gbwt::Node::is_reverse(previous),
+                                                          gbwt::Node::id(next), gbwt::Node::is_reverse(next)))) {
                             // We can't have a thread take this edge (or an
                             // equivalent). Split and emit the current mappings
                             // and start a new path.
 #ifdef debug
                             cerr << "warning:[vg index] phase " << phase_number << " wants edge "
-                                << last_node << (last_from_start ? "L" : "R") << " - "
-                                << new_node << (new_to_end ? "R" : "L")
+                                << gbwt::Node::id(previous) << (gbwt::Node::is_reverse(previous) ? "L" : "R") << " - "
+                                << gbwt::Node::id(next) << (gbwt::Node::is_reverse(next) ? "R" : "L")
                                 << " which does not exist. Splitting!" << endl;
 #endif
                             // assumes diploidy...
                             stringstream sn;
-                            sn << "_thread_" << sample_names[phase_number/2] << "_" << path_name << "_" << phase_number % 2 << "_" << saved_phase_paths[phase_number];
+                            sn << "_thread_" << sample_names[phase_number/2] << "_" << path_name << "_" << phase_number % 2 << "_" << saved_phase_paths[phase_number - first_phase];
                             finish_phase(phase_number, sn.str());
                         }
                     }
 
-                    // Add the ThreadMapping
-                    active_phase_threads[phase_number].push_back(mapping);
+                    // Add the next node.
+                    to_extend.push_back(next);
+                };
+
+                // This is a faster version for reference paths. It does not
+                // check for the existence of the edge.
+                auto append_node_nocheck = [&](size_t phase_number, gbwt::node_type next) {
+                    std::vector<gbwt::node_type>& to_extend = active_phase_threads[phase_number - first_phase];
+                    to_extend.push_back(next);
                 };
 
                 // We need an easy way to append any reference mappings from the
@@ -563,30 +675,27 @@ int main_index(int argc, char** argv) {
                     // intervening reference nodes from the last variant, if
                     // any. For which we need access to the last variant's past-
                     // the-end reference position.
-                    size_t ref_pos = nonvariant_starts[phase_number];
+                    size_t ref_pos = nonvariant_starts[phase_number - first_phase];
                     
                     // Get an iterator to the next node visit to add
                     PathIndex::iterator next_to_add = path_index.find_position(ref_pos);
-                    
-                    while(ref_pos < end && next_to_add != path_index.end()) {
-                        // While there is intervening reference
-                        // sequence, add it to our phase.
 
-                        // What node side is the node that covers here?
-                        NodeSide ref_side = next_to_add->second;
-
-                        // Stick it in the phase path
-                        append_mapping(phase_number, node_side_to_thread_mapping(ref_side));
-
-                        // Advance to what's after that mapping, pulling node
-                        // length from the path index
+                    // While there is intervening reference sequence, add it to
+                    // our phase. We have to check for the existence of the edge
+                    // with the first mapping.
+                    if (ref_pos < end && next_to_add != path_index.end()) {
+                        append_node(phase_number, node_side_to_gbwt(next_to_add->second));
                         ref_pos += path_index.node_length(next_to_add);
-                        
-                        // Budge the iterator over so we don't need to do
-                        // another tree query.
-                        next_to_add++;
+                        ++next_to_add;
                     }
-                    nonvariant_starts[phase_number] = ref_pos;
+
+                    // With the rest, we can just assume that reference edges exist.
+                    while(ref_pos < end && next_to_add != path_index.end()) {
+                        append_node_nocheck(phase_number, node_side_to_gbwt(next_to_add->second));
+                        ref_pos += path_index.node_length(next_to_add);
+                        ++next_to_add;
+                    }
+                    nonvariant_starts[phase_number - first_phase] = ref_pos;
                 };
 
                 // We also have another function to handle each variant as it comes in.
@@ -618,7 +727,7 @@ int main_index(int argc, char** argv) {
                     // along the ref path for the variant (which must be
                     // nonempty).
 
-                    for (int sample_number = 0; sample_number < num_samples; sample_number++) {
+                    for (size_t sample_number = batch_start; sample_number < batch_limit; sample_number++) {
                         // For each sample
 
                         // What sample is it?
@@ -627,17 +736,47 @@ int main_index(int argc, char** argv) {
                         // Parse it out and see if it's phased.
                         string genotype = variant.getGenotype(sample_name);
 
-                        // Find the phasing bar
-                        auto bar_pos = genotype.find('|');
+                        // Parse the genotype and determine the number of active phases.
+                        int alt_index[2] = { -1, -1 };
+                        int new_active_phases = 0;
+                        bool is_diploid = diploid_region[sample_number - batch_start];
+                        if (!genotype.empty()) {
+                            size_t limit = genotype.find('|');
+                            if (limit == std::string::npos) {
+                                if (genotype.find('/') == std::string::npos) {
+                                    new_active_phases = 1;
+                                    is_diploid = false;
+                                    limit = genotype.size();
+                                }
+                            } else if (limit > 0 && limit + 1 < genotype.size()) {
+                                new_active_phases = 2;
+                                is_diploid = true;
+                            }
+                            if (new_active_phases > 0) {
+                                std::string alt_str = genotype.substr(0, limit);
+                                if (alt_str != ".") {
+                                    alt_index[0] = std::stoi(alt_str);
+                                }
+                            }
+                            if (new_active_phases > 1) {
+                                std::string alt_str = genotype.substr(limit + 1);
+                                if (alt_str != ".") {
+                                    alt_index[1] = std::stoi(alt_str);
+                                }
+                            }
+                        }
 
-                        if (bar_pos == string::npos || bar_pos == 0 || bar_pos + 1 >= genotype.size()) {
-                            // If it isn't phased, or we otherwise don't like
-                            // it, we need to break phasing paths.
-                            for (int phase_offset = 0; phase_offset < 2; phase_offset++) {
-                                // For each of the two phases for the sample
+                        // If the number of phases changes or we enter an unphased region,
+                        // we must break the paths.
+                        if (is_diploid != diploid_region[sample_number - batch_start] ||
+                            (new_active_phases == 0 && active_phases[sample_number - batch_start] > 0)) {
+
+                            size_t phase_id = 2 * sample_number - first_phase;
+                            for (int phase_offset = 0; phase_offset < active_phases[sample_number - batch_start]; phase_offset++) {
+                                // For each active phase for the sample
                                 
                                 // Remember where the end of the last variant was
-                                auto cursor = nonvariant_starts[sample_number * 2 + phase_offset];
+                                auto cursor = nonvariant_starts[phase_id + phase_offset];
                                 
                                 // Make the phase thread reference up to the
                                 // start of this variant. Doesn't have to be
@@ -647,32 +786,36 @@ int main_index(int argc, char** argv) {
                             
                                 // Finish the phase thread and start a new one
                                 stringstream sn;
-                                sn << "_thread_" << sample_names[sample_number] << "_" << path_name << "_" << phase_offset << "_" << saved_phase_paths[sample_number*2];
+                                sn << "_thread_" << sample_names[sample_number] << "_" << path_name << "_" << phase_offset << "_" << saved_phase_paths[sample_number*2 - first_phase];
                                 finish_phase(sample_number * 2 + phase_offset, sn.str());
                                 
                                 // Walk the cursor back so we repeat the
                                 // reference segment, which we need to do in
                                 // order to properly handle zero-length alleles
                                 // at the ends of phase blocks.
-                                nonvariant_starts[sample_number * 2 + phase_offset] = cursor;
+                                nonvariant_starts[phase_id + phase_offset] = cursor;
                                 
                                 // TODO: we still can't handle deletions
                                 // adjacent to SNPs where phasing gets lost. We
                                 // have to have intervening reference bases. But
                                 // that's a defect of the data model.
                             }
-                        }
-                        
-                        // If it is phased, parse out the two alleles and handle
-                        // each separately.
-                        vector<string> alt_indices({genotype.substr(0, bar_pos),
-                                genotype.substr(bar_pos + 1)});
 
-                        for (int phase_offset = 0; phase_offset < 2; phase_offset++) {
+                            // If we move between diploid and haploid regions, we must update
+                            // the starting positions for both phases.
+                            if (is_diploid != diploid_region[sample_number - batch_start]) {
+                                size_t max_pos = std::max(nonvariant_starts[phase_id], nonvariant_starts[phase_id + 1]);
+                                nonvariant_starts[phase_id] = max_pos;
+                                nonvariant_starts[phase_id + 1] = max_pos;
+                            }
+                        }
+                        active_phases[sample_number - batch_start] = new_active_phases;
+                        diploid_region[sample_number - batch_start] = is_diploid;
+
+                        for (int phase_offset = 0; phase_offset < active_phases[sample_number - batch_start]; phase_offset++) {
                             // Handle each phase and its alt
-                            string& alt_string = alt_indices[phase_offset];
                             
-                            if (alt_string == ".") {
+                            if (alt_index[phase_offset] == -1) {
                                 // This is a missing data call. Skip it. TODO:
                                 // that means we'll just treat it like a
                                 // reference call, when really we should break
@@ -685,12 +828,8 @@ int main_index(int argc, char** argv) {
                                 // that's going to be slow.
                                 continue;
                             }
-                            
-                            // Otherwise it must be a proper number reference.
-                            // Parse it.
-                            int alt_index = stoi(alt_string);
 
-                            if (alt_index != 0) {
+                            if (alt_index[phase_offset] != 0) {
                                 // If this sample doesn't take the reference
                                 // path at this variant, we need to actually go
                                 // through it and not just call
@@ -711,7 +850,7 @@ int main_index(int argc, char** argv) {
                                 
                                 // We also need to look for the path for this alt of this
                                 // variant. 
-                                string alt_path_name = "_alt_" + var_name + "_" + to_string(alt_index);
+                                string alt_path_name = "_alt_" + var_name + "_" + to_string(alt_index[phase_offset]);
                                 auto alt_path_iter = alt_paths.find(alt_path_name);
                                 
                                 
@@ -754,7 +893,7 @@ int main_index(int argc, char** argv) {
                                         // Look up where the node starts in the reference
                                         auto start = path_index.by_id.at(other_id).first;
                                         // There plus the length of the node will be the first ref base in our site
-                                        first_ref_base = max(first_ref_base, start + index.node_length(other_id));
+                                        first_ref_base = max(first_ref_base, start + node_length(other_id));
                                         
                                         // TODO: handling of cases where the alt
                                         // connects to multiple reference nodes
@@ -779,12 +918,11 @@ int main_index(int argc, char** argv) {
                                         // Scoot it along with the length of
                                         // every node on our reference allele
                                         // path.
-                                        last_ref_base += index.node_length(
-                                            ref_path_iter->second.mapping(i).position().node_id());
+                                        last_ref_base += node_length(ref_path_iter->second.mapping(i).position().node_id());
                                     }
                                 }
                             
-                                if ((nonvariant_starts[sample_number * 2 + phase_offset] <= first_ref_base) ||
+                                if ((nonvariant_starts[sample_number * 2 + phase_offset - first_phase] <= first_ref_base) ||
                                     !discard_overlaps) {
                                     
                                     // We need reference mappings from the last
@@ -795,14 +933,13 @@ int main_index(int argc, char** argv) {
                                     for (size_t i = 0; (alt_path_iter != alt_paths.end() &&
                                         i < alt_path_iter->second.mapping_size()); i++) {
                                         // Then blit mappings from the alt over to the phase thread
-                                        append_mapping(sample_number * 2 + phase_offset,
-                                            mapping_to_thread_mapping(alt_path_iter->second.mapping(i)));
+                                        append_node(sample_number * 2 + phase_offset, mapping_to_gbwt(alt_path_iter->second.mapping(i)));
                                     }
 
                                     // Say we've accounted for the reference on
                                     // this path through the end of the variable
                                     // region, which we have.
-                                    nonvariant_starts[sample_number * 2 + phase_offset] = last_ref_base;
+                                    nonvariant_starts[sample_number * 2 + phase_offset - first_phase] = last_ref_base;
                                 }
                             }
                         }
@@ -811,91 +948,109 @@ int main_index(int argc, char** argv) {
                     }
                 };
 
-                // Look for variants only on this path
-                variant_file.setRegion(vcf_contig_name);
+                // Process the phases in batches.
+                while (batch_start < sample_range.second) {
 
-                // Set up progress bar
-                ProgressBar* progress = nullptr;
-                // Message needs to last as long as the bar itself.
-                string progress_message = "loading variants for " + vcf_contig_name;
-                if (show_progress) {
-                    progress = new ProgressBar(path_length, progress_message.c_str());
-                    progress->Progressed(0);
-                }
+                    // Look for variants only on this path; seek back if this
+                    // is not the first batch.
+                    variant_file.setRegion(vcf_contig_name);
 
-                // Allocate a place to store actual variants
-                vcflib::Variant var(variant_file);
-
-                // How many variants have we done?
-                size_t variants_processed = 0;
-                while (variant_file.is_open() && variant_file.getNextVariant(var) && var.sequenceName == vcf_contig_name) {
-                    // this ... maybe we should remove it as for when we have calls against N
-                    bool isDNA = allATGC(var.ref);
-                    for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
-                        if (!allATGC(*a)) isDNA = false;
-                    }
-                    // only work with DNA sequences
-                    if (!isDNA) {
-                        continue;
-                    }
-                    
-                    var.position -= 1; // convert to 0-based
-                    
-                    // Handle the variant
-                    handle_variant(var);
-
-
-                    if (variants_processed++ % 1000 == 0 && progress != nullptr) {
-                        // Say we made progress
-                        progress->Progressed(var.position);
-                    }
-                }
-
-                if (variants_processed > 0) {
-                    // There were actually some variants on this path. We only
-                    // want to actually have samples traverse the path if there
-                    // were variants on it.
-
-                    // Now finish up all the threads
-                    for (size_t i = 0; i < num_phases; i++) {
-                        // Each thread runs out until the end of the reference path
-                        append_reference_mappings_until(i, path_length);
-
-                        // And then we save all the threads
-                        stringstream sn;
-                        sn << "_thread_" << sample_names[i/2] << "_" << path_name << "_" << i%2 << "_" << saved_phase_paths[i];
-                        finish_phase(i, sn.str());
-                    }
-                }
-
-                if (progress != nullptr) {
-                    // Throw out our progress bar
-                    delete progress;
-                    cerr << endl;
+                    // Set up progress bar
+                    ProgressBar* progress = nullptr;
+                    // Message needs to last as long as the bar itself.
+                    string progress_message = "contig " + vcf_contig_name + ", samples " + std::to_string(batch_start) + " to " + std::to_string(batch_limit - 1);
                     if (show_progress) {
-                        cerr << "Processed " << variants_processed << " variants" << endl;
+                        cerr << progress_message << endl;
+                        // Disable the progress bar until the console issue is solved.
+/*                        progress = new ProgressBar(path_length, progress_message.c_str());
+                        progress->Progressed(0);*/
                     }
-                }
 
+                    // Allocate a place to store actual variants
+                    vcflib::Variant var(variant_file);
+
+                    // How many variants have we done?
+                    size_t variants_processed = 0;
+                    while (variant_file.is_open() && variant_file.getNextVariant(var) && var.sequenceName == vcf_contig_name) {
+                        // this ... maybe we should remove it as for when we have calls against N
+                        bool isDNA = allATGC(var.ref);
+                        for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
+                            if (!allATGC(*a)) isDNA = false;
+                        }
+                        // only work with DNA sequences
+                        if (!isDNA) {
+                            continue;
+                        }
+                    
+                        var.position -= 1; // convert to 0-based
+                    
+                        // Handle the variant
+                        handle_variant(var);
+
+
+                        if (variants_processed++ % 1000 == 0 && progress != nullptr) {
+                            // Say we made progress
+                            progress->Progressed(var.position);
+                        }
+                    }
+
+                    if (variants_processed > 0) {
+                        // There were actually some variants on this path. We only
+                        // want to actually have samples traverse the path if there
+                        // were variants on it.
+
+                        // Now finish up all the threads
+                        for (size_t sample_number = batch_start; sample_number < batch_limit; sample_number++) {
+                            active_phases[sample_number - batch_start] = (diploid_region[sample_number - batch_start] ? 2 : 1);
+                            for (int phase_offset = 0; phase_offset < active_phases[sample_number - batch_start]; phase_offset++) {
+                                append_reference_mappings_until(sample_number * 2 + phase_offset, path_length);
+
+                                // And then we save all the threads
+                                stringstream sn;
+                                sn << "_thread_" << sample_names[sample_number] << "_" << path_name << "_" << phase_offset << "_" << saved_phase_paths[sample_number * 2 + phase_offset - first_phase];
+                                finish_phase(sample_number * 2 + phase_offset, sn.str());
+                            }
+                        }
+                    }
+
+                    if (progress != nullptr) {
+                        // Throw out our progress bar
+                        delete progress;
+                        cerr << endl;
+                        if (show_progress) {
+                            cerr << "Processed " << variants_processed << " variants" << endl;
+                        }
+                    }
+
+                    // Proceed to the next batch.
+                    batch_start = batch_limit;
+                    batch_limit = std::min(batch_start + samples_in_batch, sample_range.second);
+                    first_phase = 2 * batch_start;
+                    saved_phase_paths = std::vector<int>(phases_in_batch, 0);
+                    active_phases = std::vector<int>(samples_in_batch, 0);
+                    diploid_region = std::vector<bool>(samples_in_batch, true);
+                    nonvariant_starts = std::vector<size_t>(phases_in_batch, 0);
+                }
             }
 
-            if (show_progress) {
-                cerr << "Inserting all phase threads into DAG..." << endl;
-            }
-
-            // Now insert all the threads in a batch into the known-DAG VCF-
-            // derived graph.
-            if (!binary_haplotype_output.empty()) {
-                if (!write_phase_threads(all_phase_threads, binary_haplotype_output)) {
-                    cerr << "could not write binary haplotypes to " << binary_haplotype_output << endl;
-                    return 1;
-                }
+            // Flush the buffers and do whatever work is still left.
+            if (!gbwt_name.empty()) {
+                gbwt_builder->finish();
+                if (show_progress) { cerr << "Saving GBWT to disk..." << endl; }
+                sdsl::store_to_file(gbwt_builder->index, gbwt_name);
+                delete gbwt_builder; gbwt_builder = 0;
+                index.set_thread_names(thread_names);
+            } else if (!binary_haplotype_output.empty()) {
+                binary_file.close();
             } else {
-                // XXX todo make the names here
+                // Now insert all the threads in a batch into the known-DAG VCF-
+                // derived graph.
+                if (show_progress) {
+                    cerr << "Inserting all phase threads into DAG..." << endl;
+                }
                 index.insert_threads_into_dag(all_phase_threads, thread_names);
+                all_phase_threads.clear();
             }
-            all_phase_threads.clear();
-
         }
 
         if (show_progress) {
@@ -915,7 +1070,11 @@ int main_index(int argc, char** argv) {
         if (!show_progress) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         
         // Configure its temp directory to the system temp directory
-        gcsa::TempFile::setDirectory(find_temp_dir());
+        if (tmp_db_base.empty()) {
+            gcsa::TempFile::setDirectory(find_temp_dir());
+        } else { // or the user-specified directory
+            gcsa::TempFile::setDirectory(tmp_db_base);
+        }
 
         // Load up the graphs
         vector<string> tmpfiles;

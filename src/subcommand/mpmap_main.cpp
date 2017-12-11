@@ -47,6 +47,7 @@ void help_mpmap(char** argv) {
     << "algorithm:" << endl
     << "  -U, --snarl-max-cut INT   do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
     << "  -a, --alt-paths INT       align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
+    << "  -n, --unstranded          use lazy strand consistency when clustering MEMs" << endl
     << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
     << "  -I, --frag-mean           mean for fixed fragment length distribution" << endl
     << "  -D, --frag-stddev         standard deviation for fixed fragment length distribution" << endl
@@ -124,6 +125,7 @@ int main_mpmap(int argc, char** argv) {
     double frag_length_mean = NAN;
     double frag_length_stddev = NAN;
     bool same_strand = false;
+    bool unstranded_clustering = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -141,6 +143,7 @@ int main_mpmap(int argc, char** argv) {
             {"snarls", required_argument, 0, 's'},
             {"snarl-max-cut", required_argument, 0, 'U'},
             {"alt-paths", required_argument, 0, 'a'},
+            {"unstranded", no_argument, 0, 'n'},
             {"frag-sample", required_argument, 0, 'b'},
             {"frag-mean", required_argument, 0, 'I'},
             {"frag-stddev", required_argument, 0, 'D'},
@@ -171,7 +174,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:b:I:D:v:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:nb:I:D:v:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -252,6 +255,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'a':
                 num_alt_alns = atoi(optarg);
+                break;
+                
+            case 'n':
+                unstranded_clustering = true;
                 break;
                 
             case 'b':
@@ -611,6 +618,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.min_mem_length = min_mem_length;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
+    multipath_mapper.use_approx_sub_mem_count = false;
     if (min_clustering_mem_length) {
         multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
     }
@@ -627,6 +635,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
     multipath_mapper.num_mapping_attempts = max_map_attempts ? max_map_attempts : numeric_limits<int>::max();
+    multipath_mapper.unstranded_clustering = unstranded_clustering;
     
     // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;
@@ -792,18 +801,7 @@ int main_mpmap(int argc, char** argv) {
 #endif
     };
     
-    // for FASTQ input all but the first thread go into spinlock until the distribution is estimated or abandoned
-    bool input_finished = false;
-    function<bool(void)> distribution_spinlock = [&](void) {
-        return omp_get_thread_num() == 0 || multipath_mapper.has_fixed_fragment_length_distr() || input_finished;
-    };
-    
-    // mark the input as finished to get any remaining threads out of the spinlock
-    function<void(void)> abandon_distribution = [&](void) {
-        input_finished = true;
-    };
-    
-    // for GAM input, don't spawn new tasks unless this evalutes to true
+    // for streaming paired input, don't spawn new tasks unless this evalutes to true
     function<bool(void)> multi_threaded_condition = [&](void) {
         return multipath_mapper.has_fixed_fragment_length_distr();
     };
@@ -813,14 +811,14 @@ int main_mpmap(int argc, char** argv) {
     if (!fastq_name_1.empty()) {
         if (interleaved_input) {
             fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name_1, do_paired_alignments,
-                                                                  distribution_spinlock, abandon_distribution);
+                                                                  multi_threaded_condition);
         }
         else if (fastq_name_2.empty()) {
             fastq_unpaired_for_each_parallel(fastq_name_1, do_unpaired_alignments);
         }
         else {
             fastq_paired_two_files_for_each_parallel_after_wait(fastq_name_1, fastq_name_2, do_paired_alignments,
-                                                                distribution_spinlock, abandon_distribution);
+                                                                multi_threaded_condition);
         }
     }
     

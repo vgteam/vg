@@ -96,7 +96,14 @@ handle_t VG::flip(const handle_t& handle) const {
 }
 
 size_t VG::get_length(const handle_t& handle) const {
-    return get_sequence(handle).size();
+    // Don't get the real sequence because it might need a reverse complement calculation
+    auto found = node_by_id.find(get_id(handle));
+    if (found != node_by_id.end()) {
+        // We found a node. Grab its sequence length
+        return (*found).second->sequence().size();
+    } else {
+        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+    }
 }
 
 string VG::get_sequence(const handle_t& handle) const {
@@ -2747,7 +2754,8 @@ void VG::bluntify(void) {
 
     // We populate this with edges with incorrect overlaps that we want to delete.
     set<Edge*> bad_edges;
-    for_each_edge([&](Edge* edge) {
+    // Run in parallel as this can be very expensive
+    for_each_edge_parallel([&](Edge* edge) {
         if (edge->overlap() > 0) {
 #ifdef debug
             cerr << "claimed overlap " << edge->overlap() << endl;
@@ -2756,45 +2764,10 @@ void VG::bluntify(void) {
             auto from_seq = trav_sequence(NodeTraversal(get_node(edge->from()), edge->from_start()));
             auto to_seq = trav_sequence(NodeTraversal(get_node(edge->to()), edge->to_end()));
 
-            // for now, we assume they perfectly match, and walk back from the matching end for each
-            auto from_overlap = from_seq.substr(from_seq.size() - edge->overlap(), edge->overlap());
-            auto to_overlap = to_seq.substr(0, edge->overlap());
-
-            // an approximate overlap graph will violate this assumption
-            // so perhaps we should simply choose the first and throw a warning
-            if (from_overlap != to_overlap) {
-                SSWAligner aligner;
-                auto aln = aligner.align(from_overlap, to_overlap);
-                // find the central match
-                // the alignment from the first to second should match at the very beginning of the from_seq
-                int correct_overlap = 0;
-                if (aln.path().mapping(0).edit_size() <= 2
-                    && edit_is_match(aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1))) {
-                    // get the length of the first match
-                    correct_overlap = aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1).from_length();
-#ifdef debug
-                    cerr << "correct overlap is " << correct_overlap << endl;
-#endif
-                    edge->set_overlap(correct_overlap);
-                } else {
-                    cerr << "[VG::bluntify] warning! overlaps of "
-                         << pb2json(*edge)
-                         << " are not identical and could not be resolved by alignment" << endl;
-                    cerr << "o1:  " << from_overlap << endl
-                         << "o2:  " << to_overlap << endl
-                         << "aln: " << pb2json(aln) << endl;
-                    
-                    // Drop the edge
-                    bad_edges.insert(edge);
-                }
-
-            } else {
-#ifdef debug
-                cerr << "overlap as expected" << endl;
-#endif
-            }
+            if (edge->overlap() > from_seq.size()) edge->set_overlap(from_seq.size());
+            if (edge->overlap() > to_seq.size()) edge->set_overlap(to_seq.size());
         }
-    });
+        });
     
     for (auto* edge : bad_edges) {
         // Drop all the edges with incorrect overlaps
@@ -6497,7 +6470,8 @@ void VG::to_dot(ostream& out,
                     if (i < path.mapping_size()-1) {
                         const Mapping& m2 = path.mapping(i+1);
                         out << m1.position().node_id() << " -> " << m2.position().node_id()
-                            << " [dir=none,tailport=ne,headport=nw,color=\""
+                            << " [dir=none,tailport=" << (m1.position().is_reverse() ? "nw" : "ne") 
+                            << ",headport=" << (m2.position().is_reverse() ? "ne" : "nw") << ",color=\""
                             << color << "\",label=\"     " << path_label << "     \",fontcolor=\"" << color << "\",constraint=false];" << endl;
                     }
                 }

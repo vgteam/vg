@@ -38,17 +38,6 @@ using namespace std;
 class Genotyper {
 public:
 
-    // Represents a superbubble
-    struct Site {
-        // Where does the superbubble start?
-        NodeTraversal start;
-        // Where does the superbubble end?
-        NodeTraversal end;
-        // What nodes (including the start and end and the nodes of any nested
-        // superbubbles) are in the superbubble?
-        set<id_t> contents;
-    };
-    
     // Represents an assertion that a read is consistent or not consistent with
     // an allele, including an affinity weight and a flag for strand
     struct Affinity {
@@ -78,7 +67,7 @@ public:
 
 
 
-    // How many nodes max should we walk when checking if a path runs through a superbubble/site
+    // How many nodes max should we walk when checking if a path runs through a superbubble/snarl
     size_t max_path_search_steps = 100;
     
     // How long should we unfold graphs to?
@@ -103,7 +92,7 @@ public:
     int default_sequence_quality = 15;
     
     // How many times must a path recur before we try aligning to it? Also, how
-    // many times must a node in the graph be visited before we use it in indel
+    // many times must a node in the graph be visnarld before we use it in indel
     // realignment for nearby indels? Note that the primary path counts as a
     // recurrence. TODO: novel inserts can't recur, and novel deletions can't be
     // filtered in this way.
@@ -116,59 +105,48 @@ public:
     // order to actually use it as supporting the thing we just aligned it to?
     double min_score_per_base = 0.90;
     
-    // What should our prior on being heterozygous at a site be?
+    // Now define the prior distribution on genotypes.
+    
+    // What should the prior probability of a snarl being diploid be?
+    double diploid_prior_logprob = prob_to_logprob(0.999);
+    // What should our prior on being heterozygous at a snarl be, given that it is diploid?
     double het_prior_logprob = prob_to_logprob(0.1);
+    // What should the prior probability of a non-diploid snarl being haploid be?
+    double haploid_prior_logprob = prob_to_logprob(0.5);
+    // What should the prior probability of a non-diploid, non-haploid snarl
+    // being completely deleted be?
+    double deleted_prior_logprob = prob_to_logprob(0.1);
+    // If not diploid, not haploid, and not deleted, the snarl is polyploid. We
+    // model the number of additional copies over 2 with a geometric prior. What
+    // should the parameter (success probability for stopping adding copies) be?
+    double polyploid_prior_success_logprob = prob_to_logprob(0.5);
 
     // Provides a mechanism to translate back to the original graph
     Translator translator;
     
     
-    // We need some data structures to track statistics about sites and their
+    // We need some data structures to track statistics about snarls and their
     // traversals. These data structures are only valid during the run method.
-    // After that the site pointers they use may be left dangling.
+    // After that the snarl pointers they use may be left dangling.
     
-    // This maps from length in the reference to number of sites of that length.
-    map<size_t, size_t> site_reference_length_histogram;
+    // This maps from length in the reference to number of snarls of that length.
+    unordered_map<size_t, size_t> snarl_reference_length_histogram;
     
-    // Which reads traverse all the way through each site?
-    map<const Site*, set<string>> site_traversals;
+    // Which reads traverse all the way through each snarl?
+    unordered_map<const Snarl*, set<string>> snarl_traversals;
     
-    // What sites exist, for statistical purposes?
-    set<const Site*> all_sites;
+    // What snarls even exist?
+    unordered_set<const Snarl*> all_snarls;
     
     // We need to have aligners in our genotyper, for realigning around indels.
     Aligner normal_aligner;
     QualAdjAligner quality_aligner;
 
-    // Genotype known variants from a VCF file.
-    void variant_recall(VG* graph,
-                                vcflib::VariantCallFile* vars,
-                                FastaReference* ref_genome,
-                                vector<FastaReference*> insertions,
-                                string gamfile, bool isIndex = false);
-    // Genotype new SVs from a GAM
-    void genotype_svs(VG* graph, 
-                        string gamfile, string refpath);
-    // Genotype new SVs from a GAM, and mark them as T/N for somatic calling
-    // void agument_SVs(VG* graph,
-    //                  string gamfile,
-    //                  string aug_prefix,
-    //                  bool do_split,
-    //                  bool do_paired);
-    // void augment_svs(VG* graph, 
-    //                    vector<string> gamfiles,
-    //                    vector<string> aug_prefixes,
-    //                    bool do_split_remapping,
-    //                    boool do_paired_ends);
-    // void somatic_call(VG* augmented, string refpath, vector<pair<string, string> > som_samples);
-
-    // void somatic_call(VG* augmented, vector<pair<string, string> > som_samples);
-
     // Process and write output
-    void run(VG& graph,
+    void run(AugmentedGraph& graph,
              vector<Alignment>& alignments,
              ostream& out,
-             string ref_path_name = "",
+             string ref_path_name,
              string contig_name = "",
              string sample_name = "",
              string augmented_file_name = "",
@@ -180,71 +158,65 @@ public:
              int variant_offset = 0);
     
     /**
-     * Given an Alignment and a Site, compute a phred score for the quality of
-     * the alignment's bases within the site overall (not counting the start and
+     * Given an Alignment and a Snarl, compute a phred score for the quality of
+     * the alignment's bases within the snarl overall (not counting the start and
      * end nodes), which is supposed to be interpretable as the probability that
      * the call of the sequence is wrong (to the degree that it would no longer
      * support the alleles it appears to support).
      *
      * In practice we're just going to average the quality scores for all the
-     * bases interior to the site (i.e. not counting the start and end nodes).
+     * bases interior to the snarl (i.e. not counting the start and end nodes).
      *
      * If the alignment doesn't have base qualities, or no qualities are
-     * available for bases internal to the site, returns a default value.
+     * available for bases internal to the snarl, returns a default value.
      */
-    int alignment_qual_score(VG& graph, const Site& site, const Alignment& alignment);
+    int alignment_qual_score(VG& graph, const Snarl* snarl, const Alignment& alignment);
 
-    /** 
-     * Unfold and dagify a graph, find the snarls, and then convert them
-     * back to the space of the original graph.
-     *
-     * Returns a collection of Sites.
-     *
-     * This is more general and doesn't require DAGifcation etc., but we keep
-     * both versions around for now for debugging and comparison
-     *
-     * If ref_path_name is the empty string, it is not used. Otherwise, it must
-     * be the name of a path present in the graph.
-     */
-    vector<Site> find_sites_with_cactus(VG& graph, const string& ref_path_name = "");
-    
     /**
-     * Given a path (which may run either direction through a site, or not touch
+     * Given a path (which may run either direction through a snarl, or not touch
      * the ends at all), collect a list of NodeTraversals in order for the part
-     * of the path that is inside the site, in the same orientation as the path.
+     * of the path that is inside the snarl, in the same orientation as the path.
      */
-    list<NodeTraversal> get_traversal_of_site(VG& graph, const Site& site, const Path& path);
+    list<Mapping> get_traversal_of_snarl(VG& graph, const Snarl* snarl, const SnarlManager& manager, const Path& path);
     
     /**
      * Make a list of NodeTraversals into the string they represent.
      */
-    string traversals_to_string(const list<NodeTraversal>& path);
-    
+    string traversals_to_string(VG& graph, const list<Mapping>& path);
+
     /**
-     * For the given site, emit all subpaths with unique sequences that run from
+     * Check if a mapping corresponds to the beginning or end of snarl by making
+     * sure it crosses the given side in the expected direction. The handle
+     * should be forward for the left side and reverse for the right side.
+     */
+    static bool mapping_enters_side(const Mapping& mapping, const handle_t& side, const HandleGraph* graph);
+    static bool mapping_exits_side(const Mapping& mapping, const handle_t& side, const HandleGraph* graph);
+   
+    /**
+     * For the given snarl, emit all subpaths with unique sequences that run from
      * start to end, out of the paths in the graph. Uses the map of reads by
      * name to determine if a path is a read or a real named path. Paths through
-     * the site supported only by reads are subject to a min recurrence count,
+     * the snarl supported only by reads are subject to a min recurrence count,
      * while those supported by actual embedded named paths are not.
      */
-    vector<list<NodeTraversal>> get_paths_through_site(VG& graph, const Site& site,
-        const map<string, Alignment*>& reads_by_name);
+    vector<list<Mapping>> get_paths_through_snarl(VG& graph, const Snarl* snarl,
+        const SnarlManager& manager, const map<string, Alignment*>& reads_by_name);
     
     /**
      * Get all the quality values in the alignment between the start and end
-     * nodes of a site. Handles alignments that enter the site from the end, and
-     * alignments that never make it through the site.
+     * nodes of a snarl. Handles alignments that enter the snarl from the end, and
+     * alignments that never make it through the snarl.
      *
      * If we run out of qualities, or qualities aren't present, returns no
      * qualities.
      *
-     * If an alignment goes through the site multipe times, we get all the
-     * qualities from when it is in the site.
+     * If an alignment goes through the snarl multipe times, we get all the
+     * qualities from when it is in the snarl.
      *
      * Does not return qualities on the start and end nodes. May return an empty
      * string.
      */
-    string get_qualities_in_site(VG& graph, const Site& site, const Alignment& alignment);
+    string get_qualities_in_snarl(VG& graph, const Snarl* snarl, const Alignment& alignment);
     
     /**
      * Get the affinity of all the reads relevant to the superbubble to all the
@@ -253,20 +225,21 @@ public:
      * Affinity is a double out of 1.0. Higher is better.
      */ 
     map<Alignment*, vector<Affinity>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
-        const Site& site,  const vector<list<NodeTraversal>>& superbubble_paths);
+        const Snarl* snarl, const SnarlManager& manager, const vector<list<Mapping>>& superbubble_paths);
         
     /**
      * Get affinities as above but using only string comparison instead of
      * alignment. Affinities are 0 for mismatch and 1 for a perfect match.
      */
     map<Alignment*, vector<Affinity>> get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
-        const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, bool allow_internal_alignments = false);
+        const Snarl* snarl, const SnarlManager& manager, const vector<list<Mapping>>& superbubble_paths,
+        bool allow_internal_alignments = false);
         
     /**
      * Compute annotated genotype from affinities and superbubble paths.
      * Needs access to the graph so it can chop up the alignments, which requires node sizes.
      */
-    Locus genotype_site(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<Affinity>>& affinities);
+    Locus genotype_snarl(VG& graph, const Snarl* snarl, const vector<list<Mapping>>& superbubble_paths, const map<Alignment*, vector<Affinity>>& affinities);
         
     /**
      * Compute the probability of the observed alignments given the genotype.
@@ -280,7 +253,7 @@ public:
      *
      * Returns a natural log likelihood.
      */
-    double get_genotype_log_likelihood(VG& graph, const Site& site, const vector<int>& genotype, const vector<pair<Alignment*, vector<Affinity>>>& alignment_consistency);
+    double get_genotype_log_likelihood(VG& graph, const Snarl* snarl, const vector<int>& genotype, const vector<pair<Alignment*, vector<Affinity>>>& alignment_consistency);
     
     /**
      * Compute the prior probability of the given genotype.
@@ -302,7 +275,8 @@ public:
      * Sometimes if we can't make a variant for the superbubble against the
      * reference path, we'll emit 0 variants.
      */
-    vector<vcflib::Variant> locus_to_variant(VG& graph, const Site& site, const PathIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus,
+    vector<vcflib::Variant> locus_to_variant(VG& graph, const Snarl* snarl, const SnarlManager& manager,
+        const PathIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus,
         const string& sample_name = "SAMPLE");
     
     /**
@@ -317,29 +291,30 @@ public:
     
     /**
      * Utility function for getting the reference bounds (start and past-end) of
-     * a site with relation to a given reference index. Computes bounds of the
-     * variable region, not including the fixed start and end node lengths. Also
-     * returns whether the reference path goes through the site forwards (false)
-     * or backwards (true).
+     * a snarl with relation to a given reference index in the given graph.
+     * Computes bounds of the variable region, not including the fixed start and
+     * end node lengths. Also returns whether the reference path goes through
+     * the snarl forwards (false) or backwards (true).
      */
-    pair<pair<int64_t, int64_t>, bool> get_site_reference_bounds(const Site& site, const PathIndex& index);
+    pair<pair<int64_t, int64_t>, bool> get_snarl_reference_bounds(const Snarl* snarl, const PathIndex& index,
+        const HandleGraph* graph);
     
     /**
-     * Tell the statistics tracking code that a site exists. We can do things
-     * like count up the site length in the reference and so on. Called only
-     * once per site, but may be called on multiple threads simultaneously.
+     * Tell the statistics tracking code that a snarl exists. We can do things
+     * like count up the snarl length in the reference and so on. Called only
+     * once per snarl, but may be called on multiple threads simultaneously.
      */
-    void report_site(const Site& site, const PathIndex* index = nullptr);
+    void report_snarl(const Snarl* snarl, const SnarlManager& manager, const PathIndex* index, VG& graph);
     
     /**
-     * Tell the statistics tracking code that a read traverses a site
-     * completely. May be called multiple times for a given read and site, and
+     * Tell the statistics tracking code that a read traverses a snarl
+     * completely. May be called multiple times for a given read and snarl, and
      * may be called in parallel.
      */
-    void report_site_traversal(const Site& site, const string& read_name);
+    void report_snarl_traversal(const Snarl* snarl, const SnarlManager& manager, const string& read_name, VG& graph);
     
     /**
-     * Print site statistics to the given stream.
+     * Print snarl statistics to the given stream.
      */
     void print_statistics(ostream& out);
 
@@ -380,13 +355,13 @@ public:
     };
     
     void edge_allele_labels(const VG& graph,
-                            const Site& site,
+                            const Snarl* snarl,
                             const vector<list<NodeTraversal>>& superbubble_paths,
                             unordered_map<pair<NodeTraversal, NodeTraversal>,
                                           unordered_set<size_t>,
                                           hash_oriented_edge>* out_edge_allele_sets);
     void allele_ambiguity_log_probs(const VG& graph,
-                                    const Site& site,
+                                    const Snarl* snarl,
                                     const vector<list<NodeTraversal>>& superbubble_paths,
                                     const unordered_map<pair<NodeTraversal, NodeTraversal>,
                                                         unordered_set<size_t>,

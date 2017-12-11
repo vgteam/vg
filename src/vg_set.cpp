@@ -48,8 +48,7 @@ void VGset::for_each(std::function<void(VG*)> lambda) {
 
 int64_t VGset::merge_id_space(void) {
     int64_t max_node_id = 0;
-    int64_t max_path_id = 0;
-    auto lambda = [&max_node_id, &max_path_id](VG* g) {
+    auto lambda = [&max_node_id](VG* g) {
         if (max_node_id > 0) g->increment_node_ids(max_node_id);
         max_node_id = g->max_node_id();
     };

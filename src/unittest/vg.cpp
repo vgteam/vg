@@ -1293,7 +1293,10 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         }
         
     }
-    
+
+    // TODO un-disable overlap resolution
+    // This may require us updating to GFA2's E(dge) model
+    /*
     SECTION("extraneous overlap should be pruned back") {
         const string graph_json = R"(
         
@@ -1356,6 +1359,7 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         }
         
     }
+    */
     
     SECTION("overlaps should be able to overlap in the middle") {
         const string graph_json = R"(

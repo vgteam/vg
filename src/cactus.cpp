@@ -259,6 +259,11 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
     // We also want a map so we can efficiently find which component a node lives in.
     unordered_map<id_t, size_t> node_to_component;
     for (size_t i = 0; i < weak_components.size(); i++) {
+        if (weak_components[i].size() == 1) {
+            // If we feed this through to Cactus it will crash.
+            throw runtime_error("Cactus does not currently support finding snarls in a single-node connected component");
+        }
+    
         for (auto& id : weak_components[i]) {
             node_to_component[id] = i;
         }
@@ -292,6 +297,12 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
         // For every path
         auto& path_mappings = graph.paths.get_path(name);
         
+        if (path_mappings.empty()) {
+            // Not a real useful path, so skip it. Some alt paths used for
+            // haplotype generation are empty.
+            return;
+        }
+        
         // Save the path under the component
         auto component = node_to_component[path_mappings.front().position().node_id()];
         component_paths[component].push_back(name);
@@ -305,6 +316,11 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
             // sometimes (like in the tests) the mapping edits haven't been
             // populated.
             path_length[name] += graph.get_length(graph.get_handle(mapping.position().node_id(), false));
+            
+            if (node_to_component[mapping.position().node_id()] != component) {
+                // If we use a path like this to pick telomeres we will segfault Cactus.
+                throw runtime_error("Path " + name + " spans multiple connected components!");
+            }
         }
         
 #ifdef debug

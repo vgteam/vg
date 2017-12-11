@@ -31,8 +31,8 @@ void trace_haplotypes_and_paths(xg::XG& index,
   for (int i = 0; i < haplotypes.size(); ++i) {
     Path p = path_from_thread_t(haplotypes[i].first);
     p.set_name("thread_" + to_string(i));
-    *(out_graph.add_path()) = move(p);
     out_thread_frequencies[p.name()] = haplotypes[i].second;
+    *(out_graph.add_path()) = move(p);
   }
 }
 

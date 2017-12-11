@@ -9,8 +9,8 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "index.hpp"
-#include "gcsa/gcsa.h"
-#include "gcsa/lcp.h"
+#include <gcsa/gcsa.h>
+#include <gcsa/lcp.h>
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
@@ -22,6 +22,7 @@
 #include "mem.hpp"
 #include "cluster.hpp"
 #include "graph.hpp"
+#include "translator.hpp"
 
 namespace vg {
 
@@ -209,6 +210,7 @@ public:
     bool adaptive_reseed_diff; // use an adaptive length difference algorithm in reseed algorithm
     double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
+    bool use_approx_sub_mem_count = true;
     
     bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
     bool assume_acyclic; // the indexed graph is acyclic
@@ -545,9 +547,7 @@ public:
                                 set<string>& path_names,
                                 string& path_name,
                                 int64_t& path_pos,
-                                bool& path_reverse,
-                                int window);
-
+                                bool& path_reverse);
     
     // compute a mapping quality component based only on the MEMs we've obtained
     double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);

@@ -2622,6 +2622,11 @@ namespace vg {
                     REQUIRE(snarl_manager.in_nontrivial_chain(child3));
                 }
                 
+                SECTION("They should be in the same chain") {
+                    REQUIRE(snarl_manager.chain_of(child1) == snarl_manager.chain_of(child2));
+                    REQUIRE(snarl_manager.chain_of(child2) == snarl_manager.chain_of(child3));
+                }
+                
                 SECTION("We can traverse the chain with iterators") {
                     auto chains = snarl_manager.chains_of(nullptr);
                     
@@ -2631,8 +2636,10 @@ namespace vg {
                     
                     auto begin = chain_begin(chain);
                     auto rbegin = chain_rbegin(chain);
+                    auto rcbegin = chain_rcbegin(chain);
                     auto end = chain_end(chain);
                     auto rend = chain_rend(chain);
+                    auto rcend = chain_rcend(chain);
                     
                     SECTION("Iterator equality works") {
                     
@@ -2700,6 +2707,52 @@ namespace vg {
                         
                     }
                     
+                    SECTION("Reverse complement iterators traverse the chain correctly") {
+                        auto it = rcbegin;
+                        
+                        REQUIRE(*it == make_pair(child3, true));
+                        
+                        REQUIRE(it->first == child3);
+                        REQUIRE(it->second == true);
+                        
+                        ++it;
+                        
+                        REQUIRE(*it == make_pair(child2, true));
+                        
+                        REQUIRE(it->first == child2);
+                        REQUIRE(it->second == true);
+                        
+                        ++it;
+                        
+                        REQUIRE(*it == make_pair(child1, true));
+                        
+                        REQUIRE(it->first == child1);
+                        REQUIRE(it->second == true);
+                        
+                        ++it;
+                        
+                        REQUIRE(it == rcend);
+                        
+                    }
+                    
+                    SECTION("We can view the chain from each end") {
+                        REQUIRE(chain_begin_from(chain, child1, false) == begin);
+                        REQUIRE(chain_end_from(chain, child1, false) == end);
+                        
+                        REQUIRE(chain_begin_from(chain, child3, true) == rcbegin);
+                        REQUIRE(chain_end_from(chain, child3, true) == rcend);
+                        
+                        snarl_manager.flip(child1);
+                        snarl_manager.flip(child3);
+                        
+                        REQUIRE(chain_begin_from(chain, child1, true) == chain_begin(chain));
+                        REQUIRE(chain_end_from(chain, child1, true) == chain_end(chain));
+                        
+                        REQUIRE(chain_begin_from(chain, child3, false) == chain_rcbegin(chain));
+                        REQUIRE(chain_end_from(chain, child3, false) == chain_rcend(chain));
+                        
+                    }
+                    
                     SECTION("Empty chains have proper iterators") {
                         Chain empty;
                         
@@ -2733,40 +2786,34 @@ namespace vg {
                     REQUIRE(it == chain_end(chain));
                 }
                 
-                SECTION("We can look around with Visits") {
-                    Visit here;
-                    transfer_boundary_info(*child1, *here.mutable_snarl());
+                SECTION("We can look around from a snarl") {
+                    const Chain* chain = snarl_manager.chain_of(child1);
                     
-                    SECTION("Looking left off the end of the chain gives us a Visit with no Snarl") {
-                        Visit left = snarl_manager.prev_in_chain(here);
+                    ChainIterator here = chain_begin_from(*chain, child1, false);
+                    ChainIterator end = chain_end_from(*chain, child1, false);
+                    
+                    SECTION("Looking right into the chain gives us the Snarl to the right") {
+                        ChainIterator right = here;
+                        ++right;
                         
-                        REQUIRE(!left.has_snarl());
+                        REQUIRE(right != end);
+                        REQUIRE(right->first == child2);
+                        // Must not be backward
+                        REQUIRE(right->second == false);
                     }
                     
-                    SECTION("Looking right into the chain gives us a Visit to the right Snarl") {
-                        Visit right = snarl_manager.next_in_chain(here);
-                        
-                        REQUIRE(right.has_snarl());
-                        REQUIRE(right.snarl().start().node_id() == child2->start().node_id());
-                        REQUIRE(right.snarl().end().node_id() == child2->end().node_id());
-                        REQUIRE(!right.backward());
-                    }
-                    
-                    here.set_backward(true);
-                    
-                    SECTION("Looking right off the end of the chain gives us a Visit with no Snarl") {
-                        Visit right = snarl_manager.next_in_chain(here);
-                        
-                        REQUIRE(!right.has_snarl());
-                    }
+                    // Now look from the other end
+                    here = chain_begin_from(*chain, child3, true);
+                    end = chain_end_from(*chain, child3, true);
                     
                     SECTION("Looking left into the chain gives us a Visit to the right Snarl") {
-                        Visit left = snarl_manager.prev_in_chain(here);
+                        ChainIterator left = here;
+                        ++left;
                         
-                        REQUIRE(left.has_snarl());
-                        REQUIRE(left.snarl().start().node_id() == child2->start().node_id());
-                        REQUIRE(left.snarl().end().node_id() == child2->end().node_id());
-                        REQUIRE(left.backward());
+                        REQUIRE(left != end);
+                        REQUIRE(left->first == child2);
+                        // Must be backward
+                        REQUIRE(left->second == true);
                     }
                     
                     
@@ -2775,6 +2822,103 @@ namespace vg {
             }
             
         }
+        
+        TEST_CASE("Chain start and end functions work on difficult chains", "[snarls]") {
+            // This graph will have a snarl from 1 to 8, a snarl from 2 to 4, and a
+            // snarl from 4 to 7, with a chain in the top snarl. The snarl from 4 to 7
+            // will have a child snarl from 5 to 6 (an insertion of node 9)
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            Node* n9 = graph.create_node("GCA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n8);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n4);
+            Edge* e5 = graph.create_edge(n3, n4);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n4, n7);
+            Edge* e8 = graph.create_edge(n5, n6);
+            Edge* e9 = graph.create_edge(n5, n9);
+            Edge* e10 = graph.create_edge(n9, n6);
+            Edge* e11 = graph.create_edge(n6, n7);
+            Edge* e12 = graph.create_edge(n7, n8);
+            
+            // Work out its snarls
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            
+            // Get the top snarl
+            const Snarl* top_snarl = snarl_manager.top_level_snarls().at(0);
+            
+            if (top_snarl->end().node_id() < top_snarl->start().node_id()) {
+                // Put it a consistent way around
+                snarl_manager.flip(top_snarl);
+            }
+            
+            // Make sure it's what we expect.
+            REQUIRE(top_snarl->start().node_id() == 1);
+            REQUIRE(top_snarl->end().node_id() == 8);
+
+            // Make sure we have one chain    
+            auto& chains = snarl_manager.chains_of(top_snarl);
+            REQUIRE(chains.size() == 1);
+            
+            // Get the chain
+            auto& chain = chains.at(0);
+            REQUIRE(chain.size() == 2);
+            
+            // And the snarls in the chain
+            const Snarl* left_child = chain.at(0);
+            const Snarl* right_child = chain.at(1);
+            
+            REQUIRE(left_child->start().node_id() == 2);
+            REQUIRE(left_child->end().node_id() == 4);
+            
+            // Make sure the right child is BACKWARD in the chain
+            snarl_manager.flip(right_child);
+            
+            REQUIRE(right_child->start().node_id() == 7);
+            REQUIRE(right_child->end().node_id() == 4);
+            
+            const Snarl* right_child_child = snarl_manager.children_of(right_child).at(0);
+            
+            REQUIRE(right_child_child->start().node_id() == 5);
+            REQUIRE(right_child_child->end().node_id() == 6);
+            
+            SECTION("A chain can be found from a backward member snarl") {
+                const Chain* chain = snarl_manager.chain_of(right_child);
+                
+                REQUIRE(chain != nullptr);
+                
+                SECTION("The chain has the two snarls in it") {
+                    REQUIRE(chain->size() == 2);
+                    REQUIRE(chain->at(0) == left_child);
+                    REQUIRE(chain->at(1) == right_child);
+                }
+                
+                SECTION("The chain end orientations are correct") {
+                    REQUIRE(start_backward(*chain) == false);
+                    REQUIRE(end_backward(*chain) == true);
+                }
+                    
+                SECTION("The chain ends are correct") {
+                    REQUIRE(get_start_of(*chain) == left_child->start());
+                    REQUIRE(get_end_of(*chain) == reverse(right_child->start()));
+                }
+                
+            }
+            
+        }
+        
         
     }
 }
