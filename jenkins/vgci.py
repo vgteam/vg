@@ -500,7 +500,8 @@ class VGCITest(TestCase):
             maxCores = self.cores,
             # toil-vg map options
             # don't waste time sharding reads since we only run on one node
-            single_reads_chunk = True
+            single_reads_chunk = True,
+            mpmap_opts = ['-B', '-S']
         )
         
         # Make the context

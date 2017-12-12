@@ -2489,7 +2489,7 @@ void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) {
 }
 
 void Mapper::annotate_with_initial_path_positions(Alignment& aln) {
-    if (aln.refpos_size()) return; // refpos already cached in the alignment
+    aln.clear_refpos();
     auto init_path_positions = alignment_path_offsets(aln);
     for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
         for (auto& pos : pos_record.second) {

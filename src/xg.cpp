@@ -3132,7 +3132,9 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
 #endif
                 int64_t interval_dist = relative_offset;
                 if (oriented_path.second) {
-                    interval_dist += (path.positions[oriented_occurrences_1[i].first] + node_length(get<0>(node_trav_1))) - (path.positions[oriented_occurrences_2[j].first] + node_length(get<0>(node_trav_2)));
+                    size_t node_start_1 = oriented_occurrences_1[i].first + 1 < path.positions.size() ? path.positions[oriented_occurrences_1[i].first + 1] : path.offsets.size();
+                    size_t node_start_2 = oriented_occurrences_2[j].first + 1 < path.positions.size() ? path.positions[oriented_occurrences_2[j].first + 1] : path.offsets.size();
+                    interval_dist += node_start_1 - node_start_2;
                 }
                 else {
                     interval_dist += path.positions[oriented_occurrences_2[j].first] - path.positions[oriented_occurrences_1[i].first];
@@ -3605,9 +3607,10 @@ map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const 
         auto& path = *paths[prank-1];
         auto& pos_in_path = positions[path_name(prank)];
         for (auto i : node_ranks_in_path(node_id, prank)) {
-            size_t off = path.positions[i] + offset(pos);
             // relative direction to this traversal
             bool dir = path.directions[i] != is_rev(pos);
+            size_t off = path.positions[i] + offset(pos);
+            
             pos_in_path.push_back(make_pair(off, dir));
         }
     }

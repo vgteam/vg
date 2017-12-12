@@ -60,6 +60,10 @@ namespace vg {
         /// have at most the given probability of occurring in random sequence of the same size as the graph
         void set_automatic_min_clustering_length(double random_mem_probability = 0.5);
         
+        /// Map random sequences against the graph to calibrate a parameterized distribution that detects
+        /// when mappings are likely to have occurred by chance
+        void calibrate_mismapping_detection(size_t num_simulations = 1000, size_t simulated_read_length = 150);
+        
         // parameters
         
         int64_t max_snarl_cut_size = 5;
@@ -72,6 +76,7 @@ namespace vg {
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
+        double pseudo_length_multiplier = 1.65;
         bool unstranded_clustering = true;
         
         //static size_t PRUNE_COUNTER;
@@ -190,7 +195,7 @@ namespace vg {
         bool likely_mismapping(const MultipathAlignment& multipath_aln);
         
         /// A scaling of a score so that it approximately follows the distribution of the longest match in p-value test
-        size_t score_pseudo_length(int32_t score) const;
+        size_t pseudo_length(const MultipathAlignment& multipath_aln) const;
         
         /// The approximate p-value for a match length of the given size against the current graph
         double random_match_p_value(size_t match_length, size_t read_length);
