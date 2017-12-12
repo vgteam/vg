@@ -1,26 +1,31 @@
-// Needed for EOWNERDEAD, ENOTRECOVERABLE on OS X
 #ifdef __APPLE__
+    // We can't set _POSIX_C_SOURCE on OS X because it hides the non-POSIX dladdr() with no way to get it back.
+    // But we do need level 200809L features generally (for example, for EOWNERDEAD and ENOTRECOVERABLE on OS X).
+    // So we do it the Apple Way.
     #define __DARWIN_C_LEVEL __DARWIN_C_FULL
+#else
+    // Needed for siginfo_t to be defined.
+    #define _POSIX_C_SOURCE 200809L
 #endif
 
+// We need this for ucontext.h to give us useful context stuff...
+#define _XOPEN_SOURCE
+
 #include "crash.hpp"
+
+// iostream wants this on Travis on Mac
+#include <pthread.h>
+#include <errno.h>
 
 // Needed for automatic name demangling, but not all that portable
 #include <cxxabi.h>
 #include <execinfo.h>
+
 // Needed to hack contexts for signal traces
-#ifndef _XOPEN_SOURCE
-    #define _XOPEN_SOURCE
-    #include <ucontext.h>
-    #undef _XOPEN_SOURCE
-#else
-    #include <ucontext.h>
-#endif
+ #include <ucontext.h>
+ 
 // Needed to generate stacktraces ourselves
 #include <dlfcn.h>
-
-// iostream wants this on Travis on Mac
-#include <pthread.h>
 
 // We need strcmp
 #include <cstring>
