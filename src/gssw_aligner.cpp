@@ -334,16 +334,18 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
     }
     
     // work in log transformed valued to avoid risk of overflow
-    double log_sum_exp = scaled_scores[0];
-    *max_idx_out = 0;
-    for (size_t i = 1; i < scaled_scores.size(); i++) {
+    double log_sum_exp = numeric_limits<double>::lowest();
+    double max_score = numeric_limits<double>::lowest();
+    // go in reverse order because this has fewer numerical problems when the scores are sorted (as usual)
+    for (int64_t i = scaled_scores.size() - 1; i >= 0; i--) {
         log_sum_exp = add_log(log_sum_exp, scaled_scores[i]);
-        if (scaled_scores[i] > scaled_scores[*max_idx_out]) {
+        if (scaled_scores[i] > max_score) {
             *max_idx_out = i;
+            max_score = scaled_scores[i];
         }
     }
-    return scaled_scores[*max_idx_out] > log_sum_exp ?
-           -quality_scale_factor * subtract_log(0.0, scaled_scores[*max_idx_out] - log_sum_exp) : (double) numeric_limits<int32_t>::max();
+    return max_score > log_sum_exp ?
+           -quality_scale_factor * subtract_log(0.0, max_score - log_sum_exp) : (double) numeric_limits<int32_t>::max();
 }
 
 // TODO: this algorithm has numerical problems that would be difficult to solve without increasing the
