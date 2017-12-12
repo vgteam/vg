@@ -803,7 +803,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
 #endif
     
     // how many times does the parent MEM occur in the index?
-    size_t parent_range_count = use_approx_sub_mem_count ? gcsa::Range::length(mem.range) : gcsa->count(mem.range);
+    size_t parent_range_count = use_approx_sub_mem_count ? gcsa::Range::length(mem.range) : mem.match_count;
     
     // the end of the leftmost substring that is at least the minimum length and not contained
     // in the next SMEM
@@ -839,9 +839,11 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             
             range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
             
-            if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
-                probe_string_more_frequent = false;
-                break;
+            if (cursor == probe_string_begin || ((cursor - mem.begin) % sub_mem_count_thinning == 0)) {
+                if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
+                    probe_string_more_frequent = false;
+                    break;
+                }
             }
             
             cursor--;
@@ -871,6 +873,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 // mark this position as the beginning of the probe substring
                 probe_string_begin = cursor + 1;
             }
+            
             
             // inclusive interval that contains the past-the-last index of the sub-MEM
             string::const_iterator left_search_bound = probe_string_end;
@@ -903,14 +906,16 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 // check if there is an independent occurrence of this substring outside of the SMEM
                 bool contained_in_independent_match = true;
                 while (cursor >= probe_string_begin) {
-
+                    
                     range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                     
-                    if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
-                        // this probe is too long and it no longer is contained in the indendent hit
-                        // that we detected
-                        contained_in_independent_match = false;
-                        break;
+                    if (cursor == probe_string_begin || ((cursor - mem.begin) % sub_mem_count_thinning == 0)) {
+                        if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
+                            // this probe is too long and it no longer is contained in the indendent hit
+                            // that we detected
+                            contained_in_independent_match = false;
+                            break;
+                        }
                     }
                     
                     cursor--;
@@ -920,6 +925,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                     
                     // the end of the sub-MEM must be here or to the right
                     left_search_bound = middle;
+                    
                     // update the range of matches (this is the longest match we've verified so far)
                     sub_mem_range = range;
                 }
