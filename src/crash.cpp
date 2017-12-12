@@ -1,3 +1,8 @@
+// Needed for EOWNERDEAD, ENOTRECOVERABLE on OS X
+#ifdef __APPLE__
+    #define __DARWIN_C_LEVEL __DARWIN_C_FULL
+#endif
+
 #include "crash.hpp"
 
 // Needed for automatic name demangling, but not all that portable
