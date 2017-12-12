@@ -207,7 +207,16 @@ struct AugmentedGraph {
     virtual void clear();
 
     /** 
-     * Construct an augmented graph using edit() on a set of alignments
+     * Construct an augmented graph using edit() on a set of alignments. Adds
+     * the paths of the alignments to the graph.
+     * 
+     * If unique_names is set, makes sure all the alignments' paths have unique
+     * names, which is a requirement for paths in a graph.
+     *
+     * If leave_edits is set, the alignment's paths are not modified. The
+     * alignments' paths will be the paths they were originally aligned to,
+     * although the graph will be modified to describe the edits that the
+     * alignments found.
      */
     void augment_from_alignment_edits(vector<Alignment>& alignments, bool unique_names = true,
                                       bool leave_edits = false);

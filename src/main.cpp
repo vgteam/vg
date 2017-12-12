@@ -1,3 +1,6 @@
+// Needed for crash.hpp to work because it uses newer types
+#define _POSIX_C_SOURCE 200809L
+
 #include <iostream>
 #include <fstream>
 #include <ctime>
@@ -9,6 +12,7 @@
 #include "google/protobuf/stubs/common.h"
 #include "version.hpp"
 #include "utility.hpp"
+#include "crash.hpp"
 
 // New subcommand system provides all the subcommands that used to live here
 #include "subcommand/subcommand.hpp"

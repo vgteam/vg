@@ -4856,7 +4856,7 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 }
 
 // The correct way to edit the graph
-vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
+vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool update_paths, bool break_at_ends) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
@@ -4874,9 +4874,12 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
         simplified_paths.push_back(simplify(path));
     }
 
+    // If we are going to actually add the paths to the graph, we need to break at path ends
+    break_at_ends |= save_paths;
+
     for(auto path : simplified_paths) {
         // Add in breakpoints from each path
-        find_breakpoints(path, breakpoints);
+        find_breakpoints(path, breakpoints, break_at_ends);
     }
 
     // Invert the breakpoints that are on the reverse strand
@@ -4903,11 +4906,24 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     map<Node*, Path> added_nodes;
     for(auto path : simplified_paths) {
         // Now go through each new path again, and create new nodes/wire things up.
-        add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
+        // Get the added version of the path.
+        Path added = add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
+        
+        if (save_paths) {
+            // Add this path to the graph's paths object
+            paths.extend(added);
+        }
+        
+        if (update_paths) {
+            // Replace the simplified path in original graph space with one in new graph space.
+            path = added;
+        }
     }
 
-    // TODO: add the new path to the graph, with perfect match mappings to all
-    // the new and old stuff it visits.
+    if (update_paths) {
+        // We replaced all the paths in simplifies_paths, so send those back out as the embedded versions.
+        std::swap(simplified_paths, paths_to_add);
+    }
 
     // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
     paths.compact_ranks();
@@ -5148,7 +5164,7 @@ map<id_t, set<pos_t>> VG::forwardize_breakpoints(const map<id_t, set<pos_t>>& br
 }
 
 // returns breakpoints on the forward strand of the nodes
-void VG::find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints) {
+void VG::find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints, bool break_ends) {
     // We need to work out what offsets we will need to break each node at, if
     // we want to add in all the new material and edges in this path.
 
@@ -5196,11 +5212,12 @@ void VG::find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints) 
             cerr << pb2json(e) << endl;
 #endif
 
-            if (!edit_is_match(e) || j == 0) {
+            if (!edit_is_match(e) || (j == 0 && (i != 0 || break_ends))) {
                 // If this edit is not a perfect match, or if this is the first
-                // edit in this mapping and we had a previous mapping we may
-                // need to connect to, we need to make sure we have a breakpoint
-                // at the start of this edit.
+                // edit in this mapping and either we had a previous mapping we
+                // may need to connect to or we want to break at the path's
+                // start, we need to make sure we have a breakpoint at the start
+                // of this edit.
 
 #ifdef debug
                 cerr << "Need to break " << node_id << " at edit lower end " <<
@@ -5212,11 +5229,11 @@ void VG::find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints) 
                 breakpoints[node_id].insert(edit_first_position);
             }
 
-            if (!edit_is_match(e) || (j == m.edit_size() - 1)) {
+            if (!edit_is_match(e) || (j == m.edit_size() - 1 && (i != path.mapping_size() - 1 || break_ends))) {
                 // If this edit is not a perfect match, or if it is the last
                 // edit in a mapping and we have a subsequent mapping we might
-                // need to connect to, make sure we have a breakpoint at the end
-                // of this edit.
+                // need to connect to or we want to break at the path ends, make
+                // sure we have a breakpoint at the end of this edit.
 
 #ifdef debug
                 cerr << "Need to break " << node_id << " at past edit upper end " <<
@@ -5334,7 +5351,7 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoint
     return toReturn;
 }
 
-void VG::add_nodes_and_edges(const Path& path,
+Path VG::add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
@@ -5352,7 +5369,7 @@ void VG::add_nodes_and_edges(const Path& path,
 
 }
 
-void VG::add_nodes_and_edges(const Path& path,
+Path VG::add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
@@ -5377,14 +5394,11 @@ void VG::add_nodes_and_edges(const Path& path,
     // We need orig_node_sizes so we can remember the sizes of nodes that we
     // modified, so we can interpret the paths. It only holds sizes for modified
     // nodes.
-
-    if(!path.name().empty()) {
-        // If the path has a name, we're going to add it to our collection of
-        // paths, as we make all the new nodes and edges it requires. But, we
-        // can't already have any mappings under that path name, or we won't be
-        // able to just append in all the new mappings.
-        assert(!paths.has_path(path.name()));
-    }
+    
+    // This is where we will keep the version of the path articulated as
+    // actually embedded in the graph.
+    Path embedded;
+    embedded.set_name(path.name());
 
     // We use this function to get the node that contains a position on an
     // original node.
@@ -5596,24 +5610,20 @@ void VG::add_nodes_and_edges(const Path& path,
                     
                 }
 
-                if (!path.name().empty()) {
-                    for (auto* new_node : new_nodes) {
-                        // Add a mapping to each newly created node
-                        Mapping nm;
-                        nm.mutable_position()->set_node_id(new_node->id());
-                        nm.mutable_position()->set_is_reverse(m.position().is_reverse());
+                for (auto* new_node : new_nodes) {
+                    // Add a mapping to each newly created node
+                    Mapping& nm = *embedded.add_mapping();
+                    nm.mutable_position()->set_node_id(new_node->id());
+                    nm.mutable_position()->set_is_reverse(m.position().is_reverse());
 
-                        // Don't set a rank; since we're going through the input
-                        // path in order, the auto-generated ranks will put our
-                        // newly created mappings in order.
+                    // Don't set a rank; since we're going through the input
+                    // path in order, the auto-generated ranks will put our
+                    // newly created mappings in order.
 
-                        Edit* e = nm.add_edit();
-                        size_t l = new_node->sequence().size();
-                        e->set_from_length(l);
-                        e->set_to_length(l);
-                        // insert the mapping at the right place
-                        paths.append_mapping(path.name(), nm);
-                    }
+                    Edit* e = nm.add_edit();
+                    size_t l = new_node->sequence().size();
+                    e->set_from_length(l);
+                    e->set_to_length(l);
                 }
 
                 for (auto& dangler : dangling) {
@@ -5652,22 +5662,18 @@ void VG::add_nodes_and_edges(const Path& path,
                 // the right places. They should be if we cut the breakpoints
                 // right.
 
-                // TODO include path
                 // get the set of new nodes that we map to
                 // and use the lengths of each to create new mappings
                 // and append them to the path we are including
-                if (!path.name().empty()) {
-                    for (auto nm : create_new_mappings(edit_first_position,
-                                                       edit_last_position,
-                                                       m.position().is_reverse())) {
-                        //cerr << "in match, adding " << pb2json(nm) << endl;
+                for (auto nm : create_new_mappings(edit_first_position,
+                                                   edit_last_position,
+                                                   m.position().is_reverse())) {
 
-                        // Don't set a rank; since we're going through the input
-                        // path in order, the auto-generated ranks will put our
-                        // newly created mappings in order.
+                    *embedded.add_mapping() = nm;
 
-                        paths.append_mapping(path.name(), nm);
-                    }
+                    // Don't set a rank; since we're going through the input
+                    // path in order, the auto-generated ranks will put our
+                    // newly created mappings in order.
                 }
 
 #ifdef debug_edit
@@ -5703,6 +5709,9 @@ void VG::add_nodes_and_edges(const Path& path,
         }
 
     }
+    
+    // Actually return the embedded path.
+    return embedded;
 
 }
 
@@ -8542,36 +8551,7 @@ vector<Node*> VG::head_nodes(void) {
     return heads;
 }
 
-/*
-// TODO item
-int32_t VG::distance_to_head(Position pos, int32_t limit) {
-}
-*/
 
-int32_t VG::distance_to_head(NodeTraversal node, int32_t limit) {
-    set<NodeTraversal> seen;
-    return distance_to_head(node, limit, 0, seen);
-}
-
-int32_t VG::distance_to_head(NodeTraversal node, int32_t limit, int32_t dist, set<NodeTraversal>& seen) {
-    NodeTraversal n = node;
-    if (seen.count(n)) return -1;
-    seen.insert(n);
-    if (limit <= 0) {
-        return -1;
-    }
-    if (is_head_node(n.node)) {
-        return dist;
-    }
-    for (auto& trav : nodes_prev(n)) {
-        size_t l = trav.node->sequence().size();
-        size_t t = distance_to_head(trav, limit-l, dist+l, seen);
-        if (t != -1) {
-            return t;
-        }
-    }
-    return -1;
-}
 
 bool VG::is_tail_node(id_t id) {
     return is_tail_node(get_node(id));
@@ -8594,31 +8574,6 @@ vector<Node*> VG::tail_nodes(void) {
     vector<Node*> tails;
     tail_nodes(tails);
     return tails;
-}
-
-int32_t VG::distance_to_tail(NodeTraversal node, int32_t limit) {
-    set<NodeTraversal> seen;
-    return distance_to_tail(node, limit, 0, seen);
-}
-
-int32_t VG::distance_to_tail(NodeTraversal node, int32_t limit, int32_t dist, set<NodeTraversal>& seen) {
-    NodeTraversal n = node;
-    if (seen.count(n)) return -1;
-    seen.insert(n);
-    if (limit <= 0) {
-        return -1;
-    }
-    if (is_tail_node(n.node)) {
-        return dist;
-    }
-    for (auto& trav : nodes_next(n)) {
-        size_t l = trav.node->sequence().size();
-        size_t t = distance_to_tail(trav, limit-l, dist+l, seen);
-        if (t != -1) {
-            return t;
-        }
-    }
-    return -1;
 }
 
 void VG::wrap_with_null_nodes(void) {

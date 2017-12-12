@@ -648,7 +648,8 @@ int main_msga(int argc, char** argv) {
             // now take the alignment and modify the graph with it
             if (debug) cerr << name << ": editing graph" << endl;
             //graph->serialize_to_file(name + "-pre-edit.vg");
-            graph->edit(paths);
+            // Modify graph and embed paths
+            graph->edit(paths, true);
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
             if (normalize) graph->normalize(10, debug);
