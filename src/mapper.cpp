@@ -1785,12 +1785,12 @@ bool Mapper::pair_consistent(Alignment& aln1,
         map<string, vector<pair<size_t, bool> > > offsets1 = alignment_refpos_to_path_offsets(aln1);
         map<string, vector<pair<size_t, bool> > > offsets2 = alignment_refpos_to_path_offsets(aln2);
         auto pos_consistent =
-            [&](const pair<size_t, bool>& p1, const pair<size_t, bool>& p2) {
+            [&](const pair<size_t, bool>& p1, const pair<size_t, bool>& p2, const string& p_name) {
             int64_t pos1 = p1.first;
             int64_t pos2 = p2.first;
             bool fwd1 = p1.second;
             bool fwd2 = p2.second;
-            int64_t len = pos2 - pos1;
+            int64_t len = frag_stats.cached_fragment_orientation_same ? pos2 - pos1 : (xindex->path_length(p_name) - pos2) - pos1;
             if (frag_stats.fragment_size) {
                 bool orientation_ok = frag_stats.cached_fragment_orientation_same && fwd1 == fwd2 || fwd1 != fwd2;
                 bool direction_ok = frag_stats.cached_fragment_direction && (!fwd1 && len > 0 || fwd1 && len < 0)
@@ -1811,7 +1811,7 @@ bool Mapper::pair_consistent(Alignment& aln1,
                 // TODO linearize this as it could get bad if we have lots of paths!
                 for (auto& pos1 : pos1s) {
                     for (auto& pos2 : pos2s) {
-                        if (pos_consistent(pos1, pos2)) return true;
+                        if (pos_consistent(pos1, pos2, path.first)) return true;
                     }
                 }
             }
@@ -2489,7 +2489,7 @@ void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) {
 }
 
 void Mapper::annotate_with_initial_path_positions(Alignment& aln) {
-    if (aln.refpos_size()) return; // refpos already cached in the alignment
+    if (aln.refpos_size()) return;
     auto init_path_positions = alignment_path_offsets(aln);
     for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
         for (auto& pos : pos_record.second) {
