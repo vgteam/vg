@@ -702,7 +702,7 @@ namespace vg {
             return true;
         }
         
-        int32_t max_score_diff = ceil(get_aligner()->mapping_quality_score_diff(max_mapping_quality));
+        int32_t max_score_diff = get_aligner()->mapping_quality_score_diff(max_mapping_quality);
         
         size_t num_rescuable_alns_1 = 0, num_rescuable_alns_2 = 0;
         int32_t top_score_1 = multipath_alns_1.empty() ? 0 : optimal_alignment_score(multipath_alns_1.front());
