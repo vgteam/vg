@@ -203,6 +203,7 @@ public:
                      int reseed_length = 0);
     
     
+    int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count
     int min_mem_length; // a mem must be >= this length
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
     bool fast_reseed; // use the fast reseed algorithm
