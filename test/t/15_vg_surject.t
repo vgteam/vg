@@ -6,26 +6,34 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 19
+plan tests 20
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -k 11 -g x.gcsa -x x.xg x.vg
 
-is $(vg map -G <(vg sim -a -s 1337 -n 100 -x j.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -t 1 - | vg view -a - | jq .score | grep 100 | wc -l) \
+# Simulate some reads from just j
+vg map -G <(vg sim -a -s 1337 -n 100 -x j.xg) -g x.gcsa -x x.xg > j.gam
+# And some from all of x
+vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg > x.gam
+
+is $(vg view -aj j.gam | wc -l) \
+    100 "reads are generated"
+
+is $(vg surject -p x -x x.xg -t 1 j.gam | vg view -a - | jq .score | grep 100 | wc -l) \
     100 "vg surject works perfectly for perfect reads derived from the reference"
     
-is $(vg map -G <(vg sim -a -s 1337 -n 100 -x j.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -t 1 -s - | grep -v "@" | cut -f3 | grep x | wc -l) \
+is $(vg surject -p x -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) \
     100 "vg surject actually places reads on the correct path"
 
-is $(vg map -G <(vg sim -a -s 1337 -n 100 -x j.xg) -g x.gcsa -x x.xg | vg surject -x x.xg -t 1 -s - | grep -v "@" | cut -f3 | grep x | wc -l) \
+is $(vg surject -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) \
     100 "vg surject doesn't need to be told which path to use"
 
-is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -t 1 - | vg view -a - | wc -l) \
+is $(vg surject -p x -x x.xg -t 1 x.gam | vg view -a - | wc -l) \
     100 "vg surject works for every read simulated from a dense graph"
 
-is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -s - | grep -v ^@ | wc -l) \
+is $(vg surject -p x -x x.xg -s x.gam | grep -v ^@ | wc -l) \
     100 "vg surject produces valid SAM output"
 
 is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg --surject-to sam | grep -v ^@ | wc -l) \
@@ -34,7 +42,7 @@ is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg --surject-t
 is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg --surject-to bam | samtools view - | grep -v ^@ | wc -l) \
     100 "vg map may surject reads to produce valid BAM output"
 
-is $(vg map -G <(vg sim -a -s 1337 -n 100 -x j.xg) -g x.gcsa -x x.xg -j | jq '.name = "Alignment"' | vg view -JGa - | vg surject -p x -x x.xg - | vg view -aj - | jq -c 'select(.name)' | wc -l) \
+is $(vg view -aj j.gam | jq '.name = "Alignment"' | vg view -JGa - | vg surject -p x -x x.xg - | vg view -aj - | jq -c 'select(.name)' | wc -l) \
     100 "vg surject retains read names"
 
 # These sequences have edits in them, so we can test CIGAR reversal as well
@@ -60,7 +68,7 @@ is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "1" "s
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '=\n=')" "surjection of paired reads to SAM produces crossreferences"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 2 | sort -n)" "$(printf '83\n131')" "surjection of paired reads to SAM produces correct flags"
 
-rm -rf j.vg x.vg x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam
+rm -rf j.vg x.vg j.gam x.gam x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam
 
 vg index -k 11 -g f.gcsa -x f.xg graphs/fail.vg
 

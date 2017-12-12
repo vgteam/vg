@@ -506,7 +506,15 @@ public:
     /// how each new or conserved node is embedded in the old graph. Note that
     /// this method sorts the graph and rebuilds the path index, so it should
     /// not be called in a loop.
-    vector<Translation> edit(const vector<Path>& paths);
+    ///
+    /// If update_paths is true, the paths will be modified to reflect their
+    /// embedding in the modified graph. If add_paths is true, the paths as
+    /// embedded in the graph will be added to the graph's set of paths. If
+    /// break_at_ends is true (or save_paths is true), nodes will be broken at
+    /// the ends of paths that start/end woth perfect matches, so the paths can
+    /// be added to the vg graph's paths object.
+    vector<Translation> edit(vector<Path>& paths_to_add, bool save_paths = false,
+        bool update_paths = false, bool break_at_ends = false);
     
     /// %Edit the graph to include all the sequences and edges added by the
     /// given path. Returns a vector of Translations, one per original-node
@@ -521,7 +529,10 @@ public:
     /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
     /// them to the given map by node ID of sets of bases in the node that will need
     /// to become the starts of new nodes.
-    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
+    ///
+    /// If break_ends is true, emits breakpoints at the ends of the path, even
+    /// if it starts/ends with perfect matches.
+    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints, bool break_ends = true);
     /// Take a map from node ID to a set of offsets at which new nodes should
     /// start (which may include 0 and 1-past-the-end, which should be ignored),
     /// break the specified nodes at those positions. Returns a map from old
@@ -552,7 +563,10 @@ public:
     /// is nonempty, left edges of nodes created for initial inserts will
     /// connect to the specified sides. At the end, dangling is populated with
     /// the side corresponding to the last edit in the path.
-    void add_nodes_and_edges(const Path& path,
+    ///
+    /// Returns a fully embedded version of the path, after all node insertions,
+    /// divisions, and translations.
+    Path add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
@@ -561,7 +575,7 @@ public:
                              size_t max_node_size = 1024);
     
     /// This version doesn't require a set of dangling sides to populate                         
-    void add_nodes_and_edges(const Path& path,
+    Path add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,

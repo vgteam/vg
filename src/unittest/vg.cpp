@@ -3,8 +3,8 @@
  */
 
 #include "catch.hpp"
-#include "vg.hpp"
-#include "utility.hpp"
+#include "../vg.hpp"
+#include "../utility.hpp"
 
 namespace vg {
 namespace unittest {
@@ -1932,6 +1932,53 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
             }
             
         }
+    }
+    
+}
+
+TEST_CASE("find_breakpoints() should determine where the graph needs to break to add a path", "[vg][edit]") {
+    
+    
+    VG vg;
+        
+    Node* n1 = vg.create_node("GATT");
+    Node* n2 = vg.create_node("AAAA");
+    Node* n3 = vg.create_node("CA");
+    
+    vg.create_edge(n1, n2);
+    vg.create_edge(n2, n3);
+    
+    // We will find breakpoints for a path
+    Path path;
+    // And store them here.
+    map<id_t, set<pos_t>> breakpoints;
+    
+    SECTION("find_breakpoints() works on a single edit perfect match") {
+        
+        // Set the path to a perfect match
+        const string path_string = R"(
+            {"mapping": [{"position": {"node_id": 1, "offset": 1}, "edit": [{"from_length": 2, "to_length": 2}]}]}
+        )";
+        json2pb(path, path_string.c_str(), path_string.size());
+        
+        SECTION("asking for breakpoints at the end gets us the two end breakpoints") {
+            vg.find_breakpoints(path, breakpoints);
+            
+            REQUIRE(breakpoints.size() == 1);
+            REQUIRE(breakpoints.count(n1->id()) == 1);
+            REQUIRE(breakpoints[n1->id()].size() == 2);
+            REQUIRE(breakpoints[n1->id()].count(make_pos_t(n1->id(), false, 1)) == 1);
+            REQUIRE(breakpoints[n1->id()].count(make_pos_t(n1->id(), false, 3)) == 1);
+            
+        
+        }
+        
+        SECTION("asking for no breakpoints at the end gets us no breakpoints") {
+            vg.find_breakpoints(path, breakpoints, false);
+            
+            REQUIRE(breakpoints.empty());
+        }
+        
     }
     
 }

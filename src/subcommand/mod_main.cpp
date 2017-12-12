@@ -739,7 +739,7 @@ int main_mod(int argc, char** argv) {
         }
         if (!label_paths) {
             // execute the edits
-            auto translation = graph->edit(paths);
+            auto translation = graph->edit(paths, true);
             if (!translation_file.empty()) {
                 ofstream out(translation_file);
                 stream::write_buffered(out, translation, 0);
@@ -785,8 +785,9 @@ int main_mod(int argc, char** argv) {
             in.open(loci_file.c_str());
             stream::for_each(in, lambda);
         }
-        // execute the edits and produce the translation if requested
-        auto translation = graph->edit(paths);
+        // execute the edits and produce the translation if requested.
+        // Make sure to break at node ends, but don't add any paths because they're just loci alleles and not real paths.
+        auto translation = graph->edit(paths, false, false, true);
         if (!translation_file.empty()) {
             ofstream out(translation_file);
             stream::write_buffered(out, translation, 0);
