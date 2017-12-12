@@ -342,7 +342,8 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
             *max_idx_out = i;
         }
     }
-    return scaled_scores[*max_idx_out] > log_sum_exp ? -quality_scale_factor * subtract_log(0.0, scaled_scores[*max_idx_out] - log_sum_exp) : 0.0;
+    return scaled_scores[*max_idx_out] > log_sum_exp ?
+           -quality_scale_factor * subtract_log(0.0, scaled_scores[*max_idx_out] - log_sum_exp) : (double) numeric_limits<int32_t>::max();
 }
 
 // TODO: this algorithm has numerical problems that would be difficult to solve without increasing the
