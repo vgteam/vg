@@ -851,6 +851,13 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             // this is the prefix of a sub-MEM of length >= the minimum, now we need to
             // find its end using binary search
             
+            // a memo of the range we've seen while searching for the end so we can bail out of th
+            // search early if we see a repeat
+            vector<gcsa::range_type> demonstrated_search_ranges;
+            
+            // add the range at the end of the probe search
+            demonstrated_search_ranges.push_back(range);
+            
             if (probe_string_begin > leftmost_bound) {
                 // the probe string is contained in a sub-MEM, but that doesn't mean it's been
                 // extended as far as possible to the left
@@ -865,12 +872,18 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                         break;
                     }
                     
+                    demonstrated_search_ranges.push_back(range);
+                    
                     cursor--;
                 }
+                
+                // put these search ranges in the order they occur along the sub-MEM
+                reverse(demonstrated_search_ranges.begin(), demonstrated_search_ranges.end());
                 
                 // mark this position as the beginning of the probe substring
                 probe_string_begin = cursor + 1;
             }
+            
             
             // inclusive interval that contains the past-the-last index of the sub-MEM
             string::const_iterator left_search_bound = probe_string_end;
@@ -900,11 +913,24 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 cursor = middle - 1;
                 range = gcsa::range_type(0, gcsa->size() - 1);
                 
+                vector<gcsa::range_type> current_search_ranges;
+                
                 // check if there is an independent occurrence of this substring outside of the SMEM
                 bool contained_in_independent_match = true;
+                bool found_demonstrated_range = false;
                 while (cursor >= probe_string_begin) {
-
+                    
                     range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
+                    
+                    if (cursor - mem.begin < demonstrated_search_ranges.size() ?
+                        demonstrated_search_ranges[cursor - mem.begin] == range : false) {
+                        // we've searched to a range that we've previously demonstrated contains independent
+                        // hits, so we can stop extending the search here
+                        
+                        found_demonstrated_range = true;
+                        
+                        break;
+                    }
                     
                     if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
                         // this probe is too long and it no longer is contained in the indendent hit
@@ -913,6 +939,8 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                         break;
                     }
                     
+                    current_search_ranges.push_back(range);
+                    
                     cursor--;
                 }
                 
@@ -920,8 +948,26 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                     
                     // the end of the sub-MEM must be here or to the right
                     left_search_bound = middle;
-                    // update the range of matches (this is the longest match we've verified so far)
-                    sub_mem_range = range;
+                    
+                    if (found_demonstrated_range) {
+                        // update the demonstrated search ranges that lead to the current sub mem range
+                        
+                        for (auto iter = cursor + 1; iter < middle; iter++) {
+                            gcsa::range_type search_range = current_search_ranges[(middle - 1) - iter];
+                            if (iter - mem.begin < demonstrated_search_ranges.size()) {
+                                // narrow down the current range at this index
+                                demonstrated_search_ranges[iter - mem.begin] = search_range;
+                            }
+                            else {
+                                // add this index
+                                demonstrated_search_ranges.push_back(search_range);
+                            }
+                        }
+                    }
+                    else {
+                        // update the range of matches (this is the longest match we've verified so far)
+                        sub_mem_range = range;
+                    }
                 }
                 else {
                     // the end of the sub-MEM must be to the left
