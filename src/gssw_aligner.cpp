@@ -327,46 +327,22 @@ int32_t BaseAligner::score_gap(size_t gap_length) {
 }
 
 double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out) {
-    size_t size = scaled_scores.size();
     
     // if necessary, assume a null alignment of 0.0 for comparison since this is local
-    if (size == 1) {
+    if (scaled_scores.size() == 1) {
         scaled_scores.push_back(0.0);
     }
     
-    double max_score = scaled_scores[0];
-    size_t max_idx = 0;
-    for (size_t i = 1; i < size; i++) {
-        if (scaled_scores[i] > max_score) {
-            max_score = scaled_scores[i];
-            max_idx = i;
+    // work in log transformed valued to avoid risk of overflow
+    double log_sum_exp = scaled_scores[0];
+    *max_idx_out = 0;
+    for (size_t i = 1; i < scaled_scores.size(); i++) {
+        log_sum_exp = add_log(log_sum_exp, scaled_scores[i]);
+        if (scaled_scores[i] > scaled_scores[*max_idx_out]) {
+            *max_idx_out = i;
         }
     }
-    
-    *max_idx_out = max_idx;
-
-    double qual = 0;
-    if (max_score * size < exp_overflow_limit) {
-        // no risk of double overflow, sum exp directly (half as many transcendental function evals)
-        double numer = 0.0;
-        for (size_t i = 0; i < size; i++) {
-            if (i == max_idx) {
-                continue;
-            }
-            numer += exp(scaled_scores[i]);
-        }
-        qual = -10.0 * log10(numer / (numer + exp(scaled_scores[max_idx])));
-    }
-    else {
-        // work in log transformed valued to avoid risk of overflow
-        double log_sum_exp = scaled_scores[0];
-        for (size_t i = 1; i < size; i++) {
-            log_sum_exp = add_log(log_sum_exp, scaled_scores[i]);
-        }
-        qual = -10.0 * log10(1.0 - exp(scaled_scores[max_idx] - log_sum_exp));
-    }
-
-    return qual;
+    return -quality_scale_factor * subtract_log(0.0, scaled_scores[*max_idx_out] - log_sum_exp);
 }
 
 // TODO: this algorithm has numerical problems that would be difficult to solve without increasing the
@@ -414,7 +390,7 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
     double max_score = scaled_scores[0];
     size_t max_idx = 0;
     
-    double next_score = -std::numeric_limits<double>::max();
+    double next_score = std::numeric_limits<double>::lowest();
     int32_t next_count = 0;
     
     for (int32_t i = 1; i < scaled_scores.size(); ++i) {
