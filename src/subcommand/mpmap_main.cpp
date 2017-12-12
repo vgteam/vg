@@ -283,7 +283,7 @@ int main_mpmap(int argc, char** argv) {
                     exit(1);
                 }
             }
-                break;
+                break; 
                 
             case 'Q':
                 max_mapq = atoi(optarg);
