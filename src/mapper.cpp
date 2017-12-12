@@ -909,11 +909,13 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                     
                     range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                     
-                    if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
-                        // this probe is too long and it no longer is contained in the indendent hit
-                        // that we detected
-                        contained_in_independent_match = false;
-                        break;
+                    if (cursor == probe_string_begin || ((cursor - mem.begin) % sub_mem_count_thinning == 0)) {
+                        if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
+                            // this probe is too long and it no longer is contained in the indendent hit
+                            // that we detected
+                            contained_in_independent_match = false;
+                            break;
+                        }
                     }
                     
                     cursor--;
