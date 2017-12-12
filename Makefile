@@ -201,9 +201,9 @@ $(LIB_DIR)/libtcmalloc_minimal.a: $(GPERF_DIR)/src/tcmalloc.cc.bak
 
 $(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 ifeq ($(shell uname -s),Darwin)
-	+. ./source_me.sh && cd $(SDSL_DIR) && AS_INTEGRATED_ASSEMBLER=1 NO_SSE42=1 ./install.sh $(CWD) $(FILTER)
+	+. ./source_me.sh && cd $(SDSL_DIR) && AS_INTEGRATED_ASSEMBLER=1 BUILD_PORTABLE=1 ./install.sh $(CWD) $(FILTER)
 else
-	+. ./source_me.sh && cd $(SDSL_DIR) && cp CMakeLists.txt CMakeLists.txt.1 && sed 's/-march=native //g' CMakeLists.txt.1 >CMakeLists.txt && NO_SSE42=1 ./install.sh $(CWD) $(FILTER) && mv CMakeLists.txt.1 CMakeLists.txt
+	+. ./source_me.sh && cd $(SDSL_DIR) && BUILD_PORTABLE=1 ./install.sh $(CWD) $(FILTER)
 endif	
 
 
