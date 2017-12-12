@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 35
+plan tests 36
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -118,4 +118,10 @@ echo 14 >>get.nodes
 echo 15 >>get.nodes
 is $(vg find -x tiny.xg -N get.nodes | vg view - | grep ^S | wc -l) 4 "find gets nodes provided in a node file list"
 rm -rf tiny.xg tiny.vg get.nodes
+
+echo '{"node": [{"id": 1, "sequence": "A"}, {"id": 2, "sequence": "A"}], "edge": [{"from": 1, "to": 2}], "path": [{"name": "ref", "mapping": [{"position": {"node_id": 1}}]}]}' | vg view -Jv - >test.vg
+vg index -x test.xg test.vg
+is "$(vg find -x test.xg -p ref:0 -c 10 | vg view -j - | jq '.edge | length')" "1" "extracting by path adds no extra edges"
+
+rm -f test.vg test.xg
 
