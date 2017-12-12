@@ -5,6 +5,7 @@
 #include <vector>
 #include <sstream>
 #include <omp.h>
+#include <signal.h>
 #include <cstring>
 #include <algorithm>
 #include <numeric>
