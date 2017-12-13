@@ -4584,11 +4584,15 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 
     Alignment surjection_forward, surjection_reverse;
     // global align to the trimmed graph, and simplify without removal of internal deletions, as we'll need these for BAM reconstruction
-    if (count_forward) {
-        surjection_forward = simplify(align_to_graph(surjection, subgraph, max_query_graph_ratio, true, false, false, true), false);
-    }
-    if (count_reverse) {
-        surjection_reverse = simplify(align_to_graph(surjection_rc, subgraph, max_query_graph_ratio, true, false, false, true), false);
+    try {
+        if (count_forward) {
+            surjection_forward = simplify(align_to_graph(surjection, subgraph, max_query_graph_ratio, true, false, false, true), false);
+        }
+        if (count_reverse) {
+            surjection_reverse = simplify(align_to_graph(surjection_rc, subgraph, max_query_graph_ratio, true, false, false, true), false);
+        }
+    } catch (vg::NoAlignmentInBandException) {
+        return surjection; // null result, we couldn't align banded global
     }
 
 #ifdef debug_mapper
