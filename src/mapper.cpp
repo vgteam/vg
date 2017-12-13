@@ -4421,6 +4421,10 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     //cerr << "before" << endl;
     //cerr << pb2json(source) << endl;
     Alignment trimmed_source = strip_from_end(strip_from_start(source, non_match_start(source)), non_match_end(source));
+    // check if we'd fail
+    if (trimmed_source.sequence().size() == 0) {
+        return surjection;
+    }
     //cerr << "after" << endl;
     vector<Path> source_path;
     source_path.push_back(trimmed_source.path());
