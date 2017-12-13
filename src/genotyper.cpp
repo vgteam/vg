@@ -1599,13 +1599,26 @@ double Genotyper::get_genotype_log_likelihood(VG& graph, const Snarl* snarl, con
             if(consistency.size() > allele && consistency.at(allele).consistent) {
                 // We're consistent with this allele
                 consistent_alleles++;
-                // And in this orientation
-                if(consistency.at(allele).is_reverse) {
-                    // Consistent with reverse
-                    strand_count_by_allele_and_orientation[allele].second++;
-                } else {
-                    // Consistent with forward
-                    strand_count_by_allele_and_orientation[allele].first++;
+            }
+        }
+        
+        // Now we know how many alleles this read is consistent with.
+        
+        if (consistent_alleles == 1) {
+            // If it supports exactly one allele, we add it to the per-strand support counts for that allele
+            for(int allele : genotype) {
+                if(consistency.size() > allele && consistency.at(allele).consistent) {
+                    // We found the consustent allele again.
+                    
+                    if(consistency.at(allele).is_reverse) {
+                        // Consistent with reverse
+                        strand_count_by_allele_and_orientation[allele].second++;
+                        break;
+                    } else {
+                        // Consistent with forward
+                        strand_count_by_allele_and_orientation[allele].first++;
+                        break;
+                    }
                 }
             }
         }
@@ -2026,19 +2039,30 @@ Locus Genotyper::genotype_snarl(VG& graph,
         bool is_forward = false;
         bool is_reverse = false;
 
+        // Of the alleles available, how many are consistent with this read?
+        size_t consistent_alleles = 0;
         for(size_t i = 0; i < alignment_and_affinities.second.size(); i++) {
-            // Count up reads consistent with each allele
-            if(alignment_and_affinities.second.at(i).consistent) {
-                // This read is consistent with this allele
-                reads_consistent_with_allele[i]++;
-                if(alignment_and_affinities.second.at(i).is_reverse) {
-                    // It is on the reverse strand
-                    strand_support_for_allele[i].second++;
-                    is_reverse = true;
-                } else {
-                    // It is on the forward strand
-                    strand_support_for_allele[i].first++;
-                    is_forward = true;
+            consistent_alleles += alignment_and_affinities.second.at(i).consistent;
+        }
+
+        if (consistent_alleles == 1) {
+            // This read is consistent with exactly one allele. Count it.
+            
+            for(size_t i = 0; i < alignment_and_affinities.second.size(); i++) {
+                if(alignment_and_affinities.second.at(i).consistent) {
+                    // We found the consistent allele again
+                
+                    // This read is consistent with this allele
+                    reads_consistent_with_allele[i]++;
+                    if(alignment_and_affinities.second.at(i).is_reverse) {
+                        // It is on the reverse strand
+                        strand_support_for_allele[i].second++;
+                        is_reverse = true;
+                    } else {
+                        // It is on the forward strand
+                        strand_support_for_allele[i].first++;
+                        is_forward = true;
+                    }
                 }
             }
         }
@@ -2418,12 +2442,12 @@ Genotyper::locus_to_variant(VG& graph,
     // Make sure that the called alleles have sufficient support on each strand
     for(size_t i = 0; i < best_genotype.allele_size(); i++) {
         // Check each allele marked present
-        if(locus.support(best_genotype.allele(i)).forward() < min_consistent_per_strand ||
-           locus.support(best_genotype.allele(i)).reverse() < min_consistent_per_strand) {
+        if(locus.support(best_genotype.allele(i)).forward() < min_unique_per_strand ||
+           locus.support(best_genotype.allele(i)).reverse() < min_unique_per_strand) {
             // If there's not enough support for that allele in an orientation, skip the snarl. 
 
 #pragma omp critical (cerr)
-            cerr << "Warning: dropping locus from VCF due to insufficient per-strand support "
+            cerr << "Warning: dropping locus from VCF due to insufficient per-strand unique support "
                  << locus.support(best_genotype.allele(i)).forward() << ", " 
                  << locus.support(best_genotype.allele(i)).reverse() << endl;
 

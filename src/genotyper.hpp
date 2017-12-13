@@ -98,8 +98,10 @@ public:
     // filtered in this way.
     int min_recurrence = 2;
     
-    // How much support must an alt have on each strand before we can call it?
-    int min_consistent_per_strand = 2;
+    // How much unique support must an alt have on each strand before we can
+    // call it? Calls that fail this get dropped from the VCF.
+    // TODO: use a VCF filter instead.
+    int min_unique_per_strand = 2;
     
     // When we realign reads, what's the minimum per-base score for a read in
     // order to actually use it as supporting the thing we just aligned it to?
