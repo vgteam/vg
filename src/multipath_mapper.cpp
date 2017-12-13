@@ -1090,11 +1090,11 @@ namespace vg {
             align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
                                          multipath_aln_pairs_out, max_alt_mappings, &paths_of_node_memo,
                                          &oriented_occurences_memo, &handle_memo);
-            
+
             // did any alignments pass the filters in the alignment function?
-            if (!multipath_aln_pairs_out.empty() ? true :
-                likely_mismapping(multipath_aln_pairs_out.front().first) ||
-                likely_mismapping(multipath_aln_pairs_out.front().second)) {
+            if (multipath_aln_pairs_out.empty() ? true :
+                (likely_mismapping(multipath_aln_pairs_out.front().first) ||
+                likely_mismapping(multipath_aln_pairs_out.front().second))) {
                 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
