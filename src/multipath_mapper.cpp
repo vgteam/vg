@@ -418,7 +418,7 @@ namespace vg {
 #endif
         
         // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
-        return random_match_p_value(pseudo_length(multipath_aln) / 3, multipath_aln.sequence().size()) > 0.001;
+        return random_match_p_value(pseudo_length(multipath_aln) / 3, multipath_aln.sequence().size()) > 0.00001;
     }
     
     size_t MultipathMapper::pseudo_length(const MultipathAlignment& multipath_aln) const {
