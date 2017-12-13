@@ -2609,10 +2609,8 @@ namespace vg {
     }
             
     double MultipathMapper::fragment_length_log_likelihood(int64_t length) const {
-        double mean = fragment_length_distr.mean();
-        double stdev = fragment_length_distr.stdev();
-        double dev = length - mean;
-        return -dev * dev / (2.0 * stdev * stdev);
+        double dev = length - fragment_length_distr.mean();
+        return -dev * dev / (2.0 * fragment_length_distr.stdev() * fragment_length_distr.stdev());
     }
     
     void MultipathMapper::set_automatic_min_clustering_length(double random_mem_probability) {
