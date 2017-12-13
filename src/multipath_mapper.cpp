@@ -754,7 +754,7 @@ namespace vg {
         
         vector<pair<pair<size_t, size_t>, int64_t>> pair_distances;
         
-        bool found_consistent = true;
+        bool found_consistent = false;
         if (!rescued_from_1.empty() && !rescued_from_2.empty()) {
 #ifdef debug_multipath_mapper_mapping
             cerr << "successfully rescued from both read ends" << endl;
@@ -766,6 +766,9 @@ namespace vg {
             for (size_t i  : rescued_from_1) {
                 bool duplicate = false;
                 for (size_t j : rescued_from_2) {
+                    if (found_duplicate.count(j)) {
+                        continue;
+                    }
                     
 #ifdef debug_multipath_mapper_mapping
                     cerr << "checking duplication between mapped read1 " << i << " and rescued read1 " << j << endl;
@@ -783,8 +786,12 @@ namespace vg {
                             found_duplicate.insert(j);
                             
                             // move the original mappings
-                            multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(multipath_alns_2[j]));
-                            pair_distances.emplace_back(pair<size_t, size_t>(), distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+                            int64_t dist = distance_between(multipath_alns_1[i], multipath_alns_2[j]);
+                            if (dist != numeric_limits<int64_t>::max() && dist > 0) {
+                                multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(multipath_alns_2[j]));
+                                pair_distances.emplace_back(pair<size_t, size_t>(), dist);
+                                found_consistent = true;
+                            }
                             
                             break;
                         }
@@ -793,8 +800,15 @@ namespace vg {
                 
                 // if we haven't already moved the pair and marked it as a duplicate, move the rescued pair into the output vector
                 if (!duplicate) {
-                    multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(rescue_multipath_alns_2[i]));
-                    pair_distances.emplace_back(pair<size_t, size_t>(), distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+#ifdef debug_multipath_mapper_mapping
+                    cerr << "adding read1 and rescued read2 " << i << " to output vector" << endl;
+#endif
+                    int64_t dist = distance_between(multipath_alns_1[i], rescue_multipath_alns_2[i]);
+                    if (dist != numeric_limits<int64_t>::max() && dist > 0) {
+                        multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(rescue_multipath_alns_2[i]));
+                        pair_distances.emplace_back(pair<size_t, size_t>(), dist);
+                        found_consistent = true;
+                    }
                 }
             }
             
@@ -804,9 +818,15 @@ namespace vg {
                     // we already moved it as part of a duplicate pair
                     continue;
                 }
-                
-                multipath_aln_pairs_out.emplace_back(move(rescue_multipath_alns_1[j]), move(multipath_alns_2[j]));
-                pair_distances.emplace_back(pair<size_t, size_t>(), distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+#ifdef debug_multipath_mapper_mapping
+                cerr << "adding rescued read1 and read2 " << j << " to output vector" << endl;
+#endif
+                int64_t dist = distance_between(rescue_multipath_alns_1[j], multipath_alns_2[j]);
+                if (dist != numeric_limits<int64_t>::max() && dist > 0) {
+                    multipath_aln_pairs_out.emplace_back(move(rescue_multipath_alns_1[j]), move(multipath_alns_2[j]));
+                    pair_distances.emplace_back(pair<size_t, size_t>(), dist);
+                    found_consistent = true;
+                }
             }
         }
         else if (!rescued_from_1.empty()) {
@@ -814,9 +834,12 @@ namespace vg {
             cerr << "successfully rescued from only read 1" << endl;
 #endif
             for (size_t i: rescued_from_1) {
-
-                multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(rescue_multipath_alns_2[i]));
-                pair_distances.emplace_back(pair<size_t, size_t>(), distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+                int64_t dist = distance_between(multipath_alns_1[i], rescue_multipath_alns_2[i]);
+                if (dist != numeric_limits<int64_t>::max() && dist > 0) {
+                    multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(rescue_multipath_alns_2[i]));
+                    pair_distances.emplace_back(pair<size_t, size_t>(), dist);
+                    found_consistent = true;
+                }
             }
         }
         else if (!rescued_from_2.empty()) {
@@ -824,15 +847,23 @@ namespace vg {
             cerr << "successfully rescued from only read 2" << endl;
 #endif
             for (size_t i : rescued_from_2) {
-                multipath_aln_pairs_out.emplace_back(move(rescue_multipath_alns_1[i]), move(multipath_alns_2[i]));
-                pair_distances.emplace_back(pair<size_t, size_t>(), distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+                int64_t dist = distance_between(rescue_multipath_alns_1[i], multipath_alns_2[i]);
+                if (dist != numeric_limits<int64_t>::max() && dist > 0) {
+                    multipath_aln_pairs_out.emplace_back(move(rescue_multipath_alns_1[i]), move(multipath_alns_2[i]));
+                    pair_distances.emplace_back(pair<size_t, size_t>(), dist);
+                    found_consistent = true;
+                }
             }
+        }
+        
+        if (found_consistent) {
+            // compute the paired mapping quality
+            sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
         }
         else {
 #ifdef debug_multipath_mapper_mapping
             cerr << "failed to successfully rescue from either read end, reporting independent mappings" << endl;
 #endif
-            found_consistent = false;
             
             // rescue failed, so we just report these as independent mappings
             size_t num_pairs_to_report = min(max_alt_mappings, max(multipath_alns_1.size(), multipath_alns_2.size()));
@@ -857,11 +888,6 @@ namespace vg {
                     multipath_aln_pairs_out.back().first.clear_start();
                 }
             }
-        }
-        
-        if (found_consistent) {
-            // compute the paired mapping quality
-            sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
         }
         
 #ifdef debug_validate_multipath_alignments
@@ -1066,13 +1092,25 @@ namespace vg {
                 
                 // if we find consistent pairs, merge the to lists
                 if (rescued) {
+#ifdef debug_multipath_mapper_mapping
+                    cerr << "found some rescue pairs, merging into current list of consistent mappings" << endl;
+#endif
                     size_t num_unrescued_pairs = multipath_aln_pairs_out.size();
-                    for (pair<MultipathAlignment, MultipathAlignment>& rescue_pair : rescue_pairs) {
+                    for (size_t j = 0; j < rescue_pairs.size(); j++) {
+                        
+                        pair<MultipathAlignment, MultipathAlignment>& rescue_pair = rescue_pairs[j];
+                        
                         // make sure this pair isn't a duplicate with any of the original pairs
                         bool duplicate = false;
                         for (size_t i = 0; i < num_unrescued_pairs; i++) {
+#ifdef debug_multipath_mapper_mapping
+                            cerr << "checking if rescue pair " << j << " is duplicate of original pair " << i << endl;
+#endif
                             if (abs(distance_between(multipath_aln_pairs_out[i].first, rescue_pair.first)) < 20) {
                                 if (abs(distance_between(multipath_aln_pairs_out[i].second, rescue_pair.second)) < 20) {
+#ifdef debug_multipath_mapper_mapping
+                                    cerr << "found a duplicate" << endl;
+#endif
                                     duplicate = true;
                                     break;
                                 }
@@ -1080,9 +1118,15 @@ namespace vg {
                         }
                         
                         if (!duplicate) {
+#ifdef debug_multipath_mapper_mapping
+                            cerr << "no duplicate, adding to return vector if distance is finite and positive" << endl;
+#endif
                             // add a dummy pair to hold the distance
-                            cluster_pairs.emplace_back(pair<size_t, size_t>(), distance_between(rescue_pair.first, rescue_pair.second));
-                            multipath_aln_pairs_out.emplace_back(move(rescue_pair));
+                            int64_t dist = distance_between(rescue_pair.first, rescue_pair.second);
+                            if (dist != numeric_limits<int64_t>::max() && dist > 0) {
+                                cluster_pairs.emplace_back(pair<size_t, size_t>(), dist);
+                                multipath_aln_pairs_out.emplace_back(move(rescue_pair));
+                            }
                         }
                     }
                     

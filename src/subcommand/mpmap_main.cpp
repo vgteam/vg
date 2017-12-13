@@ -803,7 +803,7 @@ int main_mpmap(int argc, char** argv) {
             alignment_2.clear_path();
             reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
         }
-        
+                
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
         multipath_mapper.multipath_map_paired(alignment_1, alignment_2, mp_aln_pairs, ambiguous_pair_buffer, max_num_mappings);
         if (single_path_alignment_mode) {
