@@ -1049,7 +1049,7 @@ class VGCITest(TestCase):
                            acc_threshold=0.02, auc_threshold=0.02,
                            sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5 -I',
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'),
-                           more_mpmap_opts=['-n'])
+                           more_mpmap_opts=['-u 8'])
 
     @timeout_decorator.timeout(1800)
     def test_sim_yeast_cactus(self):
