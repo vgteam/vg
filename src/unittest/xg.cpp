@@ -14,7 +14,7 @@ namespace vg {
     namespace unittest {
         using namespace std;
 
-TEST_CASE("We can build an xg index on a nice graph", "[xg-build]") {
+TEST_CASE("We can build an xg index on a nice graph", "[xg]") {
 
     string graph_json = R"(
     {"node":[{"id":1,"sequence":"GATT"},
@@ -37,7 +37,7 @@ TEST_CASE("We can build an xg index on a nice graph", "[xg-build]") {
 
 }
 
-TEST_CASE("We can build an xg index on a nasty graph", "[xg-build-nasty]") {
+TEST_CASE("We can build an xg index on a nasty graph", "[xg]") {
 
     string graph_json = R"(
     {"node":[{"id":1,"sequence":"GATT"},
@@ -61,7 +61,7 @@ TEST_CASE("We can build an xg index on a nasty graph", "[xg-build-nasty]") {
 
 }
 
-TEST_CASE("We can build an xg index on a very nasty graph", "[xg-very-nasty]") {
+TEST_CASE("We can build an xg index on a very nasty graph", "[xg]") {
         // We have a node 9999 in here to bust some MEM we don't want, to trigger the condition we are trying to test
     string graph_json = R"(
     {"node":[{"id":1430,"sequence":"GAGATCGTGCTACCGCACTCCATGCACTCTAG"},
@@ -163,12 +163,54 @@ TEST_CASE("We can build an xg index on a very nasty graph", "[xg-very-nasty]") {
     // Build the xg index
     xg::XG xg_index(proto_graph);
 
-    Graph graph = xg_index.graph_context_id(make_pos_t(1420, false, 0), 30);
-    REQUIRE(graph.node_size() > 0);
+    SECTION("Context extraction gets something") {
+        Graph graph = xg_index.graph_context_id(make_pos_t(1420, false, 0), 30);
+        REQUIRE(graph.node_size() > 0);
+    }
+    
+    SECTION("Extracting path ranges works as expected") {
+        Graph graph;
+        
+        SECTION("We can extract within a single node") {
+            xg_index.get_path_range("17", 5, 15, graph, false);
+            
+            // We should just get node 1416
+            REQUIRE(graph.node_size() == 1);
+            REQUIRE(graph.node(0).id() == 1416);
+            // And the one dangling edge
+            REQUIRE(graph.edge_size() == 1);
+            for (size_t i = 0; i < graph.edge_size(); i++) {
+                // All the edges should be normal
+                REQUIRE(graph.edge(i).from_start() == false);
+                REQUIRE(graph.edge(i).to_end() == false);
+            }
+        }
+        
+        SECTION("We can extract across two nodes") {
+            xg_index.get_path_range("17", 5, 40, graph, false);
+            
+            // We should just get node 1416 and 1417
+            REQUIRE(graph.node_size() == 2);
+            REQUIRE(graph.node(0).id() >= 1416);
+            REQUIRE(graph.node(0).id() <= 1417);
+            REQUIRE(graph.node(1).id() >= 1416);
+            REQUIRE(graph.node(1).id() <= 1417);
+            REQUIRE(graph.node(0).id() != graph.node(1).id());
+            // And the one real and 2 dangling edges
+            REQUIRE(graph.edge_size() == 3);
+            for (size_t i = 0; i < graph.edge_size(); i++) {
+                // All the edges should be normal
+                REQUIRE(graph.edge(i).from_start() == false);
+                REQUIRE(graph.edge(i).to_end() == false);
+            }
+        }
+        
+        
+    }
 
 }
 
-TEST_CASE("We can build the xg index on a small graph with discontinuous node ids that don't start at 1", "[xg-breaky]") {
+TEST_CASE("We can build the xg index on a small graph with discontinuous node ids that don't start at 1", "[xg]") {
 
     string graph_json = R"(
     {"node":[{"id":10,"sequence":"GATT"},

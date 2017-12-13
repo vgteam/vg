@@ -3511,10 +3511,12 @@ void XG::get_path_range(const string& name, int64_t start, int64_t stop, Graph& 
     for_path_range(name, start, stop, [&](int64_t id) {
             nodes.insert(id);
             for (auto& e : edges_from(id)) {
-                edges.insert(make_pair(make_side(e.from(), e.from_start()), make_side(e.to(), e.to_end())));
+                // For each edge where this is a from node, turn it into a pair of side_ts, each of which holds an id and an is_end flag.
+                edges.insert(make_pair(make_side(e.from(), !e.from_start()), make_side(e.to(), e.to_end())));
             }
             for (auto& e : edges_to(id)) {
-                edges.insert(make_pair(make_side(e.from(), e.from_start()), make_side(e.to(), e.to_end())));
+                // Do the same for the edges where this is a to node
+                edges.insert(make_pair(make_side(e.from(), !e.from_start()), make_side(e.to(), e.to_end())));
             }
         }, is_rev);
 
