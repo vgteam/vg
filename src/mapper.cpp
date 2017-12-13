@@ -4389,7 +4389,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     surjection.clear_path();
 
     // get start and end nodes in path
-    if (!source.has_path() || source.path().mapping_size() == 0) {
+    if (!source.has_path() || source.path().mapping_size() == 0 || alignment_from_length(source) == 0) {
 #ifdef debug_mapper
 
 #pragma omp critical (cerr)
