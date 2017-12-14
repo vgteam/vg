@@ -4523,8 +4523,12 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         //assert(false);
     }
     */
-    if (found_forward) graph.destroy_handle(cut_before);
-    if (found_reverse) graph.destroy_handle(cut_after);
+    if (found_forward && found_reverse && cut_before == cut_after) {
+         graph.destroy_handle(cut_before);
+    } else {
+        if (found_forward) graph.destroy_handle(cut_before);
+        if (found_reverse) graph.destroy_handle(cut_after);
+    }
     //graph.serialize_to_file("after-" + source.name() + ".vg");
 
 //#define debug_mapper
