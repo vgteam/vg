@@ -641,13 +641,13 @@ int main_find(int argc, char** argv) {
                 stream::for_each(in, lambda);
             }
             // now we have the nodes to get
-            VG graph;
+            Graph graph;
             for (auto& node : nodes) {
-                *graph.graph.add_node() = xindex.node(node);
+                *graph.add_node() = xindex.node(node);
             }
-            xindex.expand_context(graph.graph, max(1, context_size), true); // get connected edges
-            graph.rebuild_indexes();
-            graph.serialize_to_ostream(cout);
+            xindex.expand_context(graph, max(1, context_size), true); // get connected edges
+            VG vgg; vgg.extend(graph);
+            vgg.serialize_to_ostream(cout);
         }
     } else if (!db_name.empty()) {
         if (!node_ids.empty() && path_name.empty()) {
