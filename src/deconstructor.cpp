@@ -40,9 +40,9 @@ namespace vg {
                 
                 // Get the middle of the traversal that doesn't include the
                 // boundary nodes
-                auto iter = t.visits().begin();
+                auto iter = t.visit().begin();
                 iter++;
-                auto end = t.visits().end();
+                auto end = t.visit().end();
                 end--;
                 for (; iter != end; iter++){
                     auto v = *iter;
@@ -77,9 +77,9 @@ namespace vg {
                 
                 // Get the middle of the traversal that doesn't include the
                 // boundary nodes
-                auto iter = t.visits().begin();
+                auto iter = t.visit().begin();
                 iter++;
-                auto end = t.visits().end();
+                auto end = t.visit().end();
                 end--;
                 for (; iter != end; iter++){
                     auto v = *iter;
@@ -99,8 +99,8 @@ namespace vg {
                 // put our new-found ref base in the 0th index of alleles vector.
                 // Then, prepend that base to each allele in our alleles vector.
                     SnarlTraversal t = ordered_traversals[i];
-                    id_t start_id = t.visits(0).node_id();
-                    id_t end_id = t.visits(t.visits_size() - 1).node_id();
+                    id_t start_id = t.visit(0).node_id();
+                    id_t end_id = t.visit(t.visit_size() - 1).node_id();
                     pair<size_t, bool> pos_orientation_start = pindexes[refpath]->by_id[start_id];
                     pair<size_t, bool> pos_orientation_end = pindexes[refpath]->by_id[end_id];
                     bool use_start = pos_orientation_start.first < pos_orientation_end.first;
