@@ -352,8 +352,8 @@ namespace vg {
         
         // pull out the graph around the position(s) we jumped to
         VG rescue_graph;
-        vector<size_t> backward_dist(jump_positions.size(), 8 * fragment_length_distr.stdev());
-        vector<size_t> forward_dist(jump_positions.size(), 8 * fragment_length_distr.stdev() + other_aln.sequence().size());
+        vector<size_t> backward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev());
+        vector<size_t> forward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev() + other_aln.sequence().size());
         algorithms::extract_containing_graph(xindex, rescue_graph.graph, jump_positions, backward_dist, forward_dist);
         rescue_graph.build_indexes();
         
