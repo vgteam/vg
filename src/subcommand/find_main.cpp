@@ -645,7 +645,7 @@ int main_find(int argc, char** argv) {
             for (auto& node : nodes) {
                 *graph.graph.add_node() = xindex.node(node);
             }
-            xindex.expand_context(graph.graph, max(1, context_size)); // get connected edges
+            xindex.expand_context(graph.graph, max(1, context_size), true); // get connected edges
             graph.rebuild_indexes();
             graph.serialize_to_ostream(cout);
         }

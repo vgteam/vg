@@ -4381,6 +4381,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
                                     int64_t& path_pos,
                                     bool& path_reverse) {
 
+    //Alignment source = simplify(raw_source);
     Alignment surjection = source;
     // Leave the original mapping quality in place (because that's the quality
     // on the placement of this read in this region at all)
