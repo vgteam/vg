@@ -1221,17 +1221,17 @@ namespace vg {
                                          multipath_aln_pairs_out, max_alt_mappings, &paths_of_node_memo,
                                          &oriented_occurences_memo, &handle_memo);
             
-            // did any alignments pass the filters or do the top mappings look like mismappings?
+            // do we produce at least one good looking pair?
             if (multipath_aln_pairs_out.empty() ? true : (likely_mismapping(multipath_aln_pairs_out.front().first) ||
                                                           likely_mismapping(multipath_aln_pairs_out.front().second))) {
 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
 #endif
-                vector<pair<MultipathAlignment, MultipathAlignment>> rescue_pairs;
+                vector<pair<MultipathAlignment, MultipathAlignment>> rescue_aln_pairs;
                 vector<pair<pair<size_t, size_t>, int64_t>> rescue_distances;
                 bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                                   rescue_pairs, rescue_distances, max_alt_mappings);
+                                                                   rescue_aln_pairs, rescue_distances, max_alt_mappings);
                 
                 // if we find consistent pairs, merge the to lists
                 if (rescued) {
@@ -1239,7 +1239,7 @@ namespace vg {
                     cerr << "found some rescue pairs, merging into current list of consistent mappings" << endl;
 #endif
                     
-                    merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, rescue_pairs, rescue_distances);
+                    merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, rescue_aln_pairs, rescue_distances);
                     
                     // if we still haven't found mappings that are distinguishable from matches to random sequences,
                     // don't let them have any mapping quality
@@ -1251,12 +1251,14 @@ namespace vg {
                 }
                 else {
                     // rescue didn't find any consistent mappings, revert to the single ended mappings
-                    std::swap(multipath_aln_pairs_out, rescue_pairs);
+                    std::swap(multipath_aln_pairs_out, rescue_aln_pairs);
                 }
             }
             else if (multipath_aln_pairs_out.front().first.mapping_quality() == max_mapping_quality &&
                      multipath_aln_pairs_out.front().second.mapping_quality() == max_mapping_quality) {
-                // see if we can also get high scoring secondaries with the rescue routine
+                
+                // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
+                // so we use this routine to use rescue on other very good looking independent end clusters
                 attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
                                                multipath_aln_pairs_out, cluster_pairs);
             }
