@@ -1346,9 +1346,7 @@ namespace vg {
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                  vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) const {
-        
-        cerr << rescued_multipath_aln_pairs.size() << " rescued alns, " << rescued_cluster_pairs.size() << " rescued pairs" << endl;
-        
+                
         size_t num_unrescued_pairs = multipath_aln_pairs_out.size();
         for (size_t j = 0; j < rescued_multipath_aln_pairs.size(); j++) {
             
