@@ -694,6 +694,8 @@ namespace vg {
             cerr << "found consistent, confident pair mapping from independent end mapping" << endl;
 #endif
             multipath_aln_pairs_out.emplace_back(move(multipath_alns_1.front()), move(multipath_alns_2.front()));
+            pair_distances.emplace_back(pair<size_t, size_t>(),
+                                        distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
             return true;
         }
         
@@ -1345,10 +1347,10 @@ namespace vg {
                                                  vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) const {
         
+        cerr << rescued_multipath_aln_pairs.size() << " rescued alns, " << rescued_cluster_pairs.size() << " rescued pairs" << endl;
+        
         size_t num_unrescued_pairs = multipath_aln_pairs_out.size();
         for (size_t j = 0; j < rescued_multipath_aln_pairs.size(); j++) {
-            
-            pair<MultipathAlignment, MultipathAlignment>& rescue_pair = rescued_multipath_aln_pairs[j];
             
             // make sure this pair isn't a duplicate with any of the original pairs
             bool duplicate = false;
@@ -1356,8 +1358,8 @@ namespace vg {
 #ifdef debug_multipath_mapper_mapping
                 cerr << "checking if rescue pair " << j << " is duplicate of original pair " << i << endl;
 #endif
-                if (abs(distance_between(multipath_aln_pairs_out[i].first, rescue_pair.first)) < 20) {
-                    if (abs(distance_between(multipath_aln_pairs_out[i].second, rescue_pair.second)) < 20) {
+                if (abs(distance_between(multipath_aln_pairs_out[i].first, rescued_multipath_aln_pairs[j].first)) < 20) {
+                    if (abs(distance_between(multipath_aln_pairs_out[i].second, rescued_multipath_aln_pairs[j].second)) < 20) {
 #ifdef debug_multipath_mapper_mapping
                         cerr << "found a duplicate" << endl;
 #endif
@@ -1373,7 +1375,7 @@ namespace vg {
 #endif
                 // add a dummy pair to hold the distance
                 cluster_pairs.emplace_back(rescued_cluster_pairs[j]);
-                multipath_aln_pairs_out.emplace_back(move(rescue_pair));
+                multipath_aln_pairs_out.emplace_back(move(rescued_multipath_aln_pairs[j]));
             }
         }
         
