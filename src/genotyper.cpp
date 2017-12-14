@@ -728,7 +728,7 @@ vector<SnarlTraversal> Genotyper::get_paths_through_snarl(VG& graph, const Snarl
 #endif
 
                     // Say we visit this node along the path, in this orientation
-                    *path_traversed.add_visits() = to_visit(!traversal_direction ? *mapping :
+                    *path_traversed.add_visit() = to_visit(!traversal_direction ? *mapping :
                         reverse_complement_mapping(*mapping,[&graph](id_t node_id) {
                             return graph.get_node(node_id)->sequence().length();
                         }));
@@ -747,8 +747,8 @@ vector<SnarlTraversal> Genotyper::get_paths_through_snarl(VG& graph, const Snarl
 
                         // get the string for the sequence
                         string allele_seq;
-                        for (size_t i = 0; i < path_traversed.visits_size(); i++) {
-                            auto& path_visit = path_traversed.visits(i);
+                        for (size_t i = 0; i < path_traversed.visit_size(); i++) {
+                            auto& path_visit = path_traversed.visit(i);
                             Node* map_node = graph.get_node(path_visit.node_id());
                             allele_seq += path_visit.backward() ? reverse_complement(map_node->sequence()) : map_node->sequence();
                         }
@@ -1099,9 +1099,9 @@ map<Alignment*, vector<Genotyper::Affinity>>
         // Now for each snarl path, make a copy of that graph with it in
         VG allele_graph(surrounding);
 
-        for (size_t i = 0; i < path.visits_size(); i++) {
+        for (size_t i = 0; i < path.visit_size(); i++) {
             // Add in every node on the path to the new allele graph
-            allele_graph.add_node(*graph.get_node(path.visits(i).node_id()));
+            allele_graph.add_node(*graph.get_node(path.visit(i).node_id()));
 
             // Add in just the edge to the previous node on the path
             if(i != 0) {
@@ -1110,11 +1110,11 @@ map<Alignment*, vector<Genotyper::Affinity>>
                 // Make an edge
                 Edge path_edge;
                 // And hook it to the correct side of the last node
-                path_edge.set_from(path.visits(prev).node_id());
-                path_edge.set_from_start(path.visits(prev).backward());
+                path_edge.set_from(path.visit(prev).node_id());
+                path_edge.set_from_start(path.visit(prev).backward());
                 // And the correct side of the next node
-                path_edge.set_to(path.visits(i).node_id());
-                path_edge.set_to_end(path.visits(i).backward());
+                path_edge.set_to(path.visit(i).node_id());
+                path_edge.set_to_end(path.visit(i).backward());
 
                 assert(graph.has_edge(path_edge));
 
@@ -1229,10 +1229,10 @@ map<Alignment*, vector<Genotyper::Affinity>>
 
             if(affinity.is_reverse) {
                 // We really traversed this snarl backward. Flip it around.
-                std::reverse(read_traversal.mutable_visits()->begin(), read_traversal.mutable_visits()->end());
-                for (size_t i = 0; i < read_traversal.visits_size(); i++) {
+                std::reverse(read_traversal.mutable_visit()->begin(), read_traversal.mutable_visit()->end());
+                for (size_t i = 0; i < read_traversal.visit_size(); i++) {
                     // Flip around every traversal as well as reversing their order.
-                    read_traversal.mutable_visits(i)->set_backward(!read_traversal.visits(i).backward());
+                    read_traversal.mutable_visit(i)->set_backward(!read_traversal.visit(i).backward());
                 }
 
             }
@@ -1245,18 +1245,18 @@ map<Alignment*, vector<Genotyper::Affinity>>
             auto seq = traversal_to_string(graph, read_traversal);
 
             // Now decide if the read's seq supports this path.
-            if(read_traversal.visits(0) == snarl->start() &&
-               read_traversal.visits(read_traversal.visits_size() - 1) == snarl->end()) {
+            if(read_traversal.visit(0) == snarl->start() &&
+               read_traversal.visit(read_traversal.visit_size() - 1) == snarl->end()) {
                 // Anchored at both ends.
                 // Need an exact match. Record if we have one or not.
                 affinity.consistent = (seq == path_seq);
-            } else if(read_traversal.visits(0) == snarl->start()) {
+            } else if(read_traversal.visit(0) == snarl->start()) {
                 // Anchored at start only.
                 // seq needs to be a prefix of path_seq
                 auto difference = std::mismatch(seq.begin(), seq.end(), path_seq.begin());
                 // If the first difference is the past-the-end of the prefix, then it's a prefix
                 affinity.consistent = (difference.first == seq.end());
-            } else if(read_traversal.visits(read_traversal.visits_size() - 1) == snarl->end()) {
+            } else if(read_traversal.visit(read_traversal.visit_size() - 1) == snarl->end()) {
                 // Anchored at end only.
                 // seq needs to be a suffix of path_seq
                 auto difference = std::mismatch(seq.rbegin(), seq.rend(), path_seq.rbegin());
@@ -1345,7 +1345,7 @@ SnarlTraversal Genotyper::get_traversal_of_snarl(VG& graph, const Snarl* snarl, 
 
         if(contents.first.count(graph.get_node(mapping.position().node_id()))) {
             // We're inside the bubble. This is super simple when we have the contents!
-            *to_return.add_visits() = to_visit(mapping);
+            *to_return.add_visit() = to_visit(mapping);
         }
     }
 
@@ -1424,31 +1424,31 @@ Genotyper::get_affinities_fast(VG& graph,
         // Get the NodeTraversals for this read through this snarl.
         auto read_traversal = get_traversal_of_snarl(graph, snarl, manager, reads_by_name.at(name)->path());
 
-        if(read_traversal.visits(0) == reverse(snarl->end()) ||
-           read_traversal.visits(read_traversal.visits_size() - 1) == reverse(snarl->start())) {
+        if(read_traversal.visit(0) == reverse(snarl->end()) ||
+           read_traversal.visit(read_traversal.visit_size() - 1) == reverse(snarl->start())) {
 
             // We really traversed this snarl backward. Flip it around.
             
-            std::reverse(read_traversal.mutable_visits()->begin(), read_traversal.mutable_visits()->end());
-            for (size_t i = 0; i < read_traversal.visits_size(); i++) {
+            std::reverse(read_traversal.mutable_visit()->begin(), read_traversal.mutable_visit()->end());
+            for (size_t i = 0; i < read_traversal.visit_size(); i++) {
                 // Flip around every traversal as well as reversing their order.
-                read_traversal.mutable_visits(i)->set_backward(!read_traversal.visits(i).backward());
+                read_traversal.mutable_visit(i)->set_backward(!read_traversal.visit(i).backward());
             }
 
             // We're on the reverse strand
             base_affinity.is_reverse = true;
         }
 
-        if(read_traversal.visits_size() == 1 && (read_traversal.visits(0).node_id() == snarl->start().node_id() ||
-            read_traversal.visits(read_traversal.visits_size() - 1).node_id() == snarl->end().node_id())) {
+        if(read_traversal.visit_size() == 1 && (read_traversal.visit(0).node_id() == snarl->start().node_id() ||
+            read_traversal.visit(read_traversal.visit_size() - 1).node_id() == snarl->end().node_id())) {
             
             // This read only touches the head or tail of the snarl, and so
             // cannot possibly be informative.
 #ifdef debug
 #pragma omp critical (cerr)
             cerr << "Non-informative read traversal being removed " << endl
-                 << pb2json(read_traversal.visits(0)) << " to "
-                 << pb2json(read_traversal.visits(read_traversal.visits_size() - 1)) << endl;  
+                 << pb2json(read_traversal.visit(0)) << " to "
+                 << pb2json(read_traversal.visit(read_traversal.visit_size() - 1)) << endl;  
 #endif
 
             continue;
@@ -1468,18 +1468,18 @@ Genotyper::get_affinities_fast(VG& graph,
         for(auto& path_seq : allele_strings) {
             // We'll make an affinity for this allele
             Affinity affinity = base_affinity;
-            if(read_traversal.visits(0) == snarl->start() &&
-               read_traversal.visits(read_traversal.visits_size() - 1) == snarl->end()) {
+            if(read_traversal.visit(0) == snarl->start() &&
+               read_traversal.visit(read_traversal.visit_size() - 1) == snarl->end()) {
                 // Anchored at both ends.
                 // Need an exact match. Record if we have one or not.
                 affinity.consistent = (seq == path_seq);
-            } else if(read_traversal.visits(0) == snarl->start()) {
+            } else if(read_traversal.visit(0) == snarl->start()) {
                 // Anchored at start only.
                 // seq needs to be a prefix of path_seq
                 auto difference = std::mismatch(seq.begin(), seq.end(), path_seq.begin());
                 // If the first difference is the past-the-end of the prefix, then it's a prefix
                 affinity.consistent = (difference.first == seq.end());
-            } else if(read_traversal.visits(read_traversal.visits_size() - 1) == snarl->end()) {
+            } else if(read_traversal.visit(read_traversal.visit_size() - 1) == snarl->end()) {
                 // Anchored at end only.
                 // seq needs to be a suffix of path_seq
                 auto difference = std::mismatch(seq.rbegin(), seq.rend(), path_seq.rbegin());
@@ -1488,7 +1488,7 @@ Genotyper::get_affinities_fast(VG& graph,
             } else {
                 // This read doesn't touch either end.
 #pragma omp critical (cerr)
-                cerr << "Warning: read " << read_traversal.visits(0) << " to " << read_traversal.visits(read_traversal.visits_size() - 1) << " doesn't touch either end of its snarl " << snarl->start() << " to " << snarl->end() << "!" << endl;
+                cerr << "Warning: read " << read_traversal.visit(0) << " to " << read_traversal.visit(read_traversal.visit_size() - 1) << " doesn't touch either end of its snarl " << snarl->start() << " to " << snarl->end() << "!" << endl;
                 if (allow_internal_alignments){
 
                 }
@@ -1496,7 +1496,7 @@ Genotyper::get_affinities_fast(VG& graph,
 
 #ifdef debug
 #pragma omp critical (cerr)
-            cerr << "\t" << path_seq << " vs observed " << (read_traversal.visits(0).node_id() == snarl->start().node_id()) << " " << seq << " " << (read_traversal.visits(read_traversal.visits_size() - 1).node_id() == snarl->end().node_id()) << ": " << affinity.consistent << endl;
+            cerr << "\t" << path_seq << " vs observed " << (read_traversal.visit(0).node_id() == snarl->start().node_id()) << " " << seq << " " << (read_traversal.visit(read_traversal.visit_size() - 1).node_id() == snarl->end().node_id()) << ": " << affinity.consistent << endl;
 #endif
 
             // Fake a weight
@@ -1980,10 +1980,10 @@ Locus Genotyper::genotype_snarl(VG& graph,
     for(auto& path : snarl_paths) {
         // Convert each allele to a Path and put it in the locus
         Path* allele_path = to_return.add_allele();
-        for (size_t i = 0; i < path.visits_size(); i++) {
+        for (size_t i = 0; i < path.visit_size(); i++) {
             // Convert each Visit to a Mapping and put it in the path.
             // TODO: we'll need a way to fill these in recursively somehow.
-            *allele_path->add_mapping() = to_mapping(path.visits(i), graph);
+            *allele_path->add_mapping() = to_mapping(path.visit(i), graph);
         }
     }
 
@@ -2080,8 +2080,8 @@ Locus Genotyper::genotype_snarl(VG& graph,
     for(int i = 0; i < snarl_paths.size(); i++) {
         // Build a useful name for the allele
         stringstream allele_name;
-        for (size_t j = 0; j < snarl_paths[i].visits_size(); j++) {
-            allele_name << snarl_paths[i].visits(j).node_id() << ",";
+        for (size_t j = 0; j < snarl_paths[i].visit_size(); j++) {
+            allele_name << snarl_paths[i].visit(j).node_id() << ",";
         }
 #pragma omp critical (cerr)
         {

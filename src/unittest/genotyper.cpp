@@ -92,13 +92,13 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
         
         // We should cross the snarl the easy forward way.
         REQUIRE(paths.size() == 1);
-        REQUIRE(paths[0].visits_size() == 5);
+        REQUIRE(paths[0].visit_size() == 5);
         size_t i = 0;
-        REQUIRE(paths[0].visits(i++).node_id() == 1);
-        REQUIRE(paths[0].visits(i++).node_id() == 2);
-        REQUIRE(paths[0].visits(i++).node_id() == 3);
-        REQUIRE(paths[0].visits(i++).node_id() == 5);
-        REQUIRE(paths[0].visits(i++).node_id() == 6);
+        REQUIRE(paths[0].visit(i++).node_id() == 1);
+        REQUIRE(paths[0].visit(i++).node_id() == 2);
+        REQUIRE(paths[0].visit(i++).node_id() == 3);
+        REQUIRE(paths[0].visit(i++).node_id() == 5);
+        REQUIRE(paths[0].visit(i++).node_id() == 6);
         
     }
     
@@ -124,13 +124,13 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
         
         // We should cross the snarl the easy forward way.
         REQUIRE(paths.size() == 1);
-        REQUIRE(paths[0].visits_size() == 5);
+        REQUIRE(paths[0].visit_size() == 5);
         size_t i = 0;
-        REQUIRE(paths[0].visits(i++).node_id() == 1);
-        REQUIRE(paths[0].visits(i++).node_id() == 2);
-        REQUIRE(paths[0].visits(i++).node_id() == 3);
-        REQUIRE(paths[0].visits(i++).node_id() == 5);
-        REQUIRE(paths[0].visits(i++).node_id() == 6);
+        REQUIRE(paths[0].visit(i++).node_id() == 1);
+        REQUIRE(paths[0].visit(i++).node_id() == 2);
+        REQUIRE(paths[0].visit(i++).node_id() == 3);
+        REQUIRE(paths[0].visit(i++).node_id() == 5);
+        REQUIRE(paths[0].visit(i++).node_id() == 6);
         
     }
     
