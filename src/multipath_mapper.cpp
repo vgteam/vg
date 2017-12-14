@@ -4,7 +4,7 @@
 //
 //
 
-#define debug_multipath_mapper_mapping
+//#define debug_multipath_mapper_mapping
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
@@ -149,12 +149,6 @@ namespace vg {
 #endif
         
         
-        // sort the cluster graphs descending by unique sequence coverage
-        std::sort(cluster_graphs.begin(), cluster_graphs.end(),
-                  [](const clustergraph_t& cluster_graph_1,
-                     const clustergraph_t& cluster_graph_2) {
-            return get<2>(cluster_graph_1) > get<2>(cluster_graph_2);
-        });
         
 #ifdef debug_multipath_mapper_mapping
         cerr << "aligning to subgraphs..." << endl;
@@ -926,21 +920,21 @@ namespace vg {
                                                          vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) {
         
+#ifdef debug_multipath_mapper_mapping
+        cerr << "using rescue to find secondary mappings" << endl;
+#endif
+
+        
         unordered_set<size_t> paired_clusters_1, paired_clusters_2;
-        int32_t max_score_1 = 0, max_score_2 = 0;
         
         for (size_t i = 0; i < multipath_aln_pairs_out.size(); i++) {
             // keep track of which clusters already have consistent pairs
             paired_clusters_1.insert(cluster_pairs[i].first.first);
             paired_clusters_2.insert(cluster_pairs[i].first.second);
-            
-            // also record the scores of each end
-            int32_t score_1 = optimal_alignment_score(multipath_aln_pairs_out[i].first);
-            int32_t score_2 = optimal_alignment_score(multipath_aln_pairs_out[i].second);
-            max_score_1 = max(max_score_1, score_1);
-            max_score_2 = max(max_score_2, score_2);
         }
-
+        
+        int32_t cluster_score_1 = get_aligner()->match * get<2>(cluster_graphs1[cluster_pairs.front().first.first]);
+        int32_t cluster_score_2 = get_aligner()->match * get<2>(cluster_graphs2[cluster_pairs.front().first.second]);
         int32_t max_score_diff = get_aligner()->mapping_quality_score_diff(max_mapping_quality);
         
         vector<pair<MultipathAlignment, MultipathAlignment>> rescued_secondaries;
@@ -950,12 +944,25 @@ namespace vg {
                                     vector<clustergraph_t>& cluster_graphs, unordered_set<size_t>& paired_clusters,
                                     int32_t max_score, bool anchor_is_read_1) {
             
+#ifdef debug_multipath_mapper_mapping
+            cerr << "checking for rescues from read " << (anchor_is_read_1 ? 1 : 2) << endl;
+#endif
+
+            
             size_t num_rescues = 0;
             for (size_t i = 0; i < cluster_graphs.size() && num_rescues < secondary_rescue_attempts; i++) {
                 if (paired_clusters.count(i)) {
                     // we already have a consistent pair from this cluster
+#ifdef debug_multipath_mapper_mapping
+                    cerr << "cluster " << i << " is already in a pair" << endl;
+#endif
+
                     continue;
                 }
+                
+#ifdef debug_multipath_mapper_mapping
+                cerr << "cluster " << i << "'s approximate score is " << get<2>(cluster_graphs[i]) * get_aligner()->match << ", looking for " << max_score - max_score_diff << endl;
+#endif
                 
                 if (get<2>(cluster_graphs[i]) * get_aligner()->match < max_score - max_score_diff) {
                     // the approximate score of the remaining is too low to consider
@@ -985,7 +992,14 @@ namespace vg {
                 // rescue from the alignment
                 MultipathAlignment rescue_multipath_aln;
                 if (!likely_mismapping(cluster_multipath_alns.front())) {
-                    if (attempt_rescue(cluster_multipath_alns.front(), alignment2, anchor_is_read_1, rescue_multipath_aln)) {
+                    bool rescued = attempt_rescue(cluster_multipath_alns.front(), alignment2, anchor_is_read_1, rescue_multipath_aln);
+#ifdef debug_multipath_mapper_mapping
+                    cerr << "rescued alignment is " << pb2json(rescue_multipath_aln) << endl;
+#endif
+                    if (rescued) {
+#ifdef debug_multipath_mapper_mapping
+                        cerr << "rescue succeeded, adding to rescue pair vector" << endl;
+#endif
                         if (anchor_is_read_1) {
                             rescued_secondaries.emplace_back(move(cluster_multipath_alns.front()), move(rescue_multipath_aln));
                         }
@@ -993,7 +1007,7 @@ namespace vg {
                             rescued_secondaries.emplace_back(move(rescue_multipath_aln), move(cluster_multipath_alns.front()));
                         }
                         rescued_distances.emplace_back(pair<size_t, size_t>(),
-                                                       distance_between(rescued_secondaries.back().second, rescued_secondaries.back().first));
+                                                       distance_between(rescued_secondaries.back().first, rescued_secondaries.back().second));
                     }
                 }
                 
@@ -1002,11 +1016,15 @@ namespace vg {
         };
         
         // perform routine for both read ends
-        align_and_rescue(alignment1, alignment2, cluster_graphs1, paired_clusters_1, max_score_1, true);
-        align_and_rescue(alignment2, alignment1, cluster_graphs2, paired_clusters_2, max_score_2, false);
+        align_and_rescue(alignment1, alignment2, cluster_graphs1, paired_clusters_1, cluster_score_1, true);
+        align_and_rescue(alignment2, alignment1, cluster_graphs2, paired_clusters_2, cluster_score_2, false);
         
         if (!rescued_secondaries.empty()) {
             // we found mappings that could be rescues of each other
+            
+#ifdef debug_multipath_mapper_mapping
+            cerr << "some rescues succeeded, deduplicating rescued pairs" << endl;
+#endif
             
             // find any rescued pairs that are duplicates of each other
             vector<bool> duplicate(rescued_secondaries.size(), false);
@@ -1125,25 +1143,23 @@ namespace vg {
 #ifdef debug_multipath_mapper_mapping
         cerr << "obtained independent clusters:" << endl;
         cerr << "read 1" << endl;
-        for (int i = 0; i < clusters1.size(); i++) {
+        for (int i = 0; i < cluster_graphs1.size(); i++) {
             cerr << "\tcluster " << i << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : clusters1[i]) {
+            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[i])) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
         }
         cerr << "read 2" << endl;
-        for (int i = 0; i < clusters2.size(); i++) {
+        for (int i = 0; i < cluster_graphs2.size(); i++) {
             cerr << "\tcluster " << i << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : clusters2[i]) {
+            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[i])) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
         }
 #endif
         
         // make vectors of cluster pointers to shim into the cluster pairing function
-        vector<memcluster_t*> cluster_mems_1, cluster_mems_2;
-        cluster_mems_1.resize(cluster_graphs1.size());
-        cluster_mems_2.resize(cluster_graphs2.size());
+        vector<memcluster_t*> cluster_mems_1(cluster_graphs1.size()), cluster_mems_2(cluster_graphs2.size());
         for (size_t i = 0; i < cluster_mems_1.size(); i++) {
             cluster_mems_1[i] = &(get<1>(cluster_graphs1[i]));
         }
@@ -1183,11 +1199,11 @@ namespace vg {
             int64_t dist = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                          id(pos_2), offset(pos_2), is_rev(pos_2));
             cerr << "\tpair "  << i << " at distance " << dist << endl;
-            cerr << "\t\t read 1" << endl;
+            cerr << "\t\t read 1 (cluster " << cluster_pairs[i].first.first <<  ")" << endl;
             for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[cluster_pairs[i].first.first])) {
                 cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
-            cerr << "\t\t read 2" << endl;
+            cerr << "\t\t read 2 (cluster " << cluster_pairs[i].first.second << ")" << endl;
             for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[cluster_pairs[i].first.second])) {
                 cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
@@ -1238,7 +1254,8 @@ namespace vg {
                     std::swap(multipath_aln_pairs_out, rescue_pairs);
                 }
             }
-            else {
+            else if (multipath_aln_pairs_out.front().first.mapping_quality() == max_mapping_quality &&
+                     multipath_aln_pairs_out.front().second.mapping_quality() == max_mapping_quality) {
                 // see if we can also get high scoring secondaries with the rescue routine
                 attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
                                                multipath_aln_pairs_out, cluster_pairs);
@@ -1866,6 +1883,14 @@ namespace vg {
                 return hit_1.first->length() > hit_2.first->length();
             });
         }
+        
+            
+        // sort the cluster graphs descending by unique sequence coverage
+        std::sort(cluster_graphs_out.begin(), cluster_graphs_out.end(),
+                  [](const clustergraph_t& cluster_graph_1,
+                     const clustergraph_t& cluster_graph_2) {
+                      return get<2>(cluster_graph_1) > get<2>(cluster_graph_2);
+                  });
         
         return move(cluster_graphs_out);
         
