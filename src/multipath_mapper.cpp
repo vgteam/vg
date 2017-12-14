@@ -920,6 +920,134 @@ namespace vg {
         return found_consistent;
     }
     
+    void MultipathMapper::attempt_rescue_for_secondaries(const Alignment& alignment1, const Alignment& alignment2,
+                                                         vector<clustergraph_t>& cluster_graphs1,
+                                                         vector<clustergraph_t>& cluster_graphs2,
+                                                         vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                         vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) {
+        
+        unordered_set<size_t> paired_clusters_1, paired_clusters_2;
+        int32_t max_score_1 = 0, max_score_2 = 0;
+        
+        for (size_t i = 0; i < multipath_aln_pairs_out.size(); i++) {
+            // keep track of which clusters already have consistent pairs
+            paired_clusters_1.insert(cluster_pairs[i].first.first);
+            paired_clusters_2.insert(cluster_pairs[i].first.second);
+            
+            // also record the scores of each end
+            int32_t score_1 = optimal_alignment_score(multipath_aln_pairs_out[i].first);
+            int32_t score_2 = optimal_alignment_score(multipath_aln_pairs_out[i].second);
+            max_score_1 = max(max_score_1, score_1);
+            max_score_2 = max(max_score_2, score_2);
+        }
+
+        int32_t max_score_diff = get_aligner()->mapping_quality_score_diff(max_mapping_quality);
+        
+        vector<pair<MultipathAlignment, MultipathAlignment>> rescued_secondaries;
+        vector<pair<pair<size_t, size_t>, int64_t>> rescued_distances;
+        
+        auto align_and_rescue = [&](const Alignment& anchor_aln, const Alignment& rescue_aln,
+                                    vector<clustergraph_t>& cluster_graphs, unordered_set<size_t>& paired_clusters,
+                                    int32_t max_score, bool anchor_is_read_1) {
+            
+            size_t num_rescues = 0;
+            for (size_t i = 0; i < cluster_graphs.size() && num_rescues < secondary_rescue_attempts; i++) {
+                if (paired_clusters.count(i)) {
+                    // we already have a consistent pair from this cluster
+                    continue;
+                }
+                
+                if (get<2>(cluster_graphs[i]) * get_aligner()->match < max_score - max_score_diff) {
+                    // the approximate score of the remaining is too low to consider
+                    break;
+                }
+                
+                // TODO: repetitive with align_to_cluster_graphs
+                
+                // make the alignment
+                vector<MultipathAlignment> cluster_multipath_alns;
+                cluster_multipath_alns.emplace_back();
+                multipath_align(anchor_aln, get<0>(cluster_graphs[i]), get<1>(cluster_graphs[i]), cluster_multipath_alns.back());
+                
+                // split it up if it turns out to be multiple components
+                split_multicomponent_alignments(cluster_multipath_alns);
+                
+                // order the subpaths
+                for (MultipathAlignment& multipath_aln : cluster_multipath_alns) {
+                    topologically_order_subpaths(multipath_aln);
+                }
+                
+                // if we split it up, move the best one to the front
+                if (cluster_multipath_alns.size() > 1) {
+                    sort_and_compute_mapping_quality(cluster_multipath_alns, None);
+                }
+                
+                // rescue from the alignment
+                MultipathAlignment rescue_multipath_aln;
+                if (!likely_mismapping(cluster_multipath_alns.front())) {
+                    if (attempt_rescue(cluster_multipath_alns.front(), alignment2, anchor_is_read_1, rescue_multipath_aln)) {
+                        if (anchor_is_read_1) {
+                            rescued_secondaries.emplace_back(move(cluster_multipath_alns.front()), move(rescue_multipath_aln));
+                        }
+                        else {
+                            rescued_secondaries.emplace_back(move(rescue_multipath_aln), move(cluster_multipath_alns.front()));
+                        }
+                        rescued_distances.emplace_back(pair<size_t, size_t>(),
+                                                       distance_between(rescued_secondaries.back().second, rescued_secondaries.back().first));
+                    }
+                }
+                
+                num_rescues++;
+            }
+        };
+        
+        // perform routine for both read ends
+        align_and_rescue(alignment1, alignment2, cluster_graphs1, paired_clusters_1, max_score_1, true);
+        align_and_rescue(alignment2, alignment1, cluster_graphs2, paired_clusters_2, max_score_2, false);
+        
+        if (!rescued_secondaries.empty()) {
+            // we found mappings that could be rescues of each other
+            
+            // find any rescued pairs that are duplicates of each other
+            vector<bool> duplicate(rescued_secondaries.size(), false);
+            for (size_t i = 1; i < rescued_secondaries.size(); i++) {
+                for (size_t j = 0; j < i; j++) {
+                    if (abs(distance_between(rescued_secondaries[i].first, rescued_secondaries[j].first)) < 20) {
+                        if (abs(distance_between(rescued_secondaries[i].second, rescued_secondaries[j].second)) < 20) {
+                            duplicate[i] = true;
+                            duplicate[j] = true;
+                        }
+                    }
+                }
+            }
+            
+            // move the duplicates to the end of the vector
+            size_t end = rescued_secondaries.size();
+            for (size_t i = 0; i < end; ) {
+                if (duplicate[i]) {
+                    
+                    std::swap(rescued_secondaries[i], rescued_secondaries[end - 1]);
+                    std::swap(rescued_distances[i], rescued_distances[end - 1]);
+                    std::swap(duplicate[i], duplicate[end - 1]);
+                    
+                    end--;
+                }
+                else {
+                    i++;
+                }
+            }
+            
+            // remove duplicates
+            if (end < rescued_secondaries.size()) {
+                rescued_secondaries.resize(end);
+                rescued_distances.resize(end);
+            }
+            
+            // merge the rescued secondaries into the return vector
+            merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, rescued_secondaries, rescued_distances);
+        }
+    }
+    
     void MultipathMapper::multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
                                                vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
@@ -1110,6 +1238,11 @@ namespace vg {
                     std::swap(multipath_aln_pairs_out, rescue_pairs);
                 }
             }
+            else {
+                // see if we can also get high scoring secondaries with the rescue routine
+                attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                               multipath_aln_pairs_out, cluster_pairs);
+            }
         }
         else {
             // revert to independent single ended mappings
@@ -1191,7 +1324,7 @@ namespace vg {
     void MultipathMapper::merge_rescued_mappings(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                  vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
-                                                 vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) {
+                                                 vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) const {
         
         size_t num_unrescued_pairs = multipath_aln_pairs_out.size();
         for (size_t j = 0; j < rescued_multipath_aln_pairs.size(); j++) {

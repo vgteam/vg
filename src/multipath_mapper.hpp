@@ -78,6 +78,7 @@ namespace vg {
         size_t max_p_value_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
         bool unstranded_clustering = true;
+        size_t secondary_rescue_attempts = 2;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -115,6 +116,7 @@ namespace vg {
         bool attempt_rescue(const MultipathAlignment& multipath_aln, const Alignment& other_aln,
                             bool rescue_forward, MultipathAlignment& rescue_multipath_aln);
         
+        
         /// After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform
         /// multipath alignment
         void align_to_cluster_graphs(const Alignment& alignment,
@@ -145,10 +147,17 @@ namespace vg {
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
                                                  size_t max_alt_mappings);
         
+        /// Use the rescue routine on strong suboptimal clusters to see if we can find a good secondary
+        void attempt_rescue_for_secondaries(const Alignment& alignment1, const Alignment& alignment2,
+                                            vector<clustergraph_t>& cluster_graphs1,
+                                            vector<clustergraph_t>& cluster_graphs2,
+                                            vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                            vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
+        
         void merge_rescued_mappings(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                     vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
-                                    vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs);
+                                    vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) const;
         
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable (according to the Mapper's aligner) with
@@ -170,7 +179,6 @@ namespace vg {
         /// a record to the cluster pairs vector
         void split_multicomponent_alignments(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
-        
         
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
