@@ -937,7 +937,7 @@ namespace vg {
         
         int32_t cluster_score_1 = get_aligner()->match * get<2>(cluster_graphs1[cluster_pairs.front().first.first]);
         int32_t cluster_score_2 = get_aligner()->match * get<2>(cluster_graphs2[cluster_pairs.front().first.second]);
-        int32_t max_score_diff = get_aligner()->mapping_quality_score_diff(max_mapping_quality);
+        int32_t max_score_diff = secondary_rescue_score_diff * get_aligner()->mapping_quality_score_diff(max_mapping_quality);
         
         vector<pair<MultipathAlignment, MultipathAlignment>> rescued_secondaries;
         vector<pair<pair<size_t, size_t>, int64_t>> rescued_distances;
@@ -994,7 +994,7 @@ namespace vg {
                 // rescue from the alignment
                 MultipathAlignment rescue_multipath_aln;
                 if (!likely_mismapping(cluster_multipath_alns.front())) {
-                    bool rescued = attempt_rescue(cluster_multipath_alns.front(), alignment2, anchor_is_read_1, rescue_multipath_aln);
+                    bool rescued = attempt_rescue(cluster_multipath_alns.front(), rescue_aln, anchor_is_read_1, rescue_multipath_aln);
 #ifdef debug_multipath_mapper_mapping
                     cerr << "rescued alignment is " << pb2json(rescue_multipath_aln) << endl;
 #endif
