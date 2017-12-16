@@ -4381,7 +4381,6 @@ Alignment Mapper::surject_alignment(const Alignment& source,
                                     int64_t& path_pos,
                                     bool& path_reverse) {
 
-    //Alignment source = simplify(raw_source);
     Alignment surjection = source;
     // Leave the original mapping quality in place (because that's the quality
     // on the placement of this read in this region at all)
@@ -4572,6 +4571,10 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     if (subgraph.node_size() == 0) {
         // couldn't find subgraph, try the one we've got
         subgraph = graph.graph;
+    }
+
+    if (subgraph.node_size() == 0) {
+        return surjection; //empty graph, avoid further warnings
     }
 
     // DAG assumption
