@@ -508,7 +508,7 @@ public:
     /// not be called in a loop.
     ///
     /// If update_paths is true, the paths will be modified to reflect their
-    /// embedding in the modified graph. If add_paths is true, the paths as
+    /// embedding in the modified graph. If save_paths is true, the paths as
     /// embedded in the graph will be added to the graph's set of paths. If
     /// break_at_ends is true (or save_paths is true), nodes will be broken at
     /// the ends of paths that start/end woth perfect matches, so the paths can

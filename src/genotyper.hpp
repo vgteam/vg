@@ -144,9 +144,9 @@ public:
     Aligner normal_aligner;
     QualAdjAligner quality_aligner;
 
-    // Process and write output
+    /// Process and write output.
+    /// Alignments must be embedded in the AugmentedGraph.
     void run(AugmentedGraph& graph,
-             vector<Alignment>& alignments,
              ostream& out,
              string ref_path_name,
              string contig_name = "",
@@ -202,7 +202,16 @@ public:
      * while those supported by actual embedded named paths are not.
      */
     vector<SnarlTraversal> get_paths_through_snarl(VG& graph, const Snarl* snarl,
-        const SnarlManager& manager, const map<string, Alignment*>& reads_by_name);
+        const SnarlManager& manager, const map<string, const Alignment*>& reads_by_name);
+    
+    /**
+     * For the given snarl, emit all paths through it with unique sequences that
+     * are supported by reads stored in the AugmentedGraph's read index. Paths
+     * through the snarl supported only by reads are subject to a min recurrence
+     * count.
+     */
+    vector<SnarlTraversal> get_paths_through_snarl_from_reads(AugmentedGraph& aug,
+        const Snarl* snarl, const SnarlManager& manager);
     
     /**
      * Get all the quality values in the alignment between the start and end
@@ -226,14 +235,14 @@ public:
      *
      * Affinity is a double out of 1.0. Higher is better.
      */ 
-    map<Alignment*, vector<Affinity>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
+    map<const Alignment*, vector<Affinity>> get_affinities(VG& graph, const map<string, const Alignment*>& reads_by_name,
         const Snarl* snarl, const SnarlManager& manager, const vector<SnarlTraversal>& superbubble_paths);
         
     /**
      * Get affinities as above but using only string comparison instead of
      * alignment. Affinities are 0 for mismatch and 1 for a perfect match.
      */
-    map<Alignment*, vector<Affinity>> get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
+    map<const Alignment*, vector<Affinity>> get_affinities_fast(VG& graph, const map<string, const Alignment*>& reads_by_name,
         const Snarl* snarl, const SnarlManager& manager, const vector<SnarlTraversal>& superbubble_paths,
         bool allow_internal_alignments = false);
         
@@ -241,7 +250,7 @@ public:
      * Compute annotated genotype from affinities and superbubble paths.
      * Needs access to the graph so it can chop up the alignments, which requires node sizes.
      */
-    Locus genotype_snarl(VG& graph, const Snarl* snarl, const vector<SnarlTraversal>& superbubble_paths, const map<Alignment*, vector<Affinity>>& affinities);
+    Locus genotype_snarl(VG& graph, const Snarl* snarl, const vector<SnarlTraversal>& superbubble_paths, const map<const Alignment*, vector<Affinity>>& affinities);
         
     /**
      * Compute the probability of the observed alignments given the genotype.
@@ -255,7 +264,7 @@ public:
      *
      * Returns a natural log likelihood.
      */
-    double get_genotype_log_likelihood(VG& graph, const Snarl* snarl, const vector<int>& genotype, const vector<pair<Alignment*, vector<Affinity>>>& alignment_consistency);
+    double get_genotype_log_likelihood(VG& graph, const Snarl* snarl, const vector<int>& genotype, const vector<pair<const Alignment*, vector<Affinity>>>& alignment_consistency);
     
     /**
      * Compute the prior probability of the given genotype.

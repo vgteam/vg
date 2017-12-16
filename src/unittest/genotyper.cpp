@@ -85,7 +85,7 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
         graph.paths.extend(fwd.path());
 
         // Make a map to hold it
-        map<string, Alignment*> reads_by_name{{"read1", &fwd}};
+        map<string, const Alignment*> reads_by_name{{"read1", &fwd}};
 
         // Get paths through the 1 to 6 snarl supported by the read's alignment
         vector<SnarlTraversal> paths = genotyper.get_paths_through_snarl(graph, snarls[0], manager, reads_by_name);
@@ -117,7 +117,7 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
         graph.paths.extend(rev.path());
 
         // Make a map to hold it
-        map<string, Alignment*> reads_by_name{{"read1", &rev}};
+        map<string, const Alignment*> reads_by_name{{"read1", &rev}};
 
         // Get paths through the 1 to 6 snarl supported by the read's alignment
         vector<SnarlTraversal> paths = genotyper.get_paths_through_snarl(graph, snarls[0], manager, reads_by_name);
