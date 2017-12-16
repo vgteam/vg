@@ -570,6 +570,11 @@ namespace vg {
         pos_t pos_2 = initial_position(aln_2.path());
 #ifdef debug_multipath_mapper_mapping
         cerr << "measuring distance between " << pos_1 << " and " << pos_2 << endl;
+        if (numeric_limits<int64_t>::max() == xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
+                                                                                            id(pos_2), offset(pos_2), is_rev(pos_2),
+                                                                                            forward_strand)) {
+            cerr << "####\n###\nTHIS ONE IS INFINITE\n###\n###\n";
+        }
 #endif
         return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                              id(pos_2), offset(pos_2), is_rev(pos_2),
@@ -1003,13 +1008,21 @@ namespace vg {
                         cerr << "rescue succeeded, adding to rescue pair vector" << endl;
 #endif
                         if (anchor_is_read_1) {
-                            rescued_secondaries.emplace_back(move(cluster_multipath_alns.front()), move(rescue_multipath_aln));
+                            int64_t dist = distance_between(cluster_multipath_alns.front(), rescue_multipath_aln);
+                            if (dist >= 0 && dist != numeric_limits<int64_t>::max()) {
+                                rescued_secondaries.emplace_back(move(cluster_multipath_alns.front()), move(rescue_multipath_aln));
+                                rescued_distances.emplace_back(pair<size_t, size_t>(), dist);
+                                
+                            }
                         }
                         else {
-                            rescued_secondaries.emplace_back(move(rescue_multipath_aln), move(cluster_multipath_alns.front()));
+                            int64_t dist = distance_between(rescue_multipath_aln, cluster_multipath_alns.front());
+                            if (dist >= 0 && dist != numeric_limits<int64_t>::max()) {
+                                rescued_secondaries.emplace_back(move(rescue_multipath_aln), move(cluster_multipath_alns.front()));
+                                rescued_distances.emplace_back(pair<size_t, size_t>(), dist);
+                                
+                            }
                         }
-                        rescued_distances.emplace_back(pair<size_t, size_t>(),
-                                                       distance_between(rescued_secondaries.back().first, rescued_secondaries.back().second));
                     }
                 }
                 
