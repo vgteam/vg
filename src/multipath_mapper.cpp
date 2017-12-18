@@ -1236,19 +1236,21 @@ namespace vg {
                                          multipath_aln_pairs_out, max_alt_mappings, &paths_of_node_memo,
                                          &oriented_occurences_memo, &handle_memo);
             
-            // do we produce at least one good looking pair?
+            // do we produce at least one good looking pair alignments from the clustered clusters?
             if (multipath_aln_pairs_out.empty() ? true : (likely_mismapping(multipath_aln_pairs_out.front().first) ||
                                                           likely_mismapping(multipath_aln_pairs_out.front().second))) {
 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
 #endif
+                // we're not happy with the pairs we got, try to get a good pair by rescuing from single ended alignments
+                
                 vector<pair<MultipathAlignment, MultipathAlignment>> rescue_aln_pairs;
                 vector<pair<pair<size_t, size_t>, int64_t>> rescue_distances;
                 bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
                                                                    rescue_aln_pairs, rescue_distances, max_alt_mappings);
                 
-                // if we find consistent pairs, merge the to lists
+                // if we find consistent pairs by rescue, merge the two lists
                 if (rescued) {
 #ifdef debug_multipath_mapper_mapping
                     cerr << "found some rescue pairs, merging into current list of consistent mappings" << endl;
