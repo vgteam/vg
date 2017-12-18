@@ -1759,8 +1759,7 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
     size_t seen = 0;
     size_t i = 0;
     if (!path.mapping_size()) {
-        cerr << "[vg::Path] cannot cut an empty path" << endl;
-        assert(false);
+        return make_pair(path, path);
     }
 #ifdef debug
     cerr << "cutting path at " << offset << endl << pb2json(m) << endl;

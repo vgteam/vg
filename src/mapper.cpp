@@ -4394,8 +4394,21 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     surjection.clear_identity();
     surjection.clear_path();
 
-    // get start and end nodes in path
-    if (!source.has_path() || source.path().mapping_size() == 0) {
+    int count_forward=0, count_reverse=0;
+    for (auto& mapping : source.path().mapping()) {
+        if (mapping.position().is_reverse()) {
+            ++count_reverse;
+        } else {
+            ++count_forward;
+        }
+    }
+    //cerr << "fwd " << count_forward << " rev " << count_reverse << endl;
+
+    // here we assume that people will use this on DAGs
+    // require that we have an alignment with a score, and that it is on one strand
+    if (!source.has_path() || source.path().mapping_size() == 0
+        || alignment_from_length(source) == 0
+        || count_forward > 0 && count_reverse > 0) {
 #ifdef debug_mapper
 
 #pragma omp critical (cerr)
@@ -4424,22 +4437,19 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // 2) keep the ref path and the aln path both in the graph
     // 3) detach the nodes on the other sides of the aln path start and end from all other nodes
     // 4) remove the non-path component
-    //cerr << "before" << endl;
-    //cerr << pb2json(source) << endl;
+
     Alignment trimmed_source = strip_from_end(strip_from_start(source, non_match_start(source)), non_match_end(source));
-    //cerr << "after" << endl;
+    // check if we'd fail
+    if (trimmed_source.sequence().size() == 0) {
+        return surjection;
+    }
     vector<Path> source_path;
     source_path.push_back(trimmed_source.path());
     source_path.back().set_name(source.name());
     // Make sure to pass true here to embed the alignment
-    auto translation = graph.edit(source_path, true);
+    auto translation = graph.edit(source_path, true); //, true, true);
     Translator translator(translation);
-    //cerr << "raw source " << pb2json(source) << endl;
-    //cerr << "trimmed source " << pb2json(trimmed_source) << endl;
-    //
-    
     Path source_in_graph = graph.paths.path(source.name());
-    //cerr << "source in graph " << pb2json(source_in_graph) << endl;
     Position start_pos = make_position(initial_position(source_in_graph));
     Position end_pos = make_position(final_position(source_in_graph));
     //cerr << "start and end pos " << pb2json(start_pos) << " " << pb2json(end_pos) << endl;
@@ -4488,7 +4498,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     handle_t cut_before = cut;
     bool found_forward = found;
     curr.insert(end);
-    //cerr << "going forward" << endl;
+    //ncerr << "going forward" << endl;
     while (!curr.empty()) {
         bool finished = false;
         //cerr << "cur has " << curr.size() << endl;
@@ -4507,26 +4517,21 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     }
     handle_t cut_after = cut;
     bool found_reverse = found;
-    //cerr << "cut before/after " << graph.get_id(cut_before) << " " << graph.get_id(cut_after) << endl;
     //graph.serialize_to_file("before-" + source.name() + ".vg");
+    //graph.serialize_to_file("before-" + graph.hash() + ".vg");
 
     set<string> kept_paths;
     graph.keep_paths(path_names, kept_paths);
     graph.remove_non_path();
     // by definition we have found path
-    /*
-    if (!found_forward || !found_reverse) {
-        graph.serialize_to_file(source.name() + ".vg");
-        base_graph.serialize_to_file(source.name() + "-base" + ".vg");
-        VG augmented_graph = base_graph;
-        augmented_graph.edit(source_path);
-        augmented_graph.serialize_to_file(source.name() + "-aug" + ".vg");
-        //assert(false);
+    if (found_forward && found_reverse && cut_before == cut_after) {
+         graph.destroy_handle(cut_before);
+    } else {
+        if (found_forward) graph.destroy_handle(cut_before);
+        if (found_reverse) graph.destroy_handle(cut_after);
     }
-    */
-    if (found_forward) graph.destroy_handle(cut_before);
-    if (found_reverse) graph.destroy_handle(cut_after);
     //graph.serialize_to_file("after-" + source.name() + ".vg");
+    //graph.serialize_to_file("after-" + graph.hash() + ".vg");
 
 //#define debug_mapper
 #ifdef debug_mapper
@@ -4537,10 +4542,11 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #endif
     //Position end_pos = alignment_end(source);
     // assume DAG
-    vg::id_t target_id = graph.get_id(start);
+    set<vg::id_t> target_ids;
+    for (auto& mapping : source_in_graph.mapping()) {
+        target_ids.insert(mapping.position().node_id());
+    }
 
-    //Node* nullhead = graph.join_heads();
-    //cerr << pb2json(graph.graph) << endl;
     // otherwise, two cuts
     // remove the links in both cases
     // we can clean up by removing 
@@ -4557,40 +4563,46 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     Graph subgraph;
     for (auto& graph : subgraphs) {
         //cerr << pb2json(graph.graph) << endl;
-        if (graph.has_node(target_id)) {
+        bool found = false;
+        graph.for_each_handle([&](const handle_t& h) {
+                if (!found && target_ids.count(graph.get_id(h))) {
+                    found = true;
+                }
+            });
+        if (found) {
             subgraph = graph.graph;
             break;
         }
     }
     if (subgraph.node_size() == 0) {
+        // couldn't find subgraph, try the one we've got
         subgraph = graph.graph;
     }
-    
+
+    if (subgraph.node_size() == 0) {
+        return surjection; //empty graph, avoid further warnings
+    }
+
+    // DAG assumption
     sort_by_id_dedup_and_clean(subgraph);
 #ifdef debug_mapper
     cerr << "sub " << pb2json(subgraph) << endl;
 #endif
-
-    int count_forward=0, count_reverse=0;
-    for (auto& mapping : source.path().mapping()) {
-        if (mapping.position().is_reverse()) {
-            ++count_reverse;
-        } else {
-            ++count_forward;
-        }
-    }
-    //cerr << "fwd " << count_forward << " rev " << count_reverse << endl;
 
     Alignment surjection_rc = surjection;
     surjection_rc.set_sequence(reverse_complement(surjection.sequence()));
 
     Alignment surjection_forward, surjection_reverse;
     // global align to the trimmed graph, and simplify without removal of internal deletions, as we'll need these for BAM reconstruction
-    if (count_forward) {
-        surjection_forward = simplify(align_to_graph(surjection, subgraph, max_query_graph_ratio, true, false, false, true), false);
-    }
-    if (count_reverse) {
-        surjection_reverse = simplify(align_to_graph(surjection_rc, subgraph, max_query_graph_ratio, true, false, false, true), false);
+    try {
+        if (count_forward) {
+            surjection_forward = simplify(align_to_graph(surjection, subgraph, max_query_graph_ratio, true, false, false, true), false);
+        }
+        if (count_reverse) {
+            surjection_reverse = simplify(align_to_graph(surjection_rc, subgraph, max_query_graph_ratio, true, false, false, true), false);
+        }
+    } catch (vg::NoAlignmentInBandException) {
+        return surjection; // null result, we couldn't align banded global
     }
 
 #ifdef debug_mapper

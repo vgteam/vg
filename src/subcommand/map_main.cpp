@@ -754,6 +754,7 @@ int main_map(int argc, char** argv) {
         m->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
         m->identity_weight = identity_weight;
         m->assume_acyclic = acyclic_graph;
+        m->context_depth = 3; // for surjection
         mapper[i] = m;
     }
 
