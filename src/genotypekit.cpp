@@ -177,7 +177,10 @@ void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
         // Send out the translation
         translator.load(augmentation_translations);
     } else {
+        // No need to add edits from the reads to the graph. We may have done it already with vg augment.
+#ifdef debug
         cerr << "Don't add edits!" << endl;
+#endif
     }
     
     // Steal the alignments for ourselves.

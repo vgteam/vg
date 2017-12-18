@@ -235,16 +235,16 @@ public:
      *
      * Affinity is a double out of 1.0. Higher is better.
      */ 
-    map<const Alignment*, vector<Affinity>> get_affinities(VG& graph, const map<string, const Alignment*>& reads_by_name,
+    map<const Alignment*, vector<Affinity>> get_affinities(AugmentedGraph& aug, const map<string, const Alignment*>& reads_by_name,
         const Snarl* snarl, const SnarlManager& manager, const vector<SnarlTraversal>& superbubble_paths);
         
     /**
      * Get affinities as above but using only string comparison instead of
      * alignment. Affinities are 0 for mismatch and 1 for a perfect match.
      */
-    map<const Alignment*, vector<Affinity>> get_affinities_fast(VG& graph, const map<string, const Alignment*>& reads_by_name,
-        const Snarl* snarl, const SnarlManager& manager, const vector<SnarlTraversal>& superbubble_paths,
-        bool allow_internal_alignments = false);
+    map<const Alignment*, vector<Affinity>> get_affinities_fast(AugmentedGraph& aug,
+        const map<string, const Alignment*>& reads_by_name, const Snarl* snarl, const SnarlManager& manager,
+        const vector<SnarlTraversal>& superbubble_paths, bool allow_internal_alignments = false);
         
     /**
      * Compute annotated genotype from affinities and superbubble paths.
