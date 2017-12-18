@@ -176,6 +176,8 @@ void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
         
         // Send out the translation
         translator.load(augmentation_translations);
+    } else {
+        cerr << "Don't add edits!" << endl;
     }
     
     // Steal the alignments for ourselves.

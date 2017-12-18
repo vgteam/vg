@@ -300,12 +300,6 @@ struct SupportAugmentedGraph : public AugmentedGraph {
     
 };
 
-/// AugmentedGraph extension that also keeps track of some reads. Reads are not embedded 
-struct ReadAugmentedGraph : public AugmentedGraph {
-};
-    
-
-
 class SimpleConsistencyCalculator : public ConsistencyCalculator{
     public:
     ~SimpleConsistencyCalculator();
