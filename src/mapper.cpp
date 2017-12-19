@@ -11,10 +11,12 @@ thread_local vector<size_t> BaseMapper::adaptive_reseed_length_memo;
 
 BaseMapper::BaseMapper(xg::XG* xidex,
                        gcsa::GCSA* g,
-                       gcsa::LCPArray* a) :
+                       gcsa::LCPArray* a,
+                       gbwt::GBWT* gbwt) :
       xindex(xidex)
       , gcsa(g)
       , lcp(a)
+      , gbwt(gbwt)
       , min_mem_length(1)
       , mem_reseed_length(0)
       , fast_reseed(true)
@@ -1285,6 +1287,42 @@ void BaseMapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, in
                                           max_score, 255, gc_content);
     regular_aligner = new Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
 }
+
+void BaseMapper::apply_haplotype_consistency_bonus(Alignment& aln) {
+    if (gbwt == nullptr) {
+        // There's no haplotype data available, so we can't hand out bonuses.
+        return;
+    }
+    
+    if (haplotype_consistency_bonus == 0) {
+        // It won't matter either way
+        return;
+    }
+    
+    // We don't look at strip_bonuses here, because we need these bonuses added
+    // always in order to choose between alignments.
+    
+    // Define the path taken by the alignment in terms the GBWT can understand
+    vector<gbwt::node_type> aln_path;
+    aln_path.reserve(aln.path().mapping_size());
+    for (const auto& mapping : aln.path().mapping()) {
+        // Copy over each visit to a node
+        aln_path.emplace_back(gbwt::Node::encode(mapping.position().node_id(), mapping.position().is_reverse()));
+    }
+    
+    if (aln_path.empty()) {
+        // Alignments with no actual mappings can't be consistent.
+        return;
+    }
+    
+    // Look for hits
+    auto result = gbwt->find(aln_path.begin(), aln_path.end());
+    
+    if (!result.empty()) {
+        // We are consistent with at least one haplotype
+        aln.set_score(aln.score() + haplotype_consistency_bonus);
+    }
+}
     
 double BaseMapper::estimate_gc_content(void) {
     
@@ -1311,12 +1349,17 @@ int BaseMapper::random_match_length(double chance_random) {
     }
 }
     
-void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
+void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend,
+    int8_t full_length_bonus, int8_t haplotype_consistency_bonus) {
+    
     // clear the existing aligners and recreate them
     if (regular_aligner || qual_adj_aligner) {
         clear_aligners();
     }
     init_aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
+    
+    // Save the consistency bonus
+    this->haplotype_consistency_bonus = haplotype_consistency_bonus;
 }
     
 void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, size_t reestimation_frequency,
@@ -1332,8 +1375,9 @@ void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, si
     
 Mapper::Mapper(xg::XG* xidex,
                gcsa::GCSA* g,
-               gcsa::LCPArray* a) :
-    BaseMapper(xidex, g, a)
+               gcsa::LCPArray* a,
+               gbwt::GBWT* gbwt) :
+    BaseMapper(xidex, g, a, gbwt)
     , thread_extension(10)
     , context_depth(1)
     , max_multimaps(1)
@@ -1679,6 +1723,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     for (auto& orientation : orientations) {
         if (rescue_off_first) {
             Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback);
+            apply_haplotype_consistency_bonus(aln2);
             //write_alignment_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
@@ -1697,6 +1742,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
             }
         } else if (rescue_off_second) {
             Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback);
+            apply_haplotype_consistency_bonus(aln1);
             //write_alignment_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
@@ -2950,9 +2996,11 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     Alignment aln_rev;
     if (count_fwd) {
         aln_fwd = align_maybe_flip(aln, graph, false, traceback);
+        apply_haplotype_consistency_bonus(aln_fwd);
     }
     if (count_rev) {
         aln_rev = align_maybe_flip(aln, graph, true, traceback);
+        apply_haplotype_consistency_bonus(aln_rev);
     }
     // TODO check if we have soft clipping on the end of the graph and if so try to expand the context
     if (aln_fwd.score() + aln_rev.score() == 0) {
