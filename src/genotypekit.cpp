@@ -82,6 +82,24 @@ pair<const Edge*, bool> AugmentedGraph::base_edge(const Edge* edge) {
     return pair<const Edge*, bool>(found_edge, is_trivial);
 }
 
+vector<const Alignment*> AugmentedGraph::get_alignments(id_t node_id) const {
+    if (alignments_by_node.count(node_id)) {
+        auto& found = alignments_by_node.at(node_id);
+        return vector<const Alignment*>{found.begin(), found.end()};
+    } else {
+        return {};
+    }
+}
+
+vector<const Alignment*> AugmentedGraph::get_alignments() const {
+    vector<const Alignment*> to_return;
+    to_return.reserve(embedded_alignments.size());
+    for (auto& alignment : embedded_alignments) {
+        to_return.push_back(&alignment);
+    }
+    return to_return;
+}
+
 void AugmentedGraph::clear() {
     // Reset to default state
     *this = AugmentedGraph();
@@ -90,6 +108,9 @@ void AugmentedGraph::clear() {
 void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
                                                   bool unique_names, bool leave_edits) {
 
+    // This should only be called once.
+    assert(embedded_alignments.empty());
+    
     if (unique_names) { 
         // Make sure they have unique names.
         set<string> names_seen;
@@ -118,36 +139,69 @@ void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
         names_seen.clear();
     }
     
-    // Suck out paths
-    vector<Path> paths;
     for(auto& alignment : alignments) {
-        // Copy over each path, naming it after its alignment
-        // and trimming so that it begins and ends with a match to avoid
-        // creating a bunch of stubs.
-        Path path = trim_hanging_ends(alignment.path());
-        path.set_name(alignment.name());
-        paths.push_back(path);
+        // Trim the softclips off of every read
+        // Work out were to cut
+        int cut_start = softclip_start(alignment);
+        int cut_end = softclip_end(alignment);
+        // Cut the sequence and quality
+        alignment.set_sequence(alignment.sequence().substr(cut_start, alignment.sequence().size() - cut_start - cut_end));
+        if (alignment.quality().size() != 0) {
+            alignment.set_quality(alignment.quality().substr(cut_start, alignment.quality().size() - cut_start - cut_end));
+        }
+        // Trim the path
+        *alignment.mutable_path() = trim_hanging_ends(alignment.path());
     }
-
+    
     if (!leave_edits) {
-        // Run them through vg::edit() to add them to the graph. Save the translations.
-        vector<Translation> augmentation_translations = graph.edit(paths, true);
+        // We want to actually modify the graph to encompass these reads.
+        
+        // To make the edits and copy them to/from the Alignments, we need a vector of just Paths.
+        // TODO: improve this interface!
+        vector<Path> paths;
+        paths.reserve(alignments.size());
+        for (auto& alignment : alignments) {
+            paths.push_back(alignment.path());
+        }
+    
+        // Run them through vg::edit() to modify the graph, but don't embed them
+        // as paths. Update the paths in place, and save the translations.
+        vector<Translation> augmentation_translations = graph.edit(paths, false, true, false);
+        
+        for (size_t i = 0; i < paths.size(); i++) {
+            // Copy all the modified paths back.
+            *alignments[i].mutable_path() = paths[i];
+        }
+        paths.clear();
+        
+        // Send out the translation
         translator.load(augmentation_translations);
     } else {
-        // Add the paths to the graphs, but don't embed the edits.  These paths
-        // will not be representable as lists of NodeTraversals.  
-        for (auto& path : paths) {
-            // Note: Paths.extend(Path) is too slow because it re-indexes on each path
-            graph.paths.get_create_path(path.name());
-            for (int i = 0; i < path.mapping_size(); ++i) {
-                graph.paths.append_mapping(path.name(), path.mapping(i));
+        // No need to add edits from the reads to the graph. We may have done it already with vg augment.
+#ifdef debug
+        cerr << "Don't add edits!" << endl;
+#endif
+    }
+    
+    // Steal the alignments for ourselves.
+    std::swap(alignments, embedded_alignments);
+    
+    // Prepare the index from node ID to alignments that touch the node
+    for (auto& alignment : embedded_alignments) {
+        // For every alignment, grab its path
+        const auto& path = alignment.path();
+        
+        // Keep track of the nodes we already saw it visit so we don't add it twice for a node.
+        unordered_set<id_t> seen;
+        
+        for (const auto& mapping : path.mapping()) {
+            // For each mapping
+            if (!seen.count(mapping.position().node_id())) {
+                // If it is to a new node, remember that the alignment touches the node
+                seen.insert(mapping.position().node_id());
+                alignments_by_node[mapping.position().node_id()].push_back(&alignment);
             }
         }
-        graph.paths.rebuild_node_mapping();
-        graph.paths.sort_by_mapping_rank();
-        graph.paths.rebuild_mapping_aux();
-
-        // trivial translation map?
     }
     
 }

@@ -361,12 +361,13 @@ int main_genotype(int argc, char** argv) {
     augmented_graph.graph.paths.rebuild_mapping_aux();
     augmented_graph.graph.paths.to_graph(augmented_graph.graph.graph);    
 
-    // Do the actual augmentation using vg edit.
+    // Do the actual augmentation using vg edit. If augmentation was already
+    // done, just embeds the reads. Reads will be taken by the AugmentedGraph
+    // and stored in it.
     augmented_graph.augment_from_alignment_edits(alignments, true, !embed_gam_edits);
     
     // TODO: move arguments below up into configuration
     genotyper.run(augmented_graph,
-                  alignments,
                   cout,
                   ref_path_name,
                   contig_name,

@@ -266,6 +266,7 @@ class VGCITest(TestCase):
             max(1, self.cores / 2), self.cores)
         
         cmd = 'toil-vg run {} {} {} {}'.format(job_store, sample_name, out_store, opts)
+        print("Run toil-vg with {}".format(cmd))
         
         subprocess.check_call(cmd, shell=True)
 
