@@ -255,6 +255,7 @@ class VGCITest(TestCase):
             opts += ' {} '.format(misc_opts)
         if genotype:
             opts += '--genotype '
+            opts += '--vcfeval_opts \'--ref-overlap --vcf-score-field GQ\' '
         # don't waste time sharding reads since we only run on one node
         opts += '--single_reads_chunk '
         opts += '--gcsa_index_cores {} --kmers_cores {} \
