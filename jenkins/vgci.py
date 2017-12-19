@@ -969,7 +969,7 @@ class VGCITest(TestCase):
                                  acc_threshold, auc_threshold)
 
     def _calleval_vg_run(self, xg_path, vg_path, fasta_path, gam_path, bam_path,
-                         truth_vcf_path, sample, chrom, offset, tag):
+                         truth_vcf_path, bed_regions_path, sample, chrom, offset, tag):
         """ Wrap toil-vg calleval. 
         """
 
@@ -987,9 +987,9 @@ class VGCITest(TestCase):
         if self.container:
             cmd += ['--container', self.container]
         # run both gentoype and call
-        # cmd += ['--call_and_genotype']
+        cmd += ['--call_and_genotype']
         # vg genotype needs this not to run out of ram
-        # cmd += ['--call_chunk_size', '200000']
+        cmd += ['--call_chunk_size', '500000']
         # run freebayes
         if bam_path:
             cmd += ['--freebayes']
@@ -1006,6 +1006,8 @@ class VGCITest(TestCase):
         cmd += ['--xg_paths', xg_path]
         # truth vcf
         cmd += ['--vcfeval_baseline', truth_vcf_path]
+        if bed_regions_path:
+            cmd += ['--vcfeval_bed_regions', bed_regions_path]
         # fasta: required for both vcfeval and freebayes
         cmd += ['--vcfeval_fasta', fasta_path]
 
@@ -1051,7 +1053,7 @@ class VGCITest(TestCase):
                                         f1_score, baseline_score, threshold, name))
             
     def _test_calleval(self, region, baseline_graph, sample, vg_path, gam_path, bam_path, vcf_path,
-                       fasta_path, f1_threshold, tag_ext=""):
+                       bed_path, fasta_path, f1_threshold, tag_ext=""):
         """ Run call, genotype, and freebayes on some pre-existing alignments and compare them
         to a truth set using vcfeval.        
         """
@@ -1068,12 +1070,12 @@ class VGCITest(TestCase):
             test_index_bases = []
 
             self._calleval_vg_run(xg_path, vg_path, fasta_path, gam_path, bam_path, 
-                                  vcf_path, sample, chrom, offset, tag)
+                                  vcf_path, bed_path, sample, chrom, offset, tag)
 
         if self.verify:
             self._verify_calleval(tag=tag, threshold=f1_threshold) 
 
-    @timeout_decorator.timeout(3600)            
+    @timeout_decorator.timeout(8000)            
     def test_call_chr21_snp1kg(self):
         """
         calling comparison between call, genotype and freebayes on an alignment extracted
@@ -1090,6 +1092,8 @@ class VGCITest(TestCase):
                             self._input('21.bam'),
                             os.path.join(giab, 'HG002_GRCh37_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X'
                                          '-SOLID_CHROM1-22_v.3.3.2_highconf_triophased-CHR21.vcf.gz'),
+                            os.path.join(giab, 'HG002_GRCh37_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X'
+                                         '-SOLID_CHROM1-22_v.3.3.2_highconf_noinconsistent.bed'),                            
                             self._input('hs37d5_chr21.fa.gz'),
                             0.025)
             
