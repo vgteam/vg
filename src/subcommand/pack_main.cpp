@@ -19,7 +19,7 @@ void help_pack(char** argv) {
          << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
          << "    -d, --as-table         write table on stdout representing packs" << endl
          << "    -n, --no-edits         don't record or write edits, just graph-matching coverage" << endl
-         << "    -b, --bin-size N       number of sequence bases per CSA bin" << endl
+         << "    -b, --bin-size N       number of sequence bases per CSA bin [default: inf]" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
 
@@ -32,7 +32,7 @@ int main_pack(int argc, char** argv) {
     bool write_table = false;
     int thread_count = 1;
     bool record_edits = true;
-    size_t bin_size = 1 << 20;
+    size_t bin_size = 0;
 
     if (argc == 2) {
         help_pack(argv);
