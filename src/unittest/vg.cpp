@@ -1560,7 +1560,7 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
 
     )";
     
-    // Defien a graph
+    // Define a graph
     VG graph = string_to_graph(graph_json);
     
     const string path_json = R"(
@@ -1626,6 +1626,135 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     list<VG> subgraphs;
     graph.disjoint_subgraphs(subgraphs);
     REQUIRE(subgraphs.size() == 1);
+    
+}
+
+TEST_CASE("edit() should not get confused even under very confusing circumstances", "[vg][edit]") {
+    
+    const string graph_json = R"(
+        
+    {
+        "node": [
+            {"id": 1, "sequence": "GATT"},
+            {"id": 2, "sequence": "T"},
+            {"id": 3, "sequence": "C"},
+            {"id": 4, "sequence": "A"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2, "to_end": true},
+            {"from": 1, "to": 3},
+            {"from": 2, "to": 4, "from_start": true},
+            {"from": 3, "to": 4}
+        ]
+    }
+
+    )";
+    
+    // Define a graph
+    VG graph = string_to_graph(graph_json);
+    
+    // And a path that doubles back on itself through an edge that isn't in the graph yet
+    const string path_json = R"(
+    {
+        "mapping": [
+            {
+                "position": {
+                    "node_id": 1,
+                    "offset": 1
+                },
+                "edit": [
+                    {
+                        "from_length": 3,
+                        "to_length": 3
+                    }, 
+                    {
+                        "from_length": 0, 
+                        "to_length": 3,
+                        "sequence": "CCC"
+                    }
+                ]
+            },
+            {
+                "position": {
+                    "node_id": 2,
+                    "is_reverse": true
+                },
+                "edit": [
+                    {
+                        "from_length": 1, 
+                        "to_length": 1
+                    }
+                ]
+            },
+            {
+                "position": {
+                    "node_id": 2
+                },
+                "edit": [
+                    {
+                        "from_length": 1, 
+                        "to_length": 1
+                    }
+                ]
+            },
+            {
+                "position": {
+                    "node_id": 1,
+                    "is_reverse": true
+                },
+                "edit": [
+                    {
+                        "from_length": 1, 
+                        "to_length": 1
+                    }
+                ]
+            }
+        ]
+    }
+    )";
+    
+    REQUIRE(graph.node_count() == 4);
+    REQUIRE(graph.edge_count() == 4);
+    
+    Path path;
+    json2pb(path, path_json.c_str(), path_json.size());
+    
+    // Needs to be in a vector to apply it
+    vector<Path> paths{path};
+       
+    SECTION("edit() can add the path without modifying it") {
+        graph.edit(paths, false, false, false);
+        
+        REQUIRE(pb2json(paths.front()) == pb2json(path));
+        
+        // The graph should end up with 1 more node and 3 more edges.
+        REQUIRE(graph.node_count() == 5);
+        REQUIRE(graph.edge_count() == 7);
+    }
+    
+    SECTION("edit() can add the path with modification only") {
+        graph.edit(paths, false, true, false);
+        
+        for (const auto& mapping : paths.front().mapping()) {
+            // Make sure all the mappings are perfect matches
+            REQUIRE(mapping_is_match(mapping));
+        }
+        
+        // The graph should end up with 1 more node and 3 more edges.
+        REQUIRE(graph.node_count() == 5);
+        REQUIRE(graph.edge_count() == 7);
+    }
+    
+    SECTION("edit() can add the path with end breaking only") {
+        graph.edit(paths, false, false, true);
+        
+        REQUIRE(pb2json(paths.front()) == pb2json(path));
+        
+        // The graph should end up with 3 more nodes (the insert plus 2 new
+        // pieces of the original node 1) and 5 more edges.
+        REQUIRE(graph.node_count() == 7);
+        REQUIRE(graph.edge_count() == 9);
+    }
     
 }
 
