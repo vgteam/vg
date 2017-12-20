@@ -18,6 +18,7 @@ void help_map(char** argv) {
          << "    -d, --base-name BASE    use BASE.xg and BASE.gcsa as the input index pair" << endl
          << "    -x, --xg-name FILE      use this xg index (defaults to <graph>.vg.xg)" << endl
          << "    -g, --gcsa-name FILE    use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
+         << "    -1, --gbwt-name         use this GBWT haplotype index (defaults to <graph>"<<gbwt::GBWT::EXTENSION << ")" << endl
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
@@ -50,6 +51,7 @@ void help_map(char** argv) {
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
+         << "    -a, --hap-bonus INT     the bonus for haplotype consistency [1]" << endl
          << "    -A, --qual-adjust       perform base quality adjusted alignments (requires base quality input)" << endl
          << "input:" << endl
          << "    -s, --sequence STR      align a string to the graph in graph.vg using partial order alignment" << endl
@@ -88,6 +90,7 @@ int main_map(int argc, char** argv) {
     string db_name;
     string xg_name;
     string gcsa_name;
+    string gbwt_name;
     string read_file;
     string hts_file;
     bool keep_secondary = false;
@@ -118,6 +121,7 @@ int main_map(int argc, char** argv) {
     int8_t gap_open = 6;
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
+    int8_t haplotype_consistency_bonus = 1;
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
@@ -161,6 +165,7 @@ int main_map(int argc, char** argv) {
                 {"base-name", required_argument, 0, 'd'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"gcsa-name", required_argument, 0, 'g'},
+                {"gbwt-name", required_argument, 0, '1'},
                 {"reads", required_argument, 0, 'T'},
                 {"sample", required_argument, 0, 'N'},
                 {"read-group", required_argument, 0, 'R'},
@@ -195,6 +200,7 @@ int main_map(int argc, char** argv) {
                 {"fragment", required_argument, 0, 'I'},
                 {"fragment-x", required_argument, 0, 'S'},
                 {"full-l-bonus", required_argument, 0, 'L'},
+                {"hap-bonus", required_argument, 0, 'a'},
                 {"acyclic-graph", no_argument, 0, 'm'},
                 {"seed-chance", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
@@ -213,7 +219,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:n:E:X:UpF:m7:v5:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:",
                          long_options, &option_index);
 
 
@@ -237,6 +243,10 @@ int main_map(int argc, char** argv) {
 
         case 'g':
             gcsa_name = optarg;
+            break;
+            
+        case '1':
+            gbwt_name = optarg;
             break;
 
         case 'V':
@@ -265,6 +275,10 @@ int main_map(int argc, char** argv) {
 
         case 'L':
             full_length_bonus = atoi(optarg);
+            break;
+            
+        case 'a':
+            haplotype_consistency_bonus = atoi(optarg);
             break;
         
         case 'm':
@@ -491,6 +505,10 @@ int main_map(int argc, char** argv) {
     if (gcsa_name.empty() && !file_name.empty()) {
         gcsa_name = file_name + gcsa::GCSA::EXTENSION;
     }
+    
+    if (gbwt_name.empty() && !file_name.empty()) {
+        gbwt_name = file_name + gbwt::GBWT::EXTENSION;
+    }
 
     if (xg_name.empty() && !file_name.empty()) {
         xg_name = file_name + ".xg";
@@ -499,6 +517,7 @@ int main_map(int argc, char** argv) {
     if (!db_name.empty()) {
         xg_name = db_name + ".xg";
         gcsa_name = db_name + gcsa::GCSA::EXTENSION;
+        gbwt_name = file_name + gbwt::GBWT::EXTENSION;
     }
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
@@ -511,6 +530,7 @@ int main_map(int argc, char** argv) {
     xg::XG* xgidx = nullptr;
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
+    gbwt::GBWT* gbwt = nullptr;
 
     // We try opening the file, and then see if it worked
     ifstream xg_stream(xg_name);
@@ -541,6 +561,16 @@ int main_map(int argc, char** argv) {
         }
         lcp = new gcsa::LCPArray();
         lcp->load(lcp_stream);
+    }
+    
+    ifstream gbwt_stream(gbwt_name);
+    if(gbwt_stream) {
+        // We have a GBWT index too!
+        if(debug) {
+            cerr << "Loading GBWT haplotype index " << gbwt_name << "..." << endl;
+        }
+        gbwt = new gbwt::GBWT();
+        gbwt->load(gbwt_stream);
     }
 
     thread_count = get_thread_count();
@@ -707,7 +737,7 @@ int main_map(int argc, char** argv) {
         Mapper* m = nullptr;
         if(xgidx && gcsa && lcp) {
             // We have the xg and GCSA indexes, so use them
-            m = new Mapper(xgidx, gcsa, lcp);
+            m = new Mapper(xgidx, gcsa, lcp, gbwt);
         } else {
             // Can't continue with null
             throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
@@ -732,7 +762,7 @@ int main_map(int argc, char** argv) {
         }
         m->fast_reseed = use_fast_reseed;
         m->max_target_factor = max_target_factor;
-        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
+        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_bonus);
         m->strip_bonuses = strip_bonuses;
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
         m->extra_multimaps = extra_multimaps;
@@ -1116,6 +1146,14 @@ int main_map(int argc, char** argv) {
         cout.flush();
     }
 
+    if (gbwt) {
+        delete gbwt;
+        gbwt = nullptr;
+    }
+    if (lcp) {
+        delete lcp;
+        lcp = nullptr;
+    }
     if(gcsa) {
         delete gcsa;
         gcsa = nullptr;

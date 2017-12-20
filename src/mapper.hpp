@@ -11,6 +11,7 @@
 #include "index.hpp"
 #include <gcsa/gcsa.h>
 #include <gcsa/lcp.h>
+#include <gbwt/gbwt.h>
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
@@ -145,7 +146,7 @@ class BaseMapper : public Progressive {
     
 public:
     // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
-    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
+    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, gbwt::GBWT* gbwt = nullptr);
     BaseMapper(void);
     ~BaseMapper(void);
     
@@ -153,7 +154,8 @@ public:
     
     int random_match_length(double chance_random);
     
-    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
+        int8_t haplotype_consistency_bonus = 0);
     
     // TODO: setting alignment threads could mess up the internal memory for how many threads to reset to
     void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
@@ -213,7 +215,9 @@ public:
     int hit_max;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = true;
     
-    bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
+    // Remove any bonuses used by the aligners from the final reported scores.
+    // Does NOT (yet) remove the haplotype consistency bonus.
+    bool strip_bonuses; 
     bool assume_acyclic; // the indexed graph is acyclic
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     
@@ -274,31 +278,13 @@ protected:
     void check_mems(const vector<MaximalExactMatch>& mems);
     
     int alignment_threads; // how many threads will *this* mapper use. Should not be set directly.
-    /*
-    int cache_size;
-    
-    // match walking support to prevent repeated calls to the xg index for the same node
-    vector<LRUCache<id_t, Node>* > node_cache;
-    LRUCache<id_t, Node>& get_node_cache(void);
-    void init_node_cache(void);
-    
-    // node start cache for fast approximate position estimates
-    vector<LRUCache<id_t, int64_t>* > node_start_cache;
-    LRUCache<id_t, int64_t>& get_node_start_cache(void);
-    void init_node_start_cache(void);
-    
-    // match node traversals to path positions
-    vector<LRUCache<gcsa::node_type, map<string, vector<size_t> > >* > node_pos_cache;
-    LRUCache<gcsa::node_type, map<string, vector<size_t> > >& get_node_pos_cache(void);
-    void init_node_pos_cache(void);
-    
-    vector<LRUCache<id_t, vector<Edge> >* > edge_cache;
-    LRUCache<id_t, vector<Edge> >& get_edge_cache(void);
-    void init_edge_cache(void);
-    */
     
     void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
     void clear_aligners(void);
+    
+    // Determine if the given alignment is consustent with any haplotypes, and
+    // apply the haplotype consistency bonus if so.
+    void apply_haplotype_consistency_bonus(Alignment& aln);
     
     // thread_local to allow alternating reads/writes
     thread_local static vector<size_t> adaptive_reseed_length_memo;
@@ -309,6 +295,11 @@ protected:
     // GCSA index and its LCP array
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
+    
+    // GBWT index, if any, for determining haplotype concordance
+    gbwt::GBWT* gbwt = nullptr;
+    // The bonus for being consistent with at least one haplotype
+    int8_t haplotype_consistency_bonus = 0;
     
     FragmentLengthDistribution fragment_length_distr;
 
@@ -427,8 +418,9 @@ private:
                                       int additional_multimaps);
     
 public:
-    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
-    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
+    // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
+    // LCP array, and an optional GBWT haplotype index.
+    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, gbwt::GBWT* gbwt = nullptr);
     Mapper(void);
     ~Mapper(void);
 
@@ -479,6 +471,7 @@ public:
     /// index. Can use either approximate or exact (with approximate fallback)
     /// XG-based distance estimation. Will strip out bonuses if the appropriate
     /// Mapper flag is set.
+    /// Does not apply a haplotype consistency bonus, as this function is intended for alignments with large gaps.
     int32_t score_alignment(const Alignment& aln, bool use_approx_distance = false);
     
     /// Given an alignment scored with full length bonuses on, subtract out the full length bonus if it was applied.
