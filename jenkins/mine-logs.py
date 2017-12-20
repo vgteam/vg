@@ -381,7 +381,8 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
         images = []
         captions = []
         baseline_images = []
-        for plot_name in 'pr', 'pr.control', 'pr.primary.filter', 'pr.control.primary.filter', 'roc', 'qq', 'qq.control':
+        for plot_name in ['pr', 'pr.control', 'pr.primary.filter', 'pr.control.primary.filter', 'roc', 'qq', 'qq.control',
+                          'roc-snp', 'roc-non_snp', 'roc-weighted']:
             plot_path = os.path.join(outstore, '{}.svg'.format(plot_name))
             if os.path.isfile(plot_path):
                 new_name = '{}-{}.svg'.format(tc['name'], plot_name)
@@ -417,7 +418,9 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
             table_path = os.path.join(outstore, 'map_times.tsv')
             if os.path.isfile(table_path):
                 map_time_table = load_mapeval_runtimes(table_path)
-            
+
+        stdout_name, err_name, warn_name = None, None, None
+                
         if tc['stdout']:
             # extract only things in <VCGI> tags from stdout
             messages = scrape_messages(tc['stdout'])
@@ -435,6 +438,11 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                         for subline in textwrap.wrap(line, 80):
                             report += escape(subline) + '\n'
                     report += '</pre>\n'
+
+            # entire stdout output (since for some reason mapping logs only there sometimes)
+            stdout_name = '{}-stdout.txt'.format(tc['name'])
+            with io.open(os.path.join(report_dir, stdout_name), 'w', encoding='utf8') as out_file:
+                out_file.write(tc['stdout'])
 
         if tc['stderr']:
             # Look for warning lines in stderr
@@ -462,11 +470,16 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
             with io.open(os.path.join(report_dir, err_name), 'w', encoding='utf8') as err_file:
                 err_file.write(tc['stderr'])
 
-            # link to warnings and stderr
+        # link to warnings and stderr and stdout
+        if stdout_name or warn_name or err_name:
             report += '<p>'
-            if len(warnings) > max_warnings:
+            if stdout_name:
+                report += '<a href={}>Standard Output</a></p>\n'.format(stdout_name)
+            if warn_name and len(warnings) > max_warnings:
                 report += '<a href={}>All CI Warnings</a>, '.format(warn_name)
-            report += '<a href={}>Standard Error</a></p>\n'.format(err_name)
+            if err_name:
+                report += '<a href={}>Standard Error</a></p>\n'.format(err_name)
+            report += '</p>'
 
     except int as e:
         report += 'Error parsing Test Case XML\n'
