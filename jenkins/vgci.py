@@ -278,13 +278,80 @@ class VGCITest(TestCase):
         
         subprocess.check_call(cmd, shell=True)
 
+    def _make_gbwt(self, sample, vg_file, vcf_file, region, tag=''):
+        """
+        Compute the GBWT index of the haplotypes in the given VCF. Returns the path to a GBWT file.
+        
+        Excludes the given sample from the index.
+        
+        """
+        
+        job_store = self._jobstore(tag)
+        out_store = self._outstore(tag)
+        out_store_name = self._outstore_name(tag)
+
+        # What do we want to override from the default toil-vg config?
+        overrides = argparse.Namespace(
+            # toil-vg options
+            vg_docker = self.vg_docker,
+            container = self.container,
+            # Toil options
+            realTimeLogging = True,
+            logLevel = "INFO",
+            maxCores = self.cores
+        )
+
+        # Make the context
+        context = Context(out_store, overrides)
+
+        # The unfiltered and filtered vcf file
+        uf_vcf_file = os.path.join(self.workdir, 'uf-' + os.path.basename(vcf_file))
+        f_vcf_file = os.path.join(self.workdir, 'f-' + os.path.basename(vcf_file))
+        if not f_vcf_file.endswith('.gz'):
+            f_vcf_file += '.gz'
+        
+        # Get the inputs
+        self._get_remote_file(vg_file, os.path.join(out_store, os.path.basename(vg_file)))
+        self._get_remote_file(vcf_file, uf_vcf_file)
+
+        # Exclude source sample to make the results not circular
+        with context.get_toil(job_store) as toil:
+            cmd = ['bcftools', 'view', os.path.basename(uf_vcf_file), '-s', '^' + sample, '-O', 'z']
+            toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                     work_dir = os.path.abspath(self.workdir),
+                                     out_path = os.path.abspath(f_vcf_file)))
+            cmd = ['tabix', '-f', '-p', 'vcf', os.path.basename(f_vcf_file)]
+            toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                     work_dir = os.path.abspath(self.workdir)))
+        os.remove(uf_vcf_file)
+        
+        # Make the xg with gpbwt of the input graph
+        index_name = 'index-gbwt'
+        chrom, offset = self._bakeoff_coords(region)
+        self._toil_vg_index(chrom, vg_file, None, None,
+                            '--vcf_phasing {} --skip_gcsa --xg_index_cores {} --make_gbwt'.format(
+                                os.path.abspath(f_vcf_file), self.cores), tag, index_name)
+        gbwt_path = os.path.join(out_store, index_name + '.gbwt')
+        # Drop the extra xg
+        os.remove(os.path.join(out_store, index_name + '.xg'))
+        
+        os.remove(f_vcf_file)
+        os.remove(f_vcf_file + '.tbi')
+
+        return gbwt_path
+
     def _make_thread_indexes(self, sample, vg_file, vcf_file, region, tag=''):
         """ Given a graph, then we extract two threads from the
         given sample as their own graphs, then return an xg index for each.
         this only supports one chromosome at a time, presently.
         the indexes are written as thread_0.xg and thread_1.xg in the
         output store (derived from tag parameter like other methods)
+        
+        Returns paths to a full xg file for the graph, an xg for haplotype 0 of
+        the sample, and an xg for haplotype 1 of the sample.
+        
         """
+        
         job_store = self._jobstore(tag)
         out_store = self._outstore(tag)
         out_store_name = self._outstore_name(tag)
@@ -332,6 +399,7 @@ class VGCITest(TestCase):
                             '--vcf_phasing {} --skip_gcsa --xg_index_cores {}'.format(
                                 os.path.abspath(f_vcf_file), self.cores), tag, index_name)
         index_path = os.path.join(out_store, index_name + '.xg')
+        
         os.remove(f_vcf_file)
         os.remove(f_vcf_file + '.tbi')
         
@@ -348,8 +416,18 @@ class VGCITest(TestCase):
                                          work_dir = os.path.abspath(self.workdir),
                                          out_path = tmp_thread_path))
 
-                # note: I'm not sure why that _0 is there but all threads seem
-                # to have names like _thread_NA12878_17_0_0 and _thread_NA12878_17_1_0
+                # TODO: nothing is supposed to be depending on the particular
+                # syntax of the thread names. Stop doing that or formalize a way to get
+                
+                # TODO: Use the GBWT instead of the GPBWT to extract the threads we want.
+
+                # TODO: This will only get the first unbroken chunk (part 0) of
+                # a haplotype. This needs to be modified to get threads _0
+                # through _n for however many unbroken threads actually make up
+                # the haplotype we want to extract.
+                
+                # All threads seem to have names like _thread_NA12878_17_0_0 and
+                # _thread_NA12878_17_1_0
                 cmd = ['vg', 'find', '-q', '_thread_{}_{}_{}_0'.format(sample, chrom, hap),
                        '-x', os.path.join(out_store_name, os.path.basename(index_path))]
                 toil.start(Job.wrapJobFn(toil_call, context, cmd,
@@ -567,7 +645,8 @@ class VGCITest(TestCase):
                                      context, 
                                      mapeval_options, 
                                      plan.xg_file_ids,
-                                     plan.gcsa_file_ids, 
+                                     plan.gcsa_file_ids,
+                                     plan.gbwt_file_ids, 
                                      plan.id_range_file_ids,
                                      plan.vg_file_ids, 
                                      plan.gam_file_ids, 
@@ -1123,6 +1202,15 @@ class VGCITest(TestCase):
         # for the primary graph.
         log.info("Test start at {}".format(datetime.now()))
         self._test_mapeval(100000, 'BRCA1', 'snp1kg',
+                           ['primary', 'snp1kg'],
+                           score_baseline_graph='primary',
+                           sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
+     
+    @timeout_decorator.timeout(1200)                       
+    def test_sim_mhc_snp1kg(self):
+        """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
+        log.info("Test start at {}".format(datetime.now()))
+        self._test_mapeval(100000, 'MHC', 'snp1kg',
                            ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
