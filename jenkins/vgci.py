@@ -46,7 +46,6 @@ class VGCITest(TestCase):
         logging.basicConfig()
 
         self.workdir = tempfile.mkdtemp()
-        self.tempdir = tempfile.mkdtemp()
 
         # for checking calling f1
         self.f1_threshold = 0.005
@@ -67,7 +66,6 @@ class VGCITest(TestCase):
         self.bakeoff_removed_samples = set(['NA128{}'.format(x) for x in range(77, 94)])
                 
     def tearDown(self):
-        shutil.rmtree(self.tempdir)        
         if self.do_teardown:
             shutil.rmtree(self.workdir)
 
@@ -249,7 +247,6 @@ class VGCITest(TestCase):
         if true_vcf_path:
             opts += '--vcfeval_baseline {} '.format(true_vcf_path)
             opts += '--vcfeval_fasta {} '.format(fasta_path)
-            opts += '--vcfeval_opts \" --ref-overlap\" '
         if interleaved:
             opts += '--interleaved '
         if multipath:
@@ -258,6 +255,7 @@ class VGCITest(TestCase):
             opts += ' {} '.format(misc_opts)
         if genotype:
             opts += '--genotype '
+            opts += '--vcfeval_opts \'--ref-overlap --vcf-score-field GQ\' '
         # don't waste time sharding reads since we only run on one node
         opts += '--single_reads_chunk '
         opts += '--gcsa_index_cores {} --kmers_cores {} \
@@ -266,6 +264,7 @@ class VGCITest(TestCase):
             max(1, self.cores / 2), self.cores)
         
         cmd = 'toil-vg run {} {} {} {}'.format(job_store, sample_name, out_store, opts)
+        print("Run toil-vg with {}".format(cmd))
         
         subprocess.check_call(cmd, shell=True)
 
@@ -363,6 +362,23 @@ class VGCITest(TestCase):
 
         return index_path, os.path.join(out_store, 'thread_0.xg'), os.path.join(out_store, 'thread_1.xg')
 
+    def _print_vcfeval_summary_table(self, summary_path, baseline_f1, threshold, header=True, name=None):
+        with io.open(summary_path, 'r', encoding='utf8') as summary_file:
+            for i, line in enumerate(summary_file):
+                if i != 1 and (header or i != 0):
+                    toks = line.split()
+                    if i > 1 and name:
+                        toks = [name] + toks
+                    if i == 0:
+                        if name:
+                            toks = ['Name'] + toks
+                        toks = toks[0:-1] + ['F1', 'Baseline F1', 'Test Threshold']
+                    elif i == 2:
+                        toks += [baseline_f1, threshold]
+                    elif i > 2:
+                        toks += ['N/A', 'N/A']
+                    print '\t'.join([unicode(tok) for tok in toks])
+        
     def _verify_f1(self, sample, tag='', threshold=None):
         # grab the f1.txt file from the output store
         if sample:
@@ -373,27 +389,17 @@ class VGCITest(TestCase):
         with io.open(f1_path, 'r', encoding='utf8') as f1_file:
             f1_score = float(f1_file.readline().strip())
         baseline_f1 = float(self._read_baseline_file(tag, f1_name).strip())
+
+        # print the whole table in tags that mine-logs can read
+        summary_path = f1_path[0:-6] + 'summary.txt'
+        self._begin_message('vcfeval Results'.format(
+            f1_score, baseline_f1, threshold), is_tsv=True)    
+        self._print_vcfeval_summary_table(summary_path, baseline_f1, threshold)
+        self._end_message()
         
         # compare with threshold
         if not threshold:
             threshold = self.f1_threshold
-
-        # print the whole table in tags that mine-logs can read
-        self._begin_message('vcfeval Results'.format(
-            f1_score, baseline_f1, threshold), is_tsv=True)
-        summary_path = f1_path[0:-6] + 'summary.txt'
-        with io.open(summary_path, 'r', encoding='utf8') as summary_file:
-            for i, line in enumerate(summary_file):
-                if i != 1:
-                    toks = line.split()
-                    if i == 0:
-                        toks = toks[0:-1] + ['F1', 'Baseline F1', 'Test Threshold']
-                    elif i == 2:
-                        toks += [baseline_f1, threshold]
-                    elif i > 2:
-                        toks += ['N/A', 'N/A']
-                    print '\t'.join([unicode(tok) for tok in toks])
-        self._end_message()
 
         self.assertGreaterEqual(f1_score, baseline_f1 - threshold)
 
@@ -514,7 +520,8 @@ class VGCITest(TestCase):
         # positional/required arguments out of this somehow? So we can just use
         # this to get the default optional settings and fill in the required
         # things as file IDs?
-        mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
+        mapeval_options = get_default_mapeval_options()
+        mapeval_options.truth = make_url(os.path.join(out_store, 'true.pos'))
         mapeval_options.bwa = True
         mapeval_options.paired_only = paired_only        
         mapeval_options.fasta = make_url(fasta_path)
@@ -548,7 +555,9 @@ class VGCITest(TestCase):
                                      plan.id_range_file_ids,
                                      plan.vg_file_ids, 
                                      plan.gam_file_ids, 
-                                     plan.reads_gam_file_id, 
+                                     plan.reads_gam_file_id,
+                                     None,
+                                     None,
                                      plan.fasta_file_id, 
                                      plan.bwa_index_ids, 
                                      plan.bam_file_ids,
@@ -959,6 +968,136 @@ class VGCITest(TestCase):
                                  positive_control, negative_control, tag,
                                  acc_threshold, auc_threshold)
 
+    def _calleval_vg_run(self, xg_path, vg_path, fasta_path, gam_path, bam_path,
+                         truth_vcf_path, bed_regions_path, sample, chrom, offset, tag):
+        """ Wrap toil-vg calleval. 
+        """
+
+        job_store = self._jobstore(tag)
+        out_store = self._outstore(tag)
+
+        # run calleval
+        cmd = ['toil-vg', 'calleval', job_store, out_store]
+        cmd += ['--calling_cores', str(min(2, self.cores))]
+        cmd += ['--call_chunk_cores', str(min(6, self.cores))]
+        cmd += ['--gam_index_cores', str(min(4, self.cores))]
+        cmd += ['--maxCores', str(self.cores)]
+        cmd += ['--realTimeLogging', '--logInfo']
+        cmd += ['--workDir', self.workdir]
+        if self.container:
+            cmd += ['--container', self.container]
+        # run both gentoype and call
+        cmd += ['--call_and_genotype']
+        # vg genotype needs this not to run out of ram
+        cmd += ['--call_chunk_size', '500000']
+        # run freebayes
+        if bam_path:
+            cmd += ['--freebayes']
+            cmd += ['--bams', bam_path]
+            cmd += ['--bam_names', 'bwa']            
+        # gam
+        cmd += ['--gams', gam_path]
+        cmd += ['--gam_names', 'vg']
+        cmd += ['--chroms', str(chrom)]
+        if offset:
+            cmd += ['--vcf_offsets', str(offset)]
+        cmd += ['--sample_name', sample]
+        # xg
+        cmd += ['--xg_paths', xg_path]
+        # truth vcf
+        cmd += ['--vcfeval_baseline', truth_vcf_path]
+        if bed_regions_path:
+            cmd += ['--vcfeval_bed_regions', bed_regions_path]
+        # fasta: required for both vcfeval and freebayes
+        cmd += ['--vcfeval_fasta', fasta_path]
+
+        subprocess.check_call(cmd, shell=False)
+
+    def _verify_calleval(self, tag='', threshold=None):
+        out_store = self._outstore(tag)
+        # scrape up all the possible output files
+        output_names = []
+        output_f1_paths = []
+        output_summary_paths = []
+        for output_path in os.listdir(out_store):
+            if output_path.endswith('_vcfeval_output_summary.txt'):
+                output_names.append(output_path[:-len('_vcfeval_output_summary.txt')])
+                output_f1_paths.append(os.path.join(
+                    out_store, '{}_vcfeval_output_f1.txt'.format(output_names[-1])))
+                output_summary_paths.append(os.path.join(out_store, output_path))
+
+        # check nothing went terribly and unexpectedly wrong
+        self.assertTrue(len(output_names) == len(output_f1_paths) == len(output_summary_paths))
+        self.assertGreaterEqual(len(output_names), 1)
+        # todo: should we check for certain names?
+
+        # compare with threshold
+        if not threshold:
+            threshold = self.f1_threshold
+
+        # print the table, collect the scores
+        self._begin_message('vcfeval Results', is_tsv=True)    
+        f1_scores = []
+        baseline_scores = []
+        for name, f1_path, summary_path in zip(output_names, output_f1_paths, output_summary_paths):
+            with io.open(f1_path, 'r', encoding='utf8') as f1_file:
+                f1_scores.append(float(f1_file.readline().strip()))
+            baseline_scores.append(float(self._read_baseline_file(tag, f1_path).strip()))
+            self._print_vcfeval_summary_table(summary_path, baseline_scores[-1], threshold,
+                                              header=name==output_names[0], name=name)
+        self._end_message()
+
+        for name, f1_score, baseline_score in zip(output_names, f1_scores, baseline_scores):
+            self.assertGreaterEqual(f1_score, baseline_score - threshold,
+                                    msg = 'F1={} <= (Baseline F1={} - Threshold={}) for {}'.format(
+                                        f1_score, baseline_score, threshold, name))
+            
+    def _test_calleval(self, region, baseline_graph, sample, vg_path, gam_path, bam_path, vcf_path,
+                       bed_path, fasta_path, f1_threshold, tag_ext=""):
+        """ Run call, genotype, and freebayes on some pre-existing alignments and compare them
+        to a truth set using vcfeval.        
+        """
+        assert not tag_ext or tag_ext.startswith('-')
+        tag = 'call-{}-{}{}'.format(region, baseline_graph, tag_ext)
+
+        if True:
+            # compute the xg index from scratch
+            chrom, offset = self._bakeoff_coords(region)        
+            self._toil_vg_index(str(chrom), vg_path, None, None,
+                                '--skip_gcsa', tag, '{}-{}'.format(baseline_graph, region))
+            xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')        
+
+            test_index_bases = []
+
+            self._calleval_vg_run(xg_path, vg_path, fasta_path, gam_path, bam_path, 
+                                  vcf_path, bed_path, sample, chrom, offset, tag)
+
+        if self.verify:
+            self._verify_calleval(tag=tag, threshold=f1_threshold)
+            
+    @skip("skipping test to keep runtime down")
+    @timeout_decorator.timeout(8000)            
+    def test_call_chr21_snp1kg(self):
+        """
+        calling comparison between call, genotype and freebayes on an alignment extracted
+        from the HG002 whole genome experiment run from the paper
+        """
+        giab = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/giab/'
+        #self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/CHR21_DEC3'
+        # using this one until above is fixed
+        self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/dnanexus'
+        log.info("Test start at {}".format(datetime.now()))
+        self._test_calleval('CHR21', 'snp1kg', "HG002",
+                            self._input('snp1kg_21.vg'),
+                            self._input('snp1kg_HG002_21.gam'),
+                            self._input('21.bam'),
+                            os.path.join(giab, 'HG002_GRCh37_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X'
+                                         '-SOLID_CHROM1-22_v.3.3.2_highconf_triophased-CHR21.vcf.gz'),
+                            os.path.join(giab, 'HG002_GRCh37_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X'
+                                         '-SOLID_CHROM1-22_v.3.3.2_highconf_noinconsistent.bed'),                            
+                            self._input('hs37d5_chr21.fa.gz'),
+                            0.025)
+            
     @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(600)
     def test_sim_brca1_snp1kg(self):
@@ -1176,14 +1315,14 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'snp1kg', True)
 
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(1600)        
     def test_map_mhc_primary_genotype(self):
         """ Mapping and calling (with vg genotype) bakeoff F1 test for MHC primary graph 
         """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'primary', True, tag_ext='-genotype', genotype=True)
         
-    @timeout_decorator.timeout(1200)        
+    @timeout_decorator.timeout(1600)        
     def test_map_mhc_snp1kg_genotype(self):
         """ Mapping and calling (with vg genotype) bakeoff F1 test for MHC snp1kg graph 
         """

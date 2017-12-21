@@ -11,10 +11,12 @@ thread_local vector<size_t> BaseMapper::adaptive_reseed_length_memo;
 
 BaseMapper::BaseMapper(xg::XG* xidex,
                        gcsa::GCSA* g,
-                       gcsa::LCPArray* a) :
+                       gcsa::LCPArray* a,
+                       gbwt::GBWT* gbwt) :
       xindex(xidex)
       , gcsa(g)
       , lcp(a)
+      , gbwt(gbwt)
       , min_mem_length(1)
       , mem_reseed_length(0)
       , fast_reseed(true)
@@ -1285,6 +1287,42 @@ void BaseMapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, in
                                           max_score, 255, gc_content);
     regular_aligner = new Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
 }
+
+void BaseMapper::apply_haplotype_consistency_bonus(Alignment& aln) {
+    if (gbwt == nullptr) {
+        // There's no haplotype data available, so we can't hand out bonuses.
+        return;
+    }
+    
+    if (haplotype_consistency_bonus == 0) {
+        // It won't matter either way
+        return;
+    }
+    
+    // We don't look at strip_bonuses here, because we need these bonuses added
+    // always in order to choose between alignments.
+    
+    // Define the path taken by the alignment in terms the GBWT can understand
+    vector<gbwt::node_type> aln_path;
+    aln_path.reserve(aln.path().mapping_size());
+    for (const auto& mapping : aln.path().mapping()) {
+        // Copy over each visit to a node
+        aln_path.emplace_back(gbwt::Node::encode(mapping.position().node_id(), mapping.position().is_reverse()));
+    }
+    
+    if (aln_path.empty()) {
+        // Alignments with no actual mappings can't be consistent.
+        return;
+    }
+    
+    // Look for hits
+    auto result = gbwt->find(aln_path.begin(), aln_path.end());
+    
+    if (!result.empty()) {
+        // We are consistent with at least one haplotype
+        aln.set_score(aln.score() + haplotype_consistency_bonus);
+    }
+}
     
 double BaseMapper::estimate_gc_content(void) {
     
@@ -1311,12 +1349,17 @@ int BaseMapper::random_match_length(double chance_random) {
     }
 }
     
-void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
+void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend,
+    int8_t full_length_bonus, int8_t haplotype_consistency_bonus) {
+    
     // clear the existing aligners and recreate them
     if (regular_aligner || qual_adj_aligner) {
         clear_aligners();
     }
     init_aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
+    
+    // Save the consistency bonus
+    this->haplotype_consistency_bonus = haplotype_consistency_bonus;
 }
     
 void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, size_t reestimation_frequency,
@@ -1332,8 +1375,9 @@ void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, si
     
 Mapper::Mapper(xg::XG* xidex,
                gcsa::GCSA* g,
-               gcsa::LCPArray* a) :
-    BaseMapper(xidex, g, a)
+               gcsa::LCPArray* a,
+               gbwt::GBWT* gbwt) :
+    BaseMapper(xidex, g, a, gbwt)
     , thread_extension(10)
     , context_depth(1)
     , max_multimaps(1)
@@ -1679,6 +1723,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     for (auto& orientation : orientations) {
         if (rescue_off_first) {
             Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback);
+            apply_haplotype_consistency_bonus(aln2);
             //write_alignment_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
@@ -1697,6 +1742,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
             }
         } else if (rescue_off_second) {
             Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback);
+            apply_haplotype_consistency_bonus(aln1);
             //write_alignment_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
@@ -2950,9 +2996,11 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     Alignment aln_rev;
     if (count_fwd) {
         aln_fwd = align_maybe_flip(aln, graph, false, traceback);
+        apply_haplotype_consistency_bonus(aln_fwd);
     }
     if (count_rev) {
         aln_rev = align_maybe_flip(aln, graph, true, traceback);
+        apply_haplotype_consistency_bonus(aln_rev);
     }
     // TODO check if we have soft clipping on the end of the graph and if so try to expand the context
     if (aln_fwd.score() + aln_rev.score() == 0) {
@@ -4394,8 +4442,21 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     surjection.clear_identity();
     surjection.clear_path();
 
-    // get start and end nodes in path
-    if (!source.has_path() || source.path().mapping_size() == 0) {
+    int count_forward=0, count_reverse=0;
+    for (auto& mapping : source.path().mapping()) {
+        if (mapping.position().is_reverse()) {
+            ++count_reverse;
+        } else {
+            ++count_forward;
+        }
+    }
+    //cerr << "fwd " << count_forward << " rev " << count_reverse << endl;
+
+    // here we assume that people will use this on DAGs
+    // require that we have an alignment with a score, and that it is on one strand
+    if (!source.has_path() || source.path().mapping_size() == 0
+        || alignment_from_length(source) == 0
+        || count_forward > 0 && count_reverse > 0) {
 #ifdef debug_mapper
 
 #pragma omp critical (cerr)
@@ -4424,22 +4485,19 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // 2) keep the ref path and the aln path both in the graph
     // 3) detach the nodes on the other sides of the aln path start and end from all other nodes
     // 4) remove the non-path component
-    //cerr << "before" << endl;
-    //cerr << pb2json(source) << endl;
+
     Alignment trimmed_source = strip_from_end(strip_from_start(source, non_match_start(source)), non_match_end(source));
-    //cerr << "after" << endl;
+    // check if we'd fail
+    if (trimmed_source.sequence().size() == 0) {
+        return surjection;
+    }
     vector<Path> source_path;
     source_path.push_back(trimmed_source.path());
     source_path.back().set_name(source.name());
     // Make sure to pass true here to embed the alignment
-    auto translation = graph.edit(source_path, true);
+    auto translation = graph.edit(source_path, true); //, true, true);
     Translator translator(translation);
-    //cerr << "raw source " << pb2json(source) << endl;
-    //cerr << "trimmed source " << pb2json(trimmed_source) << endl;
-    //
-    
     Path source_in_graph = graph.paths.path(source.name());
-    //cerr << "source in graph " << pb2json(source_in_graph) << endl;
     Position start_pos = make_position(initial_position(source_in_graph));
     Position end_pos = make_position(final_position(source_in_graph));
     //cerr << "start and end pos " << pb2json(start_pos) << " " << pb2json(end_pos) << endl;
@@ -4488,7 +4546,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     handle_t cut_before = cut;
     bool found_forward = found;
     curr.insert(end);
-    //cerr << "going forward" << endl;
+    //ncerr << "going forward" << endl;
     while (!curr.empty()) {
         bool finished = false;
         //cerr << "cur has " << curr.size() << endl;
@@ -4507,26 +4565,21 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     }
     handle_t cut_after = cut;
     bool found_reverse = found;
-    //cerr << "cut before/after " << graph.get_id(cut_before) << " " << graph.get_id(cut_after) << endl;
     //graph.serialize_to_file("before-" + source.name() + ".vg");
+    //graph.serialize_to_file("before-" + graph.hash() + ".vg");
 
     set<string> kept_paths;
     graph.keep_paths(path_names, kept_paths);
     graph.remove_non_path();
     // by definition we have found path
-    /*
-    if (!found_forward || !found_reverse) {
-        graph.serialize_to_file(source.name() + ".vg");
-        base_graph.serialize_to_file(source.name() + "-base" + ".vg");
-        VG augmented_graph = base_graph;
-        augmented_graph.edit(source_path);
-        augmented_graph.serialize_to_file(source.name() + "-aug" + ".vg");
-        //assert(false);
+    if (found_forward && found_reverse && cut_before == cut_after) {
+         graph.destroy_handle(cut_before);
+    } else {
+        if (found_forward) graph.destroy_handle(cut_before);
+        if (found_reverse) graph.destroy_handle(cut_after);
     }
-    */
-    if (found_forward) graph.destroy_handle(cut_before);
-    if (found_reverse) graph.destroy_handle(cut_after);
     //graph.serialize_to_file("after-" + source.name() + ".vg");
+    //graph.serialize_to_file("after-" + graph.hash() + ".vg");
 
 //#define debug_mapper
 #ifdef debug_mapper
@@ -4537,10 +4590,11 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #endif
     //Position end_pos = alignment_end(source);
     // assume DAG
-    vg::id_t target_id = graph.get_id(start);
+    set<vg::id_t> target_ids;
+    for (auto& mapping : source_in_graph.mapping()) {
+        target_ids.insert(mapping.position().node_id());
+    }
 
-    //Node* nullhead = graph.join_heads();
-    //cerr << pb2json(graph.graph) << endl;
     // otherwise, two cuts
     // remove the links in both cases
     // we can clean up by removing 
@@ -4557,40 +4611,46 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     Graph subgraph;
     for (auto& graph : subgraphs) {
         //cerr << pb2json(graph.graph) << endl;
-        if (graph.has_node(target_id)) {
+        bool found = false;
+        graph.for_each_handle([&](const handle_t& h) {
+                if (!found && target_ids.count(graph.get_id(h))) {
+                    found = true;
+                }
+            });
+        if (found) {
             subgraph = graph.graph;
             break;
         }
     }
     if (subgraph.node_size() == 0) {
+        // couldn't find subgraph, try the one we've got
         subgraph = graph.graph;
     }
-    
+
+    if (subgraph.node_size() == 0) {
+        return surjection; //empty graph, avoid further warnings
+    }
+
+    // DAG assumption
     sort_by_id_dedup_and_clean(subgraph);
 #ifdef debug_mapper
     cerr << "sub " << pb2json(subgraph) << endl;
 #endif
-
-    int count_forward=0, count_reverse=0;
-    for (auto& mapping : source.path().mapping()) {
-        if (mapping.position().is_reverse()) {
-            ++count_reverse;
-        } else {
-            ++count_forward;
-        }
-    }
-    //cerr << "fwd " << count_forward << " rev " << count_reverse << endl;
 
     Alignment surjection_rc = surjection;
     surjection_rc.set_sequence(reverse_complement(surjection.sequence()));
 
     Alignment surjection_forward, surjection_reverse;
     // global align to the trimmed graph, and simplify without removal of internal deletions, as we'll need these for BAM reconstruction
-    if (count_forward) {
-        surjection_forward = simplify(align_to_graph(surjection, subgraph, max_query_graph_ratio, true, false, false, true), false);
-    }
-    if (count_reverse) {
-        surjection_reverse = simplify(align_to_graph(surjection_rc, subgraph, max_query_graph_ratio, true, false, false, true), false);
+    try {
+        if (count_forward) {
+            surjection_forward = simplify(align_to_graph(surjection, subgraph, max_query_graph_ratio, true, false, false, true), false);
+        }
+        if (count_reverse) {
+            surjection_reverse = simplify(align_to_graph(surjection_rc, subgraph, max_query_graph_ratio, true, false, false, true), false);
+        }
+    } catch (vg::NoAlignmentInBandException) {
+        return surjection; // null result, we couldn't align banded global
     }
 
 #ifdef debug_mapper

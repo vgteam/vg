@@ -1763,11 +1763,11 @@ namespace vg {
     }
     
     bool operator==(const SnarlTraversal& a, const SnarlTraversal& b) {
-        if (a.visits_size() != b.visits_size()) {
+        if (a.visit_size() != b.visit_size()) {
             return false;
         }
-        for (size_t i = 0; i < a.visits_size(); i++) {
-            if (a.visits(i) != b.visits(i)) {
+        for (size_t i = 0; i < a.visit_size(); i++) {
+            if (a.visit(i) != b.visit(i)) {
                 return false;
             }
         }
@@ -1780,15 +1780,15 @@ namespace vg {
     }
     
     bool operator<(const SnarlTraversal& a, const SnarlTraversal& b) {
-        for (size_t i = 0; i < b.visits_size(); i++) {
-            if (i >= a.visits_size()) {
+        for (size_t i = 0; i < b.visit_size(); i++) {
+            if (i >= a.visit_size()) {
                 // A has run out and B is still going
                 return true;
             }
             
-            if (a.visits(i) < b.visits(i)) {
+            if (a.visit(i) < b.visit(i)) {
                 return true;
-            } else if (b.visits(i) < a.visits(i)) {
+            } else if (b.visit(i) < a.visit(i)) {
                 return false;
             }
         }

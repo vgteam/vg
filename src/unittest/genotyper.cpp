@@ -85,20 +85,20 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
         graph.paths.extend(fwd.path());
 
         // Make a map to hold it
-        map<string, Alignment*> reads_by_name{{"read1", &fwd}};
+        map<string, const Alignment*> reads_by_name{{"read1", &fwd}};
 
         // Get paths through the 1 to 6 snarl supported by the read's alignment
-        vector<list<Mapping>> paths = genotyper.get_paths_through_snarl(graph, snarls[0], manager, reads_by_name);
+        vector<SnarlTraversal> paths = genotyper.get_paths_through_snarl(graph, snarls[0], manager, reads_by_name);
         
         // We should cross the snarl the easy forward way.
         REQUIRE(paths.size() == 1);
-        REQUIRE(paths[0].size() == 5);
-        auto it = paths[0].begin();
-        REQUIRE(it++->position().node_id() == 1);
-        REQUIRE(it++->position().node_id() == 2);
-        REQUIRE(it++->position().node_id() == 3);
-        REQUIRE(it++->position().node_id() == 5);
-        REQUIRE(it++->position().node_id() == 6);
+        REQUIRE(paths[0].visit_size() == 5);
+        size_t i = 0;
+        REQUIRE(paths[0].visit(i++).node_id() == 1);
+        REQUIRE(paths[0].visit(i++).node_id() == 2);
+        REQUIRE(paths[0].visit(i++).node_id() == 3);
+        REQUIRE(paths[0].visit(i++).node_id() == 5);
+        REQUIRE(paths[0].visit(i++).node_id() == 6);
         
     }
     
@@ -117,20 +117,20 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
         graph.paths.extend(rev.path());
 
         // Make a map to hold it
-        map<string, Alignment*> reads_by_name{{"read1", &rev}};
+        map<string, const Alignment*> reads_by_name{{"read1", &rev}};
 
         // Get paths through the 1 to 6 snarl supported by the read's alignment
-        vector<list<Mapping>> paths = genotyper.get_paths_through_snarl(graph, snarls[0], manager, reads_by_name);
+        vector<SnarlTraversal> paths = genotyper.get_paths_through_snarl(graph, snarls[0], manager, reads_by_name);
         
         // We should cross the snarl the easy forward way.
         REQUIRE(paths.size() == 1);
-        REQUIRE(paths[0].size() == 5);
-        auto it = paths[0].begin();
-        REQUIRE(it++->position().node_id() == 1);
-        REQUIRE(it++->position().node_id() == 2);
-        REQUIRE(it++->position().node_id() == 3);
-        REQUIRE(it++->position().node_id() == 5);
-        REQUIRE(it++->position().node_id() == 6);
+        REQUIRE(paths[0].visit_size() == 5);
+        size_t i = 0;
+        REQUIRE(paths[0].visit(i++).node_id() == 1);
+        REQUIRE(paths[0].visit(i++).node_id() == 2);
+        REQUIRE(paths[0].visit(i++).node_id() == 3);
+        REQUIRE(paths[0].visit(i++).node_id() == 5);
+        REQUIRE(paths[0].visit(i++).node_id() == 6);
         
     }
     

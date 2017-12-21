@@ -508,7 +508,7 @@ public:
     /// not be called in a loop.
     ///
     /// If update_paths is true, the paths will be modified to reflect their
-    /// embedding in the modified graph. If add_paths is true, the paths as
+    /// embedding in the modified graph. If save_paths is true, the paths as
     /// embedded in the graph will be added to the graph's set of paths. If
     /// break_at_ends is true (or save_paths is true), nodes will be broken at
     /// the ends of paths that start/end woth perfect matches, so the paths can
@@ -521,9 +521,14 @@ public:
     /// fragment. Completely novel nodes are not mentioned, and nodes with no
     /// Translations are assumed to be carried through unchanged. Invalidates
     /// the rank-based Paths index. Does not sort the graph. Suitable for
-    /// calling in a loop. Can attach newly created nodes on the left of the
-    /// path to the given set of dangling NodeSides, and populates the set at
-    /// the end with the NodeSide corresponding to the end of the path.
+    /// calling in a loop.
+    ///
+    /// Can attach newly created nodes on the left of the path to the given set
+    /// of dangling NodeSides, and populates the set at the end with the
+    /// NodeSide corresponding to the end of the path. This mechanism allows
+    /// edits that hit the end of a node to be attached to what comes
+    /// before/after the node by the caller, as this function doesn't handle
+    /// that.
     vector<Translation> edit_fast(const Path& path, set<NodeSide>& dangling);
 
     /// Find all the points at which a Path enters or leaves nodes in the graph. Adds

@@ -35,7 +35,7 @@ void help_genotype(char** argv) {
          << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << endl
          << "    -i, --realign_indels    realign at indels" << endl
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << endl
-         << "    -P, --min_per_strand    min consistent reads per strand for an allele" << endl
+         << "    -P, --min_per_strand    min unique reads per strand for a called allele to accept a call" << endl
          << "    -E, --no_embed          dont embed gam edits into grpah" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
@@ -89,8 +89,8 @@ int main_genotype(int argc, char** argv) {
     bool subset_graph = false;
     // What should the heterozygous genotype prior be? (1/this)
     double het_prior_denominator = 10.0;
-    // At least how many reads must be consistent per strand for a call?
-    size_t min_consistent_per_strand = 2;
+    // At least how many reads must be unique support for a called allele per strand for a call?
+    size_t min_unique_per_strand = 2;
 
     bool just_call = false;
     int c;
@@ -183,7 +183,7 @@ int main_genotype(int argc, char** argv) {
             break;
         case 'P':
             // Set min consistent reads per strand required to keep an allele
-            min_consistent_per_strand = std::stoll(optarg);
+            min_unique_per_strand = std::stoll(optarg);
             break;
         case 'p':
             show_progress = true;
@@ -337,7 +337,7 @@ int main_genotype(int argc, char** argv) {
     genotyper.realign_indels = realign_indels;
     assert(het_prior_denominator > 0);
     genotyper.het_prior_logprob = prob_to_logprob(1.0/het_prior_denominator);
-    genotyper.min_consistent_per_strand = min_consistent_per_strand;
+    genotyper.min_unique_per_strand = min_unique_per_strand;
 
     // Guess the reference path if not given
     if(ref_path_name.empty()) {
@@ -361,12 +361,13 @@ int main_genotype(int argc, char** argv) {
     augmented_graph.graph.paths.rebuild_mapping_aux();
     augmented_graph.graph.paths.to_graph(augmented_graph.graph.graph);    
 
-    // Do the actual augmentation using vg edit.
+    // Do the actual augmentation using vg edit. If augmentation was already
+    // done, just embeds the reads. Reads will be taken by the AugmentedGraph
+    // and stored in it.
     augmented_graph.augment_from_alignment_edits(alignments, true, !embed_gam_edits);
     
     // TODO: move arguments below up into configuration
     genotyper.run(augmented_graph,
-                  alignments,
                   cout,
                   ref_path_name,
                   contig_name,

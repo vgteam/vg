@@ -168,8 +168,8 @@ void variant_recall(VG* graph,
             name_to_snarl[snarl->name()] = *snarl;
             for (auto x : travs){
                 name_to_traversal[x.name()] = x;
-                for (int i = 0; i < x.visits_size(); i++){
-                    snarl_name_to_node_set[snarl->name()].insert( x.visits(i).node_id());
+                for (int i = 0; i < x.visit_size(); i++){
+                    snarl_name_to_node_set[snarl->name()].insert( x.visit(i).node_id());
                 }    
             }
         }

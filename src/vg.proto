@@ -273,7 +273,7 @@ message SnarlTraversal {
     // Steps of the walk through a Snarl, including the start and end nodes. If the 
     // traversal includes a Visit that represents a Snarl, both the node entering the Snarl
     // and the node leaving the Snarl should be included in the traversal.
-    repeated Visit visits = 1;
+    repeated Visit visit = 1;
 
     // The name of the traversal can be used for a variant allele id (e.g. <parentSnarlHash>_0, <parentSnarlHash>_1...
     // or by some other arbitrary annotation , unique or non-unique, e.g. deleteterious, gain_of_function, etc., though these

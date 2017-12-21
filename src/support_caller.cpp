@@ -375,14 +375,14 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
     function<void(size_t,NodeSide,NodeSide)> handle_edge, function<void(size_t,Snarl)> handle_child) {
 
     // Must at least have start and end
-    assert(traversal.visits_size() >= 2);
+    assert(traversal.visit_size() >= 2);
     
     // Look at the edge leading from the start (also handles deletion traversals)
-    handle_edge(0, to_right_side(traversal.visits(0)), to_left_side(traversal.visits(1)));
+    handle_edge(0, to_right_side(traversal.visit(0)), to_left_side(traversal.visit(1)));
     
-    for(int64_t i = 1; i < traversal.visits_size() - 1; i++) {
+    for(int64_t i = 1; i < traversal.visit_size() - 1; i++) {
         // For all the (internal) visits...
-        auto& visit = traversal.visits(i);
+        auto& visit = traversal.visit(i);
         
         if (visit.node_id() != 0) {
             // This is a visit to a node
@@ -394,7 +394,7 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
             handle_child(i - 1, visit.snarl());
         }
         
-        auto& next_visit = traversal.visits(i + 1);
+        auto& next_visit = traversal.visit(i + 1);
         
         if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
             to_right_side(visit).flip() == to_left_side(next_visit)) {
@@ -426,13 +426,13 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
 
 #ifdef debug
     cerr << "Evaluate traversal: " << endl;
-    for (size_t i = 0; i < traversal.visits_size(); i++) {
-        cerr << "\t" << pb2json(traversal.visits(i)) << endl;
+    for (size_t i = 0; i < traversal.visit_size(); i++) {
+        cerr << "\t" << pb2json(traversal.visit(i)) << endl;
     }
     if (already_used != nullptr) {
         cerr << "Need to share: " << endl;
-        for (size_t i = 0; i < already_used->visits_size(); i++) {
-            cerr << "\t" << pb2json(already_used->visits(i)) << endl;
+        for (size_t i = 0; i < already_used->visit_size(); i++) {
+            cerr << "\t" << pb2json(already_used->visit(i)) << endl;
         }
     }
 #endif
@@ -455,7 +455,7 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
     
     // Compute min and total supports, and bp sizes, for all the visits by
     // number.
-    size_t record_count = max(1, traversal.visits_size() - 2);
+    size_t record_count = max(1, traversal.visit_size() - 2);
     // What's the min support observed at every visit (inclusing edges)?
     vector<Support> min_supports(record_count, make_support(INFINITY, INFINITY, INFINITY));
     // And the total support (ignoring edges)?
@@ -922,9 +922,9 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
         // asserting
         SnarlTraversal& traversal = here_traversals.at(genotype.allele(i));
         
-        for (size_t j = 1; j < traversal.visits_size() - 1; j++) {
+        for (size_t j = 1; j < traversal.visit_size() - 1; j++) {
             // For each visit to a child snarl
-            auto& visit = traversal.visits(j);
+            auto& visit = traversal.visit(j);
             if (visit.node_id() != 0) {
                 continue;
             }
@@ -973,13 +973,13 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
         concrete_traversals.emplace_back();
         auto& concrete_traversal = concrete_traversals.back();
         
-        for (size_t i = 0; i < abstract_traversal.visits_size(); i++) {
+        for (size_t i = 0; i < abstract_traversal.visit_size(); i++) {
             // Go through all the visits in the abstract traversal
-            auto& abstract_visit = abstract_traversal.visits(i);
+            auto& abstract_visit = abstract_traversal.visit(i);
             
             if (abstract_visit.node_id() != 0) {
                 // If they're fully realized, just take them
-                *concrete_traversal.add_visits() = abstract_visit;
+                *concrete_traversal.add_visit() = abstract_visit;
             } else {
                 // If they're visits to children, look up the child
                 const Snarl* child = snarl_manager.manage(abstract_visit.snarl());
@@ -998,7 +998,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
                 if (i != 0) {
                     // There was a previous visit. It may have been a previous
                     // back-to-back snarl.
-                    auto& last_visit = abstract_traversal.visits(i - 1);
+                    auto& last_visit = abstract_traversal.visit(i - 1);
                     if (last_visit.node_id() == 0 && to_right_side(last_visit).flip() == to_left_side(abstract_visit)) {
                         // It was indeed a previous back to back site. Don't add the entry node!
 #ifdef debug
@@ -1007,11 +1007,11 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
                         trav_transfer_start++;
                     }
                 }
-                for (size_t j = trav_transfer_start; j < child_traversal.visits_size(); j++) {
+                for (size_t j = trav_transfer_start; j < child_traversal.visit_size(); j++) {
                     // All the internal visits, in the correct order 
-                    *concrete_traversal.add_visits() = abstract_visit.backward() ?
-                        reverse(child_traversal.visits(child_traversal.visits_size()- 1 - j)) :
-                        child_traversal.visits(j);
+                    *concrete_traversal.add_visit() = abstract_visit.backward() ?
+                        reverse(child_traversal.visit(child_traversal.visit_size()- 1 - j)) :
+                        child_traversal.visit(j);
                 }
             }
         }
@@ -1024,9 +1024,9 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
         // Populate the Locus with those traversals by converting to paths
         Path* converted = locus.add_allele();
         
-        for (size_t i = 0; i < concrete_traversal.visits_size(); i++) {
+        for (size_t i = 0; i < concrete_traversal.visit_size(); i++) {
             // Convert all the visits to Mappings and stick them in the Locus's Paths
-            *converted->add_mapping() = to_mapping(concrete_traversal.visits(i), augmented.graph);
+            *converted->add_mapping() = to_mapping(concrete_traversal.visit(i), augmented.graph);
         }
     }
     
@@ -1977,8 +1977,8 @@ bool SupportCaller::is_reference(const SnarlTraversal& trav, AugmentedGraph& aug
     };
     
     // Experience the entire traversal from start to end
-    for (size_t i = 0; i < trav.visits_size(); i++) {
-        if (!experience_visit(trav.visits(i))) {
+    for (size_t i = 0; i < trav.visit_size(); i++) {
+        if (!experience_visit(trav.visit(i))) {
             return false;
         }
     }

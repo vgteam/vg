@@ -173,33 +173,42 @@ public:
 /// made using edit (such as in vg mod -i) or pileup.
 /// Todo : further abstract to handle graph interface
 struct AugmentedGraph {
-    // This holds all the new nodes and edges
+    /// This holds all the new nodes and edges
     VG graph;
 
-    // This holds the base graph (only required for mapping edges)
-    VG* base_graph = NULL;
+    /// This holds the base graph (only required for mapping edges)
+    VG* base_graph = nullptr;
 
-    // Translations back to the base graph
+    /// Translations back to the base graph
     Translator translator;
     
-    // Map an edge back to teh base graph (return NULL if does not exist)
+    
+    
+    // Map an edge back to the base graph (return NULL if does not exist)
     // In the special case that an edge in the augmented graph represents
     // two abutting positions within a node in the base graph, null, true
     // is returned (todo: less tortured interface?)
     pair<const Edge*, bool> base_edge(const Edge* augmented_edge);
 
-    // Is this a node novel?  ie does it not map back to the base graph?
+    // Is this node novel?  ie does it not map back to the base graph?
     bool is_novel_node(const Node* augmented_node) {
         Position pos;
         pos.set_node_id(augmented_node->id());
         return !translator.has_translation(pos);
     }
     
-    // Is this a node novel?  ie does it not map back to the base graph?
+    // Is this edge novel?  ie does it not map back to the base graph?
     bool is_novel_edge(const Edge* augmented_edge) {
         auto be_ret = base_edge(augmented_edge);
         return be_ret.first == NULL && be_ret.second == false;
     }
+    
+    /// Get the alignments, if any, embedded in the graph that touch the given
+    /// node ID.
+    vector<const Alignment*> get_alignments(id_t node_id) const;
+    
+    /// Get all the embedded alignments.
+    vector<const Alignment*> get_alignments() const;
     
     /**
      * Clear the contents.
@@ -207,16 +216,23 @@ struct AugmentedGraph {
     virtual void clear();
 
     /** 
-     * Construct an augmented graph using edit() on a set of alignments. Adds
-     * the paths of the alignments to the graph.
-     * 
-     * If unique_names is set, makes sure all the alignments' paths have unique
-     * names, which is a requirement for paths in a graph.
+     * Construct an augmented graph using edit() on a set of alignments.
+     * Modifies the passed-in vector of alignments arbitrarily (in particular,
+     * it may be empty after the call returns).
      *
-     * If leave_edits is set, the alignment's paths are not modified. The
-     * alignments' paths will be the paths they were originally aligned to,
-     * although the graph will be modified to describe the edits that the
-     * alignments found.
+     * Stores a modified version of the reads in the AugmentedGraph. Read
+     * alignments that touch a node in the augmented graph can be retrieved with
+     * get_alignments(). Reads will have softclips removed.
+     *
+     * Must only be called ONCE, because all modifications to the graph have
+     * to be processed together to update the embedded alignment indexes.
+     * 
+     * If unique_names is set, makes sure all the alignments have unique names.
+     *
+     * If leave_edits is set, the alignment's paths are not modified after
+     * trimming softclips. The alignments' paths will be the paths they were
+     * originally aligned to, although the graph will be modified to describe
+     * the edits that the alignments found.
      */
     void augment_from_alignment_edits(vector<Alignment>& alignments, bool unique_names = true,
                                       bool leave_edits = false);
@@ -230,6 +246,16 @@ struct AugmentedGraph {
      * Write the translations to a file
      */
     void write_translations(ostream& out_file);
+    
+protected:
+
+    /// Holds all of the alignments that have been embedded in the graph. They
+    /// aren't in the graph's paths object, but they are fully embedded without
+    /// any edits relative to the graph's sequence.
+    vector<Alignment> embedded_alignments;
+    
+    // Maps from node ID to the alignments that touch that node.
+    unordered_map<id_t, vector<Alignment*>> alignments_by_node;
 };
 
 /// Augmented Graph that holds some Support annotation data specific to vg call
@@ -273,8 +299,6 @@ struct SupportAugmentedGraph : public AugmentedGraph {
     void write_supports(ostream& out_file);
     
 };
-    
-
 
 class SimpleConsistencyCalculator : public ConsistencyCalculator{
     public:
