@@ -388,7 +388,12 @@ class VGCITest(TestCase):
         f1_path = os.path.join(self._outstore(tag), f1_name)
         with io.open(f1_path, 'r', encoding='utf8') as f1_file:
             f1_score = float(f1_file.readline().strip())
-        baseline_f1 = float(self._read_baseline_file(tag, f1_name).strip())
+            
+        try:
+            baseline_f1 = float(self._read_baseline_file(tag, f1_name).strip())
+        except:
+            # Couldn't read the baseline. Maybe it doesn't exist (yet)
+            baseline_f1 = 0
 
         # print the whole table in tags that mine-logs can read
         summary_path = f1_path[0:-6] + 'summary.txt'
