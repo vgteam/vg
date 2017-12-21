@@ -786,7 +786,7 @@ namespace vg {
                             
                             // move the original mappings
                             int64_t dist = distance_between(multipath_alns_1[i], multipath_alns_2[j]);
-                            if (dist != numeric_limits<int64_t>::max() && dist > 0) {
+                            if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
                                 multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(multipath_alns_2[j]));
                                 pair_distances.emplace_back(pair<size_t, size_t>(), dist);
                                 found_consistent = true;
@@ -803,7 +803,7 @@ namespace vg {
                     cerr << "adding read1 and rescued read2 " << i << " to output vector" << endl;
 #endif
                     int64_t dist = distance_between(multipath_alns_1[i], rescue_multipath_alns_2[i]);
-                    if (dist != numeric_limits<int64_t>::max() && dist > 0) {
+                    if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
                         multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(rescue_multipath_alns_2[i]));
                         pair_distances.emplace_back(pair<size_t, size_t>(), dist);
                         found_consistent = true;
@@ -821,7 +821,7 @@ namespace vg {
                 cerr << "adding rescued read1 and read2 " << j << " to output vector" << endl;
 #endif
                 int64_t dist = distance_between(rescue_multipath_alns_1[j], multipath_alns_2[j]);
-                if (dist != numeric_limits<int64_t>::max() && dist > 0) {
+                if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
                     multipath_aln_pairs_out.emplace_back(move(rescue_multipath_alns_1[j]), move(multipath_alns_2[j]));
                     pair_distances.emplace_back(pair<size_t, size_t>(), dist);
                     found_consistent = true;
@@ -834,7 +834,7 @@ namespace vg {
 #endif
             for (size_t i: rescued_from_1) {
                 int64_t dist = distance_between(multipath_alns_1[i], rescue_multipath_alns_2[i]);
-                if (dist != numeric_limits<int64_t>::max() && dist > 0) {
+                if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
                     multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(rescue_multipath_alns_2[i]));
                     pair_distances.emplace_back(pair<size_t, size_t>(), dist);
                     found_consistent = true;
@@ -847,7 +847,7 @@ namespace vg {
 #endif
             for (size_t i : rescued_from_2) {
                 int64_t dist = distance_between(rescue_multipath_alns_1[i], multipath_alns_2[i]);
-                if (dist != numeric_limits<int64_t>::max() && dist > 0) {
+                if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
                     multipath_aln_pairs_out.emplace_back(move(rescue_multipath_alns_1[i]), move(multipath_alns_2[i]));
                     pair_distances.emplace_back(pair<size_t, size_t>(), dist);
                     found_consistent = true;
