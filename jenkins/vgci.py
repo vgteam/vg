@@ -294,7 +294,7 @@ class VGCITest(TestCase):
             # toil-vg options
             vg_docker = self.vg_docker,
             container = self.container,
-            force_outstore = self.force_outstre,
+            force_outstore = self.force_outstore,
             # Toil options
             realTimeLogging = True,
             logLevel = "INFO",
