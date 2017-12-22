@@ -15,6 +15,7 @@
 #include "Variant.h"
 #include "genotypekit.hpp"
 #include "snarls.hpp"
+#include "path.hpp"
 #include "path_index.hpp"
 #include "support_caller.hpp"
 #include "stream.hpp"
@@ -160,21 +161,6 @@ bool can_write_alleles(vcflib::Variant& variant) {
     return true;
 }
 
-/**
- * Return true if a mapping is a perfect match, and false if it isn't.
- */
-bool mapping_is_perfect_match(const Mapping& mapping) {
-    for (auto edit : mapping.edit()) {
-        if (edit.from_length() != edit.to_length() || !edit.sequence().empty()) {
-            // This edit isn't a perfect match
-            return false;
-        }
-    }
-    
-    // If we get here, all the edits are perfect matches.
-    // Note that Mappings with no edits at all are full-length perfect matches.
-    return true;
-}
 
 /**
  * Given a collection of pileups by original node ID, and a set of original node
