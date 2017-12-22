@@ -6,7 +6,7 @@ Packer::Packer(void) : xgidx(nullptr) { }
 
 Packer::Packer(xg::XG* xidx, size_t binsz) : xgidx(xidx), bin_size(binsz) {
     coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, 8);
-    n_bins = xgidx->seq_length / bin_size + 1;
+    if (binsz) n_bins = xgidx->seq_length / bin_size + 1;
 }
 
 Packer::~Packer(void) {
@@ -164,6 +164,7 @@ void Packer::make_compact(void) {
     }
     edit_csas.resize(edit_tmpfile_names.size());
     util::assign(coverage_civ, coverage_iv);
+    construct_config::byte_algo_sa = SE_SAIS;
 #pragma omp parallel for
     for (size_t i = 0; i < edit_tmpfile_names.size(); ++i) {
         construct(edit_csas[i], edit_tmpfile_names[i], 1);
