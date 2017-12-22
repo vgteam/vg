@@ -32,7 +32,7 @@ namespace vg {
 
 using namespace std;
     
-enum MappingQualityMethod { Approx, Exact, None };
+enum MappingQualityMethod { Approx, Exact, Adaptive, None };
 
 class Mapper;
 
