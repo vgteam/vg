@@ -59,6 +59,7 @@ class VGCITest(TestCase):
         self.do_teardown = True
         self.baseline = 's3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline'
         self.cores = 8
+        self.force_outstore = False
 
         self.loadCFG()
 
@@ -96,6 +97,15 @@ class VGCITest(TestCase):
                             self.baseline = toks[1]
                         elif toks[0] == 'cores':
                             self.cores = int(toks[1])
+                        elif toks[0] == 'force_outstore' and toks[1].lower() == 'true':
+                            self.force_outstore = True
+
+    def _toil_vg_io_opts(self):
+        """ Some common toil-vg options we always want to use """
+        opts = ['--realTimeLogging', '--logInfo', '--workDir', self.workdir]
+        if self.force_outstore:
+            opts += ['--force_outstore']
+        return opts
 
     def _jobstore(self, tag = ''):
         return os.path.join(self.workdir, 'jobstore{}'.format(tag))
@@ -195,7 +205,7 @@ class VGCITest(TestCase):
         """ Wrap toil-vg index.  Files passed are copied from store instead of computed """
         job_store = self._jobstore(dir_tag)
         out_store = self._outstore(dir_tag)
-        opts = '--realTimeLogging --logInfo '
+        opts = ' '.join(self._toil_vg_io_opts()) + ' '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
         if self.container:
@@ -229,7 +239,7 @@ class VGCITest(TestCase):
 
         job_store = self._jobstore(tag)
         out_store = self._outstore(tag)
-        opts = '--realTimeLogging --logInfo '
+        opts = ' '.join(self._toil_vg_io_opts()) + ' '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
         if self.container:
@@ -284,6 +294,7 @@ class VGCITest(TestCase):
             # toil-vg options
             vg_docker = self.vg_docker,
             container = self.container,
+            force_outstore = self.force_outstore,
             # Toil options
             realTimeLogging = True,
             logLevel = "INFO",
@@ -478,7 +489,7 @@ class VGCITest(TestCase):
 
         # start by simulating some reads
         # TODO: why are we using strings here when we could use much safer lists???
-        opts = '--realTimeLogging --logInfo '
+        opts = ' '.join(self._toil_vg_io_opts()) + ' '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
         if self.container:
@@ -987,8 +998,7 @@ class VGCITest(TestCase):
         cmd += ['--call_chunk_cores', str(min(6, self.cores))]
         cmd += ['--gam_index_cores', str(min(4, self.cores))]
         cmd += ['--maxCores', str(self.cores)]
-        cmd += ['--realTimeLogging', '--logInfo']
-        cmd += ['--workDir', self.workdir]
+        cmd += self._toil_vg_io_opts() 
         if self.container:
             cmd += ['--container', self.container]
         # run both gentoype and call
