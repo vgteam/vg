@@ -45,6 +45,7 @@ void help_map(char** argv) {
          << "    -F, --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
          << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
+         << "    --patch-aln             patch banded alignments by attempting to align unaligned regions" << endl 
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -71,7 +72,7 @@ void help_map(char** argv) {
          << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT produce up to INT alignments for each read [1]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [1]" << endl
          << "    -Q, --mq-max INT        cap the mapping quality at INT [60]" << endl
          << "    -D, --debug             print debugging information about alignment to stderr" << endl;
 
@@ -106,7 +107,7 @@ int main_map(int argc, char** argv) {
     string fastq1, fastq2;
     bool interleaved_input = false;
     int band_width = 256;
-    int band_multimaps = 4;
+    int band_multimaps = 1;
     int max_band_jump = -1;
     bool always_rescue = false;
     bool top_pairs_only = false;
@@ -151,6 +152,7 @@ int main_map(int argc, char** argv) {
     int fragment_model_update = 10;
     bool acyclic_graph = false;
     bool refpos_table = false;
+    bool patch_alignments = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -215,11 +217,12 @@ int main_map(int argc, char** argv) {
                 {"id-mq-weight", required_argument, 0, '7'},
                 {"refpos-table", no_argument, 0, 'v'},
                 {"surject-to", required_argument, 0, '5'},
+                {"patch-alns", no_argument, 0, '8'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:8",
                          long_options, &option_index);
 
 
@@ -422,6 +425,10 @@ int main_map(int argc, char** argv) {
 
         case '5':
             surject_type = optarg;
+            break;
+
+        case '8':
+            patch_alignments = true;
             break;
 
         case 'I':
@@ -785,6 +792,7 @@ int main_map(int argc, char** argv) {
         m->identity_weight = identity_weight;
         m->assume_acyclic = acyclic_graph;
         m->context_depth = 3; // for surjection
+        m->patch_alignments = patch_alignments;
         mapper[i] = m;
     }
 

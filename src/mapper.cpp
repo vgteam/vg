@@ -1402,6 +1402,7 @@ Mapper::Mapper(xg::XG* xidex,
     , maybe_mq_threshold(0)
     , min_banded_mq(0)
     , max_band_jump(0)
+    , patch_alignments(false)
     , identity_weight(2)
     , pair_rescue_hang_threshold(0.7)
     , pair_rescue_retry_threshold(0.5)
@@ -3602,9 +3603,11 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     AlignmentChainModel chainer(multi_alns, this, transition_weight, 1, 64, 128);
     if (debug) chainer.display(cerr);
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps, false, debug);
-    for (auto& aln : alignments) {
-        // patch the alignment to deal with short unaligned regions
-        aln = patch_alignment(aln, band_width);
+    if (patch_alignments) {
+        for (auto& aln : alignments) {
+            // patch the alignment to deal with short unaligned regions
+            aln = patch_alignment(aln, band_width);
+        }
     }
     // sort the alignments by score
     std::sort(alignments.begin(), alignments.end(), [](const Alignment& aln1, const Alignment& aln2) { return aln1.score() > aln2.score(); });

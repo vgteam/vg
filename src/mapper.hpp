@@ -608,6 +608,7 @@ public:
     int extra_multimaps; // Extra mappings considered
     int min_multimaps; // Minimum number of multimappings
     int band_multimaps; // the number of multimaps for to attempt for each band in a banded alignment
+    bool patch_alignments; // should we attempt alignment patching to resolve unaligned regions in banded alignment
     
     double maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality

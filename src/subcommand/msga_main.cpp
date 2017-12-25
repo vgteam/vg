@@ -32,8 +32,8 @@ void help_msga(char** argv) {
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
-         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [512]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [64]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
@@ -41,8 +41,9 @@ void help_msga(char** argv) {
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -w, --band-width INT    band width for long read alignment [128]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [10*{-w}]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [1]" << endl
          << "    -M, --max-multimaps INT consider this many alternate alignments for the entire sequence [1]" << endl
+         << "    --patch-aln             patch banded alignments by attempting to align unaligned regions" << endl 
          << "local alignment parameters:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -91,7 +92,7 @@ int main_msga(int argc, char** argv) {
     float min_identity = 0.0;
     int band_width = 128;
     int max_band_jump = -1;
-    int band_multimaps = 4;
+    int band_multimaps = 1;
     size_t doubling_steps = 3;
     bool debug = false;
     bool debug_align = false;
@@ -126,6 +127,7 @@ int main_msga(int argc, char** argv) {
     bool use_fast_reseed = true;
     bool show_align_progress = false;
     bool bigger_first = true;
+    bool patch_alignments = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -174,11 +176,12 @@ int main_msga(int argc, char** argv) {
                 {"drop-chain", required_argument, 0, 'C'},
                 {"align-progress", no_argument, 0, 'S'},
                 {"bigger-first", no_argument, 0, 'a'},
+                {"patch-alns", no_argument, 0, '8'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:a",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:a8",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -349,6 +352,10 @@ int main_msga(int argc, char** argv) {
 
         case 'a':
             bigger_first = false;
+            break;
+
+        case '8':
+            patch_alignments = true;
             break;
 
         case 'h':
@@ -579,6 +586,7 @@ int main_msga(int argc, char** argv) {
             // set up the multi-threaded alignment interface
             mapper->set_alignment_threads(alignment_threads);
             mapper->show_progress = show_align_progress;
+            mapper->patch_alignments = patch_alignments;
         }
     };
 
