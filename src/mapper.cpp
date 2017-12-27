@@ -3600,7 +3600,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         return -((double)gap_open + (double)dist * (double)gap_extension);
     };
 
-    AlignmentChainModel chainer(multi_alns, this, transition_weight, 1, 64, 128);
+    AlignmentChainModel chainer(multi_alns, this, transition_weight, 4, 64, 128);
     if (debug) chainer.display(cerr);
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps, false, debug);
     if (patch_alignments) {
@@ -4822,20 +4822,16 @@ AlignmentChainModel::AlignmentChainModel(
     for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
         for (auto u = v+1; u != model.end(); ++u) {
             if (v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
-                if (v->band_idx + vertex_band_width <= u->band_idx) {
+                if (v->band_idx + vertex_band_width >= u->band_idx) {
                     double weight = transition_weight(*v->aln, *u->aln, v->positions, u->positions);
                     if (weight > -std::numeric_limits<double>::max()) {
                         v->next_cost.push_back(make_pair(&*u, weight));
                         u->prev_cost.push_back(make_pair(&*v, weight));
                     }
-                } else if (u->band_idx + vertex_band_width <= v->band_idx) {
-                    double weight = transition_weight(*u->aln, *v->aln, u->positions, v->positions);
-                    if (weight > -std::numeric_limits<double>::max()) {
-                        u->next_cost.push_back(make_pair(&*v, weight));
-                        v->prev_cost.push_back(make_pair(&*u, weight));
-                    }
+                } else {
+                    break;
                 }
-            }            
+            }
         }
     }
 }
