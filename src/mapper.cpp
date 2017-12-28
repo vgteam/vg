@@ -3615,8 +3615,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         alignments.front().set_mapping_quality(max_mapping_quality);
     } else {
         compute_mapping_qualities(alignments, 0, max_mapping_quality, max_mapping_quality);
+        filter_and_process_multimaps(alignments, max_multimaps);
     }
-    filter_and_process_multimaps(alignments, max_multimaps);
     //cerr << "got alignment " << pb2json(alignments.front()) << endl;
     return alignments;
 }
