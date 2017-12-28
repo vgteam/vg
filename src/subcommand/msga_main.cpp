@@ -622,7 +622,7 @@ int main_msga(int argc, char** argv) {
                             << graph->length() << "bp "
                             << "n:" << graph->node_count() << " "
                             << "e:" << graph->edge_count() << endl;
-            Alignment aln = simplify(mapper->align(seq, 0, 0, 0, band_width));
+            Alignment aln = mapper->align(seq, 0, 0, 0, band_width);
             aln.set_name(name);
             if (aln.path().mapping_size()) {
                 auto aln_seq = graph->path_string(aln.path());
