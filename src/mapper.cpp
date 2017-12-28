@@ -4836,7 +4836,7 @@ AlignmentChainModel::AlignmentChainModel(
     }
 }
 
-void AlignmentChainModel::score(const set<AlignmentChainModelVertex*>& exclude) {
+void AlignmentChainModel::score(const unordered_set<AlignmentChainModelVertex*>& exclude) {
     // propagate the scores in the model
     for (auto& m : model) {
         // score is equal to the max inbound + mem.weight
@@ -4874,7 +4874,7 @@ vector<Alignment> AlignmentChainModel::traceback(const Alignment& read, int alt_
     debug = true;
     vector<vector<Alignment> > traces;
     traces.reserve(alt_alns); // avoid reallocs so we can refer to pointers to the traces
-    set<AlignmentChainModelVertex*> exclude;
+    unordered_set<AlignmentChainModelVertex*> exclude;
     for (auto& v : redundant_vertexes) exclude.insert(&*v);
     for (int i = 0; i < alt_alns; ++i) {
         // score the model, accounting for excluded traces
@@ -4912,7 +4912,7 @@ vector<Alignment> AlignmentChainModel::traceback(const Alignment& read, int alt_
             exclude.insert(vertex_trace.front());
         }
         // fill this out when we're paired to help mask out in-fragment transitions
-        set<AlignmentChainModelVertex*> chain_members;
+        unordered_set<AlignmentChainModelVertex*> chain_members;
         if (paired) for (auto v : vertex_trace) chain_members.insert(v);
         traces.emplace_back();
         auto& aln_trace = traces.back();

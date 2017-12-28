@@ -70,7 +70,7 @@ public:
         int vertex_band_width = 10,
         int position_depth = 1,
         int max_connections = 30);
-    void score(const set<AlignmentChainModelVertex*>& exclude);
+    void score(const unordered_set<AlignmentChainModelVertex*>& exclude);
     AlignmentChainModelVertex* max_vertex(void);
     vector<Alignment> traceback(const Alignment& read, int alt_alns, bool paired, bool debug);
     void display(ostream& out);

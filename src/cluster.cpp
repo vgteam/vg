@@ -162,7 +162,7 @@ MEMChainModel::MEMChainModel(
     }
 }
 
-void MEMChainModel::score(const set<MEMChainModelVertex*>& exclude) {
+void MEMChainModel::score(const unordered_set<MEMChainModelVertex*>& exclude) {
     // propagate the scores in the model
     for (auto& m : model) {
         // score is equal to the max inbound + mem.weight
@@ -199,7 +199,7 @@ void MEMChainModel::clear_scores(void) {
 vector<vector<MaximalExactMatch> > MEMChainModel::traceback(int alt_alns, bool paired, bool debug) {
     vector<vector<MaximalExactMatch> > traces;
     traces.reserve(alt_alns); // avoid reallocs so we can refer to pointers to the traces
-    set<MEMChainModelVertex*> exclude;
+    unordered_set<MEMChainModelVertex*> exclude;
     for (auto& v : redundant_vertexes) exclude.insert(&*v);
     for (int i = 0; i < alt_alns; ++i) {
         // score the model, accounting for excluded traces
@@ -241,7 +241,7 @@ vector<vector<MaximalExactMatch> > MEMChainModel::traceback(int alt_alns, bool p
             exclude.insert(vertex_trace.front());
         }
         // fill this out when we're paired to help mask out in-fragment transitions
-        set<MEMChainModelVertex*> chain_members;
+        unordered_set<MEMChainModelVertex*> chain_members;
         if (paired) for (auto v : vertex_trace) chain_members.insert(v);
         traces.emplace_back();
         auto& mem_trace = traces.back();
