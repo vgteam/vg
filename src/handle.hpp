@@ -26,6 +26,8 @@ struct handle_t {
     char data[sizeof(id_t)];
 };
 
+typedef pair<handle_t, handle_t> edge_t;
+
 // XG is going to store node index in its g-vector and node orientation in there
 // VG is going to store ID and orientation
 // Other implementations can store other things (or maybe int indexes into tables)
@@ -195,7 +197,7 @@ public:
     
     // A pair of handles can be used as an edge. When so used, the handles have a
     // cannonical order and orientation.
-    pair<handle_t, handle_t> edge_handle(const handle_t& left, const handle_t& right) const;
+    edge_t edge_handle(const handle_t& left, const handle_t& right) const;
 };
 
 /**
