@@ -1,5 +1,6 @@
 #include <unordered_set>
 #include "mapper.hpp"
+#include "haplotypes.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 
 //#define debug_mapper
@@ -1302,26 +1303,30 @@ void BaseMapper::apply_haplotype_consistency_bonus(Alignment& aln) {
     // We don't look at strip_bonuses here, because we need these bonuses added
     // always in order to choose between alignments.
     
-    // Define the path taken by the alignment in terms the GBWT can understand
-    vector<gbwt::node_type> aln_path;
-    aln_path.reserve(aln.path().mapping_size());
-    for (const auto& mapping : aln.path().mapping()) {
-        // Copy over each visit to a node
-        aln_path.emplace_back(gbwt::Node::encode(mapping.position().node_id(), mapping.position().is_reverse()));
-    }
+    cerr << "Have " << gbwt->sequences() << " sequences in GBWT" << endl;
     
-    if (aln_path.empty()) {
+    // Build Yohei's recombination probability calculator. TODO: We may be
+    // feeding it total contiguous haplotype chunks when it really wants total
+    // actual haplotypes (i.e. haplotypes per chromosome).
+    haplo::haploMath::RRMemo haplo_memo(NEG_LOG_PER_BASE_RECOMB_PROB, gbwt->sequences());
+    
+    if (aln.path().mapping_size() == 0) {
         // Alignments with no actual mappings can't be consistent.
         return;
     }
     
-    // Look for hits
-    auto result = gbwt->find(aln_path.begin(), aln_path.end());
+    // Score the path
+    double score;
+    bool path_valid;
+    std::tie(score, path_valid) = haplo::haplo_DP::score(aln.path(), *gbwt, haplo_memo);
     
-    if (!result.empty()) {
-        // We are consistent with at least one haplotype
-        aln.set_score(aln.score() + haplotype_consistency_bonus);
+    if (!path_valid) {
+        // Our path goes off the rails of the graph
+        throw runtime_error("Invalid path leaves graph and can't be haplotype scored: " + pb2json(aln));
     }
+    
+    
+    aln.set_score(aln.score() + haplotype_consistency_bonus * score);
 }
     
 double BaseMapper::estimate_gc_content(void) {

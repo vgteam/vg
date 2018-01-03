@@ -300,6 +300,8 @@ protected:
     gbwt::GBWT* gbwt = nullptr;
     // The bonus for being consistent with at least one haplotype
     int8_t haplotype_consistency_bonus = 0;
+    // The recombination rate
+    constexpr static double NEG_LOG_PER_BASE_RECOMB_PROB = 7;
     
     FragmentLengthDistribution fragment_length_distr;
 
