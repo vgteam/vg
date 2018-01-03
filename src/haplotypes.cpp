@@ -238,10 +238,12 @@ haplo_DP_column::~haplo_DP_column() {
 }
 
 void haplo_DP_column::update_inner_values() {
-  for(size_t i = 0; i < entries.size() - 1; i++) {
+  for(size_t i = 0; i + 1 < entries.size(); i++) {
     entries[i]->calculate_I(entries[i+1]->interval_size());
   }
-  (entries.back())->calculate_I(0);
+  if(!entries.empty()) {
+    (entries.back())->calculate_I(0);
+  }
 }
 
 // void haplo_DP_column::binary_extend_intervals(hDP_graph_accessor& ga, int_itvl_t indices, int_itvl_t ss_deltas, int_itvl_t state_sizes) {
@@ -424,7 +426,9 @@ double logsum(double a, double b) {
 }
 
 double int_weighted_sum(double* values, int64_t* counts, size_t n_values) {
-  if(n_values == 1) {
+  if(n_values == 0) {
+    return 0;
+  } else if(n_values == 1) {
     return values[0] + log(counts[0]);
   } else {
     double max_summand = values[0] + log(counts[0]);
@@ -449,7 +453,9 @@ double int_weighted_sum(double* values, int64_t* counts, size_t n_values) {
 
 
 double int_weighted_sum(vector<double> values, vector<int64_t> counts) {
-  if(values.size() == 1) {
+  if(values.size() == 0) {
+    return 0;
+  } else if(values.size() == 1) {
     return values[0] + log(counts[0]);
   } else {
     double max_summand = values[0] + log(counts[0]);
