@@ -102,7 +102,7 @@ class VGCITest(TestCase):
 
     def _toil_vg_io_opts(self):
         """ Some common toil-vg options we always want to use """
-        opts = ['--realTimeLogging', '--logInfo', '--workDir', self.workdir]
+        opts = ['--realTimeLogging', '--realTimeStderr', '--logInfo', '--workDir', self.workdir]
         if self.force_outstore:
             opts += ['--force_outstore']
         return opts
@@ -297,6 +297,7 @@ class VGCITest(TestCase):
             force_outstore = self.force_outstore,
             # Toil options
             realTimeLogging = True,
+            realTimeStderr = True,
             logLevel = "INFO",
             maxCores = self.cores
         )
@@ -518,6 +519,7 @@ class VGCITest(TestCase):
             alignment_cores = self.cores,
             # Toil options
             realTimeLogging = True,
+            realTimeStderr = True,
             logLevel = "INFO",
             maxCores = self.cores,
             # toil-vg map options
@@ -638,6 +640,7 @@ class VGCITest(TestCase):
             container = self.container,
             # Toil options
             realTimeLogging = True,
+            realTimeStderr = True,
             logLevel = "INFO",
             maxCores = self.cores
         )
