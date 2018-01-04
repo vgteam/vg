@@ -204,6 +204,10 @@ public:
                      int min_mem_length = 1,
                      int reseed_length = 0);
     
+    /// identifies tracts of order-length MEMs that were unfilled because their hit count was above the max
+    /// and fills one MEM in the tract (the one with the smallest hit count)
+    void rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
+                                             size_t max_rescue_hit_count);
     
     int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count
     int min_mem_length; // a mem must be >= this length
@@ -214,6 +218,7 @@ public:
     double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = true;
+    size_t order_length_repeat_hit_max = 0; // in tracts of order-length MEMs above the hit max, fill one
     
     // Remove any bonuses used by the aligners from the final reported scores.
     // Does NOT (yet) remove the haplotype consistency bonus.

@@ -130,6 +130,8 @@ int main_mpmap(int argc, char** argv) {
     size_t num_calibration_simulations = 250;
     size_t calibration_read_length = 150;
     bool unstranded_clustering = false;
+    size_t order_length_repeat_hit_max = 2048;
+    size_t sub_mem_count_thinning = 16;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -627,7 +629,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mem_reseed_length = reseed_length;
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
-    multipath_mapper.sub_mem_count_thinning = 16;
+    multipath_mapper.sub_mem_count_thinning = sub_mem_count_thinning;
+    multipath_mapper.order_length_repeat_hit_max = order_length_repeat_hit_max;
     multipath_mapper.min_mem_length = min_mem_length;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
