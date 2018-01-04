@@ -233,20 +233,17 @@ haplo_DP_column
 
 haplo_DP_column::~haplo_DP_column() {
   for(size_t i = 0; i < entries.size(); i++) {
-    assert(entries[i] != nullptr);
     delete entries[i];
   }
 }
 
 void haplo_DP_column::update_inner_values() {
-  assert(!entries.empty());
   for(size_t i = 0; i + 1 < entries.size(); i++) {
     entries[i]->calculate_I(entries[i+1]->interval_size());
   }
   if(!entries.empty()) {
     (entries.back())->calculate_I(0);
   }
-  assert(!entries.empty());
 }
 
 // void haplo_DP_column::binary_extend_intervals(hDP_graph_accessor& ga, int_itvl_t indices, int_itvl_t ss_deltas, int_itvl_t state_sizes) {
@@ -272,7 +269,6 @@ void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
     sum = r_0->R + log(r_0->interval_size());
     previous_values = {r_0->R};
     previous_sizes = {r_0->interval_size()};
-    assert(!entries.empty());
     return;
   } else {
     previous_sum = sum;
@@ -313,12 +309,10 @@ void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
   previous_values = get_scores();
   previous_sizes = get_sizes();
   sum = haploMath::int_weighted_sum(previous_values, previous_sizes);
-  assert(!entries.empty());
 }
 
 double haplo_DP_column::previous_R(size_t i) const {
   return previous_values[(entries[i])->prev_idx()];
-  assert(!entries.empty());
 }
 
 vector<double> haplo_DP_column::get_scores() const {
@@ -326,7 +320,6 @@ vector<double> haplo_DP_column::get_scores() const {
   for(size_t i = 0; i < entries.size(); i++) {
     to_return.push_back(entries[i]->R);
   }
-  assert(!entries.empty());
   return to_return;
 }
 
@@ -335,7 +328,6 @@ vector<int64_t> haplo_DP_column::get_sizes() const {
   for(size_t i = 0; i < entries.size(); i++) {
     to_return.push_back(entries[i]->I());
   }
-  assert(!entries.empty());
   return to_return;
 }
 
@@ -351,7 +343,6 @@ void haplo_DP_column::print(ostream& out) const {
     }
     out << entries[i]->I() << "] : " << entries[i]->interval_size() << endl;
   }
-  assert(!entries.empty());
 }
 
 /*******************************************************************************
