@@ -371,14 +371,8 @@ void haplo_DP_column::standard_extend(accessorType& ga) {
     candidate->set_prev_idx(i);
     candidate->extend(ga);
     // check if the last rectangle added is nonempty
-    assert(!new_entries.empty());
     if(candidate->interval_size() == new_entries.back()->interval_size()) {
-      auto to_delete = new_entries.back();
       new_entries.pop_back();
-      if(to_delete->prev_idx() != -1) {
-        // TODO: this is never checked for and so can't help but mess things up...
-        //entries.at(to_delete->prev_idx()) = nullptr;
-      }
     }
     if(candidate->interval_size() != 0) {
       new_entries.push_back(candidate);
