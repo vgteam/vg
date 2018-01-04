@@ -1314,18 +1314,23 @@ void BaseMapper::apply_haplotype_consistency_bonus(Alignment& aln) {
     }
     
     // Score the path
-    double score;
+    // This is a logprob (so, negative), and expresses the probability of the haplotype path being followed
+    double haplotype_logprob;
     bool path_valid;
-    std::tie(score, path_valid) = haplo::haplo_DP::score(aln.path(), *gbwt, haplo_memo);
+    std::tie(haplotype_logprob, path_valid) = haplo::haplo_DP::score(aln.path(), *gbwt, haplo_memo);
     
     if (!path_valid) {
         // Our path goes off the rails of the graph
         throw runtime_error("Invalid path leaves graph and can't be haplotype scored: " + pb2json(aln));
     }
     
-    cerr << "Got score of " << score << endl;
     
-    aln.set_score(aln.score() + haplotype_consistency_bonus * score);
+    // Get the aligner so we can convert from logprob to score points
+    auto* aligner = get_aligner(!aln.quality().empty());
+    assert(aligner->log_base != 0);
+    
+    // Convert to points, weight by the haplotype consistency bonus, and apply
+    aln.set_score(aln.score() + haplotype_consistency_bonus * (haplotype_logprob / aligner->log_base));
 }
     
 double BaseMapper::estimate_gc_content(void) {
