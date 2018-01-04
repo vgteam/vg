@@ -137,10 +137,10 @@ DEPS += $(INC_DIR)/gfakluge.hpp
 DEPS += $(INC_DIR)/sha1.hpp
 DEPS += $(INC_DIR)/progress_bar.hpp
 
-ifneq ($(shell uname -s),Darwin)
-	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
-	LD_LIB_FLAGS += -ltcmalloc_minimal
-endif
+#ifneq ($(shell uname -s),Darwin)
+#	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
+#	LD_LIB_FLAGS += -ltcmalloc_minimal
+#endif
 
 .PHONY: clean get-deps deps test set-path static docs .pre-build
 
