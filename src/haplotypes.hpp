@@ -355,10 +355,12 @@ haplo_DP_column::haplo_DP_column(accessorType& ga) {
   first_rectangle->extend(ga);
   update_inner_values();
   update_score_vector(ga.memo);
+  assert(!entries.empty());
 }
 
 template<class accessorType>
 void haplo_DP_column::standard_extend(accessorType& ga) {
+  assert(!entries.empty());
   previous_values = get_scores();
   previous_sizes = get_sizes();
   haplo_DP_rectangle* new_rectangle = new haplo_DP_rectangle(ga.inclusive_interval());
@@ -370,22 +372,25 @@ void haplo_DP_column::standard_extend(accessorType& ga) {
     candidate->set_prev_idx(i);
     candidate->extend(ga);
     // check if the last rectangle added is nonempty
-    if(candidate->interval_size() == new_entries.back()->interval_size()) {
-      haplo_DP_rectangle* to_delete = new_entries.back();
-      new_entries.pop_back();
-      if(to_delete->prev_idx() != -1) {
-        entries[to_delete->prev_idx()] = nullptr;
-      }
-      delete to_delete;
-    }
     if(candidate->interval_size() != 0) {
+      if(candidate->interval_size() == new_entries.back()->interval_size()) {
+        haplo_DP_rectangle* to_delete = new_entries.back();
+        new_entries.pop_back();
+        if(to_delete->prev_idx() != -1) {
+          assert(to_delete->prev_idx() == i);
+          entries[to_delete->prev_idx()] = nullptr;
+        }
+        delete to_delete;
+      }
       new_entries.push_back(candidate);
     } else {
       break;
     }
   }
   entries = new_entries;
+  assert(!entries.empty());
   update_inner_values();
+  assert(!entries.empty());
 }
 
 template<class accessorType>
@@ -393,6 +398,7 @@ void haplo_DP_column::extend(accessorType& ga) {
   standard_extend(ga);
   length = (double)(ga.new_length());
   update_score_vector(ga.memo);
+  assert(!entries.empty());
 }
 
 //------------------------------------------------------------------------------

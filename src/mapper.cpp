@@ -1303,8 +1303,6 @@ void BaseMapper::apply_haplotype_consistency_bonus(Alignment& aln) {
     // We don't look at strip_bonuses here, because we need these bonuses added
     // always in order to choose between alignments.
     
-    cerr << "Have " << gbwt->sequences() << " sequences in GBWT" << endl;
-    
     // Build Yohei's recombination probability calculator. TODO: We may be
     // feeding it total contiguous haplotype chunks when it really wants total
     // actual haplotypes (i.e. haplotypes per chromosome).
@@ -1325,6 +1323,7 @@ void BaseMapper::apply_haplotype_consistency_bonus(Alignment& aln) {
         throw runtime_error("Invalid path leaves graph and can't be haplotype scored: " + pb2json(aln));
     }
     
+    cerr << "Got score of " << score << endl;
     
     aln.set_score(aln.score() + haplotype_consistency_bonus * score);
 }
