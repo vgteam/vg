@@ -205,7 +205,8 @@ public:
                      int reseed_length = 0);
     
     /// identifies tracts of order-length MEMs that were unfilled because their hit count was above the max
-    /// and fills one MEM in the tract (the one with the smallest hit count)
+    /// and fills one MEM in the tract (the one with the smallest hit count), assumes MEMs are lexicographically
+    /// ordered by read index
     void rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
                                              size_t max_rescue_hit_count);
     

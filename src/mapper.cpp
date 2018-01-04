@@ -1021,12 +1021,13 @@ void BaseMapper::rescue_high_count_order_length_mems(vector<MaximalExactMatch>& 
         if (min_hit_count <= max_rescue_hit_count && has_order_length_mem) {
             // treat the minimum count MEM as a representative for this tract and fill it
             // to rescue the repeat mappings
-            gcsa->locate(mems[min_hit_mem].range, mems[min_hit_mem].nodes);
             
 #ifdef debug_mapper
             cerr << "found unfilled order length tract from MEM indexes " << mem_range.first << ":" << mem_range.second << ", filling with representative " << mems[min_hit_mem] << " with " << min_hit_count << " hits" << endl;
 #endif
             
+            gcsa->locate(mems[min_hit_mem].range, mems[min_hit_mem].nodes);
+          
         }
     }
 }

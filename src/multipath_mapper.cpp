@@ -573,7 +573,7 @@ namespace vg {
         if (numeric_limits<int64_t>::max() == xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                                             id(pos_2), offset(pos_2), is_rev(pos_2),
                                                                                             forward_strand)) {
-            cerr << "####\n###\nTHIS ONE IS INFINITE\n###\n###\n";
+            cerr << "distance is infinite";
         }
 #endif
         return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
