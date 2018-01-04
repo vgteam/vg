@@ -274,8 +274,8 @@ void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
     vector<double> continuing_Rs(entries.size() - offset);
     vector<int64_t> continuing_counts(entries.size() - offset);
     for(size_t i = offset; i < entries.size(); i++) {
-      continuing_Rs[i - offset] = previous_values[entries[i]->prev_idx()];
-      continuing_counts[i] = entries[i]->I();
+      continuing_Rs.at(i - offset) = previous_values[entries[i]->prev_idx()];
+      continuing_counts.at(i - offset) = entries[i]->I();
     }
     
     double logpS1S2RRS = previous_sum + 
