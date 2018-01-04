@@ -260,6 +260,9 @@ void haplo_DP_column::update_inner_values() {
 // }
 
 void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
+  if (entries.empty()) {
+    return;
+  }
   auto r_0 = entries.at(0);
   if(entries.size() == 1 && entries.at(0)->prev_idx() == -1) {
     r_0->R = -memo.log_population_size();
