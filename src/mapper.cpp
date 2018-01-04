@@ -1023,6 +1023,10 @@ void BaseMapper::rescue_high_count_order_length_mems(vector<MaximalExactMatch>& 
             // to rescue the repeat mappings
             gcsa->locate(mems[min_hit_mem].range, mems[min_hit_mem].nodes);
             
+#ifdef debug_mapper
+            cerr << "found unfilled order length tract from MEM indexes " << mem_range.first << ":" << mem_range.second << ", filling with representative " << mems[min_hit_mem] << " with " << min_hit_count << " hits" << endl;
+#endif
+            
         }
     }
 }
@@ -4700,7 +4704,6 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     }
 
 #ifdef debug_mapper
-    cerr << "target " << target_id << endl;
     cerr << "fwd " << pb2json(surjection_forward) << endl;
     cerr << "rev " << pb2json(surjection_reverse) << endl;
 #endif
