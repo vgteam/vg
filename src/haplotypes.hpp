@@ -231,7 +231,7 @@ struct haplo_DP_column {
 private:
   vector<double> previous_values;
   vector<int64_t> previous_sizes;
-  vector<haplo_DP_rectangle*> entries;
+  vector<shared_ptr<haplo_DP_rectangle>> entries;
   double previous_sum;
   double sum;
   double length;
@@ -351,7 +351,7 @@ void haplo_DP_rectangle::false_extend(accessorType& ga,
 template<class accessorType>
 haplo_DP_column::haplo_DP_column(accessorType& ga) {
   haplo_DP_rectangle* first_rectangle = new haplo_DP_rectangle(ga.inclusive_interval());
-  entries = {first_rectangle};
+  entries.push_back(shared_ptr<haplo_DP_rectangle>(first_rectangle));
   first_rectangle->extend(ga);
   update_inner_values();
   update_score_vector(ga.memo);
@@ -363,20 +363,22 @@ void haplo_DP_column::standard_extend(accessorType& ga) {
   previous_sizes = get_sizes();
   haplo_DP_rectangle* new_rectangle = new haplo_DP_rectangle(ga.inclusive_interval());
   new_rectangle->extend(ga);
-  vector<haplo_DP_rectangle*> new_entries = {new_rectangle};
+  decltype(entries) new_entries;
+  new_entries.push_back(shared_ptr<haplo_DP_rectangle>(new_rectangle));
   for(size_t i = 0; i < entries.size(); i++) {
     // extend candidate
-    haplo_DP_rectangle* candidate = entries[i];
+    auto candidate = entries.at(i);
     candidate->set_prev_idx(i);
     candidate->extend(ga);
     // check if the last rectangle added is nonempty
+    assert(!new_entries.empty());
     if(candidate->interval_size() == new_entries.back()->interval_size()) {
-      haplo_DP_rectangle* to_delete = new_entries.back();
+      auto to_delete = new_entries.back();
       new_entries.pop_back();
       if(to_delete->prev_idx() != -1) {
-        entries[to_delete->prev_idx()] = nullptr;
+        // TODO: this is never checked for and so can't help but mess things up...
+        //entries.at(to_delete->prev_idx()) = nullptr;
       }
-      delete to_delete;
     }
     if(candidate->interval_size() != 0) {
       new_entries.push_back(candidate);
