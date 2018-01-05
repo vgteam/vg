@@ -452,7 +452,7 @@ haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, h
         cerr << "[WARNING] Edge " << i << " in path from "
           << gbwt::Node::id(thread[i-1]) << " " << gbwt::Node::is_reverse(thread[i-1]) << " to "
           << gbwt::Node::id(thread[i]) << " " << gbwt::Node::is_reverse(thread[i])
-          << " is absent from the xg index" << endl;
+          << " is absent from the haplotype index" << endl;
       }
       cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
       ga.print(cerr);
