@@ -232,16 +232,15 @@ haplo_DP_column
 *******************************************************************************/
 
 haplo_DP_column::~haplo_DP_column() {
-  for(size_t i = 0; i < entries.size(); i++) {
-    delete entries[i];
-  }
 }
 
 void haplo_DP_column::update_inner_values() {
-  for(size_t i = 0; i < entries.size() - 1; i++) {
+  for(size_t i = 0; i + 1 < entries.size(); i++) {
     entries[i]->calculate_I(entries[i+1]->interval_size());
   }
-  (entries.back())->calculate_I(0);
+  if(!entries.empty()) {
+    (entries.back())->calculate_I(0);
+  }
 }
 
 // void haplo_DP_column::binary_extend_intervals(hDP_graph_accessor& ga, int_itvl_t indices, int_itvl_t ss_deltas, int_itvl_t state_sizes) {
@@ -261,8 +260,11 @@ void haplo_DP_column::update_inner_values() {
 // }
 
 void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
-  haplo_DP_rectangle* r_0 = entries[0];
-  if(entries.size() == 1 && entries[0]->prev_idx() == -1) {
+  if (entries.empty()) {
+    return;
+  }
+  auto r_0 = entries.at(0);
+  if(entries.size() == 1 && entries.at(0)->prev_idx() == -1) {
     r_0->R = -memo.log_population_size();
     sum = r_0->R + log(r_0->interval_size());
     previous_values = {r_0->R};
@@ -270,13 +272,13 @@ void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
     return;
   } else {
     previous_sum = sum;
-    int64_t offset = (int64_t)(entries[0]->is_new());
+    int64_t offset = (int64_t)(entries.at(0)->is_new());
     // TODO optimize by using arrays
     vector<double> continuing_Rs(entries.size() - offset);
     vector<int64_t> continuing_counts(entries.size() - offset);
     for(size_t i = offset; i < entries.size(); i++) {
-      continuing_Rs[i - offset] = previous_values[entries[i]->prev_idx()];
-      continuing_counts[i] = entries[i]->I();
+      continuing_Rs.at(i - offset) = previous_values[entries[i]->prev_idx()];
+      continuing_counts.at(i - offset) = entries[i]->I();
     }
     
     double logpS1S2RRS = previous_sum + 
@@ -310,7 +312,7 @@ void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
 }
 
 double haplo_DP_column::previous_R(size_t i) const {
-  return previous_values[(entries[i])->prev_idx()];
+  return previous_values[(entries.at(i))->prev_idx()];
 }
 
 vector<double> haplo_DP_column::get_scores() const {
@@ -339,7 +341,7 @@ void haplo_DP_column::print(ostream& out) const {
     for(size_t j = 0; j < get_sizes().size() - i - 1; j++) {
       out << "  ";
     }
-    out << entries[i]->I() << "] : " << entries[i]->interval_size() << endl;
+    out << entries.at(i)->I() << "] : " << entries.at(i)->interval_size() << endl;
   }
 }
 
@@ -424,7 +426,9 @@ double logsum(double a, double b) {
 }
 
 double int_weighted_sum(double* values, int64_t* counts, size_t n_values) {
-  if(n_values == 1) {
+  if(n_values == 0) {
+    return 0;
+  } else if(n_values == 1) {
     return values[0] + log(counts[0]);
   } else {
     double max_summand = values[0] + log(counts[0]);
@@ -449,7 +453,9 @@ double int_weighted_sum(double* values, int64_t* counts, size_t n_values) {
 
 
 double int_weighted_sum(vector<double> values, vector<int64_t> counts) {
-  if(values.size() == 1) {
+  if(values.size() == 0) {
+    return 0;
+  } else if(values.size() == 1) {
     return values[0] + log(counts[0]);
   } else {
     double max_summand = values[0] + log(counts[0]);
