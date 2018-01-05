@@ -51,7 +51,7 @@ void help_map(char** argv) {
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
-         << "    -a, --hap-exp FLOAT     the exponent for haplotype consistency likelihood in alignment score [0]" << endl
+         << "    -a, --hap-exp FLOAT     the exponent for haplotype consistency likelihood in alignment score [1]" << endl
          << "    -A, --qual-adjust       perform base quality adjusted alignments (requires base quality input)" << endl
          << "input:" << endl
          << "    -s, --sequence STR      align a string to the graph in graph.vg using partial order alignment" << endl
@@ -121,7 +121,7 @@ int main_map(int argc, char** argv) {
     int8_t gap_open = 6;
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
-    double haplotype_consistency_exponent = 0;
+    double haplotype_consistency_exponent = 1;
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
