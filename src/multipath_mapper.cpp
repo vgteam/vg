@@ -2675,6 +2675,9 @@ namespace vg {
                 raw_mapq = get_aligner()->compute_mapping_quality(scores, mapq_method == Approx);
             }
             
+            // arbitrary scaling, seems to help performance
+            raw_mapq /= 2.5;
+            
 #ifdef debug_multipath_mapper_mapping
             cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
@@ -2740,6 +2743,10 @@ namespace vg {
             else {
                 raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
             }
+            
+            // arbitrary scaling, seems to help performance
+            raw_mapq /= 2.5;
+            
 #ifdef debug_multipath_mapper_mapping
             cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
@@ -2771,6 +2778,10 @@ namespace vg {
                     else {
                         raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
                     }
+                    
+                    // arbitrary scaling, seems to help performance
+                    raw_mapq /= 2.5;
+                    
 #ifdef debug_multipath_mapper_mapping
                     cerr << "deduplicated scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
@@ -2808,6 +2819,9 @@ namespace vg {
                         raw_non_dup_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
                     }
                     
+                    // arbitrary scaling, seems to help performance
+                    raw_non_dup_mapq /= 2.5;
+                    
                     int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
                     
                     multipath_aln_pairs[0].first.set_mapping_quality(max<int32_t>(non_dup_mapq,
@@ -2828,6 +2842,9 @@ namespace vg {
                     else {
                         raw_non_dup_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
                     }
+                    
+                    // arbitrary scaling, seems to help performance
+                    raw_non_dup_mapq /= 2.5;
                     
                     int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
                     
