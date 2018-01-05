@@ -1328,8 +1328,9 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         std::tie(haplotype_logprob, path_valid) = haplo::haplo_DP::score(aln->path(), *gbwt, haplo_memo);
         
         if (!path_valid) {
-            // Our path does something Yohei doesn't like
-            throw runtime_error("Path cannot be haplotype scored for alignment: " + pb2json(*aln));
+            // Our path does something the scorer doesn't like.
+            // Bail out of applying haplotype scores.
+            return;
         }
         
         // Otherwise we haven't had a scoring failure yet, so keep going
