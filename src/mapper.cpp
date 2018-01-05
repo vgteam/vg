@@ -1291,11 +1291,11 @@ void BaseMapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, in
 
 void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& alns) {
     if (gbwt == nullptr) {
-        // There's no haplotype data available, so we can't hand out bonuses.
+        // There's no haplotype data available, so we can't add consistency scores.
         return;
     }
     
-    if (haplotype_consistency_bonus == 0) {
+    if (haplotype_consistency_exponent == 0) {
         // It won't matter either way
         return;
     }
@@ -1343,8 +1343,8 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         auto* aligner = get_aligner(!alns[i]->quality().empty());
         assert(aligner->log_base != 0);
     
-        // Convert to points, weight by the haplotype consistency bonus, and apply
-        alns[i]->set_score(alns[i]->score() + haplotype_consistency_bonus * (haplotype_logprobs[i] / aligner->log_base));
+        // Convert to points, raise to haplotype consistency exponent power, and apply
+        alns[i]->set_score(alns[i]->score() + round(haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base)));
     }
 }
     
@@ -1374,7 +1374,7 @@ int BaseMapper::random_match_length(double chance_random) {
 }
     
 void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend,
-    int8_t full_length_bonus, int8_t haplotype_consistency_bonus) {
+    int8_t full_length_bonus, double haplotype_consistency_exponent) {
     
     // clear the existing aligners and recreate them
     if (regular_aligner || qual_adj_aligner) {
@@ -1382,8 +1382,8 @@ void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_
     }
     init_aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
     
-    // Save the consistency bonus
-    this->haplotype_consistency_bonus = haplotype_consistency_bonus;
+    // Save the consistency exponent
+    this->haplotype_consistency_exponent = haplotype_consistency_exponent;
 }
     
 void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, size_t reestimation_frequency,
