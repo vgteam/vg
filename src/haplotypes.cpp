@@ -85,6 +85,9 @@ int64_t hDP_graph_accessor::new_length() const {
   return graph.node_length(new_node.node_id);
 }
 
+void hDP_graph_accessor::print(ostream& output_stream) const {
+  output_stream << "From node: ID " << old_node.node_id << " is_reverse " << old_node.is_reverse << " ; To node: ID " << old_node.node_id << " is_reverse " << new_node.is_reverse << " ; Reference haplotypes visiting To Node: " << new_height() << endl;
+}
 
 /*******************************************************************************
 hDP_gbwt_graph_accessor
@@ -208,7 +211,6 @@ bool int_itvl_t::empty() const {
 }
 
 bool int_itvl_t::nondisjoint(const int_itvl_t& A, const int_itvl_t& B) {
-  //TODO double-check this
   return (B.bottom <= A.top) && (A.bottom <= B.top);
 }
 
@@ -260,9 +262,6 @@ void haplo_DP_column::update_inner_values() {
 // }
 
 void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
-  if (entries.empty()) {
-    return;
-  }
   auto r_0 = entries.at(0);
   if(entries.size() == 1 && entries.at(0)->prev_idx() == -1) {
     r_0->R = -memo.log_population_size();
@@ -345,6 +344,10 @@ void haplo_DP_column::print(ostream& out) const {
   }
 }
 
+bool haplo_DP_column::is_empty() const {
+  return entries.size() == 0;
+}
+
 /*******************************************************************************
 haplo_DP
 *******************************************************************************/
@@ -356,12 +359,27 @@ haplo_score_type haplo_DP::score(const vg::Path& path, xg::XG& graph, haploMath:
 haplo_score_type haplo_DP::score(const thread_t& thread, xg::XG& graph, haploMath::RRMemo& memo) {
   hDP_graph_accessor ga_i(graph, thread[0], memo);
   haplo_DP hdp(ga_i);
+  if(ga_i.new_height() == 0) {
+    cerr << "[WARNING] Initial node in path is visited by 0 reference haplotypes" << endl;
+    cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+    ga_i.print(cerr);
+    return pair<double, bool>(nan(""), false);
+  }
   for(size_t i = 1; i < thread.size(); i++) {
     hDP_graph_accessor ga(graph, thread[i-1], thread[i], memo);
-    if(!ga.has_edge()) {
-      return pair<double, bool>(0.0, false);
+    if(ga.new_height() == 0 || !ga.has_edge()) {
+      if(ga.new_height() == 0) {
+        cerr << "[WARNING] Node " << i + 1 << " in path is visited by 0 reference haplotypes" << endl;
+      }
+      if(!ga.has_edge()) {
+        cerr << "[WARNING] Edge " << i << " in path is absent from the xg index" << endl;
+      }
+      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+      ga.print(cerr);
+      return pair<double, bool>(nan(""), false);
+    } else {
+      hdp.DP_column.extend(ga);
     }
-    hdp.DP_column.extend(ga);
   }
   return pair<double, bool>(hdp.DP_column.current_sum(), true);
 }

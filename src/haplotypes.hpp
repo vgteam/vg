@@ -146,6 +146,8 @@ public:
   
   bool has_edge() const;
   bool inclusive_interval() const { return false; }
+  
+  void print(ostream& output_stream) const;
 };
 
 // -----------------------------------------------------------------------------
@@ -192,7 +194,11 @@ public:
                      
   size_t new_length() const;
   size_t new_side() const;
+  size_t new_height() const;
   bool inclusive_interval() const { return true; }
+  
+  bool has_edge() const;  
+  void print(ostream& output_stream) const;
 };
 
 // -----------------------------------------------------------------------------
@@ -255,6 +261,7 @@ public:
   vector<double> get_scores() const;
   double current_sum() const;
   void print(ostream& out) const;
+  bool is_empty() const;
 };
 
 thread_t path_to_thread_t(const vg::Path& path);
@@ -263,7 +270,7 @@ thread_t path_to_thread_t(const vg::Path& path);
 // Outward-facing
 //------------------------------------------------------------------------------
 // return type for score function:
-// -  haplo_score_type.first       double      log_continue_probability
+// -  haplo_score_type.first       double      log_haplotype_likelihood
 // -  haplo_score_type.second      bool        true iff all edges in path/thread
 //                                             exist in the index            
 typedef pair<double, bool> haplo_score_type;
@@ -325,6 +332,21 @@ size_t hDP_gbwt_graph_accessor<GBWTType>::new_side() const {
   return new_node;
 }
 
+template<class GBWTType>
+size_t hDP_gbwt_graph_accessor<GBWTType>::new_height() const {
+  return graph.nodeSize(new_node);
+}
+
+template<class GBWTType>
+void hDP_gbwt_graph_accessor<GBWTType>::print(ostream& output_stream) const {
+  output_stream << "From node: ID " << gbwt::Node::id(old_node) << " is_reverse " << gbwt::Node::is_reverse(old_node) << " ; To node: ID " << gbwt::Node::id(new_node) << " is_reverse " << gbwt::Node::is_reverse(new_node) << " ; Reference haplotypes visiting To Node: " << new_height() << endl;
+}
+
+template<class GBWTType>
+bool hDP_gbwt_graph_accessor<GBWTType>::has_edge() const {
+  return graph.hasEdge(old_node, new_node);
+}
+
 //------------------------------------------------------------------------------
 
 template<class GBWTType>
@@ -381,6 +403,13 @@ void haplo_DP_column::standard_extend(accessorType& ga) {
     }
   }
   entries = new_entries;
+  
+  if(is_empty()) {
+    cerr << "In haplotype scoring at ";
+    ga.print(cerr);
+    throw runtime_error("Haplotype scoring calculation produced empty rectangle-vector");
+  }
+  
   update_inner_values();
 }
 
@@ -407,9 +436,27 @@ template<class GBWTType>
 haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, haploMath::RRMemo& memo) {
   hDP_gbwt_graph_accessor<GBWTType> ga_i(graph, thread[0], thread.nodelength(0), memo);
   haplo_DP hdp(ga_i);
+  if(ga_i.new_height() == 0) {
+    cerr << "[WARNING] Initial node in path is visited by 0 reference haplotypes" << endl;
+    cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+    ga_i.print(cerr);
+    return pair<double, bool>(nan(""), false);
+  }
   for(size_t i = 1; i < thread.size(); i++) {
     hDP_gbwt_graph_accessor<GBWTType> ga(graph, thread[i-1], thread[i], thread.nodelength(i), memo);
-    hdp.DP_column.extend(ga);
+    if(ga.new_height() == 0 || !ga.has_edge()) {
+      if(ga.new_height() == 0) {
+        cerr << "[WARNING] Node " << i + 1 << " in path is visited by 0 reference haplotypes" << endl;
+      }
+      if(!ga.has_edge()) {
+        cerr << "[WARNING] Edge " << i << " in path is absent from the xg index" << endl;
+      }
+      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+      ga.print(cerr);
+      return pair<double, bool>(nan(""), false);
+    } else {
+      hdp.DP_column.extend(ga);
+    }
   }
   return pair<double, bool>(hdp.DP_column.current_sum(), true);
 }
