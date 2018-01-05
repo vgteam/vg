@@ -282,9 +282,12 @@ protected:
     void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
     void clear_aligners(void);
     
-    // Determine if the given alignment is consustent with any haplotypes, and
-    // apply the haplotype consistency bonus if so.
-    void apply_haplotype_consistency_bonus(Alignment& aln);
+    /// Score all of the alignments in the vector for haplotype consistency. If
+    /// all of them can be scored (i.e. none of them visit nodes/edges with no
+    /// haplotypes), adjust all of their scores to reflect haplotype
+    /// consistency. If one or more cannot be scored for haplotype consistency,
+    /// leave the alignment scores alone.
+    void apply_haplotype_consistency_scores(const vector<Alignment*>& alns);
     
     // thread_local to allow alternating reads/writes
     thread_local static vector<size_t> adaptive_reseed_length_memo;
