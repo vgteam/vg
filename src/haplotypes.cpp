@@ -372,7 +372,10 @@ haplo_score_type haplo_DP::score(const thread_t& thread, xg::XG& graph, haploMat
         cerr << "[WARNING] Node " << i + 1 << " in path is visited by 0 reference haplotypes" << endl;
       }
       if(!ga.has_edge()) {
-        cerr << "[WARNING] Edge " << i << " in path is absent from the xg index" << endl;
+        cerr << "[WARNING] Edge " << i << " in path from "
+          << thread[i-1].node_id << " " << thread[i-1].is_reverse << " to "
+          << thread[i].node_id << " " << thread[i].is_reverse
+          << " is absent from the xg index" << endl;
       }
       cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
       ga.print(cerr);
