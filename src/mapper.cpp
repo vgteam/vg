@@ -1322,6 +1322,8 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
             return;
         }
         
+        cerr << "Try to score " << pb2json(*aln) << endl;
+        
         // Score the path
         // This is a logprob (so, negative), and expresses the probability of the haplotype path being followed
         double haplotype_logprob;
