@@ -343,8 +343,6 @@ size_t hDP_gbwt_graph_accessor<GBWTType>::new_side() const {
 
 template<class GBWTType>
 size_t hDP_gbwt_graph_accessor<GBWTType>::new_height() const {
-  cerr << "Is node in GBWT? " << graph.contains(new_node) << endl;
-  cerr << "Attempt to get GBWT node size..." << endl;
   return graph.nodeSize(new_node);
 }
 
@@ -446,21 +444,15 @@ haplo_score_type haplo_DP::score(const vg::Path& path, GBWTType& graph, haploMat
 
 template<class GBWTType>
 haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, haploMath::RRMemo& memo) {
-  cerr << "Starting score of thread of size " << thread.size() << endl;
-  cerr << "Starting at " << gbwt::Node::id(thread[0]) << " " << gbwt::Node::is_reverse(thread[0]) << endl;
-  cerr << "Node length: " << thread.nodelength(0) << endl;
-  
   if (!graph.contains(thread[0])) {
     // We start on a node that has no haplotype index entry
     cerr << "[WARNING] Path starts outside of haplotype index and cannot be scored" << endl;
+    cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
     return pair<double, bool>(nan(""), false);
   }
   
   hDP_gbwt_graph_accessor<GBWTType> ga_i(graph, thread[0], thread.nodelength(0), memo);
-  cerr << "Made graph accessor" << endl;
-  ga_i.print(cerr);
   haplo_DP hdp(ga_i);
-  cerr << "Made haplo_DP" << endl;
   if(ga_i.new_height() == 0) {
     cerr << "[WARNING] Initial node in path is visited by 0 reference haplotypes" << endl;
     cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
@@ -468,11 +460,9 @@ haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, h
     return pair<double, bool>(nan(""), false);
   }
   for(size_t i = 1; i < thread.size(); i++) {
-    cerr << "Now go to thread entry " << i << ": " << gbwt::Node::id(thread[i]) << " " << gbwt::Node::is_reverse(thread[i]) << endl;
-    cerr << "Came from " << i-1 << ": " << gbwt::Node::id(thread[i-1]) << " " << gbwt::Node::is_reverse(thread[i-1]) << endl;
-    
     if (!graph.contains(thread[i])) {
       cerr << "[WARNING] Node " << i + 1 << " in path leaves haplotype index and cannot be scored" << endl;
+      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
       return pair<double, bool>(nan(""), false);
     }
     
