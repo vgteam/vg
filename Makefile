@@ -41,6 +41,8 @@ endif
 else
 	# We can also have a normal Unix rpath
 	LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)
+	# Make sure to allow backtrace access to all our symbols.
+	LD_LIB_FLAGS += -rdynamic
 endif
 
 # Sometimes we need to filter the assembler output. The assembler can run during

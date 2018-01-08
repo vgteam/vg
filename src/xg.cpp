@@ -3814,7 +3814,7 @@ int64_t XG::node_height(XG::ThreadMapping node) const {
   return h_civ[node_graph_idx(node.node_id) * 2 + node.is_reverse];
 }
 
-int64_t XG::where_to(int64_t current_side, int64_t visit_offset, int64_t new_side, vector<Edge>& edges_into_new, vector<Edge>& edges_out_of_old) const {
+int64_t XG::where_to(int64_t current_side, int64_t visit_offset, int64_t new_side, const vector<Edge>& edges_into_new, const vector<Edge>& edges_out_of_old) const {
     // Given that we were at visit_offset on the current side, where will we be
     // on the new side?
 
