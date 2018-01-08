@@ -339,7 +339,8 @@ size_t hDP_gbwt_graph_accessor<GBWTType>::new_height() const {
 
 template<class GBWTType>
 void hDP_gbwt_graph_accessor<GBWTType>::print(ostream& output_stream) const {
-  output_stream << "From node: ID " << gbwt::Node::id(old_node) << " is_reverse " << gbwt::Node::is_reverse(old_node) << " ; To node: ID " << gbwt::Node::id(new_node) << " is_reverse " << gbwt::Node::is_reverse(new_node) << " ; Reference haplotypes visiting To Node: " << new_height() << endl;
+  output_stream << "From node: ID " << gbwt::Node::id(old_node) << " is_reverse " << gbwt::Node::is_reverse(old_node) << " ; To node: ID " << gbwt::Node::id(new_node) << " is_reverse " << gbwt::Node::is_reverse(new_node);
+  output_stream << " ; Reference haplotypes visiting To Node: " << new_height() << endl;
 }
 
 template<class GBWTType>
