@@ -334,7 +334,7 @@ namespace vg {
         // get the position to jump from and the distance to jump
         Alignment opt_anchoring_aln;
         optimal_alignment(multipath_aln, opt_anchoring_aln);
-        pos_t pos_from = initial_position(opt_anchoring_aln.path());
+        pos_t pos_from = rescue_forward ? initial_position(opt_anchoring_aln.path()) : final_position(opt_anchoring_aln.path());
         int64_t jump_dist = rescue_forward ? fragment_length_distr.mean() : -fragment_length_distr.mean();
         
         // get the seed position(s) for the rescue by jumping along paths
