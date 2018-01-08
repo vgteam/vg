@@ -449,6 +449,13 @@ haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, h
   cerr << "Starting score of thread of size " << thread.size() << endl;
   cerr << "Starting at " << gbwt::Node::id(thread[0]) << " " << gbwt::Node::is_reverse(thread[0]) << endl;
   cerr << "Node length: " << thread.nodelength(0) << endl;
+  
+  if (!graph.contains(thread[0])) {
+    // We start on a node that has no haplotype index entry
+    cerr << "[WARNING] Path starts outside of haplotype index and cannot be scored" << endl;
+    return pair<double, bool>(nan(""), false);
+  }
+  
   hDP_gbwt_graph_accessor<GBWTType> ga_i(graph, thread[0], thread.nodelength(0), memo);
   cerr << "Made graph accessor" << endl;
   ga_i.print(cerr);
@@ -463,6 +470,12 @@ haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, h
   for(size_t i = 1; i < thread.size(); i++) {
     cerr << "Now go to thread entry " << i << ": " << gbwt::Node::id(thread[i]) << " " << gbwt::Node::is_reverse(thread[i]) << endl;
     cerr << "Came from " << i-1 << ": " << gbwt::Node::id(thread[i-1]) << " " << gbwt::Node::is_reverse(thread[i-1]) << endl;
+    
+    if (!graph.contains(thread[i])) {
+      cerr << "[WARNING] Node " << i + 1 << " in path leaves haplotype index and cannot be scored" << endl;
+      return pair<double, bool>(nan(""), false);
+    }
+    
     hDP_gbwt_graph_accessor<GBWTType> ga(graph, thread[i-1], thread[i], thread.nodelength(i), memo);
     if(ga.new_height() == 0 || !ga.has_edge()) {
       if(ga.new_height() == 0) {
