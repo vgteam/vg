@@ -2671,7 +2671,7 @@ namespace vg {
             }
             
             // arbitrary scaling, seems to help performance
-            raw_mapq /= 2.5;
+            raw_mapq *= mapq_scaling_factor;
             
 #ifdef debug_multipath_mapper_mapping
             cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
@@ -2740,7 +2740,7 @@ namespace vg {
             }
             
             // arbitrary scaling, seems to help performance
-            raw_mapq /= 2.5;
+            raw_mapq *= mapq_scaling_factor;
             
 #ifdef debug_multipath_mapper_mapping
             cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
@@ -2775,7 +2775,7 @@ namespace vg {
                     }
                     
                     // arbitrary scaling, seems to help performance
-                    raw_mapq /= 2.5;
+                    raw_mapq *= mapq_scaling_factor;
                     
 #ifdef debug_multipath_mapper_mapping
                     cerr << "deduplicated scores yield a raw MAPQ of " << raw_mapq << endl;
@@ -2815,7 +2815,7 @@ namespace vg {
                     }
                     
                     // arbitrary scaling, seems to help performance
-                    raw_non_dup_mapq /= 2.5;
+                    raw_non_dup_mapq *= mapq_scaling_factor;
                     
                     int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
                     
@@ -2839,7 +2839,7 @@ namespace vg {
                     }
                     
                     // arbitrary scaling, seems to help performance
-                    raw_non_dup_mapq /= 2.5;
+                    raw_non_dup_mapq *= mapq_scaling_factor;
                     
                     int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
                     
