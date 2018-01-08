@@ -261,7 +261,7 @@ namespace vg {
                 && optimal_alignment_score(multipath_aln_1) >= .8 * max_score_1
                 && optimal_alignment_score(multipath_aln_2) >= .8 * max_score_2) {
                 
-                int64_t fragment_length = distance_between(multipath_aln_1, multipath_aln_2);
+                int64_t fragment_length = distance_between(multipath_aln_1, multipath_aln_2, true);
                 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "fragment length between mappings measured at " << fragment_length << endl;
@@ -560,21 +560,16 @@ namespace vg {
     
     int64_t MultipathMapper::distance_between(const MultipathAlignment& multipath_aln_1,
                                               const MultipathAlignment& multipath_aln_2,
-                                              bool forward_strand) const {
+                                              bool full_fragment, bool forward_strand) const {
         Alignment aln_1;
         optimal_alignment(multipath_aln_1, aln_1);
         pos_t pos_1 = initial_position(aln_1.path());
         
         Alignment aln_2;
         optimal_alignment(multipath_aln_2, aln_2);
-        pos_t pos_2 = initial_position(aln_2.path());
+        pos_t pos_2 = full_fragment ? final_position(aln_2.path()) : initial_position(aln_2.path());
 #ifdef debug_multipath_mapper_mapping
-        cerr << "measuring distance between " << pos_1 << " and " << pos_2 << endl;
-        if (numeric_limits<int64_t>::max() == xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                                            id(pos_2), offset(pos_2), is_rev(pos_2),
-                                                                                            forward_strand)) {
-            cerr << "distance is infinite";
-        }
+        cerr << "measuring left-to-" << (full_fragment ? "right" : "left") << " end distance between " << pos_1 << " and " << pos_2 << endl;
 #endif
         return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                              id(pos_2), offset(pos_2), is_rev(pos_2),
@@ -589,7 +584,7 @@ namespace vg {
     bool MultipathMapper::are_consistent(const MultipathAlignment& multipath_aln_1,
                                          const MultipathAlignment& multipath_aln_2) const {
         
-        return is_consistent(distance_between(multipath_aln_1, multipath_aln_2));
+        return is_consistent(distance_between(multipath_aln_1, multipath_aln_2, true));
     }
     
     bool MultipathMapper::share_start_position(const MultipathAlignment& multipath_aln_1,
@@ -700,7 +695,7 @@ namespace vg {
 #endif
             multipath_aln_pairs_out.emplace_back(move(multipath_alns_1.front()), move(multipath_alns_2.front()));
             pair_distances.emplace_back(pair<size_t, size_t>(),
-                                        distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second));
+                                        distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second, true));
             return true;
         }
         
@@ -785,7 +780,7 @@ namespace vg {
                             found_duplicate.insert(j);
                             
                             // move the original mappings
-                            int64_t dist = distance_between(multipath_alns_1[i], multipath_alns_2[j]);
+                            int64_t dist = distance_between(multipath_alns_1[i], multipath_alns_2[j], true);
                             if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
                                 multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(multipath_alns_2[j]));
                                 pair_distances.emplace_back(pair<size_t, size_t>(), dist);
@@ -802,7 +797,7 @@ namespace vg {
 #ifdef debug_multipath_mapper_mapping
                     cerr << "adding read1 and rescued read2 " << i << " to output vector" << endl;
 #endif
-                    int64_t dist = distance_between(multipath_alns_1[i], rescue_multipath_alns_2[i]);
+                    int64_t dist = distance_between(multipath_alns_1[i], rescue_multipath_alns_2[i], true);
                     if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
                         multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(rescue_multipath_alns_2[i]));
                         pair_distances.emplace_back(pair<size_t, size_t>(), dist);
@@ -820,7 +815,7 @@ namespace vg {
 #ifdef debug_multipath_mapper_mapping
                 cerr << "adding rescued read1 and read2 " << j << " to output vector" << endl;
 #endif
-                int64_t dist = distance_between(rescue_multipath_alns_1[j], multipath_alns_2[j]);
+                int64_t dist = distance_between(rescue_multipath_alns_1[j], multipath_alns_2[j], true);
                 if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
                     multipath_aln_pairs_out.emplace_back(move(rescue_multipath_alns_1[j]), move(multipath_alns_2[j]));
                     pair_distances.emplace_back(pair<size_t, size_t>(), dist);
@@ -833,7 +828,7 @@ namespace vg {
             cerr << "successfully rescued from only read 1" << endl;
 #endif
             for (size_t i: rescued_from_1) {
-                int64_t dist = distance_between(multipath_alns_1[i], rescue_multipath_alns_2[i]);
+                int64_t dist = distance_between(multipath_alns_1[i], rescue_multipath_alns_2[i], true);
                 if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
                     multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(rescue_multipath_alns_2[i]));
                     pair_distances.emplace_back(pair<size_t, size_t>(), dist);
@@ -846,7 +841,7 @@ namespace vg {
             cerr << "successfully rescued from only read 2" << endl;
 #endif
             for (size_t i : rescued_from_2) {
-                int64_t dist = distance_between(rescue_multipath_alns_1[i], multipath_alns_2[i]);
+                int64_t dist = distance_between(rescue_multipath_alns_1[i], multipath_alns_2[i], true);
                 if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
                     multipath_aln_pairs_out.emplace_back(move(rescue_multipath_alns_1[i]), move(multipath_alns_2[i]));
                     pair_distances.emplace_back(pair<size_t, size_t>(), dist);
@@ -1008,7 +1003,7 @@ namespace vg {
                         cerr << "rescue succeeded, adding to rescue pair vector" << endl;
 #endif
                         if (anchor_is_read_1) {
-                            int64_t dist = distance_between(cluster_multipath_alns.front(), rescue_multipath_aln);
+                            int64_t dist = distance_between(cluster_multipath_alns.front(), rescue_multipath_aln, true);
                             if (dist >= 0 && dist != numeric_limits<int64_t>::max()) {
                                 rescued_secondaries.emplace_back(move(cluster_multipath_alns.front()), move(rescue_multipath_aln));
                                 rescued_distances.emplace_back(pair<size_t, size_t>(), dist);
@@ -1016,7 +1011,7 @@ namespace vg {
                             }
                         }
                         else {
-                            int64_t dist = distance_between(rescue_multipath_aln, cluster_multipath_alns.front());
+                            int64_t dist = distance_between(rescue_multipath_aln, cluster_multipath_alns.front(), true);
                             if (dist >= 0 && dist != numeric_limits<int64_t>::max()) {
                                 rescued_secondaries.emplace_back(move(rescue_multipath_aln), move(cluster_multipath_alns.front()));
                                 rescued_distances.emplace_back(pair<size_t, size_t>(), dist);
@@ -1444,7 +1439,7 @@ namespace vg {
                         // add a distance for scoring purposes (possibly unstranded since this comes before enforcing strand consistency)
                         cluster_pairs.emplace_back(cluster_pairs[i].first,
                                                    distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second,
-                                                                    unstranded_clustering));
+                                                                    true, unstranded_clustering));
 #ifdef debug_multipath_mapper_mapping
                         cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
                         cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
@@ -1460,7 +1455,7 @@ namespace vg {
                 extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[0], last_component);
                 multipath_aln_pairs_out[i].second = last_component;
                 cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second,
-                                                           unstranded_clustering);
+                                                           true, unstranded_clustering);
                 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
@@ -1481,7 +1476,7 @@ namespace vg {
                     // add a distance for scoring purposes (possibly unstranded since this comes before enforcing strand consistency)
                     cluster_pairs.emplace_back(cluster_pairs[i].first,
                                                distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second,
-                                                                unstranded_clustering));
+                                                                true, unstranded_clustering));
 #ifdef debug_multipath_mapper_mapping
                     cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
                     cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
@@ -1493,7 +1488,7 @@ namespace vg {
                 extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[0], last_component);
                 multipath_aln_pairs_out[i].first = last_component;
                 cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second,
-                                                           unstranded_clustering);
+                                                           true, unstranded_clustering);
                 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
@@ -1513,7 +1508,7 @@ namespace vg {
                     // add a distance for scoring purposes (possibly unstranded since this comes before enforcing strand consistency)
                     cluster_pairs.emplace_back(cluster_pairs[i].first,
                                                distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second,
-                                                                unstranded_clustering));
+                                                                true, unstranded_clustering));
 #ifdef debug_multipath_mapper_mapping
                     cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
                     cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
@@ -1525,7 +1520,7 @@ namespace vg {
                 extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[0], last_component);
                 multipath_aln_pairs_out[i].second = last_component;
                 cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second,
-                                                           unstranded_clustering);
+                                                           true, unstranded_clustering);
                 
 #ifdef debug_multipath_mapper_mapping
                 cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
@@ -2675,6 +2670,9 @@ namespace vg {
                 raw_mapq = get_aligner()->compute_mapping_quality(scores, mapq_method == Approx);
             }
             
+            // arbitrary scaling, seems to help performance
+            raw_mapq /= 2.5;
+            
 #ifdef debug_multipath_mapper_mapping
             cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
@@ -2740,6 +2738,10 @@ namespace vg {
             else {
                 raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
             }
+            
+            // arbitrary scaling, seems to help performance
+            raw_mapq /= 2.5;
+            
 #ifdef debug_multipath_mapper_mapping
             cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
@@ -2771,6 +2773,10 @@ namespace vg {
                     else {
                         raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
                     }
+                    
+                    // arbitrary scaling, seems to help performance
+                    raw_mapq /= 2.5;
+                    
 #ifdef debug_multipath_mapper_mapping
                     cerr << "deduplicated scores yield a raw MAPQ of " << raw_mapq << endl;
 #endif
@@ -2808,6 +2814,9 @@ namespace vg {
                         raw_non_dup_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
                     }
                     
+                    // arbitrary scaling, seems to help performance
+                    raw_non_dup_mapq /= 2.5;
+                    
                     int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
                     
                     multipath_aln_pairs[0].first.set_mapping_quality(max<int32_t>(non_dup_mapq,
@@ -2828,6 +2837,9 @@ namespace vg {
                     else {
                         raw_non_dup_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
                     }
+                    
+                    // arbitrary scaling, seems to help performance
+                    raw_non_dup_mapq /= 2.5;
                     
                     int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
                     
