@@ -1874,11 +1874,11 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
              }
          },
          [&](size_t cluster_num) {
-             // Give the offset of the position we chose to the start of the read
+             // Give the offset of the position we chose to either the start or end of the read
              if (cluster_num < left_clusters.size()) {
                  return alignment_1.sequence().begin() - left_clusters[cluster_num]->front().first->begin;
              } else {
-                 return alignment_2.sequence().begin() - right_clusters[cluster_num - left_clusters.size()]->front().first->begin;
+                 return alignment_2.sequence().end() - right_clusters[cluster_num - left_clusters.size()]->front().first->begin;
              }
          },
          paths_of_node_memo, oriented_occurences_memo, handle_memo);
