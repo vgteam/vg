@@ -6731,10 +6731,18 @@ void VG::join_tails(Node* node, bool to_end) {
 void VG::add_start_end_markers(int length,
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,
-                               id_t start_id, id_t end_id) {
+                               id_t& start_id, id_t& end_id) {
+
+    //cerr << start_id << " " << end_id << endl;
+    if (start_id == 0 || end_id == 0) {
+        // get the max id
+        id_t max_id = max_node_id();
+        start_id = max_id + 1;
+        end_id = start_id + 1;
+    }
     // This set will hold all the nodes we haven't attached yet. But we don't
     // want it to hold the head_tail_node, so we fill it in now.
-    set<Node*> unattached;
+    unordered_set<Node*> unattached;
     for_each_node([&](Node* node) {
         unattached.insert(node);
     });
@@ -8303,7 +8311,8 @@ VG::build_gcsa_lcp(gcsa::GCSA*& gcsa,
 void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
     Node* head_node = NULL;
     Node* tail_node = NULL;
-    add_start_end_markers(path_length, '#', '$', head_node, tail_node);
+    id_t head_id = 0, tail_id = 0;
+    add_start_end_markers(path_length, '#', '$', head_node, tail_node, head_id, tail_id);
     prune_complex(path_length, edge_max, head_node, tail_node);
     destroy_node(head_node);
     destroy_node(tail_node);

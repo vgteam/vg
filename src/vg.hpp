@@ -1392,7 +1392,7 @@ public:
     void add_start_end_markers(int length,
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,
-                               id_t start_id = 0, id_t end_id = 0);
+                               id_t& start_id, id_t& end_id);
 
     /// Structure for managing parallel construction of a graph.
     // TODO: delete this since we don't use it anymore.

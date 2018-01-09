@@ -251,18 +251,17 @@ void VGset::index_kmers(Index& index, int kmer_size, bool path_only, int edge_ma
 
 }
 
-void VGset::for_each_kmer_parallel(
-    const function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)>& lambda,
-    int kmer_size, bool path_only, int edge_max, int stride, bool allow_dups, bool allow_negatives) {
-    for_each([&lambda, kmer_size, path_only, edge_max, stride, allow_dups, allow_negatives, this](VG* g) {
+void VGset::for_each_kmer_parallel(int kmer_size, const function<void(const kmer_t&)>& lambda) {
+    for_each([&lambda, kmer_size, this](VG* g) {
         g->show_progress = show_progress;
         g->preload_progress("processing kmers of " + g->name);
-        g->for_each_kmer_parallel(kmer_size, path_only, edge_max, lambda, stride, allow_dups, allow_negatives);
+        //g->for_each_kmer_parallel(kmer_size, path_only, edge_max, lambda, stride, allow_dups, allow_negatives);
+        for_each_kmer(*g, kmer_size, lambda);
     });
 }
 
-void VGset::write_gcsa_out(ostream& out, int kmer_size, bool path_only, bool forward_only,
-                           int64_t start_id, int64_t end_id) {
+void VGset::write_gcsa_out_old(ostream& out, int kmer_size, bool path_only, bool forward_only,
+                               int64_t start_id, int64_t end_id) {
 
     // When we're sure we know what this kmer instance looks like, we'll write
     // it out exactly once. We need the start_end_id actually used in order to
@@ -306,6 +305,27 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, bool path_only, bool for
                                          start_id, end_id,
                                          write_kmer);
     
+}
+
+void VGset::write_gcsa_out_handle(ostream& out, int kmer_size, bool path_only, bool forward_only,
+                                  int64_t head_id, int64_t tail_id) {
+
+    // When we're sure we know what this kmer instance looks like, we'll write
+    // it out exactly once. We need the start_end_id actually used in order to
+    // go to the correct place when we don't go anywhere (i.e. at the far end of
+    // the start/end node.
+    auto write_kmer = [&head_id, &tail_id](const kmer_t& kp){
+#pragma omp critical (cout)
+        cout << kp << endl;
+    };
+
+    for_each([&](VG* g) {
+            // set up the graph with the head/tail nodes
+            Node* head_node = nullptr; Node* tail_node = nullptr;
+            g->add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
+            // now get the kmers
+            for_each_kmer(*g, kmer_size, write_kmer, head_id, tail_id);
+        });
 }
 
 void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size,
@@ -361,14 +381,32 @@ vector<string> VGset::write_gcsa_kmers_binary(int kmer_size,
 }
 
 // writes to a specific output stream
-void VGset::write_gcsa_kmers_binary(ostream& out,
-                                    int kmer_size,
-                                    bool path_only,
-                                    bool forward_only,
-                                    int64_t head_id, int64_t tail_id) {
+void VGset::write_gcsa_kmers_binary_old(ostream& out,
+                                        int kmer_size,
+                                        bool path_only,
+                                        bool forward_only,
+                                        int64_t head_id, int64_t tail_id) {
     for_each([&](VG* g) {
             g->write_gcsa_kmers(kmer_size, path_only, 0, 1, forward_only,
                                 out, head_id, tail_id);
+        });
+}
+
+// writes to a specific output stream
+void VGset::write_gcsa_kmers_binary_handle(ostream& out,
+                                           int kmer_size,
+                                           bool path_only,
+                                           bool forward_only,
+                                           int64_t head_id, int64_t tail_id) {
+    auto write_binary_kmer = [&head_id, &tail_id, &out](const kmer_t& kp){
+#pragma omp critical (out)
+        out << kp << endl;
+    };
+    for_each([&](VG* g) {
+            // set up the graph with the head/tail nodes
+            Node* head_node = nullptr; Node* tail_node = nullptr;
+            g->add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
+            for_each_kmer(*g, kmer_size, write_binary_kmer, head_id, tail_id);
         });
 }
 
