@@ -61,7 +61,7 @@ void help_mpmap(char** argv) {
     << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
     << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
     << "  -K, --clust-length INT    minimum MEM length form clusters [automatic]" << endl
-    << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
+    << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [256]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
     << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
@@ -103,7 +103,7 @@ int main_mpmap(int argc, char** argv) {
     int max_map_attempts = 64;
     int max_num_mappings = 1;
     int buffer_size = 100;
-    int hit_max = 128;
+    int hit_max = 256;
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
     int reseed_length = 28;
@@ -130,7 +130,7 @@ int main_mpmap(int argc, char** argv) {
     size_t num_calibration_simulations = 250;
     size_t calibration_read_length = 150;
     bool unstranded_clustering = false;
-    size_t order_length_repeat_hit_max = 2048;
+    size_t order_length_repeat_hit_max = 0;
     size_t sub_mem_count_thinning = 16;
     
     int c;
