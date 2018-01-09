@@ -1346,18 +1346,34 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         return;
     }
     
+    if (xindex == nullptr) {
+        // There's no database of haplotype names/counts available.
+        // So we don't know how many haplotypes we should be looking for.
+        return;
+    }
+    
     if (haplotype_consistency_exponent == 0) {
         // It won't matter either way
         return;
     }
     
+    size_t haplotype_count = xindex->get_haplotype_count();
+    
+    if (haplotype_count == 0) {
+        // The XG apparently has no path database information. Maybe it wasn't built with the GBWT?
+        throw runtime_error("Cannot score any haplotypes with a 0 haplotype count; does the XG contain the path database?");
+    }
+    
     // We don't look at strip_bonuses here, because we need these bonuses added
     // always in order to choose between alignments.
     
-    // Build Yohei's recombination probability calculator. TODO: We may be
-    // feeding it total contiguous haplotype chunks when it really wants total
-    // actual haplotypes (i.e. haplotypes per chromosome).
-    haplo::haploMath::RRMemo haplo_memo(NEG_LOG_PER_BASE_RECOMB_PROB, gbwt->sequences());
+    // Build Yohei's recombination probability calculator. TODO: We are feeding
+    // it total contiguous haplotype chunks (the /2 removes the reverse
+    // orientations) when it really wants total actual haplotypes (i.e.
+    // haplotypes per chromosome). In some regions, multiple chunks for a
+    // haplotype may overlap, and if we're getting multiple chunks for a
+    // haplotype, this number will be inflated.
+    haplo::haploMath::RRMemo haplo_memo(NEG_LOG_PER_BASE_RECOMB_PROB, haplotype_count);
     
     // This holds all the computed haplotype logprobs
     vector<double> haplotype_logprobs;
