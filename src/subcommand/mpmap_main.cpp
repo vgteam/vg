@@ -130,7 +130,7 @@ int main_mpmap(int argc, char** argv) {
     size_t num_calibration_simulations = 250;
     size_t calibration_read_length = 150;
     bool unstranded_clustering = false;
-    size_t order_length_repeat_hit_max = 0;
+    size_t order_length_repeat_hit_max = 2048;
     size_t sub_mem_count_thinning = 16;
     
     int c;
