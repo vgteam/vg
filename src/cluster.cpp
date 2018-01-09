@@ -1789,7 +1789,7 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         vector<size_t>& trace_stack = traceback_end.second;
         
 #ifdef debug_od_clusterer
-        cerr << "checking traceback of component starting at " << traceback_end.second << endl;
+        cerr << "checking traceback of component starting at " << traceback_end.second.front() << endl;
 #endif
         // if this cluster does not look like it even affect the mapping quality of the top scoring
         // cluster, don't bother forming it

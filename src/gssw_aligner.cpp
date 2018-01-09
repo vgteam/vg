@@ -1,7 +1,6 @@
 #include "gssw_aligner.hpp"
 #include "json2pb.h"
 
-// log(10)
 static const double quality_scale_factor = 10.0 / log(10.0);
 static const double exp_overflow_limit = log(std::numeric_limits<double>::max());
 
@@ -423,6 +422,30 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
     return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0)));
 }
 
+double BaseAligner::group_mapping_quality_exact(vector<double>& scaled_scores, vector<size_t>& group) {
+    
+    // if necessary, assume a null alignment of 0.0 for comparison since this is local
+    if (scaled_scores.size() == 1) {
+        scaled_scores.push_back(0.0);
+    }
+    
+    // work in log transformed values to avoid risk of overflow
+    double total_log_sum_exp = numeric_limits<double>::lowest();
+    double group_log_sum_exp = numeric_limits<double>::lowest();
+    
+    // go in reverse order because this has fewer numerical problems when the scores are sorted (as usual)
+    int64_t group_idx = group.size() - 1;
+    for (int64_t i = scaled_scores.size() - 1; i >= 0; i--) {
+        total_log_sum_exp = add_log(total_log_sum_exp, scaled_scores[i]);
+        if (group_idx >= 0 ? i == group[group_idx] : false) {
+            group_log_sum_exp = add_log(group_log_sum_exp, scaled_scores[i]);
+            group_idx--;
+        }
+    }
+    double direct_mapq = -quality_scale_factor * subtract_log(0.0, group_log_sum_exp - total_log_sum_exp);
+    return std::isinf(direct_mapq) ? (double) numeric_limits<int32_t>::max() : direct_mapq;
+}
+
 void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
                                           int max_mapping_quality,
                                           bool fast_approximation,
@@ -499,6 +522,20 @@ int32_t BaseAligner::compute_mapping_quality(vector<double>& scores, bool fast_a
     size_t idx;
     return (int32_t) (fast_approximation ? maximum_mapping_quality_approx(scaled_scores, &idx)
                                          : maximum_mapping_quality_exact(scaled_scores, &idx));
+}
+
+int32_t BaseAligner::compute_group_mapping_quality(vector<double>& scores, vector<size_t>& group) {
+    
+    // ensure that group is in sorted order as following function expects
+    if (!is_sorted(group.begin(), group.end())) {
+        sort(group.begin(), group.end());
+    }
+    
+    vector<double> scaled_scores(scores.size(), 0.0);
+    for (size_t i = 0; i < scores.size(); i++) {
+        scaled_scores[i] = log_base * scores[i];
+    }
+    return group_mapping_quality_exact(scaled_scores, group);
 }
 
 void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
