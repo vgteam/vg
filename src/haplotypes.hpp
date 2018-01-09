@@ -308,6 +308,9 @@ hDP_gbwt_graph_accessor<GBWTType>::hDP_gbwt_graph_accessor(GBWTType& graph,
                                                  haploMath::RRMemo& memo) :
   graph(graph), length(new_length),
   old_node(gbwt::invalid_node()), new_node(new_node), memo(memo) {
+  
+  // Nothing will work well if we have a node that has no record at all in the GBWT.
+  assert(graph.contains(new_node));
     
 }
 
@@ -319,6 +322,12 @@ hDP_gbwt_graph_accessor<GBWTType>::hDP_gbwt_graph_accessor(GBWTType& graph,
                                                  haploMath::RRMemo& memo) :
   graph(graph), length(new_length),
   old_node(old_node), new_node(new_node), memo(memo) {
+  
+  // Nothing will work well if we have a node that has no record at all in the GBWT.
+  assert(graph.contains(new_node));
+  if (old_node != gbwt::invalid_node()) {
+    assert(graph.contains(old_node));
+  }
     
 }
 
@@ -339,7 +348,8 @@ size_t hDP_gbwt_graph_accessor<GBWTType>::new_height() const {
 
 template<class GBWTType>
 void hDP_gbwt_graph_accessor<GBWTType>::print(ostream& output_stream) const {
-  output_stream << "From node: ID " << gbwt::Node::id(old_node) << " is_reverse " << gbwt::Node::is_reverse(old_node) << " ; To node: ID " << gbwt::Node::id(new_node) << " is_reverse " << gbwt::Node::is_reverse(new_node) << " ; Reference haplotypes visiting To Node: " << new_height() << endl;
+  output_stream << "From node: ID " << gbwt::Node::id(old_node) << " is_reverse " << gbwt::Node::is_reverse(old_node) << " ; To node: ID " << gbwt::Node::id(new_node) << " is_reverse " << gbwt::Node::is_reverse(new_node);
+  output_stream << " ; Reference haplotypes visiting To Node: " << new_height() << endl;
 }
 
 template<class GBWTType>
@@ -434,6 +444,13 @@ haplo_score_type haplo_DP::score(const vg::Path& path, GBWTType& graph, haploMat
 
 template<class GBWTType>
 haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, haploMath::RRMemo& memo) {
+  if (!graph.contains(thread[0])) {
+    // We start on a node that has no haplotype index entry
+    cerr << "[WARNING] Path starts outside of haplotype index and cannot be scored" << endl;
+    cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+    return pair<double, bool>(nan(""), false);
+  }
+  
   hDP_gbwt_graph_accessor<GBWTType> ga_i(graph, thread[0], thread.nodelength(0), memo);
   haplo_DP hdp(ga_i);
   if(ga_i.new_height() == 0) {
@@ -443,6 +460,12 @@ haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, h
     return pair<double, bool>(nan(""), false);
   }
   for(size_t i = 1; i < thread.size(); i++) {
+    if (!graph.contains(thread[i])) {
+      cerr << "[WARNING] Node " << i + 1 << " in path leaves haplotype index and cannot be scored" << endl;
+      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+      return pair<double, bool>(nan(""), false);
+    }
+    
     hDP_gbwt_graph_accessor<GBWTType> ga(graph, thread[i-1], thread[i], thread.nodelength(i), memo);
     if(ga.new_height() == 0 || !ga.has_edge()) {
       if(ga.new_height() == 0) {

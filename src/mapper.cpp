@@ -1368,8 +1368,9 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         
         if (aln->path().mapping_size() == 0) {
             // Alignments with no actual mappings don't need scoring.
-            // But I wouldn't call them successfully scored...
-            throw runtime_error("Path is empty for alignment: " + pb2json(*aln));
+            // But I wouldn't call them successfully scored.
+            // So treat it as a scoring failure.
+            return;
         }
         
         // Score the path
