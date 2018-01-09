@@ -1367,12 +1367,8 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
     // We don't look at strip_bonuses here, because we need these bonuses added
     // always in order to choose between alignments.
     
-    // Build Yohei's recombination probability calculator. TODO: We are feeding
-    // it total contiguous haplotype chunks (the /2 removes the reverse
-    // orientations) when it really wants total actual haplotypes (i.e.
-    // haplotypes per chromosome). In some regions, multiple chunks for a
-    // haplotype may overlap, and if we're getting multiple chunks for a
-    // haplotype, this number will be inflated.
+    // Build Yohei's recombination probability calculator. Feed it the haplotype
+    // count from the XG index that was generated alongside the GBWT.
     haplo::haploMath::RRMemo haplo_memo(NEG_LOG_PER_BASE_RECOMB_PROB, haplotype_count);
     
     // This holds all the computed haplotype logprobs
@@ -1413,6 +1409,8 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
     
         // Convert to points, raise to haplotype consistency exponent power, and apply
         alns[i]->set_score(alns[i]->score() + round(haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base)));
+        // Note that we successfully corrected the score
+        alns[i]->set_haplotype_scored(true);
     }
 }
     
