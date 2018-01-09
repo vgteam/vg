@@ -12,7 +12,7 @@
 
 #include "../vg.hpp"
 #include "vg.pb.h"
-#include "../genotypekit.hpp"
+#include "../traversal_finder.hpp"
 
 
 using namespace std;
