@@ -634,6 +634,13 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     // TODO: I think I already fixed this
     mems.erase(unique(mems.begin(), mems.end()), mems.end());
     // remove MEMs that are overlapping positionally (they may be redundant)
+    
+    
+    // are we rescuing tracts of MEMs that are high count and length at the order of the GCSA index?
+    if (order_length_repeat_hit_max) {
+        rescue_high_count_order_length_mems(mems, order_length_repeat_hit_max);
+    }
+    
     return mems;
 }
 
@@ -978,6 +985,50 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             // will not contain it
             
             probe_string_end = cursor + min_sub_mem_length + 1;
+        }
+    }
+}
+    
+void BaseMapper::rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
+                                                     size_t max_rescue_hit_count) {
+    
+    vector<pair<size_t, size_t>> unfilled_mem_ranges;
+    
+    // identify the ranges of MEMs that are unfilled
+    for (size_t i = 0; i < mems.size(); i++) {
+        if (mems[i].nodes.empty()) {
+            unfilled_mem_ranges.emplace_back(i, 0);
+            while (i < mems.size() ? mems[i].nodes.empty() : false) {
+                i++;
+            }
+            unfilled_mem_ranges.back().second = i;
+        }
+    }
+    
+    for (pair<size_t, size_t>& mem_range : unfilled_mem_ranges) {
+        // check that the range has a MEM that is maxed out at the order of the GCSA2
+        // and also find the MEM in the tract with the minimum hit count
+        bool has_order_length_mem = false;
+        size_t min_hit_count = numeric_limits<size_t>::max();
+        size_t min_hit_mem = numeric_limits<size_t>::max();
+        for (size_t i = mem_range.first; i < mem_range.second; i++) {
+            has_order_length_mem = has_order_length_mem || mems[i].length() == gcsa->order();
+            if (mems[i].match_count < min_hit_count) {
+                min_hit_count = mems[i].match_count;
+                min_hit_mem = i;
+            }
+        }
+        
+        if (min_hit_count <= max_rescue_hit_count && has_order_length_mem) {
+            // treat the minimum count MEM as a representative for this tract and fill it
+            // to rescue the repeat mappings
+            
+#ifdef debug_mapper
+            cerr << "found unfilled order length tract from MEM indexes " << mem_range.first << ":" << mem_range.second << ", filling with representative " << mems[min_hit_mem] << " with " << min_hit_count << " hits" << endl;
+#endif
+            
+            gcsa->locate(mems[min_hit_mem].range, mems[min_hit_mem].nodes);
+          
         }
     }
 }
@@ -4689,7 +4740,6 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     }
 
 #ifdef debug_mapper
-    cerr << "target " << target_id << endl;
     cerr << "fwd " << pb2json(surjection_forward) << endl;
     cerr << "rev " << pb2json(surjection_reverse) << endl;
 #endif

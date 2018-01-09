@@ -80,6 +80,7 @@ namespace vg {
         bool unstranded_clustering = true;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
+        double mapq_scaling_factor = 1.0 / 3.5;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -216,9 +217,8 @@ namespace vg {
         double random_match_p_value(size_t match_length, size_t read_length);
         
         /// Compute the approximate distance between two multipath alignments
-        int64_t distance_between(const MultipathAlignment& multipath_aln_1,
-                                 const MultipathAlignment& multipath_aln_2,
-                                 bool forward_strand = false) const;
+        int64_t distance_between(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2,
+                                 bool full_fragment = false, bool forward_strand = false) const;
         
         /// Are two multipath alignments consistently placed based on the learned fragment length distribution?
         bool are_consistent(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;

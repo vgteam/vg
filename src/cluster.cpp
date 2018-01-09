@@ -1110,22 +1110,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(int64_t max_fai
         // slowly lower the number of distances we need to check before we believe that two clusters are on
         // separate strands
 #ifdef debug_od_clusterer
-        size_t direct_merges_remaining = 0;
-        vector<vector<size_t>> groups = component_union_find.all_groups();
-        for (size_t i = 1; i < groups.size(); i++) {
-            for (size_t j = 0; j < i; j++) {
-                size_t strand_1 = component_union_find.find_group(groups[i].front());
-                size_t strand_2 = component_union_find.find_group(groups[j].front());
-                
-                if (num_infinite_dists.count(make_pair(strand_1, strand_2))) {
-                    if (num_infinite_dists[make_pair(strand_1, strand_2)] >= current_max_num_probes) {
-                        continue;
-                    }
-                }
-                direct_merges_remaining += groups[i].size() * groups[j].size();
-            }
-        }
-        cerr << "checked " << pairs_checked << " pairs with max probes " << current_max_num_probes << ", decrement frequency " << decrement_frequency << ", directly calculated merges " << direct_merges_remaining << " and maintained merges " << num_possible_merges_remaining << endl;
+        cerr << "checked " << pairs_checked << " pairs with max probes " << current_max_num_probes << ", decrement frequency " << decrement_frequency << ", merges remaining " << num_possible_merges_remaining << endl;
 #endif
         
         if (pairs_checked % decrement_frequency == 0 && pairs_checked != 0) {
@@ -1874,11 +1859,11 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
              }
          },
          [&](size_t cluster_num) {
-             // Give the offset of the position we chose to the start of the read
+             // Give the offset of the position we chose to either the start or end of the read
              if (cluster_num < left_clusters.size()) {
                  return alignment_1.sequence().begin() - left_clusters[cluster_num]->front().first->begin;
              } else {
-                 return alignment_2.sequence().begin() - right_clusters[cluster_num - left_clusters.size()]->front().first->begin;
+                 return alignment_2.sequence().end() - right_clusters[cluster_num - left_clusters.size()]->front().first->begin;
              }
          },
          paths_of_node_memo, oriented_occurences_memo, handle_memo);
