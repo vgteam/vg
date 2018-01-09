@@ -1751,16 +1751,20 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     
     // find the node with the highest DP score in each connected component
     // each record is a pair of (score lower bound, node index)
-    vector<pair<int32_t, size_t>> component_traceback_ends(components.size(),
-                                                           pair<int32_t, size_t>(numeric_limits<int32_t>::min(), 0));
+    vector<pair<int32_t, vector<size_t>>> component_traceback_ends(components.size(),
+                                                                   make_pair(numeric_limits<int32_t>::min(), vector<size_t>()));
     for (size_t i = 0; i < components.size(); i++) {
         vector<size_t>& component = components[i];
-        pair<int32_t, size_t>& traceback_end = component_traceback_ends[i];
+        pair<int32_t, vector<size_t>>& traceback_end = component_traceback_ends[i];
         for (size_t j = 0; j < component.size(); j++) {
             int32_t dp_score = nodes[component[j]].dp_score;
             if (dp_score > traceback_end.first) {
                 traceback_end.first = dp_score;
-                traceback_end.second = component[j];
+                traceback_end.second.clear();
+                traceback_end.second.push_back(component[j]);
+            }
+            else if (dp_score == traceback_end.first) {
+                traceback_end.second.push_back(component[j]);
             }
         }
     }
@@ -1776,13 +1780,13 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     int32_t suboptimal_score_cutoff = top_score - log_likelihood_approx_factor * base_aligner->mapping_quality_score_diff(max_qual_score);
     
     while (!component_traceback_ends.empty()) {
-        // get the next highest scoring traceback end
+        // get the next highest scoring traceback end(s)
         auto traceback_end = component_traceback_ends.front();
         std::pop_heap(component_traceback_ends.begin(), component_traceback_ends.end());
         component_traceback_ends.pop_back();
         
         // get the index of the node
-        size_t trace_idx = traceback_end.second;
+        vector<size_t>& trace_stack = traceback_end.second;
         
 #ifdef debug_od_clusterer
         cerr << "checking traceback of component starting at " << traceback_end.second << endl;
@@ -1794,20 +1798,25 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
             cerr << "skipping rest of components on account of low score of " << traceback_end.first << " compared to max score " << top_score << " and cutoff " << suboptimal_score_cutoff << endl;
 #endif
             
-            //#pragma omp atomic
-            //            PRUNE_COUNTER += component_traceback_ends.size() + 1;
+//#pragma omp atomic
+//            PRUNE_COUNTER += component_traceback_ends.size() + 1;
             break;
         }
         
-        // traceback until hitting a node that has its own score (indicates beginning of a local alignment)
-        vector<size_t> trace{trace_idx};
-        while (nodes[trace_idx].dp_score > nodes[trace_idx].score) {
+        // traceback all optimal paths in this connected component
+        
+        // keep track of which indexes have already been added to the stack
+        unordered_set<size_t> stacked{trace_stack.begin(), trace_stack.end()};
+        
+        while (!trace_stack.empty()) {
+            size_t trace_idx = trace_stack.back();
+            trace_stack.pop_back();
+            
             int32_t target_source_score = nodes[trace_idx].dp_score - nodes[trace_idx].score;
             for (ODEdge& edge : nodes[trace_idx].edges_to) {
-                if (nodes[edge.to_idx].dp_score + edge.weight == target_source_score) {
-                    trace_idx = edge.to_idx;
-                    trace.push_back(trace_idx);
-                    break;
+                if (nodes[edge.to_idx].dp_score + edge.weight == target_source_score && !stacked.count(edge.to_idx)) {
+                    trace_stack.push_back(edge.to_idx);
+                    stacked.insert(trace_idx);
                 }
             }
         }
@@ -1815,10 +1824,16 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         // make a cluster
         to_return.emplace_back();
         auto& cluster = to_return.back();
-        for (auto iter = trace.rbegin(); iter != trace.rend(); iter++) {
-            ODNode& node = nodes[*iter];
+        for (size_t traced_idx : stacked) {
+            ODNode& node = nodes[traced_idx];
             cluster.emplace_back(node.mem, node.start_pos);
         }
+        
+        // put the cluster in order by read position
+        sort(cluster.begin(), cluster.end(), [](const hit_t& hit_1, const hit_t& hit_2) {
+            return hit_1.first->begin < hit_2.first->begin ||
+                   (hit_1.first->begin == hit_2.first->begin && hit_1.first->end < hit_2.first->end);
+        });
     }
     
     return std::move(to_return);
