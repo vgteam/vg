@@ -144,7 +144,7 @@ class VGCITest(TestCase):
             # Convert to a public HTTPS URL
             url = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
             # And download it
-            
+
             try:
                 connection = urllib2.urlopen(url)
                 return unicode(connection.read())
@@ -159,6 +159,13 @@ class VGCITest(TestCase):
             # Assume it's a raw path.
             with io.open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path), 'r', encoding='utf8') as f:
                 return f.read()
+
+    def _read_baseline_float(self, tag, path, error_val = '-inf'):
+        """ read a single float from a file, returning -inf something went wrong """
+        try:
+            return float(self._read_baseline_file(tag, path).strip())
+        except:
+            return float(error_val)
 
     def _get_remote_file(self, src, tgt):
         """
@@ -480,7 +487,7 @@ class VGCITest(TestCase):
             f1_score = float(f1_file.readline().strip())
             
         try:
-            baseline_f1 = float(self._read_baseline_file(tag, f1_name).strip())
+            baseline_f1 = self._read_baseline_float(tag, f1_name)
         except:
             # Couldn't read the baseline. Maybe it doesn't exist (yet)
             baseline_f1 = 0
@@ -1139,7 +1146,7 @@ class VGCITest(TestCase):
         for name, f1_path, summary_path in zip(output_names, output_f1_paths, output_summary_paths):
             with io.open(f1_path, 'r', encoding='utf8') as f1_file:
                 f1_scores.append(float(f1_file.readline().strip()))
-            baseline_scores.append(float(self._read_baseline_file(tag, f1_path).strip()))
+            baseline_scores.append(self._read_baseline_float(tag, os.path.basename(f1_path)))
             self._print_vcfeval_summary_table(summary_path, baseline_scores[-1], threshold,
                                               header=name==output_names[0], name=name)
         self._end_message()
@@ -1172,7 +1179,7 @@ class VGCITest(TestCase):
         if self.verify:
             self._verify_calleval(tag=tag, threshold=f1_threshold)
             
-    @skip("skipping test to keep runtime down")
+    #@skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(8000)            
     def test_call_chr21_snp1kg(self):
         """
