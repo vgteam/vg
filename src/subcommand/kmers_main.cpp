@@ -197,7 +197,7 @@ int main_kmers(int argc, char** argv) {
             }
         } else {
             if (handle_alg) {
-                graphs.write_gcsa_kmers_binary_handle(cout, kmer_size, path_only, forward_only, head_id, tail_id);
+                graphs.write_gcsa_kmers_binary_handle(cout, kmer_size, head_id, tail_id);
             } else {
                 graphs.write_gcsa_kmers_binary_old(cout, kmer_size, path_only, forward_only, head_id, tail_id);
 

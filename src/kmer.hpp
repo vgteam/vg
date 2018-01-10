@@ -6,6 +6,7 @@
 #include "json2pb.h"
 #include "handle.hpp"
 #include "position.hpp"
+#include "gcsa/gcsa.h"
 
 /** \file 
  * Functions for working with `kmers_t`'s in HandleGraphs.
@@ -46,6 +47,19 @@ void for_each_kmer(const HandleGraph& graph, size_t k,
 
 /// Print a kmer_t to a stream.
 ostream& operator<<(ostream& out, const kmer_t& kmer);
+
+/// Convert the kmer_t to a set of gcsa2 binary kmers which are exposed via a callback.
+void kmer_to_gcsa_kmers(const kmer_t& kmer, const gcsa::Alphabet& alpha, const function<void(const gcsa::KMer&)>& lambda);
+
+/// Encode the chars into the gcsa2 byte
+gcsa::byte_type encode_chars(const vector<char>& chars, const gcsa::Alphabet& alpha);
+
+/// Write GCSA2 formatted binary KMers to the given ostream
+void write_gcsa_kmers(const HandleGraph& graph, int kmer_size, ostream& out, id_t head_id, id_t tail_id);
+
+/// Open a tempfile and write the kmers to it. The calling context should remove it.
+string write_gcsa_kmers_to_tmpfile(const HandleGraph& graph, int kmer_size, id_t head_id, id_t tail_id,
+                                   const string& base_file_name = ".vg-kmers-tmp-");
 
 }
 

@@ -58,9 +58,7 @@ public:
                                      int kmer_size,
                                      bool path_only, bool forward_only,
                                      int64_t head_id=0, int64_t tail_id=0);
-    void write_gcsa_kmers_binary_handle(ostream& out,
-                                        int kmer_size,
-                                        bool path_only, bool forward_only,
+    void write_gcsa_kmers_binary_handle(ostream& out, int kmer_size,
                                         int64_t head_id=0, int64_t tail_id=0);
 
     // gets all the kmers in GCSA's internal format.

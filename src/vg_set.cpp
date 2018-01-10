@@ -393,20 +393,13 @@ void VGset::write_gcsa_kmers_binary_old(ostream& out,
 }
 
 // writes to a specific output stream
-void VGset::write_gcsa_kmers_binary_handle(ostream& out,
-                                           int kmer_size,
-                                           bool path_only,
-                                           bool forward_only,
+void VGset::write_gcsa_kmers_binary_handle(ostream& out, int kmer_size,
                                            int64_t head_id, int64_t tail_id) {
-    auto write_binary_kmer = [&head_id, &tail_id, &out](const kmer_t& kp){
-#pragma omp critical (out)
-        out << kp << endl;
-    };
     for_each([&](VG* g) {
             // set up the graph with the head/tail nodes
             Node* head_node = nullptr; Node* tail_node = nullptr;
             g->add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
-            for_each_kmer(*g, kmer_size, write_binary_kmer, head_id, tail_id);
+            write_gcsa_kmers(*g, kmer_size, out, head_id, tail_id);
         });
 }
 

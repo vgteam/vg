@@ -146,4 +146,74 @@ ostream& operator<<(ostream& out, const kmer_t& kmer) {
     return out;
 }
 
+void kmer_to_gcsa_kmers(const kmer_t& kmer, const gcsa::Alphabet& alpha, const function<void(const gcsa::KMer&)>& lambda) {
+    assert(kmer.next_pos.size());
+    gcsa::byte_type predecessors = encode_chars(kmer.prev_char, alpha);
+    gcsa::byte_type successors = encode_chars(kmer.next_char, alpha);
+    gcsa::KMer k;
+    k.key = gcsa::Key::encode(alpha, kmer.seq, predecessors, successors);
+    k.from = gcsa::Node::encode(id(kmer.begin), offset(kmer.begin), is_rev(kmer.begin));
+    for (auto& pos : kmer.next_pos) {
+        k.to = gcsa::Node::encode(id(pos), offset(pos), is_rev(pos));
+        lambda(k);
+    }
+}
+
+gcsa::byte_type encode_chars(const vector<char>& chars, const gcsa::Alphabet& alpha) {
+    gcsa::byte_type val = 0;
+    for (char c : chars) val |= 1 << alpha.char2comp[c];
+    return val;
+}
+
+void write_gcsa_kmers(const HandleGraph& graph, int kmer_size, ostream& out, id_t head_id, id_t tail_id) {
+
+    // We need an alphabet to parse the internal string format
+    const gcsa::Alphabet alpha;
+    // Each thread is going to make its own KMers, then we'll concatenate these all together at the end.
+    vector<vector<gcsa::KMer> > thread_outputs;
+#pragma omp parallel
+    {
+#pragma omp single
+        {
+            // Set up our write buffers at the given parallelism we expect
+            thread_outputs.resize(omp_get_num_threads());
+        }
+    }
+    // This handles the buffered writing for each thread
+    size_t buffer_limit = 1e5; // max 100k kmers per buffer
+    auto handle_kmers = [&](vector<gcsa::KMer>& kmers, bool more) {
+        if (!more || kmers.size() > buffer_limit) {
+#pragma omp critical (gcsa_kmer_out)
+            gcsa::writeBinary(out, kmers, kmer_size);
+            kmers.clear();
+        }
+    };
+    // Here we convert our kmer_t to gcsa::KMer
+    auto convert_kmer = [&thread_outputs, &alpha, &head_id, &tail_id, &handle_kmers](const kmer_t& kmer) {
+        // Convert this KmerPosition to several gcsa::KMers, and save them in thread_outputs
+        vector<gcsa::KMer>& thread_output = thread_outputs[omp_get_thread_num()];
+        kmer_to_gcsa_kmers(kmer, alpha, [&thread_output](const gcsa::KMer& k) { thread_output.push_back(k); });
+        // Handle kmer buffered writes, indicating we're not yet done
+        handle_kmers(thread_output, true);
+    };
+    // Run on each KmerPosition. This populates start_end_id, if it was 0, before calling convert_kmer.
+    for_each_kmer(graph, kmer_size, convert_kmer, head_id, tail_id);
+    for(auto& thread_output : thread_outputs) {
+        // Flush our buffers
+        handle_kmers(thread_output, false);
+    }
+}
+
+string write_gcsa_kmers_to_tmpfile(const HandleGraph& graph, int kmer_size, id_t head_id, id_t tail_id,
+                                   const string& base_file_name) {
+    // open a temporary file for the kmers
+    string tmpfile = tmpfilename(base_file_name);
+    ofstream out(tmpfile);
+    // write the kmers to the temporary file
+    write_gcsa_kmers(graph, kmer_size, out, head_id, tail_id);
+    out.close();
+    return tmpfile;
+}
+
+
 }
