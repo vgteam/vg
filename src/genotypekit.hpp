@@ -29,6 +29,17 @@ namespace vg {
 
 using namespace std;
 
+/**
+ * Given a path (which may run either direction through a snarl, or not touch
+ * the ends at all), collect a list of NodeTraversals in order for the part
+ * of the path that is inside the snarl, in the same orientation as the path.
+ */
+SnarlTraversal get_traversal_of_snarl(VG& graph, const Snarl* snarl, const SnarlManager& manager, const Path& path);
+    
+/**
+ * Make a SnarlTraversal into the string it represents, including notes for nested child snarls.
+ */
+string traversal_to_string(VG& graph, const SnarlTraversal& path);
 
 /**
  * Represents a strategy for computing consistency between Alignments and

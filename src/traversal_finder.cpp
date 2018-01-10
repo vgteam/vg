@@ -350,14 +350,284 @@ vector<SnarlTraversal> ExhaustiveTraversalFinder::find_traversals(const Snarl& s
     
     return to_return;
 }
-    
-ReadRestrictedTraversalFinder::ReadRestrictedTraversalFinder(VG& graph, SnarlManager& snarl_manager,
-                                                             const map<string, Alignment*>& reads_by_name,
+
+PathRestrictedTraversalFinder::PathRestrictedTraversalFinder(VG& graph,
+                                                             SnarlManager& snarl_manager,
+                                                             map<string, const Alignment*>& reads_by_name,
                                                              int min_recurrence, int max_path_search_steps) :
-    graph(graph), reads_by_name(reads_by_name),
+    graph(graph),
+    snarl_manager(snarl_manager),
+    reads_by_name(reads_by_name),
     min_recurrence(min_recurrence),
-    max_path_search_steps(max_path_search_steps),
-    snarl_manager(snarl_manager) {
+    max_path_search_steps(max_path_search_steps) {
+    // nothing else to do
+}
+
+PathRestrictedTraversalFinder::~PathRestrictedTraversalFinder() {
+    // no heap variables
+}
+
+static bool mapping_enters_side(const Mapping& mapping, const handle_t& side, const HandleGraph* graph) {
+
+#ifdef debug
+#pragma omp critical (cerr)
+     cerr << "Does mapping " << pb2json(mapping) << " enter " << graph->get_id(side) << " " << graph->get_is_reverse(side) << endl;
+#endif
+    
+    bool enters = mapping.position().node_id() == graph->get_id(side) &&
+        mapping.position().offset() == 0;
+       
+#ifdef debug
+#pragma omp critical (cerr)
+    cerr << enters << endl;
+#endif
+    
+    return enters;
+}
+
+static bool mapping_exits_side(const Mapping& mapping, const handle_t& side, const HandleGraph* graph) {
+    
+#ifdef debug
+#pragma omp critical (cerr)
+    cerr << "Does mapping " << pb2json(mapping) << " exit " << graph->get_id(side) << " " << graph->get_is_reverse(side) << endl;
+#endif
+    
+    bool exits = mapping.position().node_id() == graph->get_id(side) &&
+        mapping.position().offset() + mapping_from_length(mapping) == graph->get_length(side) &&
+        mapping.edit(mapping.edit_size() - 1).from_length() ==
+        mapping.edit(mapping.edit_size() - 1).to_length();
+        
+#ifdef debug
+#pragma omp critical (cerr)
+    cerr << exits << endl;
+#endif
+    
+    return exits;
+}
+
+// replaces get_paths_through_site from genotyper
+vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snarl& site) {
+    // We're going to emit traversals supported by any paths in the graph.
+    
+    // Put all our subpaths in here to deduplicate them by sequence they spell
+    // out. And to count occurrences. Note that the occurrence count will be
+    // boosted to min_recurrence if a non-read path in the graph supports a
+    // certain traversal string, so we don't end up dropping unsupported ref
+    // alleles.
+    map<string, pair<SnarlTraversal, int>> results;
+
+#ifdef debug
+#pragma omp critical (cerr)
+    cerr << "Looking for paths between " << site.start() << " and " << site.end() << endl;
+#endif
+
+    if(graph.paths.has_node_mapping(graph.get_node(site.start().node_id())) &&
+        graph.paths.has_node_mapping(graph.get_node(site.end().node_id()))) {
+        // If we have some paths that visit both ends (in some orientation)
+
+        // Get all the mappings to the end node, by path name
+        auto& endmappings_by_name = graph.paths.get_node_mapping(graph.get_node(site.end().node_id()));
+
+        for(auto& name_and_mappings : graph.paths.get_node_mapping(graph.get_node(site.start().node_id()))) {
+            // Go through the paths that visit the start node
+
+            // Grab their names
+            auto& name = name_and_mappings.first;
+
+            if(!endmappings_by_name.count(name_and_mappings.first)) {
+                //cerr << "no endmappings match" << endl;
+                // No path by this name has any mappings to the end node. Skip
+                // it early.
+                continue;
+            }
+
+            for(auto* mapping : name_and_mappings.second) {
+                // Start at each mapping in the appropriate orientation
+
+#ifdef debug
+#pragma omp critical (cerr)
+                cerr << "Trying mapping of read/path " << name_and_mappings.first << " to " << pb2json(mapping->position()) << endl;
+#endif
+
+                // How many times have we gone to the next mapping looking for a
+                // mapping to the end node in the right orientation?
+                size_t traversal_count = 0;
+
+                // Do we want to go left (true) or right (false) from this
+                // mapping? If start is a forward traversal and we found a
+                // forward mapping, we go right. If either is backward we go
+                // left, and if both are backward we go right again.
+                bool traversal_direction = mapping->position().is_reverse() != site.start().backward();
+
+#ifdef debug
+#pragma omp critical (cerr)
+                cerr << "Traversal direction: " << traversal_direction << endl;
+#endif
+
+                // Now work out if we are entering the snarl or not
+                if (traversal_direction) {
+                
+                    // We are going left in the read but right in the snarl, so
+                    // we want to enter the snarl's start node
+                    bool enter_start = mapping_enters_side(*mapping, graph.get_handle(site.start()), &graph);
+
+#ifdef debug
+#pragma omp critical (cerr)
+                    cerr << "Enter start: " << enter_start << endl;
+#endif
+                    
+                    if (!enter_start) {
+                        // We only want reads that enter the snarl
+                        continue;
+                    }
+                    
+                } else {
+                    // We are going right, so we want to exit the snarl's start
+                    // node
+                    bool exit_start = mapping_exits_side(*mapping, graph.get_handle(site.start()), &graph);
+                    
+#ifdef debug
+#pragma omp critical (cerr)
+                    cerr << "Exit start: " << exit_start << endl;
+#endif
+                    
+                    if (!exit_start) {
+                        // We are only interested in reads that exit the snarl
+                        continue;
+                    }
+                }
+
+                // What orientation would we want to find the end node in? If
+                // we're traveling backward, we expect to find it in the
+                // opposnarl direction to the one we were given.
+                bool expected_end_orientation = site.end().backward() != traversal_direction;
+
+                // We're going to fill in this SnarlTraverasl with visits.
+                SnarlTraversal path_traversed;
+
+                while(mapping != nullptr && traversal_count < max_path_search_steps) {
+                    // Traverse along until we hit the end traversal or take too
+                    // many steps
+
+#ifdef debug
+#pragma omp critical (cerr)
+                    cerr << "\tTraversing " << pb2json(*mapping) << endl;
+#endif
+
+                    // Say we visit this node along the path, in this orientation
+                    *path_traversed.add_visit() = to_visit(!traversal_direction ? *mapping :
+                        reverse_complement_mapping(*mapping,[this](id_t node_id) {
+                            return this->graph.get_node(node_id)->sequence().length();
+                        }), true);
+                    
+                    if(mapping->position().node_id() == site.end().node_id() && mapping->position().is_reverse() == expected_end_orientation) {
+                        // Does our mapping actually cross through the ending side?
+                        // It has to either enter the end node, or exit the end
+                        // node, depending on which way in the read we read. And
+                        // if it doesn't we try again.
+                        if (!traversal_direction &&
+                            !mapping_enters_side(*mapping, graph.get_handle(site.end()), &graph) ||
+                            traversal_direction && 
+                            !mapping_exits_side(*mapping, graph.get_handle(site.end()), &graph)) {
+                            break;
+                        }
+
+                        // get the string for the sequence
+                        string allele_seq;
+                        for (size_t i = 0; i < path_traversed.visit_size(); i++) {
+                            auto& path_visit = path_traversed.visit(i);
+                            Node* map_node = graph.get_node(path_visit.node_id());
+                            allele_seq += path_visit.backward() ? reverse_complement(map_node->sequence()) : map_node->sequence();
+                        }
+                        
+                        // We have stumbled upon the end node in the orientation we wanted it in.
+                        if(results.count(allele_seq)) {
+                            // It is already there! Increment the observation count.
+#ifdef debug
+#pragma omp critical (cerr)
+                            cerr << "\tFinished; got known sequence " << allele_seq << endl;
+#endif
+                            
+                            if(reads_by_name.count(name)) {
+                                // We are a read. Just increment count
+                                results[allele_seq].second++;
+                            } else {
+                                // We are a named path (like "ref")
+                                if(results[allele_seq].second < min_recurrence) {
+                                    // Ensure that this allele doesn't get
+                                    // eliminated, since ref or some other named
+                                    // path supports it.
+                                    results[allele_seq].second = min_recurrence;
+                                } else {
+                                    results[allele_seq].second++;
+                                }
+                            }
+                        } else {
+                            // Add it in. Give it a count of 1 if we are a read,
+                            // and a count of min_recurrence (so it doesn't get
+                            // filtered later) if we are a named non-read path
+                            // (like "ref").
+                            results[allele_seq] = make_pair(path_traversed, reads_by_name.count(name) ? 1 : min_recurrence);
+#ifdef debug
+#pragma omp critical (cerr)
+                            cerr << "\tFinished; got novel sequence " << allele_seq << endl;
+#endif
+                        }
+
+                        // Then try the next embedded path
+                        break;
+                    }
+
+                    // Otherwise just move to the right (or left)
+                    if(traversal_direction) {
+                        // We're going backwards
+                        mapping = graph.paths.traverse_left(mapping);
+                    } else {
+                        // We're going forwards
+                        mapping = graph.paths.traverse_right(mapping);
+                    }
+                    // Tick the counter so we don't go really far on long paths.
+                    traversal_count++;
+
+                }
+
+
+            }
+        }
+
+    }
+
+    // Now collect the unique results
+    vector<SnarlTraversal> to_return;
+
+    for(auto& result : results) {
+        // Break out each result
+        const string& seq = result.first;
+        auto& traversals = result.second.first;
+        auto& count = result.second.second;
+
+        if(count < min_recurrence) {
+            // We don't have enough initial hits for this sequence to justify
+            // trying to re-align the rest of the reads. Skip it. Note that the
+            // reference path (and other named paths) will stuff in at least
+            // min_recurrence to make sure we don't throw out their alleles.
+            continue;
+        }
+
+        // Send out each list of traversals
+        to_return.emplace_back(std::move(traversals));
+    }
+
+    return to_return;
+}
+
+ReadRestrictedTraversalFinder::ReadRestrictedTraversalFinder(AugmentedGraph& augmented_graph,
+                                                             SnarlManager& snarl_manager,
+                                                             int min_recurrence, int max_path_search_steps) :
+    aug(augmented_graph),
+    snarl_manager(snarl_manager),
+    min_recurrence(min_recurrence),
+    max_path_search_steps(max_path_search_steps) {
     // nothing else to do
 }
 
@@ -367,248 +637,156 @@ ReadRestrictedTraversalFinder::~ReadRestrictedTraversalFinder() {
     
 // replaces get_paths_through_site from genotyper
 vector<SnarlTraversal> ReadRestrictedTraversalFinder::find_traversals(const Snarl& site) {
-    // We're going to emit traversals supported by any paths in the graph.
+    
+    // We're going to emit traversals supported by reads in the AugmentedGraph.
     
     // Put all our subpaths in here to deduplicate them by sequence they spell
     // out. And to count occurrences. Note that the occurrence count will be
     // boosted to min_recurrence if a non-read path in the graph supports a
     // certain traversal string, so we don't end up dropping unsupported ref
     // alleles.
-    map<string, pair<list<Visit>, int>> results;
+    map<string, pair<SnarlTraversal, int>> results;
+
+#ifdef debug
+#pragma omp critical (cerr)
+    cerr << "Looking for reads between " << site.start() << " and " << site.end() << endl;
+#endif
+
+    // Get all the alignments that touch each end of the snarl.
+    auto start_alignments = aug.get_alignments(site.start().node_id());
+    auto end_alignments = aug.get_alignments(site.end().node_id());
     
 #ifdef debug
 #pragma omp critical (cerr)
-    cerr << "Looking for paths between " << to_node_traversal(site.start(), graph) << " and " << to_node_traversal(site.end(), graph) << endl;
+    cerr << "Found " << start_alignments.size() << " reads on start and " << end_alignments.size() << " reads on end" << endl;
 #endif
     
-    Node* site_start_node = graph.get_node(site.start().node_id());
-    Node* site_end_node = graph.get_node(site.end().node_id());
-    
-    if(graph.paths.has_node_mapping(site_start_node) && graph.paths.has_node_mapping(site_end_node)) {
-        // If we have some paths that visit both ends (in some orientation)
-        
-        // Get all the mappings to the end node, by path name
-        auto& endmappings_by_name = graph.paths.get_node_mapping(site_end_node);
-        
-        for(auto& name_and_mappings : graph.paths.get_node_mapping(site_start_node)) {
-            // Go through the paths that visit the start node
-            
-            // Grab their names
-            auto& name = name_and_mappings.first;
-            
-            if(!endmappings_by_name.count(name_and_mappings.first)) {
-                // No path by this name has any mappings to the end node. Skip
-                // it early.
-                continue;
-            }
-            
-            for(auto* mapping : name_and_mappings.second) {
-                // Start at each mapping in the appropriate orientation
-                
-#ifdef debug
-#pragma omp critical (cerr)
-                cerr << "Trying mapping of read/path " << name_and_mappings.first << endl;
-#endif
-                
-                // How many times have we gone to the next mapping looking for a
-                // mapping to the end node in the right orientation?
-                size_t traversal_count = 0;
-                
-                // Do we want to go left (true) or right (false) from this
-                // mapping? If start is a forward traversal and we found a
-                // forward mapping, we go right. If either is backward we go
-                // left, and if both are backward we go right again.
-                bool traversal_direction = mapping->position().is_reverse() != site.start().backward();
-                
-                // What orientation would we want to find the end node in? If
-                // we're traveling backward, we expect to find it in the
-                // opposite direction to the one we were given.
-                bool expected_end_orientation = site.end().backward() != traversal_direction;
-                
-                // We're going to fill in this list with traversals.
-                list<Visit> path_traversed;
-                
-                while(mapping != nullptr && traversal_count < max_path_search_steps) {
-                    // Traverse along until we hit the end traversal or take too
-                    // many steps
-                    
-#ifdef debug
-#pragma omp critical (cerr)
-                    cerr << "\tTraversing " << pb2json(*mapping) << endl;
-#endif
-                    
-                    if(mapping->position().node_id() == site.end().node_id()
-                       && mapping->position().is_reverse() == expected_end_orientation) {
-                        // We have stumbled upon the end node in the orientation we wanted it in.
-                        
-                        path_traversed.emplace_back(site.end());
-                        
-                        // Construct the allele sequence from the path
-                        stringstream allele_stream;
-                        
-                        // Don't look at the boundary nodes
-                        auto iter = path_traversed.begin();
-                        iter++;
-                        auto end = path_traversed.end();
-                        end--;
-                        for (; iter != end; iter++) {
-                            const Visit& visit = *iter;
-                            if (visit.has_snarl()) {
-                                // Add a placeholder for the nested site
-                                const Snarl& child_site = visit.snarl();
-                                if (visit.backward()) {
-                                    allele_stream << "(" << child_site.end().node_id() << ":" << child_site.start().node_id() << ")";
-                                }
-                                else {
-                                    allele_stream << "(" << child_site.start().node_id() << ":" << child_site.end().node_id() << ")";
-                                }
-                            }
-                            else {
-                                // Stick the sequence of the node (appropriately oriented) in the stream for the allele sequence
-                                Node* node = graph.get_node(visit.node_id());
-                                allele_stream << (visit.backward() ? reverse_complement(node->sequence()) : node->sequence());
-                            }
-                        }
-                        
-                        
-                        if(results.count(allele_stream.str())) {
-                            // It is already there! Increment the observation count.
-#ifdef debug
-#pragma omp critical (cerr)
-                            cerr << "\tFinished; got known sequence " << allele_stream.str() << endl;
-#endif
-                            
-                            if(reads_by_name.count(name)) {
-                                // We are a read. Just increment count
-                                results[allele_stream.str()].second++;
-                            } else {
-                                // We are a named path (like "ref")
-                                if(results[allele_stream.str()].second < min_recurrence) {
-                                    // Ensure that this allele doesn't get
-                                    // eliminated, since ref or some other named
-                                    // path supports it.
-                                    results[allele_stream.str()].second = min_recurrence;
-                                } else {
-                                    results[allele_stream.str()].second++;
-                                }
-                            }
-                        } else {
-                            // Add it in. Give it a count of 1 if we are a read,
-                            // and a count of min_recurrence (so it doesn't get
-                            // filtered later) if we are a named non-read path
-                            // (like "ref").
-                            results[allele_stream.str()] = make_pair(path_traversed,
-                                                                     reads_by_name.count(name) ? 1 : min_recurrence);
-#ifdef debug
-#pragma omp critical (cerr)
-                            cerr << "\tFinished; got novel sequence " << allele_stream.str() << endl;
-#endif
-                        }
-                        
-//                        if(reads_by_name.count(name)) {
-//                            // We want to log stats on reads that read all the
-//                            // way through sites. But since we may be called
-//                            // multiple times we need to send the unique read
-//                            // name too.
-//                            report_site_traversal(site, name);
-//                        }
-                        
-                        // Then try the next embedded path
-                        break;
-                    }
-                    
-                    // We are not yet at the end of the of the site on this path
-                    
-                    // Is this traversal at the start of a nested subsite?
-                    const Snarl* child_site = snarl_manager.into_which_snarl(mapping->position().node_id(),
-                                                                             mapping->position().is_reverse());
-                    if (child_site) {
-                        
-                        bool traversing_child_forward = child_site->start().node_id() == mapping->position().node_id()
-                            && child_site->start().backward() == mapping->position().is_reverse();
-                        
-                        // Add the site interior to the path
-                        path_traversed.emplace_back();
-                        *path_traversed.back().mutable_snarl()->mutable_start() = child_site->start();
-                        *path_traversed.back().mutable_snarl()->mutable_end() = child_site->end();
-                        path_traversed.back().set_backward(!traversing_child_forward);
-                        
-                        // Find the node on the other side of the subsite and add the site interior to the allele
-                        id_t site_opposite_side = traversing_child_forward ? child_site->end().node_id() : child_site->start().node_id();
-                        
-                        // Skip the site
-                        if (traversal_direction) {
-                            // Go backwards until you hit the other side of the site
-                            while (mapping->position().node_id() != site_opposite_side) {
-                                mapping = graph.paths.traverse_left(mapping);
-                                // Break out of the loop if the path ends before crossing child site
-                                if (mapping == nullptr) {
-                                    break;
-                                }
-                                // Tick the counter so we don't go really far on long paths.
-                                traversal_count++;
-                            }
-                        }
-                        else {
-                            // Go forwards until you hit the other side of the site
-                            while (mapping->position().node_id() != site_opposite_side) {
-                                mapping = graph.paths.traverse_right(mapping);
-                                // Break out of the loop if the path ends before crossing child site
-                                if (mapping == nullptr) {
-                                    break;
-                                }
-                                // Tick the counter so we don't go really far on long paths.
-                                traversal_count++;
-                            }
-                        }
-                    }
-                    else {
-                        
-                        // Add the visit
-                        path_traversed.emplace_back();
-                        path_traversed.back().set_node_id(mapping->position().node_id());
-                        path_traversed.back().set_backward(mapping->position().is_reverse());
-                        
-                        // Otherwise just move to the right (or left) one position
-                        if(traversal_direction) {
-                            // We're going backwards
-                            mapping = graph.paths.traverse_left(mapping);
-                        } else {
-                            // We're going forwards
-                            mapping = graph.paths.traverse_right(mapping);
-                        }
-                        // Tick the counter so we don't go really far on long paths.
-                        traversal_count++;
-                    }
-                }
-            }
-        }
-    }
-    
-    // Now collect the unique results
-    vector<SnarlTraversal> to_return;
-    
-    for(auto& result : results) {
-        // Break out each result
-        const string& seq = result.first;
-        auto& visits = result.second.first;
-        auto& count = result.second.second;
-        
-        if(count < min_recurrence) {
-            // We don't have enough initial hits for this sequence to justify
-            // trying to re-align the rest of the reads. Skip it. Note that the
-            // reference path (and other named paths) will stuff in at least
-            // min_recurrence to make sure we don't throw out their alleles.
+    // Turn one into a set
+    unordered_set<const Alignment*> end_set{end_alignments.begin(), end_alignments.end()};
+
+    for(const Alignment* alignment : start_alignments) {
+        // Go through the alignments that visit the start node
+        if(!end_set.count(alignment)) {
+            // Skip alignments that don't also visit the end node
             continue;
         }
         
-        // Send out each list of visits
-        to_return.emplace_back();
-        for (Visit& visit : visits) {
-            *to_return.back().add_visit() = visit;
+#ifdef debug
+#pragma omp critical (cerr)
+        cerr << "Alignment " << alignment->name() << " touches both start and end" << endl;
+#endif
+
+        // This alignment visits both sides of the snarl so it probably goes through it.
+
+        // We will clip out the traversing part of the read, if any, into lists of visits.
+        list<Visit> building;
+        
+        // We need to support multiple traversals of a snarl. So when we finish a traversal it goes in here.
+        list<list<Visit>> completed;
+        
+        // We set this to true when we go inside the snarl, and false again when we leave.
+        // Note that
+        bool in_snarl = false;
+        
+        // We set this if we enter the snarl through the end and not through the start.
+        bool in_end = false;
+
+        for(const Mapping& mapping : alignment->path().mapping()) {
+            // For each mapping in the read's path in order
+            
+            if (!in_snarl) {
+                // If we aren't yet in the snarl, see if we can enter.
+                if (mapping.position().node_id() == site.start().node_id() &&
+                    mapping.position().is_reverse() == site.start().backward()) {
+                    
+                    // Enter through the start
+                    in_snarl = true;
+                    in_end = false;
+                } else if (mapping.position().node_id() == site.end().node_id() &&
+                    mapping.position().is_reverse() == !site.end().backward()) {
+                    
+                    // Enter through the end
+                    in_snarl = true;
+                    in_end = true;
+                }
+            }
+            
+            if (in_snarl) {
+                // If we are now in the snarl, add this mapping to the list as a
+                // visit. Make sure to convert mappings with offsets/edits to
+                // visits, because we may not have cut the graph at alignment
+                // ends.
+                building.push_back(to_visit(mapping, true));
+                
+                // Now see if we should leave the snarl
+                if ((mapping.position().node_id() == site.start().node_id() &&
+                    mapping.position().is_reverse() == !site.start().backward()) ||
+                    (mapping.position().node_id() == site.end().node_id() &&
+                    mapping.position().is_reverse() == site.end().backward())) {
+                    // We are leaving through the start or end
+                    in_snarl = false;
+                    
+                    if (in_end) {
+                        // Flip the traversal to the snarl's orientation
+                        building.reverse();
+                        for (auto& visit : building) {
+                            visit = reverse(visit);
+                        }
+                    }
+                    
+                    // Put the traversal on the list of completed traversals
+                    completed.emplace_back(std::move(building));
+                    building.clear();
+                }
+            }
         }
+        
+        // Now turn all the traversals of the snarl that we found in this read into real SnarlTraversals
+        for (auto& visits : completed) {
+            // Convert each list of visits to a SnarlTraversal
+            SnarlTraversal converted;
+            for (auto& visit : visits) {
+                // Transfer over all the visits
+                *converted.add_visit() = visit;
+            }
+            
+            // Work out what sequence we have found
+            auto sequence = traversal_to_string(aug.graph, converted);
+            
+            if (results.count(sequence)) {
+                // This is a known traversal so up the count
+                results[sequence].second++;
+            } else {
+                // This is a new thing so add it with one occurrence
+                results[sequence] = make_pair(converted, 1);
+            }
+        }        
+    }
+
+    // Now collect the unique results
+    vector<SnarlTraversal> to_return;
+
+    for(auto& result : results) {
+        // Break out each result
+        const string& seq = result.first;
+        auto& traversals = result.second.first;
+        auto& count = result.second.second;
+
+        if(count < min_recurrence) {
+            // We don't have enough initial hits for this sequence to justify
+            // trying to re-align the rest of the reads. Skip it.
+            continue;
+        }
+
+        // Send out each list of traversals
+        to_return.emplace_back(std::move(traversals));
     }
     
+#ifdef debug
+#pragma omp critical (cerr)
+    cerr << "Found " << to_return.size() << " traversals based on reads" << endl;
+#endif
+
     return to_return;
 }
 

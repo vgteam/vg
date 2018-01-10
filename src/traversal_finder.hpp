@@ -69,10 +69,9 @@ private:
 };
     
 class ReadRestrictedTraversalFinder : TraversalFinder {
-    
-    VG& graph;
+
+    AugmentedGraph& aug;
     SnarlManager& snarl_manager;
-    const map<string, Alignment*>& reads_by_name;
     
     // How many times must a path recur before we try aligning to it? Also, how
     // many times must a node in the graph be visited before we use it in indel
@@ -85,8 +84,8 @@ class ReadRestrictedTraversalFinder : TraversalFinder {
     int max_path_search_steps;
     
 public:
-    ReadRestrictedTraversalFinder(VG& graph, SnarlManager& snarl_manager, const map<string,
-                                  Alignment*>& reads_by_name, int min_recurrence = 2,
+    ReadRestrictedTraversalFinder(AugmentedGraph& augmented_graph, SnarlManager& snarl_manager,
+                                  int min_recurrence = 2,
                                   int max_path_search_steps = 100);
     
     virtual ~ReadRestrictedTraversalFinder();
@@ -96,6 +95,51 @@ public:
      * start to end, out of the paths in the graph. Uses the map of reads by
      * name to determine if a path is a read or a real named path. Paths through
      * the site supported only by reads are subject to a min recurrence count,
+     * while those supported by actual embedded named paths are not.
+     */
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+    
+};
+
+/**
+ * Like ReadRestrictedTraversal finder, but works on paths in the graph.  As with
+ * the former, it's been cut out of Genotyper and moved here.  
+ * 
+ * I'm not sure what PathBasedTraversalFinder (see below) does, but it does not work
+ * as a drop-in replacement for this class, so keep the two implementations at least 
+ * for now.    
+ */
+class PathRestrictedTraversalFinder : TraversalFinder {
+
+    VG& graph;
+    SnarlManager& snarl_manager;
+
+    // store the reads that are embedded in the augmented graph, by their unique names
+    map<string, const Alignment*>& reads_by_name;
+
+    // How many times must a path recur before we try aligning to it? Also, how
+    // many times must a node in the graph be visited before we use it in indel
+    // realignment for nearby indels? Note that the primary path counts as a
+    // recurrence. TODO: novel inserts can't recur, and novel deletions can't be
+    // filtered in this way.
+    int min_recurrence;
+    
+    // How many nodes max should we walk when checking if a path runs through a superbubble/site
+    int max_path_search_steps;
+    
+public:
+    PathRestrictedTraversalFinder(VG& graph, SnarlManager& snarl_manager,
+                                  map<string, const Alignment*>& reads_by_name,
+                                  int min_recurrence = 2,
+                                  int max_path_search_steps = 100);
+    
+    virtual ~PathRestrictedTraversalFinder();
+
+    /**
+     * For the given site, emit all subpaths with unique sequences that run from
+     * start to end, out of the paths in the graph. Uses the map of reads by
+     * name to determine if a path is a read or a real named path. Paths through
+     * the snarl supported only by reads are subject to a min recurrence count,
      * while those supported by actual embedded named paths are not.
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);

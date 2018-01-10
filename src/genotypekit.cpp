@@ -8,6 +8,44 @@ namespace vg {
 
 using namespace std;
 
+SnarlTraversal get_traversal_of_snarl(VG& graph, const Snarl* snarl, const SnarlManager& manager, const Path& path) {
+
+    // We'll fill this in
+    SnarlTraversal to_return;
+
+    auto contents = manager.deep_contents(snarl, graph, true);
+
+    for(size_t i = 0; i < path.mapping_size(); i++) {
+        const Mapping& mapping = path.mapping(i);
+
+        if(contents.first.count(graph.get_node(mapping.position().node_id()))) {
+            // We're inside the bubble. This is super simple when we have the contents!
+            *to_return.add_visit() = to_visit(mapping, true);
+        }
+    }
+
+    return to_return;
+}
+
+string traversal_to_string(VG& graph, const SnarlTraversal& path) {
+    string seq;
+    for (const auto& visit : path.visit()) {
+        // For every visit
+        if (visit.node_id() != 0) {
+            // If it's to a node, but the node's sequenece
+            const Node* node = graph.get_node(visit.node_id());
+            seq += visit.backward() ? reverse_complement(node->sequence()) : node->sequence();
+        } else {
+            // Put a description of the child snarl
+            stringstream s;
+            s << "(" << visit << ")";
+            seq += s.str();
+        }
+    }
+    return seq;
+}
+
+
 pair<const Edge*, bool> AugmentedGraph::base_edge(const Edge* edge) {
     assert(base_graph != NULL);
 
