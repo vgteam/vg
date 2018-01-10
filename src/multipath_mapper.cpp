@@ -2750,101 +2750,89 @@ namespace vg {
             multipath_aln_pairs.front().second.set_mapping_quality(mapq);
             
             if (multipath_aln_pairs.size() > 1) {
-                // detect duplicate alignments that arise from breaking up clusters whose MultipathAlignments turned
-                // out to be disconnected
+                // find the duplicates of the optimal pair (initially mark with only the pair itself)
+                vector<size_t> duplicates_1(1, 0);
+                vector<size_t> duplicates_2(1, 0);
+                vector<size_t> to_remove;
+                for (size_t i = 1; i < multipath_aln_pairs.size(); i++) {
+                    bool duplicate_1 = share_start_position(multipath_aln_pairs[0].first, multipath_aln_pairs[i].first);
+                    bool duplicate_2 = share_start_position(multipath_aln_pairs[0].second, multipath_aln_pairs[i].second);
+                    if (duplicate_1 && duplicate_2) {
+#ifdef debug_multipath_mapper_mapping
+                        cerr << "found double end duplication at index " << i << endl;
+#endif
+                        
+                        // this pair is a complete duplication (not just one end) we want it gone
+                        to_remove.push_back(i);
+                    }
+                    else if (duplicate_1) {
+#ifdef debug_multipath_mapper_mapping
+                        cerr << "found left end duplication at index " << i << endl;
+#endif
+                        duplicates_1.push_back(i);
+                    }
+                    else if (duplicate_2) {
+#ifdef debug_multipath_mapper_mapping
+                        cerr << "found right end duplication at index " << i << endl;
+#endif
+                        duplicates_2.push_back(i);
+                    }
+                }
                 
-                // TODO: technically should do this method whenever any of the sides of any alignment is a duplicate,
-                // but it should work fine for the fast approximate MAPQ method to only look at the first two
-                bool duplicate_1 = share_start_position(multipath_aln_pairs[0].first, multipath_aln_pairs[1].first);
-                bool duplicate_2 = share_start_position(multipath_aln_pairs[0].second, multipath_aln_pairs[1].second);
-                // if we got duplicates of both ends, pop them until we don't
-                while (duplicate_1 && duplicate_2) {
-                    multipath_aln_pairs.erase(multipath_aln_pairs.begin() + 1);
-                    scores.erase(scores.begin() + 1);
-                    cluster_pairs.erase(cluster_pairs.begin() + 1);
+                if (!to_remove.empty()) {
+                    // remove the full duplicates from all relevant vectors
+                    for (size_t i = 1, removed_so_far = 0; i < multipath_aln_pairs.size(); i++) {
+                        if (removed_so_far < to_remove.size() ? i == to_remove[removed_so_far] : false) {
+                            removed_so_far++;
+                        }
+                        else if (removed_so_far > 0) {
+                            // move these items into their new position
+                            multipath_aln_pairs[i - removed_so_far] = move(multipath_aln_pairs[i]);
+                            scores[i - removed_so_far] = move(scores[i]);
+                            cluster_pairs[i - removed_so_far] = move(cluster_pairs[i]);
+                        }
+                    }
                     
-                    // TODO: wasteful to recompute these in the inner loop, but I expect this condition to be very
-                    // rare or non-existent in the current code
-                    int32_t raw_mapq;
-                    if (mapping_quality_method == Adaptive) {
-                        raw_mapq = get_aligner()->compute_mapping_quality(scores, scores.size() < 2 ? true :
-                                                                          (scores[1] < scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)));
+                    // remove the end positions that are now empty
+                    multipath_aln_pairs.resize(multipath_aln_pairs.size() - to_remove.size());
+                    scores.resize(scores.size() - to_remove.size());
+                    cluster_pairs.resize(cluster_pairs.size() - to_remove.size());
+                    
+                    // update the indexes of the marked single-end duplicates
+                    for (size_t i = 0, removed_so_far = 0; i < duplicates_1.size(); i++) {
+                        while (removed_so_far < to_remove.size() ? to_remove[removed_so_far] < duplicates_1[i] : false) {
+                            removed_so_far++;
+                        }
+                        duplicates_1[i] -= removed_so_far;
                     }
-                    else {
-                        raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
+                    
+                    for (size_t i = 0, removed_so_far = 0; i < duplicates_2.size(); i++) {
+                        while (removed_so_far < to_remove.size() ? to_remove[removed_so_far] < duplicates_2[i] : false) {
+                            removed_so_far++;
+                        }
+                        duplicates_2[i] -= removed_so_far;
                     }
+                }
+                
+                // did we find any duplicates with the optimal pair?
+                if (duplicates_1.size() > 1 || duplicates_2.size() > 1 || !to_remove.empty()) {
+                    // compute the mapping quality of the whole group of duplicates for each end
+                    int32_t raw_mapq_1 = get_aligner()->compute_group_mapping_quality(scores, duplicates_1);
+                    int32_t raw_mapq_2 = get_aligner()->compute_group_mapping_quality(scores, duplicates_2);
                     
                     // arbitrary scaling, seems to help performance
-                    raw_mapq *= mapq_scaling_factor;
+                    raw_mapq_1 *= mapq_scaling_factor;
+                    raw_mapq_2 *= mapq_scaling_factor;
                     
 #ifdef debug_multipath_mapper_mapping
-                    cerr << "deduplicated scores yield a raw MAPQ of " << raw_mapq << endl;
+                    cerr << "deduplicated raw MAPQs are " << raw_mapq_1 << " and " << raw_mapq_2 << endl;
 #endif
-                    int32_t mapq = min<int32_t>(raw_mapq, max_mapping_quality);
-                    multipath_aln_pairs.front().first.set_mapping_quality(mapq);
-                    multipath_aln_pairs.front().second.set_mapping_quality(mapq);
                     
-                    if (multipath_aln_pairs.size() <= 1) {
-                        duplicate_1 = false;
-                        duplicate_2 = false;
-                    }
-                    else {
-                        duplicate_1 = share_start_position(multipath_aln_pairs[0].first, multipath_aln_pairs[1].first);
-                        duplicate_2 = share_start_position(multipath_aln_pairs[0].second, multipath_aln_pairs[1].second);
-                    }
-                }
-                
-                // set the mapping quality of the duplicated side to the maximum of what it is now and what it would
-                // be if the duplicates were removed
-                // TODO: in some ways this is unfair to this side, which actually has at least two very good mappings,
-                // which arguably should increase its MAPQ even more
-                if (duplicate_1) {
-                    vector<double> non_duplicate_scores{scores[0]};
-                    for (size_t i = 2; i < multipath_aln_pairs.size(); i++) {
-                        if (!share_start_position(multipath_aln_pairs[0].first, multipath_aln_pairs[i].first)) {
-                            non_duplicate_scores.push_back(scores[i]);
-                        }
-                    }
-                    int32_t raw_non_dup_mapq;
-                    if (mapping_quality_method == Adaptive) {
-                        raw_non_dup_mapq = get_aligner()->compute_mapping_quality(non_duplicate_scores, non_duplicate_scores.size() < 2 ? true :
-                                                                                  (non_duplicate_scores[1] < non_duplicate_scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)));
-                    }
-                    else {
-                        raw_non_dup_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
-                    }
+                    int32_t mapq_1 = min<int32_t>(raw_mapq_1, max_mapping_quality);
+                    int32_t mapq_2 = min<int32_t>(raw_mapq_2, max_mapping_quality);
                     
-                    // arbitrary scaling, seems to help performance
-                    raw_non_dup_mapq *= mapq_scaling_factor;
-                    
-                    int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
-                    
-                    multipath_aln_pairs[0].first.set_mapping_quality(max<int32_t>(non_dup_mapq,
-                                                                                  multipath_aln_pairs[0].first.mapping_quality()));
-                }
-                else if (duplicate_2) {
-                    vector<double> non_duplicate_scores{scores[0]};
-                    for (size_t i = 2; i < multipath_aln_pairs.size(); i++) {
-                        if (!share_start_position(multipath_aln_pairs[0].second, multipath_aln_pairs[i].second)) {
-                            non_duplicate_scores.push_back(scores[i]);
-                        }
-                    }
-                    int32_t raw_non_dup_mapq;
-                    if (mapping_quality_method == Adaptive) {
-                        raw_non_dup_mapq = get_aligner()->compute_mapping_quality(non_duplicate_scores, non_duplicate_scores.size() < 2 ? true :
-                                                                                  (non_duplicate_scores[1] < non_duplicate_scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)));
-                    }
-                    else {
-                        raw_non_dup_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
-                    }
-                    
-                    // arbitrary scaling, seems to help performance
-                    raw_non_dup_mapq *= mapq_scaling_factor;
-                    
-                    int32_t non_dup_mapq = min(raw_non_dup_mapq, max_mapping_quality);
-                    
-                    multipath_aln_pairs[0].second.set_mapping_quality(max<int32_t>(non_dup_mapq,
-                                                                                   multipath_aln_pairs[0].second.mapping_quality()));
+                    multipath_aln_pairs.front().first.set_mapping_quality(mapq_1);
+                    multipath_aln_pairs.front().second.set_mapping_quality(mapq_2);
                 }
             }
         }
