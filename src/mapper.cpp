@@ -1382,6 +1382,9 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
             // Alignments with no actual mappings don't need scoring.
             // But I wouldn't call them successfully scored.
             // So treat it as a scoring failure.
+            if (debug) {
+                cerr << "Not applying haplotype consistency due to empty path" << endl;
+            }
             return;
         }
         
@@ -1394,11 +1397,18 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         if (!path_valid) {
             // Our path does something the scorer doesn't like.
             // Bail out of applying haplotype scores.
+            if (debug) {
+                cerr << "Not applying haplotype consistency due to scoring failure" << endl;
+            }
             return;
         }
         
         // Otherwise we haven't had a scoring failure yet, so keep going
         haplotype_logprobs.push_back(haplotype_logprob);
+    }
+    
+    if (debug) {
+        cerr << "Applying haplotype consistency to " << alns.size() << " alignment candidates" << endl;
     }
     
     for (size_t i = 0; i < alns.size(); i++) {
@@ -1477,7 +1487,6 @@ Mapper::Mapper(xg::XG* xidex,
     , softclip_threshold(0)
     , max_softclip_iterations(10)
     , min_identity(0)
-    , debug(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
     , extra_multimaps(512)

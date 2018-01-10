@@ -230,6 +230,9 @@ public:
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
     int max_mapping_quality; // the cap for mapping quality
     
+    /// Set to enable debugging messages to cerr from the mapper, so a user can understand why a read maps the way it does.
+    bool debug = false;
+    
 protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
@@ -599,8 +602,6 @@ public:
     // uses the cached information about the graph in the xg index to get an approximate node length
     double average_node_length(void);
     
-    bool debug;
-
     // mem mapper parameters
     //
     //int max_mem_length; // a mem must be <= this length
