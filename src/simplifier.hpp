@@ -5,11 +5,12 @@
 #include "progressive.hpp"
 #include "vg.hpp"
 #include "vg.pb.h"
-#include "genotypekit.hpp"
+#include "traversal_finder.hpp"
 #include "utility.hpp"
 #include "path.hpp"
 #include "feature_set.hpp"
 #include "path_index.hpp"
+
 
 /** \file 
  * Provides a class for simplifying graphs by popping bubbles.

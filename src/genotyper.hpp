@@ -134,8 +134,8 @@ public:
     // This maps from length in the reference to number of snarls of that length.
     unordered_map<size_t, size_t> snarl_reference_length_histogram;
     
-    // Which reads traverse all the way through each snarl?
-    unordered_map<const Snarl*, set<string>> snarl_traversals;
+    // Which snarls have been traversed by at least one read?
+    unordered_set<const Snarl*> snarl_traversals;
     
     // What snarls even exist?
     unordered_set<const Snarl*> all_snarls;
@@ -173,18 +173,6 @@ public:
      * available for bases internal to the snarl, returns a default value.
      */
     int alignment_qual_score(VG& graph, const Snarl* snarl, const Alignment& alignment);
-
-    /**
-     * Given a path (which may run either direction through a snarl, or not touch
-     * the ends at all), collect a list of NodeTraversals in order for the part
-     * of the path that is inside the snarl, in the same orientation as the path.
-     */
-    SnarlTraversal get_traversal_of_snarl(VG& graph, const Snarl* snarl, const SnarlManager& manager, const Path& path);
-    
-    /**
-     * Make a SnarlTraversal into the string it represents, including notes for nested child snarls.
-     */
-    string traversal_to_string(VG& graph, const SnarlTraversal& path);
 
     /**
      * Check if a mapping corresponds to the beginning or end of snarl by making
@@ -322,7 +310,7 @@ public:
      * completely. May be called multiple times for a given read and snarl, and
      * may be called in parallel.
      */
-    void report_snarl_traversal(const Snarl* snarl, const SnarlManager& manager, const string& read_name, VG& graph);
+    void report_snarl_traversal(const Snarl* snarl, const SnarlManager& manager, VG& graph);
     
     /**
      * Print snarl statistics to the given stream.

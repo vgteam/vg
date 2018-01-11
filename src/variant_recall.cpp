@@ -1,7 +1,7 @@
 #include <cstdint>
 #include "variant_recall.hpp"
 #include "algorithms/topological_sort.hpp"
-
+#include "traversal_finder.hpp"
 
 namespace vg {
 
