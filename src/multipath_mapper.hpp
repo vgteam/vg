@@ -80,7 +80,7 @@ namespace vg {
         bool unstranded_clustering = true;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
-        double mapq_scaling_factor = 1.0 / 3.5;
+        double mapq_scaling_factor = 1.0 / 4.0;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
