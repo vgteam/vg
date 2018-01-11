@@ -1179,7 +1179,7 @@ class VGCITest(TestCase):
         if self.verify:
             self._verify_calleval(tag=tag, threshold=f1_threshold)
             
-    #@skip("skipping test to keep runtime down")
+    @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(8000)            
     def test_call_chr21_snp1kg(self):
         """
