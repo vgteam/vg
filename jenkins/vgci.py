@@ -1352,6 +1352,7 @@ class VGCITest(TestCase):
     def test_full_brca2_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 primary graph """
         log.info("Test start at {}".format(datetime.now()))
+        self.f1_threshold = 0.01
         self._test_bakeoff('BRCA2', 'primary', False)
 
     @timeout_decorator.timeout(600)        
