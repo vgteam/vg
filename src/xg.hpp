@@ -72,12 +72,7 @@ public:
     // Here are the ways we can construct XG objects (from graph data or files)
     ////////////////////////////////////////////////////////////////////////////
     
-    XG(void) : seq_length(0),
-               node_count(0),
-               edge_count(0),
-               path_count(0),
-               start_marker('#'),
-               end_marker('$') { }
+    XG(void) = default;
     ~XG(void);
     
     // Construct an XG index by loading from a stream. Throw an XGFormatError if
@@ -117,9 +112,9 @@ public:
                bool is_sorted_dag);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 6;
+    const static uint32_t MAX_INPUT_VERSION = 7;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 6;
+    const static uint32_t OUTPUT_VERSION = 7;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -134,10 +129,10 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     
     // General public statisitcs
-    size_t seq_length;
-    size_t node_count;
-    size_t edge_count;
-    size_t path_count;
+    size_t seq_length = 0;
+    size_t node_count = 0;
+    size_t edge_count = 0;
+    size_t path_count = 0;
     
     const uint64_t* sequence_data(void) const;
     const size_t sequence_bit_size(void) const;
@@ -385,6 +380,35 @@ public:
                                                  unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
                                                  unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
                                                  unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
+    ////////////////////////////////////////////////////////////////////////////
+    // Sample database API
+    ////////////////////////////////////////////////////////////////////////////
+    
+    // Can be used either with the gPBWT or an external index of threads.
+    
+    /// Replace the existing thread names (if any) with the new names. Each name
+    /// must be unique. Each name corresponds to a pair of embedded oriented
+    /// threads, which comprise a single thread.
+    void set_thread_names(const vector<string>& names);
+    
+    /// Given a thread id, return its name. Thread IDs are all threads as given
+    /// in names in order, and then the reverse versions of all those oriented
+    /// threads in the same order.
+    string thread_name(int64_t thread_id) const;
+    
+    /// Store the number of haplotypes that gave rise to the indexed threads. A
+    /// single haplotype may be represented by multiple threads. If the index
+    /// spans multiple contigs, threads from the same VCF phase on different
+    /// contigs from the same sample will be considered to be part of the same
+    /// haplotype for counting purposes.
+    void set_haplotype_count(size_t count);
+    
+    /// Get the number of haplotypes that gave rise to threads stored in the
+    /// thread index. TODO: needs to account for graph component or contig, as
+    /// different components may have different numbers of haplotypes on them.
+    size_t get_haplotype_count() const;
+    
+    
     
     ////////////////////////////////////////////////////////////////////////////
     // gPBWT API
@@ -429,12 +453,6 @@ public:
     // Path.
     using thread_t = vector<ThreadMapping>;
     
-    // Count matches to a subthread among embedded threads
-
-    /// Replace the existing thread names with the new names. Each name must
-    /// be unique.
-    void set_thread_names(const vector<string>& names);
-
     /// Insert a thread. Name must be unique or empty.
     /// bs_bake() and tn_bake() need to be called before queries.
     void insert_thread(const thread_t& t, const string& name);
@@ -512,9 +530,6 @@ public:
     /// Given a thread id and the reverse state get the starting side and offset
     pair<int64_t, int64_t> thread_start(int64_t thread_id) const;
 
-    /// Given a thread id, return its name
-    string thread_name(int64_t thread_id) const;
-
     /// Gives the thread start for the given thread
     pair<int64_t, int64_t> thread_start(int64_t thread_id, bool is_rev) const;
 
@@ -528,8 +543,8 @@ public:
     // Dump the whole B_s array to the given output stream as a report.
     void bs_dump(ostream& out) const;
     
-    char start_marker;
-    char end_marker;
+    char start_marker = '#';
+    char end_marker = '$';
     
 private:
 
@@ -635,6 +650,28 @@ private:
     bit_vector::select_1_type np_bv_select;
 
     ////////////////////////////////////////////////////////////////////////////
+    // Thread haplotype/sample database
+    ////////////////////////////////////////////////////////////////////////////
+    
+    // thread name storage
+    // CSA that lets us look up names efficiently, build from ordered null-delimited names
+    // thread ids are taken to be the rank in the source text for tn_csa
+    csa_bitcompressed<> tn_csa;
+    // allows us to go from positions in the CSA to thread ids
+    // rank(i) gives us our thread index for a position in tn_csa's source
+    // select(i) gives us the thread name start for a given thread id
+    sd_vector<> tn_cbv;
+    sd_vector<>::rank_1_type tn_cbv_rank;
+    sd_vector<>::select_1_type tn_cbv_select;
+    
+    // Stores the number of haplotypes per contig that gave rise to the threads in the database
+    size_t haplotype_count;
+    
+    /// Back-calculate haplotype_count from the thread names for upgrading old XGs.
+    void count_haplotypes();
+    
+
+    ////////////////////////////////////////////////////////////////////////////
     // Succinct thread storage (the gPBWT)
     ////////////////////////////////////////////////////////////////////////////
     
@@ -686,16 +723,7 @@ private:
     // isn't used; we just place these by side.
     rank_select_int_vector bs_single_array;
 
-    // thread name storage
-    // CSA that lets us look up names efficiently, build from ordered null-delimited names
-    // thread ids are taken to be the rank in the source text for tn_csa
-    csa_bitcompressed<> tn_csa;
-    // allows us to go from positions in the CSA to thread ids
-    // rank(i) gives us our thread index for a position in tn_csa's source
-    // select(i) gives us the thread name start for a given thread id
-    sd_vector<> tn_cbv;
-    sd_vector<>::rank_1_type tn_cbv_rank;
-    sd_vector<>::select_1_type tn_cbv_select;
+    // Glue to connect thread names and IDs to their locations in the gPBWT
     // allows us to go from thread ids to thread start positions, enabling named queries of the graph
     vlc_vector<> tin_civ; // from thread id to side id / reverse thread id to side id
     vlc_vector<> tio_civ; // from thread id to offset / reverse thread id to offset

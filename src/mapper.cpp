@@ -1346,18 +1346,30 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         return;
     }
     
+    if (xindex == nullptr) {
+        // There's no database of haplotype names/counts available.
+        // So we don't know how many haplotypes we should be looking for.
+        return;
+    }
+    
     if (haplotype_consistency_exponent == 0) {
         // It won't matter either way
         return;
     }
     
+    size_t haplotype_count = xindex->get_haplotype_count();
+    
+    if (haplotype_count == 0) {
+        // The XG apparently has no path database information. Maybe it wasn't built with the GBWT?
+        throw runtime_error("Cannot score any haplotypes with a 0 haplotype count; does the XG contain the path database?");
+    }
+    
     // We don't look at strip_bonuses here, because we need these bonuses added
     // always in order to choose between alignments.
     
-    // Build Yohei's recombination probability calculator. TODO: We may be
-    // feeding it total contiguous haplotype chunks when it really wants total
-    // actual haplotypes (i.e. haplotypes per chromosome).
-    haplo::haploMath::RRMemo haplo_memo(NEG_LOG_PER_BASE_RECOMB_PROB, gbwt->sequences());
+    // Build Yohei's recombination probability calculator. Feed it the haplotype
+    // count from the XG index that was generated alongside the GBWT.
+    haplo::haploMath::RRMemo haplo_memo(NEG_LOG_PER_BASE_RECOMB_PROB, haplotype_count);
     
     // This holds all the computed haplotype logprobs
     vector<double> haplotype_logprobs;
@@ -1367,10 +1379,16 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         // On a first pass through, compute all the scores and make sure they all can be computed
         
         if (aln->path().mapping_size() == 0) {
-            // Alignments with no actual mappings don't need scoring.
-            // But I wouldn't call them successfully scored.
-            // So treat it as a scoring failure.
-            return;
+            // Alignments with no actual mappings don't need scoring. But we
+            // don't want to treat them as scoring failures, because we expect
+            // some due to e.g. read pair mapping locations where one read maps
+            // and the other needs rescue. We will skip them but continue on
+            // with the rescoring, and also skip them when applying the scores.
+            
+            // Do a no-op adjustment
+            haplotype_logprobs.push_back(0);
+            
+            continue;
         }
         
         // Score the path
@@ -1382,6 +1400,9 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         if (!path_valid) {
             // Our path does something the scorer doesn't like.
             // Bail out of applying haplotype scores.
+            if (debug) {
+                cerr << "Not applying haplotype consistency due to scoring failure" << endl;
+            }
             return;
         }
         
@@ -1389,14 +1410,26 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         haplotype_logprobs.push_back(haplotype_logprob);
     }
     
+    if (debug) {
+        cerr << "Applying haplotype consistency to " << alns.size() << " alignment candidates" << endl;
+    }
+    
     for (size_t i = 0; i < alns.size(); i++) {
         // Get the aligner so we can convert from logprob to score points
         // TODO: This should always be the same aligner!
         auto* aligner = get_aligner(!alns[i]->quality().empty());
         assert(aligner->log_base != 0);
-    
-        // Convert to points, raise to haplotype consistency exponent power, and apply
-        alns[i]->set_score(alns[i]->score() + round(haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base)));
+        
+        if (alns[i]->path().mapping_size() != 0) {
+            // We actually did rescore this one
+        
+            // Convert to points, raise to haplotype consistency exponent power, and apply
+            alns[i]->set_score(alns[i]->score() + 
+                round(haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base)));
+            // Note that we successfully corrected the score
+            alns[i]->set_haplotype_scored(true);
+        }
+        // Otherwise leave haplotype_scored as false, the default.
     }
 }
     
@@ -1463,7 +1496,6 @@ Mapper::Mapper(xg::XG* xidex,
     , softclip_threshold(0)
     , max_softclip_iterations(10)
     , min_identity(0)
-    , debug(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
     , extra_multimaps(512)
@@ -2931,7 +2963,6 @@ Mapper::align_mem_multi(const Alignment& aln,
     }
     
     assert(alns.size() == used_clusters.size());
-
 #ifdef debug_mapper
 #pragma omp critical
     if (debug) {
