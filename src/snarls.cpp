@@ -1597,7 +1597,7 @@ namespace vg {
         return graph->follow_edges(handle, go_left, handle_edge);
     }
     
-    void NetGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
+void NetGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
         // Find all the handles by a traversal.
         
         // We have to do the traversal on the underlying backing graph, because

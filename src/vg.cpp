@@ -152,14 +152,23 @@ bool VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     return true;
 }
 
-void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
-    for (id_t i = 0; i < graph.node_size(); ++i) {
-        // For each node in the backing graph
-        // Get its ID and make a handle to it forward
-        // And pass it to the iteratee
-        if (!iteratee(get_handle(graph.node(i).id(), false))) {
-            // Iteratee stopped
-            return;
+void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
+    if (parallel) {
+#pragma omp parallel for schedule(dynamic,1)
+        for (id_t i = 0; i < graph.node_size(); ++i) {
+            // For each node in the backing graph
+            // Get its ID and make a handle to it forward
+            // And pass it to the iteratee
+            if (!iteratee(get_handle(graph.node(i).id(), false))) {
+                // Iteratee stopped, but we can't do anything if we want to run this in parallel
+                //return;
+            }
+        }
+    } else { // same but serial
+        for (id_t i = 0; i < graph.node_size(); ++i) {
+            if (!iteratee(get_handle(graph.node(i).id(), false))) {
+                return;
+            }
         }
     }
 }

@@ -122,7 +122,7 @@ void for_each_kmer(const HandleGraph& graph, size_t k,
                     }
                 }
             }
-        });
+        }, true);
 }
 
 ostream& operator<<(ostream& out, const kmer_t& kmer) {

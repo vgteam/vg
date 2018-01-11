@@ -1878,10 +1878,10 @@ bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     }
 }
 
-void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
+void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     // How big is the g vector entry size we are on?
     size_t entry_size = 0;
-    for (size_t g = 0; g < g_iv.size(); g += entry_size) {
+    auto lambda = [&](size_t g) {
         // Make the handle
         // We need to make sure our index won't set the orientation bit.
         assert((g & (~LOW_BITS)) == 0);
@@ -1901,6 +1901,16 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const 
         
         // This record is the header plus all the edge records it contains
         entry_size = G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
+    };
+    if (parallel) {
+#pragma omp parallel for schedule(dynamic,1)
+        for (size_t g = 0; g < g_iv.size(); g += entry_size) {
+            lambda(g);
+        }
+    } else {
+        for (size_t g = 0; g < g_iv.size(); g += entry_size) {
+            lambda(g);
+        }
     }
 }
 

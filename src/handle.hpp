@@ -121,7 +121,7 @@ public:
     
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const = 0;
+    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const = 0;
     
     /// Return the number of nodes in the graph
     /// TODO: can't be node_count because XG has a field named node_count.
@@ -169,7 +169,7 @@ public:
     /// orientations, in their internal stored order. Works with void-returning iteratees.
     /// MUST be pulled into implementing classes with `using` in order to work!
     template <typename T>
-    auto for_each_handle(T&& iteratee) const
+    auto for_each_handle(T&& iteratee, bool parallel = false) const
     -> typename std::enable_if<std::is_void<decltype(iteratee(get_handle(0, false)))>::value>::type {
         // Make a wrapper that puts a bool return type on.
         function<bool(const handle_t&)> lambda = [&](const handle_t& found) {
@@ -178,7 +178,7 @@ public:
         };
         
         // Use that
-        for_each_handle(lambda);
+        for_each_handle(lambda, parallel);
     }
     
     ////////////////////////////////////////////////////////////////////////////
