@@ -427,9 +427,7 @@ class VGCITest(TestCase):
                 # through _n for however many unbroken threads actually make up
                 # the haplotype we want to extract.
                 
-                # All threads seem to have names like _thread_NA12878_17_0_0 and
-                # _thread_NA12878_17_1_0
-                cmd = ['vg', 'find', '-q', '_thread_{}_{}_{}_0'.format(sample, chrom, hap),
+                cmd = ['vg', 'find', '-q', '_thread_{}_{}_{}'.format(sample, chrom, hap),
                        '-x', os.path.join(out_store_name, os.path.basename(index_path))]
                 toil.start(Job.wrapJobFn(toil_call, context, cmd,
                                          work_dir = os.path.abspath(self.workdir),
