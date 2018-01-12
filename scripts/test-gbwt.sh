@@ -26,6 +26,13 @@ FASTA_BASENAME="CHR21.fa"
 SOURCE_BASE_URL="s3://cgl-pipeline-inputs/vg_cgl/bakeoff"
 # Define the region to build the graph on, as contig[:start-end]
 GRAPH_REGION="21"
+
+# Set a FASTQ to model reads after
+TRAINING_FASTQ="ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz"\
+# And a read simulation seed
+READ_SEED="75"
+# And a read count
+READ_COUNT="1000"
     
 # Actually do a smaller test
 REGION_NAME="BRCA1"
@@ -35,6 +42,9 @@ VCF_BASENAME="1kg_hg38-BRCA1.vcf.gz"
 
 # Define the sample to use for synthesizing reads
 SAMPLE_NAME="HG00096"
+
+# What min allele frequency limit do we use?
+MIN_AF="0.0335570469"
 
 
 # Now we need to parse our arguments
@@ -101,28 +111,57 @@ if [[ ! -d "${GRAPHS_PATH}" ]]; then
         --control_sample "${SAMPLE_NAME}" \
         --haplo_sample "${SAMPLE_NAME}" \
         --regions "${GRAPH_REGION}" \
-        --min_af 0.0335570469 \
+        --min_af "${MIN_AF}" \
         --primary \
         --gcsa_index \
         --xg_index \
         --gbwt_index
         
+    # Now we need to simulate reads from the two haplotypes
+    # This will make a "sim.gam"
+    toil-vg sim "${TREE_PATH}" "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo_thread_0.xg" "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo_thread_1.xg" "${READ_COUNT}" "${GRAPHS_PATH}" \
+    --annotate_xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+    --gam \
+    --seed "${READ_SEED}" \
+    --fastq "${TRAINING_FASTQ}"
 fi
 
-exit
-
-# Now we run the actual mappings for the experiment
-
-# Where do we get our simulated reads for our sample? Last time I got them by running the Jenkins tests.
-
 # Do the full snp1kg graph with GBWT
-toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg+gbwt" \
+toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg-gbwt" \
     --use-gbwt \
     --map_opts "--hap-exp 1" \
-    --gam_input_reads sim-mhc.gam \
-    --gam-input-xg index-gpbwt-mhc.xg \
+    --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
+    --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+    --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+    --gam-names snp1kg-gbwt
+    
+# And without
+toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg" \
+    --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
+    --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
     --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
     --gam-names snp1kg
+    
+# And with the min allele frequency
+toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg-filtered" \
+    --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
+    --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+    --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minaf_${MIN_AF}" \
+    --gam-names snp1kg-filtered
+    
+# And the negative control with correct variants removed
+toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg-negative" \
+    --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
+    --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+    --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minus_${SAMPLE_NAME}" \
+    --gam-names snp1kg-negative
+    
+# And the primary path only
+toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/primary" \
+    --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
+    --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+    --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_primary" \
+    --gam-names primary
 
 
 
