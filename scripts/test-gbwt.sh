@@ -169,10 +169,10 @@ toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/primary" \
     
 # Combine all the position.results.tsv files into one
 cat "${OUTPUT_PATH}/snp1kg/position.results.tsv" > "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-gbwt/position.results.tsv" >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-filtered/position.results.tsv" >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-negative/position.results.tsv" >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/primary/position.results.tsv" >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/snp1kg-gbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/snp1kg-filtered/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/snp1kg-negative/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/primary/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
 
 # Determine our source directory, where the ROC plotting script also lives
 # See <https://stackoverflow.com/a/246128>
@@ -180,6 +180,8 @@ SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Do the R plot
 Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
+
+echo "Successfully produced ROC plot ${OUTPUT_PATH}/roc.svg"
 
 
 
