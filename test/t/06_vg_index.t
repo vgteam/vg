@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 49
+plan tests 50
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 
@@ -85,7 +85,12 @@ is "$(cat x.vg part.vg | vg view -j - | jq '.path[].name' | grep '_thread' | wc 
 
 is $(vg find -x x.xg -q _thread_1_x_0 | vg paths -L - | wc -l) 1 "a specific thread may be pulled from the graph by name"
 
+vg index -x x.xg -v small/x.vcf.gz x.vg --exclude 1
+vg find -t -x x.xg >part.vg
+is "$(cat x.vg part.vg | vg view -j - | jq '.path[].name' | grep '_thread' | wc -l)" 0 "samples can be excluded from haplotype indexing"
+
 rm -f x.vg x.xg part.vg x.gcsa
+
 
 vg construct -r small/xy.fa -v small/xy.vcf.gz -a >xy.vg
 vg index -x xy.xg -v small/xy.vcf.gz xy.vg
