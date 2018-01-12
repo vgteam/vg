@@ -12,7 +12,7 @@
 # spurious alignments to rare variants)
 
 # OK so on to the actual code.
-set -e
+set -ex
 
 # Define constants
 
@@ -28,7 +28,7 @@ SOURCE_BASE_URL="s3://cgl-pipeline-inputs/vg_cgl/bakeoff"
 GRAPH_REGION="21"
 
 # Set a FASTQ to model reads after
-TRAINING_FASTQ="ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz"\
+TRAINING_FASTQ="ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz"
 # And a read simulation seed
 READ_SEED="75"
 # And a read count
@@ -119,12 +119,23 @@ if [[ ! -d "${GRAPHS_PATH}" ]]; then
         
     # Now we need to simulate reads from the two haplotypes
     # This will make a "sim.gam"
-    toil-vg sim "${TREE_PATH}" "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo_thread_0.xg" "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo_thread_1.xg" "${READ_COUNT}" "${GRAPHS_PATH}" \
-    --annotate_xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    --gam \
-    --seed "${READ_SEED}" \
-    --fastq "${TRAINING_FASTQ}"
+    toil-vg sim "${TREE_PATH}" \
+        "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo_thread_0.xg" \
+        "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo_thread_1.xg" \
+        "${READ_COUNT}" \
+        "${GRAPHS_PATH}" \
+        --annotate_xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+        --gam \
+        --seed "${READ_SEED}" \
+        --fastq "${TRAINING_FASTQ}"
 fi
+
+# Do the full snp1kg graph without the GBWT
+toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg" \
+    --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
+    --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+    --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+    --gam-names snp1kg
 
 # Do the full snp1kg graph with GBWT
 toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg-gbwt" \
@@ -134,13 +145,6 @@ toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg-gbwt" \
     --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
     --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
     --gam-names snp1kg-gbwt
-    
-# And without
-toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg" \
-    --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
-    --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-    --gam-names snp1kg
     
 # And with the min allele frequency
 toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg-filtered" \
@@ -162,6 +166,21 @@ toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/primary" \
     --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
     --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_primary" \
     --gam-names primary
+    
+# Combine all the position.results.tsv files into one
+cat "${OUTPUT_PATH}/snp1kg/position.results.tsv" > "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/snp1kg-gbwt/position.results.tsv" >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/snp1kg-filtered/position.results.tsv" >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/snp1kg-negative/position.results.tsv" >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/primary/position.results.tsv" >> "${OUTPUT_PATH}/position.results.tsv"
+
+# Determine our source directory, where the ROC plotting script also lives
+# See <https://stackoverflow.com/a/246128>
+SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Do the R plot
+Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
+
 
 
 
