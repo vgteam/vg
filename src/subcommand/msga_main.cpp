@@ -3,6 +3,8 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../stream.hpp"
+#include "../kmer.hpp"
+#include "../build_index.hpp"
 #include "../algorithms/topological_sort.hpp"
 
 #include <unistd.h>
@@ -530,7 +532,7 @@ int main_msga(int argc, char** argv) {
                     if (edge_max) path_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
                     path_graph.keep_path(name);
                     tmpfiles.push_back(
-                            path_graph.write_gcsa_kmers_to_tmpfile(idx_kmer_size, false, false, head_id, tail_id));
+                        write_gcsa_kmers_to_tmpfile(path_graph, idx_kmer_size, head_id, tail_id));
                 });
             // Make the index with the kmers
             gcsa::InputGraph input_graph(tmpfiles, true);
@@ -550,10 +552,10 @@ int main_msga(int argc, char** argv) {
             gcsa_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
             if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
             // then index
-            gcsa_graph.build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, idx_path_only, false, doubling_steps);
+            build_gcsa_lcp(gcsa_graph, gcsaidx, lcpidx, idx_kmer_size, doubling_steps);
         } else {
             // if no complexity reduction is requested, just build the index
-            graph->build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, idx_path_only, false, doubling_steps);
+            build_gcsa_lcp(*graph, gcsaidx, lcpidx, idx_kmer_size, doubling_steps);
         }
         mapper = new Mapper(xgidx, gcsaidx, lcpidx);
         { // set mapper variables

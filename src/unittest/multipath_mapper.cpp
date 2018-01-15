@@ -6,6 +6,7 @@
 #include "json2pb.h"
 #include "vg.pb.h"
 #include "../multipath_mapper.hpp"
+#include "../build_index.hpp"
 #include "catch.hpp"
 
 namespace vg {
@@ -136,7 +137,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     gcsa::LCPArray* lcpidx = nullptr;
     
     // Build the GCSA index
-    graph.build_gcsa_lcp(gcsaidx, lcpidx, 16, false, false, 3);
+    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
     xg::XG xg_index(proto_graph);
@@ -311,7 +312,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     gcsa::LCPArray* lcpidx = nullptr;
     
     // Build the GCSA index
-    graph.build_gcsa_lcp(gcsaidx, lcpidx, 16, false, false, 3);
+    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
     xg::XG xg_index(proto_graph);
@@ -462,7 +463,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     gcsa::LCPArray* lcpidx = nullptr;
     
     // Build the GCSA index
-    graph.build_gcsa_lcp(gcsaidx, lcpidx, 16, false, false, 3);
+    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
     xg::XG xg_index(proto_graph);

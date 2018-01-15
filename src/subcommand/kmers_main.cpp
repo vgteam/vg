@@ -35,7 +35,6 @@ void help_kmers(char** argv) {
          << "                          kmer, starting position, previous characters," << endl
          << "                          successive characters, successive positions." << endl
          << "                          Forward and reverse strand kmers are reported." << endl
-         << "    -z, --handle-alg      Use the handle graph algorithm when generating kmers." << endl
          << "    -B, --gcsa-binary     Write the GCSA graph in binary format." << endl
          << "    -F, --forward-only    When producing GCSA2 output, don't describe the reverse strand" << endl
          << "    -P, --path-only       Only consider kmers if they occur in a path embedded in the graph" << endl
@@ -86,12 +85,11 @@ int main_kmers(int argc, char** argv) {
             {"forward-only", no_argument, 0, 'F'},
             {"gcsa-binary", no_argument, 0, 'B'},
             {"path-only", no_argument, 0, 'P'},
-            {"handle-alg", no_argument, 0, 'z'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:j:pt:e:gdnH:T:FBPz",
+        c = getopt_long (argc, argv, "hk:j:pt:e:gdnH:T:FBP",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -120,11 +118,6 @@ int main_kmers(int argc, char** argv) {
             case 'g':
                 gcsa_out = true;
                 break;
-
-        case 'z':
-            gcsa_out = true;
-            handle_alg = true;
-            break;
 
             case 'F':
                 forward_only = true;
@@ -190,18 +183,9 @@ int main_kmers(int argc, char** argv) {
             exit(1);
         }
         if (!gcsa_binary) {
-            if (handle_alg) {
-                graphs.write_gcsa_out_handle(cout, kmer_size, path_only, forward_only, head_id, tail_id);
-            } else {
-                graphs.write_gcsa_out_old(cout, kmer_size, path_only, forward_only, head_id, tail_id); 
-            }
+            graphs.write_gcsa_kmers_ascii(cout, kmer_size, head_id, tail_id);
         } else {
-            if (handle_alg) {
-                graphs.write_gcsa_kmers_binary_handle(cout, kmer_size, head_id, tail_id);
-            } else {
-                graphs.write_gcsa_kmers_binary_old(cout, kmer_size, path_only, forward_only, head_id, tail_id);
-
-            }
+            graphs.write_gcsa_kmers_binary(cout, kmer_size, head_id, tail_id);
         }
     } else {
         //function<void(const kmer_t& kmer)>

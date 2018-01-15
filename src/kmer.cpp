@@ -25,6 +25,7 @@ void for_each_kmer(const HandleGraph& graph, size_t k,
                     pos_t end = make_pos_t(handle_id, handle_is_rev, min(handle_length, i+k));
                     kmer_t kmer = kmer_t(handle_seq.substr(offset(begin), offset(end)-offset(begin)), begin, end, handle);
                     // determine previous context
+                    // if we are running with head/tail nodes, we'll need to do some trickery to eliminate the reverse complement versions of both
                     if (i == 0) {
                         // look at the previous nodes
                         graph.follow_edges(handle, true, [&](const handle_t& prev) {
@@ -93,8 +94,52 @@ void for_each_kmer(const HandleGraph& graph, size_t k,
                                 kmer.next_pos.push_back(kmer.end);
                                 kmer.next_char.push_back(graph.get_sequence(end_handle)[offset(kmer.end)]);
                             }
-                            // now pass the kmer and its context to our callback
-                            lambda(kmer);
+                            // if we have head and tail ids set, iterate through our positions and do the flip
+                            if (using_head_tail) {
+                                // flip the beginning
+                                if (id(kmer.begin) == head_id && is_rev(kmer.begin)) {
+                                    get_id(kmer.begin) = tail_id;
+                                    get_is_rev(kmer.begin) = false;
+                                } else if (id(kmer.begin) == tail_id && is_rev(kmer.begin)) {
+                                    get_id(kmer.begin) = head_id;
+                                    get_is_rev(kmer.begin) = false;
+                                }
+                                // flip the nexts
+                                for (auto& pos : kmer.next_pos) {
+                                    if (id(pos) == head_id && is_rev(pos)) {
+                                        get_id(pos) = tail_id;
+                                        get_is_rev(pos) = false;
+                                    } else if (id(pos) == tail_id && is_rev(pos)) {
+                                        get_id(pos) = head_id;
+                                        get_is_rev(pos) = false;
+                                    }
+                                }
+                                // if we aren't both from and to a head/tail node, emit
+                                /*
+                                if (!((offset(kmer.begin) == 0
+                                       && id(kmer.begin) == head_id
+                                       && kmer.next_pos.size() == 1
+                                       && id(kmer.next_pos.front()) == tail_id)
+                                      || (offset(kmer.begin) == 0
+                                          && id(kmer.begin) == tail_id
+                                          && kmer.next_pos.size() == 1
+                                          && id(kmer.next_pos.front()) == head_id))) {
+                                    lambda(kmer);
+                                }
+                                */
+                                if (kmer.prev_pos.size() == 1 && kmer.next_pos.size() == 1
+                                    && (offset(kmer.begin) == 0)
+                                    && (id(kmer.begin) == head_id || id(kmer.begin) == tail_id)
+                                    && (id(kmer.prev_pos.front()) == head_id || id(kmer.prev_pos.front()) == tail_id)
+                                    && (id(kmer.next_pos.front()) == head_id || id(kmer.next_pos.front()) == tail_id)) {
+                                    // skip
+                                } else {
+                                    lambda(kmer);
+                                }
+                            } else {
+                                // now pass the kmer and its context to our callback
+                                lambda(kmer);
+                            }
                             q = kmers.erase(q);
                         } else {
                             // do we finish in the current node?
@@ -152,6 +197,12 @@ void kmer_to_gcsa_kmers(const kmer_t& kmer, const gcsa::Alphabet& alpha, const f
     gcsa::byte_type successors = encode_chars(kmer.next_char, alpha);
     gcsa::KMer k;
     k.key = gcsa::Key::encode(alpha, kmer.seq, predecessors, successors);
+    if (offset(kmer.begin) >= 1024) {
+        cerr << "Found kmer with offset >= 1024. GCSA2 cannot handle nodes greater than 1024 bases long. "
+             << "To enable indexing, modify your graph using `vg mod -X 256 x.vg >y.vg`. "
+             << kmer << endl;
+        exit(1);
+    }
     k.from = gcsa::Node::encode(id(kmer.begin), offset(kmer.begin), is_rev(kmer.begin));
     for (auto& pos : kmer.next_pos) {
         k.to = gcsa::Node::encode(id(pos), offset(pos), is_rev(pos));
@@ -214,6 +265,7 @@ string write_gcsa_kmers_to_tmpfile(const HandleGraph& graph, int kmer_size, id_t
     out.close();
     return tmpfile;
 }
+
 
 
 }
