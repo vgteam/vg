@@ -32,19 +32,22 @@ TRAINING_FASTQ="ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12
 # And a read simulation seed
 READ_SEED="75"
 # And a read count
-READ_COUNT="1000"
+READ_COUNT="100000"
     
 # Actually do a smaller test
-REGION_NAME="BRCA1"
-GRAPH_REGION="17:43044293-43125482"
-FASTA_BASENAME="chr17.fa.gz"
-VCF_BASENAME="1kg_hg38-BRCA1.vcf.gz"
+REGION_NAME="MHC"
+GRAPH_REGION="6:28510119-33480577"
+FASTA_BASENAME="chr6.fa.gz"
+VCF_BASENAME="1kg_hg38-MHC.vcf.gz"
 
 # Define the sample to use for synthesizing reads
 SAMPLE_NAME="HG00096"
 
 # What min allele frequency limit do we use?
 MIN_AF="0.0335570469"
+
+# Do we actually want to run the mapeval jobs? Or just do plotting?
+RUN_JOBS="1"
 
 
 # Now we need to parse our arguments
@@ -86,6 +89,8 @@ if [[ -e "${TREE_PATH}" ]]; then
     exit 1
 fi
 
+mkdir -p "${TREE_PATH}"
+
 # Now we need to make sure our graphs exist and are downloaded
 
 if [[ ! -d "${GRAPHS_PATH}" ]]; then
@@ -102,7 +107,7 @@ if [[ ! -d "${GRAPHS_PATH}" ]]; then
     
     # Construct the graphs
     # Hardcoded constants here go with the snp1kg URLs above.
-    toil-vg construct "${TREE_PATH}" "${GRAPHS_PATH}" \
+    toil-vg construct "${TREE_PATH}/construct" "${GRAPHS_PATH}" \
         --vcf "${SOURCE_BASE_URL}/${VCF_BASENAME}" \
         --fasta "${SOURCE_BASE_URL}/${FASTA_BASENAME}" \
         --out_name "snp1kg-${REGION_NAME}" \
@@ -119,7 +124,7 @@ if [[ ! -d "${GRAPHS_PATH}" ]]; then
         
     # Now we need to simulate reads from the two haplotypes
     # This will make a "sim.gam"
-    toil-vg sim "${TREE_PATH}" \
+    toil-vg sim "${TREE_PATH}/sim" \
         "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo_thread_0.xg" \
         "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo_thread_1.xg" \
         "${READ_COUNT}" \
@@ -130,42 +135,74 @@ if [[ ! -d "${GRAPHS_PATH}" ]]; then
         --fastq "${TRAINING_FASTQ}"
 fi
 
-# Do the full snp1kg graph without the GBWT
-toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg" \
-    --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
-    --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-    --gam-names snp1kg
+if [[ "${RUN_JOBS}" == "1" ]]; then
+    # We actually want to run the toil-vg jobs
 
-# Do the full snp1kg graph with GBWT
-toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg-gbwt" \
-    --use-gbwt \
-    --map_opts "--hap-exp 1" \
-    --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
-    --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-    --gam-names snp1kg-gbwt
+    # Now we do a bunch of stuff in parallel
+    JOB_ARRAY=()
     
-# And with the min allele frequency
-toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg-filtered" \
-    --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
-    --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minaf_${MIN_AF}" \
-    --gam-names snp1kg-filtered
-    
-# And the negative control with correct variants removed
-toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/snp1kg-negative" \
-    --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
-    --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minus_${SAMPLE_NAME}" \
-    --gam-names snp1kg-negative
-    
-# And the primary path only
-toil-vg mapeval "${TREE_PATH}" "${OUTPUT_PATH}/primary" \
-    --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
-    --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_primary" \
-    --gam-names primary
+    # What do they return?
+    JOB_RETURNS=()
+
+    # Do the full snp1kg graph without the GBWT
+    toil-vg mapeval "${TREE_PATH}/snp1kg" "${OUTPUT_PATH}/snp1kg" \
+        --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
+        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+        --gam-names snp1kg 2>&1 &
+    JOB_ARRAY+=("$!")
+
+    # Do the full snp1kg graph with GBWT
+    toil-vg mapeval "${TREE_PATH}/snp1kg-gbwt" "${OUTPUT_PATH}/snp1kg-gbwt" \
+        --use-gbwt \
+        --map_opts "--hap-exp 1" \
+        --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
+        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+        --gam-names snp1kg-gbwt 2>&1 &
+    JOB_ARRAY+=("$!")
+        
+    # And with the min allele frequency
+    toil-vg mapeval "${TREE_PATH}/snp1kg-filtered" "${OUTPUT_PATH}/snp1kg-filtered" \
+        --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
+        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minaf_${MIN_AF}" \
+        --gam-names snp1kg-filtered 2>&1 &
+    JOB_ARRAY+=("$!")
+        
+    # And the negative control with correct variants removed
+    toil-vg mapeval "${TREE_PATH}/snp1kg-negative" "${OUTPUT_PATH}/snp1kg-negative" \
+        --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
+        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minus_${SAMPLE_NAME}" \
+        --gam-names snp1kg-negative 2>&1 &
+    JOB_ARRAY+=("$!")
+        
+    # And the primary path only
+    toil-vg mapeval "${TREE_PATH}/primary" "${OUTPUT_PATH}/primary" \
+        --gam_input_reads "${GRAPHS_PATH}/sim.gam" \
+        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_primary" \
+        --gam-names primary 2>&1 &
+    JOB_ARRAY+=("$!")
+
+    # Now wait for all the jobs and fail if any failed
+    for JOB in "${JOB_ARRAY[@]}"; do
+        wait "${JOB}"
+        JOB_RETURNS+=("$?")
+    done
+
+    JOB_NUMBER=1
+    for JOB_RETURN in "${JOB_RETURNS[@]}"; do
+        echo "Job ${JOB_NUMBER} exit status: ${JOB_RETURN}"
+        ((JOB_NUMBER=JOB_NUMBER+1))
+        if [[ "${JOB_RETURN}" != "0" ]]; then
+            echo "Job failed!" 1>&2
+            exit 1
+        fi
+    done
+
+fi
     
 # Combine all the position.results.tsv files into one
 cat "${OUTPUT_PATH}/snp1kg/position.results.tsv" > "${OUTPUT_PATH}/position.results.tsv"
@@ -181,6 +218,7 @@ SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Do the R plot
 Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
 
+rmdir "${TREE_PATH}"
 echo "Successfully produced ROC plot ${OUTPUT_PATH}/roc.svg"
 
 
