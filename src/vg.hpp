@@ -249,6 +249,8 @@ public:
     /// populates the given Graph and returns a flag for whether it's valid).
     VG(function<bool(Graph&)>& get_next_graph, bool showp = false, bool warn_on_duplicates = true);
 
+    // To construct from a single Protobuf graph, make an empty VG and use .extend()
+
     /// Construct from sets of nodes and edges. For example, from a subgraph of
     /// another graph.
     VG(set<Node*>& nodes, set<Edge*>& edges);
@@ -690,7 +692,9 @@ public:
     bool adjacent(const Position& pos1, const Position& pos2);
 
     /// Create a node. Use the VG class to generate ids.
-    Node* create_node(const string& seq, id_t id = 0);
+    Node* create_node(const string& seq);
+    /// Create a node. Use a specified, nonzero node ID.
+    Node* create_node(const string& seq, id_t id);
     /// Find a particular node.
     Node* get_node(id_t id);
     /// Get the subgraph of a node and all the edges it is responsible for

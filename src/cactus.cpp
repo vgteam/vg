@@ -65,7 +65,7 @@ static void compute_side_components(VG& graph,
 
 void* mergeNodeObjects(void* a, void* b) {
     // One of the objects is going to get returned, and the other one is going
-    // to get freed (since the graph is supposed to won them all).
+    // to get freed (since the graph is supposed to own them all).
     id_t* to_return;
     id_t* to_free;
     
@@ -76,6 +76,10 @@ void* mergeNodeObjects(void* a, void* b) {
         to_free = (id_t*)a;
         to_return = (id_t*)b;
     }
+    
+#ifdef debug
+    cerr << "Free object " << to_free << " = " << *to_free << " and keep object " << to_return << " = " << *to_return << endl;
+#endif
     
     // Free the thing we aren't keeping
     free(to_free);
@@ -193,12 +197,14 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
     
     // copy each component into cactus node
     for (int i = 0; i < components.size(); ++i) {
-#ifdef debug
-        cout << "Creating cactus node for component " << i << " with size " << components[i].size() << endl;
-#endif
         id_t* cactus_node_id = (id_t*)malloc(sizeof(id_t));
         *cactus_node_id = i;
         cactus_nodes[i] = stCactusNode_construct(cactus_graph, cactus_node_id);
+        
+#ifdef debug
+        cerr << "Created cactus node " << cactus_nodes[i] << " with object " << cactus_node_id
+            << " for component " << i << " with size " << components[i].size() << endl;
+#endif
     }
 
     // Make edge for each vg node connecting two adjacency components. We also
@@ -227,7 +233,7 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
                 cac_side2->node = other_side.node;
                 cac_side2->is_end = other_side.is_end;
 #ifdef debug
-                cout << "Creating cactus edge for sides " << side << " -- " << other_side << ": "
+                cerr << "Creating cactus edge for sides " << side << " -- " << other_side << ": "
                      << i << " -> " << j << endl;
 #endif
 
@@ -635,9 +641,14 @@ VG cactus_to_vg(stCactusGraph* cactus_graph) {
 
     // keep track of mapping between nodes in graph
     function<Node*(stCactusNode*)> map_node = [&](stCactusNode* cac_node) -> Node* {
+#ifdef debug
+        cerr << "Node " << cac_node << " has object " << stCactusNode_getObject(cac_node)
+            << " = " << *(id_t*)stCactusNode_getObject(cac_node) << endl;
+#endif
         if (node_map.find(cac_node) == node_map.end()) {
-            id_t cac_id = *(id_t*)stCactusNode_getObject(cac_node);
-            Node* vg_node = vg_graph.create_node("N", cac_id);
+            // Make sure to push IDs up by 1 because component numbering starts at 0    
+            id_t cac_id = *(id_t*)stCactusNode_getObject(cac_node) + 1;
+            Node* vg_node = vg_graph.create_node("N", cac_id + 1);
             node_map[cac_node] = vg_node;
             return vg_node;
         } else {
@@ -657,9 +668,6 @@ VG cactus_to_vg(stCactusGraph* cactus_graph) {
             pair<stCactusNode*, stCactusNode*> cac_edge = make_pair(
                 stCactusEdgeEnd_getNode(edge_end),
                 stCactusEdgeEnd_getOtherNode(edge_end));
-            // how to use?
-            CactusSide* cac_side = (CactusSide*)stCactusEdgeEnd_getObject(
-                stCactusEdgeEnd_getLink(edge_end));
             // make a new vg edge
             Edge* vg_edge = vg_graph.create_edge(map_node(cac_edge.first),
                                                  map_node(cac_edge.second));
