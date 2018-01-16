@@ -52,7 +52,7 @@ void help_map(char** argv) {
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
-         << "    -a, --hap-bonus INT     the bonus for haplotype consistency [1]" << endl
+         << "    -a, --hap-exp FLOAT     the exponent for haplotype consistency likelihood in alignment score [1]" << endl
          << "    -A, --qual-adjust       perform base quality adjusted alignments (requires base quality input)" << endl
          << "input:" << endl
          << "    -s, --sequence STR      align a string to the graph in graph.vg using partial order alignment" << endl
@@ -122,7 +122,7 @@ int main_map(int argc, char** argv) {
     int8_t gap_open = 6;
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
-    int8_t haplotype_consistency_bonus = 1;
+    double haplotype_consistency_exponent = 1;
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
@@ -202,7 +202,7 @@ int main_map(int argc, char** argv) {
                 {"fragment", required_argument, 0, 'I'},
                 {"fragment-x", required_argument, 0, 'S'},
                 {"full-l-bonus", required_argument, 0, 'L'},
-                {"hap-bonus", required_argument, 0, 'a'},
+                {"hap-exp", required_argument, 0, 'a'},
                 {"acyclic-graph", no_argument, 0, 'm'},
                 {"seed-chance", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
@@ -281,7 +281,7 @@ int main_map(int argc, char** argv) {
             break;
             
         case 'a':
-            haplotype_consistency_bonus = atoi(optarg);
+            haplotype_consistency_exponent = atof(optarg);
             break;
         
         case 'm':
@@ -769,7 +769,7 @@ int main_map(int argc, char** argv) {
         }
         m->fast_reseed = use_fast_reseed;
         m->max_target_factor = max_target_factor;
-        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_bonus);
+        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent);
         m->strip_bonuses = strip_bonuses;
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
         m->extra_multimaps = extra_multimaps;

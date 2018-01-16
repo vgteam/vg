@@ -1029,14 +1029,24 @@ int main_index(int argc, char** argv) {
 
             // Flush the buffers and do whatever work is still left.
             if (!gbwt_name.empty()) {
+                // Build a GBWT
+                
                 gbwt_builder->finish();
                 if (show_progress) { cerr << "Saving GBWT to disk..." << endl; }
                 sdsl::store_to_file(gbwt_builder->index, gbwt_name);
                 delete gbwt_builder; gbwt_builder = 0;
+                
+                // The XG keeps the thread names
                 index.set_thread_names(thread_names);
+                // And the haplotype count
+                // TODO: We assume diploid
+                index.set_haplotype_count(sample_names.size() * 2);
             } else if (!binary_haplotype_output.empty()) {
+                // Dump a flat file (which is done)
                 binary_file.close();
             } else {
+                // Build a gPBWT in the XG
+                
                 // Now insert all the threads in a batch into the known-DAG VCF-
                 // derived graph.
                 if (show_progress) {
@@ -1044,6 +1054,12 @@ int main_index(int argc, char** argv) {
                 }
                 index.insert_threads_into_dag(all_phase_threads, thread_names);
                 all_phase_threads.clear();
+                
+                // We also need to copy over the haplotype count, because we
+                // don't want to be deriving it from the thread names except for
+                // when converting.
+                // TODO: We assume diploid
+                index.set_haplotype_count(sample_names.size() * 2);
             }
         }
 

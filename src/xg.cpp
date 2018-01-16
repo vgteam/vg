@@ -154,12 +154,16 @@ void XG::load(istream& in) {
         // DO NOT CHANGE THIS CODE without creating a new XG version:
         // 1. Increment OUTPUT_VERSION to a new integer.
         // 2. Change the serialization code.
-        // 3. Add a new case here with new deserialization code.
+        // 3. Add a new case here (or enhance an existing case) with new deserialization code.
         // 4. Up MAX_INPUT_VERSION to allow your new version to be read.
         ////////////////////////////////////////////////////////////////////////
         switch (file_version) {
         
+        case 5: // Fall through
         case 6:
+            cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. For better performance over repeated loads, consider recreating this XG with 'vg index'." << endl;
+            // Fall through
+        case 7:
             {
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
@@ -183,10 +187,19 @@ void XG::load(istream& in) {
                 s_bv_rank.load(in, &s_bv);
                 s_bv_select.load(in, &s_bv);
 
+                // Load thread names
                 tn_csa.load(in);
                 tn_cbv.load(in);
                 tn_cbv_rank.load(in, &tn_cbv);
                 tn_cbv_select.load(in, &tn_cbv);
+                
+                if (file_version >= 7) {
+                    // There is a single haplotype count here for all components
+                    sdsl::read_member(haplotype_count, in);
+                }
+                // Otherwise we will calculate it at the end
+                
+                // Load thread positions in gPBWT
                 tin_civ.load(in);
                 tio_civ.load(in);
                 side_thread_wt.load(in);
@@ -208,12 +221,17 @@ void XG::load(istream& in) {
                 np_bv_rank.load(in, &np_bv);
                 np_bv_select.load(in, &np_bv);
                 
-                // load and unpack the succinct representation of the component path set indexes
-                int_vector<> path_ranks_iv;
-                bit_vector path_ranks_bv;
-                path_ranks_iv.load(in);
-                path_ranks_bv.load(in);
-                unpack_succinct_component_path_sets(path_ranks_iv, path_ranks_bv);
+                if (file_version >= 6) {
+                    // load and unpack the succinct representation of the component path set indexes
+                    int_vector<> path_ranks_iv;
+                    bit_vector path_ranks_bv;
+                    path_ranks_iv.load(in);
+                    path_ranks_bv.load(in);
+                    unpack_succinct_component_path_sets(path_ranks_iv, path_ranks_bv);
+                } else {
+                    // build the component path set indexes that were added in version 6
+                    index_component_path_sets();
+                }
                 
                 h_civ.load(in);
                 ts_civ.load(in);
@@ -221,70 +239,11 @@ void XG::load(istream& in) {
                 // Load all the B_s arrays for sides.
                 // Baking required before serialization.
                 deserialize(bs_single_array, in);
-            }
-            break;
-        case 5:
-            {
-                cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. For better performance over repeated loads, consider recreating this XG with 'vg index'." << endl;
                 
-                sdsl::read_member(seq_length, in);
-                sdsl::read_member(node_count, in);
-                sdsl::read_member(edge_count, in);
-                sdsl::read_member(path_count, in);
-                size_t entity_count = node_count + edge_count;
-                //cerr << sequence_length << ", " << node_count << ", " << edge_count << endl;
-                sdsl::read_member(min_id, in);
-                sdsl::read_member(max_id, in);
-                
-                i_iv.load(in);
-                r_iv.load(in);
-                
-                g_iv.load(in);
-                g_bv.load(in);
-                g_bv_rank.load(in, &g_bv);
-                g_bv_select.load(in, &g_bv);
-                
-                s_iv.load(in);
-                s_bv.load(in);
-                s_bv_rank.load(in, &s_bv);
-                s_bv_select.load(in, &s_bv);
-                
-                tn_csa.load(in);
-                tn_cbv.load(in);
-                tn_cbv_rank.load(in, &tn_cbv);
-                tn_cbv_select.load(in, &tn_cbv);
-                tin_civ.load(in);
-                tio_civ.load(in);
-                side_thread_wt.load(in);
-                
-                pn_iv.load(in);
-                pn_csa.load(in);
-                pn_bv.load(in);
-                pn_bv_rank.load(in, &pn_bv);
-                pn_bv_select.load(in, &pn_bv);
-                pi_iv.load(in);
-                sdsl::read_member(path_count, in);
-                for (size_t i = 0; i < path_count; ++i) {
-                    auto path = new XGPath;
-                    path->load(in);
-                    paths.push_back(path);
+                if (file_version < 7) {
+                    // No haplotype count; one needs to be genenrated by hackily parsing the thread names.
+                    count_haplotypes();
                 }
-                np_iv.load(in);
-                np_bv.load(in);
-                np_bv_rank.load(in, &np_bv);
-                np_bv_select.load(in, &np_bv);
-                
-                // note: no component path set indexes here
-                
-                h_civ.load(in);
-                ts_civ.load(in);
-                
-                // Load all the B_s arrays for sides.
-                // Baking required before serialization.
-                deserialize(bs_single_array, in);
-                
-                // build the component path set indexes that were added in version 6
-                index_component_path_sets();
             }
             break;
         default:
@@ -473,11 +432,14 @@ size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string nam
     written += s_bv_rank.serialize(out, child, "seq_node_starts_rank");
     written += s_bv_select.serialize(out, child, "seq_node_starts_select");
 
-    // save the thread name index
+    // save the thread name index and haplotype database
     written += tn_csa.serialize(out, child, "thread_name_csa");
     written += tn_cbv.serialize(out, child, "thread_name_cbv");
     written += tn_cbv_rank.serialize(out, child, "thread_name_cbv_rank");
     written += tn_cbv_select.serialize(out, child, "thread_name_cbv_select");
+    written += sdsl::write_member(haplotype_count, out, child, "haplotype_count");
+    
+    // and the thread to GBWT mapping (which may not be in use)
     written += tin_civ.serialize(out, child, "thread_start_node_civ");
     written += tio_civ.serialize(out, child, "thread_start_offset_civ");
     written += side_thread_wt.serialize(out, child, "side_thread_wt");
@@ -3824,7 +3786,7 @@ int64_t XG::node_height(XG::ThreadMapping node) const {
   return h_civ[node_graph_idx(node.node_id) * 2 + node.is_reverse];
 }
 
-int64_t XG::where_to(int64_t current_side, int64_t visit_offset, int64_t new_side, vector<Edge>& edges_into_new, vector<Edge>& edges_out_of_old) const {
+int64_t XG::where_to(int64_t current_side, int64_t visit_offset, int64_t new_side, const vector<Edge>& edges_into_new, const vector<Edge>& edges_out_of_old) const {
     // Given that we were at visit_offset on the current side, where will we be
     // on the new side?
 
@@ -4975,9 +4937,13 @@ pair<int64_t, int64_t> XG::thread_start(int64_t thread_id, bool is_rev) const {
 }
 
 string XG::thread_name(int64_t thread_id) const {
+    // How many forward threads are there?
+    // Don't use side_thread_wt since it is only filled in if the gPBWT is used.
+    size_t thread_count = tn_cbv_rank(tn_cbv.size()) - 1;
+
     // convert to forward thread
-    if (thread_id > side_thread_wt.size()/2) {
-        thread_id -= side_thread_wt.size()/2;
+    if (thread_id > thread_count) {
+        thread_id -= thread_count;
     }
     return extract(tn_csa,
                    tn_cbv_select(thread_id)+1, // skip delimiter
@@ -4993,6 +4959,48 @@ vector<int64_t> XG::threads_named_starting(const string& pattern) const {
         results.push_back(tn_cbv_rank(occs[i])+1);
     }
     return results;
+}
+
+void XG::count_haplotypes() {
+    // Go through the thread names, which we assume are like _thread_<sample>_<contig>_<phase>_<chunk>.
+    // Count the total unique samples and assume diploid.
+    
+    // We will just count unique sample names
+    unordered_set<string> sample_names;
+    auto thread_ids = threads_named_starting("_thread_");
+    for (auto thread_id : thread_ids) {
+        // For each thread, get its full name.
+        auto name = thread_name(thread_id);
+        
+        // Find where the sample name should start
+        size_t sample_start = strlen("_thread_");
+        if (name.size() <= sample_start) {
+            // Too short!
+            continue;
+        }
+        auto sample_end = name.find('_', sample_start);
+        if (sample_end == string::npos) {
+            // Can't find the end of the sample name
+            continue;
+        }
+        
+        // Extract the name of the sample
+        auto sample_name = name.substr(sample_start, sample_end - sample_start);
+        // Put it in the set
+        sample_names.insert(sample_name);
+    }
+    
+    // Now we have a count
+    // TODO: this assumes diploid
+    set_haplotype_count(sample_names.size() * 2);
+}
+
+void XG::set_haplotype_count(size_t count) {
+    haplotype_count = count;
+}
+
+size_t XG::get_haplotype_count() const {
+    return haplotype_count;
 }
 
 XG::ThreadSearchState XG::select_starting(const ThreadMapping& start) const {

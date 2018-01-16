@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 34
+plan tests 36
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -137,9 +137,12 @@ is $? 1 "error on vg map -f <nonexistent-file> (paired, RHS)"
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -v small/x.vcf.gz --gbwt-name x.gbwt -k 16 x.vg
 
-# This read is all ref which matches no haplotype in x.vcf.gz
-is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-bonus 1 --full-l-bonus 0 -s 'CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTAT' -j | jq '.score')" "36" "mapping a read with no haplotype match gets no bonus"
+# This read is all ref which matches no haplotype in x.vcf.gz and visits some unused nodes
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -s 'CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTAT' -j | jq '.score')" "36" "mapping a read that touches unused nodes gets the base score"
 # This read is all alt which does match a haplotype
-is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-bonus 1 --full-l-bonus 0 -s 'CAAATAAGATTTGAAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "37" "mapping a read that matches a haplotype gets a bonus" 
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -s 'CAAATAAGATTTGAAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "35" "mapping a read that matches a haplotype gets a small penalty"
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 0 --full-l-bonus 0 -s 'CAAATAAGATTTGAAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "36" "mapping a read that matches a haplotype with exponent 0 gets the base score"
+# This read matches no haplotypes but only visits used nodes
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -s 'CAAATAAGATTTGGAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "30" "mapping a read that matches no haplotypes gets a larger penalty"
 
 rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa x.gcsa.lcp x.gbwt graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp

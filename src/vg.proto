@@ -137,6 +137,7 @@ message Alignment {
     
     string fragment_length_distribution = 32; // The fragment length distribution under which a paired-end alignment was aligned.
 
+    bool haplotype_scored = 33; // True if this alignment's score is adjusted for haplotype consistency, and false otherwise.
 }
 
 // A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment

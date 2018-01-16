@@ -32,7 +32,7 @@ namespace vg {
 
 using namespace std;
     
-enum MappingQualityMethod { Approx, Exact, None };
+enum MappingQualityMethod { Approx, Exact, Adaptive, None };
 
 class Mapper;
 
@@ -155,7 +155,7 @@ public:
     int random_match_length(double chance_random);
     
     void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
-        int8_t haplotype_consistency_bonus = 0);
+        double haplotype_consistency_exponent = 1);
     
     // TODO: setting alignment threads could mess up the internal memory for how many threads to reset to
     void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
@@ -204,6 +204,11 @@ public:
                      int min_mem_length = 1,
                      int reseed_length = 0);
     
+    /// identifies tracts of order-length MEMs that were unfilled because their hit count was above the max
+    /// and fills one MEM in the tract (the one with the smallest hit count), assumes MEMs are lexicographically
+    /// ordered by read index
+    void rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
+                                             size_t max_rescue_hit_count);
     
     int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count
     int min_mem_length; // a mem must be >= this length
@@ -214,6 +219,7 @@ public:
     double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = true;
+    size_t order_length_repeat_hit_max = 0; // in tracts of order-length MEMs above the hit max, fill one
     
     // Remove any bonuses used by the aligners from the final reported scores.
     // Does NOT (yet) remove the haplotype consistency bonus.
@@ -223,6 +229,9 @@ public:
     
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
     int max_mapping_quality; // the cap for mapping quality
+    
+    /// Set to enable debugging messages to cerr from the mapper, so a user can understand why a read maps the way it does.
+    bool debug = false;
     
 protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
@@ -282,9 +291,12 @@ protected:
     void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
     void clear_aligners(void);
     
-    // Determine if the given alignment is consustent with any haplotypes, and
-    // apply the haplotype consistency bonus if so.
-    void apply_haplotype_consistency_bonus(Alignment& aln);
+    /// Score all of the alignments in the vector for haplotype consistency. If
+    /// all of them can be scored (i.e. none of them visit nodes/edges with no
+    /// haplotypes), adjust all of their scores to reflect haplotype
+    /// consistency. If one or more cannot be scored for haplotype consistency,
+    /// leave the alignment scores alone.
+    void apply_haplotype_consistency_scores(const vector<Alignment*>& alns);
     
     // thread_local to allow alternating reads/writes
     thread_local static vector<size_t> adaptive_reseed_length_memo;
@@ -298,8 +310,14 @@ protected:
     
     // GBWT index, if any, for determining haplotype concordance
     gbwt::GBWT* gbwt = nullptr;
-    // The bonus for being consistent with at least one haplotype
-    int8_t haplotype_consistency_bonus = 0;
+    
+    // The exponent for the haplotype consistency score.
+    // 0 = no haplotype consistency scoring done.
+    // 1 = multiply in haplotype likelihood once when computing alignment score
+    double haplotype_consistency_exponent = 1;
+    // The recombination rate
+    // TODO: expose to command line
+    constexpr static double NEG_LOG_PER_BASE_RECOMB_PROB = 9;
     
     FragmentLengthDistribution fragment_length_distr;
 
@@ -584,8 +602,6 @@ public:
     // uses the cached information about the graph in the xg index to get an approximate node length
     double average_node_length(void);
     
-    bool debug;
-
     // mem mapper parameters
     //
     //int max_mem_length; // a mem must be <= this length

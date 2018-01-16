@@ -16,6 +16,7 @@
 #include "path_index.hpp"
 #include "genotypekit.hpp"
 #include "option.hpp"
+#include "traversal_finder.hpp"
 
 namespace vg {
 

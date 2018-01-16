@@ -543,7 +543,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     SECTION( "MultipathMapper buffers pairs that don't map the first time" ) {
         // Here are two reads on the same strand
         Alignment read1, read2;
-        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
+        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAAC");
         read2.set_sequence("TCCTT");
         
         // Have a list to fill with results
@@ -565,8 +565,8 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     SECTION( "MultipathMapper does not buffer unambiguous pairs" ) {
         // Here are two reads on the same strand
         Alignment read1, read2;
-        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
-        read2.set_sequence("TCCTTGACTTCTTGAAACATTTGGCTATTGACC");
+        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAAC");
+        read2.set_sequence("TCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCT");
         
         // Have a list to fill with results
         vector<pair<MultipathAlignment, MultipathAlignment>> results;
@@ -594,7 +594,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     SECTION( "MultipathMapper aligns ambiguous pairs after the fragment length distribution is set" ) {
         // Here are two reads on the same strand
         Alignment read1, read2;
-        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
+        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAAC");
         read2.set_sequence("TCCTT");
         
         // Have a list to fill with results

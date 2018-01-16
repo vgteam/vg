@@ -334,7 +334,7 @@ h1, h2, h3, h4, h5, h6 { font-family: sans-serif; }
         report += ' Error parsing Test Suite XML\n'
     return report
 
-def html_table(table, caption = None):
+def html_table(table, caption = None, rounding = None):
     """
     take a table (list of lists) as scraped above and write a HTML table.
     """
@@ -345,7 +345,11 @@ def html_table(table, caption = None):
         t += '<tr>\n'
         tag = 'th' if i == 0 else 'td'
         for col in row:
-            t += '<{}>{}</{}>\n'.format(tag, col, tag)
+            try:
+                rcol = round(float(col), rounding) if rounding else col
+            except:
+                rcol = col
+            t += '<{}>{}</{}>\n'.format(tag, rcol, tag)
     t += '</table>\n'
     return t
 
@@ -444,6 +448,13 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
             with io.open(os.path.join(report_dir, stdout_name), 'w', encoding='utf8') as out_file:
                 out_file.write(tc['stdout'])
 
+        # throw the calling times into their own table
+        table_path = os.path.join(outstore, 'call_times.tsv')
+        if os.path.isfile(table_path):
+            with open(table_path) as table_file:
+                call_time_table = [line.strip().split('\t') for line in table_file]
+                report += '<p>\n{}\n</p>'.format(html_table(call_time_table, 'calling times', rounding=3))
+                
         if tc['stderr']:
             # Look for warning lines in stderr
             warnings = get_vgci_warnings(tc)

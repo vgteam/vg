@@ -1,5 +1,6 @@
 #include <unordered_set>
 #include "mapper.hpp"
+#include "haplotypes.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 
 //#define debug_mapper
@@ -633,6 +634,13 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     // TODO: I think I already fixed this
     mems.erase(unique(mems.begin(), mems.end()), mems.end());
     // remove MEMs that are overlapping positionally (they may be redundant)
+    
+    
+    // are we rescuing tracts of MEMs that are high count and length at the order of the GCSA index?
+    if (order_length_repeat_hit_max) {
+        rescue_high_count_order_length_mems(mems, order_length_repeat_hit_max);
+    }
+    
     return mems;
 }
 
@@ -981,6 +989,50 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
     }
 }
     
+void BaseMapper::rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
+                                                     size_t max_rescue_hit_count) {
+    
+    vector<pair<size_t, size_t>> unfilled_mem_ranges;
+    
+    // identify the ranges of MEMs that are unfilled
+    for (size_t i = 0; i < mems.size(); i++) {
+        if (mems[i].nodes.empty()) {
+            unfilled_mem_ranges.emplace_back(i, 0);
+            while (i < mems.size() ? mems[i].nodes.empty() : false) {
+                i++;
+            }
+            unfilled_mem_ranges.back().second = i;
+        }
+    }
+    
+    for (pair<size_t, size_t>& mem_range : unfilled_mem_ranges) {
+        // check that the range has a MEM that is maxed out at the order of the GCSA2
+        // and also find the MEM in the tract with the minimum hit count
+        bool has_order_length_mem = false;
+        size_t min_hit_count = numeric_limits<size_t>::max();
+        size_t min_hit_mem = numeric_limits<size_t>::max();
+        for (size_t i = mem_range.first; i < mem_range.second; i++) {
+            has_order_length_mem = has_order_length_mem || mems[i].length() == gcsa->order();
+            if (mems[i].match_count < min_hit_count) {
+                min_hit_count = mems[i].match_count;
+                min_hit_mem = i;
+            }
+        }
+        
+        if (min_hit_count <= max_rescue_hit_count && has_order_length_mem) {
+            // treat the minimum count MEM as a representative for this tract and fill it
+            // to rescue the repeat mappings
+            
+#ifdef debug_mapper
+            cerr << "found unfilled order length tract from MEM indexes " << mem_range.first << ":" << mem_range.second << ", filling with representative " << mems[min_hit_mem] << " with " << min_hit_count << " hits" << endl;
+#endif
+            
+            gcsa->locate(mems[min_hit_mem].range, mems[min_hit_mem].nodes);
+          
+        }
+    }
+}
+    
 size_t BaseMapper::get_adaptive_min_reseed_length(size_t parent_mem_length) {
     // extend memo until it contains this parent MEM length
     while (adaptive_reseed_length_memo.size() <= parent_mem_length) {
@@ -1288,39 +1340,96 @@ void BaseMapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, in
     regular_aligner = new Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
 }
 
-void BaseMapper::apply_haplotype_consistency_bonus(Alignment& aln) {
+void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& alns) {
     if (gbwt == nullptr) {
-        // There's no haplotype data available, so we can't hand out bonuses.
+        // There's no haplotype data available, so we can't add consistency scores.
         return;
     }
     
-    if (haplotype_consistency_bonus == 0) {
+    if (xindex == nullptr) {
+        // There's no database of haplotype names/counts available.
+        // So we don't know how many haplotypes we should be looking for.
+        return;
+    }
+    
+    if (haplotype_consistency_exponent == 0) {
         // It won't matter either way
         return;
+    }
+    
+    size_t haplotype_count = xindex->get_haplotype_count();
+    
+    if (haplotype_count == 0) {
+        // The XG apparently has no path database information. Maybe it wasn't built with the GBWT?
+        throw runtime_error("Cannot score any haplotypes with a 0 haplotype count; does the XG contain the path database?");
     }
     
     // We don't look at strip_bonuses here, because we need these bonuses added
     // always in order to choose between alignments.
     
-    // Define the path taken by the alignment in terms the GBWT can understand
-    vector<gbwt::node_type> aln_path;
-    aln_path.reserve(aln.path().mapping_size());
-    for (const auto& mapping : aln.path().mapping()) {
-        // Copy over each visit to a node
-        aln_path.emplace_back(gbwt::Node::encode(mapping.position().node_id(), mapping.position().is_reverse()));
+    // Build Yohei's recombination probability calculator. Feed it the haplotype
+    // count from the XG index that was generated alongside the GBWT.
+    haplo::haploMath::RRMemo haplo_memo(NEG_LOG_PER_BASE_RECOMB_PROB, haplotype_count);
+    
+    // This holds all the computed haplotype logprobs
+    vector<double> haplotype_logprobs;
+    haplotype_logprobs.reserve(alns.size());
+    
+    for (auto* aln : alns) {
+        // On a first pass through, compute all the scores and make sure they all can be computed
+        
+        if (aln->path().mapping_size() == 0) {
+            // Alignments with no actual mappings don't need scoring. But we
+            // don't want to treat them as scoring failures, because we expect
+            // some due to e.g. read pair mapping locations where one read maps
+            // and the other needs rescue. We will skip them but continue on
+            // with the rescoring, and also skip them when applying the scores.
+            
+            // Do a no-op adjustment
+            haplotype_logprobs.push_back(0);
+            
+            continue;
+        }
+        
+        // Score the path
+        // This is a logprob (so, negative), and expresses the probability of the haplotype path being followed
+        double haplotype_logprob;
+        bool path_valid;
+        std::tie(haplotype_logprob, path_valid) = haplo::haplo_DP::score(aln->path(), *gbwt, haplo_memo);
+        
+        if (!path_valid) {
+            // Our path does something the scorer doesn't like.
+            // Bail out of applying haplotype scores.
+            if (debug) {
+                cerr << "Not applying haplotype consistency due to scoring failure" << endl;
+            }
+            return;
+        }
+        
+        // Otherwise we haven't had a scoring failure yet, so keep going
+        haplotype_logprobs.push_back(haplotype_logprob);
     }
     
-    if (aln_path.empty()) {
-        // Alignments with no actual mappings can't be consistent.
-        return;
+    if (debug) {
+        cerr << "Applying haplotype consistency to " << alns.size() << " alignment candidates" << endl;
     }
     
-    // Look for hits
-    auto result = gbwt->find(aln_path.begin(), aln_path.end());
-    
-    if (!result.empty()) {
-        // We are consistent with at least one haplotype
-        aln.set_score(aln.score() + haplotype_consistency_bonus);
+    for (size_t i = 0; i < alns.size(); i++) {
+        // Get the aligner so we can convert from logprob to score points
+        // TODO: This should always be the same aligner!
+        auto* aligner = get_aligner(!alns[i]->quality().empty());
+        assert(aligner->log_base != 0);
+        
+        if (alns[i]->path().mapping_size() != 0) {
+            // We actually did rescore this one
+        
+            // Convert to points, raise to haplotype consistency exponent power, and apply
+            alns[i]->set_score(alns[i]->score() + 
+                round(haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base)));
+            // Note that we successfully corrected the score
+            alns[i]->set_haplotype_scored(true);
+        }
+        // Otherwise leave haplotype_scored as false, the default.
     }
 }
     
@@ -1350,7 +1459,7 @@ int BaseMapper::random_match_length(double chance_random) {
 }
     
 void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend,
-    int8_t full_length_bonus, int8_t haplotype_consistency_bonus) {
+    int8_t full_length_bonus, double haplotype_consistency_exponent) {
     
     // clear the existing aligners and recreate them
     if (regular_aligner || qual_adj_aligner) {
@@ -1358,8 +1467,8 @@ void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_
     }
     init_aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
     
-    // Save the consistency bonus
-    this->haplotype_consistency_bonus = haplotype_consistency_bonus;
+    // Save the consistency exponent
+    this->haplotype_consistency_exponent = haplotype_consistency_exponent;
 }
     
 void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, size_t reestimation_frequency,
@@ -1387,7 +1496,6 @@ Mapper::Mapper(xg::XG* xidex,
     , softclip_threshold(0)
     , max_softclip_iterations(10)
     , min_identity(0)
-    , debug(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
     , extra_multimaps(512)
@@ -1724,7 +1832,6 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     for (auto& orientation : orientations) {
         if (rescue_off_first) {
             Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback);
-            apply_haplotype_consistency_bonus(aln2);
             //write_alignment_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
@@ -1743,7 +1850,6 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
             }
         } else if (rescue_off_second) {
             Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback);
-            apply_haplotype_consistency_bonus(aln1);
             //write_alignment_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
@@ -2388,6 +2494,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         ++k;
     }
     update_aln_ptrs();
+    
+    // Apply haplotype consistency scores if possible
+    vector<Alignment*> flat_alns;
+    flat_alns.reserve(aln_ptrs.size() * 2);
+    for (auto& aln_pair : aln_ptrs) {
+        flat_alns.push_back(&aln_pair->first);
+        flat_alns.push_back(&aln_pair->second);
+    }
+    apply_haplotype_consistency_scores(flat_alns);
+    
     sort_and_dedup();
     show_alignments("mixed");
 
@@ -2848,7 +2964,6 @@ Mapper::align_mem_multi(const Alignment& aln,
     }
     
     assert(alns.size() == used_clusters.size());
-
 #ifdef debug_mapper
 #pragma omp critical
     if (debug) {
@@ -2861,6 +2976,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     }
 #endif
 
+    // Prepare a sortable vector of alignment pointers
     vector<Alignment*> aln_ptrs;
     map<Alignment*, int> aln_index;
     int idx = 0;
@@ -2868,6 +2984,10 @@ Mapper::align_mem_multi(const Alignment& aln,
         aln_ptrs.push_back(&aln);
         aln_index[&aln] = idx++;
     }
+    
+    // Apply haplotype consistency scoring if possible
+    apply_haplotype_consistency_scores(aln_ptrs);
+    
     // sort alignments by score
     std::sort(aln_ptrs.begin(), aln_ptrs.end(),
               [&](Alignment* a1, Alignment* a2) {
@@ -2997,11 +3117,9 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     Alignment aln_rev;
     if (count_fwd) {
         aln_fwd = align_maybe_flip(aln, graph, false, traceback);
-        apply_haplotype_consistency_bonus(aln_fwd);
     }
     if (count_rev) {
         aln_rev = align_maybe_flip(aln, graph, true, traceback);
-        apply_haplotype_consistency_bonus(aln_rev);
     }
     // TODO check if we have soft clipping on the end of the graph and if so try to expand the context
     if (aln_fwd.score() + aln_rev.score() == 0) {
@@ -4657,7 +4775,6 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     }
 
 #ifdef debug_mapper
-    cerr << "target " << target_id << endl;
     cerr << "fwd " << pb2json(surjection_forward) << endl;
     cerr << "rev " << pb2json(surjection_reverse) << endl;
 #endif
