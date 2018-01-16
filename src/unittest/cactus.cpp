@@ -13,7 +13,7 @@ namespace vg {
 namespace unittest {
 using namespace std;
 
-TEST_CASE("We can convert a two-tailed graph to Cactus and back", "[cactus]") {
+TEST_CASE("We can convert a two-tailed graph to Cactus", "[cactus]") {
     
     VG graph;
     
@@ -34,6 +34,26 @@ TEST_CASE("We can convert a two-tailed graph to Cactus and back", "[cactus]") {
     auto cactusified = cactusify(graph);
     REQUIRE(cactusified.is_valid());
     
+}
+
+TEST_CASE("We can convert a hairpin graph to Cactus", "[cactus]") {
+    VG graph;
+    
+    // Here's a graph where only the left side of node 2 is dangling, and the right side of node 1 has a self loop.
+    string graph_json = R"(
+    {"node": [{"sequence": "A", "id": 1},
+    {"sequence": "C", "id": 2}],
+    "edge": [{"from": 2, "to": 1},
+    {"from": 1, "to": 1, "to_end": true}]}
+    )";
+    
+    Graph g;
+    json2pb(g, graph_json.c_str(), graph_json.size());
+    graph.extend(g);
+
+    // Make sure we can make a Cactus graph and get something out.    
+    auto cactusified = cactusify(graph);
+    REQUIRE(cactusified.is_valid());
 }
 
 }

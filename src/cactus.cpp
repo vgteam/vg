@@ -460,6 +460,48 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
             // Pairs are stored lowest-node-and-orientation first. Really we want a hashable unordered_pair...
             unordered_map<pair<handle_t, handle_t>, size_t> tip_distances;
             
+            // Define a function to look up in the memo, or do Dijkstra if necessary
+            // Takes a pair that must be sorted already.
+            auto get_or_compute_distance = [&](pair<handle_t, handle_t>& key) {
+                if (!tip_distances.count(key)) {
+                    // If we don't know the distance, do a search out from one handle
+                    
+#ifdef debug
+                    cerr << "Do Dijkstra traversal out from "
+                        << graph.get_id(key.first) << " " << graph.get_is_reverse(key.first) << endl;
+#endif
+                    
+                    unordered_map<handle_t, size_t> distances = algorithms::find_shortest_paths(&graph, key.first);
+                    
+                    for (auto& other_tip : component_tips[i]) {
+                        // And save the distances for everything reachable or unreachable.
+                        // This minimizes the number of searches we need to do.
+                        
+                        pair<handle_t, handle_t> other_key = make_pair(key.first, other_tip);
+                        
+                        if (graph.get_id(other_key.second) < graph.get_id(other_key.first) ||
+                            (graph.get_id(other_key.second) == graph.get_id(other_key.first) &&
+                            graph.get_is_reverse(other_key.second) < graph.get_is_reverse(other_key.first))) {
+                            
+                            // We need to put these tips the other way around
+                            std::swap(other_key.first, other_key.second);
+                        }
+                                
+                        if (distances.count(graph.flip(other_tip))) {
+                            // Can get from tip 1 to this tip.
+                            // We need to flip the tip because Dijkstra will be reading out of the graph and into the tip.
+                            tip_distances[other_key] = distances[graph.flip(other_tip)];
+                        } else {
+                            // This tip is completely unreachable from tip 1
+                            tip_distances[other_key] = numeric_limits<size_t>::max();
+                        }
+                    }
+                }
+                
+                // Now either we can reach this tip or we can't. Either way it's in the memo.
+                return tip_distances.at(key);
+            }; 
+            
             // Track the best pair of handles
             pair<handle_t, handle_t> furthest;
             // And their distance
@@ -467,10 +509,11 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
 
             for (auto& tip1 : component_tips[i]) {
                 for (auto& tip2 : component_tips[i]) {
+                    // For each pair of tips
                     if (tip1 == tip2) {
+                        // Skip unless they're distinct
                         continue;
                     }
-                    // For each pair of distinct tips
            
                     // Make a pair to be the key
                     pair<handle_t, handle_t> key = make_pair(tip1, tip2);
@@ -482,53 +525,44 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
                         std::swap(key.first, key.second);
                     }
            
-                    if (!tip_distances.count(key)) {
-                        // If we don't know the distance, do a search out from one handle
-                        
-#ifdef debug
-                        cerr << "Do Dijkstra traversal out from "
-                            << graph.get_id(tip1) << " " << graph.get_is_reverse(tip1) << endl;
-#endif
-                        
-                        unordered_map<handle_t, size_t> distances = algorithms::find_shortest_paths(&graph, tip1);
-                        
-                        for (auto& other_tip : component_tips[i]) {
-                            // And save the distances for everything reachable or unreachable.
-                            // This minimizes the number of searches we need to do.
-                            
-                            pair<handle_t, handle_t> other_key = make_pair(tip1, other_tip);
-                            
-                            if (graph.get_id(other_key.second) < graph.get_id(other_key.first) ||
-                                (graph.get_id(other_key.second) == graph.get_id(other_key.first) &&
-                                graph.get_is_reverse(other_key.second) < graph.get_is_reverse(other_key.first))) {
-                                
-                                // We need to put these tips the other way around
-                                std::swap(other_key.first, other_key.second);
-                            }
-                                    
-                            if (distances.count(graph.flip(other_tip))) {
-                                // Can get from tip 1 to this tip.
-                                // We need to flip the tip because Dijkstra will be reading out of the graph and into the tip.
-                                tip_distances[other_key] = distances[graph.flip(other_tip)];
-                            } else {
-                                // This tip is completely unreachable from tip 1
-                                tip_distances[other_key] = numeric_limits<size_t>::max();
-                            }
-                        }
-                    }
-                    
-                    // Now either we can reach this tip or we can't
-                    assert(tip_distances.count(key));
-                    auto& tip_distance = tip_distances[key];
+                    // Get or calculate their distance
+                    auto tip_distance = get_or_compute_distance(key);
                     
                     if (tip_distance != numeric_limits<size_t>::max() &&
                         (tip_distance > furthest_distance || furthest_distance == numeric_limits<size_t>::max())) {
-                        // If it's a new longer distance (but not infinite), keep it
+                        // If it's a new longer distance (but not infinite), between distinct tips, keep it
                         furthest_distance = tip_distance;
                         furthest = key;
                     }
                     
                 }
+            }
+            
+            if (furthest_distance == numeric_limits<size_t>::max()) {
+                // We couldn't find anything with two different tips
+#ifdef debug
+                cerr << "No Dijkstra path found between distinct tips. Consider hairpins of one tip." << endl;
+#endif
+
+                // So now we will check for the same tip twice.
+                for (auto& tip : component_tips[i]) {
+                    // Make a key for two of each tip.
+                    // No need to flip the symmetrical pair.
+                    pair<handle_t, handle_t> key = make_pair(tip, tip);
+                    
+                    // If we already found the distance to itself, get it.
+                    // Otherwise we'll do a Dijkstra from each tip (but only the
+                    // ones we didn't do when looking at distinct tips).
+                    auto tip_distance = get_or_compute_distance(key);
+                    
+                    if (tip_distance != numeric_limits<size_t>::max() &&
+                        (tip_distance > furthest_distance || furthest_distance == numeric_limits<size_t>::max())) {
+                        // If it's a new longer distance (but not infinite), between distinct tips, keep it
+                        furthest_distance = tip_distance;
+                        furthest = key;
+                    }
+                }
+
             }
             
             if (furthest_distance != numeric_limits<size_t>::max()) {
