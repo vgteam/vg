@@ -704,15 +704,16 @@ namespace vg {
         int32_t top_score_1 = multipath_alns_1.empty() ? 0 : optimal_alignment_score(multipath_alns_1.front());
         int32_t top_score_2 = multipath_alns_2.empty() ? 0 : optimal_alignment_score(multipath_alns_2.front());
         
-        size_t num_rescuable_alns_1 = multipath_alns_1.size(), num_rescuable_alns_2 = multipath_alns_2.size();
-        for (size_t i = 0; i < multipath_alns_1.size(); i++){
+        size_t num_rescuable_alns_1 = min(multipath_alns_1.size(), max_rescue_attempts);
+        size_t num_rescuable_alns_2 = min(multipath_alns_2.size(), max_rescue_attempts);
+        for (size_t i = 0; i < num_rescuable_alns_1; i++){
             if (likely_mismapping(multipath_alns_1[i]) ||
                 (i > 0 ? optimal_alignment_score(multipath_alns_1[i]) < top_score_1 - max_score_diff : false)) {
                 num_rescuable_alns_1 = i;
                 break;
             }
         }
-        for (size_t i = 0; i < multipath_alns_2.size(); i++){
+        for (size_t i = 0; i < num_rescuable_alns_2; i++){
             if (likely_mismapping(multipath_alns_2[i]) ||
                 (i > 0 ? optimal_alignment_score(multipath_alns_2[i]) < top_score_2 - max_score_diff : false)) {
                 num_rescuable_alns_2 = i;

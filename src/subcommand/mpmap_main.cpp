@@ -101,6 +101,7 @@ int main_mpmap(int argc, char** argv) {
     bool interleaved_input = false;
     int snarl_cut_size = 5;
     int max_map_attempts = 64;
+    int max_rescue_attempts = 32;
     int max_num_mappings = 1;
     int buffer_size = 100;
     int hit_max = 256;
@@ -651,6 +652,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
     multipath_mapper.num_mapping_attempts = max_map_attempts ? max_map_attempts : numeric_limits<int>::max();
+    multipath_mapper.max_rescue_attempts = max_rescue_attempts;
     multipath_mapper.unstranded_clustering = unstranded_clustering;
     
     // set multipath alignment topology parameters
