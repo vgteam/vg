@@ -431,19 +431,22 @@ double BaseAligner::group_mapping_quality_exact(vector<double>& scaled_scores, v
     
     // work in log transformed values to avoid risk of overflow
     double total_log_sum_exp = numeric_limits<double>::lowest();
-    double group_log_sum_exp = numeric_limits<double>::lowest();
+    double non_group_log_sum_exp = numeric_limits<double>::lowest();
     
     // go in reverse order because this has fewer numerical problems when the scores are sorted (as usual)
     int64_t group_idx = group.size() - 1;
     for (int64_t i = scaled_scores.size() - 1; i >= 0; i--) {
         total_log_sum_exp = add_log(total_log_sum_exp, scaled_scores[i]);
         if (group_idx >= 0 ? i == group[group_idx] : false) {
-            group_log_sum_exp = add_log(group_log_sum_exp, scaled_scores[i]);
             group_idx--;
         }
+        else {
+            non_group_log_sum_exp = add_log(non_group_log_sum_exp, scaled_scores[i]);
+        }
     }
-    double direct_mapq = -quality_scale_factor * subtract_log(0.0, group_log_sum_exp - total_log_sum_exp);
-    return std::isinf(direct_mapq) ? (double) numeric_limits<int32_t>::max() : direct_mapq;
+    double direct_mapq = quality_scale_factor * (total_log_sum_exp - non_group_log_sum_exp);
+    return (std::isinf(direct_mapq) || direct_mapq > numeric_limits<int32_t>::max()) ?
+           (double) numeric_limits<int32_t>::max() : direct_mapq;
 }
 
 void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,

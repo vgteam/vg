@@ -65,7 +65,7 @@ void help_mpmap(char** argv) {
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
     << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
-    << "  -R, --prune-exp FLOAT     prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.5]" << endl
+    << "  -R, --prune-exp FLOAT     prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
     << "scoring:" << endl
     << "  -q, --match INT           use this match score [1]" << endl
     << "  -z, --mismatch INT        use this mismatch penalty [4]" << endl
@@ -118,7 +118,7 @@ int main_mpmap(int argc, char** argv) {
     int band_padding = 2;
     int max_dist_error = 8;
     int num_alt_alns = 4;
-    double suboptimal_path_exponent = 1.5;
+    double suboptimal_path_exponent = 1.25;
     double likelihood_approx_exp = 6.5;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
@@ -131,7 +131,7 @@ int main_mpmap(int argc, char** argv) {
     size_t num_calibration_simulations = 250;
     size_t calibration_read_length = 150;
     bool unstranded_clustering = false;
-    size_t order_length_repeat_hit_max = 2048;
+    size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 18;
     
     int c;
