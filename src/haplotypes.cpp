@@ -16,12 +16,17 @@ haplo_DP_edge_memo::haplo_DP_edge_memo() :
 haplo_DP_edge_memo::haplo_DP_edge_memo(xg::XG& graph, 
                                        xg::XG::ThreadMapping last_node,
                                        xg::XG::ThreadMapping node) {
-   out = last_node.is_reverse ? 
+  if(has_edge(graph, last_node, node)) {
+    out = last_node.is_reverse ? 
          graph.edges_on_start(last_node.node_id) : 
          graph.edges_on_end(last_node.node_id);
-   in = node.is_reverse ? 
+    in = node.is_reverse ? 
         graph.edges_on_end(node.node_id) :
         graph.edges_on_start(node.node_id);
+  } else {
+    out = vector<vg::Edge>(0);
+    in = vector<vg::Edge>(0);
+  }
 }
 
 const vector<vg::Edge>& haplo_DP_edge_memo::edges_in() const {
@@ -30,6 +35,29 @@ const vector<vg::Edge>& haplo_DP_edge_memo::edges_in() const {
 
 const vector<vg::Edge>& haplo_DP_edge_memo::edges_out() const {
   return out;
+}
+
+bool haplo_DP_edge_memo::is_null() const {
+  return out.size() == 0;
+}
+
+bool haplo_DP_edge_memo::has_edge(xg::XG& graph, xg::XG::ThreadMapping old_node, xg::XG::ThreadMapping new_node) {
+  vg::Edge edge_taken = xg::make_edge(old_node.node_id, old_node.is_reverse, new_node.node_id, new_node.is_reverse);
+
+  bool edge_found = false;
+
+  const vector<vg::Edge>& edges = old_node.is_reverse ? graph.edges_on_start(old_node.node_id) : 
+                                                   graph.edges_on_end(old_node.node_id);
+  
+  for(auto& edge : edges) {
+    // Look at every edge in order.
+    if(xg::edges_equivalent(edge, edge_taken)) {
+      // If we found the edge we're taking, break.
+      edge_found = true;
+      break;
+    }
+  }
+  return edge_found;  
 }
 
 /*******************************************************************************
@@ -48,25 +76,13 @@ hDP_graph_accessor::hDP_graph_accessor(xg::XG& graph,
                                        xg::XG::ThreadMapping old_node, 
                                        xg::XG::ThreadMapping new_node, 
                                        haploMath::RRMemo& memo) :
-  graph(graph), edges(haplo_DP_edge_memo(graph, old_node, new_node)), 
-  old_node(old_node), new_node(new_node), memo(memo) {
+  graph(graph), old_node(old_node), new_node(new_node), memo(memo),
+  edges(haplo_DP_edge_memo(graph, old_node, new_node)) {
     
 }
 
 bool hDP_graph_accessor::has_edge() const {
-  vg::Edge edge_taken = xg::make_edge(old_node.node_id, old_node.is_reverse, new_node.node_id, new_node.is_reverse);
-
-  bool edge_found = false;
-
-  for(auto& edge : edges.edges_out()) {
-    // Look at every edge in order.
-    if(xg::edges_equivalent(edge, edge_taken)) {
-      // If we found the edge we're taking, break.
-      edge_found = true;
-      break;
-    }
-  }
-  return edge_found;
+  return !edges.is_null();
 }
 
 int64_t hDP_graph_accessor::new_side() const {
@@ -158,7 +174,7 @@ void haplo_DP_rectangle::extend(hDP_graph_accessor& ga) {
     // We're extending an empty state
     state.first = 0;
     state.second = ga.new_height();
-  } else {
+  } else if(!ga.edges.is_null()) {
     state.first = ga.graph.where_to(flat_node, 
                                     state.first, 
                                     new_side, 
@@ -169,6 +185,10 @@ void haplo_DP_rectangle::extend(hDP_graph_accessor& ga) {
                                     new_side, 
                                     ga.edges.edges_in(), 
                                     ga.edges.edges_out());
+  } else {
+    // gPBWT can't extend across an edge it doesn't know about; don't try
+    state.first = 0;
+    state.second = 0;
   }
   flat_node = new_side;
   inner_value = -1;
@@ -367,16 +387,8 @@ haplo_score_type haplo_DP::score(const thread_t& thread, xg::XG& graph, haploMat
   }
   for(size_t i = 1; i < thread.size(); i++) {
     hDP_graph_accessor ga(graph, thread[i-1], thread[i], memo);
-    if(ga.new_height() == 0 || !ga.has_edge()) {
-      if(ga.new_height() == 0) {
-        cerr << "[WARNING] Node " << i + 1 << " in path is visited by 0 reference haplotypes" << endl;
-      }
-      if(!ga.has_edge()) {
-        cerr << "[WARNING] Edge " << i << " in path from "
-          << thread[i-1].node_id << " " << thread[i-1].is_reverse << " to "
-          << thread[i].node_id << " " << thread[i].is_reverse
-          << " is absent from the haplotype index" << endl;
-      }
+    if(ga.new_height() == 0) {
+      cerr << "[WARNING] Node " << i + 1 << " in path is visited by 0 reference haplotypes" << endl;
       cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
       ga.print(cerr);
       return pair<double, bool>(nan(""), false);
