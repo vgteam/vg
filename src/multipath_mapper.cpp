@@ -1793,65 +1793,6 @@ namespace vg {
             max_graph_idx = max(cluster_graph.first, max_graph_idx);
         }
         
-        // did we find any graphs that consist of disconnected components?
-        for (pair<size_t, vector<unordered_set<id_t>>>& multicomponent_graph : multicomponent_graphs) {
-            max_graph_idx++;
-            // make a new graph for each of the components
-#ifdef debug_multipath_mapper_mapping
-            cerr << "cluster graph " << multicomponent_graph.first << " has multiple connected components, splitting now" << endl;
-            for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
-                cerr << "component " << max_graph_idx + i << ":" << endl;
-                
-                for (auto node_id : multicomponent_graph.second[i]) {
-                    cerr << "\t" << node_id << endl;
-                }
-            }
-#endif
-            
-            for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
-                cluster_graphs[max_graph_idx + i] = new VG();
-            }
-            
-            Graph& joined_graph = cluster_graphs[multicomponent_graph.first]->graph;
-            
-            // divvy up the nodes
-            for (size_t i = 0; i < joined_graph.node_size(); i++) {
-                const Node& node = joined_graph.node(i);
-                for (size_t j = 0; j < multicomponent_graph.second.size(); j++) {
-                    if (multicomponent_graph.second[j].count(node.id())) {
-                        cluster_graphs[max_graph_idx + j]->add_node(node);
-                        node_id_to_cluster[node.id()] = max_graph_idx + j;
-                        break;
-                    }
-                }
-            }
-            
-            // divvy up the edges
-            for (size_t i = 0; i < joined_graph.edge_size(); i++) {
-                const Edge& edge = joined_graph.edge(i);
-                for (size_t j = 0; j < multicomponent_graph.second.size(); j++) {
-                    if (multicomponent_graph.second[j].count(edge.from())) {
-                        cluster_graphs[max_graph_idx + j]->add_edge(edge);
-                        break;
-                    }
-                }
-            }
-            
-#ifdef debug_multipath_mapper_mapping
-            cerr << "split graphs:" << endl;
-            for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
-                cerr << "component " << max_graph_idx + i << ":" << endl;
-                cerr << pb2json(cluster_graphs[max_graph_idx + i]->graph) << endl;
-            }
-#endif
-            
-            // remove the old graph
-            delete cluster_graphs[multicomponent_graph.first];
-            cluster_graphs.erase(multicomponent_graph.first);
-            
-            max_graph_idx += multicomponent_graph.second.size();
-        }
-        
         // move the pointers to the return vector and figure out which graph in the return
         // vector each MEM cluster ended up in
         cluster_graphs_out.reserve(cluster_graphs.size());

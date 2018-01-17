@@ -131,7 +131,7 @@ int main_mpmap(int argc, char** argv) {
     size_t calibration_read_length = 150;
     bool unstranded_clustering = false;
     size_t order_length_repeat_hit_max = 2048;
-    size_t sub_mem_count_thinning = 16;
+    size_t sub_mem_count_thinning = 18;
     
     int c;
     optind = 2; // force optind past command positional argument
