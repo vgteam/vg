@@ -245,6 +245,12 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
             // We only work on ultrabubbles right now
             return;
         }
+
+        if (!manager.is_leaf(snarl)) {
+            // Todo : support nesting hierarchy
+            
+            return;
+        }
         
         if(reference_index != nullptr &&
            reference_index->by_id.count(snarl->start().node_id()) && 
@@ -282,36 +288,9 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
 
         int tid = omp_get_thread_num();
 
-        // Get all the paths through the snarl supported by real named paths
-        PathRestrictedTraversalFinder path_trav_finder(graph, manager, reads_by_name);
-        vector<SnarlTraversal> paths = path_trav_finder.find_traversals(*snarl);
-        // Or by reads
-        ReadRestrictedTraversalFinder read_trav_finder(augmented_graph, manager);
-        vector<SnarlTraversal> read_paths = read_trav_finder.find_traversals(*snarl);
-        if (!read_paths.empty()) {
-            // We want to log stats on reads that read all the
-            // way through snarls. But since we may be called
-            // multiple times we need to send the unique read
-            // name too.            
-            report_snarl_traversal(snarl, manager, graph);
-        }
-        
-        // Deduplicate into "paths"
-        unordered_set<string> seen_sequences;
-        for (auto& trav : paths) {
-            // Make a set of the sequences already represented in paths
-            seen_sequences.insert(traversal_to_string(graph, trav));
-        }
-        for (auto& trav : read_paths) {
-            if (!seen_sequences.count(traversal_to_string(graph, trav))) {
-                // If the sequence of a traversal from read_paths isn't shared with
-                // something in paths, take it. We already know it's unique in
-                // read_paths.
-                paths.push_back(trav);
-            }
-        }
-        // TODO: combine these ways of getting traversals?
-
+        // Get the traverals
+        vector<SnarlTraversal> paths = get_snarl_traversals(augmented_graph, manager, reads_by_name,
+                                                            snarl, reference_index);
 
         // Even if it looks like there's only one path, it might not be the
         // reference path. TODO: ref path should always be present now that we
@@ -603,6 +582,61 @@ int Genotyper::alignment_qual_score(VG& graph, const Snarl* snarl, const Alignme
     // Make the total now actually be an average
     total /= relevant_qualities.size();
     return round(total);
+}
+
+vector<SnarlTraversal> Genotyper::get_snarl_traversals(AugmentedGraph& augmented_graph, SnarlManager& manager,
+                                                       map<string, const Alignment*>& reads_by_name,
+                                                       const Snarl* snarl, PathIndex* ref_path_index) {
+    vector<SnarlTraversal> paths;
+    vector<SnarlTraversal> read_paths;
+
+    // Get all the paths through the snarl supported by real named paths
+    PathRestrictedTraversalFinder path_trav_finder(augmented_graph.graph, manager, reads_by_name);
+    paths = path_trav_finder.find_traversals(*snarl);
+
+    unique_ptr<TraversalFinder> read_trav_finder;
+    if (traversal_alg == TraversalAlg::Reads) {
+        // the original genotyper logic : paths for each read that spans site
+        read_trav_finder = unique_ptr<TraversalFinder>(new ReadRestrictedTraversalFinder(augmented_graph, manager));
+    } else if (traversal_alg == TraversalAlg::Exhaustive) {
+        // exhaustive search, but only visit nodes and edges with given support
+        read_trav_finder = unique_ptr<TraversalFinder>(new SupportRestrictedTraversalFinder(augmented_graph, manager, 2, 2));
+    } else if (traversal_alg == TraversalAlg::Representative) {
+        // representative search from vg call.  only current implementation that works for big sites
+        // Now start looking for traversals of the sites.
+        read_trav_finder = unique_ptr<TraversalFinder>(new RepresentativeTraversalFinder(
+            augmented_graph, manager, 1000, 1000,
+            100, [&] (const Snarl& site) -> PathIndex* {
+                return ref_path_index;
+            }));
+    }
+
+    read_paths = read_trav_finder->find_traversals(*snarl);
+    
+    if (!read_paths.empty()) {
+        // We want to log stats on reads that read all the
+        // way through snarls. But since we may be called
+        // multiple times we need to send the unique read
+        // name too.            
+        report_snarl_traversal(snarl, manager, augmented_graph.graph);
+        }
+    
+    // Deduplicate into "paths"
+    unordered_set<string> seen_sequences;
+    for (auto& trav : paths) {
+        // Make a set of the sequences already represented in paths
+        seen_sequences.insert(traversal_to_string(augmented_graph.graph, trav));
+    }
+    for (auto& trav : read_paths) {
+        if (!seen_sequences.count(traversal_to_string(augmented_graph.graph, trav))) {
+            // If the sequence of a traversal from read_paths isn't shared with
+            // something in paths, take it. We already know it's unique in
+            // read_paths.
+            paths.push_back(trav);
+        }
+    }
+
+    return paths;
 }
 
 template<typename T> inline void set_intersection(const unordered_set<T>& set_1, const unordered_set<T>& set_2,

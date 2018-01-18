@@ -1092,6 +1092,8 @@ class VGCITest(TestCase):
         cmd += ['--call_and_genotype']
         # vg genotype needs this not to run out of ram
         cmd += ['--call_chunk_size', '500000']
+        # turn off a lot of the hacky filtering needed for call in genotype
+        cmd += ['--filter_opts_gt', '-m 1']
         # run freebayes
         if bam_path:
             cmd += ['--freebayes']
@@ -1177,7 +1179,7 @@ class VGCITest(TestCase):
         if self.verify:
             self._verify_calleval(tag=tag, threshold=f1_threshold)
             
-    @skip("skipping test to keep runtime down")
+    #@skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(8000)            
     def test_call_chr21_snp1kg(self):
         """

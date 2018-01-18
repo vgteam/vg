@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 6
+plan tests 7
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
 vg index -x tiny.vg.xg -g tiny.vg.gcsa -k 16 tiny.vg
@@ -49,7 +49,7 @@ vg index -x flat2.xg flat2.vg
 vg sim -n 30 -l 50 -e 0.005 -s 8675309 -x flat2.xg -a >flat2.sim
 vg map -x flat.xg -g flat.gcsa -G <(cat flat1.sim flat2.sim) >flat.gam
 vg index -d flat.gam.index -N flat.gam
-vg genotype flat.vg flat.gam.index >flat.loci
+vg genotype flat.vg flat.gam.index -t 1 >flat.loci
 cat tiny/tiny.fa flat1.fa flat2.fa >flats.fa
 vg msga -f flats.fa -b x | vg mod -D - | vg mod -n - | vg mod -c - >flat_msga.vg
 vg mod -Q flat.loci flat.vg | vg mod -D - | vg mod -n - | vg mod -c - >flat_mod.vg
@@ -62,3 +62,12 @@ vg view -q flat.loci | vg view -qJz - | vg view -q - >/dev/null
 is "$?" "0" "genotype format can be converted to and from JSON"
 
 rm -rf flat.vg flat.xg flat.gcsa.lcp flat.gcsa flat1.fa flat1.fa.gam flat1.vg flat1.xg flat1.sim flat2.fa flat2.fa.gam flat2.vg flat2.xg flat2.sim flat.gam flat.gam.index flats.fa flats.fa.fai flat.loci flat_msga.vg flat_mod.vg
+
+vg construct -v call/bigins.vcf.gz -r tiny/tiny.fa > bigins.vg
+vg index -x bigins.vg.xg -g bigins.vg.gcsa -k 16 bigins.vg
+vg sim -s 1337 -n 100 -x bigins.vg.xg -l 12 > reads.txt
+vg map -T reads.txt -g bigins.vg.gcsa -x bigins.vg.xg > bigins.gam
+is "$(vg genotype bigins.vg -G bigins.gam -t 1 -T rep -v -i | grep GACGTTACAATGAGCCCTACAGACATATC | wc -l)" "1" "genotype finds big insert" 
+
+rm -rf bigins.vg bigins.vg.xg bigins.vg.gcsa bigins.vg.gcsa.lcp bigins.gam reads.txt 
+

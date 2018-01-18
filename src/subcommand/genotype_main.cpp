@@ -37,6 +37,7 @@ void help_genotype(char** argv) {
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << endl
          << "    -P, --min_per_strand    min unique reads per strand for a called allele to accept a call" << endl
          << "    -E, --no_embed          dont embed gam edits into grpah" << endl
+         << "    -T, --traversal         traversal finder to use {read, all, rep} (read)" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -68,6 +69,8 @@ int main_genotype(int argc, char** argv) {
     int64_t length_override = 0;
     // Should we embed gam edits (for debugging as we move to further decouple augmentation and calling)
     bool embed_gam_edits = true;
+    // Which traversal finder should we use
+    string traversal_finder = "read";
 
     // Should we we just do a quick variant recall,
     // based on this VCF and GAM, then exit?
@@ -119,11 +122,12 @@ int main_genotype(int argc, char** argv) {
                 {"insertions", required_argument, 0, 'I'},
                 {"call", no_argument, 0, 'z'},
                 {"no_embed", no_argument, 0, 'E'},
+                {"traversal", required_argument, 0, 'T'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qSid:P:pt:V:I:G:F:zE",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qSid:P:pt:V:I:G:F:zET:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -206,6 +210,9 @@ int main_genotype(int argc, char** argv) {
             break;
         case 'E':
             embed_gam_edits = false;
+            break;
+        case 'T':
+            traversal_finder = optarg;
             break;
         case 'h':
         case '?':
@@ -338,6 +345,17 @@ int main_genotype(int argc, char** argv) {
     assert(het_prior_denominator > 0);
     genotyper.het_prior_logprob = prob_to_logprob(1.0/het_prior_denominator);
     genotyper.min_unique_per_strand = min_unique_per_strand;
+    if (traversal_finder == "read") {
+        genotyper.traversal_alg = Genotyper::TraversalAlg::Reads;
+    } else if (traversal_finder == "all") {
+        genotyper.traversal_alg = Genotyper::TraversalAlg::Exhaustive;
+    } else if (traversal_finder == "rep") {
+        genotyper.traversal_alg = Genotyper::TraversalAlg::Representative;
+    } else {
+        cerr << "Invalid value for traversal finder: " << traversal_finder
+             << ".  Must be in {read, all, rep}" << endl;
+        return 1;
+    }
 
     // Guess the reference path if not given
     if(ref_path_name.empty()) {

@@ -66,7 +66,6 @@ public:
     };
 
 
-
     // How many nodes max should we walk when checking if a path runs through a superbubble/snarl
     size_t max_path_search_steps = 100;
     
@@ -144,6 +143,10 @@ public:
     Aligner normal_aligner;
     QualAdjAligner quality_aligner;
 
+    // Toggle traversal finder for testing
+    enum TraversalAlg { Reads, Exhaustive, Representative };
+    TraversalAlg traversal_alg = TraversalAlg::Reads;
+
     /// Process and write output.
     /// Alignments must be embedded in the AugmentedGraph.
     void run(AugmentedGraph& graph,
@@ -181,25 +184,13 @@ public:
      */
     static bool mapping_enters_side(const Mapping& mapping, const handle_t& side, const HandleGraph* graph);
     static bool mapping_exits_side(const Mapping& mapping, const handle_t& side, const HandleGraph* graph);
-   
+
     /**
-     * For the given snarl, emit all subpaths with unique sequences that run from
-     * start to end, out of the paths in the graph. Uses the map of reads by
-     * name to determine if a path is a read or a real named path. Paths through
-     * the snarl supported only by reads are subject to a min recurrence count,
-     * while those supported by actual embedded named paths are not.
+     * Get traversals of a snarl in one of several ways. 
      */
-    vector<SnarlTraversal> get_paths_through_snarl(VG& graph, const Snarl* snarl,
-        const SnarlManager& manager, const map<string, const Alignment*>& reads_by_name);
-    
-    /**
-     * For the given snarl, emit all paths through it with unique sequences that
-     * are supported by reads stored in the AugmentedGraph's read index. Paths
-     * through the snarl supported only by reads are subject to a min recurrence
-     * count.
-     */
-    vector<SnarlTraversal> get_paths_through_snarl_from_reads(AugmentedGraph& aug,
-        const Snarl* snarl, const SnarlManager& manager);
+    vector<SnarlTraversal> get_snarl_traversals(AugmentedGraph& augmented_graph, SnarlManager& manager,
+                                                map<string, const Alignment*>& reads_by_name,
+                                                const Snarl* snarl, PathIndex* reference_index);
     
     /**
      * Get all the quality values in the alignment between the start and end
