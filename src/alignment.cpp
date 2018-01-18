@@ -798,8 +798,24 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
 
     // add features to the alignment
     alignment.set_name(read_name);
-    alignment.set_sequence(sequence);
-    alignment.set_quality(quality);
+    // was the sequence reverse complemented?
+    if (b->core.flag & BAM_FREVERSE) {
+        
+        alignment.set_sequence(reverse_complement(sequence));
+        
+        string rev_quality;
+        rev_quality.resize(quality.size());
+        reverse_copy(quality.begin(), quality.end(), rev_quality.begin());
+        alignment.set_quality(rev_quality);
+    }
+    else {
+        
+        alignment.set_sequence(sequence);
+        alignment.set_quality(quality);
+        
+    }
+    
+    
     
     // TODO: htslib doesn't wrap this flag for some reason.
     alignment.set_is_secondary(b->core.flag & BAM_FSECONDARY);
