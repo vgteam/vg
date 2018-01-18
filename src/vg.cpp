@@ -3874,18 +3874,24 @@ Node* VG::get_node(id_t id) {
     }
 }
 
+Node* VG::create_node(const string& seq) {
+    // Autodetect the maximum node ID, in case we have had some contents
+    // assigned to us already.
+    if (current_id == 1) current_id = max_node_id()+1;
+    // Make the node with these contents and the next available ID.
+    // Ensure we properly update the current_id that's used to generate new ids.
+    return create_node(seq, current_id++);
+}
+
 Node* VG::create_node(const string& seq, id_t id) {
+    // We no longer support a 0 value as a sentinel to represent letting the graph assign the ID.
+    // It was too easy to accidentally pass 0 by forgetting to offset an incoming source of IDs by 1.
+    // Use the overload without an ID instead.
+    assert(id != 0);
     // create the node
     Node* node = graph.add_node();
     node->set_sequence(seq);
-    // ensure we properly update the current_id that's used to generate new ids
-    // unless we have a specified id
-    if (id == 0) {
-        if (current_id == 1) current_id = max_node_id()+1;
-        node->set_id(current_id++);
-    } else {
-        node->set_id(id);
-    }
+    node->set_id(id);
     // copy it into the graphnn
     // and drop into our id index
     node_by_id[node->id()] = node;
@@ -6749,7 +6755,11 @@ void VG::add_start_end_markers(int length,
     if(start_node == nullptr) {
         // We get to create the node. In its forward orientation it's the start node, so we use the start character.
         string start_string(length, start_char);
-        start_node = create_node(start_string, start_id);
+        if (start_id != 0) {
+            start_node = create_node(start_string, start_id);
+        } else {
+            start_node = create_node(start_string);
+        }
     } else {
         // We got a node to use
         add_node(*start_node);
@@ -6758,7 +6768,11 @@ void VG::add_start_end_markers(int length,
     if(end_node == nullptr) {
         // We get to create the node. In its forward orientation it's the end node, so we use the end character.
         string end_string(length, end_char);
-        end_node = create_node(end_string, end_id);
+        if (end_id != 0) {
+            end_node = create_node(end_string, end_id);
+        } else {
+            end_node = create_node(end_string);
+        }
     } else {
         // We got a node to use
         add_node(*end_node);

@@ -65,7 +65,7 @@ static void compute_side_components(VG& graph,
 
 void* mergeNodeObjects(void* a, void* b) {
     // One of the objects is going to get returned, and the other one is going
-    // to get freed (since the graph is supposed to won them all).
+    // to get freed (since the graph is supposed to own them all).
     id_t* to_return;
     id_t* to_free;
     
@@ -76,6 +76,10 @@ void* mergeNodeObjects(void* a, void* b) {
         to_free = (id_t*)a;
         to_return = (id_t*)b;
     }
+    
+#ifdef debug
+    cerr << "Free object " << to_free << " = " << *to_free << " and keep object " << to_return << " = " << *to_return << endl;
+#endif
     
     // Free the thing we aren't keeping
     free(to_free);
@@ -193,12 +197,14 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
     
     // copy each component into cactus node
     for (int i = 0; i < components.size(); ++i) {
-#ifdef debug
-        cout << "Creating cactus node for component " << i << " with size " << components[i].size() << endl;
-#endif
         id_t* cactus_node_id = (id_t*)malloc(sizeof(id_t));
         *cactus_node_id = i;
         cactus_nodes[i] = stCactusNode_construct(cactus_graph, cactus_node_id);
+        
+#ifdef debug
+        cerr << "Created cactus node " << cactus_nodes[i] << " with object " << cactus_node_id
+            << " for component " << i << " with size " << components[i].size() << endl;
+#endif
     }
 
     // Make edge for each vg node connecting two adjacency components. We also
@@ -227,7 +233,7 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
                 cac_side2->node = other_side.node;
                 cac_side2->is_end = other_side.is_end;
 #ifdef debug
-                cout << "Creating cactus edge for sides " << side << " -- " << other_side << ": "
+                cerr << "Creating cactus edge for sides " << side << " -- " << other_side << ": "
                      << i << " -> " << j << endl;
 #endif
 
@@ -454,6 +460,48 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
             // Pairs are stored lowest-node-and-orientation first. Really we want a hashable unordered_pair...
             unordered_map<pair<handle_t, handle_t>, size_t> tip_distances;
             
+            // Define a function to look up in the memo, or do Dijkstra if necessary
+            // Takes a pair that must be sorted already.
+            auto get_or_compute_distance = [&](pair<handle_t, handle_t>& key) {
+                if (!tip_distances.count(key)) {
+                    // If we don't know the distance, do a search out from one handle
+                    
+#ifdef debug
+                    cerr << "Do Dijkstra traversal out from "
+                        << graph.get_id(key.first) << " " << graph.get_is_reverse(key.first) << endl;
+#endif
+                    
+                    unordered_map<handle_t, size_t> distances = algorithms::find_shortest_paths(&graph, key.first);
+                    
+                    for (auto& other_tip : component_tips[i]) {
+                        // And save the distances for everything reachable or unreachable.
+                        // This minimizes the number of searches we need to do.
+                        
+                        pair<handle_t, handle_t> other_key = make_pair(key.first, other_tip);
+                        
+                        if (graph.get_id(other_key.second) < graph.get_id(other_key.first) ||
+                            (graph.get_id(other_key.second) == graph.get_id(other_key.first) &&
+                            graph.get_is_reverse(other_key.second) < graph.get_is_reverse(other_key.first))) {
+                            
+                            // We need to put these tips the other way around
+                            std::swap(other_key.first, other_key.second);
+                        }
+                                
+                        if (distances.count(graph.flip(other_tip))) {
+                            // Can get from tip 1 to this tip.
+                            // We need to flip the tip because Dijkstra will be reading out of the graph and into the tip.
+                            tip_distances[other_key] = distances[graph.flip(other_tip)];
+                        } else {
+                            // This tip is completely unreachable from tip 1
+                            tip_distances[other_key] = numeric_limits<size_t>::max();
+                        }
+                    }
+                }
+                
+                // Now either we can reach this tip or we can't. Either way it's in the memo.
+                return tip_distances.at(key);
+            }; 
+            
             // Track the best pair of handles
             pair<handle_t, handle_t> furthest;
             // And their distance
@@ -461,10 +509,11 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
 
             for (auto& tip1 : component_tips[i]) {
                 for (auto& tip2 : component_tips[i]) {
+                    // For each pair of tips
                     if (tip1 == tip2) {
+                        // Skip unless they're distinct
                         continue;
                     }
-                    // For each pair of distinct tips
            
                     // Make a pair to be the key
                     pair<handle_t, handle_t> key = make_pair(tip1, tip2);
@@ -476,53 +525,44 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
                         std::swap(key.first, key.second);
                     }
            
-                    if (!tip_distances.count(key)) {
-                        // If we don't know the distance, do a search out from one handle
-                        
-#ifdef debug
-                        cerr << "Do Dijkstra traversal out from "
-                            << graph.get_id(tip1) << " " << graph.get_is_reverse(tip1) << endl;
-#endif
-                        
-                        unordered_map<handle_t, size_t> distances = algorithms::find_shortest_paths(&graph, tip1);
-                        
-                        for (auto& other_tip : component_tips[i]) {
-                            // And save the distances for everything reachable or unreachable.
-                            // This minimizes the number of searches we need to do.
-                            
-                            pair<handle_t, handle_t> other_key = make_pair(tip1, other_tip);
-                            
-                            if (graph.get_id(other_key.second) < graph.get_id(other_key.first) ||
-                                (graph.get_id(other_key.second) == graph.get_id(other_key.first) &&
-                                graph.get_is_reverse(other_key.second) < graph.get_is_reverse(other_key.first))) {
-                                
-                                // We need to put these tips the other way around
-                                std::swap(other_key.first, other_key.second);
-                            }
-                                    
-                            if (distances.count(graph.flip(other_tip))) {
-                                // Can get from tip 1 to this tip.
-                                // We need to flip the tip because Dijkstra will be reading out of the graph and into the tip.
-                                tip_distances[other_key] = distances[graph.flip(other_tip)];
-                            } else {
-                                // This tip is completely unreachable from tip 1
-                                tip_distances[other_key] = numeric_limits<size_t>::max();
-                            }
-                        }
-                    }
-                    
-                    // Now either we can reach this tip or we can't
-                    assert(tip_distances.count(key));
-                    auto& tip_distance = tip_distances[key];
+                    // Get or calculate their distance
+                    auto tip_distance = get_or_compute_distance(key);
                     
                     if (tip_distance != numeric_limits<size_t>::max() &&
                         (tip_distance > furthest_distance || furthest_distance == numeric_limits<size_t>::max())) {
-                        // If it's a new longer distance (but not infinite), keep it
+                        // If it's a new longer distance (but not infinite), between distinct tips, keep it
                         furthest_distance = tip_distance;
                         furthest = key;
                     }
                     
                 }
+            }
+            
+            if (furthest_distance == numeric_limits<size_t>::max()) {
+                // We couldn't find anything with two different tips
+#ifdef debug
+                cerr << "No Dijkstra path found between distinct tips. Consider hairpins of one tip." << endl;
+#endif
+
+                // So now we will check for the same tip twice.
+                for (auto& tip : component_tips[i]) {
+                    // Make a key for two of each tip.
+                    // No need to flip the symmetrical pair.
+                    pair<handle_t, handle_t> key = make_pair(tip, tip);
+                    
+                    // If we already found the distance to itself, get it.
+                    // Otherwise we'll do a Dijkstra from each tip (but only the
+                    // ones we didn't do when looking at distinct tips).
+                    auto tip_distance = get_or_compute_distance(key);
+                    
+                    if (tip_distance != numeric_limits<size_t>::max() &&
+                        (tip_distance > furthest_distance || furthest_distance == numeric_limits<size_t>::max())) {
+                        // If it's a new longer distance (but not infinite), between distinct tips, keep it
+                        furthest_distance = tip_distance;
+                        furthest = key;
+                    }
+                }
+
             }
             
             if (furthest_distance != numeric_limits<size_t>::max()) {
@@ -635,9 +675,14 @@ VG cactus_to_vg(stCactusGraph* cactus_graph) {
 
     // keep track of mapping between nodes in graph
     function<Node*(stCactusNode*)> map_node = [&](stCactusNode* cac_node) -> Node* {
+#ifdef debug
+        cerr << "Node " << cac_node << " has object " << stCactusNode_getObject(cac_node)
+            << " = " << *(id_t*)stCactusNode_getObject(cac_node) << endl;
+#endif
         if (node_map.find(cac_node) == node_map.end()) {
-            id_t cac_id = *(id_t*)stCactusNode_getObject(cac_node);
-            Node* vg_node = vg_graph.create_node("N", cac_id);
+            // Make sure to push IDs up by 1 because component numbering starts at 0    
+            id_t cac_id = *(id_t*)stCactusNode_getObject(cac_node) + 1;
+            Node* vg_node = vg_graph.create_node("N", cac_id + 1);
             node_map[cac_node] = vg_node;
             return vg_node;
         } else {
@@ -657,9 +702,6 @@ VG cactus_to_vg(stCactusGraph* cactus_graph) {
             pair<stCactusNode*, stCactusNode*> cac_edge = make_pair(
                 stCactusEdgeEnd_getNode(edge_end),
                 stCactusEdgeEnd_getOtherNode(edge_end));
-            // how to use?
-            CactusSide* cac_side = (CactusSide*)stCactusEdgeEnd_getObject(
-                stCactusEdgeEnd_getLink(edge_end));
             // make a new vg edge
             Edge* vg_edge = vg_graph.create_edge(map_node(cac_edge.first),
                                                  map_node(cac_edge.second));
