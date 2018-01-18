@@ -198,10 +198,13 @@ void kmer_to_gcsa_kmers(const kmer_t& kmer, const gcsa::Alphabet& alpha, const f
     gcsa::KMer k;
     k.key = gcsa::Key::encode(alpha, kmer.seq, predecessors, successors);
     if (offset(kmer.begin) >= 1024) {
-        cerr << "Found kmer with offset >= 1024. GCSA2 cannot handle nodes greater than 1024 bases long. "
-             << "To enable indexing, modify your graph using `vg mod -X 256 x.vg >y.vg`. "
-             << kmer << endl;
-        exit(1);
+#pragma omp critical (error)
+        {
+            cerr << "Found kmer with offset >= 1024. GCSA2 cannot handle nodes greater than 1024 bases long. "
+                 << "To enable indexing, modify your graph using `vg mod -X 256 x.vg >y.vg`. "
+                 << kmer << endl;
+            exit(1);
+        }
     }
     k.from = gcsa::Node::encode(id(kmer.begin), offset(kmer.begin), is_rev(kmer.begin));
     for (auto& pos : kmer.next_pos) {

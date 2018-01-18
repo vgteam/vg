@@ -145,7 +145,7 @@ is $(vg index -x ins_and_del.vg.xg -v ins_and_del/ins_and_del.vcf.gz ins_and_del
 
 vg construct -m 1025 -r 1mb1kgp/z.fa > big.vg
 
-is "$(vg index -g big.gcsa big.vg -k 16 2>&1 | head -n10 | grep 'Found kmer with offset' | wc -l)" "1" "a useful error message is produced when nodes are too large"
+is $(vg index -g big.gcsa big.vg -k 16 2>&1 | head -n10 | grep 'Found kmer with offset' | wc -l) 1 "a useful error message is produced when nodes are too large"
 
 rm -f big.vg
 
