@@ -695,7 +695,7 @@ size_t BaseAligner::longest_detectable_gap(const Alignment& alignment) const {
 }
 
 int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
-    bool strip_bonuses) {
+    bool strip_bonuses) const {
     
     int score = 0;
     int read_offset = 0;
@@ -750,11 +750,11 @@ int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<
     return score;
 }
 
-int32_t BaseAligner::score_ungapped_alignment(const Alignment& aln, bool strip_bonuses){
+int32_t BaseAligner::score_ungapped_alignment(const Alignment& aln, bool strip_bonuses) const {
     return score_gappy_alignment(aln, [](pos_t, pos_t, size_t){return (size_t) 0;}, strip_bonuses);
 }
 
-int32_t BaseAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) {
+int32_t BaseAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) const {
     int32_t score = aln.score();
     if (softclip_start(aln) == 0 && !(pinned && pin_left)) {
         // No softclip at the start, and a left end bonus was applied.
@@ -1092,7 +1092,7 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
 
 // Scoring an exact match is very simple in an ordinary Aligner
 
-int32_t Aligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) {
+int32_t Aligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {
     return match * length;
 }
 
@@ -1364,7 +1364,7 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
 }
 
-int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) {
+int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {
     auto& sequence = aln.sequence();
     auto& base_quality = aln.quality();
     int32_t score = 0;

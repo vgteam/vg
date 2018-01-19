@@ -24,6 +24,9 @@ public:
     // Filtering parameters
     double min_secondary = 0.;
     double min_primary = 0.;
+    // Should we rescore each alignment with default parameters and no e.g.
+    // haplotype info?
+    bool rescore = false;
     bool frac_score = false;
     bool sub_score = false;
     int max_overhang = 99999;
