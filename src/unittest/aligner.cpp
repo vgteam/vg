@@ -303,10 +303,17 @@ TEST_CASE("Full-length bonus is applied to both ends by rescoring", "[aligner][a
     json2pb(aln, aln_str.c_str(), aln_str.size());
     
     // Make an aligner with a full lenth bonus of 5
-    Aligner aligner(1, 4, 6, 1, 5);
+    Aligner aligner1(1, 4, 6, 1, 5);
+    // And one with no bonus
+    Aligner aligner2(1, 4, 6, 1, 0);
 
-    // Normal score would be 129, and with a full length bonus at each end it's 139.
-    REQUIRE(aligner.score_ungapped_alignment(aln) == 139);
+    REQUIRE(!softclip_start(aln));
+    REQUIRE(!softclip_end(aln));
+
+    // Normal score would be 129
+    REQUIRE(aligner2.score_ungapped_alignment(aln) == 129);
+    // And with a full length bonus at each end it's 139.
+    REQUIRE(aligner1.score_ungapped_alignment(aln) == 139);
 }
    
 }

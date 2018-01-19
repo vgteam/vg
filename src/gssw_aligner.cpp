@@ -700,6 +700,11 @@ int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<
     int score = 0;
     int read_offset = 0;
     auto& path = aln.path();
+
+    // We keep track of whether the last edit was a deletion for coalescing
+    // adjacent deletions across node boundaries
+    bool last_was_deletion = false;
+
     for (int i = 0; i < path.mapping_size(); ++i) {
         // For each mapping
         auto& mapping = path.mapping(i);
@@ -710,14 +715,34 @@ int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<
             // Score the edit according to its type
             if (edit_is_match(edit)) {
                 score += score_exact_match(aln, read_offset, edit.to_length());
+                last_was_deletion = false;
             } else if (edit_is_sub(edit)) {
                 score -= mismatch * edit.sequence().size();
+                last_was_deletion = false;
             } else if (edit_is_deletion(edit)) {
-                score -= edit.from_length() ? gap_open + (edit.from_length() - 1) * gap_extension : 0;
+                if (last_was_deletion) {
+                    // No need to charge a gap open
+                    score -= edit.from_length() * gap_extension;
+                } else {
+                    // We need a gap open
+                    score -= edit.from_length() ? gap_open + (edit.from_length() - 1) * gap_extension : 0;
+                }
+
+                if (edit.from_length()) {
+                    // We already charged a gap open
+                    last_was_deletion = true;
+                }
+                // If there's a 0-length deletion, leave the last_was_deletion flag unchanged.
             } else if (edit_is_insertion(edit) && !((i == 0 && j == 0) ||
                                                     (i == path.mapping_size()-1 && j == mapping.edit_size()-1))) {
                 // todo how do we score this qual adjusted?
                 score -= edit.to_length() ? gap_open + (edit.to_length() - 1) * gap_extension : 0;
+                last_was_deletion = false;
+                // No need to track if the last edit was an insertion because
+                // insertions will be all together in a single edit at a point.
+            } else {
+                // No idea what's going on!
+                throw runtime_error("Cannot score edit: " + pb2json(edit));
             }
             read_offset += edit.to_length();
         }
@@ -736,7 +761,7 @@ int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<
             }
         }
     }
-    
+
     if (!strip_bonuses) {
         // We should report any bonuses used in the DP in the final score
         if (!softclip_start(aln)) {
