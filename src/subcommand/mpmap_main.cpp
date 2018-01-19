@@ -101,7 +101,7 @@ int main_mpmap(int argc, char** argv) {
     bool interleaved_input = false;
     int snarl_cut_size = 5;
     int max_map_attempts = 64;
-    int max_rescue_attempts = 64;
+    int max_rescue_attempts = std::numeric_limits<int>::max();
     int max_num_mappings = 1;
     int buffer_size = 100;
     int hit_max = 256;
