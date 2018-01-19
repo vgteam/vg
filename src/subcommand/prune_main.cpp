@@ -5,8 +5,9 @@
  *
  * By default, pruning removes the nodes touched by paths of length
  * --kmer-length crossing more than --edge-max non-trivial edges. Graph
- * regions shorter than --kmer-length are also removed.
- * TODO: Optionally, nodes on the paths stored in the XG index are not removed.
+ * regions shorter than --subgraph_min are also removed. Pruning either removes
+ * all embedded paths or preserves both the paths and the edges on non-alt
+ * paths.
  * TODO: Optionally, replace each pruned region with a set of disjoint paths
  * corresponding to all distinct XG paths and GBWT threads in that region.
  * TODO: We also need to output a mapping from duplicated node ids to original
@@ -31,19 +32,22 @@ using namespace vg::subcommand;
 
 struct PruningParameters
 {
-    const static int LENGTH = 16;
-    const static int EDGE_MAX = 4;
+    const static int    KMER_LENGTH = 16;
+    const static int    EDGE_MAX = 4;
+    const static size_t SUBGRAPH_MIN = 33;
 };
 
 void help_prune(char** argv) {
     std::cerr << "usage: " << argv[0] << " prune [options] <graph.vg> >[output.vg]" << std::endl;
-    std::cerr << "Prunes the complex regions of the graph for GCSA2 indexing. Note that pruning" << std::endl;
-    std::cerr << "removes paths from the graph." << std::endl;
+    std::cerr << "Prunes the complex regions of the graph for GCSA2 indexing. By default," << std::endl;
+    std::cerr << "pruning removes the embedded paths." << std::endl;
     std::cerr << "pruning options:" << std::endl;
-    std::cerr << "    -k, --kmer-length N    kmer length used for pruning (default: " << PruningParameters::LENGTH << ")" << std::endl;
-    std::cerr << "    -e, --edge-max N       only consider paths making > N edge choices (default: " << PruningParameters::EDGE_MAX << ")" << std::endl;
+    std::cerr << "    -k, --kmer-length N    kmer length used for pruning (default: " << PruningParameters::KMER_LENGTH << ")" << std::endl;
+    std::cerr << "    -e, --edge-max N       prune paths making > N edge choices (default: " << PruningParameters::EDGE_MAX << ")" << std::endl;
+    std::cerr << "    -s, --subgraph-min N   prune subgraphs of < N bases (default: " << PruningParameters::SUBGRAPH_MIN << ")" << std::endl;
     std::cerr << "path options:" << std::endl;
-    std::cerr << "    -x, --xg-name FILE     preserve the paths in this XG index" << std::endl;
+    std::cerr << "    -p, --preserve-paths   preserve the embedded paths in the graph" << std::endl;
+    std::cerr << "    -x, --xg-name FILE     use this XG index" << std::endl;
     std::cerr << "    -g, --gbwt-name FILE   unfold the threads in this GBWT index in the complex" << std::endl;
     std::cerr << "                           regions instead (requires -x)" << std::endl;
     std::cerr << "    -m, --mapping FILE     store the node mapping from -g in this file" << std::endl;
@@ -56,8 +60,10 @@ int main_prune(int argc, char** argv) {
         return 1;
     }
 
-    int kmer_length = PruningParameters::LENGTH;
+    int kmer_length = PruningParameters::KMER_LENGTH;
     int edge_max = PruningParameters::EDGE_MAX;
+    size_t subgraph_min = PruningParameters::SUBGRAPH_MIN;
+    bool preserve_paths = false;
     std::string xg_name, gbwt_name, mapping_name;
 
     int c;
@@ -67,6 +73,8 @@ int main_prune(int argc, char** argv) {
         {
             { "kmer-length", required_argument, 0, 'k' },
             { "edge-max", required_argument, 0, 'e' },
+            { "subgraph-min", required_argument, 0, 's' },
+            { "preserve-paths", no_argument, 0, 'p' },
             { "xg-name", required_argument, 0, 'x' },
             { "gbwt-name", required_argument, 0, 'g' },
             { "mapping", required_argument, 0, 'm' },
@@ -74,7 +82,7 @@ int main_prune(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "k:e:x:g:m:", long_options, &option_index);
+        c = getopt_long (argc, argv, "k:e:s:px:g:m:", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -84,6 +92,12 @@ int main_prune(int argc, char** argv) {
             break;
         case 'e':
             edge_max = stoi(optarg);
+            break;
+        case 's':
+            subgraph_min = stoul(optarg);
+            break;
+        case 'p':
+            preserve_paths = true;
             break;
         case 'x':
             xg_name = optarg;
@@ -112,19 +126,19 @@ int main_prune(int argc, char** argv) {
     get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
     });
-    graph->paths.clear(); // Updating the paths can be expensive, so we just get rid of them.
 
     // Prune complex regions.
-    if (xg_name.empty()) {
-        graph->prune_complex_with_head_tail(kmer_length, edge_max);
-    } else {
-        std::cerr << "Not implemented yet!" << std::endl;
-        // find complex regions
-        // cluster complex regions into connected components
-        // remove complex regions, except if they are on XG paths
-        // alternatively unfold the complex regions
+    if (!preserve_paths) {
+        graph->paths.clear();
     }
-    graph->prune_short_subgraphs(kmer_length);
+    graph->prune_complex_with_head_tail(kmer_length, edge_max, preserve_paths);
+    // TODO: Another approach
+    // load XG, GBWT
+    // find complex regions
+    // cluster complex regions into connected components
+    // remove complex regions, except if they are on VG paths
+    // unfold the complex regions
+    graph->prune_short_subgraphs(subgraph_min);
 
     graph->serialize_to_ostream(std::cout);
     if (!mapping_name.empty()) {
@@ -132,7 +146,7 @@ int main_prune(int argc, char** argv) {
         // (write mapping)
     }
 
-    delete graph; graph = 0;
+    delete graph; graph = nullptr;
 
     return 0;
 }

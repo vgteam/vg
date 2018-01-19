@@ -6,6 +6,7 @@
 #include "algorithms/topological_sort.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
+#include <regex>
 
 //#define debug
 
@@ -1534,11 +1535,16 @@ void VG::normalize(int max_iter, bool debug) {
     }
 }
 
-set<Edge*> VG::get_path_edges(void) {
+set<Edge*> VG::get_path_edges(bool skip_alts) {
     // We'll populate a set with edges.
     // This set shadows our function anme but we're not recursive so that's fine.
     set<Edge*> edges;
-    function<void(const Path&)> lambda = [this, &edges](const Path& path) {
+    regex is_alt("_alt_.+_[0-9]+");
+
+    function<void(const Path&)> lambda = [this, &edges, &is_alt, skip_alts](const Path& path) {
+        if (skip_alts && regex_match(path.name(), is_alt)) {
+            return;
+        }
         for (size_t i = 1; i < path.mapping_size(); ++i) {
             auto& m1 = path.mapping(i-1);
             auto& m2 = path.mapping(i);
@@ -8300,16 +8306,16 @@ VG::build_gcsa_lcp(gcsa::GCSA*& gcsa,
     // results returned by reference
 }
 
-void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
+void VG::prune_complex_with_head_tail(int path_length, int edge_max, bool preserve_paths) {
     Node* head_node = NULL;
     Node* tail_node = NULL;
     add_start_end_markers(path_length, '#', '$', head_node, tail_node);
-    prune_complex(path_length, edge_max, head_node, tail_node);
+    prune_complex(path_length, edge_max, head_node, tail_node, preserve_paths);
     destroy_node(head_node);
     destroy_node(tail_node);
 }
 
-void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
+void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node, bool preserve_paths) {
     vector<set<NodeTraversal> > prev_maxed_nodes;
     vector<set<NodeTraversal> > next_maxed_nodes;
 #pragma omp parallel
@@ -8333,8 +8339,14 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
     // ignores the paths in the graph
     for_each_kpath_parallel(path_length, false, edge_max, prev_maxed, next_maxed, noop);
 
-    // What nodes will we destroy because we got into them with too much complexity?
+    // What edges will we destroy because we got into them with too much complexity?
     set<Edge*> to_destroy;
+
+    // Determine the edges on non-alt paths that should not be destroyed.
+    set<Edge*> to_preserve;
+    if(preserve_paths) {
+        to_preserve = get_path_edges(true);
+    }
 
     set<NodeTraversal> prev;
     for (auto& p : prev_maxed_nodes) {
@@ -8352,17 +8364,21 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
             // Going left into it means coming to its start. True flags on the
             // edges mean connecting to the start of the other nodes.
             for (auto& e : edges_start(node.node)) {
-                create_edge(e.first, head_node->id(), e.second, true);
-                to_destroy.insert(get_edge(NodeSide(e.first, e.second),
-                                           NodeSide(node.node->id(), false)));
+                Edge* candidate = get_edge(NodeSide(e.first, e.second), NodeSide(node.node->id(), false));
+                if (to_preserve.find(candidate) == to_preserve.end()) {
+                    create_edge(e.first, head_node->id(), e.second, true);
+                    to_destroy.insert(candidate);
+                }
             }
         } else {
             // Going left into it means coming to its end. True flags on the
             // edges mean connecting to the ends of the other nodes.
             for (auto& e : edges_end(node.node)) {
-                create_edge(head_node->id(), e.first, false, e.second);
-                to_destroy.insert(get_edge(NodeSide(e.first, e.second),
-                                           NodeSide(node.node->id(), true)));
+                Edge* candidate = get_edge(NodeSide(e.first, e.second), NodeSide(node.node->id(), true));
+                if (to_preserve.find(candidate) == to_preserve.end()) {
+                    create_edge(head_node->id(), e.first, false, e.second);
+                    to_destroy.insert(candidate);
+                }
             }
         }
     }
@@ -8383,18 +8399,21 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
             // Going right into it means coming to its end. True flags on the
             // edges mean connecting to the end of the other nodes.
             for (auto& e : edges_end(node.node)) {
-                create_edge(tail_node->id(), e.first, false, e.second);
-                to_destroy.insert(get_edge(NodeSide(node.node->id(), true),
-                                           NodeSide(e.first, e.second)));
-                    
+                Edge* candidate = get_edge(NodeSide(node.node->id(), true), NodeSide(e.first, e.second));
+                if (to_preserve.find(candidate) == to_preserve.end()) {
+                    create_edge(tail_node->id(), e.first, false, e.second);
+                    to_destroy.insert(candidate);
+                }
             }
         } else {
             // Going right into it means coming to its start. True flags on the
             // edges mean connecting to the starts of the other nodes.
             for (auto& e : edges_start(node.node)) {
-                create_edge(e.first, head_node->id(), e.second, true);
-                to_destroy.insert(get_edge(NodeSide(node.node->id(), false),
-                                           NodeSide(e.first, e.second)));
+                Edge* candidate = get_edge(NodeSide(node.node->id(), false), NodeSide(e.first, e.second));
+                if (to_preserve.find(candidate) == to_preserve.end()) {
+                    create_edge(e.first, head_node->id(), e.second, true);
+                    to_destroy.insert(candidate);
+                }
             }
         }
     }
