@@ -255,8 +255,10 @@ cat "${OUTPUT_PATH}/primary/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/po
 # See <https://stackoverflow.com/a/246128>
 SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Do the R plot
+# Do the R plots
 Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
+Rscript "${SCRIPT_DIRECTORY}/plot-pr.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/pr.svg"
+
 
 rmdir "${TREE_PATH}"
 echo "Successfully produced ROC plot ${OUTPUT_PATH}/roc.svg"
