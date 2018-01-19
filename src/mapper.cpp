@@ -1428,6 +1428,8 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
                 round(haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base)));
             // Note that we successfully corrected the score
             alns[i]->set_haplotype_scored(true);
+            // And save the raw log probability
+            alns[i]->set_haplotype_logprob(haplotype_logprobs[i]);
         }
         // Otherwise leave haplotype_scored as false, the default.
     }
