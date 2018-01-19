@@ -833,7 +833,8 @@ int main_mod(int argc, char** argv) {
         }
         Node* head_node = NULL;
         Node* tail_node = NULL;
-        graph->add_start_end_markers(path_length, '#', '$', head_node, tail_node);
+        vg::id_t head_id = 0, tail_id = 0;
+        graph->add_start_end_markers(path_length, '#', '$', head_node, tail_node, head_id, tail_id);
     }
 
     if (destroy_node_id > 0) {

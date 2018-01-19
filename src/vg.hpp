@@ -117,7 +117,7 @@ public:
     
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const;
+    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     // Copy over the template for nice calls
     using HandleGraph::for_each_handle;
@@ -1191,117 +1191,6 @@ public:
     void node_starts_in_path(list<NodeTraversal>& path,
                              map<NodeTraversal*, int>& node_start);
 
-    // kmers
-    /// Call a function for each kmer in the graph, in parallel.
-    void for_each_kmer_parallel(int kmer_size,
-                                bool path_only,
-                                int edge_max,
-                                function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
-                                int stride = 1,
-                                bool allow_dups = false,
-                                bool allow_negatives = false);
-    /// Call a function for each kmer in the graph.
-    void for_each_kmer(int kmer_size,
-                       bool path_only,
-                       int edge_max,
-                       function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
-                       int stride = 1,
-                       bool allow_dups = false,
-                       bool allow_negatives = false);
-    /// Call a function for each kmer on a node.
-    void for_each_kmer_of_node(Node* node,
-                               int kmer_size,
-                               bool path_only,
-                               int edge_max,
-                               function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
-                               int stride = 1,
-                               bool allow_dups = false,
-                               bool allow_negatives = false);
-
-    /// For the given kmer of the given length starting at the given
-    /// offset into the given Node along the given path, fill in end_node and
-    /// end_offset with where the end of the kmer falls (counting from the right
-    /// side of the NodeTraversal), prev_chars with the characters that preceed
-    /// it, next_chars with the characters that follow it, prev_ and
-    /// next_positions with the ((node ID, orientation), offset) pairs of the
-    /// places you can come from/go next (from the right end of the kmer).
-    /// Refuses to follow more than edge_max edges. Offsets are in the path
-    /// orientation. Meant for gcsa2.
-    void kmer_context(string& kmer,
-                      int kmer_size,
-                      bool path_only,
-                      int edge_max,
-                      bool forward_only,
-                      list<NodeTraversal>& path,
-                      list<NodeTraversal>::iterator start_node,
-                      int32_t start_offset,
-                      list<NodeTraversal>::iterator& end_node,
-                      int32_t& end_offset,
-                      set<tuple<char, id_t, bool, int32_t>>& prev_positions,
-                      set<tuple<char, id_t, bool, int32_t>>& next_positions);
-
-    /// Do the GCSA2 kmers for a node. head_node and tail_node must both be non-
-    /// null, but only one of those nodes actually needs to be in the graph. They
-    /// will be examined directly to get their representative characters. They
-    /// also don't need to be actually owned by the graph; they can be copies.
-    void gcsa_handle_node_in_graph(Node* node, int kmer_size, bool path_only,
-                                   int edge_max, int stride,
-                                   bool forward_only,
-                                   Node* head_node, Node* tail_node,
-                                   function<void(KmerPosition&)> lambda);
-
-    /// Call a function for each GCSA2 kemr position in parallel.
-    /// GCSA kmers are the kmers in the graph with each node
-    /// existing in both its forward and reverse-complement orientation. Node IDs
-    /// in the GCSA graph are 2 * original node ID, +1 if the GCSA node
-    /// represents the reverse complement, and +0 if it does not. Non-reversing
-    /// edges link the forward copy of the from node to the forward copy of the
-    /// to node, and similarly for the reverse complement copies, while reversing
-    /// edges link the forward copy of the from node to the *reverse complement*
-    /// copy of the to node, and visa versa. This allows us to index both the
-    /// forward and reverse strands of every node, and to deal with GCSA's lack
-    /// of support for reversing edges, with the same trick. Note that
-    /// start_tail_id, if zero, will be replaced with the ID actually used for the
-    /// start/end node before lambda is ever called.
-    void for_each_gcsa_kmer_position_parallel(int kmer_size, bool path_only,
-                                              int edge_max, int stride,
-                                              bool forward_only,
-                                              id_t& head_id, id_t& tail_id,
-                                              function<void(KmerPosition&)> lambda);
-    
-    /// Get the GCSA2 kmers in the graph.
-    void get_gcsa_kmers(int kmer_size, bool path_only,
-                        int edge_max, int stride,
-                        bool forward_only,
-                        const function<void(vector<gcsa::KMer>&, bool)>& handle_kmers,
-                        id_t& head_id, id_t& tail_id);
-
-    /// Writhe the GCSA2 kmer file for the graph to the goven stream.
-    void write_gcsa_kmers(int kmer_size, bool path_only,
-                          int edge_max, int stride,
-                          bool forward_only,
-                          ostream& out,
-                          id_t& head_id, id_t& tail_id);
-
-    /// Write the GCSA2 kmers to a temp file with the given base. Return the name of the file.
-    string write_gcsa_kmers_to_tmpfile(int kmer_size,
-                                       bool paths_only,
-                                       bool forward_only,
-                                       id_t& head_id, id_t& tail_id,
-                                       size_t doubling_steps = 2,
-                                       size_t size_limit = 200,
-                                       const string& base_file_name = ".vg-kmers-tmp-");
-
-    /// Construct the GCSA2 index for this graph.
-    void build_gcsa_lcp(gcsa::GCSA*& gcsa,
-                        gcsa::LCPArray*& lcp,
-                        int kmer_size,
-                        bool paths_only,
-                        bool forward_only,
-                        size_t doubling_steps = 2,
-                        size_t size_limit = 200,
-                        const string& base_file_name = ".vg-kmers-tmp-");
-
     /// Take all nodes that would introduce paths of > edge_max edge crossings, remove them, and link their neighbors to
     /// head_node or tail_node depending on which direction the path extension was stopped.
     /// For pruning graph prior to indexing with gcsa2.
@@ -1396,7 +1285,7 @@ public:
     void add_start_end_markers(int length,
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,
-                               id_t start_id = 0, id_t end_id = 0);
+                               id_t& start_id, id_t& end_id);
 
     /// Structure for managing parallel construction of a graph.
     // TODO: delete this since we don't use it anymore.
