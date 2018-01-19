@@ -41,7 +41,7 @@ RUN apt-get -qq update && apt-get -qq install -y \
     raptor2-utils \
     rasqal-utils \
     samtools
-ADD http://mirrors.kernel.org/ubuntu/pool/universe/b/bwa/bwa_0.7.15-2_amd64.deb /tmp/bwa.deb
+ADD http://mirrors.kernel.org/ubuntu/pool/universe/b/bwa/bwa_0.7.15-5_amd64.deb /tmp/bwa.deb
 RUN dpkg -i /tmp/bwa.deb
 
 # copy over current directory to docker
