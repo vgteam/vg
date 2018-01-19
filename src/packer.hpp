@@ -1,5 +1,5 @@
-#ifndef VG_MAPPER_HPP_INCLUDED
-#define VG_MAPPER_HPP_INCLUDED
+#ifndef VG_PACKER_HPP_INCLUDED
+#define VG_PACKER_HPP_INCLUDED
 
 #include <iostream>
 #include <map>

@@ -1512,6 +1512,7 @@ Mapper::Mapper(xg::XG* xidex,
     , maybe_mq_threshold(0)
     , min_banded_mq(0)
     , max_band_jump(0)
+    , patch_alignments(false)
     , identity_weight(2)
     , pair_rescue_hang_threshold(0.7)
     , pair_rescue_retry_threshold(0.5)
@@ -3719,12 +3720,14 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         return -((double)gap_open + (double)dist * (double)gap_extension);
     };
 
-    AlignmentChainModel chainer(multi_alns, this, transition_weight, 1, 64, 128);
+    AlignmentChainModel chainer(multi_alns, this, transition_weight, 4, 64, 128);
     if (debug) chainer.display(cerr);
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps, false, debug);
-    for (auto& aln : alignments) {
-        // patch the alignment to deal with short unaligned regions
-        aln = patch_alignment(aln, band_width);
+    if (patch_alignments) {
+        for (auto& aln : alignments) {
+            // patch the alignment to deal with short unaligned regions
+            aln = patch_alignment(aln, band_width);
+        }
     }
     // sort the alignments by score
     std::sort(alignments.begin(), alignments.end(), [](const Alignment& aln1, const Alignment& aln2) { return aln1.score() > aln2.score(); });
@@ -3732,8 +3735,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         alignments.front().set_mapping_quality(max_mapping_quality);
     } else {
         compute_mapping_qualities(alignments, 0, max_mapping_quality, max_mapping_quality);
+        filter_and_process_multimaps(alignments, max_multimaps);
     }
-    filter_and_process_multimaps(alignments, max_multimaps);
     //cerr << "got alignment " << pb2json(alignments.front()) << endl;
     return alignments;
 }
@@ -4938,25 +4941,21 @@ AlignmentChainModel::AlignmentChainModel(
     for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
         for (auto u = v+1; u != model.end(); ++u) {
             if (v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
-                if (v->band_idx + vertex_band_width <= u->band_idx) {
+                if (v->band_idx + vertex_band_width >= u->band_idx) {
                     double weight = transition_weight(*v->aln, *u->aln, v->positions, u->positions);
                     if (weight > -std::numeric_limits<double>::max()) {
                         v->next_cost.push_back(make_pair(&*u, weight));
                         u->prev_cost.push_back(make_pair(&*v, weight));
                     }
-                } else if (u->band_idx + vertex_band_width <= v->band_idx) {
-                    double weight = transition_weight(*u->aln, *v->aln, u->positions, v->positions);
-                    if (weight > -std::numeric_limits<double>::max()) {
-                        u->next_cost.push_back(make_pair(&*v, weight));
-                        v->prev_cost.push_back(make_pair(&*u, weight));
-                    }
+                } else {
+                    break;
                 }
-            }            
+            }
         }
     }
 }
 
-void AlignmentChainModel::score(const set<AlignmentChainModelVertex*>& exclude) {
+void AlignmentChainModel::score(const unordered_set<AlignmentChainModelVertex*>& exclude) {
     // propagate the scores in the model
     for (auto& m : model) {
         // score is equal to the max inbound + mem.weight
@@ -4994,7 +4993,7 @@ vector<Alignment> AlignmentChainModel::traceback(const Alignment& read, int alt_
     debug = true;
     vector<vector<Alignment> > traces;
     traces.reserve(alt_alns); // avoid reallocs so we can refer to pointers to the traces
-    set<AlignmentChainModelVertex*> exclude;
+    unordered_set<AlignmentChainModelVertex*> exclude;
     for (auto& v : redundant_vertexes) exclude.insert(&*v);
     for (int i = 0; i < alt_alns; ++i) {
         // score the model, accounting for excluded traces
@@ -5032,7 +5031,7 @@ vector<Alignment> AlignmentChainModel::traceback(const Alignment& read, int alt_
             exclude.insert(vertex_trace.front());
         }
         // fill this out when we're paired to help mask out in-fragment transitions
-        set<AlignmentChainModelVertex*> chain_members;
+        unordered_set<AlignmentChainModelVertex*> chain_members;
         if (paired) for (auto v : vertex_trace) chain_members.insert(v);
         traces.emplace_back();
         auto& aln_trace = traces.back();

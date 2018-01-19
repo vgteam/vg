@@ -57,7 +57,6 @@ void help_index(char** argv) {
          << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
          << "rocksdb options (ignored with -g):" << endl
          << "    -d, --db-name  <X>     store the database in <X>" << endl
-         << "    -s, --store-graph      store graph as xg" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
          << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
          << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
@@ -134,7 +133,6 @@ int main_index(int argc, char** argv) {
     int edge_max = 0;
     int kmer_stride = 1;
     int prune_kb = -1;
-    bool store_graph = false;
     bool dump_index = false;
     bool describe_index = false;
     bool show_progress = false;
@@ -312,10 +310,6 @@ int main_index(int argc, char** argv) {
 
         case 'S':
             set_kmer_size = true;
-            break;
-
-        case 's':
-            store_graph = true;
             break;
 
         case 'a':
@@ -1117,7 +1111,7 @@ int main_index(int argc, char** argv) {
             VGset graphs(file_names);
             graphs.show_progress = show_progress;
             // Go get the kmers of the correct size
-            tmpfiles = graphs.write_gcsa_kmers_binary(kmer_size, path_only, forward_only);
+            tmpfiles = graphs.write_gcsa_kmers_binary(kmer_size);
         } else {
             tmpfiles = dbg_names;
         }
@@ -1164,25 +1158,6 @@ int main_index(int argc, char** argv) {
 
         if (compact) {
             index.open_for_write(rocksdb_name);
-            index.compact();
-            index.flush();
-            index.close();
-        }
-
-        // todo, switch to xg for graph storage
-        // index should write and load index/xg or such
-        // then a handful of functions used in main.cpp and mapper.cpp need to be rewritten to use the xg index
-        if (store_graph && file_names.size() > 0) {
-            index.open_for_write(rocksdb_name);
-            VGset graphs(file_names);
-            graphs.show_progress = show_progress;
-            graphs.store_in_index(index);
-            //index.flush();
-            //index.close();
-            // reopen to index paths
-            // this requires the index to be queryable
-            //index.open_for_write(db_name);
-            graphs.store_paths_in_index(index);
             index.compact();
             index.flush();
             index.close();
@@ -1243,20 +1218,6 @@ int main_index(int argc, char** argv) {
                 });
             }
             index.flush();
-            index.close();
-        }
-
-        if (kmer_size != 0 && file_names.size() > 0) {
-            index.open_for_bulk_load(rocksdb_name);
-            VGset graphs(file_names);
-            graphs.show_progress = show_progress;
-            graphs.index_kmers(index, kmer_size, path_only, edge_max, kmer_stride, allow_negs);
-            index.flush();
-            index.close();
-            // forces compaction
-            index.open_for_write(rocksdb_name);
-            index.flush();
-            index.compact();
             index.close();
         }
 

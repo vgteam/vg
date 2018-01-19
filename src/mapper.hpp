@@ -70,7 +70,7 @@ public:
         int vertex_band_width = 10,
         int position_depth = 1,
         int max_connections = 30);
-    void score(const set<AlignmentChainModelVertex*>& exclude);
+    void score(const unordered_set<AlignmentChainModelVertex*>& exclude);
     AlignmentChainModelVertex* max_vertex(void);
     vector<Alignment> traceback(const Alignment& read, int alt_alns, bool paired, bool debug);
     void display(ostream& out);
@@ -624,6 +624,7 @@ public:
     int extra_multimaps; // Extra mappings considered
     int min_multimaps; // Minimum number of multimappings
     int band_multimaps; // the number of multimaps for to attempt for each band in a banded alignment
+    bool patch_alignments; // should we attempt alignment patching to resolve unaligned regions in banded alignment
     
     double maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality

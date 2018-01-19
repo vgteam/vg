@@ -798,8 +798,24 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
 
     // add features to the alignment
     alignment.set_name(read_name);
-    alignment.set_sequence(sequence);
-    alignment.set_quality(quality);
+    // was the sequence reverse complemented?
+    if (b->core.flag & BAM_FREVERSE) {
+        
+        alignment.set_sequence(reverse_complement(sequence));
+        
+        string rev_quality;
+        rev_quality.resize(quality.size());
+        reverse_copy(quality.begin(), quality.end(), rev_quality.begin());
+        alignment.set_quality(rev_quality);
+    }
+    else {
+        
+        alignment.set_sequence(sequence);
+        alignment.set_quality(quality);
+        
+    }
+    
+    
     
     // TODO: htslib doesn't wrap this flag for some reason.
     alignment.set_is_secondary(b->core.flag & BAM_FSECONDARY);
@@ -953,6 +969,13 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
     // buliding up the alignment
     Alignment merged;
 
+    size_t len = 0;
+    for (size_t i = 0; i < alns.size(); ++i) {
+        len += alns[i].sequence().size();
+    }
+    merged.mutable_sequence()->reserve(len);
+    if (alns.front().quality().size()) merged.mutable_quality()->reserve(len);
+
     // get the alignments ready for merge
     for (size_t i = 0; i < alns.size(); ++i) {
         Alignment aln = alns[i];
@@ -964,15 +987,17 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
             *aln.mutable_path()->add_mapping() = m;
         }
         if (i == 0) {
-            merged = aln;
+            merged = aln; merged.clear_sequence();
         } else {
-            extend_alignment(merged, aln, debug);
+            if (!merged.quality().empty()) merged.mutable_quality()->append(aln.quality());
+            extend_path(*merged.mutable_path(), aln.path());
+            merged.mutable_sequence()->append(aln.sequence());
         }
     }
-    *merged.mutable_path() = simplify(merged.path());
+    //*merged.mutable_path() = simplify(merged.path());
+    //merged.mutable_sequence() = 
     return merged;
 }
-
 
 Alignment& extend_alignment(Alignment& a1, const Alignment& a2, bool debug) {
     //if (debug) cerr << "extending alignment " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
