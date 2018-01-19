@@ -741,8 +741,8 @@ int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<
                 // No need to track if the last edit was an insertion because
                 // insertions will be all together in a single edit at a point.
             } else {
-                // No idea what's going on!
-                throw runtime_error("Cannot score edit: " + pb2json(edit));
+                // Edit has no score effect. Probably a softclip.
+                last_was_deletion = false;
             }
             read_offset += edit.to_length();
         }
