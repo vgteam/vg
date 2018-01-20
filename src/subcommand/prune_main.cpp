@@ -20,11 +20,13 @@
 
 #include <gbwt/gbwt.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <string>
 
 #include <getopt.h>
+#include <omp.h>
 
 using namespace vg;
 using namespace vg::subcommand;
@@ -46,11 +48,13 @@ void help_prune(char** argv) {
     std::cerr << "    -e, --edge-max N       prune paths making > N edge choices (default: " << PruningParameters::EDGE_MAX << ")" << std::endl;
     std::cerr << "    -s, --subgraph-min N   prune subgraphs of < N bases (default: " << PruningParameters::SUBGRAPH_MIN << ")" << std::endl;
     std::cerr << "path options:" << std::endl;
-    std::cerr << "    -p, --preserve-paths   preserve the embedded paths in the graph" << std::endl;
+    std::cerr << "    -p, --preserve-paths   preserve the embedded non-alt paths in the graph" << std::endl;
     std::cerr << "    -x, --xg-name FILE     use this XG index" << std::endl;
-    std::cerr << "    -g, --gbwt-name FILE   unfold the threads in this GBWT index in the complex" << std::endl;
-    std::cerr << "                           regions instead (requires -x)" << std::endl;
+    std::cerr << "    -g, --gbwt-name FILE   unfold the complex regions by using the threads in" << std::endl;
+    std::cerr << "                           this GBWT index (requires -x)" << std::endl;
     std::cerr << "    -m, --mapping FILE     store the node mapping from -g in this file" << std::endl;
+    std::cerr << "other options:" << std::endl;
+    std::cerr << "    -t, --threads N        use N threads (default: " << omp_get_max_threads() << ")" << std::endl;
 }
 
 int main_prune(int argc, char** argv) {
@@ -63,6 +67,7 @@ int main_prune(int argc, char** argv) {
     int kmer_length = PruningParameters::KMER_LENGTH;
     int edge_max = PruningParameters::EDGE_MAX;
     size_t subgraph_min = PruningParameters::SUBGRAPH_MIN;
+    int threads = omp_get_max_threads();
     bool preserve_paths = false;
     std::string xg_name, gbwt_name, mapping_name;
 
@@ -78,11 +83,12 @@ int main_prune(int argc, char** argv) {
             { "xg-name", required_argument, 0, 'x' },
             { "gbwt-name", required_argument, 0, 'g' },
             { "mapping", required_argument, 0, 'm' },
+            { "threads", required_argument, 0, 't' },
             { 0, 0, 0, 0 }
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "k:e:s:px:g:m:", long_options, &option_index);
+        c = getopt_long (argc, argv, "k:e:s:px:g:m:t:", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -107,6 +113,12 @@ int main_prune(int argc, char** argv) {
             break;
         case 'm':
             mapping_name = optarg;
+            break;
+        case 't':
+            threads = stoi(optarg);
+            threads = std::min(threads, omp_get_max_threads());
+            threads = std::max(threads, 1);
+            omp_set_num_threads(threads);
             break;
 
         case 'h':
