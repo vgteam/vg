@@ -1241,9 +1241,16 @@ void parse_bed_regions(istream& bedstream,
         } else {
             ss >> name;
             assert(sbuf < ebuf);
-            Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name);
 
-            out_alignments->push_back(alignment);
+            if (xgindex->path_rank(seq) == 0) {
+                // This path doesn't exist, and we'll get a segfault or worse if
+                // we go look for positions in it.
+                cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
+            } else {
+                Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name);
+
+                out_alignments->push_back(alignment);
+            }
         }
     }
 }
