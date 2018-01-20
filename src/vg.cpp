@@ -6,7 +6,6 @@
 #include "algorithms/topological_sort.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
-#include <regex>
 
 //#define debug
 
@@ -1535,16 +1534,12 @@ void VG::normalize(int max_iter, bool debug) {
     }
 }
 
-set<Edge*> VG::get_path_edges(bool skip_alts) {
+set<Edge*> VG::get_path_edges() {
     // We'll populate a set with edges.
     // This set shadows our function anme but we're not recursive so that's fine.
     set<Edge*> edges;
-    regex is_alt("_alt_.+_[0-9]+");
 
-    function<void(const Path&)> lambda = [this, &edges, &is_alt, skip_alts](const Path& path) {
-        if (skip_alts && regex_match(path.name(), is_alt)) {
-            return;
-        }
+    function<void(const Path&)> lambda = [this, &edges](const Path& path) {
         for (size_t i = 1; i < path.mapping_size(); ++i) {
             auto& m1 = path.mapping(i-1);
             auto& m2 = path.mapping(i);
@@ -8342,10 +8337,10 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
     // What edges will we destroy because we got into them with too much complexity?
     set<Edge*> to_destroy;
 
-    // Determine the edges on non-alt paths that should not be destroyed.
+    // Determine the edges that are on embedded paths and should not be destroyed.
     set<Edge*> to_preserve;
     if(preserve_paths) {
-        to_preserve = get_path_edges(true);
+        to_preserve = get_path_edges();
     }
 
     set<NodeTraversal> prev;
