@@ -1241,8 +1241,6 @@ void parse_bed_regions(istream& bedstream,
         } else {
             ss >> name;
             assert(sbuf < ebuf);
-            // convert from BED-style to 0-based inclusive coordinates
-            ebuf -= 1;
             Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name);
 
             out_alignments->push_back(alignment);
