@@ -141,7 +141,7 @@ int main_prune(int argc, char** argv) {
     });
     vg::id_t max_node_id = graph->max_node_id();
     if (show_progress) {
-        std::cerr << "Loaded VG graph " << argv[optind] << std::endl;
+        std::cerr << "Loaded VG graph " << argv[optind - 1] << std::endl;
     }
 
     // Remove unnecessary paths.
