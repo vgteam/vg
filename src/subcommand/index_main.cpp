@@ -954,10 +954,8 @@ int main_index(int argc, char** argv) {
                     // Message needs to last as long as the bar itself.
                     string progress_message = "contig " + vcf_contig_name + ", samples " + std::to_string(batch_start) + " to " + std::to_string(batch_limit - 1);
                     if (show_progress) {
-                        cerr << progress_message << endl;
-                        // Disable the progress bar until the console issue is solved.
-/*                        progress = new ProgressBar(path_length, progress_message.c_str());
-                        progress->Progressed(0);*/
+                        progress = new ProgressBar(path_length, progress_message.c_str());
+                        progress->Progressed(0);
                     }
 
                     // Allocate a place to store actual variants

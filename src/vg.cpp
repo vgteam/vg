@@ -1543,7 +1543,7 @@ void VG::normalize(int max_iter, bool debug) {
     }
 }
 
-set<Edge*> VG::get_path_edges() {
+set<Edge*> VG::get_path_edges(void) {
     // We'll populate a set with edges.
     // This set shadows our function anme but we're not recursive so that's fine.
     set<Edge*> edges;

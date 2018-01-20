@@ -356,7 +356,7 @@ public:
     /// Remove pieces of the graph which are part of some path.
     void remove_path(void);
     /// Get all of the edges that are on any path.
-    set<Edge*> get_path_edges();
+    set<Edge*> get_path_edges(void);
     
     /// Convert edges that are both from_start and to_end to "regular" ones from end to start.
     void flip_doubly_reversed_edges(void);
