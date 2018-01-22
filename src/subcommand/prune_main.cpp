@@ -203,6 +203,9 @@ int main_prune(int argc, char** argv) {
             gbwt::node_type gbwt_node = gbwt_index.toNode(comp);
             std::vector<gbwt::edge_type> outgoing = gbwt_index.edges(gbwt_node);
             for (gbwt::edge_type outedge : outgoing) {
+                if (outedge.first == gbwt::ENDMARKER) {
+                    continue;
+                }
                 Edge candidate;
                 candidate.set_from(gbwt::Node::id(gbwt_node));
                 candidate.set_to(gbwt::Node::id(outedge.first));
