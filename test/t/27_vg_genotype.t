@@ -67,7 +67,7 @@ vg construct -v call/bigins.vcf.gz -r tiny/tiny.fa > bigins.vg
 vg index -x bigins.vg.xg -g bigins.vg.gcsa -k 16 bigins.vg
 vg sim -s 1337 -n 100 -x bigins.vg.xg -l 12 > reads.txt
 vg map -T reads.txt -g bigins.vg.gcsa -x bigins.vg.xg > bigins.gam
-is "$(vg genotype bigins.vg -G bigins.gam -t 1 -T rep -v -i | grep GACGTTACAATGAGCCCTACAGACATATC | wc -l)" "1" "genotype finds big insert" 
+is "$(vg genotype bigins.vg -G bigins.gam -t 1 -v -i | grep GACGTTACAATGAGCCCTACAGACATATC | wc -l)" "1" "genotype finds big insert" 
 
 rm -rf bigins.vg bigins.vg.xg bigins.vg.gcsa bigins.vg.gcsa.lcp bigins.gam reads.txt 
 
