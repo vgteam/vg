@@ -204,10 +204,10 @@ int main_prune(int argc, char** argv) {
                     complement.add_edge(candidate);
                 }
             }
-            if (show_progress) {
-                std::cerr << "Complement graph: "
-                          << complement.node_count() << " nodes, " << complement.edge_count() << " edges" << std::endl;
-            }
+        }
+        if (show_progress) {
+            std::cerr << "Complement graph: "
+                      << complement.node_count() << " nodes, " << complement.edge_count() << " edges" << std::endl;
         }
         // TODO: Unfolding here
         // Partition the complement graph into connected components.
