@@ -50,7 +50,8 @@ void help_prune(char** argv) {
     std::cerr << "path options:" << std::endl;
     std::cerr << "    -P, --preserve-paths   preserve the embedded non-alt paths in the graph" << std::endl;
     std::cerr << "    -g, --gbwt-name FILE   unfold the complex regions by using the threads in" << std::endl;
-    std::cerr << "                           this GBWT index (does not work well with -p)" << std::endl;
+    std::cerr << "                           this GBWT index (requires -g, avoid -P)" << std::endl;
+    std::cerr << "    -x, --xg_name FILE     use this XG index with -g" << std::endl;
     std::cerr << "    -m, --mapping FILE     store the node mapping from -g in this file" << std::endl;
     std::cerr << "other options:" << std::endl;
     std::cerr << "    -p, --progress         show progress" << std::endl;
@@ -69,7 +70,7 @@ int main_prune(int argc, char** argv) {
     size_t subgraph_min = PruningParameters::SUBGRAPH_MIN;
     int threads = omp_get_max_threads();
     bool preserve_paths = false, show_progress = false;
-    std::string gbwt_name, mapping_name;
+    std::string gbwt_name, xg_name, mapping_name;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -81,6 +82,7 @@ int main_prune(int argc, char** argv) {
             { "subgraph-min", required_argument, 0, 's' },
             { "preserve-paths", no_argument, 0, 'P' },
             { "gbwt-name", required_argument, 0, 'g' },
+            { "xg-name", required_argument, 0, 'x' },
             { "mapping", required_argument, 0, 'm' },
             { "progress", no_argument, 0, 'p' },
             { "threads", required_argument, 0, 't' },
@@ -88,7 +90,7 @@ int main_prune(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "k:e:s:Pg:m:pt:", long_options, &option_index);
+        c = getopt_long (argc, argv, "k:e:s:Pg:x:m:pt:", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -107,6 +109,9 @@ int main_prune(int argc, char** argv) {
             break;
         case 'g':
             gbwt_name = optarg;
+            break;
+        case 'x':
+            xg_name = optarg;
             break;
         case 'm':
             mapping_name = optarg;
@@ -132,6 +137,9 @@ int main_prune(int argc, char** argv) {
     if (!(kmer_length > 0 && edge_max > 0)) {
         cerr << "[vg prune]: --kmer-length and --edge-max must be positive" << endl;
         return 1;
+    }
+    if (!gbwt_name.empty() && xg_name.empty()) {
+        cerr << "[vg prune]: parameter --gbwt-name requires --xg-name" << endl;
     }
 
     // Handle input.
@@ -183,6 +191,10 @@ int main_prune(int argc, char** argv) {
         get_input_file(gbwt_name, [&](std::istream& in) {
            gbwt_index.load(in);
         });
+        xg::XG xg_index;
+        get_input_file(xg_name, [&](std::istream& in) {
+           xg_index.load(in); 
+        });
 
         // TODO: Move this to PhaseDuplicator.
         VG complement;
@@ -196,11 +208,8 @@ int main_prune(int argc, char** argv) {
                 candidate.set_from_start(gbwt::Node::is_reverse(gbwt_node));
                 candidate.set_to_end(gbwt::Node::is_reverse(outedge.first));
                 if (!graph->has_edge(candidate)) {
-                    Node from, to;
-                    from.set_id(candidate.from());
-                    to.set_id(candidate.to());
-                    complement.add_node(from);
-                    complement.add_node(to);
+                    complement.add_node(xg_index.node(candidate.from()));
+                    complement.add_node(xg_index.node(candidate.to()));
                     complement.add_edge(candidate);
                 }
             }
