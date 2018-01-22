@@ -141,7 +141,8 @@ int main_prune(int argc, char** argv) {
     });
     vg::id_t max_node_id = graph->max_node_id();
     if (show_progress) {
-        std::cerr << "Loaded VG graph " << argv[optind - 1] << std::endl;
+        std::cerr << "Loaded VG graph " << argv[optind - 1] << ": "
+                  << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
     }
 
     // Remove unnecessary paths.
@@ -167,11 +168,13 @@ int main_prune(int argc, char** argv) {
     // Prune the graph.
     graph->prune_complex_with_head_tail(kmer_length, edge_max, preserve_paths);
     if (show_progress) {
-        std::cerr << "Pruned complex regions" << std::endl;
+        std::cerr << "Pruned complex regions: "
+                  << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
     }
     graph->prune_short_subgraphs(subgraph_min);
     if (show_progress) {
-        std::cerr << "Removed small subgraphs" << std::endl;
+        std::cerr << "Removed small subgraphs: "
+                  << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
     }
 
     // Unfold phase threads.
@@ -180,13 +183,47 @@ int main_prune(int argc, char** argv) {
         get_input_file(gbwt_name, [&](std::istream& in) {
            gbwt_index.load(in);
         });
+
+        // TODO: Move this to PhaseDuplicator.
+        VG complement;
+        for (gbwt::comp_type comp = 1; comp < gbwt_index.effective(); comp++) {
+            gbwt::node_type gbwt_node = gbwt_index.toNode(comp);
+            std::vector<gbwt::edge_type> outgoing = gbwt_index.edges(gbwt_node);
+            for (gbwt::edge_type outedge : outgoing) {
+                Edge candidate;
+                candidate.set_from(gbwt::Node::id(gbwt_node));
+                candidate.set_to(gbwt::Node::id(outedge.first));
+                candidate.set_from_start(gbwt::Node::is_reverse(gbwt_node));
+                candidate.set_to_end(gbwt::Node::is_reverse(outedge.first));
+                if (!graph->has_edge(candidate)) {
+                    Node from, to;
+                    from.set_id(candidate.from());
+                    to.set_id(candidate.to());
+                    complement.add_node(from);
+                    complement.add_node(to);
+                    complement.add_edge(candidate);
+                }
+            }
+            if (show_progress) {
+                std::cerr << "Complement graph: "
+                          << complement.node_count() << " nodes, " << complement.edge_count() << " edges" << std::endl;
+            }
+        }
         // TODO: Unfolding here
+        // Partition the complement graph into connected components.
+        // For each component:
+        //   Find the border nodes that exist both in the graph and the complement.
+        //   Extract all paths from border node to border node in GBWT
+        //   Store the distinct paths in the canonical orientation
+        //   For each path, add the corresponding path with duplicated internal nodes into the unfolded graph
+        // Insert the unfolded graph into the original graph
     }
 
     // Serialize.
     graph->serialize_to_ostream(std::cout);
     if (show_progress) {
-        std::cerr << "Serialized the graph" << std::endl;
+        std::cerr << "Serialized the graph: "
+                  << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
     }
     if (!mapping_name.empty()) {
         std::cerr << "Not implemented yet!" << std::endl;
