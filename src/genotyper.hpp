@@ -144,7 +144,7 @@ public:
     QualAdjAligner quality_aligner;
 
     // Toggle traversal finder for testing
-    enum TraversalAlg { Reads, Exhaustive, Representative };
+    enum TraversalAlg { Reads, Exhaustive, Representative, Adaptive };
     TraversalAlg traversal_alg = TraversalAlg::Reads;
 
     /// Process and write output.
@@ -186,11 +186,21 @@ public:
     static bool mapping_exits_side(const Mapping& mapping, const handle_t& side, const HandleGraph* graph);
 
     /**
+     * Check if a snarl is small enough to be covered by reads (very conservative)
+     */ 
+    static bool is_snarl_smaller_than_reads(const Snarl* snarl,
+                                            const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                            map<string, const Alignment*>& reads_by_name);
+        
+    /**
      * Get traversals of a snarl in one of several ways. 
      */
     vector<SnarlTraversal> get_snarl_traversals(AugmentedGraph& augmented_graph, SnarlManager& manager,
                                                 map<string, const Alignment*>& reads_by_name,
-                                                const Snarl* snarl, PathIndex* reference_index);
+                                                const Snarl* snarl,
+                                                const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                                PathIndex* reference_index,
+                                                TraversalAlg use_traversal_alg);
     
     /**
      * Get all the quality values in the alignment between the start and end
@@ -214,16 +224,24 @@ public:
      *
      * Affinity is a double out of 1.0. Higher is better.
      */ 
-    map<const Alignment*, vector<Affinity>> get_affinities(AugmentedGraph& aug, const map<string, const Alignment*>& reads_by_name,
-        const Snarl* snarl, const SnarlManager& manager, const vector<SnarlTraversal>& superbubble_paths);
+    map<const Alignment*, vector<Affinity>> get_affinities(AugmentedGraph& aug,
+                                                           const map<string, const Alignment*>& reads_by_name,
+                                                           const Snarl* snarl,
+                                                           const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                                           const SnarlManager& manager,
+                                                           const vector<SnarlTraversal>& superbubble_paths);
         
     /**
      * Get affinities as above but using only string comparison instead of
      * alignment. Affinities are 0 for mismatch and 1 for a perfect match.
      */
     map<const Alignment*, vector<Affinity>> get_affinities_fast(AugmentedGraph& aug,
-        const map<string, const Alignment*>& reads_by_name, const Snarl* snarl, const SnarlManager& manager,
-        const vector<SnarlTraversal>& superbubble_paths, bool allow_internal_alignments = false);
+                                                                const map<string, const Alignment*>& reads_by_name,
+                                                                const Snarl* snarl,
+                                                                const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                                                const SnarlManager& manager,
+                                                                const vector<SnarlTraversal>& superbubble_paths,
+                                                                bool allow_internal_alignments = false);
         
     /**
      * Compute annotated genotype from affinities and superbubble paths.
@@ -265,9 +283,12 @@ public:
      * Sometimes if we can't make a variant for the superbubble against the
      * reference path, we'll emit 0 variants.
      */
-    vector<vcflib::Variant> locus_to_variant(VG& graph, const Snarl* snarl, const SnarlManager& manager,
-        const PathIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus,
-        const string& sample_name = "SAMPLE");
+    vector<vcflib::Variant> locus_to_variant(VG& graph, const Snarl* snarl,
+                                             const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                             const SnarlManager& manager,
+                                             const PathIndex& index, vcflib::VariantCallFile& vcf,
+                                             const Locus& locus,
+                                             const string& sample_name = "SAMPLE");
     
     /**
      * Make a VCF header

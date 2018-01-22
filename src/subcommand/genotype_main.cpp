@@ -37,7 +37,7 @@ void help_genotype(char** argv) {
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << endl
          << "    -P, --min_per_strand    min unique reads per strand for a called allele to accept a call" << endl
          << "    -E, --no_embed          dont embed gam edits into grpah" << endl
-         << "    -T, --traversal         traversal finder to use {read, all, rep} (read)" << endl
+         << "    -T, --traversal         traversal finder to use {reads, exhaustive, representative, adaptive} (adaptive)" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -70,7 +70,7 @@ int main_genotype(int argc, char** argv) {
     // Should we embed gam edits (for debugging as we move to further decouple augmentation and calling)
     bool embed_gam_edits = true;
     // Which traversal finder should we use
-    string traversal_finder = "read";
+    string traversal_finder = "adaptive";
 
     // Should we we just do a quick variant recall,
     // based on this VCF and GAM, then exit?
@@ -345,15 +345,17 @@ int main_genotype(int argc, char** argv) {
     assert(het_prior_denominator > 0);
     genotyper.het_prior_logprob = prob_to_logprob(1.0/het_prior_denominator);
     genotyper.min_unique_per_strand = min_unique_per_strand;
-    if (traversal_finder == "read") {
+    if (traversal_finder == "reads") {
         genotyper.traversal_alg = Genotyper::TraversalAlg::Reads;
-    } else if (traversal_finder == "all") {
+    } else if (traversal_finder == "exhaustive") {
         genotyper.traversal_alg = Genotyper::TraversalAlg::Exhaustive;
-    } else if (traversal_finder == "rep") {
+    } else if (traversal_finder == "representative") {
         genotyper.traversal_alg = Genotyper::TraversalAlg::Representative;
+    } else if (traversal_finder == "adaptive") {
+      genotyper.traversal_alg = Genotyper::TraversalAlg::Adaptive;
     } else {
         cerr << "Invalid value for traversal finder: " << traversal_finder
-             << ".  Must be in {read, all, rep}" << endl;
+             << ".  Must be in {reads, representative, exhaustive, adaptive}" << endl;
         return 1;
     }
 
