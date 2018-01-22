@@ -140,6 +140,7 @@ int main_prune(int argc, char** argv) {
     }
     if (!gbwt_name.empty() && xg_name.empty()) {
         cerr << "[vg prune]: parameter --gbwt-name requires --xg-name" << endl;
+        return 1;
     }
 
     // Handle input.
