@@ -3,6 +3,8 @@
 #include "algorithms/topological_sort.hpp"
 #include "traversal_finder.hpp"
 
+//#define debug
+
 namespace vg {
 
 using namespace std;
@@ -861,7 +863,10 @@ map<const Alignment*, vector<Genotyper::Affinity>>
 
     // What reads are relevant to this ultrabubble?
     set<string> relevant_read_names;
-    
+
+    // What IDs are visited by these reads?
+    unordered_set<id_t> relevant_ids;
+
 #ifdef debug
 #pragma omp critical (cerr)
     cerr << "Snarl contains " << contents.first.size() << " nodes" << endl;
@@ -872,21 +877,13 @@ map<const Alignment*, vector<Genotyper::Affinity>>
         for (const Alignment* aln : aug.get_alignments(node->id())) {
             // Each read that visits this node is relevant.
             relevant_read_names.insert(aln->name());
+
+            for (size_t i = 0; i < aln->path().mapping_size(); ++i) {
+                relevant_ids.insert(aln->path().mapping(i).position().node_id());
+            }
         }
         // TODO: We populate relevant_read_names and then get the alignments by
         // name. Maybe we can just use alignment pointers?
-    }
-
-    // What IDs are visited by these reads?
-    unordered_set<id_t> relevant_ids;
-
-    for(auto& name : relevant_read_names) {
-        // Get the mappings for each read
-        auto& mappings = aug.graph.paths.get_path(name);
-        for(auto& mapping : mappings) {
-            // Add in all the nodes that are visited
-            relevant_ids.insert(mapping.position().node_id());
-        }
     }
 
     for(Node* node: contents.first) {
@@ -904,10 +901,8 @@ map<const Alignment*, vector<Genotyper::Affinity>>
     VG surrounding;
     for(auto id : relevant_ids) {
         // For all the IDs in the surrounding material
-
-        if(min_recurrence != 0 && 
-           (!aug.graph.paths.has_node_mapping(id) || 
-            aug.graph.paths.get_node_mapping(id).size() < min_recurrence)) {
+        if(min_recurrence != 0 &&
+           aug.get_alignments(id).size() < min_recurrence) {
             // Skip nodes in the graph that have too little support. In practice
             // this means we'll restrict ourselves to supported, known nodes.
             // TODO: somehow do the same for edges.
@@ -1007,11 +1002,12 @@ map<const Alignment*, vector<Genotyper::Affinity>>
             auto get_node_size = [&](id_t id) {
                 return aug.graph.get_node(id)->sequence().size();
             };
+
             if(read->sequence().size() == read->quality().size()) {
                 // Re-align a copy to this graph (using quality-adjusted alignment).
-                // TODO: actually use quality-adjusted alignment
-                aligned_fwd = allele_graph.align(*read);
-                aligned_rev = allele_graph.align(reverse_complement_alignment(*read, get_node_size));
+                QualAdjAligner qa_aligner;
+                aligned_fwd = allele_graph.align_qual_adjusted(*read, &qa_aligner);
+                aligned_rev = allele_graph.align(reverse_complement_alignment(*read, get_node_size), &qa_aligner);
             } else {
                 // If we don't have the right number of quality scores, use un-adjusted alignment instead.
                 aligned_fwd = allele_graph.align(*read);
@@ -1070,7 +1066,10 @@ map<const Alignment*, vector<Genotyper::Affinity>>
             auto seq = traversal_to_string(aug.graph, read_traversal);
 
             // Now decide if the read's seq supports this path.
-            if(read_traversal.visit(0) == snarl->start() &&
+            if (read_traversal.visit_size() == 0) {
+                // Aligned only to surrounding stuff, not consistent
+                affinity.consistent = false;
+            } else if(read_traversal.visit(0) == snarl->start() &&
                read_traversal.visit(read_traversal.visit_size() - 1) == snarl->end()) {
                 // Anchored at both ends.
                 // Need an exact match. Record if we have one or not.
@@ -1095,7 +1094,6 @@ map<const Alignment*, vector<Genotyper::Affinity>>
                 cerr << "Warning: realigned read " << aligned.sequence() << " doesn't touch either end of its snarl!" << endl;
                 affinity.consistent = true;
             }
-
             if(score_per_base < min_score_per_base) {
                 // Say we can't really be consistent with this if we have such a
                 // terrible score.
