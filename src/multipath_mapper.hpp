@@ -19,8 +19,10 @@
 #include "path.hpp"
 #include "edit.hpp"
 #include "snarls.hpp"
+#include "haplotypes.hpp"
 
 using namespace std;
+using namespace haplo;
 
 namespace vg {
 
@@ -82,6 +84,8 @@ namespace vg {
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
         double mapq_scaling_factor = 1.0 / 4.0;
+        bool use_population_mapqs = false;
+        double recombination_penalty = 1e-9;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -234,6 +238,9 @@ namespace vg {
         /// multipath alignments
         bool share_start_position(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
+        /// Get a thread_local RRMemo with these parameters
+        haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;
+        
         /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also
         /// inverts the distances in the cluster pairs vector according to the strand
         void establish_strand_consistency(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
@@ -243,6 +250,9 @@ namespace vg {
                                           OrientedDistanceClusterer::handle_memo_t* handle_memo);
         
         SnarlManager* snarl_manager;
+        
+        /// Memos used by population model
+        static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;
         
         // a memo for the transcendental p-value function (thread local to maintain threadsafety)
         static thread_local unordered_map<pair<size_t, size_t>, double> p_value_memo;
