@@ -1555,9 +1555,10 @@ set<Edge*> VG::get_path_edges(void) {
             auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
             auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
             // check that we always have an edge between the two nodes in the correct direction
-            assert(has_edge(s1, s2));
-            Edge* edge = get_edge(s1, s2);
-            edges.insert(edge);
+            if (has_edge(s1, s2)) {
+                Edge* edge = get_edge(s1, s2);
+                edges.insert(edge);
+            }
         }
         // if circular, include the cycle-closing edge
         if (path.is_circular()) {
