@@ -132,7 +132,9 @@ int main_mpmap(int argc, char** argv) {
     size_t calibration_read_length = 150;
     bool unstranded_clustering = false;
     size_t order_length_repeat_hit_max = 3000;
-    size_t sub_mem_count_thinning = 18;
+    size_t sub_mem_count_thinning = 4;
+    size_t sub_mem_thinning_burn_in = 16;
+    double secondary_rescue_score_diff = 0.8;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -631,6 +633,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
     multipath_mapper.sub_mem_count_thinning = sub_mem_count_thinning;
+    multipath_mapper.sub_mem_thinning_burn_in = sub_mem_thinning_burn_in;
     multipath_mapper.order_length_repeat_hit_max = order_length_repeat_hit_max;
     multipath_mapper.min_mem_length = min_mem_length;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
@@ -652,8 +655,11 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
     multipath_mapper.num_mapping_attempts = max_map_attempts ? max_map_attempts : numeric_limits<int>::max();
-    multipath_mapper.max_rescue_attempts = max_rescue_attempts;
     multipath_mapper.unstranded_clustering = unstranded_clustering;
+    
+    // set pair rescue parameters
+    multipath_mapper.secondary_rescue_score_diff = secondary_rescue_score_diff;
+    multipath_mapper.max_rescue_attempts = max_rescue_attempts;
     
     // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;
@@ -824,7 +830,7 @@ int main_mpmap(int argc, char** argv) {
 #endif
     };
     
-    // for streaming paired input, don't spawn new tasks unless this evalutes to true
+    // for streaming paired input, don't spawn parallel tasks unless this evalutes to true
     function<bool(void)> multi_threaded_condition = [&](void) {
         return multipath_mapper.has_fixed_fragment_length_distr();
     };
