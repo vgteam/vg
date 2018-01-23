@@ -3,6 +3,8 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../stream.hpp"
+#include "../kmer.hpp"
+#include "../build_index.hpp"
 #include "../algorithms/topological_sort.hpp"
 
 #include <unistd.h>
@@ -32,17 +34,18 @@ void help_msga(char** argv) {
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
-         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [512]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [64]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
-         << "    -w, --band-width INT    band width for long read alignment [256]" << endl
+         << "    -w, --band-width INT    band width for long read alignment [128]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [10*{-w}]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [64]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [1]" << endl
          << "    -M, --max-multimaps INT consider this many alternate alignments for the entire sequence [1]" << endl
+         << "    --patch-aln             patch banded alignments by attempting to align unaligned regions" << endl 
          << "local alignment parameters:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -50,12 +53,12 @@ void help_msga(char** argv) {
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
          << "index generation:" << endl
-         << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
+         << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes [16]" << endl
          << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
-         << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
+         << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max [2]" << endl
          << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
-         << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
+         << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes [2]" << endl
          << "graph normalization:" << endl
          << "    -N, --normalize         normalize the graph after assembly" << endl
          << "    -Z, --circularize       the input sequences are from circular genomes, circularize them after inclusion" << endl
@@ -89,15 +92,15 @@ int main_msga(int argc, char** argv) {
     // optimal alignment through a series of bands based on a proximity metric
     int max_multimaps = 1;
     float min_identity = 0.0;
-    int band_width = 256;
+    int band_width = 128;
     int max_band_jump = -1;
-    int band_multimaps = 64;
+    int band_multimaps = 1;
     size_t doubling_steps = 3;
     bool debug = false;
     bool debug_align = false;
     size_t node_max = 0;
     int alignment_threads = get_thread_count();
-    int edge_max = 0;
+    int edge_max = 2;
     int subgraph_prune = 0;
     bool normalize = false;
     int iter_max = 1;
@@ -126,6 +129,7 @@ int main_msga(int argc, char** argv) {
     bool use_fast_reseed = true;
     bool show_align_progress = false;
     bool bigger_first = true;
+    bool patch_alignments = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -174,11 +178,12 @@ int main_msga(int argc, char** argv) {
                 {"drop-chain", required_argument, 0, 'C'},
                 {"align-progress", no_argument, 0, 'S'},
                 {"bigger-first", no_argument, 0, 'a'},
+                {"patch-alns", no_argument, 0, '8'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:a",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:a8",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -349,6 +354,10 @@ int main_msga(int argc, char** argv) {
 
         case 'a':
             bigger_first = false;
+            break;
+
+        case '8':
+            patch_alignments = true;
             break;
 
         case 'h':
@@ -523,7 +532,7 @@ int main_msga(int argc, char** argv) {
                     if (edge_max) path_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
                     path_graph.keep_path(name);
                     tmpfiles.push_back(
-                            path_graph.write_gcsa_kmers_to_tmpfile(idx_kmer_size, false, false, head_id, tail_id));
+                        write_gcsa_kmers_to_tmpfile(path_graph, idx_kmer_size, head_id, tail_id));
                 });
             // Make the index with the kmers
             gcsa::InputGraph input_graph(tmpfiles, true);
@@ -543,10 +552,10 @@ int main_msga(int argc, char** argv) {
             gcsa_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
             if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
             // then index
-            gcsa_graph.build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, idx_path_only, false, doubling_steps);
+            build_gcsa_lcp(gcsa_graph, gcsaidx, lcpidx, idx_kmer_size, doubling_steps);
         } else {
             // if no complexity reduction is requested, just build the index
-            graph->build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, idx_path_only, false, doubling_steps);
+            build_gcsa_lcp(*graph, gcsaidx, lcpidx, idx_kmer_size, doubling_steps);
         }
         mapper = new Mapper(xgidx, gcsaidx, lcpidx);
         { // set mapper variables
@@ -579,6 +588,7 @@ int main_msga(int argc, char** argv) {
             // set up the multi-threaded alignment interface
             mapper->set_alignment_threads(alignment_threads);
             mapper->show_progress = show_align_progress;
+            mapper->patch_alignments = patch_alignments;
         }
     };
 
@@ -614,7 +624,7 @@ int main_msga(int argc, char** argv) {
                             << graph->length() << "bp "
                             << "n:" << graph->node_count() << " "
                             << "e:" << graph->edge_count() << endl;
-            Alignment aln = simplify(mapper->align(seq, 0, 0, 0, band_width));
+            Alignment aln = mapper->align(seq, 0, 0, 0, band_width);
             aln.set_name(name);
             if (aln.path().mapping_size()) {
                 auto aln_seq = graph->path_string(aln.path());
@@ -648,7 +658,8 @@ int main_msga(int argc, char** argv) {
             // now take the alignment and modify the graph with it
             if (debug) cerr << name << ": editing graph" << endl;
             //graph->serialize_to_file(name + "-pre-edit.vg");
-            graph->edit(paths);
+            // Modify graph and embed paths
+            graph->edit(paths, true);
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
             if (normalize) graph->normalize(10, debug);

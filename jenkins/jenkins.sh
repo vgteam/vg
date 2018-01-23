@@ -21,10 +21,12 @@ LOCAL_BUILD=0
 REUSE_VENV=0
 # Should we keep our test output around after uploading the new baseline?
 KEEP_OUTPUT=0
+# Should we keep all intermediate output (ie --force_outstore in toil-vg)?
+KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@3cf10b35715712ea554b13ce1a5e7b4b109df71d"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@f606a3d51175b3c2f9270380525ecb5616d921f8"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
@@ -38,13 +40,14 @@ usage() {
     printf "\t\t\tNon-Python dependencies must be installed.\n"
     printf "\t-r\t\tRe-use virtualenvs across script invocations. \n"
     printf "\t-k\t\tKeep on-disk output. \n"
+    printf "\t-i\t\tKeep intermediate on-disk output. \n"
     printf "\t-s\t\tShow test output and error streams (pass -s to pytest). \n"
     printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
     printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run.\n"
     exit 1
 }
 
-while getopts "lrksp:t:" o; do
+while getopts "lrkisp:t:" o; do
     case "${o}" in
         l)
             LOCAL_BUILD=1
@@ -55,6 +58,9 @@ while getopts "lrksp:t:" o; do
         k)
             KEEP_OUTPUT=1
             ;;
+        i)
+            KEEP_INTERMEDIATE_FILES=1
+            ;;	  
         s) 
             SHOW_OPT="-s"
             ;;
@@ -150,7 +156,7 @@ pip install requests
 pip install timeout_decorator
 pip install pytest
 pip install pygithub
-pip install toil[aws,mesos]
+pip install toil[aws,mesos]==3.11.0
 # Don't manually install boto since toil just installs its preferred version
 
 # Install toil-vg itself
@@ -171,6 +177,11 @@ git submodule update --init --recursive
 printf "cores ${NUM_CORES}\n" > vgci_cfg.tsv
 printf "teardown False\n" >> vgci_cfg.tsv
 printf "workdir ./vgci-work\n" >> vgci_cfg.tsv
+if [ "${KEEP_INTERMEDIATE_FILES}" == "0" ]; then
+    printf "force_outstore False\n" >> vgci_cfg.tsv
+else
+    printf "force_outstore True\n" >> vgci_cfg.tsv
+fi
 #printf "verify False\n" >> vgci_cfg.tsv
 #printf "baseline ./vgci-baseline\n" >> vgci_cfg.tsv
 
@@ -209,6 +220,14 @@ else
     fi
     VG_VERSION=`docker run jenkins-docker-vg-local vg version`
     printf "vg-docker-version jenkins-docker-vg-local\n" >> vgci_cfg.tsv
+
+    # Pull down the docker images, so time costs (and instability) of doing so doesn't affect
+    # individual test results (looking at you, rocker/tidyverse:3.4.2)
+    # Allow two tries before failing
+    set +e
+    for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
+    set -e
+    for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
 fi
 
 # For the actual test and the cleanup, continue on error

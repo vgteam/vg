@@ -12,7 +12,7 @@
 	url = https://github.com/illusori/bash-tap.git
 [submodule "progress_bar"]
 	path = deps/progress_bar
-	url = https://github.com/ekg/cpp_progress_bar.git
+	url = https://github.com/vgteam/cpp_progress_bar.git
 [submodule "lru_cache"]
 	path = deps/lru_cache
 	url = https://github.com/ekg/lru_cache.git
@@ -67,3 +67,6 @@
 [submodule "deps/gperftools"]
 	path = deps/gperftools
 	url = https://github.com/gperftools/gperftools.git
+[submodule "deps/gbwt"]
+	path = deps/gbwt
+	url = https://github.com/jltsiren/gbwt.git

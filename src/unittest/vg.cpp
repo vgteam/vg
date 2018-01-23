@@ -3,8 +3,8 @@
  */
 
 #include "catch.hpp"
-#include "vg.hpp"
-#include "utility.hpp"
+#include "../vg.hpp"
+#include "../utility.hpp"
 
 namespace vg {
 namespace unittest {
@@ -1293,7 +1293,10 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         }
         
     }
-    
+
+    // TODO un-disable overlap resolution
+    // This may require us updating to GFA2's E(dge) model
+    /*
     SECTION("extraneous overlap should be pruned back") {
         const string graph_json = R"(
         
@@ -1356,6 +1359,7 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
         }
         
     }
+    */
     
     SECTION("overlaps should be able to overlap in the middle") {
         const string graph_json = R"(
@@ -1556,7 +1560,7 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
 
     )";
     
-    // Defien a graph
+    // Define a graph
     VG graph = string_to_graph(graph_json);
     
     const string path_json = R"(
@@ -1622,6 +1626,135 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     list<VG> subgraphs;
     graph.disjoint_subgraphs(subgraphs);
     REQUIRE(subgraphs.size() == 1);
+    
+}
+
+TEST_CASE("edit() should not get confused even under very confusing circumstances", "[vg][edit]") {
+    
+    const string graph_json = R"(
+        
+    {
+        "node": [
+            {"id": 1, "sequence": "GATT"},
+            {"id": 2, "sequence": "T"},
+            {"id": 3, "sequence": "C"},
+            {"id": 4, "sequence": "A"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2, "to_end": true},
+            {"from": 1, "to": 3},
+            {"from": 2, "to": 4, "from_start": true},
+            {"from": 3, "to": 4}
+        ]
+    }
+
+    )";
+    
+    // Define a graph
+    VG graph = string_to_graph(graph_json);
+    
+    // And a path that doubles back on itself through an edge that isn't in the graph yet
+    const string path_json = R"(
+    {
+        "mapping": [
+            {
+                "position": {
+                    "node_id": 1,
+                    "offset": 1
+                },
+                "edit": [
+                    {
+                        "from_length": 3,
+                        "to_length": 3
+                    }, 
+                    {
+                        "from_length": 0, 
+                        "to_length": 3,
+                        "sequence": "CCC"
+                    }
+                ]
+            },
+            {
+                "position": {
+                    "node_id": 2,
+                    "is_reverse": true
+                },
+                "edit": [
+                    {
+                        "from_length": 1, 
+                        "to_length": 1
+                    }
+                ]
+            },
+            {
+                "position": {
+                    "node_id": 2
+                },
+                "edit": [
+                    {
+                        "from_length": 1, 
+                        "to_length": 1
+                    }
+                ]
+            },
+            {
+                "position": {
+                    "node_id": 1,
+                    "is_reverse": true
+                },
+                "edit": [
+                    {
+                        "from_length": 1, 
+                        "to_length": 1
+                    }
+                ]
+            }
+        ]
+    }
+    )";
+    
+    REQUIRE(graph.node_count() == 4);
+    REQUIRE(graph.edge_count() == 4);
+    
+    Path path;
+    json2pb(path, path_json.c_str(), path_json.size());
+    
+    // Needs to be in a vector to apply it
+    vector<Path> paths{path};
+       
+    SECTION("edit() can add the path without modifying it") {
+        graph.edit(paths, false, false, false);
+        
+        REQUIRE(pb2json(paths.front()) == pb2json(path));
+        
+        // The graph should end up with 1 more node and 3 more edges.
+        REQUIRE(graph.node_count() == 5);
+        REQUIRE(graph.edge_count() == 7);
+    }
+    
+    SECTION("edit() can add the path with modification only") {
+        graph.edit(paths, false, true, false);
+        
+        for (const auto& mapping : paths.front().mapping()) {
+            // Make sure all the mappings are perfect matches
+            REQUIRE(mapping_is_match(mapping));
+        }
+        
+        // The graph should end up with 1 more node and 3 more edges.
+        REQUIRE(graph.node_count() == 5);
+        REQUIRE(graph.edge_count() == 7);
+    }
+    
+    SECTION("edit() can add the path with end breaking only") {
+        graph.edit(paths, false, false, true);
+        
+        REQUIRE(pb2json(paths.front()) == pb2json(path));
+        
+        // The graph should end up with 3 more nodes (the insert plus 2 new
+        // pieces of the original node 1) and 5 more edges.
+        REQUIRE(graph.node_count() == 7);
+        REQUIRE(graph.edge_count() == 9);
+    }
     
 }
 
@@ -1892,7 +2025,7 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
         vg.create_edge(n6, n4, true, true);
         vg.create_edge(n3, n6);
       
-        
+        unordered_map<int64_t, pair<int64_t, bool>> trans;
         VG rev = vg.reverse_complement_graph(trans);
         
         REQUIRE(trans.size() == rev.graph.node_size());
@@ -1931,47 +2064,53 @@ TEST_CASE("reverse_complement_graph() produces expected results", "[vg]") {
     }
     
 }
-//-------------------------------------------------------------------------
-TEST_CASE("distance_to_head() produces expected results", "[vg]") {
+
+TEST_CASE("find_breakpoints() should determine where the graph needs to break to add a path", "[vg][edit]") {
+    
+    
     VG vg;
-    // Create a graph with one node
-    Node* n0 = vg.create_node("AA");
-
-    SECTION("distance_to_head() works when NodeTraversal is at head") {
-        // Set NodeTraversal to head node
-        NodeTraversal n;
-        n.node = n0;
-        // maxSize is the number of nodes in the graph
-        int32_t maxSize = vg.node_size();
-        set<NodeTraversal> trav;
-
-        int32_t check = vg.distance_to_head(n, maxSize, 0, trav);
         
-        REQUIRE(check == 0);
-    }
-    SECTION("distance_to_head() works when NodeTraversal is not at head") {
-        // Add more nodes to graph
-        Node* n1 = vg.create_node("AC");
-        Node* n2 = vg.create_node("AG");
-        Node* n3 = vg.create_node("AT");
-        vg.create_edge(n0, n1);
-        vg.create_edge(n1, n2);
-        vg.create_edge(n2, n3);
-
-        // Set NodeTraversal to the node you are currently on
-        NodeTraversal n;
-        n.node = n3;
-        // maxSize is the number of nodes in the graph
-        int32_t maxSize = vg.node_size();
-        set<NodeTraversal> trav;
-
-        int32_t check = vg.distance_to_head(n, maxSize, 0, trav);
+    Node* n1 = vg.create_node("GATT");
+    Node* n2 = vg.create_node("AAAA");
+    Node* n3 = vg.create_node("CA");
+    
+    vg.create_edge(n1, n2);
+    vg.create_edge(n2, n3);
+    
+    // We will find breakpoints for a path
+    Path path;
+    // And store them here.
+    map<id_t, set<pos_t>> breakpoints;
+    
+    SECTION("find_breakpoints() works on a single edit perfect match") {
         
-        REQUIRE(check == vg.node_size());
-      
+        // Set the path to a perfect match
+        const string path_string = R"(
+            {"mapping": [{"position": {"node_id": 1, "offset": 1}, "edit": [{"from_length": 2, "to_length": 2}]}]}
+        )";
+        json2pb(path, path_string.c_str(), path_string.size());
+        
+        SECTION("asking for breakpoints at the end gets us the two end breakpoints") {
+            vg.find_breakpoints(path, breakpoints);
+            
+            REQUIRE(breakpoints.size() == 1);
+            REQUIRE(breakpoints.count(n1->id()) == 1);
+            REQUIRE(breakpoints[n1->id()].size() == 2);
+            REQUIRE(breakpoints[n1->id()].count(make_pos_t(n1->id(), false, 1)) == 1);
+            REQUIRE(breakpoints[n1->id()].count(make_pos_t(n1->id(), false, 3)) == 1);
+            
+        
+        }
+        
+        SECTION("asking for no breakpoints at the end gets us no breakpoints") {
+            vg.find_breakpoints(path, breakpoints, false);
+            
+            REQUIRE(breakpoints.empty());
+        }
+        
     }
     
 }
-//-------------------------------------------------------------------------   
+
 }
 }

@@ -60,6 +60,10 @@ namespace vg {
         /// have at most the given probability of occurring in random sequence of the same size as the graph
         void set_automatic_min_clustering_length(double random_mem_probability = 0.5);
         
+        /// Map random sequences against the graph to calibrate a parameterized distribution that detects
+        /// when mappings are likely to have occurred by chance
+        void calibrate_mismapping_detection(size_t num_simulations = 1000, size_t simulated_read_length = 150);
+        
         // parameters
         
         int64_t max_snarl_cut_size = 5;
@@ -72,6 +76,11 @@ namespace vg {
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
+        double pseudo_length_multiplier = 1.65;
+        bool unstranded_clustering = true;
+        size_t secondary_rescue_attempts = 4;
+        double secondary_rescue_score_diff = 1.0;
+        double mapq_scaling_factor = 1.0 / 4.0;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -109,6 +118,7 @@ namespace vg {
         bool attempt_rescue(const MultipathAlignment& multipath_aln, const Alignment& other_aln,
                             bool rescue_forward, MultipathAlignment& rescue_multipath_aln);
         
+        
         /// After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform
         /// multipath alignment
         void align_to_cluster_graphs(const Alignment& alignment,
@@ -125,7 +135,10 @@ namespace vg {
                                           vector<clustergraph_t>& cluster_graphs2,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                          size_t max_alt_mappings);
+                                          size_t max_alt_mappings,
+                                          OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
+                                          OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
+                                          OrientedDistanceClusterer::handle_memo_t* handle_memo);
         
         /// Align the read ends independently, but also try to form rescue alignments for each from
         /// the other. Return true if output obeys pair consistency and false otherwise.
@@ -133,7 +146,20 @@ namespace vg {
                                                  vector<clustergraph_t>& cluster_graphs1,
                                                  vector<clustergraph_t>& cluster_graphs2,
                                                  vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                 vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
                                                  size_t max_alt_mappings);
+        
+        /// Use the rescue routine on strong suboptimal clusters to see if we can find a good secondary
+        void attempt_rescue_for_secondaries(const Alignment& alignment1, const Alignment& alignment2,
+                                            vector<clustergraph_t>& cluster_graphs1,
+                                            vector<clustergraph_t>& cluster_graphs2,
+                                            vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                            vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
+        
+        void merge_rescued_mappings(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                    vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                    vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
+                                    vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) const;
         
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable (according to the Mapper's aligner) with
@@ -155,7 +181,6 @@ namespace vg {
         /// a record to the cluster pairs vector
         void split_multicomponent_alignments(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
-        
         
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
@@ -186,14 +211,14 @@ namespace vg {
         bool likely_mismapping(const MultipathAlignment& multipath_aln);
         
         /// A scaling of a score so that it approximately follows the distribution of the longest match in p-value test
-        size_t score_pseudo_length(int32_t score) const;
+        size_t pseudo_length(const MultipathAlignment& multipath_aln) const;
         
         /// The approximate p-value for a match length of the given size against the current graph
         double random_match_p_value(size_t match_length, size_t read_length);
         
         /// Compute the approximate distance between two multipath alignments
-        int64_t distance_between(const MultipathAlignment& multipath_aln_1,
-                                 const MultipathAlignment& multipath_aln_2) const;
+        int64_t distance_between(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2,
+                                 bool full_fragment = false, bool forward_strand = false) const;
         
         /// Are two multipath alignments consistently placed based on the learned fragment length distribution?
         bool are_consistent(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
@@ -207,6 +232,14 @@ namespace vg {
         /// Return true if any of the initial positions of the source Subpaths are shared between the two
         /// multipath alignments
         bool share_start_position(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
+        
+        /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also
+        /// inverts the distances in the cluster pairs vector according to the strand
+        void establish_strand_consistency(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
+                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                          OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
+                                          OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
+                                          OrientedDistanceClusterer::handle_memo_t* handle_memo);
         
         SnarlManager* snarl_manager;
         

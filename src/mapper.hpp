@@ -9,8 +9,9 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "index.hpp"
-#include "gcsa/gcsa.h"
-#include "gcsa/lcp.h"
+#include <gcsa/gcsa.h>
+#include <gcsa/lcp.h>
+#include <gbwt/gbwt.h>
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
@@ -22,6 +23,7 @@
 #include "mem.hpp"
 #include "cluster.hpp"
 #include "graph.hpp"
+#include "translator.hpp"
 
 namespace vg {
 
@@ -30,7 +32,7 @@ namespace vg {
 
 using namespace std;
     
-enum MappingQualityMethod { Approx, Exact, None };
+enum MappingQualityMethod { Approx, Exact, Adaptive, None };
 
 class Mapper;
 
@@ -43,7 +45,7 @@ public:
     vector<pair<AlignmentChainModelVertex*, double> > prev_cost; // for backward
     double weight;
     double score;
-    map<string, double> positions;
+    map<string, vector<pair<size_t, bool> > > positions;
     int band_begin;
     int band_idx;
     AlignmentChainModelVertex* prev;
@@ -64,11 +66,11 @@ public:
     AlignmentChainModel(
         vector<vector<Alignment> >& bands,
         Mapper* mapper,
-        const function<double(const Alignment&, const Alignment&, const map<string, double>&, const map<string, double>&)>& transition_weight,
-        int vertex_width = 10,
+        const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&)>& transition_weight,
+        int vertex_band_width = 10,
         int position_depth = 1,
         int max_connections = 30);
-    void score(const set<AlignmentChainModelVertex*>& exclude);
+    void score(const unordered_set<AlignmentChainModelVertex*>& exclude);
     AlignmentChainModelVertex* max_vertex(void);
     vector<Alignment> traceback(const Alignment& read, int alt_alns, bool paired, bool debug);
     void display(ostream& out);
@@ -76,7 +78,7 @@ public:
 };
 
 /*
- * A threadsafe class that keeps a running estimation of a fragment length distribution
+ * A class that keeps a running estimation of a fragment length distribution
  * using a robust estimation formula in order to be insensitive to outliers.
  */
 class FragmentLengthDistribution {
@@ -144,7 +146,7 @@ class BaseMapper : public Progressive {
     
 public:
     // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
-    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
+    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, gbwt::GBWT* gbwt = nullptr);
     BaseMapper(void);
     ~BaseMapper(void);
     
@@ -152,7 +154,8 @@ public:
     
     int random_match_length(double chance_random);
     
-    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
+        double haplotype_consistency_exponent = 1);
     
     // TODO: setting alignment threads could mess up the internal memory for how many threads to reset to
     void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
@@ -201,7 +204,13 @@ public:
                      int min_mem_length = 1,
                      int reseed_length = 0);
     
+    /// identifies tracts of order-length MEMs that were unfilled because their hit count was above the max
+    /// and fills one MEM in the tract (the one with the smallest hit count), assumes MEMs are lexicographically
+    /// ordered by read index
+    void rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
+                                             size_t max_rescue_hit_count);
     
+    int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count
     int min_mem_length; // a mem must be >= this length
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
     bool fast_reseed; // use the fast reseed algorithm
@@ -209,13 +218,20 @@ public:
     bool adaptive_reseed_diff; // use an adaptive length difference algorithm in reseed algorithm
     double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
+    bool use_approx_sub_mem_count = true;
+    size_t order_length_repeat_hit_max = 0; // in tracts of order-length MEMs above the hit max, fill one
     
-    bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
+    // Remove any bonuses used by the aligners from the final reported scores.
+    // Does NOT (yet) remove the haplotype consistency bonus.
+    bool strip_bonuses; 
     bool assume_acyclic; // the indexed graph is acyclic
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
     int max_mapping_quality; // the cap for mapping quality
+    
+    /// Set to enable debugging messages to cerr from the mapper, so a user can understand why a read maps the way it does.
+    bool debug = false;
     
 protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
@@ -271,31 +287,16 @@ protected:
     void check_mems(const vector<MaximalExactMatch>& mems);
     
     int alignment_threads; // how many threads will *this* mapper use. Should not be set directly.
-    /*
-    int cache_size;
-    
-    // match walking support to prevent repeated calls to the xg index for the same node
-    vector<LRUCache<id_t, Node>* > node_cache;
-    LRUCache<id_t, Node>& get_node_cache(void);
-    void init_node_cache(void);
-    
-    // node start cache for fast approximate position estimates
-    vector<LRUCache<id_t, int64_t>* > node_start_cache;
-    LRUCache<id_t, int64_t>& get_node_start_cache(void);
-    void init_node_start_cache(void);
-    
-    // match node traversals to path positions
-    vector<LRUCache<gcsa::node_type, map<string, vector<size_t> > >* > node_pos_cache;
-    LRUCache<gcsa::node_type, map<string, vector<size_t> > >& get_node_pos_cache(void);
-    void init_node_pos_cache(void);
-    
-    vector<LRUCache<id_t, vector<Edge> >* > edge_cache;
-    LRUCache<id_t, vector<Edge> >& get_edge_cache(void);
-    void init_edge_cache(void);
-    */
     
     void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
     void clear_aligners(void);
+    
+    /// Score all of the alignments in the vector for haplotype consistency. If
+    /// all of them can be scored (i.e. none of them visit nodes/edges with no
+    /// haplotypes), adjust all of their scores to reflect haplotype
+    /// consistency. If one or more cannot be scored for haplotype consistency,
+    /// leave the alignment scores alone.
+    void apply_haplotype_consistency_scores(const vector<Alignment*>& alns);
     
     // thread_local to allow alternating reads/writes
     thread_local static vector<size_t> adaptive_reseed_length_memo;
@@ -306,6 +307,17 @@ protected:
     // GCSA index and its LCP array
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
+    
+    // GBWT index, if any, for determining haplotype concordance
+    gbwt::GBWT* gbwt = nullptr;
+    
+    // The exponent for the haplotype consistency score.
+    // 0 = no haplotype consistency scoring done.
+    // 1 = multiply in haplotype likelihood once when computing alignment score
+    double haplotype_consistency_exponent = 1;
+    // The recombination rate
+    // TODO: expose to command line
+    constexpr static double NEG_LOG_PER_BASE_RECOMB_PROB = 9;
     
     FragmentLengthDistribution fragment_length_distr;
 
@@ -334,8 +346,8 @@ private:
 class FragmentLengthStatistics {
 public:
 
-    void record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2);
-    
+    void record_fragment_configuration(const Alignment& aln1, const Alignment& aln2, Mapper* mapper);
+
     string fragment_model_str(void);
     void save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2, const map<string, int64_t>& approx_frag_lengths, bool is_consistent);
     
@@ -350,12 +362,12 @@ public:
     // These cached versions of the parameters are updated periodically
     double cached_fragment_length_mean = 0;
     double cached_fragment_length_stdev = 0;
-    bool cached_fragment_orientation = 0;
+    bool cached_fragment_orientation_same = 0;
     bool cached_fragment_direction = 1;
     
     // These variables are used to manage the periodic updates
     int64_t since_last_fragment_length_estimate = 0;
-    int64_t fragment_model_update_interval = 10;
+    int64_t fragment_model_update_interval = 100;
     
     // These deques are used for the periodic running estimation of the fragment length distribution
     deque<double> fragment_lengths;
@@ -366,8 +378,8 @@ public:
     int64_t fragment_size = 0; // Used to bound clustering of MEMs during paired end mapping, also acts as sentinel to determine
                        // if consistent pairs should be reported; dynamically estimated at runtime
     double fragment_sigma = 10; // the number of times the standard deviation above the mean to set the fragment_size
-    int64_t fragment_length_cache_size = 1000;
-    float perfect_pair_identity_threshold = 0.95;
+    int64_t fragment_length_cache_size = 10000;
+    float perfect_pair_identity_threshold = 0.9;
     bool fixed_fragment_model = true;
     
     
@@ -387,7 +399,8 @@ private:
                              bool traceback,
                              bool pinned_alignment = false,
                              bool pin_left = false,
-                             bool global = false);
+                             bool global = false,
+                             bool keep_bonuses = true);
     vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
                                            const Alignment& aln,
                                            int kmer_size,
@@ -423,8 +436,9 @@ private:
                                       int additional_multimaps);
     
 public:
-    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
-    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
+    // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
+    // LCP array, and an optional GBWT haplotype index.
+    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, gbwt::GBWT* gbwt = nullptr);
     Mapper(void);
     ~Mapper(void);
 
@@ -435,13 +449,10 @@ public:
 
     double graph_entropy(void);
 
-    // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
-    map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
-    void annotate_with_mean_path_positions(vector<Alignment>& alns);
-    
     // use the xg index to get the first position of an alignment on a reference path
-    map<string, size_t> alignment_initial_path_positions(const Alignment& aln);
+    map<string, vector<pair<size_t, bool> > > alignment_initial_path_positions(const Alignment& aln);
     void annotate_with_initial_path_positions(Alignment& aln);
+    void annotate_with_initial_path_positions(vector<Alignment>& alns);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
@@ -449,8 +460,8 @@ public:
                                int fragment_size_bound);
 
     /// use the fragment length annotations to assess if the pair is consistent or not
-    bool pair_consistent(const Alignment& aln1,
-                         const Alignment& aln2,
+    bool pair_consistent(Alignment& aln1, // may modify the alignments to store the reference positions
+                         Alignment& aln2,
                          double pval);
 
     /// use the fragment configuration statistics to rescue more precisely
@@ -478,10 +489,11 @@ public:
     /// index. Can use either approximate or exact (with approximate fallback)
     /// XG-based distance estimation. Will strip out bonuses if the appropriate
     /// Mapper flag is set.
+    /// Does not apply a haplotype consistency bonus, as this function is intended for alignments with large gaps.
     int32_t score_alignment(const Alignment& aln, bool use_approx_distance = false);
     
     /// Given an alignment scored with full length bonuses on, subtract out the full length bonus if it was applied.
-    int32_t remove_full_length_bonus(const Alignment& aln);
+    void remove_full_length_bonuses(Alignment& aln);
     
     // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
     Alignment patch_alignment(const Alignment& aln, int max_patch_length);
@@ -547,14 +559,14 @@ public:
                                 set<string>& path_names,
                                 string& path_name,
                                 int64_t& path_pos,
-                                bool& path_reverse,
-                                int window);
-
+                                bool& path_reverse);
     
     // compute a mapping quality component based only on the MEMs we've obtained
     double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);
     // use an average length of an LCP to a parent in the suffix tree to estimate a mapping quality
     double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
+    // absolute max possible mq
+    double max_possible_mapping_quality(int length);
     // walks the graph one base at a time from pos1 until we find pos2
     int64_t graph_distance(pos_t pos1, pos_t pos2, int64_t maximum = 1e3);
     // takes the min of graph_distance, approx_distance, and xindex->min_approx_path_distance()
@@ -565,12 +577,18 @@ public:
     int64_t approx_position(pos_t pos);
     // get the approximate position of the alignment or return -1 if it can't be had
     int64_t approx_alignment_position(const Alignment& aln);
+    // get the full path offsets for the alignment, considering every mapping if just_first is not set
+    map<string, vector<pair<size_t, bool> > > alignment_path_offsets(const Alignment& aln, bool just_min = true, bool nearby = false);
+    // return the path offsets as cached in the alignment
+    map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const Alignment& aln);
     // get the end position of the alignment
     Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined
     int64_t approx_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // use the cached fragment model to estimate the likely place we'll find the mate
     pos_t likely_mate_position(const Alignment& aln, bool is_first);
+    // get a set of positions that are likely based on the fragment model and the embedded paths
+    vector<pos_t> likely_mate_positions(const Alignment& aln, bool is_first);
     // get the node approximately at the given offset relative to our position (offset may be negative)
     id_t node_approximately_at(int64_t approx_pos);
     // convert a single MEM hit into an alignment (by definition, a perfect one)
@@ -580,13 +598,10 @@ public:
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
 
     // fargment length estimation
-    map<string, int64_t> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
-    int64_t first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    map<string, int64_t> min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // uses the cached information about the graph in the xg index to get an approximate node length
     double average_node_length(void);
     
-    bool debug;
-
     // mem mapper parameters
     //
     //int max_mem_length; // a mem must be <= this length
@@ -609,13 +624,15 @@ public:
     int extra_multimaps; // Extra mappings considered
     int min_multimaps; // Minimum number of multimappings
     int band_multimaps; // the number of multimaps for to attempt for each band in a banded alignment
+    bool patch_alignments; // should we attempt alignment patching to resolve unaligned regions in banded alignment
     
-    int maybe_mq_threshold; // quality below which we let the estimated mq kick in
+    double maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality
     bool use_cluster_mq; // should we use the cluster-based mapping quality component
     double identity_weight; // scale mapping quality by the alignment score identity to this power
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
+    bool include_full_length_bonuses;
     
     bool simultaneous_pair_alignment;
     int max_band_jump; // the maximum length edit we can detect via banded alignment

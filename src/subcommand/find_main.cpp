@@ -24,6 +24,7 @@ void help_find(char** argv) {
          << "    -L, --use-length       treat STEPS in -c or M in -r as a length in bases" << endl
          << "    -p, --path TARGET      find the node(s) in the specified path range(s) TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
+         << "    -R, --rank-in PATH     find the rank of the node (specified by -n) in the given path" << endl
          << "    -X, --approx-pos ID    get the approximate position of this node" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
          << "    -G, --gam GAM          accumulate the graph touched by the alignments in the GAM" << endl
@@ -38,7 +39,7 @@ void help_find(char** argv) {
          << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
          << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
          << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
-         << "    -R, --reseed-length N  find non-super-maximal MEMs inside SMEMs of length at least N" << endl
+         << "    -B, --reseed-length N  find non-super-maximal MEMs inside SMEMs of length at least N" << endl
          << "    -f, --fast-reseed      use fast SMEM reseeding algorithm" << endl
          << "    -Y, --max-mem N        the maximum length of the MEM (default: GCSA2 order)" << endl
          << "    -Z, --min-mem N        the minimum length of the MEM (default: 1)" << endl
@@ -74,6 +75,8 @@ int main_find(int argc, char** argv) {
     bool kmer_table = false;
     vector<string> targets;
     string path_name;
+    bool position_in = false;
+    bool rank_in = false;
     string range;
     string gcsa_in;
     string xg_name;
@@ -113,7 +116,7 @@ int main_find(int argc, char** argv) {
                 {"table", no_argument, 0, 'T'},
                 {"sequence", required_argument, 0, 'S'},
                 {"mems", required_argument, 0, 'M'},
-                {"reseed-length", required_argument, 0, 'R'},
+                {"reseed-length", required_argument, 0, 'B'},
                 {"fast-reseed", no_argument, 0, 'f'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'z'},
@@ -122,6 +125,7 @@ int main_find(int argc, char** argv) {
                 {"kmer-count", no_argument, 0, 'C'},
                 {"path", required_argument, 0, 'p'},
                 {"position-in", required_argument, 0, 'P'},
+                {"rank-in", required_argument, 0, 'R'},
                 {"node-range", required_argument, 0, 'r'},
                 {"alignments", no_argument, 0, 'a'},
                 {"mappings", no_argument, 0, 'm'},
@@ -140,7 +144,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:fi:DH:G:N:A:Y:Z:tq:X:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:B:fi:DH:G:N:A:Y:Z:tq:X:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -174,7 +178,7 @@ int main_find(int argc, char** argv) {
             get_mems = true;
             break;
             
-        case 'R':
+        case 'B':
             mem_reseed_length = atoi(optarg);
             break;
             
@@ -208,6 +212,12 @@ int main_find(int argc, char** argv) {
 
         case 'P':
             path_name = optarg;
+            position_in = true;
+            break;
+
+        case 'R':
+            path_name = optarg;
+            rank_in = true;
             break;
 
         case 'c':
@@ -458,7 +468,7 @@ int main_find(int argc, char** argv) {
                 cout << (e.from_start() ? -1 : 1) * e.from() << "\t" <<  (e.to_end() ? -1 : 1) * e.to() << endl;
             }
         }
-        if (!node_ids.empty() && !path_name.empty() && !pairwise_distance) {
+        if (!node_ids.empty() && !path_name.empty() && !pairwise_distance && (position_in || rank_in)) {
             // Go get the positions of these nodes in this path
             
             if (xindex.path_rank(path_name) == 0) {
@@ -472,9 +482,9 @@ int main_find(int argc, char** argv) {
             // and then mapping, but need this info right now for scripts/chunked_call
             for (auto node_id : node_ids) {
                 cout << node_id;
-                vector<size_t> positions = xindex.position_in_path(node_id, path_name);
-                for (auto pos : positions) {
-                    cout << "\t" << pos;
+                for (auto r : (position_in ? xindex.position_in_path(node_id, path_name)
+                               : xindex.node_ranks_in_path(node_id, path_name))) {
+                    cout << "\t" << r;
                 }
                 cout << endl;
             }
@@ -631,13 +641,13 @@ int main_find(int argc, char** argv) {
                 stream::for_each(in, lambda);
             }
             // now we have the nodes to get
-            VG graph;
+            Graph graph;
             for (auto& node : nodes) {
-                *graph.graph.add_node() = xindex.node(node);
+                *graph.add_node() = xindex.node(node);
             }
-            xindex.expand_context(graph.graph, max(1, context_size)); // get connected edges
-            graph.rebuild_indexes();
-            graph.serialize_to_ostream(cout);
+            xindex.expand_context(graph, max(1, context_size), true); // get connected edges
+            VG vgg; vgg.extend(graph);
+            vgg.serialize_to_ostream(cout);
         }
     } else if (!db_name.empty()) {
         if (!node_ids.empty() && path_name.empty()) {

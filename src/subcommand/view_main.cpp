@@ -25,7 +25,7 @@ void help_view(char** argv) {
     cerr << "usage: " << argv[0] << " view [options] [ <graph.vg> | <graph.json> | <aln.gam> | <read1.fq> [<read2.fq>] ]" << endl
          << "options:" << endl
          << "    -g, --gfa                  output GFA format (default)" << endl
-         << "    -F, --gfa-in               input GFA format" << endl
+         << "    -F, --gfa-in               input GFA format, reducing overlaps if they occur" << endl
 
          << "    -v, --vg                   output VG format" << endl
          << "    -V, --vg-in                input VG format (default)" << endl
@@ -77,7 +77,8 @@ void help_view(char** argv) {
          << "    -E, --snarl-traversal-in   input VG SnarlTraversal format" << endl
          << "    -K, --multipath-in         input VG MultipathAlignment format (GAMP)" << endl
          << "    -k, --multipath            output VG MultipathAlignment format (GAMP)" << endl
-         << "    -D, --expect-duplicates    don't warn if encountering the same node or edge multiple times" << endl;
+         << "    -D, --expect-duplicates    don't warn if encountering the same node or edge multiple times" << endl
+         << "    --threads N                for parallel operations use this many threads [1]" << endl;
     
     // TODO: Can we regularize the option names for input and output types?
 
@@ -124,6 +125,7 @@ int main_view(int argc, char** argv) {
     bool skip_missing_nodes = false;
     bool expect_duplicates = false;
     bool ascii_labels = false;
+    omp_set_num_threads(1); // default to 1 thread
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -172,11 +174,12 @@ int main_view(int argc, char** argv) {
                 {"multipath", no_argument, 0, 'k'},
                 {"multipath-in", no_argument, 0, 'K'},
                 {"ascii-labels", no_argument, 0, 'e'},
+                {"threads", required_argument, 0, '7'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZYmqQ:zXREDkKe",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZYmqQ:zXREDkKe7:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -380,6 +383,10 @@ int main_view(int argc, char** argv) {
             
         case 'D':
             expect_duplicates = true;
+            break;
+
+        case '7':
+            omp_set_num_threads(atoi(optarg));
             break;
 
         case 'h':

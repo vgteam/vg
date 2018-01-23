@@ -46,7 +46,6 @@ class VGCITest(TestCase):
         logging.basicConfig()
 
         self.workdir = tempfile.mkdtemp()
-        self.tempdir = tempfile.mkdtemp()
 
         # for checking calling f1
         self.f1_threshold = 0.005
@@ -60,6 +59,7 @@ class VGCITest(TestCase):
         self.do_teardown = True
         self.baseline = 's3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline'
         self.cores = 8
+        self.force_outstore = False
 
         self.loadCFG()
 
@@ -67,7 +67,6 @@ class VGCITest(TestCase):
         self.bakeoff_removed_samples = set(['NA128{}'.format(x) for x in range(77, 94)])
                 
     def tearDown(self):
-        shutil.rmtree(self.tempdir)        
         if self.do_teardown:
             shutil.rmtree(self.workdir)
 
@@ -98,6 +97,15 @@ class VGCITest(TestCase):
                             self.baseline = toks[1]
                         elif toks[0] == 'cores':
                             self.cores = int(toks[1])
+                        elif toks[0] == 'force_outstore' and toks[1].lower() == 'true':
+                            self.force_outstore = True
+
+    def _toil_vg_io_opts(self):
+        """ Some common toil-vg options we always want to use """
+        opts = ['--realTimeLogging', '--realTimeStderr', '--logInfo', '--workDir', self.workdir]
+        if self.force_outstore:
+            opts += ['--force_outstore']
+        return opts
 
     def _jobstore(self, tag = ''):
         return os.path.join(self.workdir, 'jobstore{}'.format(tag))
@@ -136,7 +144,7 @@ class VGCITest(TestCase):
             # Convert to a public HTTPS URL
             url = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
             # And download it
-            
+
             try:
                 connection = urllib2.urlopen(url)
                 return unicode(connection.read())
@@ -151,6 +159,13 @@ class VGCITest(TestCase):
             # Assume it's a raw path.
             with io.open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path), 'r', encoding='utf8') as f:
                 return f.read()
+
+    def _read_baseline_float(self, tag, path, error_val = '-inf'):
+        """ read a single float from a file, returning -inf something went wrong """
+        try:
+            return float(self._read_baseline_file(tag, path).strip())
+        except:
+            return float(error_val)
 
     def _get_remote_file(self, src, tgt):
         """
@@ -197,7 +212,7 @@ class VGCITest(TestCase):
         """ Wrap toil-vg index.  Files passed are copied from store instead of computed """
         job_store = self._jobstore(dir_tag)
         out_store = self._outstore(dir_tag)
-        opts = '--realTimeLogging --logInfo '
+        opts = ' '.join(self._toil_vg_io_opts()) + ' '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
         if self.container:
@@ -223,7 +238,7 @@ class VGCITest(TestCase):
         
         
     def _toil_vg_run(self, sample_name, chrom, graph_path, xg_path, gcsa_path, fq_path,
-                     true_vcf_path, fasta_path, interleaved, multipath, misc_opts, tag):
+                     true_vcf_path, fasta_path, interleaved, multipath, misc_opts, genotype, tag):
         """ Wrap toil-vg run as a shell command.  Expects reads to be in single fastq
         inputs can be None if toil-vg supports not having them (ie don't need to 
         include gcsa_path if want to reindex)
@@ -231,7 +246,7 @@ class VGCITest(TestCase):
 
         job_store = self._jobstore(tag)
         out_store = self._outstore(tag)
-        opts = '--realTimeLogging --logInfo '
+        opts = ' '.join(self._toil_vg_io_opts()) + ' '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
         if self.container:
@@ -249,13 +264,15 @@ class VGCITest(TestCase):
         if true_vcf_path:
             opts += '--vcfeval_baseline {} '.format(true_vcf_path)
             opts += '--vcfeval_fasta {} '.format(fasta_path)
-            opts += '--vcfeval_opts \" --ref-overlap\" '
         if interleaved:
             opts += '--interleaved '
         if multipath:
             opts += '--multipath '
         if misc_opts:
             opts += ' {} '.format(misc_opts)
+        if genotype:
+            opts += '--genotype '
+            opts += '--vcfeval_opts \'--ref-overlap --vcf-score-field GQ\' '
         # don't waste time sharding reads since we only run on one node
         opts += '--single_reads_chunk '
         opts += '--gcsa_index_cores {} --kmers_cores {} \
@@ -264,16 +281,18 @@ class VGCITest(TestCase):
             max(1, self.cores / 2), self.cores)
         
         cmd = 'toil-vg run {} {} {} {}'.format(job_store, sample_name, out_store, opts)
+        print("Run toil-vg with {}".format(cmd))
         
         subprocess.check_call(cmd, shell=True)
 
-    def _make_thread_indexes(self, sample, vg_file, vcf_file, region, tag=''):
-        """ Given a graph, then we extract two threads from the
-        given sample as their own graphs, then return an xg index for each.
-        this only supports one chromosome at a time, presently.
-        the indexes are written as thread_0.xg and thread_1.xg in the
-        output store (derived from tag parameter like other methods)
+    def _make_gbwt(self, sample, vg_file, vcf_file, region, tag=''):
         """
+        Compute the GBWT index of the haplotypes in the given VCF. Returns the path to a GBWT file.
+        
+        Excludes the given sample from the index.
+        
+        """
+        
         job_store = self._jobstore(tag)
         out_store = self._outstore(tag)
         out_store_name = self._outstore_name(tag)
@@ -285,6 +304,74 @@ class VGCITest(TestCase):
             container = self.container,
             # Toil options
             realTimeLogging = True,
+            logLevel = "INFO",
+            maxCores = self.cores
+        )
+
+        # Make the context
+        context = Context(out_store, overrides)
+
+        # The unfiltered and filtered vcf file
+        uf_vcf_file = os.path.join(self.workdir, 'uf-' + os.path.basename(vcf_file))
+        f_vcf_file = os.path.join(self.workdir, 'f-' + os.path.basename(vcf_file))
+        if not f_vcf_file.endswith('.gz'):
+            f_vcf_file += '.gz'
+        
+        # Get the inputs
+        self._get_remote_file(vg_file, os.path.join(out_store, os.path.basename(vg_file)))
+        self._get_remote_file(vcf_file, uf_vcf_file)
+
+        # Exclude source sample to make the results not circular
+        with context.get_toil(job_store) as toil:
+            cmd = ['bcftools', 'view', os.path.basename(uf_vcf_file), '-s', '^' + sample, '-O', 'z']
+            toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                     work_dir = os.path.abspath(self.workdir),
+                                     out_path = os.path.abspath(f_vcf_file)))
+            cmd = ['tabix', '-f', '-p', 'vcf', os.path.basename(f_vcf_file)]
+            toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                     work_dir = os.path.abspath(self.workdir)))
+        os.remove(uf_vcf_file)
+        
+        # Make the xg with gpbwt of the input graph
+        index_name = 'index-gbwt'
+        chrom, offset = self._bakeoff_coords(region)
+        self._toil_vg_index(chrom, vg_file, None, None,
+                            '--vcf_phasing {} --skip_gcsa --xg_index_cores {} --make_gbwt'.format(
+                                os.path.abspath(f_vcf_file), self.cores), tag, index_name)
+        gbwt_path = os.path.join(out_store, index_name + '.gbwt')
+        # Drop the extra xg
+        os.remove(os.path.join(out_store, index_name + '.xg'))
+        
+        os.remove(f_vcf_file)
+        os.remove(f_vcf_file + '.tbi')
+
+        return gbwt_path
+
+    def _make_thread_indexes(self, sample, vg_file, vcf_file, region, tag=''):
+        """ Given a graph, then we extract two threads from the
+        given sample as their own graphs, then return an xg index for each.
+        this only supports one chromosome at a time, presently.
+        the indexes are written as thread_0.xg and thread_1.xg in the
+        output store (derived from tag parameter like other methods)
+        
+        Returns paths to a full xg file for the graph, an xg for haplotype 0 of
+        the sample, and an xg for haplotype 1 of the sample.
+        
+        """
+        
+        job_store = self._jobstore(tag)
+        out_store = self._outstore(tag)
+        out_store_name = self._outstore_name(tag)
+
+        # What do we want to override from the default toil-vg config?
+        overrides = argparse.Namespace(
+            # toil-vg options
+            vg_docker = self.vg_docker,
+            container = self.container,
+            force_outstore = self.force_outstore,
+            # Toil options
+            realTimeLogging = True,
+            realTimeStderr = True,
             logLevel = "INFO",
             maxCores = self.cores
         )
@@ -320,6 +407,7 @@ class VGCITest(TestCase):
                             '--vcf_phasing {} --skip_gcsa --xg_index_cores {}'.format(
                                 os.path.abspath(f_vcf_file), self.cores), tag, index_name)
         index_path = os.path.join(out_store, index_name + '.xg')
+        
         os.remove(f_vcf_file)
         os.remove(f_vcf_file + '.tbi')
         
@@ -336,9 +424,17 @@ class VGCITest(TestCase):
                                          work_dir = os.path.abspath(self.workdir),
                                          out_path = tmp_thread_path))
 
-                # note: I'm not sure why that _0 is there but all threads seem
-                # to have names like _thread_NA12878_17_0_0 and _thread_NA12878_17_1_0
-                cmd = ['vg', 'find', '-q', '_thread_{}_{}_{}_0'.format(sample, chrom, hap),
+                # TODO: nothing is supposed to be depending on the particular
+                # syntax of the thread names. Stop doing that or formalize a way to get
+                
+                # TODO: Use the GBWT instead of the GPBWT to extract the threads we want.
+
+                # TODO: This will only get the first unbroken chunk (part 0) of
+                # a haplotype. This needs to be modified to get threads _0
+                # through _n for however many unbroken threads actually make up
+                # the haplotype we want to extract.
+                
+                cmd = ['vg', 'find', '-q', '_thread_{}_{}_{}'.format(sample, chrom, hap),
                        '-x', os.path.join(out_store_name, os.path.basename(index_path))]
                 toil.start(Job.wrapJobFn(toil_call, context, cmd,
                                          work_dir = os.path.abspath(self.workdir),
@@ -361,6 +457,23 @@ class VGCITest(TestCase):
 
         return index_path, os.path.join(out_store, 'thread_0.xg'), os.path.join(out_store, 'thread_1.xg')
 
+    def _print_vcfeval_summary_table(self, summary_path, baseline_f1, threshold, header=True, name=None):
+        with io.open(summary_path, 'r', encoding='utf8') as summary_file:
+            for i, line in enumerate(summary_file):
+                if i != 1 and (header or i != 0):
+                    toks = line.split()
+                    if i > 1 and name:
+                        toks = [name] + toks
+                    if i == 0:
+                        if name:
+                            toks = ['Name'] + toks
+                        toks = toks[0:-1] + ['F1', 'Baseline F1', 'Test Threshold']
+                    elif i == 2:
+                        toks += [baseline_f1, threshold]
+                    elif i > 2:
+                        toks += ['N/A', 'N/A']
+                    print '\t'.join([unicode(tok) for tok in toks])
+        
     def _verify_f1(self, sample, tag='', threshold=None):
         # grab the f1.txt file from the output store
         if sample:
@@ -370,32 +483,28 @@ class VGCITest(TestCase):
         f1_path = os.path.join(self._outstore(tag), f1_name)
         with io.open(f1_path, 'r', encoding='utf8') as f1_file:
             f1_score = float(f1_file.readline().strip())
-        baseline_f1 = float(self._read_baseline_file(tag, f1_name).strip())
+            
+        try:
+            baseline_f1 = self._read_baseline_float(tag, f1_name)
+        except:
+            # Couldn't read the baseline. Maybe it doesn't exist (yet)
+            baseline_f1 = 0
+
+        # print the whole table in tags that mine-logs can read
+        summary_path = f1_path[0:-6] + 'summary.txt'
+        self._begin_message('vcfeval Results'.format(
+            f1_score, baseline_f1, threshold), is_tsv=True)    
+        self._print_vcfeval_summary_table(summary_path, baseline_f1, threshold)
+        self._end_message()
         
         # compare with threshold
         if not threshold:
             threshold = self.f1_threshold
 
-        # print the whole table in tags that mine-logs can read
-        self._begin_message('vcfeval Results'.format(
-            f1_score, baseline_f1, threshold), is_tsv=True)
-        summary_path = f1_path[0:-6] + 'summary.txt'
-        with io.open(summary_path, 'r', encoding='utf8') as summary_file:
-            for i, line in enumerate(summary_file):
-                if i != 1:
-                    toks = line.split()
-                    if i == 0:
-                        toks = toks[0:-1] + ['F1', 'Baseline F1', 'Test Threshold']
-                    elif i == 2:
-                        toks += [baseline_f1, threshold]
-                    elif i > 2:
-                        toks += ['N/A', 'N/A']
-                    print '\t'.join([unicode(tok) for tok in toks])
-        self._end_message()
-
         self.assertGreaterEqual(f1_score, baseline_f1 - threshold)
 
-    def _test_bakeoff(self, region, graph, skip_indexing, multipath=False, tag_ext='', misc_opts=None):
+    def _test_bakeoff(self, region, graph, skip_indexing, multipath=False, tag_ext='', misc_opts=None,
+                      genotype=False):
         """ Run bakeoff F1 test for NA12878 """
         assert not tag_ext or tag_ext.startswith('-')
         tag = '{}-{}{}'.format(region, graph, tag_ext)
@@ -416,7 +525,7 @@ class VGCITest(TestCase):
                           self._input('platinum_NA12878_{}.fq.gz'.format(region)),
                           self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
                           self._input('chr{}.fa.gz'.format(chrom)), True, multipath,
-                          extra_opts, tag)
+                          extra_opts, genotype, tag)
 
         if self.verify:
             self._verify_f1('NA12878', tag)
@@ -424,7 +533,7 @@ class VGCITest(TestCase):
     def _mapeval_vg_run(self, reads, base_xg_path, sim_xg_paths,
                         source_path_names, fasta_path, test_index_bases,
                         test_names, score_baseline_name,  multipath,
-                        paired_only, sim_opts, sim_fastq, tag):
+                        paired_only, sim_opts, sim_fastq, more_mpmap_opts, tag):
         """ Wrap toil-vg mapeval. 
         
         Evaluates realignments (to the linear reference and to a set of graphs)
@@ -464,7 +573,7 @@ class VGCITest(TestCase):
 
         # start by simulating some reads
         # TODO: why are we using strings here when we could use much safer lists???
-        opts = '--realTimeLogging --logInfo '
+        opts = ' '.join(self._toil_vg_io_opts()) + ' '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
         if self.container:
@@ -493,23 +602,27 @@ class VGCITest(TestCase):
             alignment_cores = self.cores,
             # Toil options
             realTimeLogging = True,
+            realTimeStderr = True,
             logLevel = "INFO",
             maxCores = self.cores,
             # toil-vg map options
             # don't waste time sharding reads since we only run on one node
-            single_reads_chunk = True
+            single_reads_chunk = True,
+            mpmap_opts = ['-B', '-S'],
+            more_mpmap_opts = more_mpmap_opts
         )
         
         # Make the context
         context = Context(out_store, overrides)
-        
+
         # And what options to configure the mapeval run do we want? These have
         # to get turned into a plan in order to import all the files with names
         # derived algorithmically from the names given here. TODO: move
         # positional/required arguments out of this somehow? So we can just use
         # this to get the default optional settings and fill in the required
         # things as file IDs?
-        mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
+        mapeval_options = get_default_mapeval_options()
+        mapeval_options.truth = make_url(os.path.join(out_store, 'true.pos'))
         mapeval_options.bwa = True
         mapeval_options.paired_only = paired_only        
         mapeval_options.fasta = make_url(fasta_path)
@@ -523,7 +636,9 @@ class VGCITest(TestCase):
         if score_baseline_name is not None:
             mapeval_options.compare_gam_scores = score_baseline_name
         mapeval_options.multipath = multipath
-        mapeval_options.ignore_quals = multipath and not sim_fastq            
+        mapeval_options.ignore_quals = multipath and not sim_fastq
+        # If we're doing more than one mpmap test, disable vg map
+        mapeval_options.multipath_only = multipath and more_mpmap_opts
         
         # Make Toil
         with context.get_toil(job_store) as toil:
@@ -537,11 +652,14 @@ class VGCITest(TestCase):
                                      context, 
                                      mapeval_options, 
                                      plan.xg_file_ids,
-                                     plan.gcsa_file_ids, 
+                                     plan.gcsa_file_ids,
+                                     plan.gbwt_file_ids,
                                      plan.id_range_file_ids,
                                      plan.vg_file_ids, 
                                      plan.gam_file_ids, 
-                                     plan.reads_gam_file_id, 
+                                     plan.reads_gam_file_id,
+                                     None,
+                                     None,
                                      plan.fasta_file_id, 
                                      plan.bwa_index_ids, 
                                      plan.bam_file_ids,
@@ -606,6 +724,7 @@ class VGCITest(TestCase):
             container = self.container,
             # Toil options
             realTimeLogging = True,
+            realTimeStderr = True,
             logLevel = "INFO",
             maxCores = self.cores
         )
@@ -767,7 +886,7 @@ class VGCITest(TestCase):
                         stat_val = '↑ {}'.format(stat_val)
                 row.append(stat_val)
                 row.append(baseline_val)
-                               
+
             print '\t'.join(row)
         self._end_message()
 
@@ -877,7 +996,8 @@ class VGCITest(TestCase):
                       positive_control=None, negative_control=None, sample=None,
                       source_path_names=set(), multipath=False, paired_only=False,
                       assembly="hg38", tag_ext="", acc_threshold=0, auc_threshold=0,
-                      sim_opts='-l 150 -p 500 -v 50 -e 0.05 -i 0.01', sim_fastq=None):
+                      sim_opts='-l 150 -p 500 -v 50 -e 0.05 -i 0.01', sim_fastq=None,
+                      more_mpmap_opts=None):
         """ Run simulation on a bakeoff graph
         
         Simulate the given number of reads from the given baseline_graph
@@ -944,14 +1064,144 @@ class VGCITest(TestCase):
             test_tag = '{}-{}'.format(test_graph, region)
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
         self._mapeval_vg_run(reads, xg_path, sim_xg_paths, source_path_names, fasta_path, test_index_bases,
-                             test_graphs, score_baseline_graph, multipath, paired_only, sim_opts, sim_fastq, tag)
+                             test_graphs, score_baseline_graph, multipath, paired_only, sim_opts, sim_fastq,
+                             more_mpmap_opts, tag)
         if self.verify:
             self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
                                  positive_control, negative_control, tag,
                                  acc_threshold, auc_threshold)
 
+    def _calleval_vg_run(self, xg_path, vg_path, fasta_path, gam_path, bam_path,
+                         truth_vcf_path, bed_regions_path, sample, chrom, offset, tag):
+        """ Wrap toil-vg calleval. 
+        """
+
+        job_store = self._jobstore(tag)
+        out_store = self._outstore(tag)
+
+        # run calleval
+        cmd = ['toil-vg', 'calleval', job_store, out_store]
+        cmd += ['--calling_cores', str(min(2, self.cores))]
+        cmd += ['--call_chunk_cores', str(min(6, self.cores))]
+        cmd += ['--gam_index_cores', str(min(4, self.cores))]
+        cmd += ['--maxCores', str(self.cores)]
+        cmd += self._toil_vg_io_opts() 
+        if self.container:
+            cmd += ['--container', self.container]
+        # run both gentoype and call
+        cmd += ['--call_and_genotype']
+        # vg genotype needs this not to run out of ram
+        cmd += ['--call_chunk_size', '500000']
+        # run freebayes
+        if bam_path:
+            cmd += ['--freebayes']
+            cmd += ['--bams', bam_path]
+            cmd += ['--bam_names', 'bwa']            
+        # gam
+        cmd += ['--gams', gam_path]
+        cmd += ['--gam_names', 'vg']
+        cmd += ['--chroms', str(chrom)]
+        if offset:
+            cmd += ['--vcf_offsets', str(offset)]
+        cmd += ['--sample_name', sample]
+        # xg
+        cmd += ['--xg_paths', xg_path]
+        # truth vcf
+        cmd += ['--vcfeval_baseline', truth_vcf_path]
+        if bed_regions_path:
+            cmd += ['--vcfeval_bed_regions', bed_regions_path]
+        # fasta: required for both vcfeval and freebayes
+        cmd += ['--vcfeval_fasta', fasta_path]
+
+        subprocess.check_call(cmd, shell=False)
+
+    def _verify_calleval(self, tag='', threshold=None):
+        out_store = self._outstore(tag)
+        # scrape up all the possible output files
+        output_names = []
+        output_f1_paths = []
+        output_summary_paths = []
+        for output_path in os.listdir(out_store):
+            if output_path.endswith('_vcfeval_output_summary.txt'):
+                output_names.append(output_path[:-len('_vcfeval_output_summary.txt')])
+                output_f1_paths.append(os.path.join(
+                    out_store, '{}_vcfeval_output_f1.txt'.format(output_names[-1])))
+                output_summary_paths.append(os.path.join(out_store, output_path))
+
+        # check nothing went terribly and unexpectedly wrong
+        self.assertTrue(len(output_names) == len(output_f1_paths) == len(output_summary_paths))
+        self.assertGreaterEqual(len(output_names), 1)
+        # todo: should we check for certain names?
+
+        # compare with threshold
+        if not threshold:
+            threshold = self.f1_threshold
+
+        # print the table, collect the scores
+        self._begin_message('vcfeval Results', is_tsv=True)    
+        f1_scores = []
+        baseline_scores = []
+        for name, f1_path, summary_path in zip(output_names, output_f1_paths, output_summary_paths):
+            with io.open(f1_path, 'r', encoding='utf8') as f1_file:
+                f1_scores.append(float(f1_file.readline().strip()))
+            baseline_scores.append(self._read_baseline_float(tag, os.path.basename(f1_path)))
+            self._print_vcfeval_summary_table(summary_path, baseline_scores[-1], threshold,
+                                              header=name==output_names[0], name=name)
+        self._end_message()
+
+        for name, f1_score, baseline_score in zip(output_names, f1_scores, baseline_scores):
+            self.assertGreaterEqual(f1_score, baseline_score - threshold,
+                                    msg = 'F1={} <= (Baseline F1={} - Threshold={}) for {}'.format(
+                                        f1_score, baseline_score, threshold, name))
+            
+    def _test_calleval(self, region, baseline_graph, sample, vg_path, gam_path, bam_path, vcf_path,
+                       bed_path, fasta_path, f1_threshold, tag_ext=""):
+        """ Run call, genotype, and freebayes on some pre-existing alignments and compare them
+        to a truth set using vcfeval.        
+        """
+        assert not tag_ext or tag_ext.startswith('-')
+        tag = 'call-{}-{}{}'.format(region, baseline_graph, tag_ext)
+
+        if True:
+            # compute the xg index from scratch
+            chrom, offset = self._bakeoff_coords(region)        
+            self._toil_vg_index(str(chrom), vg_path, None, None,
+                                '--skip_gcsa', tag, '{}-{}'.format(baseline_graph, region))
+            xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')        
+
+            test_index_bases = []
+
+            self._calleval_vg_run(xg_path, vg_path, fasta_path, gam_path, bam_path, 
+                                  vcf_path, bed_path, sample, chrom, offset, tag)
+
+        if self.verify:
+            self._verify_calleval(tag=tag, threshold=f1_threshold)
+            
     @skip("skipping test to keep runtime down")
-    @timeout_decorator.timeout(3600)
+    @timeout_decorator.timeout(8000)            
+    def test_call_chr21_snp1kg(self):
+        """
+        calling comparison between call, genotype and freebayes on an alignment extracted
+        from the HG002 whole genome experiment run from the paper
+        """
+        giab = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/giab/'
+        #self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/CHR21_DEC3'
+        # using this one until above is fixed
+        self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/dnanexus'
+        log.info("Test start at {}".format(datetime.now()))
+        self._test_calleval('CHR21', 'snp1kg', "HG002",
+                            self._input('snp1kg_21.vg'),
+                            self._input('snp1kg_HG002_21.gam'),
+                            self._input('21.bam'),
+                            os.path.join(giab, 'HG002_GRCh37_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X'
+                                         '-SOLID_CHROM1-22_v.3.3.2_highconf_triophased-CHR21.vcf.gz'),
+                            os.path.join(giab, 'HG002_GRCh37_GIAB_highconf_CG-IllFB-IllGATKHC-Ion-10X'
+                                         '-SOLID_CHROM1-22_v.3.3.2_highconf_noinconsistent.bed'),                            
+                            self._input('hs37d5_chr21.fa.gz'),
+                            0.025)
+            
+    @skip("skipping test to keep runtime down")
+    @timeout_decorator.timeout(600)
     def test_sim_brca1_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
         # Using 100k simulated reads from snp1kg BRCA1, realign against all
@@ -963,17 +1213,26 @@ class VGCITest(TestCase):
                            ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
                            sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
+     
+    @timeout_decorator.timeout(1200)                       
+    def test_sim_mhc_snp1kg(self):
+        """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
+        log.info("Test start at {}".format(datetime.now()))
+        self._test_mapeval(100000, 'MHC', 'snp1kg',
+                           ['primary', 'snp1kg'],
+                           score_baseline_graph='primary',
+                           sample='HG00096', acc_threshold=0.02, auc_threshold=0.02)
                            
-    @timeout_decorator.timeout(3600)
+    @timeout_decorator.timeout(900)
     def test_sim_mhc_cactus(self):
         """ Mapping test for MHC cactus graph """
         log.info("Test start at {}".format(datetime.now()))        
         self._test_mapeval(10000, 'MHC', 'cactus',
                            ['snp1kg', 'cactus'],
                            multipath=True,
-                           source_path_names=['GI568335986', 'GI568335994'], acc_threshold=0.02, auc_threshold=0.02)
+                           source_path_names=['GI568335986', 'GI568335994'], acc_threshold=0.02, auc_threshold=0.04)
 
-    @timeout_decorator.timeout(16000)        
+    @timeout_decorator.timeout(4800)        
     def test_sim_chr21_snp1kg(self):
         log.info("Test start at {}".format(datetime.now()))
         self._test_mapeval(300000, 'CHR21', 'snp1kg',
@@ -982,9 +1241,9 @@ class VGCITest(TestCase):
                            sample='HG00096',
                            assembly="hg19",
                            acc_threshold=0.0075, auc_threshold=0.075, multipath=True,
-                           sim_opts='-l 150 -p 500 -v 50 -e 0.01 -i 0.002')
+                           sim_opts='-l 150 -p 570 -v 150 -e 0.01 -i 0.002')
 
-    @timeout_decorator.timeout(16000)        
+    @timeout_decorator.timeout(2400)        
     def test_sim_chr21_snp1kg_trained(self):
         self._test_mapeval(100000, 'CHR21', 'snp1kg',
                            ['primary', 'snp1kg'],
@@ -993,13 +1252,13 @@ class VGCITest(TestCase):
                            assembly="hg19",
                            acc_threshold=0.0075, auc_threshold=0.075, multipath=True, paired_only=True,
                            tag_ext='-trained',
-                           sim_opts='-p 500 -v 50 -S 4 -i 0.002',
+                           sim_opts='-p 570 -v 150 -S 4 -i 0.002 -I',
                            # 800k 148bp reads from Genome in a Bottle NA12878 library
                            # (placeholder while finding something better)
                            sim_fastq='ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz')
 
     @skip("skipping test to keep runtime down")        
-    @timeout_decorator.timeout(3600)
+    @timeout_decorator.timeout(1200)
     def test_sim_brca2_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
         so jenkins doesn't report failures.  vg is run only in single ended with multipath on
@@ -1013,7 +1272,7 @@ class VGCITest(TestCase):
                            acc_threshold=0.02, auc_threshold=0.02)
 
     @skip("skipping test to keep runtime down")        
-    @timeout_decorator.timeout(7200)
+    @timeout_decorator.timeout(2400)
     def test_sim_chr21_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
         so jenkins doesn't report failures.  vg is run only in single ended with multipath on
@@ -1024,10 +1283,10 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
                            acc_threshold=0.02,
-                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5',
+                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5 -I',
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
 
-    @timeout_decorator.timeout(7200)
+    @timeout_decorator.timeout(1200)
     def test_sim_mhc_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
         so jenkins doesn't report failures.  vg is run only in single ended with multipath on
@@ -1036,13 +1295,13 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_mapeval(50000, 'MHC', 'snp1kg',
                            ['primary', 'snp1kg'],
-                           score_baseline_graph='primary',
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
                            acc_threshold=0.02, auc_threshold=0.02,
-                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5',
-                           sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
+                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5 -I',
+                           sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'),
+                           more_mpmap_opts=['-u 8'])
 
-    @timeout_decorator.timeout(7200)
+    @timeout_decorator.timeout(1800)
     def test_sim_yeast_cactus(self):
         """ Yeast test based on the cactus graphs.  Reads are simulated from the SK1 path
         of the full graph.  The other graphs are made from this graph using vg mod:
@@ -1074,6 +1333,12 @@ class VGCITest(TestCase):
         """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'snp1kg', True)
+
+    @timeout_decorator.timeout(400)
+    def test_map_brca1_snp1kg_genotype(self):
+        """ Mapping and calling (with vg genotype) bakeoff F1 test for BRCA1 snp1kg graph """
+        log.info("Test start at {}".format(datetime.now()))
+        self._test_bakeoff('BRCA1', 'snp1kg', True, tag_ext='-genotype', genotype=True)
         
     @timeout_decorator.timeout(600)
     def test_map_brca1_snp1kg_mpmap(self):
@@ -1090,79 +1355,94 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'cactus', True)
 
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(600)        
     def test_full_brca2_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 primary graph """
         log.info("Test start at {}".format(datetime.now()))
+        self.f1_threshold = 0.01
         self._test_bakeoff('BRCA2', 'primary', False)
 
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(600)        
     def test_full_brca2_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA2', 'snp1kg', False)
 
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(600)        
     def test_full_brca2_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 cactus graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA2', 'cactus', False)
 
     @skip("skipping test to keep runtime down")
-    @timeout_decorator.timeout(2000)        
+    @timeout_decorator.timeout(900)        
     def test_map_sma_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for SMA primary graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('SMA', 'primary', True)
 
     @skip("skipping test to keep runtime down")        
-    @timeout_decorator.timeout(2000)        
+    @timeout_decorator.timeout(900)        
     def test_map_sma_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for SMA snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('SMA', 'snp1kg', True)
 
     @skip("skipping test to keep runtime down")        
-    @timeout_decorator.timeout(2000)        
+    @timeout_decorator.timeout(900)        
     def test_map_sma_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for SMA cactus graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('SMA', 'cactus', True)
 
     @skip("skipping test to keep runtime down")         
-    @timeout_decorator.timeout(2000)        
+    @timeout_decorator.timeout(900)        
     def test_map_lrc_kir_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for LRC-KIR primary graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('LRC-KIR', 'primary', True)
 
     @skip("skipping test to keep runtime down")         
-    @timeout_decorator.timeout(2000)        
+    @timeout_decorator.timeout(900)        
     def test_map_lrc_kir_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for LRC-KIR snp1kg graph """
         self._test_bakeoff('LRC-KIR', 'snp1kg', True)
         
     @skip("skipping test to keep runtime down")         
-    @timeout_decorator.timeout(2000)        
+    @timeout_decorator.timeout(900)        
     def test_map_lrc_kir_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for LRC-KIR cactus graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('LRC-KIR', 'cactus', True)
 
-    @timeout_decorator.timeout(10000)        
+    @timeout_decorator.timeout(900)        
     def test_map_mhc_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC primary graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'primary', True)
 
-    @timeout_decorator.timeout(10000)        
+    @timeout_decorator.timeout(900)        
     def test_map_mhc_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'snp1kg', True)
 
+    @timeout_decorator.timeout(1600)        
+    def test_map_mhc_primary_genotype(self):
+        """ Mapping and calling (with vg genotype) bakeoff F1 test for MHC primary graph 
+        """
+        log.info("Test start at {}".format(datetime.now()))
+        self._test_bakeoff('MHC', 'primary', True, tag_ext='-genotype', genotype=True)
+        
+    @timeout_decorator.timeout(1600)        
+    def test_map_mhc_snp1kg_genotype(self):
+        """ Mapping and calling (with vg genotype) bakeoff F1 test for MHC snp1kg graph 
+        """
+        log.info("Test start at {}".format(datetime.now()))
+        self._test_bakeoff('MHC', 'snp1kg', True, tag_ext='-genotype', genotype=True)
+
     @skip("skipping test to keep runtime down (baseline missing as well)")          
-    @timeout_decorator.timeout(10000)        
+    @timeout_decorator.timeout(1200)        
     def test_map_mhc_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC cactus graph """
         log.info("Test start at {}".format(datetime.now()))

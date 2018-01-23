@@ -1,8 +1,8 @@
 #ifndef VG_MEM_HPP_INCLUDED
 #define VG_MEM_HPP_INCLUDED
 
-#include "gcsa/gcsa.h"
-#include "gcsa/lcp.h"
+#include <gcsa/gcsa.h>
+#include <gcsa/lcp.h>
 #include "position.hpp"
 #include "utility.hpp"
 
@@ -34,7 +34,7 @@ public:
     int fragment;
     bool primary; // if not a sub-MEM
     std::vector<gcsa::node_type> nodes;
-    map<string, vector<size_t> > positions;
+    map<string, vector<pair<size_t, bool> > > positions;
     
     MaximalExactMatch(string::const_iterator b,
                       string::const_iterator e,
@@ -63,7 +63,8 @@ public:
 
 const string mems_to_json(const vector<MaximalExactMatch>& mems);
 
-// helper for computing the number of bases in the query covered by a cluster
+// helpers for computing the number of bases in the query covered by a cluster
+vector<string::const_iterator> cluster_cover(const vector<MaximalExactMatch>& cluster);
 int cluster_coverage(const vector<MaximalExactMatch>& cluster);
 // helper to tell if mems are ovelapping
 bool mems_overlap(const MaximalExactMatch& mem1,
@@ -76,10 +77,12 @@ bool clusters_overlap_in_read(const vector<MaximalExactMatch>& cluster1,
                               const vector<MaximalExactMatch>& cluster2);
 bool clusters_overlap_in_graph(const vector<MaximalExactMatch>& cluster1,
                                const vector<MaximalExactMatch>& cluster2);
+int clusters_overlap_length(const vector<MaximalExactMatch>& cluster1,
+                            const vector<MaximalExactMatch>& cluster2);
 vector<pos_t> cluster_nodes(const vector<MaximalExactMatch>& cluster);
 
-// returns the min distance implied by the position annotations on the mems
-int64_t mem_min_distance(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
+// returns the min distance and the relative orientation implied by the position annotations on the mems
+pair<int64_t, int64_t> mem_min_oriented_distances(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
 
 
 }

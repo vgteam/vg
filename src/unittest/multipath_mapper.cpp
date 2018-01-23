@@ -6,6 +6,7 @@
 #include "json2pb.h"
 #include "vg.pb.h"
 #include "../multipath_mapper.hpp"
+#include "../build_index.hpp"
 #include "catch.hpp"
 
 namespace vg {
@@ -136,7 +137,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     gcsa::LCPArray* lcpidx = nullptr;
     
     // Build the GCSA index
-    graph.build_gcsa_lcp(gcsaidx, lcpidx, 16, false, false, 3);
+    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
     xg::XG xg_index(proto_graph);
@@ -311,7 +312,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     gcsa::LCPArray* lcpidx = nullptr;
     
     // Build the GCSA index
-    graph.build_gcsa_lcp(gcsaidx, lcpidx, 16, false, false, 3);
+    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
     xg::XG xg_index(proto_graph);
@@ -321,9 +322,6 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     // Lower the max mapping quality so that it thinks it can find unambiguous mappings of
     // short sequences
     mapper.max_mapping_quality = 10;
-    // In case we're using compile time forced fragment length distribution, set a max sample
-    // size
-    mapper.set_fragment_length_distr_params(10, 10, .95);
     
     SECTION( "MultipathMapper can map a short fake read" ) {
 
@@ -370,6 +368,9 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
             }
         }
     }
+    
+    // Give it a fragment length distribution so it doesn't try to learn one
+    mapper.force_fragment_length_distr(4, 2);
     
     SECTION( "MultipathMapper can map two tiny paired reads" ) {
     
@@ -462,7 +463,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     gcsa::LCPArray* lcpidx = nullptr;
     
     // Build the GCSA index
-    graph.build_gcsa_lcp(gcsaidx, lcpidx, 16, false, false, 3);
+    build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
     xg::XG xg_index(proto_graph);
@@ -472,9 +473,6 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     // Lower the max mapping quality so that it thinks it can find unambiguous mappings of
     // short sequences
     mapper.max_mapping_quality = 10;
-    // In case we're using compile time forced fragment length distribution, set a max sample
-    // size
-    mapper.set_fragment_length_distr_params(10, 10, .95);
     
     SECTION( "topologically_order_subpaths works within a node" ) {
     
@@ -545,7 +543,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     SECTION( "MultipathMapper buffers pairs that don't map the first time" ) {
         // Here are two reads on the same strand
         Alignment read1, read2;
-        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
+        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAAC");
         read2.set_sequence("TCCTT");
         
         // Have a list to fill with results
@@ -567,8 +565,8 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     SECTION( "MultipathMapper does not buffer unambiguous pairs" ) {
         // Here are two reads on the same strand
         Alignment read1, read2;
-        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
-        read2.set_sequence("TCCTTGACTTCTTGAAACA");
+        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAAC");
+        read2.set_sequence("TCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCT");
         
         // Have a list to fill with results
         vector<pair<MultipathAlignment, MultipathAlignment>> results;
@@ -596,7 +594,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     SECTION( "MultipathMapper aligns ambiguous pairs after the fragment length distribution is set" ) {
         // Here are two reads on the same strand
         Alignment read1, read2;
-        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
+        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAAC");
         read2.set_sequence("TCCTT");
         
         // Have a list to fill with results

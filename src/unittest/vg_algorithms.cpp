@@ -14,6 +14,8 @@
 #include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/weakly_connected_components.hpp"
+#include "algorithms/distance_to_head.hpp"
+#include "algorithms/distance_to_tail.hpp"
 #include "vg.hpp"
 #include "json2pb.h"
 
@@ -2906,8 +2908,349 @@ namespace vg {
             
             }
         }
+        TEST_CASE("distance_to_head() using HandleGraph produces expected results", "[vg]") {
+            VG vg;
+            Node* n0 = vg.create_node("AA");
+            Node* n1 = vg.create_node("ACTGA");
+            Node* n2 = vg.create_node("AG");
+            Node* n3 = vg.create_node("ATC");
+            unordered_set<handle_t> trav;
+            handle_t n;
+
+            SECTION("distance_to_head() using HandleGraph works when node is at head") {
+                // Set handle to head node
+                n = vg.get_handle(n0->id(),false);
+                int32_t limit = 100;
+
+                int32_t check = algorithms::distance_to_head(n, limit, 0, trav, &vg);
+                
+                REQUIRE(check == 0);
+            }
+            SECTION("distance_to_head() using HandleGraph works when node is not at head") {
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n3);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n3->id(),false);
+                int32_t limit = 100;
+
+                int32_t check = algorithms::distance_to_head(n, limit, 0, trav, &vg);
+                
+                REQUIRE(check == 9);
+            }
+            SECTION("distance_to_head() using HandleGraph works when limit is less than the distance") {
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n3);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n3->id(),false);
+                int32_t limit = 4;
+
+                int32_t check = algorithms::distance_to_head(n, limit, 0, trav, &vg);
+                
+                REQUIRE(check == -1);
+            }
+            SECTION("distance_to_head() using HandleGraph works when limit is equal to the distance") {
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n3);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n3->id(),false);
+                int32_t limit = 6;
+
+                int32_t check = algorithms::distance_to_head(n, limit, 0, trav, &vg);
+                
+                REQUIRE(check == -1);
+            }
+              SECTION("distance_to_head() using HandleGraph works when there is no head") {
+                vg.create_edge(n0, n1, true, false);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n1->id(),false);
+                int32_t limit = 100;
+
+                int32_t check = algorithms::distance_to_head(n, limit, 0, trav, &vg);
+                
+                REQUIRE(check == -1);
+            }
+              SECTION("distance_to_head() using HandleGraph works when there are 2 previous nodes") {
+                Node* n4 = vg.create_node("AG");
+                Node* n5 = vg.create_node("AT");
+                Node* n6 = vg.create_node("GATTACA");
+                vg.create_edge(n0, n4);
+                vg.create_edge(n4, n5);
+                vg.create_edge(n0, n6);
+                vg.create_edge(n6, n1);
+                vg.create_edge(n5, n1);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n1->id(),false);
+                int32_t limit = 100;
+                // if there are 2 previous nodes, gets the distance of previous node that was made first
+                int32_t check = algorithms::distance_to_head(n, limit, 0, trav, &vg);
+                
+                REQUIRE(check == 9);
+            }
+        }
+
+        TEST_CASE("Simplified distance_to_head() using HandleGraph produces expected results", "[vg]") {
+            VG vg;
+            Node* n0 = vg.create_node("AA");
+            Node* n1 = vg.create_node("ACTGA");
+            Node* n2 = vg.create_node("AG");
+            Node* n3 = vg.create_node("ATC");
+            handle_t n;
+
+            SECTION("Simplified distance_to_head() using HandleGraph works when node is at head") {
+                // Set handle to head node
+                n = vg.get_handle(n0->id(),false);
+                int32_t limit = 100;
+
+                int32_t check = algorithms::distance_to_head(n, limit, &vg);
+                
+                REQUIRE(check == 0);
+            }
+            SECTION("Simplified distance_to_head() using HandleGraph works when node is not at head") {
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n3);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n3->id(),false);
+                int32_t limit = 100;
+
+                int32_t check = algorithms::distance_to_head(n, limit, &vg);
+                
+                REQUIRE(check == 9);
+            }
+            SECTION("Simplified distance_to_head() using HandleGraph works when limit is less than the distance") {
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n3);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n3->id(),false);
+                int32_t limit = 4;
+
+                int32_t check = algorithms::distance_to_head(n, limit, &vg);
+                
+                REQUIRE(check == -1);
+            }
+            SECTION("Simplified distance_to_head() using HandleGraph works when limit is equal to the distance") {
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n3);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n3->id(),false);
+                int32_t limit = 6;
+
+                int32_t check = algorithms::distance_to_head(n, limit, &vg);
+                
+                REQUIRE(check == -1);
+            }
+              SECTION("Simplified distance_to_head() using HandleGraph works when there is no head") {
+                vg.create_edge(n0, n1, true, false);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n1->id(),false);
+                int32_t limit = 100;
+
+                int32_t check = algorithms::distance_to_head(n, limit, &vg);
+                
+                REQUIRE(check == -1);
+            }
+              SECTION("Simplified distance_to_head() using HandleGraph works when there are 2 previous nodes") {
+                Node* n4 = vg.create_node("AG");
+                Node* n5 = vg.create_node("AT");
+                Node* n6 = vg.create_node("GATTACA");
+                vg.create_edge(n0, n4);
+                vg.create_edge(n4, n5);
+                vg.create_edge(n0, n6);
+                vg.create_edge(n5, n1);
+                vg.create_edge(n6, n1);
         
-    }
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n1->id(),false);
+                int32_t limit = 100;
+                // if there are 2 previous nodes, gets the distance of previous node that was made first
+                int32_t check = algorithms::distance_to_head(n, limit, &vg);
+                
+                REQUIRE(check == 6);
+            }
+        }
+
+        TEST_CASE("distance_to_tail() using HandleGraph produces expected results", "[vg]") {
+            VG vg;
+            Node* n0 = vg.create_node("AA");
+            Node* n1 = vg.create_node("ACTGA");
+            Node* n2 = vg.create_node("AG");
+            Node* n3 = vg.create_node("ATC");
+            unordered_set<handle_t> trav;
+            handle_t n;
+
+            SECTION("distance_to_tail() using HandleGraph works when node is at tail") {
+                // Set handle to head node
+                n = vg.get_handle(n0->id(),false);
+                int32_t limit = 100;
+
+                int32_t check = algorithms::distance_to_tail(n, limit, 0, trav, &vg);
+                
+                REQUIRE(check == 0);
+            }
+            SECTION("distance_to_tail() using HandleGraph works when node is not at tail") {
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n3);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n0->id(),false);
+                int32_t limit = 100;
+
+                int32_t check = algorithms::distance_to_tail(n, limit, 0, trav, &vg);
+                
+                REQUIRE(check == 10);
+            }
+            SECTION("distance_to_tail() using HandleGraph works when limit is less than the distance") {
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n3);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n0->id(),false);
+                int32_t limit = 4;
+
+                int32_t check = algorithms::distance_to_tail(n, limit, 0, trav, &vg);
+                
+                REQUIRE(check == -1);
+            }
+            SECTION("distance_to_tail() using HandleGraph works when limit is equal to the distance") {
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n3);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n3->id(),false);
+                int32_t limit = 6;
+
+                int32_t check = algorithms::distance_to_tail(n, limit, 0, trav, &vg);
+                
+                REQUIRE(check == 0);
+            }
+              SECTION("distance_to_tail() using HandleGraph works when there is no tail") {
+                vg.create_edge(n0, n1, false, true);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n1->id(),false);
+                int32_t limit = 100;
+
+                int32_t check = algorithms::distance_to_tail(n, limit, 0, trav, &vg);
+                
+                REQUIRE(check == -1);
+            }
+              SECTION("distance_to_tail() using HandleGraph works when there are 3 next nodes") {
+                Node* n4 = vg.create_node("AG");
+                Node* n5 = vg.create_node("AT");
+                Node* n6 = vg.create_node("GATTACA");
+                Node* n7 = vg.create_node("ATG");
+                vg.create_edge(n0, n6); 
+                vg.create_edge(n6, n1); 
+                vg.create_edge(n0, n2); 
+                vg.create_edge(n2, n7);
+                vg.create_edge(n7, n1); 
+                vg.create_edge(n0, n4);
+                vg.create_edge(n4, n5);
+                vg.create_edge(n5, n1); 
+                
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n0->id(),false);
+                int32_t limit = 100;
+                // if there are 3 next nodes, gets the distance of next node that was made first
+                int32_t check = algorithms::distance_to_tail(n, limit, 0, trav, &vg);
+                
+                REQUIRE(check == 12);
+            }
+        }
+        TEST_CASE("Simplified distance_to_tail() using HandleGraph produces expected results", "[vg]") {
+            VG vg;
+            Node* n0 = vg.create_node("AA");
+            Node* n1 = vg.create_node("ACTGA");
+            Node* n2 = vg.create_node("AG");
+            Node* n3 = vg.create_node("ATC");
+            unordered_set<handle_t> trav;
+            handle_t n;
+
+            SECTION("Simplified distance_to_tail() using HandleGraph works when node is at tail") {
+                // Set handle to head node
+                n = vg.get_handle(n0->id(),false);
+                int32_t limit = 100;
+
+                int32_t check = algorithms::distance_to_tail(n, limit, &vg);
+                
+                REQUIRE(check == 0);
+            }
+            SECTION("Simplified distance_to_tail() using HandleGraph works when node is not at tail") {
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n3);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n0->id(),false);
+                int32_t limit = 100;
+
+                int32_t check = algorithms::distance_to_tail(n, limit, &vg);
+                
+                REQUIRE(check == 10);
+            }
+            SECTION("Simplified distance_to_tail() using HandleGraph works when limit is less than the distance") {
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n3);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n0->id(),false);
+                int32_t limit = 4;
+
+                int32_t check = algorithms::distance_to_tail(n, limit, &vg);
+                
+                REQUIRE(check == -1);
+            }
+            SECTION("Simplified distance_to_tail() using HandleGraph works when limit is equal to the distance") {
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n3);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n3->id(),false);
+                int32_t limit = 6;
+
+                int32_t check = algorithms::distance_to_tail(n, limit, &vg);
+                
+                REQUIRE(check == 0);
+            }
+              SECTION("Simplified distance_to_tail() using HandleGraph works when there is no tail") {
+                vg.create_edge(n0, n1, false, true);
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n1->id(),false);
+                int32_t limit = 100;
+
+                int32_t check = algorithms::distance_to_tail(n, limit, &vg);
+                
+                REQUIRE(check == -1);
+            }
+              SECTION("Simplified distance_to_tail() using HandleGraph works when there are 3 next nodes") {
+                Node* n4 = vg.create_node("AG");
+                Node* n5 = vg.create_node("AT");
+                Node* n6 = vg.create_node("GATTACA");
+                Node* n7 = vg.create_node("ATG");
+                vg.create_edge(n0, n6); 
+                vg.create_edge(n6, n1); 
+                vg.create_edge(n0, n2); 
+                vg.create_edge(n2, n7);
+                vg.create_edge(n7, n1); 
+                vg.create_edge(n0, n4);
+                vg.create_edge(n4, n5);
+                vg.create_edge(n5, n1); 
+                
+                // Set handle to the node you are currently on
+                n = vg.get_handle(n0->id(),false);
+                int32_t limit = 100;
+                // if there are 3 next nodes, gets the distance of next node that was made first
+                int32_t check = algorithms::distance_to_tail(n, limit, &vg);
+                
+                REQUIRE(check == 12);
+            }
+        }
+
+        
+}
     
     
 

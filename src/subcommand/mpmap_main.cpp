@@ -9,6 +9,7 @@
 #include "subcommand.hpp"
 
 #include "../multipath_mapper.hpp"
+#include "../path.hpp"
 
 //#define record_read_run_times
 
@@ -46,10 +47,12 @@ void help_mpmap(char** argv) {
     << "algorithm:" << endl
     << "  -U, --snarl-max-cut INT   do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
     << "  -a, --alt-paths INT       align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
+    << "  -n, --unstranded          use lazy strand consistency when clustering MEMs" << endl
     << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
     << "  -I, --frag-mean           mean for fixed fragment length distribution" << endl
     << "  -D, --frag-stddev         standard deviation for fixed fragment length distribution" << endl
-    << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
+    << "  -B, --no-calibrate        do not auto-calibrate mismapping dectection" << endl
+    << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - adaptive, 3 - exact [2]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [64]" << endl
@@ -58,11 +61,11 @@ void help_mpmap(char** argv) {
     << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
     << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
     << "  -K, --clust-length INT    minimum MEM length form clusters [automatic]" << endl
-    << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
+    << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [256]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
     << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
-    << "  -R, --prune-exp FLOAT     prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [2.0]" << endl
+    << "  -R, --prune-exp FLOAT     prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
     << "scoring:" << endl
     << "  -q, --match INT           use this match score [1]" << endl
     << "  -z, --mismatch INT        use this mismatch penalty [4]" << endl
@@ -100,7 +103,7 @@ int main_mpmap(int argc, char** argv) {
     int max_map_attempts = 64;
     int max_num_mappings = 1;
     int buffer_size = 100;
-    int hit_max = 128;
+    int hit_max = 256;
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
     int reseed_length = 28;
@@ -110,11 +113,11 @@ int main_mpmap(int argc, char** argv) {
     double cluster_ratio = 0.2;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
-    MappingQualityMethod mapq_method = Approx;
+    MappingQualityMethod mapq_method = Adaptive;
     int band_padding = 2;
     int max_dist_error = 8;
     int num_alt_alns = 4;
-    double suboptimal_path_exponent = 2.0;
+    double suboptimal_path_exponent = 1.25;
     double likelihood_approx_exp = 6.5;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
@@ -123,6 +126,12 @@ int main_mpmap(int argc, char** argv) {
     double frag_length_mean = NAN;
     double frag_length_stddev = NAN;
     bool same_strand = false;
+    bool auto_calibrate_mismapping_detection = true;
+    size_t num_calibration_simulations = 250;
+    size_t calibration_read_length = 150;
+    bool unstranded_clustering = false;
+    size_t order_length_repeat_hit_max = 3000;
+    size_t sub_mem_count_thinning = 16;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -140,9 +149,11 @@ int main_mpmap(int argc, char** argv) {
             {"snarls", required_argument, 0, 's'},
             {"snarl-max-cut", required_argument, 0, 'U'},
             {"alt-paths", required_argument, 0, 'a'},
+            {"unstranded", no_argument, 0, 'n'},
             {"frag-sample", required_argument, 0, 'b'},
             {"frag-mean", required_argument, 0, 'I'},
             {"frag-stddev", required_argument, 0, 'D'},
+            {"no-calibrate", no_argument, 0, 'B'},
             {"mq-method", required_argument, 0, 'v'},
             {"mq-max", required_argument, 0, 'Q'},
             {"band-padding", required_argument, 0, 'p'},
@@ -170,7 +181,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:b:I:D:v:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:nb:I:D:Bv:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -253,6 +264,10 @@ int main_mpmap(int argc, char** argv) {
                 num_alt_alns = atoi(optarg);
                 break;
                 
+            case 'n':
+                unstranded_clustering = true;
+                break;
+                
             case 'b':
                 frag_length_sample_size = atoi(optarg);
                 break;
@@ -265,6 +280,10 @@ int main_mpmap(int argc, char** argv) {
                 frag_length_stddev = atof(optarg);
                 break;
                 
+            case 'B':
+                auto_calibrate_mismapping_detection = false;
+                break;
+                
             case 'v':
             {
                 int mapq_arg = atoi(optarg);
@@ -275,6 +294,9 @@ int main_mpmap(int argc, char** argv) {
                     mapq_method = Approx;
                 }
                 else if (mapq_arg == 2) {
+                    mapq_method = Adaptive;
+                }
+                else if (mapq_arg == 3) {
                     mapq_method = Exact;
                 }
                 else {
@@ -607,9 +629,12 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mem_reseed_length = reseed_length;
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
+    multipath_mapper.sub_mem_count_thinning = sub_mem_count_thinning;
+    multipath_mapper.order_length_repeat_hit_max = order_length_repeat_hit_max;
     multipath_mapper.min_mem_length = min_mem_length;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
+    multipath_mapper.use_approx_sub_mem_count = false;
     if (min_clustering_mem_length) {
         multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
     }
@@ -626,11 +651,17 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
     multipath_mapper.num_mapping_attempts = max_map_attempts ? max_map_attempts : numeric_limits<int>::max();
+    multipath_mapper.unstranded_clustering = unstranded_clustering;
     
     // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;
     multipath_mapper.num_alt_alns = num_alt_alns;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
+    
+    // if directed to, auto calibrate the mismapping detection to the graph
+    if (auto_calibrate_mismapping_detection) {
+        multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_length);
+    }
     
     // set computational paramters
     int thread_count = get_thread_count();
@@ -687,6 +718,8 @@ int main_mpmap(int argc, char** argv) {
         for (MultipathAlignment& mp_aln : mp_alns) {
             output_buf.emplace_back();
             optimal_alignment(mp_aln, output_buf.back());
+            // compute the Alignment identity to make vg call happy
+            output_buf.back().set_identity(identity(output_buf.back().path()));
         }
         
         stream::write_buffered(cout, output_buf, buffer_size);
@@ -724,8 +757,13 @@ int main_mpmap(int argc, char** argv) {
             
             output_buf.emplace_back();
             optimal_alignment(mp_aln_pair.first, output_buf.back());
+            // compute the Alignment identity to make vg call happy
+            output_buf.back().set_identity(identity(output_buf.back().path()));
+            
             output_buf.emplace_back();
             optimal_alignment(mp_aln_pair.second, output_buf.back());
+            // compute identity again
+            output_buf.back().set_identity(identity(output_buf.back().path()));
             
             // switch second read back to the opposite strand if necessary
             if (!same_strand) {
@@ -768,7 +806,7 @@ int main_mpmap(int argc, char** argv) {
             alignment_2.clear_path();
             reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
         }
-        
+                
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
         multipath_mapper.multipath_map_paired(alignment_1, alignment_2, mp_aln_pairs, ambiguous_pair_buffer, max_num_mappings);
         if (single_path_alignment_mode) {
@@ -784,18 +822,7 @@ int main_mpmap(int argc, char** argv) {
 #endif
     };
     
-    // for FASTQ input all but the first thread go into spinlock until the distribution is estimated or abandoned
-    bool input_finished = false;
-    function<bool(void)> distribution_spinlock = [&](void) {
-        return omp_get_thread_num() == 0 || multipath_mapper.has_fixed_fragment_length_distr() || input_finished;
-    };
-    
-    // mark the input as finished to get any remaining threads out of the spinlock
-    function<void(void)> abandon_distribution = [&](void) {
-        input_finished = true;
-    };
-    
-    // for GAM input, don't spawn new tasks unless this evalutes to true
+    // for streaming paired input, don't spawn new tasks unless this evalutes to true
     function<bool(void)> multi_threaded_condition = [&](void) {
         return multipath_mapper.has_fixed_fragment_length_distr();
     };
@@ -805,14 +832,14 @@ int main_mpmap(int argc, char** argv) {
     if (!fastq_name_1.empty()) {
         if (interleaved_input) {
             fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name_1, do_paired_alignments,
-                                                                  distribution_spinlock, abandon_distribution);
+                                                                  multi_threaded_condition);
         }
         else if (fastq_name_2.empty()) {
             fastq_unpaired_for_each_parallel(fastq_name_1, do_unpaired_alignments);
         }
         else {
             fastq_paired_two_files_for_each_parallel_after_wait(fastq_name_1, fastq_name_2, do_paired_alignments,
-                                                                distribution_spinlock, abandon_distribution);
+                                                                multi_threaded_condition);
         }
     }
     

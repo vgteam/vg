@@ -9,6 +9,7 @@
  */
 
 #include "types.hpp"
+#include "vg.pb.h"
 #include <functional>
 #include <cstdint>
 #include <vector>
@@ -24,6 +25,8 @@ using namespace std;
 struct handle_t {
     char data[sizeof(id_t)];
 };
+
+typedef pair<handle_t, handle_t> edge_t;
 
 // XG is going to store node index in its g-vector and node orientation in there
 // VG is going to store ID and orientation
@@ -87,6 +90,11 @@ using namespace std;
  */
 class HandleGraph {
 public:
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Interface that needs to be implemented
+    ////////////////////////////////////////////////////////////////////////////
+
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const = 0;
     
@@ -113,11 +121,15 @@ public:
     
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const = 0;
+    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const = 0;
     
     /// Return the number of nodes in the graph
     /// TODO: can't be node_count because XG has a field named node_count.
     virtual size_t node_size() const = 0;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Interface that needs to be using'd
+    ////////////////////////////////////////////////////////////////////////////
     
     /// Loop over all the handles to next/previous (right/left) nodes. Works
     /// with a callback that just takes all the handles and returns void.
@@ -157,7 +169,7 @@ public:
     /// orientations, in their internal stored order. Works with void-returning iteratees.
     /// MUST be pulled into implementing classes with `using` in order to work!
     template <typename T>
-    auto for_each_handle(T&& iteratee) const
+    auto for_each_handle(T&& iteratee, bool parallel = false) const
     -> typename std::enable_if<std::is_void<decltype(iteratee(get_handle(0, false)))>::value>::type {
         // Make a wrapper that puts a bool return type on.
         function<bool(const handle_t&)> lambda = [&](const handle_t& found) {
@@ -166,39 +178,26 @@ public:
         };
         
         // Use that
-        for_each_handle(lambda);
+        for_each_handle(lambda, parallel);
     }
     
+    ////////////////////////////////////////////////////////////////////////////
+    // Concrete utility methods
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Get a handle from a Visit Protobuf object.
+    /// Must be using'd to avoid shadowing.
+    handle_t get_handle(const Visit& visit) const;
+    
+    /// Get a Protobuf Visit from a handle.
+    Visit to_visit(const handle_t& handle) const;
+    
     /// Get the locally forward version of a handle
-    inline handle_t forward(const handle_t& handle) const {
-        return this->get_is_reverse(handle) ? this->flip(handle) : handle;
-    }
+    handle_t forward(const handle_t& handle) const;
     
     // A pair of handles can be used as an edge. When so used, the handles have a
     // cannonical order and orientation.
-    inline pair<handle_t, handle_t> edge_handle(const handle_t& left, const handle_t& right) const {
-        // The degeneracy is between any pair and a pair of the same nodes but reversed in order and orientation.
-        // We compare those two pairs and construct the smaller one.
-        auto flipped_right = this->flip(right);
-        
-        if (as_integer(left) > as_integer(flipped_right)) {
-            // The other orientation would be smaller.
-            return make_pair(flipped_right, this->flip(left));
-        } else if(as_integer(left) == as_integer(flipped_right)) {
-            // Our left and the flipped pair's left would be equal.
-            auto flipped_left = this->flip(left);
-            if (as_integer(right) > as_integer(flipped_left)) {
-                // And our right is too big, so flip.
-                return make_pair(flipped_right, flipped_left);
-            } else {
-                // No difference or we're smaller.
-                return make_pair(left, right);
-            }
-        } else {
-            // We're smaller
-            return make_pair(left, right);
-        }
-    }
+    edge_t edge_handle(const handle_t& left, const handle_t& right) const;
 };
 
 /**

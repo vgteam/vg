@@ -8,7 +8,7 @@ namespace vg {
 using namespace std;
 
 
-NestedTraversalFinder::NestedTraversalFinder(AugmentedGraph& augmented,
+NestedTraversalFinder::NestedTraversalFinder(SupportAugmentedGraph& augmented,
     SnarlManager& snarl_manager) : augmented(augmented), snarl_manager(snarl_manager) {
     
     // Nothing to do!
@@ -52,7 +52,7 @@ vector<SnarlTraversal> NestedTraversalFinder::find_traversals(const Snarl& site)
             // For every visit
             
             // Stick the forward or flipped visit in the traversal
-            *trav.add_visits() = flip_path ? reverse(bubble.second[bubble.second.size() - 1 - i]) : bubble.second[i];;
+            *trav.add_visit() = flip_path ? reverse(bubble.second[bubble.second.size() - 1 - i]) : bubble.second[i];;
         }
             
         // Now emit the actual traversal

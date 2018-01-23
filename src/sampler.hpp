@@ -132,10 +132,12 @@ public:
 class NGSSimulator {
 public:
     /// Initialize simulator. FASTQ file will be used to train an error distribution.
-    /// Every read must be the same length. Polymorphism rates apply uniformly along a
-    /// read, whereas errors are distributed as indicated by the learned distribution.
+    /// Most reads in the FASTQ should be the same length. Polymorphism rates apply
+    /// uniformly along a read, whereas errors are distributed as indicated by the learned
+    /// distribution. The simulation can also be restricted to named paths in the graph.
     NGSSimulator(xg::XG& xg_index,
                  const string& ngs_fastq_file,
+                 bool interleaved_fastq = false,
                  const vector<string>& source_paths = {},
                  double substition_polymorphism_rate = 0.001,
                  double indel_polymorphism_rate = 0.0002,
@@ -153,7 +155,28 @@ public:
     pair<Alignment, Alignment> sample_read_pair();
     
 private:
-    class MarkovDistribution;
+    template<class From, class To>
+    class MarkovDistribution {
+    public:
+        MarkovDistribution(size_t seed);
+        
+        /// record a transition from the input data
+        void record_transition(From from, To to);
+        /// indicate that there is no more data and prepare for sampling
+        void finalize();
+        /// sample according to the training data
+        To sample_transition(From from);
+        
+    private:
+        
+        default_random_engine prng;
+        unordered_map<From, uniform_int_distribution<size_t>> samplers;
+        
+        unordered_map<To, size_t> column_of;
+        vector<To> value_at;
+        unordered_map<From, vector<size_t>> cond_distrs;
+        
+    };
     
     NGSSimulator(void) = delete;
     
@@ -163,11 +186,18 @@ private:
     unordered_map<char, string> mutation_alphabets;
     
     /// Add a quality string to the training data
-    void record_read_quality(const Alignment& aln);
+    void record_read_quality(const Alignment& aln, bool read_2 = false);
+    /// Add a pair of quality strings to the training data
+    void record_read_pair_quality(const Alignment& aln_1, const Alignment& aln_2);
     /// Indicate that there is no more training data
     void finalize();
     /// Get a quality string that mimics the training data
     string sample_read_quality();
+    /// Get a pair of quality strings that mimic the training data
+    pair<string, string> sample_read_quality_pair();
+    /// Wrapped internal function for quality sampling
+    string sample_read_quality_internal(uint8_t first,
+                                        vector<MarkovDistribution<uint8_t, uint8_t>>& transition_distrs);
     
     /// Internal method called by paired and unpaired samplers for both whole-
     /// graph and path sources. Offset and is_reverse are only used (and drive
@@ -228,7 +258,11 @@ private:
     vector<double> phred_prob;
     
     /// A Markov distribution for each read position
-    vector<MarkovDistribution> transition_distrs;
+    vector<MarkovDistribution<uint8_t, uint8_t>> transition_distrs_1;
+    /// A second set of Markov distributions for the second read in a pair
+    vector<MarkovDistribution<uint8_t, uint8_t>> transition_distrs_2;
+    /// A distribution for the joint initial qualities of a read pair
+    MarkovDistribution<uint8_t, pair<uint8_t, uint8_t>> joint_initial_distr;
     
     xg::XG& xg_index;
     
@@ -262,27 +296,7 @@ private:
 /**
  * A finite state Markov distribution that supports sampling
  */
-class NGSSimulator::MarkovDistribution {
-public:
-    MarkovDistribution(size_t seed);
-    
-    /// record a transition from the input data
-    void record_transition(uint8_t from, uint8_t to);
-    /// indicate that there is no more data and prepare for sampling
-    void finalize();
-    /// sample according to the training data
-    uint8_t sample_transition(uint8_t from);
-    
-private:
-    
-    default_random_engine prng;
-    unordered_map<uint8_t, uniform_int_distribution<size_t>> samplers;
-    
-    unordered_map<uint8_t, size_t> column_of;
-    vector<uint8_t> value_at;
-    unordered_map<uint8_t, vector<size_t>> cond_distrs;
-    
-};
+
 
 }
 

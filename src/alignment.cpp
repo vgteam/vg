@@ -150,46 +150,69 @@ size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Al
     size_t len = 2 << 18; // 256k
     size_t nLines = 0;
     int thread_count = get_thread_count();
-    //vector<Alignment> alns; alns.resize(thread_count);
-    vector<char*> bufs; bufs.resize(thread_count);
-    for (auto& buf : bufs) {
-        buf = new char[len];
-    }
+    vector<Alignment> *batch = nullptr;
+    char* buf = new char[len];
+    const uint64_t batch_size = 2 << 8;;
+    // max # of such batches to be holding in memory
+    const uint64_t max_batches_outstanding = 2 << 8;
+    // number of batches currently being processed
+    uint64_t batches_outstanding = 0;
     bool more_data = true;
-#pragma omp parallel shared(fp, more_data, bufs)
+#pragma omp parallel default(none) shared(fp, more_data, batches_outstanding, batch, len, buf, nLines, lambda)
+#pragma omp single
     {
-        int tid = omp_get_thread_num();
         while (more_data) {
+            if (!batch) {
+                batch = new std::vector<Alignment>();
+                batch->reserve(batch_size);
+            }
             Alignment aln;
-            char* buf = bufs[tid];
             bool got_anything = false;
-#pragma omp critical (fastq_input)
             {
-                if (more_data) {
+                int i = 0;
+                while (more_data && i++ < batch_size) {
+                    //got_anything = more_data = get_next_interleaved_alignment_pair_from_fastq(fp, buf, len, mate1, mate2);
                     got_anything = more_data = get_next_alignment_from_fastq(fp, buf, len, aln);
-                    nLines++;
+                    if (got_anything) {
+                        batch->push_back(std::move(aln));
+                        nLines++;
+                    }
                 }
             }
-            if (got_anything) {
-                lambda(aln);
+            if (batch->size()) {
+                uint64_t b;
+#pragma omp atomic capture
+                b = ++batches_outstanding;
+                while (b >= max_batches_outstanding) {
+                    usleep(1000);
+#pragma omp atomic read
+                    b = batches_outstanding;
+                }
+#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda)
+                {
+                    for (auto& aln : *batch) {
+                        lambda(aln);
+                    }
+                    delete batch;
+#pragma omp atomic update
+                    batches_outstanding--;
+                }
             }
+            batch = nullptr; // reset batch pointer
         }
     }
-    for (auto& buf : bufs) {
-        delete[] buf;
-    }
+    delete buf;
     gzclose(fp);
     return nLines;
 }
 
 size_t fastq_paired_interleaved_for_each_parallel(const string& filename, function<void(Alignment&, Alignment&)> lambda) {
-    return fastq_paired_interleaved_for_each_parallel_after_wait(filename, lambda, [](void) {return true;}, [](void) {});
+    return fastq_paired_interleaved_for_each_parallel_after_wait(filename, lambda, [](void) {return true;});
 }
     
 size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filename,
                                                              function<void(Alignment&, Alignment&)> lambda,
-                                                             function<bool(void)> wait_until_true,
-                                                             function<void(void)> call_on_complete) {
+                                                             function<bool(void)> single_threaded_until_true) {
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp) {
         cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
@@ -197,52 +220,81 @@ size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filen
     size_t len = 2 << 18; // 256k
     size_t nLines = 0;
     int thread_count = get_thread_count();
-    //vector<Alignment> alns; alns.resize(thread_count);
-    vector<char*> bufs; bufs.resize(thread_count);
-    for (auto& buf : bufs) {
-        buf = new char[len];
-    }
+    vector<pair<Alignment, Alignment> > *batch = nullptr;
+    char* buf = new char[len];
+    const uint64_t batch_size = 2 << 8;
+    // max # of such batches to be holding in memory
+    uint64_t max_batches_outstanding = 2 << 8;
+    // number of batches currently being processed
+    uint64_t batches_outstanding = 0;
     bool more_data = true;
-#pragma omp parallel shared(fp, more_data, bufs)
+#pragma omp parallel default(none) shared(fp, more_data, max_batches_outstanding, batches_outstanding, single_threaded_until_true, batch, len, buf, nLines, lambda)
+#pragma omp single
     {
-        // spinlock until wait function evaluates to true
-        while (!wait_until_true()) {}
-        
-        int tid = omp_get_thread_num();
         while (more_data) {
+            if (!batch) {
+                batch = new std::vector<pair<Alignment, Alignment> >();
+                batch->reserve(batch_size);
+            }
             Alignment mate1, mate2;
-            char* buf = bufs[tid];
             bool got_anything = false;
-#pragma omp critical (fastq_input)
             {
-                if (more_data) {
+                int i = 0;
+                while (more_data && i++ < batch_size) {
                     got_anything = more_data = get_next_interleaved_alignment_pair_from_fastq(fp, buf, len, mate1, mate2);
-                    nLines++;
+                    if (got_anything) {
+                        batch->emplace_back(std::move(mate1), std::move(mate2));
+                        nLines++;
+                    }
                 }
             }
-            if (got_anything) {
-                lambda(mate1, mate2);
+            if (batch->size()) {
+                uint64_t b;
+#pragma omp atomic capture
+                b = ++batches_outstanding;
+                while (b >= max_batches_outstanding) {
+                    usleep(1000);
+#pragma omp atomic read
+                    b = batches_outstanding;
+                }
+                if (single_threaded_until_true()) {
+                    
+#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda)
+                    {
+                        for (auto& p : *batch) {
+                            lambda(p.first, p.second);
+                        }
+                        delete batch;
+#pragma omp atomic update
+                        batches_outstanding--;
+                    }
+                }
+                else {
+                    // process this batch in the current thread
+                    {
+                        for (auto& p : *batch) {
+                            lambda(p.first, p.second);
+                        }
+                        delete batch;
+                        batches_outstanding--;
+                    }
+                }
             }
-            else {
-                call_on_complete();
-            }
+            batch = nullptr; // reset batch pointer
         }
     }
-    for (auto& buf : bufs) {
-        delete buf;
-    }
+    delete buf;
     gzclose(fp);
     return nLines;
 }
 
 size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda) {
-    return fastq_paired_two_files_for_each_parallel_after_wait(file1, file2, lambda, [](void) {return true;}, [](void) {});
+    return fastq_paired_two_files_for_each_parallel_after_wait(file1, file2, lambda, [](void) {return true;});
 }
     
 size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, const string& file2,
                                                            function<void(Alignment&, Alignment&)> lambda,
-                                                           function<bool(void)> wait_until_true,
-                                                           function<void(void)> call_on_complete) {
+                                                           function<bool(void)> single_threaded_until_true) {
     gzFile fp1 = (file1 != "-") ? gzopen(file1.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp1) {
         cerr << "[vg::alignment.cpp] couldn't open " << file1 << endl; exit(1);
@@ -254,46 +306,75 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
     size_t len = 2 << 18; // 256k
     size_t nLines = 0;
     int thread_count = get_thread_count();
-    //vector<Alignment> alns; alns.resize(thread_count);
-    vector<char*> bufs; bufs.resize(thread_count);
-    for (auto& buf : bufs) {
-        buf = new char[len];
-    }
+    vector<pair<Alignment, Alignment> > *batch = nullptr;
+    char* buf = new char[len];
+    const uint64_t batch_size = 2 << 8;
+    // max # of such batches to be holding in memory
+    uint64_t max_batches_outstanding = 2 << 8;
+    // number of batches currently being processed
+    uint64_t batches_outstanding = 0;
     bool more_data = true;
-#pragma omp parallel shared(fp1, fp2, more_data, bufs)
+#pragma omp parallel default(none) shared(fp1, fp2, more_data, max_batches_outstanding, batches_outstanding, single_threaded_until_true, batch, len, buf, nLines, lambda)
+#pragma omp single
     {
         // spinlock until wait function evaluates to true
-        while (!wait_until_true()) {}
-        
-        int tid = omp_get_thread_num();
         while (more_data) {
+            if (!batch) {
+                batch = new std::vector<pair<Alignment, Alignment> >();
+                batch->reserve(batch_size);
+            }
             Alignment mate1, mate2;
-            char* buf = bufs[tid];
             bool got_anything = false;
-#pragma omp critical (fastq_input)
             {
-                if (more_data) {
+                int i = 0;
+                while (more_data && i++ < batch_size) {
                     got_anything = more_data = get_next_alignment_pair_from_fastqs(fp1, fp2, buf, len, mate1, mate2);
-                    nLines++;
+                    if (got_anything) {
+                        batch->push_back(std::move(make_pair(mate1, mate2)));
+                        nLines++;
+                    }
                 }
             }
-            if (got_anything) {
-                lambda(mate1, mate2);
+            if (batch->size()) {
+                uint64_t b;
+#pragma omp atomic capture
+                b = ++batches_outstanding;
+                while (b >= max_batches_outstanding) {
+                    usleep(1000);
+#pragma omp atomic read
+                    b = batches_outstanding;
+                }
+                if (single_threaded_until_true()) {
+                    
+#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda)
+                    {
+                        for (auto& p : *batch) {
+                            lambda(p.first, p.second);
+                        }
+                        delete batch;
+#pragma omp atomic update
+                        batches_outstanding--;
+                    }
+                }
+                else {
+                    // process this batch in the current thread
+                    {
+                        for (auto& p : *batch) {
+                            lambda(p.first, p.second);
+                        }
+                        delete batch;
+                        batches_outstanding--;
+                    }
+                }
             }
-            else {
-                call_on_complete();
-            }
+            batch = nullptr; // reset batch pointer
         }
     }
-    for (auto& buf : bufs) {
-        delete buf;
-    }
+    delete buf;
     gzclose(fp1);
     gzclose(fp2);
     return nLines;
 }
-
-
 
 size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)> lambda) {
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
@@ -587,23 +668,27 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
 // *matches* from_length == to_length, or from_length > 0 and offset unset
             // match state
             cigar.push_back(make_pair(edit.from_length(), 'M'));
+            //cerr << "match " << edit.from_length() << endl;
         } else {
             // mismatch/sub state
 // *snps* from_length == to_length; sequence = alt
             if (edit.from_length() == edit.to_length()) {
                 cigar.push_back(make_pair(edit.from_length(), 'M'));
+                //cerr << "match " << edit.from_length() << endl;
             } else if (edit.from_length() > edit.to_length()) {
 // *deletions* from_length > to_length; sequence may be unset or empty
                 int32_t del = edit.from_length() - edit.to_length();
                 int32_t eq = edit.to_length();
                 if (eq) cigar.push_back(make_pair(eq, 'M'));
                 cigar.push_back(make_pair(del, 'D'));
+                //cerr << "del " << edit.from_length() - edit.to_length() << endl;
             } else if (edit.from_length() < edit.to_length()) {
 // *insertions* from_length < to_length; sequence contains relative insertion
                 int32_t ins = edit.to_length() - edit.from_length();
                 int32_t eq = edit.from_length();
                 if (eq) cigar.push_back(make_pair(eq, 'M'));
                 cigar.push_back(make_pair(ins, 'I'));
+                //cerr << "ins " << edit.to_length() - edit.from_length() << endl;
             }
         }
     }
@@ -713,8 +798,24 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
 
     // add features to the alignment
     alignment.set_name(read_name);
-    alignment.set_sequence(sequence);
-    alignment.set_quality(quality);
+    // was the sequence reverse complemented?
+    if (b->core.flag & BAM_FREVERSE) {
+        
+        alignment.set_sequence(reverse_complement(sequence));
+        
+        string rev_quality;
+        rev_quality.resize(quality.size());
+        reverse_copy(quality.begin(), quality.end(), rev_quality.begin());
+        alignment.set_quality(rev_quality);
+    }
+    else {
+        
+        alignment.set_sequence(sequence);
+        alignment.set_quality(quality);
+        
+    }
+    
+    
     
     // TODO: htslib doesn't wrap this flag for some reason.
     alignment.set_is_secondary(b->core.flag & BAM_FSECONDARY);
@@ -868,6 +969,13 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
     // buliding up the alignment
     Alignment merged;
 
+    size_t len = 0;
+    for (size_t i = 0; i < alns.size(); ++i) {
+        len += alns[i].sequence().size();
+    }
+    merged.mutable_sequence()->reserve(len);
+    if (alns.front().quality().size()) merged.mutable_quality()->reserve(len);
+
     // get the alignments ready for merge
     for (size_t i = 0; i < alns.size(); ++i) {
         Alignment aln = alns[i];
@@ -879,15 +987,17 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
             *aln.mutable_path()->add_mapping() = m;
         }
         if (i == 0) {
-            merged = aln;
+            merged = aln; merged.clear_sequence();
         } else {
-            extend_alignment(merged, aln, debug);
+            if (!merged.quality().empty()) merged.mutable_quality()->append(aln.quality());
+            extend_path(*merged.mutable_path(), aln.path());
+            merged.mutable_sequence()->append(aln.sequence());
         }
     }
-    *merged.mutable_path() = simplify(merged.path());
+    //*merged.mutable_path() = simplify(merged.path());
+    //merged.mutable_sequence() = 
     return merged;
 }
-
 
 Alignment& extend_alignment(Alignment& a1, const Alignment& a2, bool debug) {
     //if (debug) cerr << "extending alignment " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
@@ -938,6 +1048,38 @@ void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_
             *mapping = reverse_complement_mapping(*mapping, node_length);
         } 
     }
+}
+
+int non_match_start(const Alignment& alignment) {
+    int length = 0;
+    auto& path = alignment.path();
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        for (int j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            if (edit_is_match(edit)) {
+                return length;
+            }
+            length += edit.to_length();
+        }
+    }
+    return length;
+}
+
+int non_match_end(const Alignment& alignment) {
+    int length = 0;
+    auto& path = alignment.path();
+    for (int i = path.mapping_size()-1; i >= 0; --i) {
+        auto& mapping = path.mapping(i);
+        for (int j = mapping.edit_size()-1; j >= 0; --j) {
+            auto& edit = mapping.edit(j);
+            if (edit_is_match(edit)) {
+                return length;
+            }
+            length += edit.to_length();
+        }
+    }
+    return length;
 }
 
 int softclip_start(const Alignment& alignment) {
@@ -1009,9 +1151,9 @@ const string hash_alignment(const Alignment& aln) {
     return sha1sum(data);
 }
 
-Alignment simplify(const Alignment& a) {
+Alignment simplify(const Alignment& a, bool trim_internal_deletions) {
     auto aln = a;
-    *aln.mutable_path() = simplify(aln.path());
+    *aln.mutable_path() = simplify(aln.path(), trim_internal_deletions);
     if (!aln.path().mapping_size()) {
         aln.clear_path();
     }
@@ -1106,6 +1248,24 @@ void parse_bed_regions(istream& bedstream,
             out_alignments->push_back(alignment);
         }
     }
+}
+
+Position alignment_start(const Alignment& aln) {
+    Position pos;
+    if (aln.path().mapping_size()) {
+        pos = aln.path().mapping(0).position();
+    }
+    return pos;
+}
+
+Position alignment_end(const Alignment& aln) {
+    Position pos;
+    if (aln.path().mapping_size()) {
+        auto& last = aln.path().mapping(aln.path().mapping_size()-1);
+        pos = last.position();
+        pos.set_offset(pos.offset() + mapping_from_length(last));
+    }
+    return pos;
 }
 
 }

@@ -4,7 +4,7 @@
 set -ex
 
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@3cf10b35715712ea554b13ce1a5e7b4b109df71d"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@1d439b2d678e163a35edd5143bc4d1e9ce31990e"
 
 # What Toil should we use?
 TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:3.11.0
@@ -35,6 +35,9 @@ REMOVE_OUTSTORE=1
 # What input reads and position truth set should we use?
 READ_STEM="comparison"
 
+# Should we look for .bam reads (instead of .gam)?
+USE_BAM_READS=0
+
 # Should we restart?
 RESTART_ARG=""
 
@@ -48,6 +51,7 @@ usage() {
     printf "\t-c CLUSTER\tUse the given existing Toil cluster.\n"
     printf "\t-v DOCKER\tUse the given Docker image specifier for vg.\n"
     printf "\t-r READS\tUse the given read set stem (default: ${READ_STEM}).\n"
+    printf "\t-b BAM-READS\tUse BAM input reads (in READ_STEM).\n"
     printf "\t-R RUN_ID\tUse or restart the given run ID.\n"
     printf "\t-k \tKeep the out store and job store in case of error.\n"
     printf "\t-s \tRestart a failed run.\n"
@@ -55,7 +59,7 @@ usage() {
     exit 1
 }
 
-while getopts "hp:t:c:v:r:R:ks3" o; do
+while getopts "hp:t:c:v:r:bR:ks3" o; do
     case "${o}" in
         p)
             TOIL_VG_PACKAGE="${OPTARG}"
@@ -68,11 +72,14 @@ while getopts "hp:t:c:v:r:R:ks3" o; do
             MANAGE_CLUSTER=0
             ;;
         v)
-            VG_DOCKER_OPTS=("--vg_docker" "${OPTARG}")
+            VG_DOCKER_OPTS="--vg_docker ${OPTARG}"
             ;;
         r)
             READ_STEM="${OPTARG}"
             ;;
+        b)
+            USE_BAM_READS=1
+            ;;        
         R)
             # This doesn't change the cluster name, which will still be the old run ID if not manually set.
             # That's probably fine.
@@ -81,10 +88,10 @@ while getopts "hp:t:c:v:r:R:ks3" o; do
         k)
             REMOVE_JOBSTORE=0
             ;;
-        k)
+        s)
             RESTART_ARG="--restart"
             ;;
-          3)
+        3)
             USE_S3=1
             ;;
         *)
@@ -115,8 +122,8 @@ while [[ "$#" -gt "0" ]]; do
 done
 
 # Where do we keep our input files
-if [ "$REGION_NAME" == "B37" ]; then
-     STORE_TAG="B37"
+if [ "$REGION_NAME" == "B37" ] || [ "$REGION_NAME" == "HS37D5" ]; then
+     STORE_TAG="$REGION_NAME"
 else
      STORE_TAG="bakeoff"
 fi
@@ -210,21 +217,27 @@ set +e
 # What truth/read set should we use?
 READ_SET="${READ_STEM}-${REGION_NAME}"
 
+# Toggle BAM Reads
+if [[ "${USE_BAM_READS}" -eq "1" ]]; then
+    INPUT_OPTS="--bam_input_reads $(get_input_url ${READ_SET}.bam)"
+else
+    INPUT_OPTS="--truth $(get_input_url ${READ_SET}.pos) --gam_input_reads $(get_input_url ${READ_SET}.gam)" 
+fi
+
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/toil-vg mapeval \
     --whole_genome_config \
     ${RESTART_ARG} \
-    "${VG_DOCKER_OPTS[@]}" \
+    ${VG_DOCKER_OPTS} \
+    ${INPUT_OPTS} \
     --fasta `get_input_url "${REGION_NAME}.fa"` \
     --index-bases "${GRAPH_URLS[@]}" \
     --gam-names "${GRAPH_NAMES[@]}" \
-    --gam_input_reads `get_input_url "${READ_SET}.gam"` \
     --bwa \
     --multipath --ignore-quals \
     --mapeval-threshold 200 \
     --realTimeLogging --logInfo \
     "${JOB_TREE}" \
     "${OUTPUT_STORE}" \
-    `get_input_url "${READ_SET}.pos"` \
     --batchSystem mesos --provisioner=aws "--mesosMaster=${MASTER_IP}:5050" \
     --nodeTypes=r3.8xlarge:0.85 --defaultPreemptable --maxNodes=${MAX_NODES}\
     --alphaPacking 2.0

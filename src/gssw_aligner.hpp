@@ -61,6 +61,7 @@ namespace vg {
         
         double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out);
         double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out);
+        double group_mapping_quality_exact(vector<double>& scaled_scores, vector<size_t>& group);
         double estimate_next_best_score(int length, double min_diffs);
         
         // must be called before querying mapping_quality
@@ -71,6 +72,7 @@ namespace vg {
         
     public:
 
+        double max_possible_mapping_quality(int length);
         double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
         
         /// Store optimal local alignment against a graph in the Alignment object.
@@ -138,6 +140,7 @@ namespace vg {
                                      bool use_cluster_mq,
                                      int overlap_count,
                                      double mq_estimate,
+                                     double maybe_mq_threshold,
                                      double identity_weight);
         /// same function for paired reads, mapping qualities are stored in both alignments in the pair
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
@@ -151,10 +154,14 @@ namespace vg {
                                             int overlap_count2,
                                             double mq_estimate1,
                                             double mq_estimate2,
+                                            double maybe_mq_threshold,
                                             double identity_weight);
         
         /// Computes mapping quality for the optimal score in a vector of scores
         int32_t compute_mapping_quality(vector<double>& scores, bool fast_approximation);
+        
+        /// Computes mapping quality for a group of scores in a vector of scores (group given by indexes)
+        int32_t compute_group_mapping_quality(vector<double>& scores, vector<size_t>& group);
         
         /// Returns the  difference between an optimal and second-best alignment scores that would
         /// result in this mapping quality using the fast mapping quality approximation
