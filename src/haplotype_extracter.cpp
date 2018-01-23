@@ -4,8 +4,9 @@
 #include "json2pb.h"
 #include "xg.hpp"
 
+namespace vg {
+
 using namespace std;
-using namespace vg;
 
 void trace_haplotypes_and_paths(xg::XG& index,
                                 vg::id_t start_node, int extend_distance,
@@ -198,4 +199,7 @@ vector<pair<thread_t,int> > list_haplotypes(xg::XG& index,
     }
   }
   return search_results;
+}
+
+
 }

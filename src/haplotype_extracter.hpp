@@ -6,11 +6,15 @@
 #include <iostream>
 #include <vector>
 
+#include <gbwt/gbwt.h>
+
 #include "vg.pb.h"
 #include "xg.hpp"
 
+namespace vg {
+
 using namespace std;
-using namespace vg;
+
 using thread_t = vector<xg::XG::ThreadMapping>;
 
 // Walk forward from a node, collecting all haplotypes.  Also do a regular
@@ -55,5 +59,7 @@ void add_thread_edges_to_set(thread_t& t, set<pair<int,int> >& edges);
 // Turns a set of nodes and a set of edges into a Graph
 void construct_graph_from_nodes_and_edges(Graph& g, xg::XG& index,
             set<int64_t>& nodes, set<pair<int,int> >& edges);
+
+}
 
 #endif
