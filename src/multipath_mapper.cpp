@@ -2631,10 +2631,45 @@ namespace vg {
             return;
         }
         
-        // query the scores of the optimal alignments
+        // only do the population MAPQ if it might disambiguate two paths (since it's not
+        // as cheap as just using the score)
+        bool include_population_component = (use_population_mapqs && multipath_alns.size() > 1);
+        // records whether of the paths followed the edges in the index
+        bool all_paths_pop_consistent = true;
+        
+        double log_base = get_aligner()->log_base;
+        
+        // the scores of the optimal alignments
         vector<double> scores(multipath_alns.size(), 0.0);
+        
+        // the population scores
+        vector<double> pop_scores;
+        if (include_population_component) {
+            pop_scores.resize(multipath_alns.size());
+        }
+        double min_pop_score = numeric_limits<double>::max();
+
+        
         for (size_t i = 0; i < multipath_alns.size(); i++) {
-            scores[i] = optimal_alignment_score(multipath_alns[i]);
+            Alignment alignment;
+            optimal_alignment(multipath_alns[i], alignment);
+            scores[i] = alignment.score();
+            
+            // record the recombination score
+            if (include_population_component && all_paths_pop_consistent) {
+                auto pop_score = haplo_DP::score(alignment.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                pop_scores[i] = pop_score.first;
+                all_paths_pop_consistent = all_paths_pop_consistent && pop_score.second;
+                min_pop_score = min(min_pop_score, pop_score.first);
+            }
+        }
+        
+        // add in the population component to the score (as long as it's meaningful)
+        if (include_population_component && all_paths_pop_consistent) {
+            for (size_t i = 0; i < scores.size(); i++) {
+                // subtract the minimum population score so that no scores are negative
+                scores[i] += (pop_scores[i] - min_pop_score) / log_base;
+            }
         }
         
         // find the order of the scores
@@ -2696,22 +2731,66 @@ namespace vg {
             return;
         }
         
+        // only do the population MAPQ if it might disambiguate two paths (since it's not
+        // as cheap as just using the score)
+        bool include_population_component = (use_population_mapqs && multipath_aln_pairs.size() > 1);
+        // records whether of the paths followed the edges in the index
+        bool all_paths_pop_consistent = true;
+        
         double log_base = get_aligner()->log_base;
+        
+        // the scores of the optimal alignments and fragments
+        vector<double> scores(multipath_aln_pairs.size(), 0.0);
+        
+        // the population scores
+        vector<double> pop_scores;
+        if (include_population_component) {
+            pop_scores.resize(multipath_aln_pairs.size());
+        }
+        // population + fragment score
+        double min_extra_score = numeric_limits<double>::max();
+        // just fragment score
         double min_frag_score = numeric_limits<double>::max();
         
-        // query the scores of the optimal alignments
-        vector<double> scores(multipath_aln_pairs.size(), 0.0);
         for (size_t i = 0; i < multipath_aln_pairs.size(); i++) {
             pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair = multipath_aln_pairs[i];
-            int32_t alignment_score = optimal_alignment_score(multipath_aln_pair.first) + optimal_alignment_score(multipath_aln_pair.second);
+            
+            // compute the alignment score
+            Alignment alignment1, alignment2;
+            optimal_alignment(multipath_aln_pair.first, alignment1);
+            optimal_alignment(multipath_aln_pair.second, alignment2);
+            int32_t alignment_score = alignment1.score() + alignment2.score();
+            
+            // compute the fragment distribution's contribution to the score
             double frag_score = fragment_length_log_likelihood(cluster_pairs[i].second) / log_base;
+            
+            // compute the population contribution to the score
+            if (include_population_component && all_paths_pop_consistent) {
+                auto pop_score_1 = haplo_DP::score(alignment1.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                auto pop_score_2 = haplo_DP::score(alignment2.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                
+                double pop_score = (pop_score_1.first + pop_score_2.first) / log_base;
+                all_paths_pop_consistent = all_paths_pop_consistent && pop_score_1.second && pop_score_2.second;
+                
+                min_extra_score = min(frag_score + pop_score, min_extra_score);
+                pop_scores[i] = pop_score;
+            }
+            
             min_frag_score = min(frag_score, min_frag_score);
             scores[i] = alignment_score + frag_score;
         }
         
-        // make it so fragment won't contribute to MAPQ if there is only one alignment
-        for (double& score : scores) {
-            score -= min_frag_score;
+        if (include_population_component && all_paths_pop_consistent) {
+            // add in population score and make it so fragment and population won't make negative scores
+            for (size_t i = 0; i < scores.size(); i++) {
+                scores[i] += pop_scores[i] - min_extra_score;
+            }
+        }
+        else {
+            // make it so fragment won't make negative scores
+            for (double& score : scores) {
+                score -= min_frag_score;
+            }
         }
         
         // find the order of the scores
@@ -3151,6 +3230,21 @@ namespace vg {
         
         
         return true;
+    }
+            
+    // make the memos live in this .o file
+    thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> MultipathMapper::rr_memos;
+    
+    haploMath::RRMemo& MultipathMapper::get_rr_memo(double recombination_penalty, size_t population_size) const {
+        auto iter = rr_memos.find(make_pair(recombination_penalty, population_size));
+        if (iter != rr_memos.end()) {
+            return iter->second;
+        }
+        else {
+            rr_memos.insert(make_pair(make_pair(recombination_penalty, population_size),
+                                      haploMath::RRMemo(recombination_penalty, population_size)));
+            return rr_memos.at(make_pair(recombination_penalty, population_size));
+        }
     }
     
     double MultipathMapper::read_coverage_z_score(int64_t coverage, const Alignment& alignment) const {
