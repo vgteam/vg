@@ -55,7 +55,7 @@ void help_mpmap(char** argv) {
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - adaptive, 3 - exact [2]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
-    << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [64]" << endl
+    << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [48]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
     << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
@@ -100,7 +100,7 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus = 5;
     bool interleaved_input = false;
     int snarl_cut_size = 5;
-    int max_map_attempts = 64;
+    int max_map_attempts = 48;
     int max_rescue_attempts = 32;
     int max_num_mappings = 1;
     int buffer_size = 100;

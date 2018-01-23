@@ -210,6 +210,7 @@ public:
     void rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
                                              size_t max_rescue_hit_count);
     
+    int sub_mem_thinning_burn_in = 0; // start counting at this many bases to verify sub-MEM count
     int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count
     int min_mem_length; // a mem must be >= this length
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
