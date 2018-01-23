@@ -248,8 +248,20 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
             return;
         }
 
-        if (traversal_alg == TraversalAlg::Exhaustive && !manager.is_leaf(snarl)) {
-            // Todo : support nesting hierarchy (doesn't yet matter for non-exhaustive finders)
+        // Get the contents
+        pair<unordered_set<Node*>, unordered_set<Edge*> > snarl_contents =
+           manager.deep_contents(snarl, graph, true);
+
+        // Test if the snarl can be longer than the reads
+        bool read_bounded = is_snarl_smaller_than_reads(snarl, snarl_contents, reads_by_name);
+        TraversalAlg use_traversal_alg = traversal_alg;
+        if (traversal_alg == TraversalAlg::Adaptive) {
+            use_traversal_alg = read_bounded ? TraversalAlg::Reads : TraversalAlg::Representative;
+        }
+
+        if ((use_traversal_alg != TraversalAlg::Reads && !manager.is_leaf(snarl)) ||
+            (use_traversal_alg == TraversalAlg::Reads && !manager.is_root(snarl))) {
+            // Todo : support nesting hierarchy!
             
             return;
         }
@@ -289,17 +301,6 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
         report_snarl(snarl, manager, reference_index, graph);
 
         int tid = omp_get_thread_num();
-
-        // Get the contents
-        pair<unordered_set<Node*>, unordered_set<Edge*> > snarl_contents =
-           manager.deep_contents(snarl, graph, true);
-
-        // Test if the snarl can be longer than the reads
-        bool read_bounded = is_snarl_smaller_than_reads(snarl, snarl_contents, reads_by_name);
-        TraversalAlg use_traversal_alg = traversal_alg;
-        if (traversal_alg == TraversalAlg::Adaptive) {
-            use_traversal_alg = read_bounded ? TraversalAlg::Reads : TraversalAlg::Representative;
-        }
 
         // Get the traverals
         vector<SnarlTraversal> paths = get_snarl_traversals(augmented_graph, manager, reads_by_name,
