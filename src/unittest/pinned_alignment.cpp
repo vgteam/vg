@@ -153,7 +153,8 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
-                Aligner aligner;
+                Aligner aligner(1, 4, 6, 1, 0);
+                
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -2499,7 +2500,7 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
+                Aligner aligner(1, 4, 6, 1, 0);
                 
                 // low complexity sequences to ensure many alternate alignments
                 Node* n0 = graph.create_node("CCCCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCC");
