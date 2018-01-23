@@ -78,6 +78,7 @@ namespace vg {
         size_t max_p_value_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
         bool unstranded_clustering = true;
+        size_t max_rescue_attempts = 32;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
         double mapq_scaling_factor = 1.0 / 4.0;

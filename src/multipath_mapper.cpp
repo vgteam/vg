@@ -704,15 +704,16 @@ namespace vg {
         int32_t top_score_1 = multipath_alns_1.empty() ? 0 : optimal_alignment_score(multipath_alns_1.front());
         int32_t top_score_2 = multipath_alns_2.empty() ? 0 : optimal_alignment_score(multipath_alns_2.front());
         
-        size_t num_rescuable_alns_1 = multipath_alns_1.size(), num_rescuable_alns_2 = multipath_alns_2.size();
-        for (size_t i = 0; i < multipath_alns_1.size(); i++){
+        size_t num_rescuable_alns_1 = min(multipath_alns_1.size(), max_rescue_attempts);
+        size_t num_rescuable_alns_2 = min(multipath_alns_2.size(), max_rescue_attempts);
+        for (size_t i = 0; i < num_rescuable_alns_1; i++){
             if (likely_mismapping(multipath_alns_1[i]) ||
                 (i > 0 ? optimal_alignment_score(multipath_alns_1[i]) < top_score_1 - max_score_diff : false)) {
                 num_rescuable_alns_1 = i;
                 break;
             }
         }
-        for (size_t i = 0; i < multipath_alns_2.size(); i++){
+        for (size_t i = 0; i < num_rescuable_alns_2; i++){
             if (likely_mismapping(multipath_alns_2[i]) ||
                 (i > 0 ? optimal_alignment_score(multipath_alns_2[i]) < top_score_2 - max_score_diff : false)) {
                 num_rescuable_alns_2 = i;
@@ -725,7 +726,7 @@ namespace vg {
         unordered_set<size_t> rescued_from_1, rescued_from_2;
         
 #ifdef debug_multipath_mapper_mapping
-        cerr << "rescuing from " << num_rescuable_alns_1 << " read1's" << endl;
+        cerr << "rescuing from " << num_rescuable_alns_1 << " read1's and " << num_rescuable_alns_2 << " read2's" << endl;
 #endif
         
         for (size_t i = 0; i < num_rescuable_alns_1; i++) {
@@ -735,10 +736,6 @@ namespace vg {
                 rescue_multipath_alns_2[i] = move(rescue_multipath_aln);
             }
         }
-        
-#ifdef debug_multipath_mapper_mapping
-        cerr << "rescuing from " << num_rescuable_alns_2 << " read2's" << endl;
-#endif
         
         for (size_t i = 0; i < num_rescuable_alns_2; i++) {
             MultipathAlignment rescue_multipath_aln;
@@ -1792,7 +1789,7 @@ namespace vg {
             }
             max_graph_idx = max(cluster_graph.first, max_graph_idx);
         }
-        
+            
         // did we find any graphs that consist of disconnected components?
         for (pair<size_t, vector<unordered_set<id_t>>>& multicomponent_graph : multicomponent_graphs) {
             max_graph_idx++;
@@ -1822,9 +1819,9 @@ namespace vg {
                         cluster_graphs[max_graph_idx + j]->add_node(node);
                         node_id_to_cluster[node.id()] = max_graph_idx + j;
                         break;
+                        }
                     }
                 }
-            }
             
             // divvy up the edges
             for (size_t i = 0; i < joined_graph.edge_size(); i++) {
@@ -2640,16 +2637,26 @@ namespace vg {
             scores[i] = optimal_alignment_score(multipath_alns[i]);
         }
         
-        // insertion sort the multipath alignments by score (they are probably nearly ordered)
+        // find the order of the scores
+        vector<size_t> order(multipath_alns.size(), 0);
         for (size_t i = 1; i < multipath_alns.size(); i++) {
-            size_t pos = i;
-            while (scores[pos] > scores[pos - 1]) {
-                std::swap(scores[pos], scores[pos - 1]);
-                std::swap(multipath_alns[pos], multipath_alns[pos - 1]);
-                pos--;
-                if (pos == 0) {
-                    break;
-                }
+            order[i] = i;
+        }
+        sort(order.begin(), order.end(), [&](const size_t i, const size_t j) { return scores[i] > scores[j]; });
+        
+        // translate the order to an index
+        vector<size_t> index(multipath_alns.size());
+        for (size_t i = 0; i < multipath_alns.size(); i++) {
+            index[order[i]] = i;
+        }
+        
+        // put the scores and alignments in order
+        for (size_t i = 0; i < multipath_alns.size(); i++) {
+            while (index[i] != i) {
+                std::swap(scores[index[i]], scores[i]);
+                std::swap(multipath_alns[index[i]], multipath_alns[i]);
+                std::swap(index[index[i]], index[i]);
+                
             }
         }
         
@@ -2707,18 +2714,27 @@ namespace vg {
             score -= min_frag_score;
         }
         
-        // sort the multipath alignments by score, breaking ties by inter-cluster distance
-        // (insertion sort because they are probably nearly ordered)
+        // find the order of the scores
+        vector<size_t> order(multipath_aln_pairs.size(), 0);
         for (size_t i = 1; i < multipath_aln_pairs.size(); i++) {
-            size_t pos = i;
-            while (scores[pos] > scores[pos - 1]) {
-                std::swap(scores[pos], scores[pos - 1]);
-                std::swap(multipath_aln_pairs[pos], multipath_aln_pairs[pos - 1]);
-                std::swap(cluster_pairs[pos], cluster_pairs[pos - 1]);
-                pos--;
-                if (pos == 0) {
-                    break;
-                }
+            order[i] = i;
+        }
+        sort(order.begin(), order.end(), [&](const size_t i, const size_t j) { return scores[i] > scores[j]; });
+        
+        // translate the order to an index
+        vector<size_t> index(multipath_aln_pairs.size());
+        for (size_t i = 0; i < multipath_aln_pairs.size(); i++) {
+            index[order[i]] = i;
+        }
+        
+        // put the scores, distances, and alignments in order
+        for (size_t i = 0; i < multipath_aln_pairs.size(); i++) {
+            while (index[i] != i) {
+                std::swap(scores[index[i]], scores[i]);
+                std::swap(cluster_pairs[index[i]], cluster_pairs[i]);
+                std::swap(multipath_aln_pairs[index[i]], multipath_aln_pairs[i]);
+                std::swap(index[index[i]], index[i]);
+                
             }
         }
         
