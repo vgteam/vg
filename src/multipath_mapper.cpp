@@ -3551,6 +3551,10 @@ namespace vg {
             
     void MultipathAlignmentGraph::collapse_order_length_runs(VG& vg, gcsa::GCSA* gcsa) {
         
+#ifdef debug_multipath_mapper_alignment
+        cerr << "looking for runs of order length MEMs to collapse" << endl;
+#endif
+        
         vector<vector<size_t>> merge_groups;
         
         size_t num_order_length_mems = 0;
@@ -3560,9 +3564,23 @@ namespace vg {
             
             if (match_node.end - match_node.begin != gcsa->order()) {
                 // we have passed all of the order length MEMs, bail out of loop
+#ifdef debug_multipath_mapper_alignment
+                cerr << "finished iterating through " << i << " order length MEMs" << endl;
+#endif
+                
                 num_order_length_mems = i;
                 break;
             }
+            
+#ifdef debug_multipath_mapper_alignment
+            cerr << "checking if MEM " << i << " can be an extension: " << endl;
+            cerr << "\t" << pb2json(match_node.path) << endl;
+            cerr << "\t";
+            for (auto iter = match_node.begin; iter != match_node.end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+#endif
             
             // try to find any run of MEMs that could be merged with this MEM
             bool found_merge_group = false;
@@ -3574,9 +3592,23 @@ namespace vg {
                 // if any of them can
                 ExactMatchNode& last_run_node = match_nodes[merge_group[merge_group.size() - 1]];
                 
+#ifdef debug_multipath_mapper_alignment
+                cerr << "checking against extending MEM " << merge_group[j] << ":" << endl;
+                cerr << "\t" << pb2json(last_run_node.path) << endl;
+                cerr << "\t";
+                for (auto iter = last_run_node.begin; iter != last_run_node.end; iter++) {
+                    cerr << *iter;
+                }
+                cerr << endl;
+#endif
+                
                 // do they overhang an amount on the read that indicates they could be merged?
                 int64_t overhang = last_run_node.end - match_node.begin;
                 if (overhang >= 0) {
+                    
+#ifdef debug_multipath_mapper_alignment
+                    cerr << "MEMs overlap on the read, checking for consistency with overhang on the path" << endl;
+#endif
                     
                     // get the initial position of the node further to the right
                     pos_t match_node_initial_pos = make_pos_t(match_node.path.mapping(0).position());
@@ -3631,8 +3663,16 @@ namespace vg {
                         }
                     }
                     
+#ifdef debug_multipath_mapper_alignment
+                    cerr << "overhang segments on extension " << match_node_initial_pos << ", " << match_node_internal_pos << " and " << last_run_node_internal_pos <<  last_run_node_final_pos << endl;
+#endif
+                    
                     // do the positions match up as we would expect if these are actually part of the same match?
                     if (match_node_initial_pos == last_run_node_internal_pos && last_run_node_final_pos == match_node_internal_pos) {
+                        
+#ifdef debug_multipath_mapper_alignment
+                        cerr << "found matching overhang" << endl;
+#endif
                         
                         // add the match node to this merge group
                         merge_group.push_back(i);
@@ -3647,7 +3687,11 @@ namespace vg {
                         if (offset(last_run_node_final_pos) == vg.get_node(final_mapping_position.node_id())->sequence().size()
                             && vg.has_edge(NodeSide(id(last_run_node_final_pos), !is_rev(last_run_node_final_pos)),
                                            NodeSide(id(match_node_initial_pos), is_rev(match_node_initial_pos)))) {
-                                
+                            
+#ifdef debug_multipath_mapper_alignment
+                            cerr << "found end to end connection over an edge" << endl;
+#endif
+                            
                             // add the match node to this merge group
                             merge_group.push_back(i);
                             found_merge_group = true;
@@ -3680,6 +3724,10 @@ namespace vg {
                     to_remove.insert(merge_group[i]);
                     
                     ExactMatchNode& merge_from_node = match_nodes[merge_group[i]];
+                    
+#ifdef debug_multipath_mapper_alignment
+                    cerr << "merging path " << pb2json(merge_from_node.path) << " into path " << pb2json(merge_into_node.path) << endl;
+#endif
                     
                     // walk backwards until we find the first mapping to add
                     int64_t to_add_length = merge_from_node.end - merge_into_node.end;
@@ -3715,6 +3763,10 @@ namespace vg {
                     for (size_t j = first_mapping_to_add_idx + 1; j < merge_from_node.path.mapping_size(); j++) {
                         *merge_into_node.path.add_mapping() = merge_from_node.path.mapping(j);
                     }
+                    
+#ifdef debug_multipath_mapper_alignment
+                    cerr << "merged path is " << pb2json(merge_from_node.path) << endl;
+#endif
                 }
             }
             
