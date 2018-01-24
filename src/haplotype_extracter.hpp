@@ -37,6 +37,13 @@ Path path_from_thread_t(thread_t& t);
 vector<pair<thread_t,int> > list_haplotypes(xg::XG& index,
             xg::XG::ThreadMapping start_node, int extend_distance);
 
+// Lists all the sub-haplotypes of length extend_distance nodes starting at
+// node start_node from the set of haplotypes embedded in the geven GBWT
+// haplotype database.  Records, for each thread_t t the number of haplotypes
+// of which t is a subhaplotype
+vector<pair<thread_t,int> > list_haplotypes(xg::XG& index, const gbwt::GBWT& haplotype_database,
+            xg::XG::ThreadMapping start_node, int extend_distance);
+
 // writes to subgraph_ostream the subgraph covered by
 // the haplotypes in haplotype_list, as well as these haplotypes embedded as
 // Paths.  Will output in JSON format if json set to true and Protobuf otherwise.
