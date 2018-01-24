@@ -662,14 +662,17 @@ vector<SnarlTraversal> Genotyper::get_snarl_traversals(AugmentedGraph& augmented
     // Deduplicate into "paths"
     unordered_set<string> seen_sequences;
     for (auto& trav : paths) {
-        // Make a set of the sequences already represented in paths
+        // Make a set of the sequences already represented in paths        
         seen_sequences.insert(traversal_to_string(augmented_graph.graph, trav));
     }
     for (auto& trav : read_paths) {
-        if (!seen_sequences.count(traversal_to_string(augmented_graph.graph, trav))) {
+        string traversal_seq = traversal_to_string(augmented_graph.graph, trav);
+
+        if (traversal_seq.find_first_of("Nn") == string::npos &&
+            !seen_sequences.count(traversal_seq)) {
             // If the sequence of a traversal from read_paths isn't shared with
             // something in paths, take it. We already know it's unique in
-            // read_paths.
+            // read_paths.  We also make sure it has no Ns
             paths.push_back(trav);
         }
     }
@@ -890,6 +893,17 @@ map<const Alignment*, vector<Genotyper::Affinity>>
     for(Node* node: contents.first) {
         // Throw out all the IDs that are also used in the ultrabubble itself
         relevant_ids.erase(node->id());
+    }
+
+    // This is a temporary hack to break out of this function if there's too much to do. 
+    // To fix properly will require a more general get_affinities_fast-type function, as well as,
+    // probably, heuristics to reduce the search space
+    if (relevant_read_names.size() * snarl_paths.size() > 1000) {
+#pragma omp critical (cerr)
+        cerr << "Skipping snarl " << pb2json(*snarl) << " with " << relevant_read_names.size() << " reads, "
+             << snarl_paths.size() << " paths and " << contents.first.size()
+             << " nodes as it is too complex to get affinities for (reads X paths > 1000)." << endl;
+        return to_return;
     }
 
 #ifdef debug
