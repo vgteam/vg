@@ -1880,6 +1880,7 @@ namespace vg {
         }
         
         // compute the read coverage of each cluster graph and sort the assigned MEMs by length
+        // and then lexicographically by read index
         for (size_t i = 0; i < cluster_graphs_out.size(); i++) {
             auto& cluster_graph = cluster_graphs_out[i];
             get<2>(cluster_graph) = read_coverage(get<1>(cluster_graph));
@@ -1889,7 +1890,10 @@ namespace vg {
             sort(get<1>(cluster_graph).begin(), get<1>(cluster_graph).end(),
                  [](const pair<const MaximalExactMatch*, pos_t>& hit_1,
                     const pair<const MaximalExactMatch*, pos_t>& hit_2) {
-                return hit_1.first->length() > hit_2.first->length();
+                return hit_1.first->length() > hit_2.first->length() ||
+                       (hit_1.first->length() == hit_2.first->length() &&
+                        (hit_1.first->begin < hit_2.first->begin ||
+                         (hit_1.first->begin == hit_2.first->begin && hit_1.first->end < hit_2.first->end)));
             });
         }
         
@@ -3275,6 +3279,42 @@ namespace vg {
                                              make_pair(trans_record.first, trans_record.second.second)));
         }
         
+        // initialize the match nodes
+        create_match_nodes(vg, hits, projection_trans, injection_trans);
+        
+        if (cutting_snarls) {
+            // we indicated a snarl manager that owns the snarls we want to cut out of exact matches
+            resect_snarls_from_paths(cutting_snarls, projection_trans, max_snarl_cut_size);
+        }
+        
+        // compute reachability and add edges
+        add_reachability_edges(vg, hits, projection_trans, injection_trans);
+        
+        
+        
+#ifdef debug_multipath_mapper_alignment
+        cerr << "final mem graph:" << endl;
+        for (size_t i = 0; i < match_nodes.size(); i++) {
+            ExactMatchNode& match_node = match_nodes[i];
+            cerr << i << " " << pb2json(match_node.path) << " ";
+            for (auto iter = match_node.begin; iter != match_node.end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+            cerr << "\t";
+            for (auto edge : match_node.edges) {
+                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (match_nodes[edge.first].begin - match_node.end) << ") ";
+            }
+            cerr << endl;
+        }
+#endif
+    }
+            
+    void MultipathAlignmentGraph::create_match_nodes(VG& vg, const MultipathMapper::memcluster_t& hits,
+                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
+        
+        
 #ifdef debug_multipath_mapper_alignment
         cerr << "walking out MEMs in graph" << endl;
 #endif
@@ -3502,196 +3542,203 @@ namespace vg {
 #endif
             }
         }
-        
-        if (cutting_snarls) {
-#ifdef debug_multipath_mapper_alignment
-            cerr << "cutting with snarls" << endl;
-#endif
-            // we indicated a snarl manager that owns the snarls we want to cut out of exact matches
+    }
             
-            size_t num_original_match_nodes = match_nodes.size();
-            for (size_t i = 0; i < num_original_match_nodes; i++) {
-                
-                // first compute the segments we want to cut out
-                
-                ExactMatchNode* match_node = &match_nodes[i];
-                Path* path = &match_node->path;
-                
+    void MultipathAlignmentGraph::resect_snarls_from_paths(SnarlManager* cutting_snarls,
+                                                           const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                           int64_t max_snarl_cut_size) {
 #ifdef debug_multipath_mapper_alignment
-                cerr << "cutting node at index " << i << " with path " << pb2json(*path) << endl;
+        cerr << "cutting with snarls" << endl;
 #endif
+        
+        size_t num_original_match_nodes = match_nodes.size();
+        for (size_t i = 0; i < num_original_match_nodes; i++) {
+            
+            // first compute the segments we want to cut out
+            
+            ExactMatchNode* match_node = &match_nodes[i];
+            Path* path = &match_node->path;
+            
+#ifdef debug_multipath_mapper_alignment
+            cerr << "cutting node at index " << i << " with path " << pb2json(*path) << endl;
+#endif
+            
+            // this list holds the beginning of the current segment at each depth in the snarl hierarchy
+            // as we traverse the exact match, the beginning is recorded in both sequence distance and node index
+            list<pair<size_t, size_t>> level_segment_begin;
+            level_segment_begin.emplace_back(0, 0);
+            
+            // we record which segments we are going to cut out of the match here
+            vector<pair<size_t, size_t>> cut_segments;
+            
+            auto curr_level = level_segment_begin.begin();
+            size_t prefix_length = 0;
+            for (size_t j = 0, last = path->mapping_size() - 1; j <= last; j++) {
+                const Position& position = path->mapping(j).position();
+                const auto& projection = projection_trans.at(position.node_id());
+                id_t projected_id = projection.first;
+                bool projected_rev = (projection.second != position.is_reverse());
                 
-                // this list holds the beginning of the current segment at each depth in the snarl hierarchy
-                // as we traverse the exact match, the beginning is recorded in both sequence distance and node index
-                list<pair<size_t, size_t>> level_segment_begin;
-                level_segment_begin.emplace_back(0, 0);
-                
-                // we record which segments we are going to cut out of the match here
-                vector<pair<size_t, size_t>> cut_segments;
-                
-                auto curr_level = level_segment_begin.begin();
-                size_t prefix_length = 0;
-                for (size_t j = 0, last = path->mapping_size() - 1; j <= last; j++) {
-                    const Position& position = path->mapping(j).position();
-                    const auto& projection = projection_trans.at(position.node_id());
-                    id_t projected_id = projection.first;
-                    bool projected_rev = (projection.second != position.is_reverse());
-                    
-                    if (j > 0) {
-                        // we have entered this node on this iteration
-                        if (cutting_snarls->into_which_snarl(projected_id, !projected_rev)) {
-                            // as we enter this node, we are leaving the snarl we were in
-                            
-                            // since we're going up a level, we need to check whether we need to cut out the segment we've traversed
-                            if (prefix_length - curr_level->first <= max_snarl_cut_size || !max_snarl_cut_size) {
-                                cut_segments.emplace_back(curr_level->second, j);
-                            }
-                            
-                            curr_level++;
-                            if (curr_level == level_segment_begin.end()) {
-                                // we were already at the highest level seen so far, so we need to add a new one
-                                // the entire previous part of the match is contained in this level, so we start
-                                // the segment from 0
-                                curr_level = level_segment_begin.insert(level_segment_begin.end(), make_pair(0, 0));
-                            }
+                if (j > 0) {
+                    // we have entered this node on this iteration
+                    if (cutting_snarls->into_which_snarl(projected_id, !projected_rev)) {
+                        // as we enter this node, we are leaving the snarl we were in
+                        
+                        // since we're going up a level, we need to check whether we need to cut out the segment we've traversed
+                        if (prefix_length - curr_level->first <= max_snarl_cut_size || !max_snarl_cut_size) {
+                            cut_segments.emplace_back(curr_level->second, j);
                         }
-                    }
-                    
-                    // cross to the other side of the node
-                    prefix_length += mapping_from_length(path->mapping(j));
-                    
-                    if (j < last) {
-                        // we are going to leave this node next iteration
-                        if (cutting_snarls->into_which_snarl(projected_id, projected_rev)) {
-                            // as we leave this node, we are entering a new deeper snarl
-                            
-                            // the segment in the new level will begin at the end of the current node
-                            if (curr_level == level_segment_begin.begin()) {
-                                // we are already at the lowest level seen so far, so we need to add a new one
-                                level_segment_begin.emplace_front(prefix_length, j + 1);
-                                curr_level--;
-                            }
-                            else {
-                                // the lower level is in the record already, so we update its segment start
-                                curr_level--;
-                                *curr_level = make_pair(prefix_length, j + 1);
-                            }
+                        
+                        curr_level++;
+                        if (curr_level == level_segment_begin.end()) {
+                            // we were already at the highest level seen so far, so we need to add a new one
+                            // the entire previous part of the match is contained in this level, so we start
+                            // the segment from 0
+                            curr_level = level_segment_begin.insert(level_segment_begin.end(), make_pair(0, 0));
                         }
                     }
                 }
                 
-                // check the final segment for a cut unless we're at the highest level in the match
-                auto last = level_segment_begin.end();
-                last--;
-                if ((prefix_length - curr_level->first <= max_snarl_cut_size || !max_snarl_cut_size) && curr_level != last) {
-                    cut_segments.emplace_back(curr_level->second, path->mapping_size());
-                }
+                // cross to the other side of the node
+                prefix_length += mapping_from_length(path->mapping(j));
                 
-                // did we cut out any segments?
-                if (!cut_segments.empty()) {
-#ifdef debug_multipath_mapper_alignment
-                    cerr << "found cut segments:" << endl;
-                    for (auto seg : cut_segments) {
-                        cerr << "\t" << seg.first << ":" << seg.second << endl;
+                if (j < last) {
+                    // we are going to leave this node next iteration
+                    if (cutting_snarls->into_which_snarl(projected_id, projected_rev)) {
+                        // as we leave this node, we are entering a new deeper snarl
+                        
+                        // the segment in the new level will begin at the end of the current node
+                        if (curr_level == level_segment_begin.begin()) {
+                            // we are already at the lowest level seen so far, so we need to add a new one
+                            level_segment_begin.emplace_front(prefix_length, j + 1);
+                            curr_level--;
+                        }
+                        else {
+                            // the lower level is in the record already, so we update its segment start
+                            curr_level--;
+                            *curr_level = make_pair(prefix_length, j + 1);
+                        }
                     }
+                }
+            }
+            
+            // check the final segment for a cut unless we're at the highest level in the match
+            auto last = level_segment_begin.end();
+            last--;
+            if ((prefix_length - curr_level->first <= max_snarl_cut_size || !max_snarl_cut_size) && curr_level != last) {
+                cut_segments.emplace_back(curr_level->second, path->mapping_size());
+            }
+            
+            // did we cut out any segments?
+            if (!cut_segments.empty()) {
+#ifdef debug_multipath_mapper_alignment
+                cerr << "found cut segments:" << endl;
+                for (auto seg : cut_segments) {
+                    cerr << "\t" << seg.first << ":" << seg.second << endl;
+                }
 #endif
-                    
-                    // we may have decided to cut the segments of both a parent and child snarl, so now we
-                    // collapse the list of intervals, which is sorted on the end index by construction
-                    //
-                    // snarl nesting properties guarantee that there will be at least one node between any
-                    // cut segments that are not nested, so we don't need to deal with the case where the
-                    // segments are partially overlapping (i.e. it's a bit easier than the general interval
-                    // intersection problem)
-                    vector<pair<size_t, size_t>> keep_segments;
-                    size_t curr_keep_seg_end = path->mapping_size();
-                    auto riter = cut_segments.rbegin();
-                    if (riter->second == curr_keep_seg_end) {
-                        // don't add an empty keep segment in the first position
+                
+                // we may have decided to cut the segments of both a parent and child snarl, so now we
+                // collapse the list of intervals, which is sorted on the end index by construction
+                //
+                // snarl nesting properties guarantee that there will be at least one node between any
+                // cut segments that are not nested, so we don't need to deal with the case where the
+                // segments are partially overlapping (i.e. it's a bit easier than the general interval
+                // intersection problem)
+                vector<pair<size_t, size_t>> keep_segments;
+                size_t curr_keep_seg_end = path->mapping_size();
+                auto riter = cut_segments.rbegin();
+                if (riter->second == curr_keep_seg_end) {
+                    // don't add an empty keep segment in the first position
+                    curr_keep_seg_end = riter->first;
+                    riter++;
+                }
+                for (; riter != cut_segments.rend(); riter++) {
+                    if (riter->second < curr_keep_seg_end) {
+                        // this is a new interval
+                        keep_segments.emplace_back(riter->second, curr_keep_seg_end);
                         curr_keep_seg_end = riter->first;
-                        riter++;
                     }
-                    for (; riter != cut_segments.rend(); riter++) {
-                        if (riter->second < curr_keep_seg_end) {
-                            // this is a new interval
-                            keep_segments.emplace_back(riter->second, curr_keep_seg_end);
-                            curr_keep_seg_end = riter->first;
-                        }
-                    }
-                    if (curr_keep_seg_end > 0) {
-                        // we are not cutting off the left tail, so add a keep segment for it
-                        keep_segments.emplace_back(0, curr_keep_seg_end);
-                    }
-                    
-                    // make a new node for all but one of the keep segments
-                    size_t prefix_length = 0;
-                    size_t prefix_idx = 0;
-                    for (auto iter = keep_segments.end() - 1; iter != keep_segments.begin(); iter--) {
+                }
+                if (curr_keep_seg_end > 0) {
+                    // we are not cutting off the left tail, so add a keep segment for it
+                    keep_segments.emplace_back(0, curr_keep_seg_end);
+                }
+                
+                // make a new node for all but one of the keep segments
+                size_t prefix_length = 0;
+                size_t prefix_idx = 0;
+                for (auto iter = keep_segments.end() - 1; iter != keep_segments.begin(); iter--) {
 #ifdef debug_multipath_mapper_alignment
-                        cerr << "making path for keep segment " << iter->first << ":" << iter->second << " at idx " << match_nodes.size() << endl;
+                    cerr << "making path for keep segment " << iter->first << ":" << iter->second << " at idx " << match_nodes.size() << endl;
 #endif
-                        match_nodes.emplace_back();
-                        
-                        // update pointers in case the vector reallocates
-                        match_node = &match_nodes[i];
-                        path = &match_node->path;
-                        
-                        // measure the length of path between this keep segment and the last one
-                        while (prefix_idx < iter->first) {
-                            prefix_length += mapping_from_length(path->mapping(prefix_idx));
-                            prefix_idx++;
-                        }
-                        
-                        size_t keep_segment_length = 0;
-                        ExactMatchNode& cut_node = match_nodes.back();
-                        Path& cut_path = cut_node.path;
-                        // transfer over the keep segment from the main path and measure the length
-                        int32_t rank = 1;
-                        for (size_t j = iter->first; j < iter->second; j++, rank++) {
-                            Mapping* mapping = cut_path.add_mapping();
-                            *mapping = path->mapping(j);
-                            mapping->set_rank(rank);
-                            keep_segment_length += mapping_from_length(*mapping);
-                        }
-                        
-                        // identify the substring of the MEM that stays on this node
-                        cut_node.begin = match_node->begin + prefix_length;
-                        cut_node.end = cut_node.begin + keep_segment_length;
-                        
-                        prefix_length += keep_segment_length;
-                        prefix_idx = iter->second;
-#ifdef debug_multipath_mapper_alignment
-                        cerr << "new cut path: " << pb2json(cut_path) << endl;
-#endif
-                        
-                    }
+                    match_nodes.emplace_back();
                     
-                    while (prefix_idx < keep_segments.front().first) {
+                    // update pointers in case the vector reallocates
+                    match_node = &match_nodes[i];
+                    path = &match_node->path;
+                    
+                    // measure the length of path between this keep segment and the last one
+                    while (prefix_idx < iter->first) {
                         prefix_length += mapping_from_length(path->mapping(prefix_idx));
                         prefix_idx++;
                     }
                     
-                    // replace the path of the original node with the final keep segment
                     size_t keep_segment_length = 0;
-                    Path new_path;
+                    ExactMatchNode& cut_node = match_nodes.back();
+                    Path& cut_path = cut_node.path;
+                    // transfer over the keep segment from the main path and measure the length
                     int32_t rank = 1;
-                    for (size_t j = keep_segments.front().first; j < keep_segments.front().second; j++, rank++) {
-                        Mapping* mapping = new_path.add_mapping();
+                    for (size_t j = iter->first; j < iter->second; j++, rank++) {
+                        Mapping* mapping = cut_path.add_mapping();
                         *mapping = path->mapping(j);
                         mapping->set_rank(rank);
                         keep_segment_length += mapping_from_length(*mapping);
                     }
-                    *path = new_path;
                     
-                    // update the substring of MEM to match the path
-                    match_node->begin += prefix_length;
-                    match_node->end = match_node->begin + keep_segment_length;
+                    // identify the substring of the MEM that stays on this node
+                    cut_node.begin = match_node->begin + prefix_length;
+                    cut_node.end = cut_node.begin + keep_segment_length;
+                    
+                    prefix_length += keep_segment_length;
+                    prefix_idx = iter->second;
 #ifdef debug_multipath_mapper_alignment
-                    cerr << "new in place cut path for keep segment " << keep_segments.front().first << ":" << keep_segments.front().second << " " << pb2json(new_path) << endl;
+                    cerr << "new cut path: " << pb2json(cut_path) << endl;
 #endif
+                    
                 }
+                
+                while (prefix_idx < keep_segments.front().first) {
+                    prefix_length += mapping_from_length(path->mapping(prefix_idx));
+                    prefix_idx++;
+                }
+                
+                // replace the path of the original node with the final keep segment
+                size_t keep_segment_length = 0;
+                Path new_path;
+                int32_t rank = 1;
+                for (size_t j = keep_segments.front().first; j < keep_segments.front().second; j++, rank++) {
+                    Mapping* mapping = new_path.add_mapping();
+                    *mapping = path->mapping(j);
+                    mapping->set_rank(rank);
+                    keep_segment_length += mapping_from_length(*mapping);
+                }
+                *path = new_path;
+                
+                // update the substring of MEM to match the path
+                match_node->begin += prefix_length;
+                match_node->end = match_node->begin + keep_segment_length;
+#ifdef debug_multipath_mapper_alignment
+                cerr << "new in place cut path for keep segment " << keep_segments.front().first << ":" << keep_segments.front().second << " " << pb2json(new_path) << endl;
+#endif
             }
         }
+    }
+            
+    void MultipathAlignmentGraph::add_reachability_edges(VG& vg, const MultipathMapper::memcluster_t& hits,
+                                                         const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                         const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
+        
         
 #ifdef debug_multipath_mapper_alignment
         cerr << "computing reachability" << endl;
@@ -3726,7 +3773,7 @@ namespace vg {
         auto endpoint_node_id = [&](size_t idx, bool end) {
             return end ? end_node_id(idx) : start_node_id(idx);
         };
-
+        
         // record the start and end node ids of every exact match
         unordered_map<id_t, vector<size_t>> exact_match_starts;
         unordered_map<id_t, vector<size_t>> exact_match_ends;
@@ -3755,7 +3802,7 @@ namespace vg {
             cerr << endl;
         }
 #endif
-
+        
         
         // sort the MEMs starting and ending on each node in node sequence order
         for (pair<const id_t, vector<size_t>>& node_match_starts : exact_match_starts) {
@@ -4197,7 +4244,7 @@ namespace vg {
 #endif
                 
                 for (NodeTraversal next : nexts) {
-
+                    
                     unordered_map<size_t, size_t>& reachable_endpoints_next = (*reachable_endpoints)[next.node->id()];
                     for (size_t j = prev_range_begin; j < endpoints->size(); j++) {
                         if (reachable_endpoints_next.count(endpoints->at(j))) {
@@ -4704,7 +4751,7 @@ namespace vg {
                     break;
                 }
             }
-        
+            
 #ifdef debug_multipath_mapper_alignment
             cerr << "performing an overlap split onto " << get<1>(*iter) << " of length " << get<0>(*iter) << endl;
 #endif
@@ -4846,23 +4893,6 @@ namespace vg {
                 }
             }
         }
-        
-#ifdef debug_multipath_mapper_alignment
-        cerr << "final mem graph:" << endl;
-        for (size_t i = 0; i < match_nodes.size(); i++) {
-            ExactMatchNode& match_node = match_nodes[i];
-            cerr << i << " " << pb2json(match_node.path) << " ";
-            for (auto iter = match_node.begin; iter != match_node.end; iter++) {
-                cerr << *iter;
-            }
-            cerr << endl;
-            cerr << "\t";
-            for (auto edge : match_node.edges) {
-                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (match_nodes[edge.first].begin - match_node.end) << ") ";
-            }
-            cerr << endl;
-        }
-#endif
     }
     
     // Kahn's algorithm

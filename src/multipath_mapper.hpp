@@ -272,7 +272,10 @@ namespace vg {
     // TODO: put in MultipathMapper namespace
     class MultipathAlignmentGraph {
     public:
-        // removes duplicate sub-MEMs contained in parent MEMs
+        
+        /// Construct a graph of the reachability between MEMs in a DAG-ified graph. Removes redundant
+        /// sub-MEMs. Assumes that the cluster is sorted by primarily length and secondarily lexicographically
+        /// by read interval. Optionally cuts snarl interiors from the paths and splits nodes accordingly
         MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
@@ -295,7 +298,26 @@ namespace vg {
         /// ordering of their target nodes
         void reorder_adjacency_lists(const vector<size_t>& order);
         
+        /// Nodes representing walked MEMs in the graph
         vector<ExactMatchNode> match_nodes;
+        
+    private:
+        
+        /// Walk out MEMs into match nodes and filter out redundant sub-MEMs
+        void create_match_nodes(VG& vg, const MultipathMapper::memcluster_t& hits,
+                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+        
+        /// Cut the interior of snarls out of anchoring paths unless they are longer than the
+        /// max cut size
+        void resect_snarls_from_paths(SnarlManager* cutting_snarls, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                      int64_t max_snarl_cut_size);
+        
+        /// Add edges between reachable nodes and split nodes at overlaps
+        void add_reachability_edges(VG& vg, const MultipathMapper::memcluster_t& hits,
+                                    const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                    const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+        
     };
 }
 
