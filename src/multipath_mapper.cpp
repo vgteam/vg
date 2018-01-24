@@ -3573,13 +3573,13 @@ namespace vg {
             }
             
 #ifdef debug_multipath_mapper_alignment
-            cerr << "checking if MEM " << i << " can be an extension: " << endl;
-            cerr << "\t" << pb2json(match_node.path) << endl;
+            cerr << "## checking if MEM " << i << " can be an extension: " << endl;
             cerr << "\t";
             for (auto iter = match_node.begin; iter != match_node.end; iter++) {
                 cerr << *iter;
             }
             cerr << endl;
+            cerr << "\t" << pb2json(match_node.path) << endl;
 #endif
             
             // try to find any run of MEMs that could be merged with this MEM
@@ -3594,12 +3594,12 @@ namespace vg {
                 
 #ifdef debug_multipath_mapper_alignment
                 cerr << "checking against extending MEM " << merge_group[j] << ":" << endl;
-                cerr << "\t" << pb2json(last_run_node.path) << endl;
                 cerr << "\t";
                 for (auto iter = last_run_node.begin; iter != last_run_node.end; iter++) {
                     cerr << *iter;
                 }
                 cerr << endl;
+                cerr << "\t" << pb2json(last_run_node.path) << endl;
 #endif
                 
                 // do they overhang an amount on the read that indicates they could be merged?
@@ -3627,7 +3627,7 @@ namespace vg {
                             
                             get_id(last_run_node_internal_pos) = overhang_position.node_id();
                             get_is_rev(last_run_node_internal_pos) = overhang_position.is_reverse();
-                            get_offset(last_run_node_internal_pos) = overhang_position.offset() + (remaining - overhang);
+                            get_offset(last_run_node_internal_pos) = overhang_position.offset() + remaining - overhang;
                             
                             break;
                         }
@@ -3655,16 +3655,16 @@ namespace vg {
                             
                             const Position& overhang_position = match_node.path.mapping(k).position();
                             
-                            get_id(last_run_node_internal_pos) = overhang_position.node_id();
-                            get_is_rev(last_run_node_internal_pos) = overhang_position.is_reverse();
-                            get_offset(last_run_node_internal_pos) = overhang_position.offset() + overhang - remaining;
+                            get_id(match_node_internal_pos) = overhang_position.node_id();
+                            get_is_rev(match_node_internal_pos) = overhang_position.is_reverse();
+                            get_offset(match_node_internal_pos) = overhang_position.offset() + overhang - remaining;
                             
                             break;
                         }
                     }
                     
 #ifdef debug_multipath_mapper_alignment
-                    cerr << "overhang segments on extension " << match_node_initial_pos << ", " << match_node_internal_pos << " and " << last_run_node_internal_pos <<  last_run_node_final_pos << endl;
+                    cerr << "overhang segments on extension node " << match_node_initial_pos << ", " << match_node_internal_pos << " and extending node " << last_run_node_internal_pos << ", " last_run_node_final_pos << endl;
 #endif
                     
                     // do the positions match up as we would expect if these are actually part of the same match?
