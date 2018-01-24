@@ -8,14 +8,16 @@ namespace vg {
 
 using namespace std;
 
-void trace_haplotypes_and_paths(xg::XG& index,
+void trace_haplotypes_and_paths(xg::XG& index, const gbwt::GBWT* haplotype_database,
                                 vg::id_t start_node, int extend_distance,
                                 Graph& out_graph,
                                 map<string, int>& out_thread_frequencies,
                                 bool expand_graph) {
   // get our haplotypes
   xg::XG::ThreadMapping n = {start_node, false};
-  vector<pair<thread_t,int> > haplotypes = list_haplotypes(index, n, extend_distance);
+  vector<pair<thread_t,int> > haplotypes = haplotype_database ?
+    list_haplotypes(index, *haplotype_database, n, extend_distance) :
+    list_haplotypes(index, n, extend_distance);
 
   if (expand_graph) {
     // get our subgraph and "regular" paths by expanding forward

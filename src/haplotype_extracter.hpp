@@ -20,8 +20,10 @@ using thread_t = vector<xg::XG::ThreadMapping>;
 // Walk forward from a node, collecting all haplotypes.  Also do a regular
 // subgraph search for all the paths too.  Haplotype thread i will be
 // embedded as Paths a path with name thread_i.
-// Each path name (including threads) is mapped to a frequency in out_thread_frequencies
-void trace_haplotypes_and_paths(xg::XG& index,
+// Each path name (including threads) is mapped to a frequency in out_thread_frequencies.
+// Haplotypes will be pulled from the xg index's gPBWT if haplotype_database is null, and
+// from the given GBWT index otherwise.
+void trace_haplotypes_and_paths(xg::XG& index, const gbwt::GBWT* haplotype_database,
                                 vg::id_t start_node, int extend_distance,
                                 Graph& out_graph,
                                 map<string, int>& out_thread_frequencies,
