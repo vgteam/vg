@@ -7310,7 +7310,7 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
 
     // Determine the edges that are on embedded paths and should not be destroyed.
     set<Edge*> to_preserve;
-    if(preserve_paths) {
+    if (preserve_paths) {
         to_preserve = get_path_edges();
     }
 

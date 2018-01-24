@@ -8,7 +8,8 @@
  * regions shorter than --subgraph_min are also removed. Pruning either removes
  * all embedded paths or preserves both the paths and the edges on non-alt
  * paths.
- * TODO: Optionally, replace each pruned region with a set of disjoint paths
+ *
+ * Optionally, replace each pruned region with a set of disjoint paths
  * corresponding to all distinct XG paths and GBWT threads in that region.
  * TODO: We also need to output a mapping from duplicated node ids to original
  * node ids for GCSA2 construction.
@@ -22,8 +23,12 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <list>
 #include <regex>
+#include <set>
+#include <stack>
 #include <string>
+#include <vector>
 
 #include <getopt.h>
 #include <omp.h>
@@ -56,6 +61,70 @@ void help_prune(char** argv) {
     std::cerr << "other options:" << std::endl;
     std::cerr << "    -p, --progress         show progress" << std::endl;
     std::cerr << "    -t, --threads N        use N threads (default: " << omp_get_max_threads() << ")" << std::endl;
+}
+
+void create_state(const gbwt::GBWT& gbwt_index, vg::id_t from, bool is_reverse,
+                  std::stack<std::pair<gbwt::SearchState, std::vector<gbwt::node_type>>>& intermediate) {
+    gbwt::node_type node = gbwt::Node::encode(from, is_reverse);
+    gbwt::SearchState state = gbwt_index.find(node);
+    if (state.empty()) {
+        return;
+    }
+    std::vector<gbwt::node_type> path { node };
+    intermediate.push(std::make_pair(state, path));
+}
+
+bool extend_state(const gbwt::GBWT& gbwt_index, gbwt::SearchState state, std::vector<gbwt::node_type> path,
+                  vg::id_t to, bool is_reverse,
+                  std::stack<std::pair<gbwt::SearchState, std::vector<gbwt::node_type>>>& intermediate) {
+    gbwt::node_type node = gbwt::Node::encode(to, is_reverse);
+    state = gbwt_index.extend(state, node);
+    if (state.empty()) {
+        return false;
+    }
+    path.push_back(node);
+    intermediate.push(std::make_pair(state, path));
+    return true;
+}
+
+void insert_path(std::set<std::vector<gbwt::node_type>>& paths, std::vector<gbwt::node_type>& path) {
+    if (path.size() < 2) {
+        return;
+    }
+    std::vector<gbwt::node_type> reverse_complement(path.size(), 0);
+    for (size_t i = 0; i < path.size(); i++) {
+        reverse_complement[path.size() - 1 - i] = gbwt::Node::reverse(path[i]);
+    }
+    paths.insert(std::min(path, reverse_complement));
+}
+
+void list_paths(VG& component, const gbwt::GBWT& gbwt_index, vg::id_t from, std::set<std::vector<gbwt::node_type>>& paths) {
+    std::stack<std::pair<gbwt::SearchState, std::vector<gbwt::node_type>>> intermediate;
+    create_state(gbwt_index, from, false, intermediate);
+    create_state(gbwt_index, from, true, intermediate);
+
+    while (!intermediate.empty()) {
+        gbwt::SearchState state;
+        std::vector<gbwt::node_type> path;
+        std::tie(state, path) = intermediate.top(); intermediate.pop();
+        vg::id_t node = gbwt::Node::id(path.back());
+        bool is_reverse = gbwt::Node::is_reverse(path.back());
+
+        std::vector<Edge*> edges = component.edges_of(component.get_node(node));
+        bool has_successors = false;
+        for (Edge* edge : edges) {
+            if (edge->from() == node && edge->from_start() == is_reverse) {
+                has_successors |= extend_state(gbwt_index, state, path, edge->to(), edge->to_end(), intermediate);
+            }
+            else if (edge->to() == node && edge->to_end() != is_reverse) {
+                has_successors |= extend_state(gbwt_index, state, path, edge->from(), !edge->from_start(), intermediate);
+            }
+        }
+
+        if (!has_successors) {
+            insert_path(paths, path);
+        }
+    }
 }
 
 int main_prune(int argc, char** argv) {
@@ -218,18 +287,55 @@ int main_prune(int argc, char** argv) {
                 }
             }
         }
+        std::list<VG> components;
+        complement.disjoint_subgraphs(components);
         if (show_progress) {
             std::cerr << "Complement graph: "
-                      << complement.node_count() << " nodes, " << complement.edge_count() << " edges" << std::endl;
+                      << complement.node_count() << " nodes, " << complement.edge_count() << " edges in "
+                      << components.size() << " components" << std::endl;
         }
-        // TODO: Unfolding here
-        // Partition the complement graph into connected components.
-        // For each component:
-        //   Find the border nodes that exist both in the graph and the complement.
-        //   Extract all paths from border node to border node in GBWT
-        //   Store the distinct paths in the canonical orientation
-        //   For each path, add the corresponding path with duplicated internal nodes into the unfolded graph
-        // Insert the unfolded graph into the original graph
+
+        size_t haplotype_paths = 0;
+        VG unfolded;
+        for (VG& component : components) {
+            std::set<vg::id_t> border;   // Nodes that exist in the component and the pruned graph.
+            component.for_each_node([&](Node* node) {
+                if (graph->has_node(node->id())) {
+                    border.insert(node->id());
+                }
+            });
+            std::set<std::vector<gbwt::node_type>> paths;
+            for (vg::id_t start_node : border) {
+                list_paths(component, gbwt_index, start_node, paths);
+            }
+            haplotype_paths += paths.size();
+            for (const std::vector<gbwt::node_type>& path : paths) {
+                Node prev = xg_index.node(gbwt::Node::id(path.front()));
+                unfolded.add_node(prev);
+                for (size_t i = 1; i < path.size(); i++) {
+                    Node node = xg_index.node(gbwt::Node::id(path[i]));
+                    if (i + 1 < path.size()) {
+                        node.set_id(max_node_id + 1); max_node_id++; // TODO: We need to store the mapping.
+                    }
+                    unfolded.add_node(node);
+                    Edge edge;
+                    edge.set_from(prev.id());
+                    edge.set_to(node.id());
+                    edge.set_from_start(gbwt::Node::is_reverse(path[i - 1]));
+                    edge.set_to_end(gbwt::Node::is_reverse(path[i]));
+                    unfolded.add_edge(edge);
+                    prev = node;
+                }
+            }
+        }
+        if (show_progress) {
+            std::cerr << "Unfolded graph: "
+                      << unfolded.node_count() << " nodes, " << unfolded.edge_count() << " edges on "
+                      << haplotype_paths << " paths" << std::endl;
+        }
+
+        graph->merge(unfolded);
+        graph->remove_duplicates();
     }
 
     // Serialize.
