@@ -1965,7 +1965,7 @@ namespace vg {
 #endif
         
         // construct a graph that summarizes reachability between MEMs
-        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, snarl_manager, max_snarl_cut_size);
+        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, gcsa, snarl_manager, max_snarl_cut_size);
         
         vector<size_t> topological_order;
         multi_aln_graph.topological_sort(topological_order);
@@ -3266,7 +3266,7 @@ namespace vg {
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
-                                                     SnarlManager* cutting_snarls, int64_t max_snarl_cut_size) {
+                                                     gcsa::GCSA* gcsa, SnarlManager* cutting_snarls, int64_t max_snarl_cut_size) {
 
         // create the injection translator, which maps a node in the original graph to every one of its occurrences
         // in the dagified graph
@@ -3281,6 +3281,11 @@ namespace vg {
         
         // initialize the match nodes
         create_match_nodes(vg, hits, projection_trans, injection_trans);
+        
+        if (gcsa) {
+            // we indicated that these MEMs came from a GCSA, so there might be order-length MEMs that we can combine
+            collapse_order_length_runs(vg, gcsa);
+        }
         
         if (cutting_snarls) {
             // we indicated a snarl manager that owns the snarls we want to cut out of exact matches
@@ -3541,6 +3546,190 @@ namespace vg {
                 cerr << pb2json(path) << endl;
 #endif
             }
+        }
+    }
+            
+    void MultipathAlignmentGraph::collapse_order_length_runs(VG& vg, gcsa::GCSA* gcsa) {
+        
+        vector<vector<size_t>> merge_groups;
+        
+        size_t num_order_length_mems = 0;
+        for (size_t i = 0; i < match_nodes.size(); i++) {
+            
+            ExactMatchNode& match_node = match_nodes[i];
+            
+            if (match_node.end - match_node.begin != gcsa->order()) {
+                // we have passed all of the order length MEMs, bail out of loop
+                num_order_length_mems = i;
+                break;
+            }
+            
+            // try to find any run of MEMs that could be merged with this MEM
+            bool found_merge_group = false;
+            for (size_t j = 0; j < merge_groups.size(); j++) {
+                
+                vector<size_t>& merge_group = merge_groups[j];
+                
+                // because of the sort order, the last node in this run should overlap the current MEM
+                // if any of them can
+                ExactMatchNode& last_run_node = match_nodes[merge_group[merge_group.size() - 1]];
+                
+                // do they overhang an amount on the read that indicates they could be merged?
+                int64_t overhang = last_run_node.end - match_node.begin;
+                if (overhang >= 0) {
+                    
+                    // get the initial position of the node further to the right
+                    pos_t match_node_initial_pos = make_pos_t(match_node.path.mapping(0).position());
+                    
+                    // get the position at the overhang back from the end of the node further to the left
+                    int64_t remaining = last_run_node.end - last_run_node.begin;
+                    pos_t last_run_node_internal_pos;
+                    for (size_t k = 0; k < last_run_node.path.mapping_size(); k++) {
+                        
+                        int64_t mapping_length = mapping_from_length(last_run_node.path.mapping(k));
+                        
+                        if (remaining - mapping_length < overhang) {
+                            // we will cross the position that should line up with the initial position on this mapping
+                            
+                            const Position& overhang_position = last_run_node.path.mapping(k).position();
+                            
+                            get_id(last_run_node_internal_pos) = overhang_position.node_id();
+                            get_is_rev(last_run_node_internal_pos) = overhang_position.is_reverse();
+                            get_offset(last_run_node_internal_pos) = overhang_position.offset() + (remaining - overhang);
+                            
+                            break;
+                        }
+                        
+                        remaining -= mapping_length;
+                    }
+                    
+                    // get the final position of the node further to the left
+                    const Mapping& final_mapping = last_run_node.path.mapping(match_node.path.mapping_size() - 1);
+                    const Position& final_mapping_position = final_mapping.position();
+                    pos_t last_run_node_final_pos = make_pos_t(final_mapping_position.node_id(),
+                                                               final_mapping_position.is_reverse(),
+                                                               final_mapping_position.offset() + mapping_from_length(final_mapping));
+                    
+                    // get the position at the overhang into the node further to the right
+                    remaining = match_node.end - match_node.begin;
+                    pos_t match_node_internal_pos;
+                    for (int64_t k = match_node.path.mapping_size() - 1; k >= 0; k--) {
+                        
+                        int64_t mapping_length = mapping_from_length(match_node.path.mapping(k));
+                        remaining -= mapping_length;
+                        
+                        if (remaining < overhang) {
+                            // we will cross the position that should line up with the initial position on this mapping
+                            
+                            const Position& overhang_position = match_node.path.mapping(k).position();
+                            
+                            get_id(last_run_node_internal_pos) = overhang_position.node_id();
+                            get_is_rev(last_run_node_internal_pos) = overhang_position.is_reverse();
+                            get_offset(last_run_node_internal_pos) = overhang_position.offset() + overhang - remaining;
+                            
+                            break;
+                        }
+                    }
+                    
+                    // do the positions match up as we would expect if these are actually part of the same match?
+                    if (match_node_initial_pos == last_run_node_internal_pos && last_run_node_final_pos == match_node_internal_pos) {
+                        
+                        // add the match node to this merge group
+                        merge_group.push_back(i);
+                        found_merge_group = true;
+                        
+                        break;
+                    }
+                    else if (overhang == 0 && offset(match_node_initial_pos) == 0) {
+                        // it could still be that these are two end-to-end matches that got assigned to the beginning
+                        // and end of two nodes connected by an edge
+                        
+                        if (offset(last_run_node_final_pos) == vg.get_node(final_mapping_position.node_id())->sequence().size()
+                            && vg.has_edge(NodeSide(id(last_run_node_final_pos), !is_rev(last_run_node_final_pos)),
+                                           NodeSide(id(match_node_initial_pos), is_rev(match_node_initial_pos)))) {
+                                
+                            // add the match node to this merge group
+                            merge_group.push_back(i);
+                            found_merge_group = true;
+                            
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (!found_merge_group) {
+                // make a new merge group consisting of only this MEM
+                merge_groups.emplace_back(1, i);
+            }
+        }
+        
+        if (merge_groups.size() != num_order_length_mems) {
+            // we found at least one merge to do, now we need to actually do the merges
+            
+            unordered_set<size_t> to_remove;
+            
+            for (const vector<size_t>& merge_group : merge_groups) {
+                
+                // merge the paths into the first node in the group (arbitrarily)
+                ExactMatchNode& merge_into_node = match_nodes[merge_group[0]];
+                
+                for (size_t i = 1; i < merge_group.size(); i++) {
+                    
+                    // mark the node we're merging from for removal
+                    to_remove.insert(merge_group[i]);
+                    
+                    ExactMatchNode& merge_from_node = match_nodes[merge_group[i]];
+                    
+                    // walk backwards until we find the first mapping to add
+                    int64_t to_add_length = merge_from_node.end - merge_into_node.end;
+                    int64_t remaining = to_add_length;
+                    int64_t first_mapping_to_add_idx = 0;
+                    for (int64_t j = merge_from_node.path.mapping_size() - 1; j >= 0; j--) {
+                        remaining -= mapping_from_length(merge_from_node.path.mapping(j));
+                        if (remaining <= 0) {
+                            first_mapping_to_add_idx = j;
+                            break;
+                        }
+                    }
+                    
+                    // handle the first mapping we add as a special case
+                    const Mapping& first_mapping_to_add = merge_from_node.path.mapping(first_mapping_to_add_idx);
+                    Mapping* final_merging_mapping = merge_into_node.path.mutable_mapping(merge_into_node.path.mapping_size() - 1);
+                    if (final_merging_mapping->position().node_id() == first_mapping_to_add.position().node_id() &&
+                        final_merging_mapping->position().is_reverse() == first_mapping_to_add.position().is_reverse() &&
+                        final_merging_mapping->position().offset() + mapping_from_length(*final_merging_mapping) == first_mapping_to_add.position().offset()) {
+                        
+                        // the mappings are end-to-end on the same node, so they can be combined
+                        int64_t mapping_to_add_length = mapping_from_length(first_mapping_to_add);
+                        Edit* final_edit = final_merging_mapping->mutable_edit(final_merging_mapping->edit_size() - 1);
+                        final_edit->set_from_length(final_edit->from_length() + mapping_to_add_length);
+                        final_edit->set_to_length(final_edit->to_length() + mapping_to_add_length);
+                    }
+                    else {
+                        // we need to add this as a new mapping
+                        *merge_into_node.path.add_mapping() = first_mapping_to_add;
+                    }
+                    
+                    // add the remaining mappings as new mappings
+                    for (size_t j = first_mapping_to_add_idx + 1; j < merge_from_node.path.mapping_size(); j++) {
+                        *merge_into_node.path.add_mapping() = merge_from_node.path.mapping(j);
+                    }
+                }
+            }
+            
+            // remove all of the nodes we merged into other nodes
+            size_t removed_so_far = 0;
+            for (size_t i = 0; i < match_nodes.size(); i++) {
+                if (to_remove.count(i)) {
+                    removed_so_far++;
+                }
+                else if (removed_so_far > 0) {
+                    match_nodes[i - removed_so_far] = move(match_nodes[i]);
+                }
+            }
+            
+            match_nodes.resize(match_nodes.size() - to_remove.size());
         }
     }
             

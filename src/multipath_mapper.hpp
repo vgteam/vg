@@ -16,6 +16,7 @@
 #include "xg.hpp"
 #include "vg.pb.h"
 #include "position.hpp"
+#include "nodeside.hpp"
 #include "path.hpp"
 #include "edit.hpp"
 #include "snarls.hpp"
@@ -277,7 +278,7 @@ namespace vg {
         /// sub-MEMs. Assumes that the cluster is sorted by primarily length and secondarily lexicographically
         /// by read interval. Optionally cuts snarl interiors from the paths and splits nodes accordingly
         MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
-                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans, gcsa::GCSA* gcsa = nullptr,
                                 SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
         
         ~MultipathAlignmentGraph();
@@ -307,6 +308,11 @@ namespace vg {
         void create_match_nodes(VG& vg, const MultipathMapper::memcluster_t& hits,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+        
+        /// Identifies runs of exact matches that are sub-maximal because they hit the order of the GCSA
+        /// index and merges them into a single node, assumes that match nodes are sorted by length and
+        /// then lexicographically by read interval, does not update edges
+        void collapse_order_length_runs(VG& vg, gcsa::GCSA* gcsa);
         
         /// Cut the interior of snarls out of anchoring paths unless they are longer than the
         /// max cut size
