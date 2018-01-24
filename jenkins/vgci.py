@@ -1092,8 +1092,9 @@ class VGCITest(TestCase):
         cmd += ['--call_and_genotype']
         # vg genotype needs this not to run out of ram
         cmd += ['--call_chunk_size', '500000']
-        # turn off a lot of the hacky filtering needed for call in genotype
-        cmd += ['--filter_opts_gt', '-m 1']
+        # turn off defray filter so genotype doesn't spend time xg-indexing chunks
+        # (but leave on the other filters)
+        # cmd += ['--filter_opts_gt', '-r', '0.9', '-fu', '-s', '1000', '-m', '1', '-q', '15']
         # run freebayes
         if bam_path:
             cmd += ['--freebayes']
