@@ -3111,7 +3111,7 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
         }
     }
     // get the graph with cluster.hpp's cluster_subgraph
-    Graph graph = cluster_subgraph(*xindex, aln, mems);
+    Graph graph = cluster_subgraph(*xindex, aln, mems, 1);
     // and test each direction for which we have MEM hits
     Alignment aln_fwd;
     Alignment aln_rev;
