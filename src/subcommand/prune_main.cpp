@@ -98,7 +98,7 @@ void insert_path(std::set<std::vector<gbwt::node_type>>& paths, std::vector<gbwt
     paths.insert(std::min(path, reverse_complement));
 }
 
-void list_paths(VG& component, const gbwt::GBWT& gbwt_index, vg::id_t from, std::set<std::vector<gbwt::node_type>>& paths) {
+void list_paths(VG& component, const std::set<vg::id_t> border, const gbwt::GBWT& gbwt_index, vg::id_t from, std::set<std::vector<gbwt::node_type>>& paths) {
     std::stack<std::pair<gbwt::SearchState, std::vector<gbwt::node_type>>> intermediate;
     create_state(gbwt_index, from, false, intermediate);
     create_state(gbwt_index, from, true, intermediate);
@@ -121,7 +121,7 @@ void list_paths(VG& component, const gbwt::GBWT& gbwt_index, vg::id_t from, std:
             }
         }
 
-        if (!has_successors) {
+        if (!has_successors || border.find(node) != border.end()) {
             insert_path(paths, path);
         }
     }
@@ -306,7 +306,7 @@ int main_prune(int argc, char** argv) {
             });
             std::set<std::vector<gbwt::node_type>> paths;
             for (vg::id_t start_node : border) {
-                list_paths(component, gbwt_index, start_node, paths);
+                list_paths(component, border, gbwt_index, start_node, paths);
             }
             haplotype_paths += paths.size();
             for (const std::vector<gbwt::node_type>& path : paths) {
@@ -334,8 +334,7 @@ int main_prune(int argc, char** argv) {
                       << haplotype_paths << " paths" << std::endl;
         }
 
-        graph->merge(unfolded);
-        graph->remove_duplicates();
+        graph->extend(unfolded);
     }
 
     // Serialize.
@@ -348,6 +347,8 @@ int main_prune(int argc, char** argv) {
         std::cerr << "Not implemented yet!" << std::endl;
         // (write mapping)
     }
+
+    std::cerr << "Max node: " << graph->max_node_id() << ", next node: " << graph->current_id << std::endl;
 
     delete graph; graph = nullptr;
 
