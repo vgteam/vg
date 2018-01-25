@@ -13,6 +13,10 @@
 
 #include "crash.hpp"
 
+// Pull in backward-cpp
+#include <backward.hpp>
+
+
 // iostream wants this on Travis on Mac
 #include <pthread.h>
 #include <errno.h>
@@ -150,7 +154,8 @@ void stacktrace_manually_and_exit(int signalNumber, void* ip, void** bp) {
     // Now we compute our own stack trace, because backtrace() isn't so good on OS X.
     // We operate on the same principles as <https://stackoverflow.com/a/5426269>
 
-    // Unfortunately this *only* seems to work on OS X; on Linux we get ip wandering off relatively quickly.
+    // Unfortunately this *only* seems to work on OS X; on Linux we get ip
+    // wandering off relatively quickly.
     
     // Allocate a place to keep the dynamic library info for the address the stack is executing at
     Dl_info address_library;
@@ -226,6 +231,7 @@ void stacktrace_manually_and_exit(int signalNumber, void* ip, void** bp) {
     exit(signalNumber + 128);
 }
 
+/// Emit a stack trace when something bad happens. Add as a signal handler with sigaction.
 void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContext) {
     // This holds the context that the signal came from, including registers and stuff
     ucontext_t* context = (ucontext_t*) signalContext;
@@ -261,6 +267,30 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
     
     
     
+}
+
+void enable_crash_handling() {
+    // Set up stack trace support
+
+    // Use backward-cpp
+    static backward::SignalHandling signal_handling_manager;
+
+    // Skip the old way
+    return;
+
+    // We do it the cleverer sigaction way to try and make OS X backtrace not just tell us that the signal handler is being called.
+    struct sigaction sig_config;
+    sig_config.sa_flags = SA_SIGINFO; // Use the new API and not the old signal() API for the handler.
+    sig_config.sa_sigaction = emit_stacktrace;
+    sigemptyset(&sig_config.sa_mask);
+ 
+    sigaction(SIGABRT, &sig_config, nullptr);
+    sigaction(SIGSEGV, &sig_config, nullptr);
+    sigaction(SIGBUS, &sig_config, nullptr);
+    sigaction(SIGILL, &sig_config, nullptr);
+    
+    // We don't set_terminate for aborts because we still want the standard
+    // library's message about what the exception was.
 }
 
 }

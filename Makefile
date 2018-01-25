@@ -9,6 +9,7 @@ ALGORITHMS_OBJ_DIR:=$(OBJ_DIR)/algorithms
 UNITTEST_OBJ_DIR:=$(OBJ_DIR)/unittest
 SUBCOMMAND_OBJ_DIR:=$(OBJ_DIR)/subcommand
 LIB_DIR:=lib
+# INC_DIR must be a relative path
 INC_DIR:=include
 CPP_DIR:=cpp
 CWD:=$(shell pwd)
@@ -115,6 +116,7 @@ SPARSEHASH_DIR:=deps/sparsehash
 SHA1_DIR:=deps/sha1
 DYNAMIC_DIR:=deps/DYNAMIC
 SSW_DIR:=deps/ssw/src
+BACKWARD_CPP_DIR:=deps/backward-cpp
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # Dependencies that go into libvg's archive
@@ -148,6 +150,7 @@ DEPS += $(INC_DIR)/sparsehash/sparse_hash_map
 DEPS += $(INC_DIR)/gfakluge.hpp
 DEPS += $(INC_DIR)/sha1.hpp
 DEPS += $(INC_DIR)/progress_bar.hpp
+DEPS += $(INC_DIR)/backward.hpp
 
 ifneq ($(shell uname -s),Darwin)
 	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
@@ -293,6 +296,9 @@ $(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/*.c $(RAPTOR_DIR)/src/*.h
 
 $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 	+cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
+
+$(INC_DIR)/backward.hpp: $(BACKWARD_CPP_DIR)/backward.hpp
+	+cp $(BACKWARD_CPP_DIR)/backward.hpp $(CWD)/$(INC_DIR)/
 
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
