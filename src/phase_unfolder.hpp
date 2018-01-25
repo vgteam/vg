@@ -87,6 +87,9 @@ private:
     /// Insert the path into the set in the canonical orientation.
     void insert_path(const path_type& path);
 
+    /// Get the next available node id.
+    vg::id_t get_id();
+
     /// XG and GBWT indexes for the original graph.
     const xg::XG&          xg_index;
     const gbwt::GBWT&      gbwt_index;

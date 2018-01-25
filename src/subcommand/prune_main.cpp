@@ -52,7 +52,7 @@ void help_prune(char** argv) {
     std::cerr << "    -P, --preserve-paths   preserve the embedded non-alt paths in the graph" << std::endl;
     std::cerr << "    -g, --gbwt-name FILE   unfold the complex regions by using the threads in" << std::endl;
     std::cerr << "                           this GBWT index (requires -x, ignores -P)" << std::endl;
-    std::cerr << "    -x, --xg_name FILE     unfold also the paths in this XG index (requires -g)" << std::endl;
+    std::cerr << "    -x, --xg-name FILE     unfold also the paths in this XG index (requires -g)" << std::endl;
     std::cerr << "    -m, --mapping FILE     store the node mapping from -g in this file" << std::endl;
     std::cerr << "other options:" << std::endl;
     std::cerr << "    -p, --progress         show progress" << std::endl;

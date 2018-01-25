@@ -1,6 +1,7 @@
 #include "phase_unfolder.hpp"
 
 #include <iostream>
+#include <map>
 
 namespace vg {
 
@@ -92,21 +93,37 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
     }
     size_t haplotype_paths = this->paths.size();
 
-    // Unfold the generated paths.
-    // TODO: We should merge shared prefixes and/or suffixes.
+    // Unfold the generated paths. We merge duplicated nodes by shared
+    // prefixes in the first half of the path and by shared suffixes in
+    // the second half. Needless duplication would otherwise make GCSA2
+    // index construction too expensive.
+    // TODO: We need to store the mapping.
+    std::map<path_type, vg::id_t> node_by_prefix, node_by_suffix;
     for (const path_type& path : this->paths) {
         Node prev = this->xg_index.node(gbwt::Node::id(path.front()));
         unfolded.add_node(prev);
         for (size_t i = 1; i < path.size(); i++) {
-            Node node = this->xg_index.node(gbwt::Node::id(path[i]));
-            if (i + 1 < path.size()) {
-                node.set_id(this->next_node); this->next_node++; // TODO: We need to store the mapping.
+            Node curr = this->xg_index.node(gbwt::Node::id(path[i]));
+            bool is_prefix = (i < (path.size() + 1) / 2);
+            bool is_suffix = !is_prefix & (i + 1 < path.size());
+            if (is_prefix) {
+                auto iter = node_by_prefix.emplace(path_type(path.begin(), path.begin() + i + 1), 0).first;
+                if (iter->second == 0) {      // No cached node with the same prefix.
+                    iter->second = this->get_id();
+                }
+                curr.set_id(iter->second);
+            } else if (is_suffix) {
+                auto iter = node_by_suffix.emplace(path_type(path.begin() + i, path.end()), 0).first;
+                if (iter->second == 0) {      // No cached node with the same suffix.
+                    iter->second = this->get_id();
+                }
+                curr.set_id(iter->second);
             }
-            unfolded.add_node(node);
+            unfolded.add_node(curr);
             Edge edge = xg::make_edge(prev.id(), gbwt::Node::is_reverse(path[i - 1]),
-                                      node.id(), gbwt::Node::is_reverse(path[i]));
+                                      curr.id(), gbwt::Node::is_reverse(path[i]));
             unfolded.add_edge(edge);
-            prev = node;
+            prev = curr;
         }
     }
 
@@ -193,6 +210,10 @@ void PhaseUnfolder::insert_path(const path_type& path) {
         reverse_complement[path.size() - 1 - i] = gbwt::Node::reverse(path[i]);
     }
     this->paths.insert(std::min(path, reverse_complement));
+}
+
+vg::id_t PhaseUnfolder::get_id() {
+    return this->next_node++;
 }
 
 } 
