@@ -6,7 +6,7 @@
 
 //#define debug_multipath_mapper_mapping
 //#define debug_multipath_mapper_alignment
-//#define debug_validate_multipath_alignments
+#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
 
 #include "multipath_mapper.hpp"
@@ -1077,7 +1077,7 @@ namespace vg {
                                                vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
                                                size_t max_alt_mappings) {
-
+        
 #ifdef debug_multipath_mapper_mapping
         cerr << "multipath mapping paired reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
 #endif
@@ -3287,6 +3287,18 @@ namespace vg {
             collapse_order_length_runs(vg, gcsa);
         }
         
+#ifdef debug_multipath_mapper_alignment
+        cerr << "nodes after adding and collapsing:" << endl;
+        for (size_t i = 0; i < match_nodes.size(); i++) {
+            ExactMatchNode& match_node = match_nodes[i];
+            cerr << i << " " << pb2json(match_node.path) << " ";
+            for (auto iter = match_node.begin; iter != match_node.end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+        }
+#endif
+        
         if (cutting_snarls) {
             // we indicated a snarl manager that owns the snarls we want to cut out of exact matches
             resect_snarls_from_paths(cutting_snarls, projection_trans, max_snarl_cut_size);
@@ -3708,6 +3720,17 @@ namespace vg {
             }
         }
         
+#ifdef debug_multipath_mapper_alignment
+        cerr << "merge groups among order length MEMs:" << endl;
+        for (auto& group : merge_groups) {
+            cerr << "\t";
+            for (auto i : group) {
+                cerr << i << " ";
+            }
+            cerr << endl;
+        }
+#endif
+        
         if (merge_groups.size() != num_order_length_mems) {
             // we found at least one merge to do, now we need to actually do the merges
             
@@ -3726,8 +3749,8 @@ namespace vg {
                     ExactMatchNode& merge_from_node = match_nodes[merge_group[i]];
                     
 #ifdef debug_multipath_mapper_alignment
-                    cerr << "merging path " << pb2json(merge_from_node.path) << endl;
-                    cerr << "into path " << pb2json(merge_into_node.path) << endl;
+                    cerr << "merging into node " << merge_group[0] << " path " << pb2json(merge_into_node.path) << endl;
+                    cerr << "from node " << merge_group[i] << " path " << pb2json(merge_from_node.path) << endl;
 #endif
                     
                     // walk backwards until we find the first mapping to add
@@ -3742,28 +3765,45 @@ namespace vg {
                         }
                     }
                     
+                    //cerr << "first mapping to add is idx " << first_mapping_to_add_idx << ": " << pb2json(merge_from_node.path.mapping(first_mapping_to_add_idx)) << endl;
+                    //cerr << "adding total length " << to_add_length << " remaining length is " << remaining << endl;
+                    
                     // handle the first mapping we add as a special case
                     const Mapping& first_mapping_to_add = merge_from_node.path.mapping(first_mapping_to_add_idx);
                     Mapping* final_merging_mapping = merge_into_node.path.mutable_mapping(merge_into_node.path.mapping_size() - 1);
+                    //cerr << "merging it into mapping " << pb2json(*final_merging_mapping) << endl;
                     if (final_merging_mapping->position().node_id() == first_mapping_to_add.position().node_id() &&
                         final_merging_mapping->position().is_reverse() == first_mapping_to_add.position().is_reverse() &&
-                        final_merging_mapping->position().offset() + mapping_from_length(*final_merging_mapping) == first_mapping_to_add.position().offset()) {
+                        final_merging_mapping->position().offset() == first_mapping_to_add.position().offset() &&
+                        mapping_from_length(*final_merging_mapping) == -remaining) {
                         
-                        // the mappings are end-to-end on the same node, so they can be combined
-                        int64_t mapping_to_add_length = mapping_from_length(first_mapping_to_add);
+                        // the mappings are on the same node, so they can be combined
+                        int64_t mapping_to_add_length = mapping_from_length(first_mapping_to_add) + remaining;
                         Edit* final_edit = final_merging_mapping->mutable_edit(final_merging_mapping->edit_size() - 1);
                         final_edit->set_from_length(final_edit->from_length() + mapping_to_add_length);
                         final_edit->set_to_length(final_edit->to_length() + mapping_to_add_length);
+                        
+                        //cerr << "blended mapping is " << pb2json(*final_merging_mapping) << endl;
                     }
                     else {
                         // we need to add this as a new mapping
-                        *merge_into_node.path.add_mapping() = first_mapping_to_add;
+                        Mapping* new_mapping = merge_into_node.path.add_mapping();
+                        *new_mapping = first_mapping_to_add;
+                        new_mapping->set_rank(final_merging_mapping->rank() + 1);
+                        //cerr << "new separate mapping is " << pb2json(*new_mapping) << endl;
+                        
                     }
                     
                     // add the remaining mappings as new mappings
                     for (size_t j = first_mapping_to_add_idx + 1; j < merge_from_node.path.mapping_size(); j++) {
-                        *merge_into_node.path.add_mapping() = merge_from_node.path.mapping(j);
+                        Mapping* new_mapping = merge_into_node.path.add_mapping();
+                        *new_mapping = merge_from_node.path.mapping(j);
+                        new_mapping->set_rank(merge_into_node.path.mapping(merge_into_node.path.mapping_size() - 2).rank() + 1);
+                        //cerr << "added new separate mapping " << pb2json(*new_mapping) << endl;
                     }
+                    
+                    // merge the substrings on the node
+                    merge_into_node.end = merge_from_node.end;
                     
 #ifdef debug_multipath_mapper_alignment
                     cerr << "merged path is " << pb2json(merge_from_node.path) << endl;
