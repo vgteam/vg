@@ -3593,7 +3593,7 @@ namespace vg {
                 ExactMatchNode& last_run_node = match_nodes[merge_group[merge_group.size() - 1]];
                 
 #ifdef debug_multipath_mapper_alignment
-                cerr << "checking against extending MEM " << merge_group[j] << ":" << endl;
+                cerr << "checking against extending MEM " << merge_group[merge_group.size() - 1] << " in merge group " << j << ":" << endl;
                 cerr << "\t";
                 for (auto iter = last_run_node.begin; iter != last_run_node.end; iter++) {
                     cerr << *iter;
@@ -3636,7 +3636,7 @@ namespace vg {
                     }
                     
                     // get the final position of the node further to the left
-                    const Mapping& final_mapping = last_run_node.path.mapping(match_node.path.mapping_size() - 1);
+                    const Mapping& final_mapping = last_run_node.path.mapping(last_run_node.path.mapping_size() - 1);
                     const Position& final_mapping_position = final_mapping.position();
                     pos_t last_run_node_final_pos = make_pos_t(final_mapping_position.node_id(),
                                                                final_mapping_position.is_reverse(),
@@ -3664,7 +3664,7 @@ namespace vg {
                     }
                     
 #ifdef debug_multipath_mapper_alignment
-                    cerr << "overhang segments on extension node " << match_node_initial_pos << ", " << match_node_internal_pos << " and extending node " << last_run_node_internal_pos << ", " last_run_node_final_pos << endl;
+                    cerr << "overhang segments on extension node " << match_node_initial_pos << ", " << match_node_internal_pos << " and extending node " << last_run_node_internal_pos << ", " << last_run_node_final_pos << endl;
 #endif
                     
                     // do the positions match up as we would expect if these are actually part of the same match?
@@ -3726,7 +3726,8 @@ namespace vg {
                     ExactMatchNode& merge_from_node = match_nodes[merge_group[i]];
                     
 #ifdef debug_multipath_mapper_alignment
-                    cerr << "merging path " << pb2json(merge_from_node.path) << " into path " << pb2json(merge_into_node.path) << endl;
+                    cerr << "merging path " << pb2json(merge_from_node.path) << endl;
+                    cerr << "into path " << pb2json(merge_into_node.path) << endl;
 #endif
                     
                     // walk backwards until we find the first mapping to add
