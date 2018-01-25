@@ -358,6 +358,7 @@ int main_genotype(int argc, char** argv) {
              << ".  Must be in {reads, representative, exhaustive, adaptive}" << endl;
         return 1;
     }
+    genotyper.show_progress = show_progress;
 
     // Guess the reference path if not given
     if(ref_path_name.empty()) {
@@ -394,7 +395,6 @@ int main_genotype(int argc, char** argv) {
                   sample_name,
                   augmented_file_name,
                   subset_graph,
-                  show_progress,
                   output_vcf,
                   output_json,
                   length_override,
