@@ -1081,6 +1081,8 @@ class VGCITest(TestCase):
 
         # run calleval
         cmd = ['toil-vg', 'calleval', job_store, out_store]
+        if self.vg_docker:
+            cmd += ['--vg_docker', self.vg_docker]
         cmd += ['--calling_cores', str(min(2, self.cores))]
         cmd += ['--call_chunk_cores', str(min(6, self.cores))]
         cmd += ['--gam_index_cores', str(min(4, self.cores))]
