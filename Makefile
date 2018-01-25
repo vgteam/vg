@@ -47,7 +47,8 @@ else
     # We are not running on OS X
 	# We can also have a normal Unix rpath
 	LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)
-	# Make sure to allow backtrace access to all our symbols, even in a static build.
+	# Make sure to allow backtrace access to all our symbols, even those which are not exported.
+    # Absolutely no help in a static build.
 	LD_LIB_FLAGS += -rdynamic
 endif
 
