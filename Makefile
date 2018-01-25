@@ -31,19 +31,28 @@ LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthr
 
 ifeq ($(shell uname -s),Darwin)
 	# We may need libraries from Macports
-	# TODO: where does Homebrew keep libraries?
-	ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
-	LD_LIB_FLAGS += -L/opt/local/lib
-endif
-ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
-	LD_LIB_FLAGS += -L/usr/local/lib
-endif
+    # TODO: where does Homebrew keep libraries?
+	
+    ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
+        # Use /opt/local/lib if present
+	    LD_LIB_FLAGS += -L/opt/local/lib
+    endif
+
+    ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
+        # Use /usr/local/lib if present.
+        LD_LIB_FLAGS += -L/usr/local/lib
+    endif
+
 else
+    # We are not running on OS X
 	# We can also have a normal Unix rpath
 	LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)
-	# Make sure to allow backtrace access to all our symbols.
+	# Make sure to allow backtrace access to all our symbols, even in a static build.
 	LD_LIB_FLAGS += -rdynamic
 endif
+
+
+
 
 # Sometimes we need to filter the assembler output. The assembler can run during
 # ./configure scripts, compiler calls, or $(MAKE) calls (other than $(MAKE)
