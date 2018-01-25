@@ -51,8 +51,8 @@ void help_prune(char** argv) {
     std::cerr << "path options:" << std::endl;
     std::cerr << "    -P, --preserve-paths   preserve the embedded non-alt paths in the graph" << std::endl;
     std::cerr << "    -g, --gbwt-name FILE   unfold the complex regions by using the threads in" << std::endl;
-    std::cerr << "                           this GBWT index (requires -g, avoid -P)" << std::endl;
-    std::cerr << "    -x, --xg_name FILE     use this XG index with -g" << std::endl;
+    std::cerr << "                           this GBWT index (requires -x, ignores -P)" << std::endl;
+    std::cerr << "    -x, --xg_name FILE     unfold also the paths in this XG index (requires -g)" << std::endl;
     std::cerr << "    -m, --mapping FILE     store the node mapping from -g in this file" << std::endl;
     std::cerr << "other options:" << std::endl;
     std::cerr << "    -p, --progress         show progress" << std::endl;
@@ -139,9 +139,12 @@ int main_prune(int argc, char** argv) {
         cerr << "[vg prune]: --kmer-length and --edge-max must be positive" << endl;
         return 1;
     }
-    if (!gbwt_name.empty() && xg_name.empty()) {
-        cerr << "[vg prune]: parameter --gbwt-name requires --xg-name" << endl;
+    if (gbwt_name.empty() != xg_name.empty()) {
+        cerr << "[vg prune]: parameters --gbwt-name and --xg-name must be used together" << endl;
         return 1;
+    }
+    if (!gbwt_name.empty()) {
+        preserve_paths = false;
     }
 
     // Handle input.

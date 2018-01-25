@@ -814,6 +814,10 @@ public:
                      std::string name = "") const;
     // Get a mapping. Note that the mapping will not have its lengths filled in.
     Mapping mapping(size_t offset) const; // 0-based
+
+    // Get the node orientation at a 0-based offset.
+    id_t node(size_t offset) const;
+    bool is_reverse(size_t offset) const;
 };
 
 

@@ -27,6 +27,29 @@ void PhaseUnfolder::unfold(VG& graph, bool show_progress) {
 
 std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress) {
     VG complement;
+
+    // Add missing edges supported by XG paths.
+    for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
+        const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
+        size_t path_length = path.ids.size();
+        if (path_length == 0) {
+            continue;
+        }
+        gbwt::node_type prev = gbwt::Node::encode(path.node(0), path.is_reverse(0));
+        for (size_t i = 1; i < path_length; i++) {
+            gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
+            Edge candidate = xg::make_edge(gbwt::Node::id(prev), gbwt::Node::is_reverse(prev),
+                                           gbwt::Node::id(curr), gbwt::Node::is_reverse(curr));
+            if (!graph.has_edge(candidate)) {
+                complement.add_node(this->xg_index.node(candidate.from()));
+                complement.add_node(this->xg_index.node(candidate.to()));
+                complement.add_edge(candidate);
+            }
+            prev = curr;
+        }
+    }
+
+    // Add missing edges supported by GBWT threads.
     for (gbwt::comp_type comp = 1; comp < this->gbwt_index.effective(); comp++) {
         gbwt::node_type gbwt_node = this->gbwt_index.toNode(comp);
         std::vector<gbwt::edge_type> outgoing = this->gbwt_index.edges(gbwt_node);
@@ -34,11 +57,8 @@ std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress
             if (outedge.first == gbwt::ENDMARKER) {
                 continue;
             }
-            Edge candidate;
-            candidate.set_from(gbwt::Node::id(gbwt_node));
-            candidate.set_to(gbwt::Node::id(outedge.first));
-            candidate.set_from_start(gbwt::Node::is_reverse(gbwt_node));
-            candidate.set_to_end(gbwt::Node::is_reverse(outedge.first));
+            Edge candidate = xg::make_edge(gbwt::Node::id(gbwt_node), gbwt::Node::is_reverse(gbwt_node),
+                                           gbwt::Node::id(outedge.first), gbwt::Node::is_reverse(outedge.first));
             if (!graph.has_edge(candidate)) {
                 complement.add_node(this->xg_index.node(candidate.from()));
                 complement.add_node(this->xg_index.node(candidate.to()));
@@ -68,6 +88,7 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
     // Generate the paths starting from each border node.
     for (vg::id_t start_node : this->border) {
         this->generate_paths(component, start_node);
+        this->generate_threads(component, start_node);
     }
     size_t haplotype_paths = this->paths.size();
 
@@ -82,11 +103,8 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
                 node.set_id(this->next_node); this->next_node++; // TODO: We need to store the mapping.
             }
             unfolded.add_node(node);
-            Edge edge;
-            edge.set_from(prev.id());
-            edge.set_to(node.id());
-            edge.set_from_start(gbwt::Node::is_reverse(path[i - 1]));
-            edge.set_to_end(gbwt::Node::is_reverse(path[i]));
+            Edge edge = xg::make_edge(prev.id(), gbwt::Node::is_reverse(path[i - 1]),
+                                      node.id(), gbwt::Node::is_reverse(path[i]));
             unfolded.add_edge(edge);
             prev = node;
         }
@@ -98,6 +116,33 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
 }
 
 void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
+    static int component_id = 0;
+    for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
+        const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
+        size_t path_length = path.ids.size();
+
+        std::vector<size_t> occurrences = this->xg_index.node_ranks_in_path(from, path_rank);
+        for (size_t occurrence : occurrences) {
+            gbwt::node_type prev = gbwt::Node::encode(path.node(occurrence), path.is_reverse(occurrence));
+            path_type buffer { prev };
+            for (size_t i = occurrence + 1; i < path_length; i++) {
+                gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
+                Edge candidate = xg::make_edge(gbwt::Node::id(prev), gbwt::Node::is_reverse(prev),
+                                               gbwt::Node::id(curr), gbwt::Node::is_reverse(curr));
+                if (!component.has_edge(candidate)) {
+                    break;
+                }
+                buffer.push_back(curr);
+                if (this->border.find(gbwt::Node::id(curr)) != this->border.end()) {
+                    this->insert_path(buffer);
+                }
+                prev = curr;
+            }
+        }
+    }
+}
+
+void PhaseUnfolder::generate_threads(VG& component, vg::id_t from) {
     this->create_state(from, false);
     this->create_state(from, true);
 
@@ -107,17 +152,16 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
         bool is_reverse = gbwt::Node::is_reverse(state.second.back());
 
         std::vector<Edge*> edges = component.edges_of(component.get_node(node));
-        bool has_successors = false;
         for (Edge* edge : edges) {
             if (edge->from() == node && edge->from_start() == is_reverse) {
-                has_successors |= this->extend_state(state, edge->to(), edge->to_end());
+                this->extend_state(state, edge->to(), edge->to_end());
             }
             else if (edge->to() == node && edge->to_end() != is_reverse) {
-                has_successors |= this->extend_state(state, edge->from(), !edge->from_start());
+                this->extend_state(state, edge->from(), !edge->from_start());
             }
         }
 
-        if (!has_successors || this->border.find(node) != this->border.end()) {
+        if (this->border.find(node) != this->border.end()) {
             this->insert_path(state.second);
         }
     }
@@ -131,14 +175,13 @@ void PhaseUnfolder::create_state(vg::id_t node, bool is_reverse) {
     this->states.push(std::make_pair(search, path_type {search.node}));
 }
 
-bool PhaseUnfolder::extend_state(state_type state, vg::id_t node, bool is_reverse) {
+void PhaseUnfolder::extend_state(state_type state, vg::id_t node, bool is_reverse) {
     state.first = this->gbwt_index.extend(state.first, gbwt::Node::encode(node, is_reverse));
     if (state.first.empty()) {
-        return false;
+        return;
     }
     state.second.push_back(state.first.node);
     this->states.push(state);
-    return true;
 }
 
 void PhaseUnfolder::insert_path(const path_type& path) {

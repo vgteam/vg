@@ -40,11 +40,11 @@ public:
      * Unfold the pruned regions in the input graph:
      *
      * - Determine the connected components of edges missing from the input
-     * graph, as determined by the GBWT index.
+     * graph, as determined by the XG paths and GBWT threads.
      *
-     * - For each component, find all border-to-border paths supported by the
-     * GBWT index. Then unfold the component by duplicating the nodes, so that
-     * the paths are disjoint, except for their endpoints.
+     * - For each component, find all border-to-border paths and threads
+     * supported by the indexes. Then unfold the component by duplicating the
+     * nodes, so that the paths are disjoint, except for their endpoints.
      *
      * - Extend the input graph with the unfolded components.
      */
@@ -69,19 +69,20 @@ private:
      */
     size_t unfold_component(VG& component, VG& graph, VG& unfolded);
 
-   /**
-    * Generate all paths starting from the given node that are supported by
-    * the GBWT index and that are either maximal or end at the border. Insert
-    * the generated paths into the set in canonical order.
-    */
-   void generate_paths(VG& component, vg::id_t from);
+    /**
+     * Generate all paths or threads starting from the given node that are
+     * supported by the corresponding index and end at the border. Insert the
+     * generated paths into the set in canonical order.
+     */
+    void generate_paths(VG& component, vg::id_t from);
+    void generate_threads(VG& component, vg::id_t from);
 
     /**
      * Create or extend the state with the given node orientation, and insert
      * it into the stack if it is supported by the GBWT index.
      */
     void create_state(vg::id_t node, bool is_reverse);
-    bool extend_state(state_type state, vg::id_t node, bool is_reverse);
+    void extend_state(state_type state, vg::id_t node, bool is_reverse);
 
     /// Insert the path into the set in the canonical orientation.
     void insert_path(const path_type& path);
