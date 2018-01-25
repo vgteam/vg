@@ -6,7 +6,7 @@
 
 //#define debug_multipath_mapper_mapping
 //#define debug_multipath_mapper_alignment
-#define debug_validate_multipath_alignments
+//#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
 
 #include "multipath_mapper.hpp"
