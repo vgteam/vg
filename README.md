@@ -20,13 +20,13 @@ This model is similar to a number of sequence graphs that have been used in asse
 ## Usage
 
 ### building
-
-Before you begin, you'll need to install some basic tools if they are not already installed. You'll need the protobuf and jansson development libraries installed on your server. Additionally, to run the tests, you will need `jq`, `bc` and `rs`.
+e
+Before you begin, you'll need to install some basic tools if they are not already installed. You'll need the protobuf and jansson development libraries installed on your server. Linux hosts will need libdw from elfutils. Additionally, to run the tests, you will need `jq`, `bc` and `rs`.
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
                          jq bc rs curl unzip redland-utils librdf-dev bison flex lzma-dev \
-                         liblzma-dev liblz4-dev 
+                         liblzma-dev liblz4-dev libdw-dev  
 
 You can also run `make get-deps`.
 

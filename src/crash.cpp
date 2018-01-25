@@ -14,6 +14,9 @@
 #include "crash.hpp"
 
 // Pull in backward-cpp
+#ifndef __APPLE__
+    #define BACKWARD_HAS_DW 1
+#endif
 #include <backward.hpp>
 
 
