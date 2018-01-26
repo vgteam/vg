@@ -1529,33 +1529,31 @@ double Genotyper::get_genotype_log_likelihood(VG& graph, const Snarl* snarl, con
         // pull it out of the sum.
         double log_atom_weight = prob_to_logprob(0.5) * total_reads;
 
-        // We calculate the probability of each atom, then sum, and then weight.
-        vector<double> unweighted_atom_logprobs;
+        // We calculate the probability of each atom, weight, then sum.
+        vector<double> weighted_atom_logprobs;
 
         for(int i = first_only_reads; i <= first_only_reads + ambiguous_reads; i++) {
             // For each possible actual number of reads from the first allele,
             // add in the probability of that atom.
-            auto unweighted_atom_logprob = choose_ln(total_reads, i);
-            unweighted_atom_logprobs.push_back(unweighted_atom_logprob);
+            auto weighted_atom_logprob = choose_ln(total_reads, i) + log_atom_weight;
+            weighted_atom_logprobs.push_back(weighted_atom_logprob);
 
 #ifdef debug
 #pragma omp critical (cerr)
-            cerr << "P(" << i << " from first allele) = " << logprob_to_prob(unweighted_atom_logprob)
-                 << " * " << logprob_to_prob(log_atom_weight) << " = " 
-                 << logprob_to_prob(unweighted_atom_logprob + log_atom_weight) << endl;
+            cerr << "P(" << i << " from first allele) = " << logprob_to_prob(weighted_atom_logprob) << endl;
 #endif
 
         }
 
-        // Weight all the atoms with the shared weight, and then multiply in (to
+        // Atoms are already weighted above with the shared weight, and then multiply in (to
         // probability of 1) the probability of observing this range of possible
         // totals of reads from each of the two alleles.
-        alleles_as_specified = (logprob_sum(unweighted_atom_logprobs) + log_atom_weight);
+        alleles_as_specified = logprob_sum(weighted_atom_logprobs);
 
 #ifdef debug
 #pragma omp critical (cerr)
         cerr << "P(" << first_only_reads << " to "  << (first_only_reads + ambiguous_reads) << " from first allele) = "
-             << logprob_to_prob(logprob_sum(unweighted_atom_logprobs)) << " * " << logprob_to_prob(log_atom_weight) 
+             << logprob_to_prob(logprob_sum(weighted_atom_logprobs)) 
              << " = " << logprob_to_prob(alleles_as_specified) << endl;
 #endif
 
