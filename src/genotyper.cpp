@@ -2321,7 +2321,11 @@ Genotyper::locus_to_variant(VG& graph,
     for(auto& log_likelihood : log_likelihoods) {
         // Add all the likelihood strings, normalizing against the best
         // TODO: the best may not actually be the chosen genotype, because we genotype on posteriors.
-        variant.samples[sample_name]["PL"].push_back(to_string(logprob_to_phred(log_likelihood - best_genotype.log_likelihood())));
+        double pl_phred = 0.;
+        if (!std::isinf((double)log_likelihood) && !(std::isinf((double)best_genotype.log_likelihood()))) {
+            pl_phred = logprob_to_phred(log_likelihood - best_genotype.log_likelihood());
+        }
+        variant.samples[sample_name]["PL"].push_back(to_string(pl_phred));
     }
 
     // Set the variant position (now that we have budged it left if necessary)
