@@ -34,11 +34,13 @@
 #include <string>
 #include <iostream>
 
-// Pull in backward-cpp
 #ifndef __APPLE__
+    // Pull in backward-cpp and use libdw from elfutils.
+    // In theory backward-cpp can build and even backtrace on mac
+    // In practice the mac port doesn't work on my machine and breaks the build on Travis.
     #define BACKWARD_HAS_DW 1
+    #include <backward.hpp>
 #endif
-#include <backward.hpp>
 
 namespace vg {
 

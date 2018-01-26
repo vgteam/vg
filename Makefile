@@ -28,7 +28,7 @@ CXXFLAGS := -O3 -fopenmp -std=c++11 -ggdb -g -MMD -MP $(CXXFLAGS)
 
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4
+LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -ldl -llzma
 
 ifeq ($(shell uname -s),Darwin)
 	# We may need libraries from Macports
@@ -51,14 +51,10 @@ else
 	# Make sure to allow backtrace access to all our symbols, even those which are not exported.
     # Absolutely no help in a static build.
 	LD_LIB_FLAGS += -rdynamic
-	# We are going to use libdw, which needs libelf, libebl, and libdl
-	LD_LIB_FLAGS += -ldw -lelf -lebl
+
+	# We want to link against the elfutils libraries
+	LD_LIB_FLAGS += -ldw -ldwfl -lelf -lebl
 endif
-
-# If we use it, libdw needs these libs. But vg also always needs them.
-LD_LIB_FLAGS += -ldl -llzma
-
-
 
 # Sometimes we need to filter the assembler output. The assembler can run during
 # ./configure scripts, compiler calls, or $(MAKE) calls (other than $(MAKE)
@@ -121,9 +117,11 @@ SHA1_DIR:=deps/sha1
 DYNAMIC_DIR:=deps/DYNAMIC
 SSW_DIR:=deps/ssw/src
 BACKWARD_CPP_DIR:=deps/backward-cpp
+ELFUTILS_DIR:=deps/elfutils
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # Dependencies that go into libvg's archive
+# TODO: putting a .a inside another .a is completely useless.
 LIB_DEPS =
 LIB_DEPS += $(LIB_DIR)/libprotobuf.a
 LIB_DEPS += $(LIB_DIR)/libsdsl.a
@@ -142,6 +140,15 @@ LIB_DEPS += $(LIB_DIR)/libsonlib.a
 LIB_DEPS += $(LIB_DIR)/libpinchesandcacti.a
 LIB_DEPS += $(LIB_DIR)/libraptor2.a
 LIB_DEPS += $(LIB_DIR)/libfml.a
+ifneq ($(shell uname -s),Darwin)
+	# On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
+	# backward-cpp will use.
+	LIB_DEPS += $(LIB_DIR)/libdw.a
+	LIB_DEPS += $(LIB_DIR)/libdwfl.a
+	LIB_DEPS += $(LIB_DIR)/libebl.a
+	LIB_DEPS += $(LIB_DIR)/libelf.a
+endif
+
 
 # common dependencies to build before all vg src files
 DEPS = $(LIB_DEPS)
@@ -175,7 +182,7 @@ $(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(DEP_OBJ) $(DEPS)
 
 # We have system-level deps to install
 get-deps:
-	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex libgoogle-perftools-dev liblz4-dev liblzma-dev libdw-dev 
+	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex libgoogle-perftools-dev liblz4-dev liblzma-dev 
 
 # And we have submodule deps to build
 deps: $(DEPS)
@@ -303,6 +310,23 @@ $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 
 $(INC_DIR)/backward.hpp: $(BACKWARD_CPP_DIR)/backward.hpp
 	+cp $(BACKWARD_CPP_DIR)/backward.hpp $(CWD)/$(INC_DIR)/
+
+$(LIB_DIR)/libebl.a: $(LIB_DIR)/libelf.a
+
+$(LIB_DIR)/libdw.a: $(LIB_DIR)/libelf.a
+
+$(LIB_DIR)/libdwfl.a: $(LIB_DIR)/libelf.a
+
+# We can't build elfutils from Git without "maintainer mode".
+# There are some release-only headers or something that it complains it can't find otherwise.
+# We also don't do a normal make and make install here because we don't want to build and install all the elfutils binaries and libasm.
+$(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/* $(ELFUTILS_DIR)/libdw/* $(ELFUTILS_DIR)/libelf/* $(ELFUTILS_DIR)/src/*
+	+cd $(ELFUTILS_DIR) && autoreconf -i -f && ./configure --enable-maintainer-mode --prefix=$(CWD) $(FILTER)
+	+cd $(ELFUTILS_DIR)/libelf && $(MAKE) libelf.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libebl && $(MAKE) libebl.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdw && $(MAKE) libdw.a known-dwarf.h $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) libdwfl.a $(FILTER)
+	+cd $(ELFUTILS_DIR) && mkdir -p $(CWD)/$(INC_DIR)/elfutils && cp libdw/known-dwarf.h libdw/libdw.h libebl/libebl.h libelf/elf-knowledge.h version.h libdwfl/libdwfl.h libdwelf/libdwelf.h $(CWD)/$(INC_DIR)/elfutils && cp libebl/libebl.a libdw/libdw.a libdwfl/libdwfl.a libelf/libelf.a $(CWD)/$(LIB_DIR)/
 
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
