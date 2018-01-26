@@ -9,7 +9,7 @@
 #endif
 
 // We need this for ucontext.h to give us useful context stuff...
-#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE 1
 
 #include "crash.hpp"
 
