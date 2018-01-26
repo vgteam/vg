@@ -67,6 +67,13 @@ public:
      */
     void write_mapping(const std::string& filename) const;
 
+    /**
+     * Replace the existing node mapping with the one loaded from the file.
+     * This should be used before calling unfold(). The identifiers for new
+     * duplicated nodes will follow the ones in the loaded mapping.
+     */
+    void read_mapping(const std::string& filename);
+
 private:
     /**
      * Generate a complement graph consisting of the edges that are in the

@@ -38,6 +38,20 @@ void PhaseUnfolder::write_mapping(const std::string& filename) const {
     out.close();
 }
 
+void PhaseUnfolder::read_mapping(const std::string& filename) {
+    std::ifstream in(filename, std::ios_base::binary);
+    if (!in) {
+        std::cerr << "[PhaseUnfolder]: cannot open mapping file " << filename << std::endl;
+        return;
+    }
+    MappingHeader header;
+    in.read(reinterpret_cast<char*>(&header), sizeof(header));
+    this->next_node = header.next_node;
+    this->mapping.resize(header.mapping_size);
+    in.read(reinterpret_cast<char*>(this->mapping.data()), this->mapping.size() * sizeof(mapping_type));
+    in.close();
+}
+
 std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress) {
     VG complement;
 

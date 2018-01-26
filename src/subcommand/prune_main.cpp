@@ -49,12 +49,13 @@ void help_prune(char** argv) {
     std::cerr << "    -k, --kmer-length N    kmer length used for pruning (default: " << PruningParameters::KMER_LENGTH << ")" << std::endl;
     std::cerr << "    -e, --edge-max N       prune paths making > N edge choices (default: " << PruningParameters::EDGE_MAX << ")" << std::endl;
     std::cerr << "    -s, --subgraph-min N   prune subgraphs of < N bases (default: " << PruningParameters::SUBGRAPH_MIN << ")" << std::endl;
-    std::cerr << "path options:" << std::endl;
     std::cerr << "    -P, --preserve-paths   preserve the embedded non-alt paths in the graph" << std::endl;
+    std::cerr << "unfolding options:" << std::endl;
     std::cerr << "    -g, --gbwt-name FILE   unfold the complex regions by using the threads in" << std::endl;
     std::cerr << "                           this GBWT index (requires -x, ignores -P)" << std::endl;
     std::cerr << "    -x, --xg-name FILE     unfold also the paths in this XG index (requires -g)" << std::endl;
     std::cerr << "    -m, --mapping FILE     store the node mapping from -g in this file" << std::endl;
+    std::cerr << "    -a, --append-mapping   append to the existing node mapping (requires -m)" << std::endl;
     std::cerr << "other options:" << std::endl;
     std::cerr << "    -p, --progress         show progress" << std::endl;
     std::cerr << "    -t, --threads N        use N threads (default: " << omp_get_max_threads() << ")" << std::endl;
@@ -71,7 +72,7 @@ int main_prune(int argc, char** argv) {
     int edge_max = PruningParameters::EDGE_MAX;
     size_t subgraph_min = PruningParameters::SUBGRAPH_MIN;
     int threads = omp_get_max_threads();
-    bool preserve_paths = false, show_progress = false;
+    bool preserve_paths = false, append_mapping = false, show_progress = false;
     std::string gbwt_name, xg_name, mapping_name;
 
     int c;
@@ -86,13 +87,14 @@ int main_prune(int argc, char** argv) {
             { "gbwt-name", required_argument, 0, 'g' },
             { "xg-name", required_argument, 0, 'x' },
             { "mapping", required_argument, 0, 'm' },
+            { "append-mapping", no_argument, 0, 'a' },
             { "progress", no_argument, 0, 'p' },
             { "threads", required_argument, 0, 't' },
             { 0, 0, 0, 0 }
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "k:e:s:Pg:x:m:pt:", long_options, &option_index);
+        c = getopt_long (argc, argv, "k:e:s:Pg:x:m:apt:", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -118,6 +120,9 @@ int main_prune(int argc, char** argv) {
         case 'm':
             mapping_name = optarg;
             break;
+        case 'a':
+            append_mapping = true;
+            break;
         case 'p':
             show_progress = true;
             break;
@@ -137,11 +142,15 @@ int main_prune(int argc, char** argv) {
         }
     }
     if (!(kmer_length > 0 && edge_max > 0)) {
-        cerr << "[vg prune]: --kmer-length and --edge-max must be positive" << endl;
+        std::cerr << "[vg prune]: --kmer-length and --edge-max must be positive" << std::endl;
         return 1;
     }
     if (gbwt_name.empty() != xg_name.empty()) {
-        cerr << "[vg prune]: parameters --gbwt-name and --xg-name must be used together" << endl;
+        std::cerr << "[vg prune]: parameters --gbwt-name and --xg-name must be used together" << std::endl;
+        return 1;
+    }
+    if (mapping_name.empty()) {
+        std::cerr << "[vg prune]: parameter --append-mapping requires --mapping" << std::endl;
         return 1;
     }
     if (!gbwt_name.empty()) {
@@ -202,9 +211,12 @@ int main_prune(int argc, char** argv) {
            gbwt_index.load(in);
         });
         PhaseUnfolder unfolder(xg_index, gbwt_index, max_node_id + 1);
+        if (append_mapping) {
+            unfolder.read_mapping(mapping_name);
+        }
         unfolder.unfold(*graph, show_progress);
         if (!mapping_name.empty()) {
-            unfolder.write_mapping(mapping_name); // TODO: Implement
+            unfolder.write_mapping(mapping_name);
         }
     }
 
