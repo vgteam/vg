@@ -9,16 +9,9 @@
 #endif
 
 // We need this for ucontext.h to give us useful context stuff...
-#define _XOPEN_SOURCE 200809L
+#define _XOPEN_SOURCE
 
 #include "crash.hpp"
-
-// Pull in backward-cpp
-#ifndef __APPLE__
-    #define BACKWARD_HAS_DW 1
-#endif
-#include <backward.hpp>
-
 
 // iostream wants this on Travis on Mac
 #include <pthread.h>
@@ -40,6 +33,12 @@
 #include <cstdlib>
 #include <string>
 #include <iostream>
+
+// Pull in backward-cpp
+#ifndef __APPLE__
+    #define BACKWARD_HAS_DW 1
+#endif
+#include <backward.hpp>
 
 namespace vg {
 
