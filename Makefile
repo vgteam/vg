@@ -89,9 +89,6 @@ OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,
 # And all the algorithms
 ALGORITHMS_OBJ = $(patsubst $(ALGORITHMS_SRC_DIR)/%.cpp,$(ALGORITHMS_OBJ_DIR)/%.o,$(wildcard $(ALGORITHMS_SRC_DIR)/*.cpp))
 
-# These go in libvg but come from dependencies
-DEP_OBJ = $(OBJ_DIR)/vg.pb.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/sha1.o
-
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_OBJ_DIR)/%.o,$(wildcard $(UNITTEST_SRC_DIR)/*.cpp))
 
@@ -121,7 +118,18 @@ ELFUTILS_DIR:=deps/elfutils
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # Dependencies that go into libvg's archive
-# TODO: putting a .a inside another .a is completely useless.
+# These go in libvg but come from dependencies
+DEP_OBJ =
+DEP_OBJ += $(OBJ_DIR)/vg.pb.o 
+DEP_OBJ += $(OBJ_DIR)/progress_bar.o
+DEP_OBJ += $(OBJ_DIR)/sha1.o
+DEP_ONJ += $(OBJ_DIR)/Fasta.o
+
+
+# These are libraries that we need to build before we link vg.
+# It would be nice to dump their contents into libvg to make it stand-alone.
+# But that requires fancy ar scripting.
+# If you just pass them to ar it puts the library *file* in libvg where nothing can read it.
 LIB_DEPS =
 LIB_DEPS += $(LIB_DIR)/libprotobuf.a
 LIB_DEPS += $(LIB_DIR)/libsdsl.a
@@ -130,7 +138,6 @@ LIB_DEPS += $(LIB_DIR)/libsnappy.a
 LIB_DEPS += $(LIB_DIR)/librocksdb.a
 LIB_DEPS += $(LIB_DIR)/libgcsa2.a
 LIB_DEPS += $(LIB_DIR)/libgbwt.a
-LIB_DEPS += $(OBJ_DIR)/Fasta.o
 LIB_DEPS += $(LIB_DIR)/libhts.a
 LIB_DEPS += $(LIB_DIR)/libvcflib.a
 LIB_DEPS += $(LIB_DIR)/libgssw.a
@@ -178,7 +185,7 @@ static: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $
 
 $(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(DEP_OBJ) $(DEPS)
 	rm -f $@
-	ar rs $@ $(OBJ) $(ALGORITHMS_OBJ) $(DEP_OBJ) $(LIB_DEPS)
+	ar rs $@ $(OBJ) $(ALGORITHMS_OBJ) $(DEP_OBJ)
 
 # We have system-level deps to install
 get-deps:
