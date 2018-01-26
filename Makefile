@@ -53,7 +53,7 @@ else
 	LD_LIB_FLAGS += -rdynamic
 
 	# We want to link against the elfutils libraries
-	LD_LIB_FLAGS += -ldw -ldwfl -lelf -lebl
+	LD_LIB_FLAGS += -ldw -ldwfl -ldwelf -lelf -lebl
 endif
 
 # Sometimes we need to filter the assembler output. The assembler can run during
@@ -152,6 +152,7 @@ ifneq ($(shell uname -s),Darwin)
 	# backward-cpp will use.
 	LIB_DEPS += $(LIB_DIR)/libdw.a
 	LIB_DEPS += $(LIB_DIR)/libdwfl.a
+	LIB_DEPS += $(LIB_DIR)/libdwelf.a
 	LIB_DEPS += $(LIB_DIR)/libebl.a
 	LIB_DEPS += $(LIB_DIR)/libelf.a
 endif
@@ -189,7 +190,7 @@ $(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(DEP_OBJ) $(DEPS)
 
 # We have system-level deps to install
 get-deps:
-	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex libgoogle-perftools-dev liblz4-dev liblzma-dev 
+	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev 
 
 # And we have submodule deps to build
 deps: $(DEPS)
@@ -322,6 +323,8 @@ $(LIB_DIR)/libebl.a: $(LIB_DIR)/libelf.a
 
 $(LIB_DIR)/libdw.a: $(LIB_DIR)/libelf.a
 
+$(LIB_DIR)/libdwelf.a: $(LIB_DIR)/libelf.a
+
 $(LIB_DIR)/libdwfl.a: $(LIB_DIR)/libelf.a
 
 # We can't build elfutils from Git without "maintainer mode".
@@ -333,7 +336,8 @@ $(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/* $(ELFUTILS_DIR)/libdw/* $(ELFUTILS
 	+cd $(ELFUTILS_DIR)/libebl && $(MAKE) libebl.a $(FILTER)
 	+cd $(ELFUTILS_DIR)/libdw && $(MAKE) libdw.a known-dwarf.h $(FILTER)
 	+cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) libdwfl.a $(FILTER)
-	+cd $(ELFUTILS_DIR) && mkdir -p $(CWD)/$(INC_DIR)/elfutils && cp libdw/known-dwarf.h libdw/libdw.h libebl/libebl.h libelf/elf-knowledge.h version.h libdwfl/libdwfl.h libdwelf/libdwelf.h $(CWD)/$(INC_DIR)/elfutils && cp libebl/libebl.a libdw/libdw.a libdwfl/libdwfl.a libelf/libelf.a $(CWD)/$(LIB_DIR)/
+	+cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) libdwelf.a $(FILTER)
+	+cd $(ELFUTILS_DIR) && mkdir -p $(CWD)/$(INC_DIR)/elfutils && cp libdw/known-dwarf.h libdw/libdw.h libebl/libebl.h libelf/elf-knowledge.h version.h libdwfl/libdwfl.h libdwelf/libdwelf.h libelf/gelf.h $(CWD)/$(INC_DIR)/elfutils && cp libebl/libebl.a libdw/libdw.a libdwfl/libdwfl.a libdwelf/libdwelf.a libelf/libelf.a $(CWD)/$(LIB_DIR)/
 
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
