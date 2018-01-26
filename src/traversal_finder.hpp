@@ -30,7 +30,6 @@ namespace vg {
 using namespace std;
 
 class AugmentedGraph;
-class SupportAugmentedGraph;
 
 /**
  * Represents a strategy for finding traversals of (nested) sites. Polymorphic
@@ -61,14 +60,33 @@ public:
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
     
-private:
+protected:
     void stack_up_valid_walks(NodeTraversal walk_head, vector<NodeTraversal>& stack);
+    virtual bool visit_next_node(const Node*, const Edge*) { return true; }
     void add_traversals(vector<SnarlTraversal>& traversals, NodeTraversal traversal_start,
                         set<NodeTraversal>& stop_at, set<NodeTraversal>& yield_at);
-    
 };
-    
-class ReadRestrictedTraversalFinder : TraversalFinder {
+
+/** Does exhaustive traversal, but restricting to nodes and edges that meet 
+    support thresholds (counts of reads that touch them, taken from augmented graph).
+*/
+class SupportRestrictedTraversalFinder : public ExhaustiveTraversalFinder {
+public:
+    AugmentedGraph& aug;
+    int min_node_support;
+    int min_edge_support;
+
+    SupportRestrictedTraversalFinder(AugmentedGraph& augmented_graph,
+                                     SnarlManager& snarl_manager,
+                                     int min_node_support = 1,                                     
+                                     int min_edge_support = 1,
+                                     bool include_reversing_traversals = false);
+    virtual ~SupportRestrictedTraversalFinder();
+protected:
+    virtual bool visit_next_node(const Node*, const Edge*);
+};
+
+class ReadRestrictedTraversalFinder : public TraversalFinder {
 
     AugmentedGraph& aug;
     SnarlManager& snarl_manager;
@@ -109,7 +127,7 @@ public:
  * as a drop-in replacement for this class, so keep the two implementations at least 
  * for now.    
  */
-class PathRestrictedTraversalFinder : TraversalFinder {
+class PathRestrictedTraversalFinder : public TraversalFinder {
 
     VG& graph;
     SnarlManager& snarl_manager;
@@ -187,7 +205,7 @@ class RepresentativeTraversalFinder : public TraversalFinder {
 
 protected:
     /// The annotated, augmented graph we're finding traversals in
-    SupportAugmentedGraph& augmented;
+    AugmentedGraph& augmented;
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
     
@@ -272,7 +290,7 @@ public:
      * Uses the given get_index function to try and find a PathIndex for a
      * reference path traversing a child snarl.
      */
-    RepresentativeTraversalFinder(SupportAugmentedGraph& augmented, SnarlManager& snarl_manager,
+    RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
         size_t max_depth, size_t max_width, size_t max_bubble_paths,
         function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
     

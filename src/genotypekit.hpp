@@ -186,9 +186,25 @@ struct AugmentedGraph {
     /// Get the alignments, if any, embedded in the graph that touch the given
     /// node ID.
     vector<const Alignment*> get_alignments(id_t node_id) const;
+    // Or a given edge
+    vector<const Alignment*> get_alignments(pair<NodeSide, NodeSide>) const;
     
     /// Get all the embedded alignments.
     vector<const Alignment*> get_alignments() const;
+
+    /**
+     * Get the Support for a given Node, or 0 if it has no recorded support.
+     * (only forward strand)
+     */
+    virtual Support get_support(Node* node);
+    
+    /**
+     * Get the Support for a given Edge, or 0 if it has no recorded support.
+     * (only forward strand)
+     */
+    virtual Support get_support(Edge* edge);    
+
+    virtual bool has_supports() const;
     
     /**
      * Clear the contents.
@@ -236,6 +252,9 @@ protected:
     
     // Maps from node ID to the alignments that touch that node.
     unordered_map<id_t, vector<Alignment*>> alignments_by_node;
+
+    // Maps from the edge to the alignments that touch that node.
+    pair_hash_map<pair<NodeSide, NodeSide>, vector<Alignment*>> alignments_by_edge;
 };
 
 /// Augmented Graph that holds some Support annotation data specific to vg call
@@ -251,17 +270,17 @@ struct SupportAugmentedGraph : public AugmentedGraph {
     /**
      * Return true if we have support information, and false otherwise.
      */
-    bool has_supports();
+    virtual bool has_supports() const;
     
     /**
      * Get the Support for a given Node, or 0 if it has no recorded support.
      */
-    Support get_support(Node* node);
+    virtual Support get_support(Node* node);
     
     /**
      * Get the Support for a given Edge, or 0 if it has no recorded support.
      */
-    Support get_support(Edge* edge);    
+    virtual Support get_support(Edge* edge);    
     
     /**
      * Clear the contents.
@@ -279,6 +298,7 @@ struct SupportAugmentedGraph : public AugmentedGraph {
     void write_supports(ostream& out_file);
     
 };
+
 
 class SimpleConsistencyCalculator : public ConsistencyCalculator{
     public:

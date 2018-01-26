@@ -128,6 +128,31 @@ vector<const Alignment*> AugmentedGraph::get_alignments(id_t node_id) const {
     }
 }
 
+vector<const Alignment*> AugmentedGraph::get_alignments(pair<NodeSide, NodeSide> edge) const {
+    auto it = alignments_by_edge.find(minmax(edge.first, edge.second));
+    if (it != alignments_by_edge.end()) {
+        return vector<const Alignment*>{it->second.begin(), it->second.end()};
+    } else {
+        return {};
+    }
+}
+
+Support AugmentedGraph::get_support(Node* node) {
+    Support support;
+    support.set_forward(get_alignments(node->id()).size());
+    return support;
+}
+
+Support AugmentedGraph::get_support(Edge* edge) {
+    Support support;
+    support.set_forward(get_alignments(NodeSide::pair_from_edge(edge)).size());
+    return support;
+}
+
+bool AugmentedGraph::has_supports() const {
+    return !alignments_by_edge.empty() || !alignments_by_node.empty();
+}
+
 vector<const Alignment*> AugmentedGraph::get_alignments() const {
     vector<const Alignment*> to_return;
     to_return.reserve(embedded_alignments.size());
@@ -230,7 +255,10 @@ void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
         
         // Keep track of the nodes we already saw it visit so we don't add it twice for a node.
         unordered_set<id_t> seen;
-        
+        // and edges
+        unordered_set<pair<NodeSide, NodeSide>> seen_edges;
+
+        NodeSide prev_side;
         for (const auto& mapping : path.mapping()) {
             // For each mapping
             if (!seen.count(mapping.position().node_id())) {
@@ -238,9 +266,18 @@ void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
                 seen.insert(mapping.position().node_id());
                 alignments_by_node[mapping.position().node_id()].push_back(&alignment);
             }
+            NodeSide cur_side = NodeSide(mapping.position().node_id(), mapping.position().is_reverse());
+            if (prev_side.node > 0) {
+                pair<NodeSide, NodeSide> edge(minmax(prev_side, cur_side));
+                if (!seen_edges.count(edge)) {
+                    seen_edges.insert(edge);
+                    alignments_by_edge[edge].push_back(&alignment);
+                }
+            }
+            // our path traverses in one end and out the other
+            prev_side = cur_side.flip();
         }
     }
-    
 }
 
 void AugmentedGraph::load_translations(istream& in_file) {
@@ -261,7 +298,7 @@ void SupportAugmentedGraph::clear() {
     *this = SupportAugmentedGraph();
 }
 
-bool SupportAugmentedGraph::has_supports() {
+bool SupportAugmentedGraph::has_supports() const {
     return !node_supports.empty() || !edge_supports.empty();
 }
 
@@ -306,6 +343,7 @@ void SupportAugmentedGraph::write_supports(ostream& out_file) {
     }
     stream::write_buffered(out_file, buffer, 0);
 }
+
 
 SimpleConsistencyCalculator::~SimpleConsistencyCalculator(){
 
