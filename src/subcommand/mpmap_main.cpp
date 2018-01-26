@@ -135,6 +135,8 @@ int main_mpmap(int argc, char** argv) {
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
     double secondary_rescue_score_diff = 0.8;
+    size_t rescue_only_min = 128;
+    size_t rescue_only_anchor_max = 16;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -660,6 +662,8 @@ int main_mpmap(int argc, char** argv) {
     // set pair rescue parameters
     multipath_mapper.secondary_rescue_score_diff = secondary_rescue_score_diff;
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
+    multipath_mapper.rescue_only_min = rescue_only_min;
+    multipath_mapper.rescue_only_anchor_max = rescue_only_anchor_max;
     
     // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;

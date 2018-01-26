@@ -87,6 +87,8 @@ namespace vg {
         double mapq_scaling_factor = 1.0 / 4.0;
         bool use_population_mapqs = false;
         double recombination_penalty = 1e-9;
+        size_t rescue_only_min = 128;
+        size_t rescue_only_anchor_max = 16;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -142,15 +144,16 @@ namespace vg {
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                           size_t max_alt_mappings,
-                                          OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
-                                          OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
-                                          OrientedDistanceClusterer::handle_memo_t* handle_memo);
+                                          OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
+                                          OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
+                                          OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
         
         /// Align the read ends independently, but also try to form rescue alignments for each from
         /// the other. Return true if output obeys pair consistency and false otherwise.
         bool align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
                                                  vector<clustergraph_t>& cluster_graphs1,
                                                  vector<clustergraph_t>& cluster_graphs2,
+                                                 bool block_rescue_from_1, bool block_rescue_from_2,
                                                  vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                  vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
                                                  size_t max_alt_mappings);
@@ -162,6 +165,20 @@ namespace vg {
                                             vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                             vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
         
+        /// Cluster and extract subgraphs for (possibly) only one end, meant to be a non-repeat, and use them to rescue
+        /// an alignment for the other end, meant to be a repeat
+        void attempt_rescue_of_repeat_from_non_repeat(const Alignment& alignment1, const Alignment& alignment2,
+                                                      const vector<MaximalExactMatch>& mems1, const vector<MaximalExactMatch>& mems2,
+                                                      bool do_repeat_rescue_from_1, bool do_repeat_rescue_from_2,
+                                                      vector<memcluster_t>& clusters1, vector<memcluster_t>& clusters2,
+                                                      vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
+                                                      vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                      vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances, size_t max_alt_mappings,
+                                                      OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
+                                                      OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
+                                                      OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
+        
+        /// Merge the rescued mappings into the output vector and deduplicate pairs
         void merge_rescued_mappings(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                     vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
@@ -246,9 +263,9 @@ namespace vg {
         /// inverts the distances in the cluster pairs vector according to the strand
         void establish_strand_consistency(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                          OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
-                                          OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
-                                          OrientedDistanceClusterer::handle_memo_t* handle_memo);
+                                          OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
+                                          OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
+                                          OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
         
         SnarlManager* snarl_manager;
         

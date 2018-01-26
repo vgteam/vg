@@ -674,15 +674,20 @@ namespace vg {
     bool MultipathMapper::align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
                                                               vector<clustergraph_t>& cluster_graphs1,
                                                               vector<clustergraph_t>& cluster_graphs2,
+                                                              bool block_rescue_from_1, bool block_rescue_from_2,
                                                               vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                               vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
                                                               size_t max_alt_mappings) {
         
         vector<MultipathAlignment> multipath_alns_1, multipath_alns_2;
-        align_to_cluster_graphs(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                cluster_graphs1, multipath_alns_1, max_alt_mappings);
-        align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                cluster_graphs2, multipath_alns_2, max_alt_mappings);
+        if (!block_rescue_from_1) {
+            align_to_cluster_graphs(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
+                                    cluster_graphs1, multipath_alns_1, max_alt_mappings);
+        }
+        if (!block_rescue_from_2) {
+            align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
+                                    cluster_graphs2, multipath_alns_2, max_alt_mappings);
+        }
         
         if (multipath_alns_1.empty() || multipath_alns_2.empty() ? false :
             ((multipath_alns_1.front().mapping_quality() >= min(60, max_mapping_quality)
@@ -704,8 +709,8 @@ namespace vg {
         int32_t top_score_1 = multipath_alns_1.empty() ? 0 : optimal_alignment_score(multipath_alns_1.front());
         int32_t top_score_2 = multipath_alns_2.empty() ? 0 : optimal_alignment_score(multipath_alns_2.front());
         
-        size_t num_rescuable_alns_1 = min(multipath_alns_1.size(), max_rescue_attempts);
-        size_t num_rescuable_alns_2 = min(multipath_alns_2.size(), max_rescue_attempts);
+        size_t num_rescuable_alns_1 = block_rescue_from_1 ? 0 : min(multipath_alns_1.size(), max_rescue_attempts);
+        size_t num_rescuable_alns_2 = block_rescue_from_2 ? 0 : min(multipath_alns_2.size(), max_rescue_attempts);
         for (size_t i = 0; i < num_rescuable_alns_1; i++){
             if (likely_mismapping(multipath_alns_1[i]) ||
                 (i > 0 ? optimal_alignment_score(multipath_alns_1[i]) < top_score_1 - max_score_diff : false)) {
@@ -1082,6 +1087,9 @@ namespace vg {
         cerr << "multipath mapping paired reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
 #endif
         
+        // empty the output vector (just for safety)
+        multipath_aln_pairs_out.clear();
+        
         if (!fragment_length_distr.is_finalized()) {
             // we have not estimated a fragment length distribution yet, so we revert to single ended mode and look
             // for unambiguous pairings
@@ -1116,36 +1124,99 @@ namespace vg {
         cerr << "clustering MEMs..." << endl;
 #endif
         
-        // obtain clusters
+        size_t min_match_count_1 = numeric_limits<int64_t>::max();
+        size_t min_match_count_2 = numeric_limits<int64_t>::max();
+        for (const MaximalExactMatch& mem : mems1) {
+            min_match_count_1 = min(min_match_count_1, mem.match_count);
+        }
+        for (const MaximalExactMatch& mem : mems2) {
+            min_match_count_2 = min(min_match_count_2, mem.match_count);
+        }
         
-        vector<memcluster_t> clusters1;
-        vector<memcluster_t> clusters2;
+        // initialize cluster variables
+        
+        vector<memcluster_t> clusters1, clusters2;
+        vector<clustergraph_t> cluster_graphs1, cluster_graphs2;
+        vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs;
+        
         // memos for the results of expensive succinct operations that we may need to do multiple times
         OrientedDistanceClusterer::paths_of_node_memo_t paths_of_node_memo;
         OrientedDistanceClusterer::oriented_occurences_memo_t oriented_occurences_memo;
         OrientedDistanceClusterer::handle_memo_t handle_memo;
-        // TODO: Making OrientedDistanceClusterers is the only place we actually
-        // need to distinguish between regular_aligner and qual_adj_aligner
-        if (adjust_alignments_for_base_quality) {
-            OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
-                                                 unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-            clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
-            OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
-                                                 unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-            clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+        
+        // do we want to try to only cluster one read end and rescue the other
+        bool do_repeat_rescue_from_1 = min_match_count_1 > rescue_only_min && min_match_count_2 <= rescue_only_anchor_max;
+        bool do_repeat_rescue_from_2 = min_match_count_2 > rescue_only_min && min_match_count_1 <= rescue_only_anchor_max;
+        
+        if (do_repeat_rescue_from_1 || do_repeat_rescue_from_2) {
+            
+            // one side appears to be repetitive and the other non-repetitive, so try to only align the non-repetitive side
+            // and get the other side from rescue
+            
+            attempt_rescue_of_repeat_from_non_repeat(alignment1, alignment2, mems1, mems2, do_repeat_rescue_from_1, do_repeat_rescue_from_2,
+                                                     clusters1, clusters2, cluster_graphs1, cluster_graphs2, multipath_aln_pairs_out,
+                                                     cluster_pairs, max_alt_mappings, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+            
+            if (multipath_aln_pairs_out.empty() && do_repeat_rescue_from_1 && !do_repeat_rescue_from_2) {
+                // we've clustered and extracted read 1, but rescue failed, so do the same for read 2 to prepare for the
+                // normal pair clustering routine
+                
+                if (adjust_alignments_for_base_quality) {
+                    OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                         unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+                    clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                }
+                else {
+                    OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                         unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+                    clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                }
+                
+                cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
+            }
+            
+            if (multipath_aln_pairs_out.empty() && do_repeat_rescue_from_2 && !do_repeat_rescue_from_1) {
+                // we've clustered and extracted read 2, but rescue failed, so do the same for read 1 to prepare for the
+                // normal pair clustering routine
+                
+                if (adjust_alignments_for_base_quality) {
+                    OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                         unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+                    clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                }
+                else {
+                    OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                         unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+                    clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                }
+                
+                cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
+            }
         }
         else {
-            OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
-                                                 unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-            clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
-            OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
-                                                 unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-            clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            // TODO: Making OrientedDistanceClusterers is the only place we actually
+            // need to distinguish between regular_aligner and qual_adj_aligner
+            if (adjust_alignments_for_base_quality) {
+                OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                     unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+                clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                     unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+                clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            }
+            else {
+                OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                     unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+                clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                     unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+                clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            }
+            
+            // extract graphs around the clusters and get the assignments of MEMs to these graphs
+            cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
+            cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
         }
-        
-        // extract graphs around the clusters and get the assignments of MEMs to these graphs
-        auto cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
-        auto cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
         
 #ifdef debug_multipath_mapper_mapping
         cerr << "obtained independent clusters:" << endl;
@@ -1165,126 +1236,123 @@ namespace vg {
         }
 #endif
         
-        // make vectors of cluster pointers to shim into the cluster pairing function
-        vector<memcluster_t*> cluster_mems_1(cluster_graphs1.size()), cluster_mems_2(cluster_graphs2.size());
-        for (size_t i = 0; i < cluster_mems_1.size(); i++) {
-            cluster_mems_1[i] = &(get<1>(cluster_graphs1[i]));
-        }
-        for (size_t i = 0; i < cluster_mems_2.size(); i++) {
-            cluster_mems_2[i] = &(get<1>(cluster_graphs2[i]));
-        }
-        
-        // Chebyshev bound for 99% of all fragments regardless of distribution
-        // TODO: I don't love having this internal aspect of the stranded/unstranded clustering outside the clusterer...
-        int64_t max_separation, min_separation;
-        if (unstranded_clustering) {
-            max_separation = (int64_t) ceil(abs(fragment_length_distr.mean()) + 10.0 * fragment_length_distr.stdev());
-            min_separation = -max_separation;
-        }
-        else {
-            max_separation = (int64_t) ceil(fragment_length_distr.mean() + 10.0 * fragment_length_distr.stdev());
-            min_separation = (int64_t) fragment_length_distr.mean() - 10.0 * fragment_length_distr.stdev();
-        }
-        
-        // Compute the pairs of cluster graphs and their approximate distances from each other
-        vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs = OrientedDistanceClusterer::pair_clusters(alignment1,
-                                                                                                             alignment2,
-                                                                                                             cluster_mems_1,
-                                                                                                             cluster_mems_2,
-                                                                                                             xindex,
-                                                                                                             min_separation,
-                                                                                                             max_separation,
-                                                                                                             unstranded_clustering,
-                                                                                                             &paths_of_node_memo,
-                                                                                                             &oriented_occurences_memo,
-                                                                                                             &handle_memo);
-#ifdef debug_multipath_mapper_mapping
-        cerr << "obtained cluster pairs:" << endl;
-        for (int i = 0; i < cluster_pairs.size(); i++) {
-            pos_t pos_1 = get<1>(cluster_graphs1[cluster_pairs[i].first.first]).front().second;
-            pos_t pos_2 = get<1>(cluster_graphs2[cluster_pairs[i].first.second]).back().second;
-            int64_t dist = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                         id(pos_2), offset(pos_2), is_rev(pos_2));
-            cerr << "\tpair "  << i << " at distance " << dist << endl;
-            cerr << "\t\t read 1 (cluster " << cluster_pairs[i].first.first <<  ")" << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[cluster_pairs[i].first.first])) {
-                cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
-            }
-            cerr << "\t\t read 2 (cluster " << cluster_pairs[i].first.second << ")" << endl;
-            for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[cluster_pairs[i].first.second])) {
-                cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
-            }
-        }
-#endif
-        
-        // empty the output vector (just for safety)
-        multipath_aln_pairs_out.clear();
-        
-        // do we find any pairs that satisfy the distance requirements?
-        if (!cluster_pairs.empty()) {
-            // only perform the mappings that satisfy the expectations on distance
+        if (multipath_aln_pairs_out.empty()) {
+            // we haven't done already obtained a paired mapping by rescuing into a repeat, so we should try to get one
+            // by cluster pairing
             
-            align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
-                                         multipath_aln_pairs_out, max_alt_mappings, &paths_of_node_memo,
-                                         &oriented_occurences_memo, &handle_memo);
+            // make vectors of cluster pointers to shim into the cluster pairing function
+            vector<memcluster_t*> cluster_mems_1(cluster_graphs1.size()), cluster_mems_2(cluster_graphs2.size());
+            for (size_t i = 0; i < cluster_mems_1.size(); i++) {
+                cluster_mems_1[i] = &(get<1>(cluster_graphs1[i]));
+            }
+            for (size_t i = 0; i < cluster_mems_2.size(); i++) {
+                cluster_mems_2[i] = &(get<1>(cluster_graphs2[i]));
+            }
             
-            // do we produce at least one good looking pair alignments from the clustered clusters?
-            if (multipath_aln_pairs_out.empty() ? true : (likely_mismapping(multipath_aln_pairs_out.front().first) ||
-                                                          likely_mismapping(multipath_aln_pairs_out.front().second))) {
-
+            // Chebyshev bound for 99% of all fragments regardless of distribution
+            // TODO: I don't love having this internal aspect of the stranded/unstranded clustering outside the clusterer...
+            int64_t max_separation, min_separation;
+            if (unstranded_clustering) {
+                max_separation = (int64_t) ceil(abs(fragment_length_distr.mean()) + 10.0 * fragment_length_distr.stdev());
+                min_separation = -max_separation;
+            }
+            else {
+                max_separation = (int64_t) ceil(fragment_length_distr.mean() + 10.0 * fragment_length_distr.stdev());
+                min_separation = (int64_t) fragment_length_distr.mean() - 10.0 * fragment_length_distr.stdev();
+            }
+            
+            // Compute the pairs of cluster graphs and their approximate distances from each other
+            cluster_pairs = OrientedDistanceClusterer::pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
+                                                                     xindex, min_separation, max_separation, unstranded_clustering,
+                                                                     &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
 #ifdef debug_multipath_mapper_mapping
-                cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
+            cerr << "obtained cluster pairs:" << endl;
+            for (int i = 0; i < cluster_pairs.size(); i++) {
+                pos_t pos_1 = get<1>(cluster_graphs1[cluster_pairs[i].first.first]).front().second;
+                pos_t pos_2 = get<1>(cluster_graphs2[cluster_pairs[i].first.second]).back().second;
+                int64_t dist = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
+                                                                             id(pos_2), offset(pos_2), is_rev(pos_2));
+                cerr << "\tpair "  << i << " at distance " << dist << endl;
+                cerr << "\t\t read 1 (cluster " << cluster_pairs[i].first.first <<  ")" << endl;
+                for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[cluster_pairs[i].first.first])) {
+                    cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
+                }
+                cerr << "\t\t read 2 (cluster " << cluster_pairs[i].first.second << ")" << endl;
+                for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[cluster_pairs[i].first.second])) {
+                    cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
+                }
+            }
 #endif
-                // we're not happy with the pairs we got, try to get a good pair by rescuing from single ended alignments
+            
+            // do we find any pairs that satisfy the distance requirements?
+            if (!cluster_pairs.empty()) {
+                // only perform the mappings that satisfy the expectations on distance
                 
-                vector<pair<MultipathAlignment, MultipathAlignment>> rescue_aln_pairs;
-                vector<pair<pair<size_t, size_t>, int64_t>> rescue_distances;
-                bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                                   rescue_aln_pairs, rescue_distances, max_alt_mappings);
+                align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
+                                             multipath_aln_pairs_out, max_alt_mappings, &paths_of_node_memo,
+                                             &oriented_occurences_memo, &handle_memo);
                 
-                // if we find consistent pairs by rescue, merge the two lists
-                if (rescued) {
+                // do we produce at least one good looking pair alignments from the clustered clusters?
+                if (multipath_aln_pairs_out.empty() ? true : (likely_mismapping(multipath_aln_pairs_out.front().first) ||
+                                                              likely_mismapping(multipath_aln_pairs_out.front().second))) {
+                    
 #ifdef debug_multipath_mapper_mapping
-                    cerr << "found some rescue pairs, merging into current list of consistent mappings" << endl;
+                    cerr << "one end of the pair may be mismapped, attempting individual end mappings" << endl;
 #endif
+                    // we're not happy with the pairs we got, try to get a good pair by rescuing from single ended alignments
+                    // but block rescue from any sides that we already tried rescue from in the repeat rescue routine
                     
-                    merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, rescue_aln_pairs, rescue_distances);
+                    vector<pair<MultipathAlignment, MultipathAlignment>> rescue_aln_pairs;
+                    vector<pair<pair<size_t, size_t>, int64_t>> rescue_distances;
+                    bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                                       do_repeat_rescue_from_1, do_repeat_rescue_from_2,
+                                                                       rescue_aln_pairs, rescue_distances, max_alt_mappings);
                     
-                    // if we still haven't found mappings that are distinguishable from matches to random sequences,
-                    // don't let them have any mapping quality
-                    if (likely_mismapping(multipath_aln_pairs_out.front().first) ||
-                        likely_mismapping(multipath_aln_pairs_out.front().second)) {
-                        multipath_aln_pairs_out.front().first.set_mapping_quality(0);
-                        multipath_aln_pairs_out.front().second.set_mapping_quality(0);
+                    // if we find consistent pairs by rescue, merge the two lists
+                    if (rescued) {
+#ifdef debug_multipath_mapper_mapping
+                        cerr << "found some rescue pairs, merging into current list of consistent mappings" << endl;
+#endif
+                        
+                        merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, rescue_aln_pairs, rescue_distances);
+                        
+                        // if we still haven't found mappings that are distinguishable from matches to random sequences,
+                        // don't let them have any mapping quality
+                        if (likely_mismapping(multipath_aln_pairs_out.front().first) ||
+                            likely_mismapping(multipath_aln_pairs_out.front().second)) {
+                            multipath_aln_pairs_out.front().first.set_mapping_quality(0);
+                            multipath_aln_pairs_out.front().second.set_mapping_quality(0);
+                        }
+                    }
+                    else {
+                        // rescue didn't find any consistent mappings, revert to the single ended mappings
+                        std::swap(multipath_aln_pairs_out, rescue_aln_pairs);
                     }
                 }
-                else {
-                    // rescue didn't find any consistent mappings, revert to the single ended mappings
-                    std::swap(multipath_aln_pairs_out, rescue_aln_pairs);
+                else if (multipath_aln_pairs_out.front().first.mapping_quality() == max_mapping_quality &&
+                         multipath_aln_pairs_out.front().second.mapping_quality() == max_mapping_quality) {
+                    
+                    // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
+                    // so we use this routine to use rescue on other very good looking independent end clusters
+                    attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                   multipath_aln_pairs_out, cluster_pairs);
                 }
             }
-            else if (multipath_aln_pairs_out.front().first.mapping_quality() == max_mapping_quality &&
-                     multipath_aln_pairs_out.front().second.mapping_quality() == max_mapping_quality) {
+            else {
+                // revert to independent single ended mappings, but skip any rescues that we already tried
                 
-                // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
-                // so we use this routine to use rescue on other very good looking independent end clusters
-                attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                               multipath_aln_pairs_out, cluster_pairs);
-            }
-        }
-        else {
-            // revert to independent single ended mappings
-            
 #ifdef debug_multipath_mapper_mapping
-            cerr << "could not find a consistent pair, reverting to single ended mapping" << endl;
+                cerr << "could not find a consistent pair, reverting to single ended mapping" << endl;
 #endif
-            vector<pair<pair<size_t, size_t>, int64_t>> dummy;
-            align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                multipath_aln_pairs_out, dummy, max_alt_mappings);
-            
+                align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2, do_repeat_rescue_from_1,
+                                                    do_repeat_rescue_from_2, multipath_aln_pairs_out, cluster_pairs, max_alt_mappings);
+                
+            }
         }
         
         if (multipath_aln_pairs_out.empty()) {
+            // we tried all of our tricks and still didn't find a mapping
+            
             // add a null alignment so we know it wasn't mapped
             multipath_aln_pairs_out.emplace_back();
             to_multipath_alignment(alignment1, multipath_aln_pairs_out.back().first);
@@ -1346,6 +1414,94 @@ namespace vg {
                 extract_sub_multipath_alignment(multipath_alns_out[i], comps[0], last_component);
                 multipath_alns_out[i] = last_component;
             }
+        }
+    }
+    
+    void MultipathMapper::attempt_rescue_of_repeat_from_non_repeat(const Alignment& alignment1, const Alignment& alignment2,
+                                                                   const vector<MaximalExactMatch>& mems1, const vector<MaximalExactMatch>& mems2,
+                                                                   bool do_repeat_rescue_from_1, bool do_repeat_rescue_from_2,
+                                                                   vector<memcluster_t>& clusters1, vector<memcluster_t>& clusters2,
+                                                                   vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
+                                                                   vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                                   vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances, size_t max_alt_mappings,
+                                                                   OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
+                                                                   OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
+                                                                   OrientedDistanceClusterer::handle_memo_t* handle_memo) {
+        
+        bool rescue_succeeded_from_1 = false, rescue_succeeded_from_2 = false;
+        
+        if (do_repeat_rescue_from_1) {
+            
+            // get the clusters for the non repeat
+            if (adjust_alignments_for_base_quality) {
+                OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                     unstranded_clustering, paths_of_node_memo, oriented_occurences_memo, handle_memo);
+                clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            }
+            else {
+                OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                     unstranded_clustering, paths_of_node_memo, oriented_occurences_memo, handle_memo);
+                clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            }
+            
+            // extract the graphs around the clusters
+            cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
+            
+            // attempt rescue from these graphs
+            vector<pair<MultipathAlignment, MultipathAlignment>> rescued_pairs;
+            vector<pair<pair<size_t, size_t>, int64_t>> rescued_distances;
+            rescue_succeeded_from_1 = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                                          false, true, rescued_pairs, pair_distances, max_alt_mappings);
+            
+            // move the rescued pairs to the output vectors
+            if (rescue_succeeded_from_1) {
+                for (auto& multipath_aln_pair : rescued_pairs) {
+                    multipath_aln_pairs_out.emplace_back(move(multipath_aln_pair));
+                }
+                for (auto& pair_distance : rescued_distances) {
+                    pair_distances.emplace_back(pair_distance);
+                }
+            }
+        }
+        
+        if (do_repeat_rescue_from_2) {
+            // TODO: duplicative code
+            
+            // get the clusters for the non repeat
+            if (adjust_alignments_for_base_quality) {
+                OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                     unstranded_clustering, paths_of_node_memo, oriented_occurences_memo, handle_memo);
+                clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            }
+            else {
+                OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
+                                                     unstranded_clustering, paths_of_node_memo, oriented_occurences_memo, handle_memo);
+                clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            }
+            
+            // extract the graphs around the clusters
+            cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
+            
+            // attempt rescue from these graphs
+            vector<pair<MultipathAlignment, MultipathAlignment>> rescued_pairs;
+            vector<pair<pair<size_t, size_t>, int64_t>> rescued_distances;
+            rescue_succeeded_from_2 = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                                          true, false, rescued_pairs, pair_distances, max_alt_mappings);
+            
+            // move the rescued pairs to the output vectors
+            if (rescue_succeeded_from_2) {
+                for (auto& multipath_aln_pair : rescued_pairs) {
+                    multipath_aln_pairs_out.emplace_back(move(multipath_aln_pair));
+                }
+                for (auto& pair_distance : rescued_distances) {
+                    pair_distances.emplace_back(pair_distance);
+                }
+            }
+        }
+        
+        // re-sort the rescued alignments if we actually did it from both sides
+        if (rescue_succeeded_from_1 && rescue_succeeded_from_2) {
+            sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
         }
     }
     
