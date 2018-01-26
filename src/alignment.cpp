@@ -595,9 +595,12 @@ string alignment_to_sam(const Alignment& alignment,
     // hack much?
     if (!alignment.quality().empty()) {
         const string& quality = alignment.quality();
+        stringstream q;
         for (int i = 0; i < quality.size(); ++i) {
-            sam << quality_short_to_char(quality[i]);
+            q << quality_short_to_char(quality[i]);
+            //sam << quality_short_to_char(quality[i]);
         }
+        sam << percent_url_encode(q.str());
     } else {
         sam << "*";
         //sam << string(alignment.sequence().size(), 'I');
