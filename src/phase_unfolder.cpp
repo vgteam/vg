@@ -26,6 +26,18 @@ void PhaseUnfolder::unfold(VG& graph, bool show_progress) {
     graph.extend(unfolded);
 }
 
+void PhaseUnfolder::write_mapping(const std::string& filename) const {
+    std::ofstream out(filename, std::ios_base::binary);
+    if (!out) {
+        std::cerr << "[PhaseUnfolder]: cannot create mapping file " << filename << std::endl;
+        return;
+    }
+    MappingHeader header { static_cast<std::uint64_t>(this->next_node), this->mapping.size() };
+    out.write(reinterpret_cast<const char*>(&header), sizeof(header));
+    out.write(reinterpret_cast<const char*>(this->mapping.data()), this->mapping.size() * sizeof(mapping_type));
+    out.close();
+}
+
 std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress) {
     VG complement;
 
@@ -109,13 +121,13 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
             if (is_prefix) {
                 auto iter = node_by_prefix.emplace(path_type(path.begin(), path.begin() + i + 1), 0).first;
                 if (iter->second == 0) {      // No cached node with the same prefix.
-                    iter->second = this->get_id();
+                    iter->second = this->assign_id(curr.id());
                 }
                 curr.set_id(iter->second);
             } else if (is_suffix) {
                 auto iter = node_by_suffix.emplace(path_type(path.begin() + i, path.end()), 0).first;
                 if (iter->second == 0) {      // No cached node with the same suffix.
-                    iter->second = this->get_id();
+                    iter->second = this->assign_id(curr.id());
                 }
                 curr.set_id(iter->second);
             }
@@ -212,7 +224,8 @@ void PhaseUnfolder::insert_path(const path_type& path) {
     this->paths.insert(std::min(path, reverse_complement));
 }
 
-vg::id_t PhaseUnfolder::get_id() {
+vg::id_t PhaseUnfolder::assign_id(vg::id_t node) {
+    this->mapping.push_back(mapping_type(this->next_node, node));
     return this->next_node++;
 }
 

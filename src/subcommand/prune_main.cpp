@@ -9,10 +9,11 @@
  * all embedded paths or preserves both the paths and the edges on non-alt
  * paths.
  *
- * Optionally, replace each pruned region with a set of disjoint paths
- * corresponding to all distinct XG paths and GBWT threads in that region.
- * TODO: We also need to output a mapping from duplicated node ids to original
- * node ids for GCSA2 construction.
+ * With --gbwt-name and --xg-name, pruning unfolds the paths and threads in
+ * the complex regions instead of pruning them. If --mapping is specified,
+ * the mapping from duplicate node identifiers to the original identifiers is
+ * stored in a file. This file can be used for building a GCSA2 index that
+ * maps to the original graph.
  */
 
 #include "../phase_unfolder.hpp"
@@ -202,6 +203,9 @@ int main_prune(int argc, char** argv) {
         });
         PhaseUnfolder unfolder(xg_index, gbwt_index, max_node_id + 1);
         unfolder.unfold(*graph, show_progress);
+        if (!mapping_name.empty()) {
+            unfolder.write_mapping(mapping_name); // TODO: Implement
+        }
     }
 
     // Serialize.
@@ -209,10 +213,6 @@ int main_prune(int argc, char** argv) {
     if (show_progress) {
         std::cerr << "Serialized the graph: "
                   << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
-    }
-    if (!mapping_name.empty()) {
-        std::cerr << "Not implemented yet!" << std::endl;
-        // (write mapping)
     }
 
     delete graph; graph = nullptr;

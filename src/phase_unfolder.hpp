@@ -29,6 +29,16 @@ namespace vg {
  */
 class PhaseUnfolder {
 public:
+    typedef gbwt::SearchState                       search_type;
+    typedef std::vector<gbwt::node_type>            path_type;
+    typedef std::pair<search_type, path_type>       state_type;
+    typedef std::pair<std::uint64_t, std::uint64_t> mapping_type; // Node .first is originally .second.
+
+    struct MappingHeader {
+        std::uint64_t next_node;
+        std::uint64_t mapping_size;
+    };
+
     /**
      * Make a new PhaseUnfolder backed by the given XG and GBWT indexes.
      * These indexes must represent the same original graph. 'next_node' should
@@ -49,12 +59,15 @@ public:
      * - Extend the input graph with the unfolded components.
      */
     void unfold(VG& graph, bool show_progress = false);
-    
-private:
-    typedef gbwt::SearchState                 search_type;
-    typedef std::vector<gbwt::node_type>      path_type;
-    typedef std::pair<search_type, path_type> state_type;
 
+    /**
+     * Write the mapping to the specified file with a header. The file will
+     * contain mappings from header.next_node - header.mapping_size
+     * (inclusive) to header.next_node (exclusive).
+     */
+    void write_mapping(const std::string& filename) const;
+
+private:
     /**
      * Generate a complement graph consisting of the edges that are in the
      * GBWT index but not in the input graph. Split the complement into
@@ -87,20 +100,23 @@ private:
     /// Insert the path into the set in the canonical orientation.
     void insert_path(const path_type& path);
 
-    /// Get the next available node id.
-    vg::id_t get_id();
+    /// Assign the next available id to a duplicate of 'node'.
+    vg::id_t assign_id(vg::id_t node);
 
     /// XG and GBWT indexes for the original graph.
-    const xg::XG&          xg_index;
-    const gbwt::GBWT&      gbwt_index;
+    const xg::XG&             xg_index;
+    const gbwt::GBWT&         gbwt_index;
 
     /// The id for the next duplicated node.
-    vg::id_t               next_node;
+    vg::id_t                  next_node;
+
+    /// Translations for assigned duplicate ids.
+    std::vector<mapping_type> mapping;
 
     /// Internal data structures for the current component.
-    std::set<vg::id_t>     border;
-    std::stack<state_type> states;
-    std::set<path_type>    paths;
+    std::set<vg::id_t>        border;
+    std::stack<state_type>    states;
+    std::set<path_type>       paths;
 };
 
 }
