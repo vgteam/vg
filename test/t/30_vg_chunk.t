@@ -5,10 +5,11 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 11
+plan tests 15
 
-vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
-vg index -x x.xg -v small/x.vcf.gz  x.vg 2> /dev/null
+# Construct a graph with alt paths so we can make a gPBWT and later a GBWT
+vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg
+vg index -x x.xg -v small/x.vcf.gz  x.vg
 vg sim -x x.xg -l 100 -n 1000 -s 0 -e 0.01 -i 0.001 -a > x.gam
 vg view -a x.gam > x.gam.json
 
@@ -41,11 +42,21 @@ is $(vg chunk -x x.xg -r 1 -c 0 | vg view - -j | jq .node | grep id | wc -l) 1 "
 
 #check that traces work
 is $(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq .node | grep id | wc -l) 5 "id chunker traces correct chunk size"
+is $(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq -r '.path[] | select(.name == "thread_0") | .mapping | length') 3 "chunker can extract a partial haplotype"
+
+# Check that traces work on a GBWT
+# Reindex making the GBWT and not the gPBWT
+vg index -x x.xg -G x.gbwt -v small/x.vcf.gz  x.vg
+is "$(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x")' | wc -l)" 0 "chunker extracts no threads from an empty gPBWT"
+is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x")' | wc -l)" 2 "chunker extracts 2 local threads from a gBWT with 2 locally distinct threads in it"
+is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -r '.path[] | select(.name == "thread_0") | .mapping | length')" 3 "chunker can extract a partial haplotype from a GBWT"
 
 #check that n-chunking works
+# We know that it will drop _alt paths so we remake the graph without them for comparison.
+vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 mkdir x.chunk
 vg chunk -x x.xg -n 5 -b x.chunk/
 is $(cat x.chunk/*vg | vg view -V - 2>/dev/null | md5sum | cut -f 1 -d\ ) $(vg view x.vg | md5sum | cut -f 1 -d\ ) "n-chunking works and chunks over the full graph"
 
 rm -rf x.gam.index x.gam.unsrt.index _chunk_test_bed.bed _chunk_test* x.chunk
-rm -f x.vg x.xg x.gam x.gam.json filter_chunk*.gam chunks.bed
+rm -f x.vg x.xg xg.gbwt x.gam x.gam.json filter_chunk*.gam chunks.bed

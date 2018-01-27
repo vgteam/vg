@@ -318,7 +318,7 @@ protected:
     double haplotype_consistency_exponent = 1;
     // The recombination rate
     // TODO: expose to command line
-    constexpr static double NEG_LOG_PER_BASE_RECOMB_PROB = 9;
+    constexpr static double NEG_LOG_PER_BASE_RECOMB_PROB = 9 * 2.3;
     
     FragmentLengthDistribution fragment_length_distr;
 

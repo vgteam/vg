@@ -3,6 +3,8 @@
 #include "algorithms/topological_sort.hpp"
 #include "traversal_finder.hpp"
 
+//#define debug
+
 namespace vg {
 
 using namespace std;
@@ -245,6 +247,24 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
             // We only work on ultrabubbles right now
             return;
         }
+
+        // Get the contents
+        pair<unordered_set<Node*>, unordered_set<Edge*> > snarl_contents =
+           manager.deep_contents(snarl, graph, true);
+
+        // Test if the snarl can be longer than the reads
+        bool read_bounded = is_snarl_smaller_than_reads(snarl, snarl_contents, reads_by_name);
+        TraversalAlg use_traversal_alg = traversal_alg;
+        if (traversal_alg == TraversalAlg::Adaptive) {
+            use_traversal_alg = read_bounded ? TraversalAlg::Reads : TraversalAlg::Representative;
+        }
+
+        if ((use_traversal_alg != TraversalAlg::Reads && !manager.is_leaf(snarl)) ||
+            (use_traversal_alg == TraversalAlg::Reads && !manager.is_root(snarl))) {
+            // Todo : support nesting hierarchy!
+            
+            return;
+        }
         
         if(reference_index != nullptr &&
            reference_index->by_id.count(snarl->start().node_id()) && 
@@ -282,36 +302,10 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
 
         int tid = omp_get_thread_num();
 
-        // Get all the paths through the snarl supported by real named paths
-        PathRestrictedTraversalFinder path_trav_finder(graph, manager, reads_by_name);
-        vector<SnarlTraversal> paths = path_trav_finder.find_traversals(*snarl);
-        // Or by reads
-        ReadRestrictedTraversalFinder read_trav_finder(augmented_graph, manager);
-        vector<SnarlTraversal> read_paths = read_trav_finder.find_traversals(*snarl);
-        if (!read_paths.empty()) {
-            // We want to log stats on reads that read all the
-            // way through snarls. But since we may be called
-            // multiple times we need to send the unique read
-            // name too.            
-            report_snarl_traversal(snarl, manager, graph);
-        }
-        
-        // Deduplicate into "paths"
-        unordered_set<string> seen_sequences;
-        for (auto& trav : paths) {
-            // Make a set of the sequences already represented in paths
-            seen_sequences.insert(traversal_to_string(graph, trav));
-        }
-        for (auto& trav : read_paths) {
-            if (!seen_sequences.count(traversal_to_string(graph, trav))) {
-                // If the sequence of a traversal from read_paths isn't shared with
-                // something in paths, take it. We already know it's unique in
-                // read_paths.
-                paths.push_back(trav);
-            }
-        }
-        // TODO: combine these ways of getting traversals?
-
+        // Get the traverals
+        vector<SnarlTraversal> paths = get_snarl_traversals(augmented_graph, manager, reads_by_name,
+                                                            snarl, snarl_contents, reference_index,
+                                                            use_traversal_alg);
 
         // Even if it looks like there's only one path, it might not be the
         // reference path. TODO: ref path should always be present now that we
@@ -345,14 +339,14 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
             // Get the affinities for all the paths
             map<const Alignment*, vector<Genotyper::Affinity>> affinities;
 
-            if(allele_lengths.size() > 1 && realign_indels) {
+            if(allele_lengths.size() > 1 && (realign_indels || !read_bounded)) {
                 // This is an indel, because we can change lengths. Use the slow route to do indel realignment.
-                affinities = get_affinities(augmented_graph, reads_by_name, snarl, manager, paths);
+                affinities = get_affinities(augmented_graph, reads_by_name, snarl, snarl_contents, manager, paths);
             } else {
                 // Just use string comparison. Don't re-align when
                 // length can't change, or when indle realignment is
                 // off.
-                affinities = get_affinities_fast(augmented_graph, reads_by_name, snarl, manager, paths);
+                affinities = get_affinities_fast(augmented_graph, reads_by_name, snarl, snarl_contents, manager, paths);
             }
 
             if(show_progress) {
@@ -438,7 +432,8 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
             if (output_vcf) {
                 // Get 0 or more variants from the ultrabubble
                 vector<vcflib::Variant> variants =
-                    locus_to_variant(graph, snarl, manager, *reference_index, *vcf, genotyped, sample_name);
+                    locus_to_variant(graph, snarl, snarl_contents, manager, *reference_index,
+                                     *vcf, genotyped, sample_name);
                 for(auto& variant : variants) {
                     // Fix up all the variants
                     if(!contig_name.empty()) {
@@ -603,6 +598,86 @@ int Genotyper::alignment_qual_score(VG& graph, const Snarl* snarl, const Alignme
     // Make the total now actually be an average
     total /= relevant_qualities.size();
     return round(total);
+}
+
+bool Genotyper::is_snarl_smaller_than_reads(const Snarl* snarl,
+                                            const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                            map<string, const Alignment*>& reads_by_name) {
+    size_t read_length = reads_by_name.empty() ? 50 : reads_by_name.begin()->second->sequence().length();
+    size_t snarl_total_length = 0;
+    for (auto snarl_node : contents.first) {
+        if (snarl_node->id() != snarl->start().node_id() &&
+            snarl_node->id() != snarl->end().node_id()) {
+            snarl_total_length += snarl_node->sequence().length();
+        }
+        if (snarl_total_length >= read_length) {
+            return false;
+        }
+    }
+    return true;
+}
+
+vector<SnarlTraversal> Genotyper::get_snarl_traversals(AugmentedGraph& augmented_graph, SnarlManager& manager,
+                                                       map<string, const Alignment*>& reads_by_name,
+                                                       const Snarl* snarl,
+                                                       const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                                       PathIndex* ref_path_index,
+                                                       TraversalAlg use_traversal_alg) {
+    vector<SnarlTraversal> paths;
+    vector<SnarlTraversal> read_paths;
+
+    // Get all the paths through the snarl supported by real named paths
+    PathRestrictedTraversalFinder path_trav_finder(augmented_graph.graph, manager, reads_by_name);
+    paths = path_trav_finder.find_traversals(*snarl);
+
+    unique_ptr<TraversalFinder> read_trav_finder;
+    if (use_traversal_alg == TraversalAlg::Reads) {
+        // the original genotyper logic : paths for each read that spans site
+        read_trav_finder = unique_ptr<TraversalFinder>(new ReadRestrictedTraversalFinder(augmented_graph, manager));
+    } else if (use_traversal_alg == TraversalAlg::Exhaustive) {
+        // exhaustive search, but only visit nodes and edges with given support
+        read_trav_finder = unique_ptr<TraversalFinder>(new SupportRestrictedTraversalFinder(augmented_graph, manager, 2, 2));
+    } else if (use_traversal_alg == TraversalAlg::Representative) {
+        // representative search from vg call.  only current implementation that works for big sites
+        // Now start looking for traversals of the sites.
+        read_trav_finder = unique_ptr<TraversalFinder>(new RepresentativeTraversalFinder(
+            augmented_graph, manager, 1000, 1000,
+            100, [&] (const Snarl& site) -> PathIndex* {
+                return ref_path_index;
+            }));
+    } else {
+        assert(false);
+    }
+
+    read_paths = read_trav_finder->find_traversals(*snarl);
+    
+    if (!read_paths.empty()) {
+        // We want to log stats on reads that read all the
+        // way through snarls. But since we may be called
+        // multiple times we need to send the unique read
+        // name too.            
+        report_snarl_traversal(snarl, manager, augmented_graph.graph);
+        }
+    
+    // Deduplicate into "paths"
+    unordered_set<string> seen_sequences;
+    for (auto& trav : paths) {
+        // Make a set of the sequences already represented in paths        
+        seen_sequences.insert(traversal_to_string(augmented_graph.graph, trav));
+    }
+    for (auto& trav : read_paths) {
+        string traversal_seq = traversal_to_string(augmented_graph.graph, trav);
+
+        if (traversal_seq.find_first_of("Nn") == string::npos &&
+            !seen_sequences.count(traversal_seq)) {
+            // If the sequence of a traversal from read_paths isn't shared with
+            // something in paths, take it. We already know it's unique in
+            // read_paths.  We also make sure it has no Ns
+            paths.push_back(trav);
+        }
+    }
+
+    return paths;
 }
 
 template<typename T> inline void set_intersection(const unordered_set<T>& set_1, const unordered_set<T>& set_2,
@@ -780,6 +855,7 @@ map<const Alignment*, vector<Genotyper::Affinity>>
     Genotyper::get_affinities(AugmentedGraph& aug,
                               const map<string, const Alignment*>& reads_by_name,
                               const Snarl* snarl,
+                              const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
                               const SnarlManager& manager,
                               const vector<SnarlTraversal>& snarl_paths) {
 
@@ -791,9 +867,9 @@ map<const Alignment*, vector<Genotyper::Affinity>>
 
     // What reads are relevant to this ultrabubble?
     set<string> relevant_read_names;
-    
-    // Get the snarl contents
-    auto contents = manager.deep_contents(snarl, aug.graph, true);
+
+    // What IDs are visited by these reads?
+    unordered_set<id_t> relevant_ids;
 
 #ifdef debug
 #pragma omp critical (cerr)
@@ -805,26 +881,29 @@ map<const Alignment*, vector<Genotyper::Affinity>>
         for (const Alignment* aln : aug.get_alignments(node->id())) {
             // Each read that visits this node is relevant.
             relevant_read_names.insert(aln->name());
+
+            for (size_t i = 0; i < aln->path().mapping_size(); ++i) {
+                relevant_ids.insert(aln->path().mapping(i).position().node_id());
+            }
         }
         // TODO: We populate relevant_read_names and then get the alignments by
         // name. Maybe we can just use alignment pointers?
     }
 
-    // What IDs are visited by these reads?
-    unordered_set<id_t> relevant_ids;
-
-    for(auto& name : relevant_read_names) {
-        // Get the mappings for each read
-        auto& mappings = aug.graph.paths.get_path(name);
-        for(auto& mapping : mappings) {
-            // Add in all the nodes that are visited
-            relevant_ids.insert(mapping.position().node_id());
-        }
-    }
-
     for(Node* node: contents.first) {
         // Throw out all the IDs that are also used in the ultrabubble itself
         relevant_ids.erase(node->id());
+    }
+
+    // This is a temporary hack to break out of this function if there's too much to do. 
+    // To fix properly will require a more general get_affinities_fast-type function, as well as,
+    // probably, heuristics to reduce the search space
+    if (relevant_read_names.size() * snarl_paths.size() > 1000) {
+#pragma omp critical (cerr)
+        cerr << "Skipping snarl " << pb2json(*snarl) << " with " << relevant_read_names.size() << " reads, "
+             << snarl_paths.size() << " paths and " << contents.first.size()
+             << " nodes as it is too complex to get affinities for (reads X paths > 1000)." << endl;
+        return to_return;
     }
 
 #ifdef debug
@@ -837,10 +916,8 @@ map<const Alignment*, vector<Genotyper::Affinity>>
     VG surrounding;
     for(auto id : relevant_ids) {
         // For all the IDs in the surrounding material
-
-        if(min_recurrence != 0 && 
-           (!aug.graph.paths.has_node_mapping(id) || 
-            aug.graph.paths.get_node_mapping(id).size() < min_recurrence)) {
+        if(min_recurrence != 0 &&
+           aug.get_alignments(id).size() < min_recurrence) {
             // Skip nodes in the graph that have too little support. In practice
             // this means we'll restrict ourselves to supported, known nodes.
             // TODO: somehow do the same for edges.
@@ -940,11 +1017,12 @@ map<const Alignment*, vector<Genotyper::Affinity>>
             auto get_node_size = [&](id_t id) {
                 return aug.graph.get_node(id)->sequence().size();
             };
+
             if(read->sequence().size() == read->quality().size()) {
                 // Re-align a copy to this graph (using quality-adjusted alignment).
-                // TODO: actually use quality-adjusted alignment
-                aligned_fwd = allele_graph.align(*read);
-                aligned_rev = allele_graph.align(reverse_complement_alignment(*read, get_node_size));
+                QualAdjAligner qa_aligner;
+                aligned_fwd = allele_graph.align_qual_adjusted(*read, &qa_aligner);
+                aligned_rev = allele_graph.align(reverse_complement_alignment(*read, get_node_size), &qa_aligner);
             } else {
                 // If we don't have the right number of quality scores, use un-adjusted alignment instead.
                 aligned_fwd = allele_graph.align(*read);
@@ -1003,7 +1081,10 @@ map<const Alignment*, vector<Genotyper::Affinity>>
             auto seq = traversal_to_string(aug.graph, read_traversal);
 
             // Now decide if the read's seq supports this path.
-            if(read_traversal.visit(0) == snarl->start() &&
+            if (read_traversal.visit_size() == 0) {
+                // Aligned only to surrounding stuff, not consistent
+                affinity.consistent = false;
+            } else if(read_traversal.visit(0) == snarl->start() &&
                read_traversal.visit(read_traversal.visit_size() - 1) == snarl->end()) {
                 // Anchored at both ends.
                 // Need an exact match. Record if we have one or not.
@@ -1028,7 +1109,6 @@ map<const Alignment*, vector<Genotyper::Affinity>>
                 cerr << "Warning: realigned read " << aligned.sequence() << " doesn't touch either end of its snarl!" << endl;
                 affinity.consistent = true;
             }
-
             if(score_per_base < min_score_per_base) {
                 // Say we can't really be consistent with this if we have such a
                 // terrible score.
@@ -1094,6 +1174,7 @@ map<const Alignment*, vector<Genotyper::Affinity> >
 Genotyper::get_affinities_fast(AugmentedGraph& aug,
                                const map<string, const Alignment*>& reads_by_name,
                                const Snarl* snarl,
+                               const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
                                const SnarlManager& manager,
                                const vector<SnarlTraversal>& snarl_paths,
                                bool allow_internal_alignments) {
@@ -1103,9 +1184,6 @@ Genotyper::get_affinities_fast(AugmentedGraph& aug,
 
     // What reads are relevant to this ultrabubble?
     set<string> relevant_read_names;
-
-    // Get the snarl contents
-    auto contents = manager.deep_contents(snarl, aug.graph, true);
 
 #ifdef debug
 #pragma omp critical (cerr)
@@ -1934,6 +2012,7 @@ vcflib::VariantCallFile* Genotyper::start_vcf(std::ostream& stream, const PathIn
 vector<vcflib::Variant>
 Genotyper::locus_to_variant(VG& graph,
                             const Snarl* snarl,
+                            const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
                             const SnarlManager& manager,
                             const PathIndex& index,
                             vcflib::VariantCallFile& vcf,
@@ -2163,7 +2242,6 @@ Genotyper::locus_to_variant(VG& graph,
     // Also the snarl statistics
     // Ultrabubble bases
     size_t ultrabubble_bases = 0;
-    auto contents = manager.deep_contents(snarl, graph, true);
     for(Node* node : contents.first) {
         ultrabubble_bases += node->sequence().size();
     }

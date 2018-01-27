@@ -4,17 +4,24 @@
 #include "json2pb.h"
 #include "xg.hpp"
 
-using namespace std;
-using namespace vg;
+namespace vg {
 
-void trace_haplotypes_and_paths(xg::XG& index,
+using namespace std;
+
+void trace_haplotypes_and_paths(xg::XG& index, const gbwt::GBWT* haplotype_database,
                                 vg::id_t start_node, int extend_distance,
                                 Graph& out_graph,
                                 map<string, int>& out_thread_frequencies,
                                 bool expand_graph) {
   // get our haplotypes
   xg::XG::ThreadMapping n = {start_node, false};
-  vector<pair<thread_t,int> > haplotypes = list_haplotypes(index, n, extend_distance);
+  vector<pair<thread_t,int> > haplotypes = haplotype_database ?
+    list_haplotypes(index, *haplotype_database, n, extend_distance) :
+    list_haplotypes(index, n, extend_distance);
+
+#ifdef debug
+  cerr << "Haplotype database " << haplotype_database << " produced " << haplotypes.size() << " haplotypes" << endl;
+#endif
 
   if (expand_graph) {
     // get our subgraph and "regular" paths by expanding forward
@@ -198,4 +205,92 @@ vector<pair<thread_t,int> > list_haplotypes(xg::XG& index,
     }
   }
   return search_results;
+}
+
+vector<pair<thread_t,int> > list_haplotypes(xg::XG& index, const gbwt::GBWT& haplotype_database,
+            xg::XG::ThreadMapping start_node, int extend_distance) {
+
+#ifdef debug
+  cerr << "Extracting haplotypes from GBWT" << endl;
+#endif
+
+  vector<pair<thread_t,gbwt::SearchState> > search_intermediates;
+  vector<pair<thread_t,int> > search_results;
+  // We still keep our data as thread_ts full of xg ThreadMappings and convert on the fly.
+  thread_t first_thread = {start_node};
+  auto first_node = gbwt::Node::encode(start_node.node_id, start_node.is_reverse);
+  gbwt::SearchState first_state = haplotype_database.prefix(first_node);
+#ifdef debug
+  cerr << "Start with state " << first_state << " for node " << first_node << endl;
+#endif
+  vector<Edge> edges = start_node.is_reverse ?
+            index.edges_on_start(start_node.node_id) :
+            index.edges_on_end(start_node.node_id);
+
+  // TODO: this is just most of the loop body repeated!
+  for(int i = 0; i < edges.size(); i++) {
+    xg::XG::ThreadMapping next_node;
+    next_node.node_id = edges[i].to();
+    next_node.is_reverse = edges[i].to_end();
+    auto extend_node = gbwt::Node::encode(next_node.node_id, next_node.is_reverse);
+    auto new_state = haplotype_database.extend(first_state, extend_node);
+#ifdef debug
+    cerr << "Extend state " << first_state << " to " << new_state << " with " << extend_node << endl;
+#endif
+    thread_t new_thread = first_thread;
+    new_thread.push_back(next_node);
+    if(!new_state.empty()) {
+#ifdef debug
+      cerr << "\tGot " << new_state.size() << " results; extending more" << endl;
+#endif
+      search_intermediates.push_back(make_pair(new_thread,new_state));
+    }
+  }
+  while(search_intermediates.size() > 0) {
+    pair<thread_t,gbwt::SearchState> last = search_intermediates.back();
+    search_intermediates.pop_back();
+    int check_size = search_intermediates.size();
+    vector<Edge> edges = last.first.back().is_reverse ?
+              index.edges_on_start(last.first.back().node_id) :
+              index.edges_on_end(last.first.back().node_id);
+    if(edges.size() == 0) {
+#ifdef debug
+      cerr << "Hit end of graph on state " << last.second << endl;
+#endif
+      search_results.push_back(make_pair(last.first,last.second.size()));
+    } else {
+      for(int i = 0; i < edges.size(); i++) {
+        xg::XG::ThreadMapping next_node;
+        next_node.node_id = edges[i].to();
+        next_node.is_reverse = edges[i].to_end();
+        auto extend_node = gbwt::Node::encode(next_node.node_id, next_node.is_reverse);
+        auto new_state = haplotype_database.extend(last.second, extend_node);
+#ifdef debug
+        cerr << "Extend state " << last.second << " to " << new_state << " with " << extend_node << endl;
+#endif
+        thread_t new_thread = last.first;
+        new_thread.push_back(next_node);
+        if(!new_state.empty()) {
+          if(new_thread.size() >= extend_distance) {
+#ifdef debug
+            cerr << "\tGot " << new_state.size() << " results at limit; emitting" << endl;
+#endif
+            search_results.push_back(make_pair(new_thread,new_state.size()));
+          } else {
+#ifdef debug
+            cerr << "\tGot " << new_state.size() << " results; extending more" << endl;
+#endif
+            search_intermediates.push_back(make_pair(new_thread,new_state));
+          }
+        }
+      }
+      if(check_size == search_intermediates.size() &&
+                last.first.size() < extend_distance - 1) {
+        search_results.push_back(make_pair(last.first,last.second.size()));
+      }
+    }
+  }
+  return search_results;
+}
+
 }

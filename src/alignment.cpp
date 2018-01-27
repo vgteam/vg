@@ -595,9 +595,12 @@ string alignment_to_sam(const Alignment& alignment,
     // hack much?
     if (!alignment.quality().empty()) {
         const string& quality = alignment.quality();
+        stringstream q;
         for (int i = 0; i < quality.size(); ++i) {
-            sam << quality_short_to_char(quality[i]);
+            q << quality_short_to_char(quality[i]);
+            //sam << quality_short_to_char(quality[i]);
         }
+        sam << percent_url_encode(q.str());
     } else {
         sam << "*";
         //sam << string(alignment.sequence().size(), 'I');
@@ -1241,11 +1244,16 @@ void parse_bed_regions(istream& bedstream,
         } else {
             ss >> name;
             assert(sbuf < ebuf);
-            // convert from BED-style to 0-based inclusive coordinates
-            ebuf -= 1;
-            Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name);
 
-            out_alignments->push_back(alignment);
+            if (xgindex->path_rank(seq) == 0) {
+                // This path doesn't exist, and we'll get a segfault or worse if
+                // we go look for positions in it.
+                cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
+            } else {
+                Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name);
+
+                out_alignments->push_back(alignment);
+            }
         }
     }
 }

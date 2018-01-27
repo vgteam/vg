@@ -142,47 +142,29 @@ ExhaustiveTraversalFinder::~ExhaustiveTraversalFinder() {
 void ExhaustiveTraversalFinder::stack_up_valid_walks(NodeTraversal walk_head, vector<NodeTraversal>& stack) {
     
     id_t head_id = walk_head.node->id();
-    
-    if (walk_head.backward) {
-        // we are leaving from the start of the node
-        
-        // get all edges involving this node so we can filter them down to valid walks
-        for (Edge* edge : graph.edges_of(walk_head.node)) {
-            if (edge->from() == head_id && edge->from_start()) {
-                // the edge is part of a valid walk
-                Node* next_node = graph.get_node(edge->to());
-                bool next_backward = edge->to_end();
-                // add the next traversal in the walk to the stack
-                stack.push_back(NodeTraversal(next_node, next_backward));
-            }
-            else if (edge->to() == head_id && !edge->to_end()) {
-                // the edge is part of a valid walk in the opposite orientation
-                Node* next_node = graph.get_node(edge->from());
-                bool next_backward = !edge->from_start();
-                // add the next traversal in the walk to the stack
-                stack.push_back(NodeTraversal(next_node, next_backward));
-            }
+
+    // get all edges involving this node so we can filter them down to valid walks
+    for (Edge* edge : graph.edges_of(walk_head.node)) {
+        Node* next_node = nullptr;
+        bool next_backward;
+        bool from_start;
+        // determine id and orientation of our nodes given that they can
+        // be either from or to in the edge
+        if (head_id == edge->from()) {
+            next_node = graph.get_node(edge->to());
+            next_backward = edge->to_end();
+            from_start = edge->from_start();
+        } else {
+            next_node = graph.get_node(edge->from());
+            next_backward = !edge->from_start();
+            from_start = !edge->to_end();
         }
-    }
-    else {
-        // we are leaving from the end of the node
-        
-        // get all edges involving this node so we can filter them down to valid walks
-        for (Edge* edge : graph.edges_of(walk_head.node)) {
-            if (edge->from() == head_id && !edge->from_start()) {
-                // the edge is part of a valid walk
-                Node* next_node = graph.get_node(edge->to());
-                bool next_backward = edge->to_end();
-                // add the next traversal in the walk to the stack
-                stack.push_back(NodeTraversal(next_node, next_backward));
-            }
-            else if (edge->to() == head_id && edge->to_end()) {
-                // the edge is part of a valid walk in the opposite orientation
-                Node* next_node = graph.get_node(edge->from());
-                bool next_backward = !edge->from_start();
-                // add the next traversal in the walk to the stack
-                stack.push_back(NodeTraversal(next_node, next_backward));
-            }
+        // are we walking the same direction relative to head_id?
+        if (walk_head.backward == from_start &&
+            // derived classes can use this to filter search
+            visit_next_node(next_node, edge)) {
+            // add the next traversal in the walk to the stack            
+            stack.push_back(NodeTraversal(next_node, next_backward));
         }
     }
 }
@@ -350,6 +332,27 @@ vector<SnarlTraversal> ExhaustiveTraversalFinder::find_traversals(const Snarl& s
     
     return to_return;
 }
+
+SupportRestrictedTraversalFinder::SupportRestrictedTraversalFinder(AugmentedGraph& augmented_graph,
+                                                                   SnarlManager& snarl_manager,
+                                                                   int min_node_support,
+                                                                   int min_edge_support,
+                                                                   bool include_reversing_traversals) :
+    ExhaustiveTraversalFinder(augmented_graph.graph,
+                              snarl_manager,
+                              include_reversing_traversals),
+    aug(augmented_graph),
+    min_node_support(min_node_support),
+    min_edge_support(min_edge_support) {
+}
+
+SupportRestrictedTraversalFinder::~SupportRestrictedTraversalFinder() {}
+
+bool SupportRestrictedTraversalFinder::visit_next_node(const Node* node, const Edge* edge) {
+    return aug.get_alignments(node->id()).size() >= min_node_support &&
+        aug.get_alignments(NodeSide::pair_from_edge(*edge)).size() >= min_edge_support;
+}
+
 
 PathRestrictedTraversalFinder::PathRestrictedTraversalFinder(VG& graph,
                                                              SnarlManager& snarl_manager,
@@ -866,7 +869,7 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
 }
 
 
-RepresentativeTraversalFinder::RepresentativeTraversalFinder(SupportAugmentedGraph& augmented,
+RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
                                                              SnarlManager& snarl_manager, size_t max_depth, size_t max_width, size_t max_bubble_paths,
                                                              function<PathIndex*(const Snarl&)> get_index) : augmented(augmented), snarl_manager(snarl_manager),
                                                                                                              max_depth(max_depth), max_width(max_width), max_bubble_paths(max_bubble_paths), get_index(get_index) {

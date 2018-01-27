@@ -1081,6 +1081,8 @@ class VGCITest(TestCase):
 
         # run calleval
         cmd = ['toil-vg', 'calleval', job_store, out_store]
+        if self.vg_docker:
+            cmd += ['--vg_docker', self.vg_docker]
         cmd += ['--calling_cores', str(min(2, self.cores))]
         cmd += ['--call_chunk_cores', str(min(6, self.cores))]
         cmd += ['--gam_index_cores', str(min(4, self.cores))]
@@ -1092,6 +1094,9 @@ class VGCITest(TestCase):
         cmd += ['--call_and_genotype']
         # vg genotype needs this not to run out of ram
         cmd += ['--call_chunk_size', '500000']
+        # turn off defray filter so genotype doesn't spend time xg-indexing chunks
+        # (but leave on the other filters)
+        # cmd += ['--filter_opts_gt', '-r', '0.9', '-fu', '-s', '1000', '-m', '1', '-q', '15']
         # run freebayes
         if bam_path:
             cmd += ['--freebayes']
@@ -1177,7 +1182,7 @@ class VGCITest(TestCase):
         if self.verify:
             self._verify_calleval(tag=tag, threshold=f1_threshold)
             
-    @skip("skipping test to keep runtime down")
+    #@skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(8000)            
     def test_call_chr21_snp1kg(self):
         """

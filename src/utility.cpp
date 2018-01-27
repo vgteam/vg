@@ -645,4 +645,19 @@ string random_sequence(size_t length) {
     return seq;
 }
 
+string replace_in_string(string subject,
+                         const string& search,
+                         const string& replace) {
+    size_t pos = 0;
+    while ((pos = subject.find(search, pos)) != string::npos) {
+        subject.replace(pos, search.length(), replace);
+        pos += replace.length();
+    }
+    return subject;
+}
+
+string percent_url_encode(const string& seq) {
+    return replace_in_string(seq, "%", "%25");
+}
+
 }
