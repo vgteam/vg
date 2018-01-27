@@ -6,7 +6,7 @@
 namespace vg {
 
 PhaseUnfolder::PhaseUnfolder(const xg::XG& xg_index, const gbwt::GBWT& gbwt_index, vg::id_t next_node) :
-    xg_index(xg_index), gbwt_index(gbwt_index), next_node(next_node) {
+    xg_index(xg_index), gbwt_index(gbwt_index), mapping(next_node) {
 }
 
 void PhaseUnfolder::unfold(VG& graph, bool show_progress) {
@@ -32,9 +32,7 @@ void PhaseUnfolder::write_mapping(const std::string& filename) const {
         std::cerr << "[PhaseUnfolder]: cannot create mapping file " << filename << std::endl;
         return;
     }
-    MappingHeader header { static_cast<std::uint64_t>(this->next_node), this->mapping.size() };
-    out.write(reinterpret_cast<const char*>(&header), sizeof(header));
-    out.write(reinterpret_cast<const char*>(this->mapping.data()), this->mapping.size() * sizeof(mapping_type));
+    this->mapping.serialize(out);
     out.close();
 }
 
@@ -44,11 +42,7 @@ void PhaseUnfolder::read_mapping(const std::string& filename) {
         std::cerr << "[PhaseUnfolder]: cannot open mapping file " << filename << std::endl;
         return;
     }
-    MappingHeader header;
-    in.read(reinterpret_cast<char*>(&header), sizeof(header));
-    this->next_node = header.next_node;
-    this->mapping.resize(header.mapping_size);
-    in.read(reinterpret_cast<char*>(this->mapping.data()), this->mapping.size() * sizeof(mapping_type));
+    this->mapping.load(in);
     in.close();
 }
 
@@ -123,7 +117,6 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
     // prefixes in the first half of the path and by shared suffixes in
     // the second half. Needless duplication would otherwise make GCSA2
     // index construction too expensive.
-    // TODO: We need to store the mapping.
     std::map<path_type, vg::id_t> node_by_prefix, node_by_suffix;
     for (const path_type& path : this->paths) {
         Node prev = this->xg_index.node(gbwt::Node::id(path.front()));
@@ -135,13 +128,13 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
             if (is_prefix) {
                 auto iter = node_by_prefix.emplace(path_type(path.begin(), path.begin() + i + 1), 0).first;
                 if (iter->second == 0) {      // No cached node with the same prefix.
-                    iter->second = this->assign_id(curr.id());
+                    iter->second = this->mapping.insert(curr.id());
                 }
                 curr.set_id(iter->second);
             } else if (is_suffix) {
                 auto iter = node_by_suffix.emplace(path_type(path.begin() + i, path.end()), 0).first;
                 if (iter->second == 0) {      // No cached node with the same suffix.
-                    iter->second = this->assign_id(curr.id());
+                    iter->second = this->mapping.insert(curr.id());
                 }
                 curr.set_id(iter->second);
             }
@@ -236,11 +229,6 @@ void PhaseUnfolder::insert_path(const path_type& path) {
         reverse_complement[path.size() - 1 - i] = gbwt::Node::reverse(path[i]);
     }
     this->paths.insert(std::min(path, reverse_complement));
-}
-
-vg::id_t PhaseUnfolder::assign_id(vg::id_t node) {
-    this->mapping.push_back(mapping_type(this->next_node, node));
-    return this->next_node++;
 }
 
 } 

@@ -17,6 +17,7 @@
 #include <vector>
 
 #include <gbwt/gbwt.h>
+#include <gcsa/support.h>
 
 namespace vg {
 
@@ -29,15 +30,9 @@ namespace vg {
  */
 class PhaseUnfolder {
 public:
-    typedef gbwt::SearchState                       search_type;
-    typedef std::vector<gbwt::node_type>            path_type;
-    typedef std::pair<search_type, path_type>       state_type;
-    typedef std::pair<std::uint64_t, std::uint64_t> mapping_type; // Node .first is originally .second.
-
-    struct MappingHeader {
-        std::uint64_t next_node;
-        std::uint64_t mapping_size;
-    };
+    typedef gbwt::SearchState                 search_type;
+    typedef std::vector<gbwt::node_type>      path_type;
+    typedef std::pair<search_type, path_type> state_type;
 
     /**
      * Make a new PhaseUnfolder backed by the given XG and GBWT indexes.
@@ -107,23 +102,17 @@ private:
     /// Insert the path into the set in the canonical orientation.
     void insert_path(const path_type& path);
 
-    /// Assign the next available id to a duplicate of 'node'.
-    vg::id_t assign_id(vg::id_t node);
-
     /// XG and GBWT indexes for the original graph.
-    const xg::XG&             xg_index;
-    const gbwt::GBWT&         gbwt_index;
+    const xg::XG&          xg_index;
+    const gbwt::GBWT&      gbwt_index;
 
-    /// The id for the next duplicated node.
-    vg::id_t                  next_node;
-
-    /// Translations for assigned duplicate ids.
-    std::vector<mapping_type> mapping;
+    /// Mapping from duplicated nodes to original ids.
+    gcsa::NodeMapping      mapping;
 
     /// Internal data structures for the current component.
-    std::set<vg::id_t>        border;
-    std::stack<state_type>    states;
-    std::set<path_type>       paths;
+    std::set<vg::id_t>     border;
+    std::stack<state_type> states;
+    std::set<path_type>    paths;
 };
 
 }
