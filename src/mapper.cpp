@@ -849,7 +849,12 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             
             range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
             
-            if (cursor == probe_string_begin || ((cursor - mem.begin) % sub_mem_count_thinning == 0)) {
+            // do a count operation if we've reached the beginning of the probe string or at invervals of the thinning parameter
+            // past the burn-in parameter
+            int64_t relative_idx = probe_string_end - cursor;
+            if (cursor == probe_string_begin ||
+                (relative_idx >= sub_mem_thinning_burn_in && (relative_idx - sub_mem_thinning_burn_in) % sub_mem_count_thinning == 0)) {
+                
                 if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
                     probe_string_more_frequent = false;
                     break;
