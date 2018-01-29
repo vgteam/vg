@@ -31,7 +31,7 @@ void help_genotype(char** argv) {
          << "    -o, --offset INT        offset variant positions by this amount" << endl
          << "    -l, --length INT        override total sequence length" << endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << endl
-         << "    -q, --use_mapq          use mapping qualities" << endl
+         << "    -Q, --ignore_mapq       do not use mapping qualities" << endl
          << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << endl
          << "    -i, --realign_indels    realign at indels" << endl
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << endl
@@ -81,7 +81,7 @@ int main_genotype(int argc, char** argv) {
     bool useindex = true;
 
     // Should we use mapping qualities?
-    bool use_mapq = false;
+    bool use_mapq = true;
     // Should we do indel realignment?
     bool realign_indels = false;
 
@@ -109,7 +109,7 @@ int main_genotype(int argc, char** argv) {
                 {"offset", required_argument, 0, 'o'},
                 {"length", required_argument, 0, 'l'},
                 {"augmented", required_argument, 0, 'a'},
-                {"use_mapq", no_argument, 0, 'q'},
+                {"ignore_mapq", no_argument, 0, 'Q'},
                 {"subset-graph", no_argument, 0, 'S'},
                 {"realign_indels", no_argument, 0, 'i'},
                 {"het_prior_denom", required_argument, 0, 'd'},
@@ -127,7 +127,7 @@ int main_genotype(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qSid:P:pt:V:I:G:F:zET:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:QSid:P:pt:V:I:G:F:zET:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -166,9 +166,9 @@ int main_genotype(int argc, char** argv) {
             // Dump augmented graph
             augmented_file_name = optarg;
             break;
-        case 'q':
-            // Use mapping qualities
-            use_mapq = true;
+        case 'Q':
+            // Ignore mapping qualities
+            use_mapq = false;
             break;
         case 'S':
             // Find sites on the graph subset with any read support
