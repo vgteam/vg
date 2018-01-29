@@ -24,9 +24,8 @@ rm -Rf tiny.vg tiny.vg.xg tiny.gam.index tiny.gam reads.txt
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
 vg index -x tiny.vg.xg -g tiny.vg.gcsa -k 16 tiny.vg
-# Simulate 0 reads
-vg sim -s 1337 -n 0 -x tiny.vg.xg -l 30 > reads.txt
-vg map -r reads.txt -g tiny.vg.gcsa -x tiny.vg.xg > tiny.gam
+# Make empty gam
+printf "" > tiny.gam
 vg index -d tiny.gam.index -N tiny.gam
 
 is "$(vg genotype tiny.vg tiny.gam.index -Sp --ref notARealPath 2>&1 | grep 'Found 0 ultrabubbles' | wc -l)" "1" "vg genotype finds no ultrabubbles for an empty subset"
