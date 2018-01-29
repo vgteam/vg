@@ -446,8 +446,6 @@ int main_xg(int argc, char** argv) {
         graph->bs_dump(out);
     }
 
-    // Here
-
     // clean up
     if (graph) delete graph;
 
