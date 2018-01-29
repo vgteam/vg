@@ -4,7 +4,7 @@
 /// \file nested_traversal_finder.hpp: Defines a TraversalFinder that produces
 /// covering paths, with an awareness of nested Snarls.
 
-#include "genotypekit.hpp"
+#include "traversal_finder.hpp"
 
 namespace vg {
 

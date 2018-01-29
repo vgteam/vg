@@ -16,11 +16,14 @@
 #include "xg.hpp"
 #include "vg.pb.h"
 #include "position.hpp"
+#include "nodeside.hpp"
 #include "path.hpp"
 #include "edit.hpp"
 #include "snarls.hpp"
+#include "haplotypes.hpp"
 
 using namespace std;
+using namespace haplo;
 
 namespace vg {
 
@@ -60,6 +63,10 @@ namespace vg {
         /// have at most the given probability of occurring in random sequence of the same size as the graph
         void set_automatic_min_clustering_length(double random_mem_probability = 0.5);
         
+        /// Map random sequences against the graph to calibrate a parameterized distribution that detects
+        /// when mappings are likely to have occurred by chance
+        void calibrate_mismapping_detection(size_t num_simulations = 1000, size_t simulated_read_length = 150);
+        
         // parameters
         
         int64_t max_snarl_cut_size = 5;
@@ -72,6 +79,16 @@ namespace vg {
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
+        double pseudo_length_multiplier = 1.65;
+        bool unstranded_clustering = true;
+        size_t max_rescue_attempts = 32;
+        size_t secondary_rescue_attempts = 4;
+        double secondary_rescue_score_diff = 1.0;
+        double mapq_scaling_factor = 1.0 / 4.0;
+        bool use_population_mapqs = false;
+        double recombination_penalty = 1e-9;
+        size_t rescue_only_min = 128;
+        size_t rescue_only_anchor_max = 16;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -109,6 +126,7 @@ namespace vg {
         bool attempt_rescue(const MultipathAlignment& multipath_aln, const Alignment& other_aln,
                             bool rescue_forward, MultipathAlignment& rescue_multipath_aln);
         
+        
         /// After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform
         /// multipath alignment
         void align_to_cluster_graphs(const Alignment& alignment,
@@ -125,15 +143,46 @@ namespace vg {
                                           vector<clustergraph_t>& cluster_graphs2,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                          size_t max_alt_mappings);
+                                          size_t max_alt_mappings,
+                                          OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
+                                          OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
+                                          OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
         
         /// Align the read ends independently, but also try to form rescue alignments for each from
         /// the other. Return true if output obeys pair consistency and false otherwise.
         bool align_to_cluster_graphs_with_rescue(const Alignment& alignment1, const Alignment& alignment2,
                                                  vector<clustergraph_t>& cluster_graphs1,
                                                  vector<clustergraph_t>& cluster_graphs2,
+                                                 bool block_rescue_from_1, bool block_rescue_from_2,
                                                  vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                 vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
                                                  size_t max_alt_mappings);
+        
+        /// Use the rescue routine on strong suboptimal clusters to see if we can find a good secondary
+        void attempt_rescue_for_secondaries(const Alignment& alignment1, const Alignment& alignment2,
+                                            vector<clustergraph_t>& cluster_graphs1,
+                                            vector<clustergraph_t>& cluster_graphs2,
+                                            vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                            vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
+        
+        /// Cluster and extract subgraphs for (possibly) only one end, meant to be a non-repeat, and use them to rescue
+        /// an alignment for the other end, meant to be a repeat
+        void attempt_rescue_of_repeat_from_non_repeat(const Alignment& alignment1, const Alignment& alignment2,
+                                                      const vector<MaximalExactMatch>& mems1, const vector<MaximalExactMatch>& mems2,
+                                                      bool do_repeat_rescue_from_1, bool do_repeat_rescue_from_2,
+                                                      vector<memcluster_t>& clusters1, vector<memcluster_t>& clusters2,
+                                                      vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
+                                                      vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                      vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances, size_t max_alt_mappings,
+                                                      OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
+                                                      OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
+                                                      OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
+        
+        /// Merge the rescued mappings into the output vector and deduplicate pairs
+        void merge_rescued_mappings(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                    vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                    vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
+                                    vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) const;
         
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable (according to the Mapper's aligner) with
@@ -155,7 +204,6 @@ namespace vg {
         /// a record to the cluster pairs vector
         void split_multicomponent_alignments(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
-        
         
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
@@ -186,14 +234,14 @@ namespace vg {
         bool likely_mismapping(const MultipathAlignment& multipath_aln);
         
         /// A scaling of a score so that it approximately follows the distribution of the longest match in p-value test
-        size_t score_pseudo_length(int32_t score) const;
+        size_t pseudo_length(const MultipathAlignment& multipath_aln) const;
         
         /// The approximate p-value for a match length of the given size against the current graph
         double random_match_p_value(size_t match_length, size_t read_length);
         
         /// Compute the approximate distance between two multipath alignments
-        int64_t distance_between(const MultipathAlignment& multipath_aln_1,
-                                 const MultipathAlignment& multipath_aln_2) const;
+        int64_t distance_between(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2,
+                                 bool full_fragment = false, bool forward_strand = false) const;
         
         /// Are two multipath alignments consistently placed based on the learned fragment length distribution?
         bool are_consistent(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
@@ -208,7 +256,21 @@ namespace vg {
         /// multipath alignments
         bool share_start_position(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
+        /// Get a thread_local RRMemo with these parameters
+        haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;
+        
+        /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also
+        /// inverts the distances in the cluster pairs vector according to the strand
+        void establish_strand_consistency(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
+                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                          OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
+                                          OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
+                                          OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
+        
         SnarlManager* snarl_manager;
+        
+        /// Memos used by population model
+        static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;
         
         // a memo for the transcendental p-value function (thread local to maintain threadsafety)
         static thread_local unordered_map<pair<size_t, size_t>, double> p_value_memo;
@@ -228,9 +290,12 @@ namespace vg {
     // TODO: put in MultipathMapper namespace
     class MultipathAlignmentGraph {
     public:
-        // removes duplicate sub-MEMs contained in parent MEMs
+        
+        /// Construct a graph of the reachability between MEMs in a DAG-ified graph. Removes redundant
+        /// sub-MEMs. Assumes that the cluster is sorted by primarily length and secondarily lexicographically
+        /// by read interval. Optionally cuts snarl interiors from the paths and splits nodes accordingly
         MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
-                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans, gcsa::GCSA* gcsa = nullptr,
                                 SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
         
         ~MultipathAlignmentGraph();
@@ -251,7 +316,31 @@ namespace vg {
         /// ordering of their target nodes
         void reorder_adjacency_lists(const vector<size_t>& order);
         
+        /// Nodes representing walked MEMs in the graph
         vector<ExactMatchNode> match_nodes;
+        
+    private:
+        
+        /// Walk out MEMs into match nodes and filter out redundant sub-MEMs
+        void create_match_nodes(VG& vg, const MultipathMapper::memcluster_t& hits,
+                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+        
+        /// Identifies runs of exact matches that are sub-maximal because they hit the order of the GCSA
+        /// index and merges them into a single node, assumes that match nodes are sorted by length and
+        /// then lexicographically by read interval, does not update edges
+        void collapse_order_length_runs(VG& vg, gcsa::GCSA* gcsa);
+        
+        /// Cut the interior of snarls out of anchoring paths unless they are longer than the
+        /// max cut size
+        void resect_snarls_from_paths(SnarlManager* cutting_snarls, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                      int64_t max_snarl_cut_size);
+        
+        /// Add edges between reachable nodes and split nodes at overlaps
+        void add_reachability_edges(VG& vg, const MultipathMapper::memcluster_t& hits,
+                                    const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                    const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+        
     };
 }
 

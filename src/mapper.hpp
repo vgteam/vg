@@ -9,8 +9,9 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "index.hpp"
-#include "gcsa/gcsa.h"
-#include "gcsa/lcp.h"
+#include <gcsa/gcsa.h>
+#include <gcsa/lcp.h>
+#include <gbwt/gbwt.h>
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
@@ -22,6 +23,7 @@
 #include "mem.hpp"
 #include "cluster.hpp"
 #include "graph.hpp"
+#include "translator.hpp"
 
 namespace vg {
 
@@ -30,7 +32,7 @@ namespace vg {
 
 using namespace std;
     
-enum MappingQualityMethod { Approx, Exact, None };
+enum MappingQualityMethod { Approx, Exact, Adaptive, None };
 
 class Mapper;
 
@@ -68,7 +70,7 @@ public:
         int vertex_band_width = 10,
         int position_depth = 1,
         int max_connections = 30);
-    void score(const set<AlignmentChainModelVertex*>& exclude);
+    void score(const unordered_set<AlignmentChainModelVertex*>& exclude);
     AlignmentChainModelVertex* max_vertex(void);
     vector<Alignment> traceback(const Alignment& read, int alt_alns, bool paired, bool debug);
     void display(ostream& out);
@@ -144,7 +146,7 @@ class BaseMapper : public Progressive {
     
 public:
     // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
-    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
+    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, gbwt::GBWT* gbwt = nullptr);
     BaseMapper(void);
     ~BaseMapper(void);
     
@@ -152,7 +154,8 @@ public:
     
     int random_match_length(double chance_random);
     
-    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
+        double haplotype_consistency_exponent = 1);
     
     // TODO: setting alignment threads could mess up the internal memory for how many threads to reset to
     void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
@@ -201,7 +204,14 @@ public:
                      int min_mem_length = 1,
                      int reseed_length = 0);
     
+    /// identifies tracts of order-length MEMs that were unfilled because their hit count was above the max
+    /// and fills one MEM in the tract (the one with the smallest hit count), assumes MEMs are lexicographically
+    /// ordered by read index
+    void rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
+                                             size_t max_rescue_hit_count);
     
+    int sub_mem_thinning_burn_in = 0; // start counting at this many bases to verify sub-MEM count
+    int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count
     int min_mem_length; // a mem must be >= this length
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
     bool fast_reseed; // use the fast reseed algorithm
@@ -209,13 +219,20 @@ public:
     bool adaptive_reseed_diff; // use an adaptive length difference algorithm in reseed algorithm
     double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
+    bool use_approx_sub_mem_count = true;
+    size_t order_length_repeat_hit_max = 0; // in tracts of order-length MEMs above the hit max, fill one
     
-    bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
+    // Remove any bonuses used by the aligners from the final reported scores.
+    // Does NOT (yet) remove the haplotype consistency bonus.
+    bool strip_bonuses; 
     bool assume_acyclic; // the indexed graph is acyclic
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
     int max_mapping_quality; // the cap for mapping quality
+    
+    /// Set to enable debugging messages to cerr from the mapper, so a user can understand why a read maps the way it does.
+    bool debug = false;
     
 protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
@@ -271,31 +288,16 @@ protected:
     void check_mems(const vector<MaximalExactMatch>& mems);
     
     int alignment_threads; // how many threads will *this* mapper use. Should not be set directly.
-    /*
-    int cache_size;
-    
-    // match walking support to prevent repeated calls to the xg index for the same node
-    vector<LRUCache<id_t, Node>* > node_cache;
-    LRUCache<id_t, Node>& get_node_cache(void);
-    void init_node_cache(void);
-    
-    // node start cache for fast approximate position estimates
-    vector<LRUCache<id_t, int64_t>* > node_start_cache;
-    LRUCache<id_t, int64_t>& get_node_start_cache(void);
-    void init_node_start_cache(void);
-    
-    // match node traversals to path positions
-    vector<LRUCache<gcsa::node_type, map<string, vector<size_t> > >* > node_pos_cache;
-    LRUCache<gcsa::node_type, map<string, vector<size_t> > >& get_node_pos_cache(void);
-    void init_node_pos_cache(void);
-    
-    vector<LRUCache<id_t, vector<Edge> >* > edge_cache;
-    LRUCache<id_t, vector<Edge> >& get_edge_cache(void);
-    void init_edge_cache(void);
-    */
     
     void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
     void clear_aligners(void);
+    
+    /// Score all of the alignments in the vector for haplotype consistency. If
+    /// all of them can be scored (i.e. none of them visit nodes/edges with no
+    /// haplotypes), adjust all of their scores to reflect haplotype
+    /// consistency. If one or more cannot be scored for haplotype consistency,
+    /// leave the alignment scores alone.
+    void apply_haplotype_consistency_scores(const vector<Alignment*>& alns);
     
     // thread_local to allow alternating reads/writes
     thread_local static vector<size_t> adaptive_reseed_length_memo;
@@ -306,6 +308,17 @@ protected:
     // GCSA index and its LCP array
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
+    
+    // GBWT index, if any, for determining haplotype concordance
+    gbwt::GBWT* gbwt = nullptr;
+    
+    // The exponent for the haplotype consistency score.
+    // 0 = no haplotype consistency scoring done.
+    // 1 = multiply in haplotype likelihood once when computing alignment score
+    double haplotype_consistency_exponent = 1;
+    // The recombination rate
+    // TODO: expose to command line
+    constexpr static double NEG_LOG_PER_BASE_RECOMB_PROB = 9 * 2.3;
     
     FragmentLengthDistribution fragment_length_distr;
 
@@ -424,8 +437,9 @@ private:
                                       int additional_multimaps);
     
 public:
-    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
-    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
+    // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
+    // LCP array, and an optional GBWT haplotype index.
+    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, gbwt::GBWT* gbwt = nullptr);
     Mapper(void);
     ~Mapper(void);
 
@@ -476,6 +490,7 @@ public:
     /// index. Can use either approximate or exact (with approximate fallback)
     /// XG-based distance estimation. Will strip out bonuses if the appropriate
     /// Mapper flag is set.
+    /// Does not apply a haplotype consistency bonus, as this function is intended for alignments with large gaps.
     int32_t score_alignment(const Alignment& aln, bool use_approx_distance = false);
     
     /// Given an alignment scored with full length bonuses on, subtract out the full length bonus if it was applied.
@@ -545,9 +560,7 @@ public:
                                 set<string>& path_names,
                                 string& path_name,
                                 int64_t& path_pos,
-                                bool& path_reverse,
-                                int window);
-
+                                bool& path_reverse);
     
     // compute a mapping quality component based only on the MEMs we've obtained
     double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);
@@ -590,8 +603,6 @@ public:
     // uses the cached information about the graph in the xg index to get an approximate node length
     double average_node_length(void);
     
-    bool debug;
-
     // mem mapper parameters
     //
     //int max_mem_length; // a mem must be <= this length
@@ -614,6 +625,7 @@ public:
     int extra_multimaps; // Extra mappings considered
     int min_multimaps; // Minimum number of multimappings
     int band_multimaps; // the number of multimaps for to attempt for each band in a banded alignment
+    bool patch_alignments; // should we attempt alignment patching to resolve unaligned regions in banded alignment
     
     double maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality

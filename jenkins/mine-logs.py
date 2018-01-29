@@ -52,50 +52,21 @@ def testname_to_outstore(test_name):
     return 'outstore-{}-{}-{}'.format(
         toks[1], toks[2].replace('lrc-kir', 'lrc_kir').upper(), '-'.join(toks[3:]))
 
-
-def scrape_mapeval_runtimes(text):
-    """ toil-vg mapeval uses the RealtimeLogger to print the running times of 
-    each call to vg map (or vg mpmap).  We piece that information together
-    here 
-    
-    I would rather this be in vgci.py, but don't have access to the log there. 
-    So scrape it out here then add it to the table from vgci.py with join_runtimes below
-
-    Todo: save the log into the workdir and mine from vgci.py
+def load_mapeval_runtimes(map_times_path):
     """
-    
-    runtimes = defaultdict(int)
-    for line in text.split('\n'):
-        # we want to parse something like
-        #host 2017-08-22 11:09:45,362 MainThread INFO toil-rt: Aligned /tmp/toil-55082/aligned-snp1kg_HG00096_0.gam. Process took 4.37375712395 seconds with single-end vg-map
-        search_tok = 'Aligned'
-        i = line.find(search_tok)
-        if i >= 0 and line.find('Process took') > 0:
-            try:
-                toks = line[i + len(search_tok) + 1: ].rstrip().split()
-                outputfile = toks[0]
-                seconds = round(float(toks[3]), 1)
-                read_type = toks[-2]
-                method = toks[-1]
-                # name will be something like tmpdir/aligned-primary_0.gam.
-                # so we cut down to just primary_0
-                name = os.path.basename(outputfile)[8:-5]
-                # then strip the _0
-                name = name[0:name.rfind('_')]
-                # and any tags for paired end
-                name = name.replace('-pe','').replace('-se','').replace('-mp','')
-                key = method if 'bwa' in method else name
-                if 'mpmap' in method:
-                    key += '-mp'
-                if 'single-end' in read_type:
-                    key += '-se'
-                elif 'paired-end' in read_type:
-                    key += '-pe'
-                runtimes[key] += seconds
-            except:
-                pass
-
-    return runtimes
+    read the runtimes out of map_times.txt, assuming first line is a header
+    """
+    try:
+        map_times_dict = {}
+        with open(map_times_path) as map_times_file:
+            lines = [line for line in map_times_file]
+            for line in lines[1:]:
+                toks = line.split('\t')
+                map_times_dict[toks[0]] = toks[1]
+        return map_times_dict
+    except:
+        pass
+    return None        
         
 def join_runtimes(mapeval_table, runtime_dict):
     """ Tack on some mapping runtimes that we mined above to the mapeval table that was printed 
@@ -103,8 +74,11 @@ def join_runtimes(mapeval_table, runtime_dict):
     mapeval_table[0].append("Map Time (s)")
     for i in range(1, len(mapeval_table)):
         row = mapeval_table[i]
-        if row[0].rstrip('*') in runtime_dict:
-            row.append(runtime_dict[row[0].rstrip('*')])
+        row_name = row[0].rstrip('*')
+        if row_name.endswith('-se') and row_name not in runtime_dict:
+            row_name = row_name[:-3]
+        if row_name in runtime_dict:
+            row.append(runtime_dict[row_name])
         else:
             row.append(-1)
 
@@ -360,7 +334,7 @@ h1, h2, h3, h4, h5, h6 { font-family: sans-serif; }
         report += ' Error parsing Test Suite XML\n'
     return report
 
-def html_table(table, caption = None):
+def html_table(table, caption = None, rounding = None):
     """
     take a table (list of lists) as scraped above and write a HTML table.
     """
@@ -371,7 +345,11 @@ def html_table(table, caption = None):
         t += '<tr>\n'
         tag = 'th' if i == 0 else 'td'
         for col in row:
-            t += '<{}>{}</{}>\n'.format(tag, col, tag)
+            try:
+                rcol = round(float(col), rounding) if rounding else col
+            except:
+                rcol = col
+            t += '<{}>{}</{}>\n'.format(tag, rcol, tag)
     t += '</table>\n'
     return t
 
@@ -407,7 +385,8 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
         images = []
         captions = []
         baseline_images = []
-        for plot_name in 'pr', 'pr.control', 'pr.primary.filter', 'pr.control.primary.filter', 'roc', 'qq', 'qq.control':
+        for plot_name in ['pr', 'pr.control', 'pr.primary.filter', 'pr.control.primary.filter', 'roc', 'qq', 'qq.control',
+                          'roc-snp', 'roc-non_snp', 'roc-weighted']:
             plot_path = os.path.join(outstore, '{}.svg'.format(plot_name))
             if os.path.isfile(plot_path):
                 new_name = '{}-{}.svg'.format(tc['name'], plot_name)
@@ -437,11 +416,15 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                 i += row_size
             report += '</table>\n'
 
-        # extract running times from stderr (only for mapeval)
+        # extract running times from map_times.tsv (only for mapeval)
         map_time_table = None
         if tc['stderr'] and 'sim' in tc['name']:
-            map_time_table = scrape_mapeval_runtimes(tc['stderr'])
-            
+            table_path = os.path.join(outstore, 'map_times.tsv')
+            if os.path.isfile(table_path):
+                map_time_table = load_mapeval_runtimes(table_path)
+
+        stdout_name, err_name, warn_name = None, None, None
+                
         if tc['stdout']:
             # extract only things in <VCGI> tags from stdout
             messages = scrape_messages(tc['stdout'])
@@ -460,6 +443,18 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                             report += escape(subline) + '\n'
                     report += '</pre>\n'
 
+            # entire stdout output (since for some reason mapping logs only there sometimes)
+            stdout_name = '{}-stdout.txt'.format(tc['name'])
+            with io.open(os.path.join(report_dir, stdout_name), 'w', encoding='utf8') as out_file:
+                out_file.write(tc['stdout'])
+
+        # throw the calling times into their own table
+        table_path = os.path.join(outstore, 'call_times.tsv')
+        if os.path.isfile(table_path):
+            with open(table_path) as table_file:
+                call_time_table = [line.strip().split('\t') for line in table_file]
+                report += '<p>\n{}\n</p>'.format(html_table(call_time_table, 'calling times', rounding=3))
+                
         if tc['stderr']:
             # Look for warning lines in stderr
             warnings = get_vgci_warnings(tc)
@@ -486,11 +481,16 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
             with io.open(os.path.join(report_dir, err_name), 'w', encoding='utf8') as err_file:
                 err_file.write(tc['stderr'])
 
-            # link to warnings and stderr
+        # link to warnings and stderr and stdout
+        if stdout_name or warn_name or err_name:
             report += '<p>'
-            if len(warnings) > max_warnings:
+            if stdout_name:
+                report += '<a href={}>Standard Output</a></p>\n'.format(stdout_name)
+            if warn_name and len(warnings) > max_warnings:
                 report += '<a href={}>All CI Warnings</a>, '.format(warn_name)
-            report += '<a href={}>Standard Error</a></p>\n'.format(err_name)
+            if err_name:
+                report += '<a href={}>Standard Error</a></p>\n'.format(err_name)
+            report += '</p>'
 
     except int as e:
         report += 'Error parsing Test Case XML\n'

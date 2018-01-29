@@ -734,7 +734,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     
     while (!aln_pair.first.has_path() || !aln_pair.second.has_path()) {
         int64_t insert_length = (int64_t) round(insert_sampler(prng));
-        if (insert_length < transition_distrs_1.size()) {
+        if (insert_length < (int64_t) transition_distrs_1.size()) {
             // don't make reads where the insert length is shorter than one end of the read
             continue;
         }

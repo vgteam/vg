@@ -5,11 +5,14 @@
 #include <vector>
 #include <sstream>
 #include <omp.h>
+#include <signal.h>
 #include <cstring>
 #include <algorithm>
 #include <numeric>
 #include <cmath>
 #include <unordered_set>
+#include <random>
+#include <signal.h>
 #include <unistd.h>
 #include "vg.pb.h"
 #include "sha1.hpp"
@@ -59,9 +62,21 @@ double phi(double x1, double x2);
     
 /// Inverse CDF of a standard normal distribution. Must have 0 < quantile < 1.
 double normal_inverse_cdf(double quantile);
-    
+
+/*
+ * Return the log of the sum of two log-transformed values without taking them
+ * out of log space.
+ */
 inline double add_log(double log_x, double log_y) {
     return log_x > log_y ? log_x + log(1.0 + exp(log_y - log_x)) : log_y + log(1.0 + exp(log_x - log_y));
+}
+    
+/*
+ * Return the log of the difference of two log-transformed values without taking
+ * them out of log space.
+ */
+inline double subtract_log(double log_x, double log_y) {
+    return log_x + log(1.0 - exp(log_y - log_x));
 }
  
 /**
@@ -452,7 +467,13 @@ size_t integer_power(uint64_t base, uint64_t exponent);
 /// Computes base^exponent mod modulus in log(exponent) time without requiring more
 /// than 64 bits to represent exponentiated number
 size_t modular_exponent(uint64_t base, uint64_t exponent, uint64_t modulus);
-    
+
+/// Returns a uniformly random DNA sequence of the given length
+string random_sequence(size_t length);
+
+/// Escape "%" to "%25"
+string percent_url_encode(const string& seq);
+string replace_in_string(string subject, const string& search, const string& replace);
     
 }
 

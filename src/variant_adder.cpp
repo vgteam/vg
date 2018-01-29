@@ -732,13 +732,13 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
 #ifdef debug
                     cerr << "\tGCSA index size: " << gcsa_graph.length() << " bp" << endl;
 #endif
-                    gcsa_graph.build_gcsa_lcp(gcsa_index, lcp_index, kmer_size, false, false, doubling_steps);
+                    build_gcsa_lcp(gcsa_graph, gcsa_index, lcp_index, kmer_size, doubling_steps);
                 } else {
                     // if no complexity reduction is requested, just build the index
 #ifdef debug
                     cerr << "\tGCSA index size: " << graph.length() << " bp" << endl;
 #endif
-                    graph.build_gcsa_lcp(gcsa_index, lcp_index, kmer_size, false, false, doubling_steps);
+                    build_gcsa_lcp(graph, gcsa_index, lcp_index, kmer_size, doubling_steps);
                 }
                         
                 // Make the Mapper

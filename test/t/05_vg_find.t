@@ -5,43 +5,10 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 35
+plan tests 23
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
-
-vg index -s -d x.idx x.vg
-is $? 0 "indexing nodes and edges of graph"
-
-# note that we use "negatives" here even if it isn't so by default
-vg index -n -k 11 -d x.idx x.vg
-is $? 0 "indexing 11mers"
-
-node_matches=$(vg find -k TAAGGTTTGAA -c 0 -d x.idx | vg view -g - | grep "^S" | cut -f3 | tr '\n' ',')
-is "$node_matches" "CAAATAAG,G,T,TTG,A,AAATTTTCTGGAGTTCTAT," "all expected nodes found via kmer find"
-
-edge_matches=$(vg find -k TAAGGTTTGAA -c 0 -d x.idx | vg view -g - | grep "^L" | cut -f2,4 | tr '\t\n' '-,')
-is "$edge_matches" "1-3,3-4,4-6,6-7,7-9," "all expected edges found via kmer find"
-
-is $(vg find -n 2 -n 3 -c 1 -d x.idx | vg view -g - | grep "^S" | wc -l) 5 "multiple nodes can be picked using vg find"
-
-is $(vg find -S AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT -d x.idx | vg view - | wc -l) 24 "vg find returns a correctly-sized graph when seeking a sequence"
-
-is $(vg find -S AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT -j 11 -d x.idx | vg view - | wc -l) 24 "vg find returns a correctly-sized graph when using jump-kmers"
-
-is $(vg find -p x:0-99 -d x.idx | vg view -g - | wc -l) 29 "vg find returns a subgraph corresponding to particular reference coordinates"
-
-is $(vg find -p x:0-99 -d x.idx | vg view -j - | jq ".node[].sequence" | tr -d '"\n' | wc -c) 100 "vg find returns a path of the correct length"
-
-is $(vg find -p x:0-99 -c 1 -d x.idx | vg view -g - | wc -l) 56 "larger graph is returned when the reference path is queried with context"
-
-is $(vg find -p x -c 10 -d x.idx | vg view -g - | wc -l) $(vg view -g x.vg | wc -l) "entire graph is returned when the reference path is queried with context"
-
-is $(vg find -s 10 -d x.idx | wc -l) 1 "we can find edges on start"
-
-is $(vg find -e 10 -d x.idx | wc -l) 1 "we can find edges on end"
-
-rm -rf x.idx
 
 vg index -x x.xg x.vg 2>/dev/null
 is $(vg find -x x.xg -p x:200-300 -c 2 | vg view - | grep CTACTGACAGCAGA | cut -f 2) 72 "a path can be queried from the xg index"
@@ -118,4 +85,10 @@ echo 14 >>get.nodes
 echo 15 >>get.nodes
 is $(vg find -x tiny.xg -N get.nodes | vg view - | grep ^S | wc -l) 4 "find gets nodes provided in a node file list"
 rm -rf tiny.xg tiny.vg get.nodes
+
+echo '{"node": [{"id": 1, "sequence": "A"}, {"id": 2, "sequence": "A"}], "edge": [{"from": 1, "to": 2}], "path": [{"name": "ref", "mapping": [{"position": {"node_id": 1}}]}]}' | vg view -Jv - >test.vg
+vg index -x test.xg test.vg
+is "$(vg find -x test.xg -p ref:0 -c 10 | vg view -j - | jq '.edge | length')" "1" "extracting by path adds no extra edges"
+
+rm -f test.vg test.xg
 

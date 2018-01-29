@@ -227,12 +227,17 @@ def call_chunk(xg_path, path_name, out_dir, chunks, chunk_i, path_size, overlap,
         sys.stderr.write("Warning: chunk not found: {}\n".format(gam_path))
         return
     
-    # do the pileup.  this is the most resource intensive step,
+    # do the augmentation via pileup.  this is the most resource intensive step,
     # especially in terms of mermory used.
-    pu_path = chunk_base_name(path_name, out_dir, chunk_i, ".pu")
-    if overwrite or not os.path.isfile(pu_path):
-        run("vg pileup {} {} -t {} {} > {}".format(
-            vg_path, gam_path, threads, pileup_opts, pu_path))
+    aug_graph_path = chunk_base_name(path_name, out_dir, chunk_i, ".aug")
+    support_path = chunk_base_name(path_name, out_dir, chunk_i, ".sup")
+    translation_path = chunk_base_name(path_name, out_dir, chunk_i, ".trans")
+    
+    if overwrite or not all(os.path.isfile(f) for f in [
+            aug_graph_path, support_path, translation_path]):
+        run("vg augment -a pileup {} {} -t {} {} -Z {} -S {}  > {}".format(
+            vg_path, gam_path, threads, pileup_opts, translation_path,
+            support_path, aug_graph_path))
 
     # do the calling.
     vcf_path = chunk_base_name(path_name, out_dir, chunk_i, ".vcf")
@@ -240,8 +245,9 @@ def call_chunk(xg_path, path_name, out_dir, chunks, chunk_i, path_size, overlap,
         offset = xg_path_node_offset(xg_path, chunk[0], chunk[1])
         merged_call_opts = merge_call_opts(chunk[0], offset, path_size,
                                            call_options, sample_name)
-        run("vg call {} {} -t {} {} > {}".format(
-            vg_path, pu_path, threads, merged_call_opts, vcf_path + ".us"))
+        run("vg call {} -b {} -s {} -z {} -t {} {} > {}".format(
+            aug_graph_path, vg_path, support_path, translation_path,
+            threads, merged_call_opts, vcf_path + ".us"))
         sort_vcf(vcf_path + ".us", vcf_path)
         run("rm {}".format(vcf_path + ".us"))
         run("bgzip {}".format(vcf_path))

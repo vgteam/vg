@@ -1,5 +1,4 @@
-// copied from https://github.com/adamnovak/glenn2vcf/blob/master/main.cpp
-// as this logic really belongs in vg call
+// Call variants using an augmented graphs with annotated supports
 
 #include <iostream>
 #include <fstream>
@@ -16,8 +15,9 @@
 #include "Variant.h"
 #include "genotypekit.hpp"
 #include "snarls.hpp"
+#include "path.hpp"
 #include "path_index.hpp"
-#include "caller.hpp"
+#include "support_caller.hpp"
 #include "stream.hpp"
 #include "nested_traversal_finder.hpp"
 
@@ -161,21 +161,6 @@ bool can_write_alleles(vcflib::Variant& variant) {
     return true;
 }
 
-/**
- * Return true if a mapping is a perfect match, and false if it isn't.
- */
-bool mapping_is_perfect_match(const Mapping& mapping) {
-    for (auto edit : mapping.edit()) {
-        if (edit.from_length() != edit.to_length() || !edit.sequence().empty()) {
-            // This edit isn't a perfect match
-            return false;
-        }
-    }
-    
-    // If we get here, all the edits are perfect matches.
-    // Note that Mappings with no edits at all are full-length perfect matches.
-    return true;
-}
 
 /**
  * Given a collection of pileups by original node ID, and a set of original node
@@ -228,7 +213,7 @@ string get_pileup_line(const map<int64_t, NodePileup>& node_pileups,
     }
 }
 
-Call2Vcf::PrimaryPath::PrimaryPath(SupportAugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size):
+SupportCaller::PrimaryPath::PrimaryPath(SupportAugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size):
     ref_bin_size(ref_bin_size), index(augmented.graph, ref_path_name, true), name(ref_path_name)  {
 
     // Follow the reference path and extract indexes we need: index by node ID,
@@ -288,11 +273,11 @@ Call2Vcf::PrimaryPath::PrimaryPath(SupportAugmentedGraph& augmented, const strin
 
 }
 
-const Support& Call2Vcf::PrimaryPath::get_support_at(size_t primary_path_offset) const {
+const Support& SupportCaller::PrimaryPath::get_support_at(size_t primary_path_offset) const {
     return get_bin(get_bin_index(primary_path_offset));
 }
         
-size_t Call2Vcf::PrimaryPath::get_bin_index(size_t primary_path_offset) const {
+size_t SupportCaller::PrimaryPath::get_bin_index(size_t primary_path_offset) const {
     // Find which coordinate bin the position is in
     size_t bin = primary_path_offset / ref_bin_size;
     if (bin == get_total_bins()) {
@@ -301,27 +286,27 @@ size_t Call2Vcf::PrimaryPath::get_bin_index(size_t primary_path_offset) const {
     return bin;
 }
     
-size_t Call2Vcf::PrimaryPath::get_min_bin() const {
+size_t SupportCaller::PrimaryPath::get_min_bin() const {
     return min_bin;
 }
     
-size_t Call2Vcf::PrimaryPath::get_max_bin() const {
+size_t SupportCaller::PrimaryPath::get_max_bin() const {
     return max_bin;
 }
     
-const Support& Call2Vcf::PrimaryPath::get_bin(size_t bin) const {
+const Support& SupportCaller::PrimaryPath::get_bin(size_t bin) const {
     return binned_support[bin];
 }
         
-size_t Call2Vcf::PrimaryPath::get_total_bins() const {
+size_t SupportCaller::PrimaryPath::get_total_bins() const {
     return binned_support.size();
 }
         
-Support Call2Vcf::PrimaryPath::get_average_support() const {
+Support SupportCaller::PrimaryPath::get_average_support() const {
     return get_total_support() / get_index().sequence.size();
 }
 
-Support Call2Vcf::PrimaryPath::get_average_support(const map<string, PrimaryPath>& paths) {
+Support SupportCaller::PrimaryPath::get_average_support(const map<string, PrimaryPath>& paths) {
     // Track the total support overall
     Support total;
     // And the total number of bases
@@ -337,23 +322,23 @@ Support Call2Vcf::PrimaryPath::get_average_support(const map<string, PrimaryPath
     return total / bases;
 }
         
-Support Call2Vcf::PrimaryPath::get_total_support() const {
+Support SupportCaller::PrimaryPath::get_total_support() const {
     return total_support;
 }
   
-PathIndex& Call2Vcf::PrimaryPath::get_index() {
+PathIndex& SupportCaller::PrimaryPath::get_index() {
     return index;
 }
     
-const PathIndex& Call2Vcf::PrimaryPath::get_index() const {
+const PathIndex& SupportCaller::PrimaryPath::get_index() const {
     return index;
 }
 
-const string& Call2Vcf::PrimaryPath::get_name() const {
+const string& SupportCaller::PrimaryPath::get_name() const {
     return name;
 }
 
-map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths) {
+map<string, SupportCaller::PrimaryPath>::iterator SupportCaller::find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths) {
     for(auto i = primary_paths.begin(); i != primary_paths.end(); ++i) {
         // Scan the whole map with an iterator
         
@@ -376,14 +361,14 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
     function<void(size_t,NodeSide,NodeSide)> handle_edge, function<void(size_t,Snarl)> handle_child) {
 
     // Must at least have start and end
-    assert(traversal.visits_size() >= 2);
+    assert(traversal.visit_size() >= 2);
     
     // Look at the edge leading from the start (also handles deletion traversals)
-    handle_edge(0, to_right_side(traversal.visits(0)), to_left_side(traversal.visits(1)));
+    handle_edge(0, to_right_side(traversal.visit(0)), to_left_side(traversal.visit(1)));
     
-    for(int64_t i = 1; i < traversal.visits_size() - 1; i++) {
+    for(int64_t i = 1; i < traversal.visit_size() - 1; i++) {
         // For all the (internal) visits...
-        auto& visit = traversal.visits(i);
+        auto& visit = traversal.visit(i);
         
         if (visit.node_id() != 0) {
             // This is a visit to a node
@@ -395,7 +380,7 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
             handle_child(i - 1, visit.snarl());
         }
         
-        auto& next_visit = traversal.visits(i + 1);
+        auto& next_visit = traversal.visit(i + 1);
         
         if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
             to_right_side(visit).flip() == to_left_side(next_visit)) {
@@ -427,13 +412,13 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
 
 #ifdef debug
     cerr << "Evaluate traversal: " << endl;
-    for (size_t i = 0; i < traversal.visits_size(); i++) {
-        cerr << "\t" << pb2json(traversal.visits(i)) << endl;
+    for (size_t i = 0; i < traversal.visit_size(); i++) {
+        cerr << "\t" << pb2json(traversal.visit(i)) << endl;
     }
     if (already_used != nullptr) {
         cerr << "Need to share: " << endl;
-        for (size_t i = 0; i < already_used->visits_size(); i++) {
-            cerr << "\t" << pb2json(already_used->visits(i)) << endl;
+        for (size_t i = 0; i < already_used->visit_size(); i++) {
+            cerr << "\t" << pb2json(already_used->visit(i)) << endl;
         }
     }
 #endif
@@ -456,7 +441,7 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
     
     // Compute min and total supports, and bp sizes, for all the visits by
     // number.
-    size_t record_count = max(1, traversal.visits_size() - 2);
+    size_t record_count = max(1, traversal.visit_size() - 2);
     // What's the min support observed at every visit (inclusing edges)?
     vector<Support> min_supports(record_count, make_support(INFINITY, INFINITY, INFINITY));
     // And the total support (ignoring edges)?
@@ -568,7 +553,7 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
 
 /** Get the support for each traversal in a list, using average_support_switch_threshold
     to decide if we use the minimum or average */
-tuple<vector<Support>, vector<size_t> > Call2Vcf::get_traversal_supports_and_sizes(
+tuple<vector<Support>, vector<size_t> > SupportCaller::get_traversal_supports_and_sizes(
     SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
     const vector<SnarlTraversal>& traversals, const SnarlTraversal* minus_traversal) {
 
@@ -629,7 +614,7 @@ tuple<vector<Support>, vector<size_t> > Call2Vcf::get_traversal_supports_and_siz
         tie(min_supports, sizes);
 }
 
-vector<SnarlTraversal> Call2Vcf::find_best_traversals(SupportAugmentedGraph& augmented,
+vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
         const Support& baseline_support, size_t copy_budget, function<void(const Locus&, const Snarl*)> emit_locus) {
 
@@ -923,9 +908,9 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(SupportAugmentedGraph& aug
         // asserting
         SnarlTraversal& traversal = here_traversals.at(genotype.allele(i));
         
-        for (size_t j = 1; j < traversal.visits_size() - 1; j++) {
+        for (size_t j = 1; j < traversal.visit_size() - 1; j++) {
             // For each visit to a child snarl
-            auto& visit = traversal.visits(j);
+            auto& visit = traversal.visit(j);
             if (visit.node_id() != 0) {
                 continue;
             }
@@ -974,13 +959,13 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(SupportAugmentedGraph& aug
         concrete_traversals.emplace_back();
         auto& concrete_traversal = concrete_traversals.back();
         
-        for (size_t i = 0; i < abstract_traversal.visits_size(); i++) {
+        for (size_t i = 0; i < abstract_traversal.visit_size(); i++) {
             // Go through all the visits in the abstract traversal
-            auto& abstract_visit = abstract_traversal.visits(i);
+            auto& abstract_visit = abstract_traversal.visit(i);
             
             if (abstract_visit.node_id() != 0) {
                 // If they're fully realized, just take them
-                *concrete_traversal.add_visits() = abstract_visit;
+                *concrete_traversal.add_visit() = abstract_visit;
             } else {
                 // If they're visits to children, look up the child
                 const Snarl* child = snarl_manager.manage(abstract_visit.snarl());
@@ -999,7 +984,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(SupportAugmentedGraph& aug
                 if (i != 0) {
                     // There was a previous visit. It may have been a previous
                     // back-to-back snarl.
-                    auto& last_visit = abstract_traversal.visits(i - 1);
+                    auto& last_visit = abstract_traversal.visit(i - 1);
                     if (last_visit.node_id() == 0 && to_right_side(last_visit).flip() == to_left_side(abstract_visit)) {
                         // It was indeed a previous back to back site. Don't add the entry node!
 #ifdef debug
@@ -1008,11 +993,11 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(SupportAugmentedGraph& aug
                         trav_transfer_start++;
                     }
                 }
-                for (size_t j = trav_transfer_start; j < child_traversal.visits_size(); j++) {
+                for (size_t j = trav_transfer_start; j < child_traversal.visit_size(); j++) {
                     // All the internal visits, in the correct order 
-                    *concrete_traversal.add_visits() = abstract_visit.backward() ?
-                        reverse(child_traversal.visits(child_traversal.visits_size()- 1 - j)) :
-                        child_traversal.visits(j);
+                    *concrete_traversal.add_visit() = abstract_visit.backward() ?
+                        reverse(child_traversal.visit(child_traversal.visit_size()- 1 - j)) :
+                        child_traversal.visit(j);
                 }
             }
         }
@@ -1025,9 +1010,9 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(SupportAugmentedGraph& aug
         // Populate the Locus with those traversals by converting to paths
         Path* converted = locus.add_allele();
         
-        for (size_t i = 0; i < concrete_traversal.visits_size(); i++) {
+        for (size_t i = 0; i < concrete_traversal.visit_size(); i++) {
             // Convert all the visits to Mappings and stick them in the Locus's Paths
-            *converted->add_mapping() = to_mapping(concrete_traversal.visits(i), augmented.graph);
+            *converted->add_mapping() = to_mapping(concrete_traversal.visit(i), augmented.graph);
         }
     }
     
@@ -1049,7 +1034,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(SupportAugmentedGraph& aug
 }
 
 // this was main() in glenn2vcf
-void Call2Vcf::call(
+void SupportCaller::call(
     // Augmented graph
     SupportAugmentedGraph& augmented,
     // Should we load a pileup and print out pileup info as comments after
@@ -1943,7 +1928,7 @@ void Call2Vcf::call(
     
 }
 
-bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented) {
+bool SupportCaller::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented) {
 
     // Keep track of the previous NodeSide
     NodeSide previous;
@@ -1978,8 +1963,8 @@ bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmente
     };
     
     // Experience the entire traversal from start to end
-    for (size_t i = 0; i < trav.visits_size(); i++) {
-        if (!experience_visit(trav.visits(i))) {
+    for (size_t i = 0; i < trav.visit_size(); i++) {
+        if (!experience_visit(trav.visit(i))) {
             return false;
         }
     }
@@ -1989,7 +1974,7 @@ bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmente
         
 }
 
-bool Call2Vcf::is_reference(const Path& path, AugmentedGraph& augmented) {
+bool SupportCaller::is_reference(const Path& path, AugmentedGraph& augmented) {
     
     // The path can't be empty because it's not clear if an empty path should be
     // reference or not.

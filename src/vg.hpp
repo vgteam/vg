@@ -15,8 +15,8 @@
 #include <random>
 
 #include "gssw.h"
-#include "gcsa/gcsa.h"
-#include "gcsa/lcp.h"
+#include <gcsa/gcsa.h>
+#include <gcsa/lcp.h>
 #include "gssw_aligner.hpp"
 #include "ssw_aligner.hpp"
 #include "region.hpp"
@@ -88,6 +88,9 @@ public:
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
     
+    // Copy over the visit version which would otherwise be shadowed.
+    using HandleGraph::get_handle;
+    
     /// Get the ID from a handle
     virtual id_t get_id(const handle_t& handle) const;
     
@@ -114,7 +117,7 @@ public:
     
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const;
+    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     // Copy over the template for nice calls
     using HandleGraph::for_each_handle;
@@ -245,6 +248,8 @@ public:
     /// Construct from an arbitrary source of Graph protobuf messages (which
     /// populates the given Graph and returns a flag for whether it's valid).
     VG(function<bool(Graph&)>& get_next_graph, bool showp = false, bool warn_on_duplicates = true);
+
+    // To construct from a single Protobuf graph, make an empty VG and use .extend()
 
     /// Construct from sets of nodes and edges. For example, from a subgraph of
     /// another graph.
@@ -503,22 +508,38 @@ public:
     /// how each new or conserved node is embedded in the old graph. Note that
     /// this method sorts the graph and rebuilds the path index, so it should
     /// not be called in a loop.
-    vector<Translation> edit(const vector<Path>& paths);
+    ///
+    /// If update_paths is true, the paths will be modified to reflect their
+    /// embedding in the modified graph. If save_paths is true, the paths as
+    /// embedded in the graph will be added to the graph's set of paths. If
+    /// break_at_ends is true (or save_paths is true), nodes will be broken at
+    /// the ends of paths that start/end woth perfect matches, so the paths can
+    /// be added to the vg graph's paths object.
+    vector<Translation> edit(vector<Path>& paths_to_add, bool save_paths = false,
+        bool update_paths = false, bool break_at_ends = false);
     
     /// %Edit the graph to include all the sequences and edges added by the
     /// given path. Returns a vector of Translations, one per original-node
     /// fragment. Completely novel nodes are not mentioned, and nodes with no
     /// Translations are assumed to be carried through unchanged. Invalidates
     /// the rank-based Paths index. Does not sort the graph. Suitable for
-    /// calling in a loop. Can attach newly created nodes on the left of the
-    /// path to the given set of dangling NodeSides, and populates the set at
-    /// the end with the NodeSide corresponding to the end of the path.
+    /// calling in a loop.
+    ///
+    /// Can attach newly created nodes on the left of the path to the given set
+    /// of dangling NodeSides, and populates the set at the end with the
+    /// NodeSide corresponding to the end of the path. This mechanism allows
+    /// edits that hit the end of a node to be attached to what comes
+    /// before/after the node by the caller, as this function doesn't handle
+    /// that.
     vector<Translation> edit_fast(const Path& path, set<NodeSide>& dangling);
 
     /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
     /// them to the given map by node ID of sets of bases in the node that will need
     /// to become the starts of new nodes.
-    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
+    ///
+    /// If break_ends is true, emits breakpoints at the ends of the path, even
+    /// if it starts/ends with perfect matches.
+    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints, bool break_ends = true);
     /// Take a map from node ID to a set of offsets at which new nodes should
     /// start (which may include 0 and 1-past-the-end, which should be ignored),
     /// break the specified nodes at those positions. Returns a map from old
@@ -549,7 +570,10 @@ public:
     /// is nonempty, left edges of nodes created for initial inserts will
     /// connect to the specified sides. At the end, dangling is populated with
     /// the side corresponding to the last edit in the path.
-    void add_nodes_and_edges(const Path& path,
+    ///
+    /// Returns a fully embedded version of the path, after all node insertions,
+    /// divisions, and translations.
+    Path add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
@@ -558,7 +582,7 @@ public:
                              size_t max_node_size = 1024);
     
     /// This version doesn't require a set of dangling sides to populate                         
-    void add_nodes_and_edges(const Path& path,
+    Path add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
@@ -668,7 +692,9 @@ public:
     bool adjacent(const Position& pos1, const Position& pos2);
 
     /// Create a node. Use the VG class to generate ids.
-    Node* create_node(const string& seq, id_t id = 0);
+    Node* create_node(const string& seq);
+    /// Create a node. Use a specified, nonzero node ID.
+    Node* create_node(const string& seq, id_t id);
     /// Find a particular node.
     Node* get_node(id_t id);
     /// Get the subgraph of a node and all the edges it is responsible for
@@ -1165,117 +1191,6 @@ public:
     void node_starts_in_path(list<NodeTraversal>& path,
                              map<NodeTraversal*, int>& node_start);
 
-    // kmers
-    /// Call a function for each kmer in the graph, in parallel.
-    void for_each_kmer_parallel(int kmer_size,
-                                bool path_only,
-                                int edge_max,
-                                function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
-                                int stride = 1,
-                                bool allow_dups = false,
-                                bool allow_negatives = false);
-    /// Call a function for each kmer in the graph.
-    void for_each_kmer(int kmer_size,
-                       bool path_only,
-                       int edge_max,
-                       function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
-                       int stride = 1,
-                       bool allow_dups = false,
-                       bool allow_negatives = false);
-    /// Call a function for each kmer on a node.
-    void for_each_kmer_of_node(Node* node,
-                               int kmer_size,
-                               bool path_only,
-                               int edge_max,
-                               function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
-                               int stride = 1,
-                               bool allow_dups = false,
-                               bool allow_negatives = false);
-
-    /// For the given kmer of the given length starting at the given
-    /// offset into the given Node along the given path, fill in end_node and
-    /// end_offset with where the end of the kmer falls (counting from the right
-    /// side of the NodeTraversal), prev_chars with the characters that preceed
-    /// it, next_chars with the characters that follow it, prev_ and
-    /// next_positions with the ((node ID, orientation), offset) pairs of the
-    /// places you can come from/go next (from the right end of the kmer).
-    /// Refuses to follow more than edge_max edges. Offsets are in the path
-    /// orientation. Meant for gcsa2.
-    void kmer_context(string& kmer,
-                      int kmer_size,
-                      bool path_only,
-                      int edge_max,
-                      bool forward_only,
-                      list<NodeTraversal>& path,
-                      list<NodeTraversal>::iterator start_node,
-                      int32_t start_offset,
-                      list<NodeTraversal>::iterator& end_node,
-                      int32_t& end_offset,
-                      set<tuple<char, id_t, bool, int32_t>>& prev_positions,
-                      set<tuple<char, id_t, bool, int32_t>>& next_positions);
-
-    /// Do the GCSA2 kmers for a node. head_node and tail_node must both be non-
-    /// null, but only one of those nodes actually needs to be in the graph. They
-    /// will be examined directly to get their representative characters. They
-    /// also don't need to be actually owned by the graph; they can be copies.
-    void gcsa_handle_node_in_graph(Node* node, int kmer_size, bool path_only,
-                                   int edge_max, int stride,
-                                   bool forward_only,
-                                   Node* head_node, Node* tail_node,
-                                   function<void(KmerPosition&)> lambda);
-
-    /// Call a function for each GCSA2 kemr position in parallel.
-    /// GCSA kmers are the kmers in the graph with each node
-    /// existing in both its forward and reverse-complement orientation. Node IDs
-    /// in the GCSA graph are 2 * original node ID, +1 if the GCSA node
-    /// represents the reverse complement, and +0 if it does not. Non-reversing
-    /// edges link the forward copy of the from node to the forward copy of the
-    /// to node, and similarly for the reverse complement copies, while reversing
-    /// edges link the forward copy of the from node to the *reverse complement*
-    /// copy of the to node, and visa versa. This allows us to index both the
-    /// forward and reverse strands of every node, and to deal with GCSA's lack
-    /// of support for reversing edges, with the same trick. Note that
-    /// start_tail_id, if zero, will be replaced with the ID actually used for the
-    /// start/end node before lambda is ever called.
-    void for_each_gcsa_kmer_position_parallel(int kmer_size, bool path_only,
-                                              int edge_max, int stride,
-                                              bool forward_only,
-                                              id_t& head_id, id_t& tail_id,
-                                              function<void(KmerPosition&)> lambda);
-    
-    /// Get the GCSA2 kmers in the graph.
-    void get_gcsa_kmers(int kmer_size, bool path_only,
-                        int edge_max, int stride,
-                        bool forward_only,
-                        const function<void(vector<gcsa::KMer>&, bool)>& handle_kmers,
-                        id_t& head_id, id_t& tail_id);
-
-    /// Writhe the GCSA2 kmer file for the graph to the goven stream.
-    void write_gcsa_kmers(int kmer_size, bool path_only,
-                          int edge_max, int stride,
-                          bool forward_only,
-                          ostream& out,
-                          id_t& head_id, id_t& tail_id);
-
-    /// Write the GCSA2 kmers to a temp file with the given base. Return the name of the file.
-    string write_gcsa_kmers_to_tmpfile(int kmer_size,
-                                       bool paths_only,
-                                       bool forward_only,
-                                       id_t& head_id, id_t& tail_id,
-                                       size_t doubling_steps = 2,
-                                       size_t size_limit = 200,
-                                       const string& base_file_name = ".vg-kmers-tmp-");
-
-    /// Construct the GCSA2 index for this graph.
-    void build_gcsa_lcp(gcsa::GCSA*& gcsa,
-                        gcsa::LCPArray*& lcp,
-                        int kmer_size,
-                        bool paths_only,
-                        bool forward_only,
-                        size_t doubling_steps = 2,
-                        size_t size_limit = 200,
-                        const string& base_file_name = ".vg-kmers-tmp-");
-
     /// Take all nodes that would introduce paths of > edge_max edge crossings, remove them, and link their neighbors to
     /// head_node or tail_node depending on which direction the path extension was stopped.
     /// For pruning graph prior to indexing with gcsa2.
@@ -1338,13 +1253,6 @@ public:
     bool is_head_node(id_t id);
     /// Determine if a node is a head node.
     bool is_head_node(Node* node);
-    /// Get the distance in bases from start of node to closest head node of graph, or -1 if that distance exceeds the limit.
-    int32_t distance_to_head(NodeTraversal node, int32_t limit = 1000);
-    /// Get the distance in bases from start of node to closest head node of graph, or -1 if that distance exceeds the limit.
-    /// dist increases by the number of bases of each previous node until you reach the head node
-    /// seen is a set that holds the nodes that you have already gotten the distance of, but starts off empty
-    int32_t distance_to_head(NodeTraversal node, int32_t limit,
-                             int32_t dist, set<NodeTraversal>& seen);
     /// Get the tail nodes (nodes with edges only to their left sides). These are required to be oriented forward.
     vector<Node*> tail_nodes(void);
     /// Get the tail nodes (nodes with edges only to their left sides). These are required to be oriented forward.
@@ -1353,15 +1261,6 @@ public:
     bool is_tail_node(id_t id);
     /// Determine if a node is a tail node.
     bool is_tail_node(Node* node);
-    /// Get the distance from tail of node to end of graph, or -1 if limit exceeded.
-    int32_t distance_to_tail(NodeTraversal node, int32_t limit = 1000);
-    /// Get the distance in bases from end of node to closest tail of graph, or -1 if that distance exceeds the limit.
-    /// dist increases by the number of bases of each next node until you reach the tail node
-    /// seen is a set that holds the nodes that you have already gotten the distance of, but starts off empty
-    int32_t distance_to_tail(NodeTraversal node, int32_t limit,
-                             int32_t dist, set<NodeTraversal>& seen);
-    /// Get the distance from tail of node to end of graph, or -1 if limit exceeded.
-    int32_t distance_to_tail(id_t id, int32_t limit = 1000);
     /// Collect the subgraph of a Node. TODO: what does that mean?
     void collect_subgraph(Node* node, set<Node*>& subgraph);
 
@@ -1371,10 +1270,8 @@ public:
     void join_heads(Node* node, bool from_start = false);
     /// Join tail nodes of graph to specified node. Optionally from the start/to the end of the new node.
     void join_tails(Node* node, bool to_end = false);
-
     /// Add singular head and tail null nodes to graph.
     void wrap_with_null_nodes(void);
-
     /// Add a start node and an end node, where all existing heads in the graph
     /// are connected to the start node, and all existing tails in the graph are
     /// connected to the end node. Any connected components in the graph which do
@@ -1388,7 +1285,7 @@ public:
     void add_start_end_markers(int length,
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,
-                               id_t start_id = 0, id_t end_id = 0);
+                               id_t& start_id, id_t& end_id);
 
     /// Structure for managing parallel construction of a graph.
     // TODO: delete this since we don't use it anymore.

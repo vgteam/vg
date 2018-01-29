@@ -613,7 +613,17 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
             // hack in ident to replace old counting logic.
             score = aln.identity() * aln.sequence().length();
             assert(score <= denom);
+        } else if (rescore == true) {
+            // We need to recalculate the score with the base aligner always
+            const static Aligner unadjusted;
+            BaseAligner* aligner = (BaseAligner*)&unadjusted;
+            
+            // Rescore and assign the score
+            aln.set_score(aligner->score_ungapped_alignment(aln));
+            // Also use the score
+            score = aln.score();
         }
+
         // toggle absolute or fractional score
         if (frac_score == true) {
             if (denom > 0.) {

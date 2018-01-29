@@ -31,12 +31,13 @@ void help_genotype(char** argv) {
          << "    -o, --offset INT        offset variant positions by this amount" << endl
          << "    -l, --length INT        override total sequence length" << endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << endl
-         << "    -q, --use_mapq          use mapping qualities" << endl
+         << "    -Q, --ignore_mapq       do not use mapping qualities" << endl
          << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << endl
          << "    -i, --realign_indels    realign at indels" << endl
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << endl
-         << "    -P, --min_per_strand    min consistent reads per strand for an allele" << endl
+         << "    -P, --min_per_strand    min unique reads per strand for a called allele to accept a call" << endl
          << "    -E, --no_embed          dont embed gam edits into grpah" << endl
+         << "    -T, --traversal         traversal finder to use {reads, exhaustive, representative, adaptive} (adaptive)" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -68,6 +69,8 @@ int main_genotype(int argc, char** argv) {
     int64_t length_override = 0;
     // Should we embed gam edits (for debugging as we move to further decouple augmentation and calling)
     bool embed_gam_edits = true;
+    // Which traversal finder should we use
+    string traversal_finder = "adaptive";
 
     // Should we we just do a quick variant recall,
     // based on this VCF and GAM, then exit?
@@ -78,7 +81,7 @@ int main_genotype(int argc, char** argv) {
     bool useindex = true;
 
     // Should we use mapping qualities?
-    bool use_mapq = false;
+    bool use_mapq = true;
     // Should we do indel realignment?
     bool realign_indels = false;
 
@@ -89,8 +92,8 @@ int main_genotype(int argc, char** argv) {
     bool subset_graph = false;
     // What should the heterozygous genotype prior be? (1/this)
     double het_prior_denominator = 10.0;
-    // At least how many reads must be consistent per strand for a call?
-    size_t min_consistent_per_strand = 2;
+    // At least how many reads must be unique support for a called allele per strand for a call?
+    size_t min_unique_per_strand = 2;
 
     bool just_call = false;
     int c;
@@ -106,7 +109,7 @@ int main_genotype(int argc, char** argv) {
                 {"offset", required_argument, 0, 'o'},
                 {"length", required_argument, 0, 'l'},
                 {"augmented", required_argument, 0, 'a'},
-                {"use_mapq", no_argument, 0, 'q'},
+                {"ignore_mapq", no_argument, 0, 'Q'},
                 {"subset-graph", no_argument, 0, 'S'},
                 {"realign_indels", no_argument, 0, 'i'},
                 {"het_prior_denom", required_argument, 0, 'd'},
@@ -119,11 +122,12 @@ int main_genotype(int argc, char** argv) {
                 {"insertions", required_argument, 0, 'I'},
                 {"call", no_argument, 0, 'z'},
                 {"no_embed", no_argument, 0, 'E'},
+                {"traversal", required_argument, 0, 'T'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qSid:P:pt:V:I:G:F:zE",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:QSid:P:pt:V:I:G:F:zET:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -162,9 +166,9 @@ int main_genotype(int argc, char** argv) {
             // Dump augmented graph
             augmented_file_name = optarg;
             break;
-        case 'q':
-            // Use mapping qualities
-            use_mapq = true;
+        case 'Q':
+            // Ignore mapping qualities
+            use_mapq = false;
             break;
         case 'S':
             // Find sites on the graph subset with any read support
@@ -183,7 +187,7 @@ int main_genotype(int argc, char** argv) {
             break;
         case 'P':
             // Set min consistent reads per strand required to keep an allele
-            min_consistent_per_strand = std::stoll(optarg);
+            min_unique_per_strand = std::stoll(optarg);
             break;
         case 'p':
             show_progress = true;
@@ -206,6 +210,9 @@ int main_genotype(int argc, char** argv) {
             break;
         case 'E':
             embed_gam_edits = false;
+            break;
+        case 'T':
+            traversal_finder = optarg;
             break;
         case 'h':
         case '?':
@@ -337,7 +344,20 @@ int main_genotype(int argc, char** argv) {
     genotyper.realign_indels = realign_indels;
     assert(het_prior_denominator > 0);
     genotyper.het_prior_logprob = prob_to_logprob(1.0/het_prior_denominator);
-    genotyper.min_consistent_per_strand = min_consistent_per_strand;
+    genotyper.min_unique_per_strand = min_unique_per_strand;
+    if (traversal_finder == "reads") {
+        genotyper.traversal_alg = Genotyper::TraversalAlg::Reads;
+    } else if (traversal_finder == "exhaustive") {
+        genotyper.traversal_alg = Genotyper::TraversalAlg::Exhaustive;
+    } else if (traversal_finder == "representative") {
+        genotyper.traversal_alg = Genotyper::TraversalAlg::Representative;
+    } else if (traversal_finder == "adaptive") {
+      genotyper.traversal_alg = Genotyper::TraversalAlg::Adaptive;
+    } else {
+        cerr << "Invalid value for traversal finder: " << traversal_finder
+             << ".  Must be in {reads, representative, exhaustive, adaptive}" << endl;
+        return 1;
+    }
 
     // Guess the reference path if not given
     if(ref_path_name.empty()) {
@@ -361,12 +381,13 @@ int main_genotype(int argc, char** argv) {
     augmented_graph.graph.paths.rebuild_mapping_aux();
     augmented_graph.graph.paths.to_graph(augmented_graph.graph.graph);    
 
-    // Do the actual augmentation using vg edit.
+    // Do the actual augmentation using vg edit. If augmentation was already
+    // done, just embeds the reads. Reads will be taken by the AugmentedGraph
+    // and stored in it.
     augmented_graph.augment_from_alignment_edits(alignments, true, !embed_gam_edits);
     
     // TODO: move arguments below up into configuration
     genotyper.run(augmented_graph,
-                  alignments,
                   cout,
                   ref_path_name,
                   contig_name,

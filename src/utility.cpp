@@ -631,4 +631,33 @@ size_t modular_exponent(uint64_t base, uint64_t exponent, uint64_t modulus) {
     }
     return result;
 }
+    
+default_random_engine random_sequence_gen(102);
+    
+string random_sequence(size_t length) {
+    static const string alphabet = "ACGT";
+    uniform_int_distribution<char> distr(0, 3);
+    
+    string seq(length, '\0');
+    for (size_t i = 0; i < length; i++) {
+        seq[i] = alphabet[distr(random_sequence_gen)];
+    }
+    return seq;
+}
+
+string replace_in_string(string subject,
+                         const string& search,
+                         const string& replace) {
+    size_t pos = 0;
+    while ((pos = subject.find(search, pos)) != string::npos) {
+        subject.replace(pos, search.length(), replace);
+        pos += replace.length();
+    }
+    return subject;
+}
+
+string percent_url_encode(const string& seq) {
+    return replace_in_string(seq, "%", "%25");
+}
+
 }

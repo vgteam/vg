@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 32
+plan tests 36
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -120,6 +120,7 @@ vg map -f alignment/mismatch_reduced_qual.fq -x x.xg -g x.gcsa -k 22 -j -A | jq 
 is $(paste temp_scores_full_qual.txt temp_scores_reduced_qual.txt | column -s $'\t' -t | awk '{if ($1 < $2) count++} END{print count}') 10 "base quality adjusted alignment produces higher scores if mismatches have low quality"
 rm temp_scores_full_qual.txt temp_scores_reduced_qual.txt
 
+# Make sure map checks input files to be sure they're there
 vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/NONEXISTENT -u 4 -j
 is $? 1 "error on vg map -f <nonexistent-file> (unpaired)"
 
@@ -132,4 +133,16 @@ is $? 1 "error on vg map -f <nonexistent-file> (paired, LHS)"
 vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/NONEXISTENT -f reads/grch38_lrc_kir_paired.fq -u 4 -j
 is $? 1 "error on vg map -f <nonexistent-file> (paired, RHS)"
 
-rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp
+# Now do the GBWT
+vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
+vg index -x x.xg -g x.gcsa -v small/x.vcf.gz --gbwt-name x.gbwt -k 16 x.vg
+
+# This read is all ref which matches no haplotype in x.vcf.gz and visits some unused nodes
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -s 'CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTAT' -j | jq '.score')" "36" "mapping a read that touches unused nodes gets the base score"
+# This read is all alt which does match a haplotype
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -s 'CAAATAAGATTTGAAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "35" "mapping a read that matches a haplotype gets a small penalty"
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 0 --full-l-bonus 0 -s 'CAAATAAGATTTGAAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "36" "mapping a read that matches a haplotype with exponent 0 gets the base score"
+# This read matches no haplotypes but only visits used nodes
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -s 'CAAATAAGATTTGGAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "22" "mapping a read that matches no haplotypes gets a larger penalty"
+
+rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa x.gcsa.lcp x.gbwt graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp

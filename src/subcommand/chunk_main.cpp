@@ -30,6 +30,7 @@ void help_chunk(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE       use this xg index to chunk subgraphs" << endl
+         << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction" << endl
          << "    -a, --gam-index FILE     chunk this gam index (made with vg index -a) instead of the graph" << endl
          << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
          << "path chunking:" << endl
@@ -41,6 +42,7 @@ void help_chunk(char** argv) {
          << "id range chunking:" << endl
          << "    -r, --node-range N:M     write the chunk for the specified node range\n"
          << "    -R, --node-ranges FILE   write the chunk for each node range in (newline or whitespace separated) file\n"
+         << "    -n, --n-chunks N         generate this many id-range chunks, which are determined using the xg index\n"
          << "general:" << endl
          << "    -s, --chunk-size N       create chunks spanning N bases (or nodes with -r/-R) for all input regions.\n"
          << "    -o, --overlap N          overlap between chunks when using -s [default = 0]" << endl        
@@ -48,7 +50,8 @@ void help_chunk(char** argv) {
          << "    -b, --prefix PATH        prefix output chunk paths with PATH. each chunk will have the following name:\n"
          << "                             <PATH>-<i>-<name>-<start>-<length>. <i> is the line# of the chunk in the\n"
          << "                             output bed. [default=./chunk]" << endl
-         << "    -c, --context STEPS      expand the context of the chunk this many steps [1]" << endl
+         << "    -c, --context-steps N    expand the context of the chunk this many node steps [1]" << endl
+         << "    -l, --context-length N   expand the context of the chunk by this many bp [0]" << endl
          << "    -T, --trace              Trace haplotype threads in chunks (and only expand forward from input coordinates)" << endl
          << "    -f, --fully-contained    Only return GAM alignments that are fully contained within chunk" << endl
          << "    -A, --search-all         Search all nodes of alignment as opposed just the minimum (gam index must be made with -N)" << endl
@@ -64,6 +67,7 @@ int main_chunk(int argc, char** argv) {
     }
 
     string xg_file;
+    string gbwt_file;
     string gam_file;
     bool gam_and_graph = false;
     string region_string;
@@ -74,6 +78,7 @@ int main_chunk(int argc, char** argv) {
     string out_bed_file;
     string out_chunk_prefix = "./chunk";
     int context_steps = -1;
+    int context_length = 0;
     bool id_range = false;
     string node_range_string;
     string node_ranges_file;
@@ -81,6 +86,7 @@ int main_chunk(int argc, char** argv) {
     bool trace = false;
     bool fully_contained = false;
     bool search_all_positions = false;
+    int n_chunks = 0;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -89,6 +95,7 @@ int main_chunk(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
+            {"gbwt-name", required_argument, 0, 'G'},
             {"gam-name", required_argument, 0, 'a'},
             {"gam-and-graph", no_argument, 0, 'g'},
             {"path", required_argument, 0, 'p'},
@@ -105,11 +112,13 @@ int main_chunk(int argc, char** argv) {
             {"fully-contained", no_argument, 0, 'f'},
             {"search-all-positions", no_argument, 0, 'A'},
             {"threads", required_argument, 0, 't'},
+            {"n-chunks", required_argument, 0, 'n'},
+            {"context-length", required_argument, 0, 'l'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:gp:P:s:o:e:E:b:c:r:R:TfAt:",
+        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:TfAt:n:l:",
                 long_options, &option_index);
 
 
@@ -122,6 +131,10 @@ int main_chunk(int argc, char** argv) {
 
         case 'x':
             xg_file = optarg;
+            break;
+        
+        case 'G':
+            gbwt_file = optarg;
             break;
 
         case 'a':
@@ -164,6 +177,11 @@ int main_chunk(int argc, char** argv) {
             context_steps = atoi(optarg);
             break;
 
+        case 'l':
+            context_length = atoi(optarg);
+            context_steps = (context_steps > 0 ? context_steps : -1);
+            break;
+
         case 'r':
             node_range_string = optarg;
             id_range = true;
@@ -171,6 +189,11 @@ int main_chunk(int argc, char** argv) {
 
         case 'R':
             node_ranges_file = optarg;
+            id_range = true;
+            break;
+
+        case 'n':
+            n_chunks = atoi(optarg);
             id_range = true;
             break;
 
@@ -203,10 +226,10 @@ int main_chunk(int argc, char** argv) {
 
     omp_set_num_threads(threads);            
 
-    // need at most one of -p, -P, -e, -r, -R,  as an input
-    if ((region_string.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
+    // need at most one of -n, -p, -P, -e, -r, -R,  as an input
+    if ((n_chunks == 0 ? 0 : 1) + (region_string.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
         (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) > 1) {
-        cerr << "error:[vg chunk] at most one of {-p, -P, -e, -r, -R} required to specify input regions" << endl;
+        cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R} required to specify input regions" << endl;
         return 1;
     }
     // need -a if using -f
@@ -218,7 +241,9 @@ int main_chunk(int argc, char** argv) {
     // misunderstandings
     if (context_steps < 0) {
         if (id_range) {
-            context_steps = 1;
+            if (!context_length) {
+                context_steps = 1;
+            }
         } else {
             cerr << "error:[vg chunk] context expansion steps must be specified with -c/--context when chunking on paths" << endl;
             return 1;
@@ -234,7 +259,7 @@ int main_chunk(int argc, char** argv) {
 
     // Load our index
     xg::XG xindex;
-    if (chunk_graph || trace || context_steps > 0 || !id_range) {
+    if (chunk_graph || trace || context_steps > 0 || context_length > 0 || !id_range) {
         if (xg_file.empty()) {
             cerr << "error:[vg chunk] xg index (-x) required" << endl;
             return 1;
@@ -247,6 +272,23 @@ int main_chunk(int argc, char** argv) {
         }
         xindex.load(in);
         in.close();
+    }
+
+    // Now load the haplotype data
+    unique_ptr<gbwt::GBWT> gbwt_index;
+    if (trace && !gbwt_file.empty()) {
+        // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
+        gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
+        
+        // Open up the index
+        ifstream in(gbwt_file.c_str());
+        if (!in) {
+            cerr << "error:[vg chunk] unable to load gbwt index file" << endl;
+            return 1;
+        }
+
+        // And load it
+        gbwt_index->load(in);
     }
 
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
@@ -282,33 +324,53 @@ int main_chunk(int argc, char** argv) {
         parse_bed_regions(in_bed_file, regions);
     }
     else if (id_range) {
-        istream* range_stream;
-        if (!node_range_string.empty()) {
-            range_stream = new stringstream(node_range_string);
-        } else {
-            range_stream = new ifstream(node_ranges_file);
-            if (!(*range_stream)) {
-                cerr << "error:[vg chunk] unable to open id ranges file: " << node_ranges_file << endl;
-                return 1;
-            }
-        }
-        do {
-            string range;
-            *range_stream >> range;
-            if (!range.empty() && isdigit(range[0])) {
+        if (n_chunks) {
+            // determine the ranges from the xg index itself
+            // how many nodes per range?
+            int nodes_per_chunk = xindex.node_count / n_chunks;
+            size_t i = 1;
+            // iterate through the node ranks to build the regions
+            while (i < xindex.node_count) {
+                // make a range from i to i+nodeS_per_range
+                vg::id_t a = xindex.rank_to_id(i);
+                size_t j = i + nodes_per_chunk;
+                if (j > xindex.node_count) j = xindex.node_count;
+                vg::id_t b = xindex.rank_to_id(j);
                 Region region;
-                vector<string> parts = split_delims(range, ":");
-                if (parts.size() == 1) {
-                    convert(parts.front(), region.start);
-                    region.end = region.start;
-                } else {
-                    convert(parts.front(), region.start);
-                    convert(parts.back(), region.end);
-                }
+                region.start = a;
+                region.end = b;
                 regions.push_back(region);
+                i = j + 1;
             }
-        } while (*range_stream);
-        delete range_stream;
+        } else {
+            istream* range_stream;
+            if (!node_range_string.empty()) {
+                range_stream = new stringstream(node_range_string);
+            } else {
+                range_stream = new ifstream(node_ranges_file);
+                if (!(*range_stream)) {
+                    cerr << "error:[vg chunk] unable to open id ranges file: " << node_ranges_file << endl;
+                    return 1;
+                }
+            }
+            do {
+                string range;
+                *range_stream >> range;
+                if (!range.empty() && isdigit(range[0])) {
+                    Region region;
+                    vector<string> parts = split_delims(range, ":");
+                    if (parts.size() == 1) {
+                        convert(parts.front(), region.start);
+                        region.end = region.start;
+                    } else {
+                        convert(parts.front(), region.start);
+                        convert(parts.back(), region.end);
+                    }
+                    regions.push_back(region);
+                }
+            } while (*range_stream);
+            delete range_stream;
+        }
     }
     else {
         // every path
@@ -385,7 +447,6 @@ int main_chunk(int argc, char** argv) {
         chunker.xg = &xindex;
     }
 
-    
     // extract chunks in parallel
 #pragma omp parallel for
     for (int i = 0; i < num_regions; ++i) {
@@ -396,12 +457,14 @@ int main_chunk(int argc, char** argv) {
         map<string, int> trace_thread_frequencies;
         if (id_range == false) {
             subgraph = new VG();
-            chunker.extract_subgraph(region, context_steps, trace, *subgraph, output_regions[i]);
+            chunker.extract_subgraph(region, context_steps, context_length,
+                                     trace, *subgraph, output_regions[i]);
         } else {
             if (chunk_graph || context_steps > 0) {
                 subgraph = new VG();
                 output_regions[i].seq = region.seq;                
-                chunker.extract_id_range(region.start, region.end, context_steps, trace,
+                chunker.extract_id_range(region.start, region.end,
+                                         context_steps, context_length, trace,
                                          *subgraph, output_regions[i]);
             } else {
                 // in this case, there's no need to actually build the subgraph, so we don't
@@ -425,7 +488,7 @@ int main_chunk(int argc, char** argv) {
             }
             int64_t trace_steps = trace_end - trace_start;
             Graph g;
-            trace_haplotypes_and_paths(xindex, trace_start, trace_steps,
+            trace_haplotypes_and_paths(xindex, gbwt_index.get(), trace_start, trace_steps,
                                        g, trace_thread_frequencies, false);
             subgraph->paths.for_each([&trace_thread_frequencies](const Path& path) {
                     trace_thread_frequencies[path.name()] = 1;});            

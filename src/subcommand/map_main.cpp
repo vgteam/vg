@@ -18,6 +18,7 @@ void help_map(char** argv) {
          << "    -d, --base-name BASE    use BASE.xg and BASE.gcsa as the input index pair" << endl
          << "    -x, --xg-name FILE      use this xg index (defaults to <graph>.vg.xg)" << endl
          << "    -g, --gcsa-name FILE    use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
+         << "    -1, --gbwt-name         use this GBWT haplotype index (defaults to <graph>"<<gbwt::GBWT::EXTENSION << ")" << endl
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
@@ -44,12 +45,14 @@ void help_map(char** argv) {
          << "    -F, --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
          << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
+         << "    --patch-aln             patch banded alignments by attempting to align unaligned regions" << endl 
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
+         << "    -a, --hap-exp FLOAT     the exponent for haplotype consistency likelihood in alignment score [1]" << endl
          << "    -A, --qual-adjust       perform base quality adjusted alignments (requires base quality input)" << endl
          << "input:" << endl
          << "    -s, --sequence STR      align a string to the graph in graph.vg using partial order alignment" << endl
@@ -63,12 +66,13 @@ void help_map(char** argv) {
          << "    -R, --read-group NAME   for --reads input, add this read group" << endl
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
+         << "    --surject-to TYPE       surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT produce up to INT alignments for each read [1]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [1]" << endl
          << "    -Q, --mq-max INT        cap the mapping quality at INT [60]" << endl
          << "    -D, --debug             print debugging information about alignment to stderr" << endl;
 
@@ -87,6 +91,7 @@ int main_map(int argc, char** argv) {
     string db_name;
     string xg_name;
     string gcsa_name;
+    string gbwt_name;
     string read_file;
     string hts_file;
     bool keep_secondary = false;
@@ -94,6 +99,7 @@ int main_map(int argc, char** argv) {
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
+    string surject_type;
     bool debug = false;
     float min_score = 0;
     string sample_name;
@@ -101,7 +107,7 @@ int main_map(int argc, char** argv) {
     string fastq1, fastq2;
     bool interleaved_input = false;
     int band_width = 256;
-    int band_multimaps = 4;
+    int band_multimaps = 1;
     int max_band_jump = -1;
     bool always_rescue = false;
     bool top_pairs_only = false;
@@ -116,6 +122,7 @@ int main_map(int argc, char** argv) {
     int8_t gap_open = 6;
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
+    double haplotype_consistency_exponent = 1;
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
@@ -145,6 +152,7 @@ int main_map(int argc, char** argv) {
     int fragment_model_update = 10;
     bool acyclic_graph = false;
     bool refpos_table = false;
+    bool patch_alignments = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -159,6 +167,7 @@ int main_map(int argc, char** argv) {
                 {"base-name", required_argument, 0, 'd'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"gcsa-name", required_argument, 0, 'g'},
+                {"gbwt-name", required_argument, 0, '1'},
                 {"reads", required_argument, 0, 'T'},
                 {"sample", required_argument, 0, 'N'},
                 {"read-group", required_argument, 0, 'R'},
@@ -181,7 +190,6 @@ int main_map(int argc, char** argv) {
                 {"reseed-x", required_argument, 0, 'r'},
                 {"min-chain", required_argument, 0, 'W'},
                 {"fast-reseed", no_argument, 0, '6'},
-                {"id-clustering", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
                 {"match", required_argument, 0, 'q'},
@@ -194,6 +202,7 @@ int main_map(int argc, char** argv) {
                 {"fragment", required_argument, 0, 'I'},
                 {"fragment-x", required_argument, 0, 'S'},
                 {"full-l-bonus", required_argument, 0, 'L'},
+                {"hap-exp", required_argument, 0, 'a'},
                 {"acyclic-graph", no_argument, 0, 'm'},
                 {"seed-chance", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
@@ -207,11 +216,13 @@ int main_map(int argc, char** argv) {
                 {"frag-calc", required_argument, 0, 'F'},
                 {"id-mq-weight", required_argument, 0, '7'},
                 {"refpos-table", no_argument, 0, 'v'},
+                {"surject-to", required_argument, 0, '5'},
+                {"patch-alns", no_argument, 0, '8'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:n:E:X:UpF:m7:v",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:8",
                          long_options, &option_index);
 
 
@@ -235,6 +246,10 @@ int main_map(int argc, char** argv) {
 
         case 'g':
             gcsa_name = optarg;
+            break;
+            
+        case '1':
+            gbwt_name = optarg;
             break;
 
         case 'V':
@@ -263,6 +278,10 @@ int main_map(int argc, char** argv) {
 
         case 'L':
             full_length_bonus = atoi(optarg);
+            break;
+            
+        case 'a':
+            haplotype_consistency_exponent = atof(optarg);
             break;
         
         case 'm':
@@ -404,6 +423,14 @@ int main_map(int argc, char** argv) {
             refpos_table = true;
             break;
 
+        case '5':
+            surject_type = optarg;
+            break;
+
+        case '8':
+            patch_alignments = true;
+            break;
+
         case 'I':
         {
             vector<string> parts = split_delims(string(optarg), ":");
@@ -450,8 +477,9 @@ int main_map(int argc, char** argv) {
             break;
 
 
-            default:
-                abort ();
+        default:
+            cerr << "Unimplemented option " << (char) c << endl;
+            exit(1);
         }
     }
 
@@ -484,6 +512,10 @@ int main_map(int argc, char** argv) {
     if (gcsa_name.empty() && !file_name.empty()) {
         gcsa_name = file_name + gcsa::GCSA::EXTENSION;
     }
+    
+    if (gbwt_name.empty() && !file_name.empty()) {
+        gbwt_name = file_name + gbwt::GBWT::EXTENSION;
+    }
 
     if (xg_name.empty() && !file_name.empty()) {
         xg_name = file_name + ".xg";
@@ -492,6 +524,7 @@ int main_map(int argc, char** argv) {
     if (!db_name.empty()) {
         xg_name = db_name + ".xg";
         gcsa_name = db_name + gcsa::GCSA::EXTENSION;
+        gbwt_name = file_name + gbwt::GBWT::EXTENSION;
     }
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
@@ -501,9 +534,10 @@ int main_map(int argc, char** argv) {
     gcsa::TempFile::setDirectory(find_temp_dir());
 
     // Load up our indexes.
-    xg::XG* xindex = nullptr;
+    xg::XG* xgidx = nullptr;
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
+    gbwt::GBWT* gbwt = nullptr;
 
     // We try opening the file, and then see if it worked
     ifstream xg_stream(xg_name);
@@ -513,7 +547,7 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
-        xindex = new xg::XG(xg_stream);
+        xgidx = new xg::XG(xg_stream);
     }
 
     ifstream gcsa_stream(gcsa_name);
@@ -535,6 +569,16 @@ int main_map(int argc, char** argv) {
         lcp = new gcsa::LCPArray();
         lcp->load(lcp_stream);
     }
+    
+    ifstream gbwt_stream(gbwt_name);
+    if(gbwt_stream) {
+        // We have a GBWT index too!
+        if(debug) {
+            cerr << "Loading GBWT haplotype index " << gbwt_name << "..." << endl;
+        }
+        gbwt = new gbwt::GBWT();
+        gbwt->load(gbwt_stream);
+    }
 
     thread_count = get_thread_count();
 
@@ -543,6 +587,96 @@ int main_map(int argc, char** argv) {
     vector<vector<Alignment> > output_buffer;
     output_buffer.resize(thread_count);
     vector<Alignment> empty_alns;
+
+    // bam/sam/cram output
+    samFile* sam_out = 0;
+    int buffer_limit = 100;
+    bam_hdr_t* hdr = nullptr;
+    int compress_level = 9; // hard coded
+    map<string, string> rg_sample;
+    string sam_header;
+
+    // if no paths were given take all of those in the index
+    set<string> path_names;
+    if (!surject_type.empty() && path_names.empty()) {
+        for (size_t i = 1; i <= xgidx->path_count; ++i) {
+            path_names.insert(xgidx->path_name(i));
+        }
+    }
+
+    // for SAM header generation
+    auto setup_sam_header = [&hdr, &sam_out, &surject_type, &compress_level, &xgidx, &rg_sample, &sam_header] (void) {
+#pragma omp critical (hts_header)
+        if (!hdr) {
+            char out_mode[5];
+            string out_format = "";
+            strcpy(out_mode, "w");
+            if (surject_type == "bam") { out_format = "b"; }
+            else if (surject_type == "cram") { out_format = "c"; }
+            else { out_format = ""; }
+            strcat(out_mode, out_format.c_str());
+            if (compress_level >= 0) {
+                char tmp[2];
+                tmp[0] = compress_level + '0'; tmp[1] = '\0';
+                strcat(out_mode, tmp);
+            }
+            map<string, int64_t> path_length;
+            int num_paths = xgidx->max_path_rank();
+            for (int i = 1; i <= num_paths; ++i) {
+                auto name = xgidx->path_name(i);
+                path_length[name] = xgidx->path_length(name);
+            }
+            hdr = hts_string_header(sam_header, path_length, rg_sample);
+            if ((sam_out = sam_open("-", out_mode)) == 0) {
+                cerr << "[vg surject] failed to open stdout for writing HTS output" << endl;
+                exit(1);
+            } else {
+                // write the header
+                if (sam_hdr_write(sam_out, hdr) != 0) {
+                    cerr << "[vg surject] error: failed to write the SAM header" << endl;
+                }
+            }
+        }
+    };
+
+    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out] (const vector<Alignment>& alns) {
+        if (alns.empty()) return;
+        setup_sam_header();
+        vector<tuple<string, int64_t, bool, Alignment> > surjects;
+        int tid = omp_get_thread_num();
+        for (auto& aln : alns) {
+            string path_name; int64_t path_pos; bool path_reverse;
+            auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse);
+            surjects.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
+            // hack: if we haven't established the header, we look at the reads to guess which read groups to put in it
+            if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {
+#pragma omp critical (hts_header)
+                rg_sample[surj.read_group()] = surj.sample_name();
+            }
+        }
+        // write out the surjections
+        for (auto& s : surjects) {
+            auto& path_nom = get<0>(s);
+            auto& path_pos = get<1>(s);
+            auto& path_reverse = get<2>(s);
+            auto& surj = get<3>(s);
+            string cigar = cigar_against_path(surj, path_reverse);
+            bam1_t* b = alignment_to_bam(sam_header,
+                                         surj,
+                                         path_nom,
+                                         path_pos,
+                                         path_reverse,
+                                         cigar,
+                                         "=",
+                                         path_pos,
+                                         0);
+            int r = 0;
+#pragma omp critical (cout)
+            r = sam_write1(sam_out, hdr, b);
+            if (r == 0) { cerr << "[vg surject] error: writing to stdout failed" << endl; exit(1); }
+            bam_destroy1(b);
+        }
+    };
 
     auto write_json = [](const vector<Alignment>& alns) {
         for(auto& alignment : alns) {
@@ -569,6 +703,8 @@ int main_map(int argc, char** argv) {
     // Make sure to flush the buffer at the end of the program!
     auto output_alignments = [&output_buffer,
                               &output_json,
+                              &surject_type,
+                              &surject_alignments,
                               &buffer_size,
                               &refpos_table,
                               &write_json,
@@ -587,6 +723,10 @@ int main_map(int argc, char** argv) {
                 write_refpos(alns1);
                 write_refpos(alns2);
             }
+        } else if (!surject_type.empty()) {
+            // surject
+            surject_alignments(alns1);
+            surject_alignments(alns2);
         } else {
             // Otherwise write them through the buffer for our thread
             int tid = omp_get_thread_num();
@@ -602,9 +742,9 @@ int main_map(int argc, char** argv) {
 
     for (int i = 0; i < thread_count; ++i) {
         Mapper* m = nullptr;
-        if(xindex && gcsa && lcp) {
+        if(xgidx && gcsa && lcp) {
             // We have the xg and GCSA indexes, so use them
-            m = new Mapper(xindex, gcsa, lcp);
+            m = new Mapper(xgidx, gcsa, lcp, gbwt);
         } else {
             // Can't continue with null
             throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
@@ -629,7 +769,7 @@ int main_map(int argc, char** argv) {
         }
         m->fast_reseed = use_fast_reseed;
         m->max_target_factor = max_target_factor;
-        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
+        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent);
         m->strip_bonuses = strip_bonuses;
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
         m->extra_multimaps = extra_multimaps;
@@ -651,6 +791,8 @@ int main_map(int argc, char** argv) {
         m->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
         m->identity_weight = identity_weight;
         m->assume_acyclic = acyclic_graph;
+        m->context_depth = 3; // for surjection
+        m->patch_alignments = patch_alignments;
         mapper[i] = m;
     }
 
@@ -1000,18 +1142,33 @@ int main_map(int argc, char** argv) {
     for (int i = 0; i < thread_count; ++i) {
         delete mapper[i];
         auto& output_buf = output_buffer[i];
-        if (!output_json && !refpos_table) {
+        if (!output_json && !refpos_table && surject_type.empty()) {
             stream::write_buffered(cout, output_buf, 0);
         }
     }
 
+    // special cleanup for htslib outputs
+    if (!surject_type.empty()) {
+        if (hdr != nullptr) bam_hdr_destroy(hdr);
+        sam_close(sam_out);
+        cout.flush();
+    }
+
+    if (gbwt) {
+        delete gbwt;
+        gbwt = nullptr;
+    }
+    if (lcp) {
+        delete lcp;
+        lcp = nullptr;
+    }
     if(gcsa) {
         delete gcsa;
         gcsa = nullptr;
     }
-    if(xindex) {
-        delete xindex;
-        xindex = nullptr;
+    if(xgidx) {
+        delete xgidx;
+        xgidx = nullptr;
     }
 
     cout.flush();

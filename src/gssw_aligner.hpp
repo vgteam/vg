@@ -22,7 +22,7 @@ namespace vg {
     static const int8_t default_mismatch = 4;
     static const int8_t default_gap_open = 6;
     static const int8_t default_gap_extension = 1;
-    static const int8_t default_full_length_bonus = 0;
+    static const int8_t default_full_length_bonus = 5;
     static const int8_t default_max_scaled_score = 32;
     static const uint8_t default_max_qual_score = 255;
     static const double default_gc_content = 0.5;
@@ -61,6 +61,7 @@ namespace vg {
         
         double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out);
         double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out);
+        double group_mapping_quality_exact(vector<double>& scaled_scores, vector<size_t>& group);
         double estimate_next_best_score(int length, double min_diffs);
         
         // must be called before querying mapping_quality
@@ -116,7 +117,7 @@ namespace vg {
                         
         /// Compute the score of an exact match in the given alignment, from the
         /// given offset, of the given length.
-        virtual int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) = 0;
+        virtual int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const = 0;
         /// Compute the score of an exact match of the given sequence with the given qualities.
         /// Qualities may be ignored by some implementations.
         virtual int32_t score_exact_match(const string& sequence, const string& base_quality) const = 0;
@@ -159,6 +160,9 @@ namespace vg {
         /// Computes mapping quality for the optimal score in a vector of scores
         int32_t compute_mapping_quality(vector<double>& scores, bool fast_approximation);
         
+        /// Computes mapping quality for a group of scores in a vector of scores (group given by indexes)
+        int32_t compute_group_mapping_quality(vector<double>& scores, vector<size_t>& group);
+        
         /// Returns the  difference between an optimal and second-best alignment scores that would
         /// result in this mapping quality using the fast mapping quality approximation
         double mapping_quality_score_diff(double mapping_quality) const;
@@ -182,18 +186,18 @@ namespace vg {
         /// May include full length bonus or not. TODO: bool flags are bad.
         virtual int32_t score_gappy_alignment(const Alignment& aln,
             const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
-            bool strip_bonuses = false);
+            bool strip_bonuses = false) const;
         
         /// Use the score values in the aligner to score the given alignment assuming
         /// that there are no gaps between Mappings in the Path
         virtual int32_t score_ungapped_alignment(const Alignment& aln,
-                                                 bool strip_bonuses = false);
+                                                 bool strip_bonuses = false) const;
             
         /// Without necessarily rescoring the entire alignment, return the score
         /// of the given alignment with bonuses removed. Assumes that bonuses
         /// are actually included in the score.
         /// Needs to know if the alignment was pinned-end or not, and, if so, which end was pinned.
-        virtual int32_t remove_bonuses(const Alignment& aln, bool pinned = false, bool pin_left = false);
+        virtual int32_t remove_bonuses(const Alignment& aln, bool pinned = false, bool pin_left = false) const;
         
         // members
         int8_t* nt_table = nullptr;
@@ -270,7 +274,7 @@ namespace vg {
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
         
         
-        int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length);
+        int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                   string::const_iterator base_qual_begin) const;
@@ -309,7 +313,7 @@ namespace vg {
         
         void init_mapping_quality(double gc_content);
         
-        int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length);
+        int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                   string::const_iterator base_qual_begin) const;

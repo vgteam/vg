@@ -137,6 +137,8 @@ message Alignment {
     
     string fragment_length_distribution = 32; // The fragment length distribution under which a paired-end alignment was aligned.
 
+    bool haplotype_scored = 33; // True if this alignment's score is adjusted for haplotype consistency, and false otherwise.
+    double haplotype_logprob = 34; // Actual log probability haplotype consistency likelihood
 }
 
 // A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment
@@ -273,7 +275,7 @@ message SnarlTraversal {
     // Steps of the walk through a Snarl, including the start and end nodes. If the 
     // traversal includes a Visit that represents a Snarl, both the node entering the Snarl
     // and the node leaving the Snarl should be included in the traversal.
-    repeated Visit visits = 1;
+    repeated Visit visit = 1;
 
     // The name of the traversal can be used for a variant allele id (e.g. <parentSnarlHash>_0, <parentSnarlHash>_1...
     // or by some other arbitrary annotation , unique or non-unique, e.g. deleteterious, gain_of_function, etc., though these
@@ -324,6 +326,17 @@ message Support {
     double left = 4;
     // TODO: What is this?
     double right = 5;
+}
+
+// Support pinned to a location, which can be either a node or an edge
+message LocationSupport {
+    // The support
+    Support support = 1;
+    // The location
+    oneof oneof_location {
+        Edge edge = 2;
+        int64 node_id = 3;
+    }
 }
 
 // Translations map from one graph to another.
