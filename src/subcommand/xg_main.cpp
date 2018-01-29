@@ -18,6 +18,7 @@
 #include "../stream.hpp"
 #include "../cpp/vg.pb.h"
 #include "../xg.hpp"
+#include "../converter.hpp"
 
 using namespace std;
 using namespace vg;
@@ -29,29 +30,30 @@ void help_xg(char** argv) {
          << "Manipluate succinct representations of queryable sequence graphs" << endl
          << endl
          << "options:" << endl
-         << "    -v, --vg FILE        compress graph in vg FILE" << endl
-         << "    -V, --validate       validate compression" << endl
-         << "    -o, --out FILE       serialize graph to FILE" << endl
-         << "    -i, --in FILE        use index in FILE" << endl
-         << "    -n, --node ID        graph neighborhood around node with ID" << endl
-         << "    -c, --context N      steps of context to extract when building neighborhood" << endl
-         << "    -s, --node-seq ID    provide node sequence for ID" << endl
-         << "    -P, --char POS       give the character at a given position in the graph" << endl
-         << "    -F, --substr POS:LEN extract the substr of LEN on the node at the position" << endl
-         << "    -f, --edges-from ID  list edges from node with ID" << endl
-         << "    -t, --edges-to ID    list edges to node with ID" << endl
-         << "    -O, --edges-of ID    list all edges related to node with ID" << endl
+         << "    -v, --vg FILE              compress graph in vg FILE" << endl
+         << "    -V, --validate             validate compression" << endl
+         << "    -o, --out FILE             serialize graph to FILE in xg format" << endl
+         << "    -i, --in FILE              use index in FILE" << endl
+         << "    -X, --extract-vg FILE      serialize graph to FILE in vg format" << endl
+         << "    -n, --node ID              graph neighborhood around node with ID" << endl
+         << "    -c, --context N            steps of context to extract when building neighborhood" << endl
+         << "    -s, --node-seq ID          provide node sequence for ID" << endl
+         << "    -P, --char POS             give the character at a given position in the graph" << endl
+         << "    -F, --substr POS:LEN       extract the substr of LEN on the node at the position" << endl
+         << "    -f, --edges-from ID        list edges from node with ID" << endl
+         << "    -t, --edges-to ID          list edges to node with ID" << endl
+         << "    -O, --edges-of ID          list all edges related to node with ID" << endl
          << "    -S, --edges-on-start ID    list all edges on start of node with ID" << endl
          << "    -E, --edges-on-end ID      list all edges on start of node with ID" << endl
-         << "    -p, --path TARGET    gets the region of the graph @ TARGET (chr:start-end)" << endl
+         << "    -p, --path TARGET          gets the region of the graph @ TARGET (chr:start-end)" << endl
          << "    -x, --extract-threads      extract succinct threads as paths" << endl
-         << "    -r, --store-threads  store perfect match paths as succinct threads" << endl
-         << "    -d, --is-sorted-dag  graph is a sorted dag; use fast thread insert" << endl
-         << "    -R, --report FILE    save an HTML space usage report to FILE when serializing" << endl
-         << "    -D, --debug          show debugging output" << endl
-         << "    -T, --text-output    write text instead of vg protobuf" << endl
-         << "    -b, --dump-bs FILE   dump the gPBWT to the given file" << endl
-         << "    -h, --help           this text" << endl;
+         << "    -r, --store-threads        store perfect match paths as succinct threads" << endl
+         << "    -d, --is-sorted-dag        graph is a sorted dag; use fast thread insert" << endl
+         << "    -R, --report FILE          save an HTML space usage report to FILE when serializing" << endl
+         << "    -D, --debug                show debugging output" << endl
+         << "    -T, --text-output          write text instead of vg protobuf" << endl
+         << "    -b, --dump-bs FILE         dump the gPBWT to the given file" << endl
+         << "    -h, --help                 this text" << endl;
 }
 
 int main_xg(int argc, char** argv) {
@@ -61,7 +63,8 @@ int main_xg(int argc, char** argv) {
         return 1;
     }
 
-    string vg_name;
+    string vg_in;
+    string vg_out;
     string out_name;
     string in_name;
     int64_t node_id;
@@ -94,6 +97,7 @@ int main_xg(int argc, char** argv) {
                 {"vg", required_argument, 0, 'v'},
                 {"out", required_argument, 0, 'o'},
                 {"in", required_argument, 0, 'i'},
+                {"extract-vg", required_argument, 0, 'X'},
                 {"node", required_argument, 0, 'n'},
                 {"char", required_argument, 0, 'P'},
                 {"substr", required_argument, 0, 'F'},
@@ -118,7 +122,7 @@ int main_xg(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hv:o:i:f:t:s:c:n:p:DxrdTO:S:E:VR:P:F:b:",
+        c = getopt_long (argc, argv, "hv:o:i:X:f:t:s:c:n:p:DxrdTO:S:E:VR:P:F:b:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -129,7 +133,7 @@ int main_xg(int argc, char** argv) {
         {
 
         case 'v':
-            vg_name = optarg;
+            vg_in = optarg;
             break;
 
         case 'V':
@@ -162,6 +166,10 @@ int main_xg(int argc, char** argv) {
 
         case 'i':
             in_name = optarg;
+            break;
+
+        case 'X':
+            vg_out = optarg;
             break;
 
         case 'n':
@@ -236,13 +244,13 @@ int main_xg(int argc, char** argv) {
 
     XG* graph = nullptr;
     //string file_name = argv[optind];
-    if (in_name.empty()) assert(!vg_name.empty());
-    if (vg_name == "-") {
+    if (in_name.empty()) assert(!vg_in.empty());
+    if (vg_in == "-") {
         graph = new XG;
         graph->from_stream(std::cin, validate_graph, print_graph, store_threads, is_sorted_dag);
-    } else if (vg_name.size()) {
+    } else if (vg_in.size()) {
         ifstream in;
-        in.open(vg_name.c_str());
+        in.open(vg_in.c_str());
         graph = new XG;
         graph->from_stream(in, validate_graph, print_graph, store_threads, is_sorted_dag);
     }
@@ -267,7 +275,19 @@ int main_xg(int argc, char** argv) {
         structure = unique_ptr<sdsl::structure_tree_node>(new sdsl::structure_tree_node("name", "type"));
     }
 
-    if (out_name.size()) {
+    if(!vg_out.empty()) {
+        if (graph == nullptr) {
+             cerr << "error [vg xg] no xg graph exists to convert; Try: vg xg -i graph.xg -X graph.vg" << endl;
+             return 1;
+        }
+        if (vg_out == "-") {
+            converter(graph).serialize_to_ostream(std::cout);
+        } else {
+            converter(graph).serialize_to_file(vg_out);
+        }
+    }
+
+    if (!out_name.empty()) {
         if (out_name == "-") {
             graph->serialize(std::cout, structure.get(), "xg");
             std::cout.flush();
@@ -425,6 +445,8 @@ int main_xg(int argc, char** argv) {
         out.open(b_array_name.c_str());
         graph->bs_dump(out);
     }
+
+    // Here
 
     // clean up
     if (graph) delete graph;
