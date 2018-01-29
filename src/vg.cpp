@@ -6557,7 +6557,7 @@ void VG::to_gfa(ostream& out) {
         ee.source_orientation_forward = ! e->from_start();
         ee.sink_orientation_forward =  ! e->to_end();
         ee.alignment = std::to_string(e->overlap()) + "M";
-        gg.add_edge(ee);
+        gg.add_edge(ee.source_name, ee);
         //link_elem l;
         //l.source_name = to_string(e->from());
         //l.sink_name = to_string(e->to());
