@@ -144,21 +144,20 @@ If your graph is large, you want to use `vg index` to store the graph and `vg ma
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 
 # store the graph in the xg/gcsa index pair
-vg index -x x.xg -g x.gcsa -k 11 x.vg
-
-# alternatively, store in a rocksdb backed index (recommended for surjection to BAM later)
-vg index -s -k 11 -d x.vg.index x.vg
+vg index -x x.xg -g x.gcsa -k 16 x.vg
 
 # align a read to the indexed version of the graph
 # note that the graph file is not opened, but x.vg.index is assumed
-vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -k 22 >read.gam
+vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa >read.gam
 
 # simulate a bunch of 150bp reads from the graph and map them
-vg map -r <(vg sim -n 1000 -l 150 -x x.xg ) -x x.xg -g x.gcsa -k 22 >aln.gam
+vg map -r <(vg sim -n 1000 -l 150 -x x.xg ) -x x.xg -g x.gcsa >aln.gam
 
 # surject the alignments back into the reference space of sequence "x", yielding a BAM file
-# NB: currently requires the rocksdb-backed index
 vg surject -x x.xg -b aln.gam >aln.bam
+
+# or alternatively, surject them to BAM in the call to map
+vg map -r <(vg sim -n 1000 -l 150 -x x.xg ) -x x.xg -g x.gcsa --surject-to bam >aln.bam
 ```
 ### Variant Calling
 
