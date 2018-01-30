@@ -25,7 +25,6 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
                     string sample_name,
                     string augmented_file_name,
                     bool subset_graph,
-                    bool show_progress,
                     bool output_vcf,
                     bool output_json,
                     int length_override,
@@ -68,11 +67,11 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
         reads_by_name[alignment->name()] = alignment;
         // Each alignment is already as fully embedded in the graph as it should be.
     }
+    
+    if (show_progress) {
 #pragma omp critical (cerr)
-    cerr << "Converted " << alignments.size() << " alignments to embedded paths" << endl;
-
-
-    // We need to decide if we want to work on the full graph or just on the subgraph that has any support.
+        cerr << "Converted " << alignments.size() << " alignments to embedded paths" << endl;
+    }
 
     // Set up our genotypekit members.
     SnarlFinder* snarl_finder;
@@ -80,143 +79,31 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
     // Find all the snarls in either the main graph or the subset, and put them
     // in this SnarlManager
     SnarlManager manager;
-    
+
+    // We need to decide if we want to work on the full graph or just on the subgraph that has any support.
     // We make the subset a local out here so it will stick around as long as we
     // use the SnarlManager.
     VG subset;
-
-    if(subset_graph) {
-        // We'll collect the supported subset of the original graph
-        set<Node*> supported_nodes;
-        set<Edge*> supported_edges;
-
-        for(auto& name_and_read : reads_by_name) {
-            // Go through all the paths followed by reads
-            auto& path = name_and_read.second->path();
-            for(size_t i = 0; i < path.mapping_size(); i++) {
-                // Look at all the nodes we visit along this read
-                id_t node_id = path.mapping(i).position().node_id();
-                // Make sure they are all supported
-                supported_nodes.insert(graph.get_node(node_id));
-
-                if(i > 0) {
-                    // We also need the edge from the last mapping to this one.
-                    // Make the two sides we connected moving from the last mapping to this one.
-                    NodeSide last(path.mapping(i - 1).position().node_id(), !path.mapping(i - 1).position().is_reverse());
-                    NodeSide here(node_id, path.mapping(i).position().is_reverse());
-
-                    Edge* edge = graph.get_edge(last, here);
-
-                    if(edge == nullptr) {
-                        cerr << "Error! Edge " << last << " to " << here
-                             << " from path " << name_and_read.first << " is missing!" << endl;
-                        exit(1);
-                    }
-
-                    // We know the graph will have the edge
-                    supported_edges.insert(edge);
-                }
-
-            }
-        }
-
-        // We also want to support all nodes and edges used by the reference path.
-        // TODO: once Cactus can root without hints, we can discard this
-        if(graph.paths.has_path(ref_path_name)) {
-            // We actually have a reference path, so get it for traversing.
-            list<Mapping>& ref_mappings = graph.paths.get_path(ref_path_name);
-            // We need to remember the previous mapping for finding edges
-            list<Mapping>::iterator last_mapping = ref_mappings.end();
-            for(list<Mapping>::iterator mapping = ref_mappings.begin(); mapping != ref_mappings.end(); ++mapping) {
-                // For each mapping along the reference path
-
-                // What node is it on?
-                id_t node_id = mapping->position().node_id();
-                // Make sure it is supported
-                supported_nodes.insert(graph.get_node(node_id));
-
-                if(last_mapping != ref_mappings.end()) {
-                    // We're coming from another mapping and need to support the edge
-
-                    NodeSide last(last_mapping->position().node_id(), !last_mapping->position().is_reverse());
-                    NodeSide here(node_id, mapping->position().is_reverse());
-
-                    Edge* edge = graph.get_edge(last, here);
-
-                    if(edge == nullptr) {
-                        cerr << "Error! Edge " << last << " to " << here
-                             << " from path " << ref_path_name << " is missing!" << endl;
-                        exit(1);
-                    }
-
-                    // We know the graph will have the edge
-                    supported_edges.insert(edge);
-
-                }
-
-                // Save the iterator so we can get the next edge
-                last_mapping = mapping;
-
-            }
-        }
-
-        // Make the subset graph of only supported nodes and edges (which will
-        // internally contain copies of all of them).
-        subset.add_nodes(supported_nodes);
-        subset.add_edges(supported_edges);
-
-        if(graph.paths.has_path(ref_path_name)) {
-            // Copy over the reference path
-            subset.paths.extend(graph.paths.path(ref_path_name));
-        }
-
-
-        if(show_progress) {
-#pragma omp critical (cerr)
-            cerr << "Looking at subset of " << subset.size() << " nodes" << endl;
-        }
-
-        // Unfold/unroll, find the ultrabubbles, and translate back. Note that
-        // we can only use Cactus with the ref path if it survived the
-        // subsetting.
-
+    if (subset_graph) {
+        subset = make_subset_graph(graph, ref_path_name, reads_by_name); 
         manager = subset.paths.has_path(ref_path_name) ?
             CactusSnarlFinder(subset, ref_path_name).find_snarls()
             : CactusSnarlFinder(subset).find_snarls();
-
     } else {
-        // Don't need to mess around with creating a subset.
-
-        if(show_progress) {
-#pragma omp critical (cerr)
-            cerr << "Looking at graph of " << graph.size() << " nodes" << endl;
-        }
-
-        // Unfold/unroll, find the ultrabubbles, and translate back.
         algorithms::sort(&graph);
         manager = CactusSnarlFinder(graph, ref_path_name).find_snarls();
-
     }
 
     if(show_progress) {
         // Count up the ultrabubbles
-        size_t ultrabubbles = 0;
-        
+        size_t ultrabubbles = 0;        
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-            // For each snarl
-
-            if (snarl->type() != ULTRABUBBLE) {
-                // We only work on ultrabubbles right now
-                return;
+            if (snarl->type() == ULTRABUBBLE) {
+                ultrabubbles++;
             }
-            ultrabubbles++;
-        });
-    
+        });    
 #pragma omp critical (cerr)
-        {
             cerr << "Found " << ultrabubbles << " ultrabubbles" << endl;
-        }
-
     }
 
     // We're going to count up all the affinities we compute
@@ -266,39 +153,8 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
             return;
         }
         
-        if(reference_index != nullptr &&
-           reference_index->by_id.count(snarl->start().node_id()) && 
-           reference_index->by_id.count(snarl->end().node_id())) {
-            // This snarl is on the reference (and we are indexing a reference because we are going to vcf)
-
-            // Where do the start and end nodes fall in the reference?
-            auto start_ref_appearance = reference_index->by_id.at(snarl->start().node_id());
-            auto end_ref_appearance = reference_index->by_id.at(snarl->end().node_id());
-
-            // Are the ends running with the reference (false) or against it (true)
-            auto start_rel_orientation = (snarl->start().backward() != start_ref_appearance.second);
-            auto end_rel_orientation = (snarl->end().backward() != end_ref_appearance.second);
-
-            if(show_progress) {
-                // Determine where the snarl starts and ends along the reference path
-#pragma omp critical (cerr)
-                cerr << "Snarl " << snarl->start() << " - " << snarl->end() << " runs reference " <<
-                    start_ref_appearance.first << " to " <<
-                    end_ref_appearance.first << endl;
-                    
-                if(!start_rel_orientation && !end_rel_orientation &&
-                   end_ref_appearance.first < start_ref_appearance.first) {
-                    // The snarl runs backward in the reference (but somewhat sensibly).
-#pragma omp critical (cerr)
-                    cerr << "Warning! Snarl runs backwards!" << endl;
-                }
-
-            }
-
-        }
-
         // Report the snarl to our statistics code
-        report_snarl(snarl, manager, reference_index, graph);
+        report_snarl(snarl, manager, reference_index, graph, reference_index);
 
         int tid = omp_get_thread_num();
 
@@ -307,10 +163,6 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
                                                             snarl, snarl_contents, reference_index,
                                                             use_traversal_alg);
 
-        // Even if it looks like there's only one path, it might not be the
-        // reference path. TODO: ref path should always be present now that we
-        // get paths from reads and path separately. So maybe we can short
-        // circuit here?
         if(paths.empty()) {
             // Don't do anything for ultrabubbles with no routes through
             if(show_progress) {
@@ -318,161 +170,92 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
                 cerr << "Snarl " << snarl->start() << " - " << snarl->end() << " has " << paths.size() <<
                     " alleles: skipped for having no alleles" << endl;
             }
-        } else {
+            return;
+        }
 
-            if(show_progress) {
+        if(show_progress) {
 #pragma omp critical (cerr)
-                cerr << "Snarl " << snarl->start() << " - " << snarl->end() << " has " << paths.size() << " alleles" << endl;
-                for(auto& path : paths) {
-                    // Announce each allele in turn
-#pragma omp critical (cerr)
-                    cerr << "\t" << traversal_to_string(graph, path) << endl;
-                }
-            }
-
-            // Compute the lengths of all the alleles
-            set<size_t> allele_lengths;
+            cerr << "Snarl " << snarl->start() << " - " << snarl->end() << " has " << paths.size() << " alleles" << endl;
             for(auto& path : paths) {
-                allele_lengths.insert(traversal_to_string(graph, path).size());
-            }
-
-            // Get the affinities for all the paths
-            map<const Alignment*, vector<Genotyper::Affinity>> affinities;
-
-            if(allele_lengths.size() > 1 && (realign_indels || !read_bounded)) {
-                // This is an indel, because we can change lengths. Use the slow route to do indel realignment.
-                affinities = get_affinities(augmented_graph, reads_by_name, snarl, snarl_contents, manager, paths);
-            } else {
-                // Just use string comparison. Don't re-align when
-                // length can't change, or when indle realignment is
-                // off.
-                affinities = get_affinities_fast(augmented_graph, reads_by_name, snarl, snarl_contents, manager, paths);
-            }
-
-            if(show_progress) {
-                // Sum up all the affinity counts by consistency flags
-                map<string, size_t> consistency_combo_counts;
-
-                // And average raw scores by alleles they are
-                // consistent with, for things consistent with just
-                // one allele.
-                vector<double> score_totals(paths.size());
-                vector<size_t> score_counts(paths.size());
-
-                for(auto& alignment_and_affinities : affinities) {
-                    // For every alignment, make a string describing which alleles it is consistent with.
-                    string consistency;
-
-                    // How many alleles are we consstent with?
-                    size_t consistent_allele_count = 0;
-                    // And which one is it, if it's only one?
-                    int chosen = -1;
-
-                    for(size_t i = 0; i < alignment_and_affinities.second.size(); i++) {
-                        auto& affinity = alignment_and_affinities.second.at(i);
-                        if(affinity.consistent) {
-                            // Consistent alleles get marked with a 1
-                            consistency.push_back('1');
-
-                            // Say we're consistent with an allele
-                            chosen = i;
-                            consistent_allele_count++;
-
-                        } else {
-                            // Inconsistent ones get marked with a 0
-                            consistency.push_back('0');
-                        }
-                    }
-
-                    if(consistent_allele_count == 1) {
-                        // Add in the non-normalized score for the average
-                        score_totals.at(chosen) += alignment_and_affinities.second.at(chosen).score;
-                        score_counts.at(chosen)++;
-                    }
-
-#ifdef debug
+                // Announce each allele in turn
 #pragma omp critical (cerr)
-                    cerr << consistency << ": " << alignment_and_affinities.first->sequence() << endl;
-#endif
-
-
-                    // Increment the count for that pattern
-                    consistency_combo_counts[consistency]++;
-                }
-
-#pragma omp critical (cerr)
-                {
-                    cerr << "Support patterns:" << endl;
-                    for(auto& combo_and_count : consistency_combo_counts) {
-                        // Spit out all the counts for all the combos
-                        cerr << "\t" << combo_and_count.first << ": " << combo_and_count.second << endl;
-                    }
-
-                    cerr << "Average scores for unique support:" << endl;
-                    for(size_t i = 0; i < score_totals.size(); i++) {
-                        // Spit out average scores of uniquely supporting reads for each allele that has them.
-                        if(score_counts.at(i) > 0) {
-                            cerr << "\t" << traversal_to_string(graph, paths.at(i)) << ": "
-                                 << score_totals.at(i) / score_counts.at(i) << endl;
-                        } else {
-                            cerr << "\t" << traversal_to_string(graph, paths.at(i)) << ": --" << endl;
-                        }
-                    }
-
-                }
+                cerr << "\t" << traversal_to_string(graph, path) << endl;
             }
+        }
 
+        // Compute the lengths of all the alleles
+        set<size_t> allele_lengths;
+        for(auto& path : paths) {
+            allele_lengths.insert(traversal_to_string(graph, path).size());
+        }
+
+        // Get the affinities for all the paths
+        map<const Alignment*, vector<Genotyper::Affinity>> affinities;
+
+        if(allele_lengths.size() > 1 && (realign_indels || !read_bounded)) {
+            // This is an indel, because we can change lengths. Use the slow route to do indel realignment.
+            affinities = get_affinities(augmented_graph, reads_by_name, snarl, snarl_contents, manager, paths);
+        } else {
+            // Just use string comparison. Don't re-align when
+            // length can't change, or when indle realignment is
+            // off.
+            affinities = get_affinities_fast(augmented_graph, reads_by_name, snarl, snarl_contents, manager, paths);
+        }
+
+        if(show_progress) {
+            report_affinities(affinities, paths, graph);
             for(auto& alignment_and_affinities : affinities) {
 #pragma omp critical (total_affinities)
                 total_affinities += alignment_and_affinities.second.size();
             }
+        }
+        
+        // Get a genotyped locus in the original frame
+        Locus genotyped = genotype_snarl(graph, snarl, paths, affinities);
 
-            // Get a genotyped locus in the original frame
-            Locus genotyped = genotype_snarl(graph, snarl, paths, affinities);
-            if (output_vcf) {
-                // Get 0 or more variants from the ultrabubble
-                vector<vcflib::Variant> variants =
-                    locus_to_variant(graph, snarl, snarl_contents, manager, *reference_index,
-                                     *vcf, genotyped, sample_name);
-                for(auto& variant : variants) {
-                    // Fix up all the variants
-                    if(!contig_name.empty()) {
-                        // Override path name
-                        variant.sequenceName = contig_name;
-                    } else {
-                        // Keep path name
-                        variant.sequenceName = ref_path_name;
-                    }
-                    variant.position += variant_offset;
+        if (output_vcf) {
+            // Get 0 or more variants from the ultrabubble
+            vector<vcflib::Variant> variants =
+                locus_to_variant(graph, snarl, snarl_contents, manager, *reference_index,
+                                 *vcf, genotyped, sample_name);
+            for(auto& variant : variants) {
+                // Fix up all the variants
+                if(!contig_name.empty()) {
+                    // Override path name
+                    variant.sequenceName = contig_name;
+                } else {
+                    // Keep path name
+                    variant.sequenceName = ref_path_name;
+                }
+                variant.position += variant_offset;
 
 #pragma omp critical(cout)
-                    cout << variant << endl;
-                }
-            } else {
-                // project into original graph (only need to do if we augmented with edit)
-                if (!translator.translations.empty()) {
-                    genotyped = translator.translate(genotyped);
-                }
-                // record a consistent name based on the start and end position of the first allele
-                stringstream name;
-                if (genotyped.allele_size() && genotyped.allele(0).mapping_size()) {
-                    name << make_pos_t(genotyped.allele(0).mapping(0).position())
-                         << "_"
-                         << make_pos_t(genotyped
-                                       .allele(0)
-                                       .mapping(genotyped.allele(0).mapping_size()-1)
-                                       .position());
-                }
-                genotyped.set_name(name.str());
-                if (output_json) {
-                    // Dump in JSON
+                cout << variant << endl;
+            }
+        } else {
+            // project into original graph (only need to do if we augmented with edit)
+            if (!translator.translations.empty()) {
+                genotyped = translator.translate(genotyped);
+            }
+            // record a consistent name based on the start and end position of the first allele
+            stringstream name;
+            if (genotyped.allele_size() && genotyped.allele(0).mapping_size()) {
+                name << make_pos_t(genotyped.allele(0).mapping(0).position())
+                     << "_"
+                     << make_pos_t(genotyped
+                                   .allele(0)
+                                   .mapping(genotyped.allele(0).mapping_size()-1)
+                                   .position());
+            }
+            genotyped.set_name(name.str());
+            if (output_json) {
+                // Dump in JSON
 #pragma omp critical (cout)
-                    cout << pb2json(genotyped) << endl;
-                } else {
-                    // Write out in Protobuf
-                    buffer[tid].push_back(genotyped);
-                    stream::write_buffered(cout, buffer[tid], 100);
-                }
+                cout << pb2json(genotyped) << endl;
+            } else {
+                // Write out in Protobuf
+                buffer[tid].push_back(genotyped);
+                stream::write_buffered(cout, buffer[tid], 100);
             }
         }
     });
@@ -2321,7 +2104,11 @@ Genotyper::locus_to_variant(VG& graph,
     for(auto& log_likelihood : log_likelihoods) {
         // Add all the likelihood strings, normalizing against the best
         // TODO: the best may not actually be the chosen genotype, because we genotype on posteriors.
-        variant.samples[sample_name]["PL"].push_back(to_string(logprob_to_phred(log_likelihood - best_genotype.log_likelihood())));
+        double pl_phred = 0.;
+        if (!std::isinf((double)log_likelihood) && !(std::isinf((double)best_genotype.log_likelihood()))) {
+            pl_phred = logprob_to_phred(log_likelihood - best_genotype.log_likelihood());
+        }
+        variant.samples[sample_name]["PL"].push_back(to_string(pl_phred));
     }
 
     // Set the variant position (now that we have budged it left if necessary)
@@ -2333,7 +2120,39 @@ Genotyper::locus_to_variant(VG& graph,
 
 }
 
-void Genotyper::report_snarl(const Snarl* snarl, const SnarlManager& manager, const PathIndex* index, VG& graph) {
+void Genotyper::report_snarl(const Snarl* snarl, const SnarlManager& manager, const PathIndex* index,
+                             VG& graph, PathIndex* reference_index) {
+    // print some reference coordinate information
+    if(show_progress &&
+       reference_index != nullptr &&
+       reference_index->by_id.count(snarl->start().node_id()) && 
+       reference_index->by_id.count(snarl->end().node_id())) {
+        // This snarl is on the reference (and we are indexing a reference because we are going to vcf)
+
+        // Where do the start and end nodes fall in the reference?
+        auto start_ref_appearance = reference_index->by_id.at(snarl->start().node_id());
+        auto end_ref_appearance = reference_index->by_id.at(snarl->end().node_id());
+
+        // Are the ends running with the reference (false) or against it (true)
+        auto start_rel_orientation = (snarl->start().backward() != start_ref_appearance.second);
+        auto end_rel_orientation = (snarl->end().backward() != end_ref_appearance.second);
+
+
+        // Determine where the snarl starts and ends along the reference path
+#pragma omp critical (cerr)
+        cerr << "Snarl " << snarl->start() << " - " << snarl->end() << " runs reference " <<
+            start_ref_appearance.first << " to " <<
+            end_ref_appearance.first << endl;
+                    
+        if(!start_rel_orientation && !end_rel_orientation &&
+           end_ref_appearance.first < start_ref_appearance.first) {
+            // The snarl runs backward in the reference (but somewhat sensibly).
+#pragma omp critical (cerr)
+            cerr << "Warning! Snarl runs backwards!" << endl;
+        }
+
+    }
+    
     // TODO: is there an easier way to detect trivial snarls?
     auto contents = manager.shallow_contents(snarl, graph, true);
     if(contents.first.size() == 2) {
@@ -2378,6 +2197,80 @@ void Genotyper::report_snarl_traversal(const Snarl* snarl, const SnarlManager& m
     snarl_traversals.insert(snarl);
 }
 
+void Genotyper::report_affinities(map<const Alignment*, vector<Genotyper::Affinity>>& affinities,
+                                  vector<SnarlTraversal>& paths, VG& graph) {
+    // Sum up all the affinity counts by consistency flags
+    map<string, size_t> consistency_combo_counts;
+
+    // And average raw scores by alleles they are
+    // consistent with, for things consistent with just
+    // one allele.
+    vector<double> score_totals(paths.size());
+    vector<size_t> score_counts(paths.size());
+
+    for(auto& alignment_and_affinities : affinities) {
+        // For every alignment, make a string describing which alleles it is consistent with.
+        string consistency;
+
+        // How many alleles are we consstent with?
+        size_t consistent_allele_count = 0;
+        // And which one is it, if it's only one?
+        int chosen = -1;
+
+        for(size_t i = 0; i < alignment_and_affinities.second.size(); i++) {
+            auto& affinity = alignment_and_affinities.second.at(i);
+            if(affinity.consistent) {
+                // Consistent alleles get marked with a 1
+                consistency.push_back('1');
+
+                // Say we're consistent with an allele
+                chosen = i;
+                consistent_allele_count++;
+
+            } else {
+                // Inconsistent ones get marked with a 0
+                consistency.push_back('0');
+            }
+        }
+
+        if(consistent_allele_count == 1) {
+            // Add in the non-normalized score for the average
+            score_totals.at(chosen) += alignment_and_affinities.second.at(chosen).score;
+            score_counts.at(chosen)++;
+        }
+
+#ifdef debug
+#pragma omp critical (cerr)
+        cerr << consistency << ": " << alignment_and_affinities.first->sequence() << endl;
+#endif
+
+
+        // Increment the count for that pattern
+        consistency_combo_counts[consistency]++;
+    }
+
+#pragma omp critical (cerr)
+    {
+        cerr << "Support patterns:" << endl;
+        for(auto& combo_and_count : consistency_combo_counts) {
+            // Spit out all the counts for all the combos
+            cerr << "\t" << combo_and_count.first << ": " << combo_and_count.second << endl;
+        }
+
+        cerr << "Average scores for unique support:" << endl;
+        for(size_t i = 0; i < score_totals.size(); i++) {
+            // Spit out average scores of uniquely supporting reads for each allele that has them.
+            if(score_counts.at(i) > 0) {
+                cerr << "\t" << traversal_to_string(graph, paths.at(i)) << ": "
+                     << score_totals.at(i) / score_counts.at(i) << endl;
+            } else {
+                cerr << "\t" << traversal_to_string(graph, paths.at(i)) << ": --" << endl;
+            }
+        }
+
+    }
+}
+
 void Genotyper::print_statistics(ostream& out) {
     // Dump our stats to the given ostream.
 
@@ -2409,6 +2302,103 @@ void Genotyper::print_statistics(ostream& out) {
         out << length_and_count.first << "\t" << length_and_count.second << endl;
     }
 
+}
+
+VG Genotyper::make_subset_graph(VG& graph, const string& ref_path_name,
+                                map<string, const Alignment*>& reads_by_name) {
+    VG subset;
+    
+    // We'll collect the supported subset of the original graph
+    set<Node*> supported_nodes;
+    set<Edge*> supported_edges;
+
+    for(auto& name_and_read : reads_by_name) {
+        // Go through all the paths followed by reads
+        auto& path = name_and_read.second->path();
+        for(size_t i = 0; i < path.mapping_size(); i++) {
+            // Look at all the nodes we visit along this read
+            id_t node_id = path.mapping(i).position().node_id();
+            // Make sure they are all supported
+            supported_nodes.insert(graph.get_node(node_id));
+
+            if(i > 0) {
+                // We also need the edge from the last mapping to this one.
+                // Make the two sides we connected moving from the last mapping to this one.
+                NodeSide last(path.mapping(i - 1).position().node_id(), !path.mapping(i - 1).position().is_reverse());
+                NodeSide here(node_id, path.mapping(i).position().is_reverse());
+
+                Edge* edge = graph.get_edge(last, here);
+
+                if(edge == nullptr) {
+                    cerr << "Error! Edge " << last << " to " << here
+                         << " from path " << name_and_read.first << " is missing!" << endl;
+                    exit(1);
+                }
+
+                // We know the graph will have the edge
+                supported_edges.insert(edge);
+            }
+
+        }
+    }
+
+    // We also want to support all nodes and edges used by the reference path.
+    // TODO: once Cactus can root without hints, we can discard this
+    if(graph.paths.has_path(ref_path_name)) {
+        // We actually have a reference path, so get it for traversing.
+        list<Mapping>& ref_mappings = graph.paths.get_path(ref_path_name);
+        // We need to remember the previous mapping for finding edges
+        list<Mapping>::iterator last_mapping = ref_mappings.end();
+        for(list<Mapping>::iterator mapping = ref_mappings.begin(); mapping != ref_mappings.end(); ++mapping) {
+            // For each mapping along the reference path
+
+            // What node is it on?
+            id_t node_id = mapping->position().node_id();
+            // Make sure it is supported
+            supported_nodes.insert(graph.get_node(node_id));
+
+            if(last_mapping != ref_mappings.end()) {
+                // We're coming from another mapping and need to support the edge
+
+                NodeSide last(last_mapping->position().node_id(), !last_mapping->position().is_reverse());
+                NodeSide here(node_id, mapping->position().is_reverse());
+
+                Edge* edge = graph.get_edge(last, here);
+
+                if(edge == nullptr) {
+                    cerr << "Error! Edge " << last << " to " << here
+                         << " from path " << ref_path_name << " is missing!" << endl;
+                    exit(1);
+                }
+
+                // We know the graph will have the edge
+                supported_edges.insert(edge);
+
+            }
+
+            // Save the iterator so we can get the next edge
+            last_mapping = mapping;
+
+        }
+    }
+
+    // Make the subset graph of only supported nodes and edges (which will
+    // internally contain copies of all of them).
+    subset.add_nodes(supported_nodes);
+    subset.add_edges(supported_edges);
+
+    if(graph.paths.has_path(ref_path_name)) {
+        // Copy over the reference path
+        subset.paths.extend(graph.paths.path(ref_path_name));
+    }
+
+
+    if(show_progress) {
+#pragma omp critical (cerr)
+        cerr << "Looking at subset of " << subset.size() << " nodes" << endl;
+    }
+
+    return subset;
 }
 
 }
