@@ -149,7 +149,7 @@ int main_prune(int argc, char** argv) {
         std::cerr << "[vg prune]: parameters --gbwt-name and --xg-name must be used together" << std::endl;
         return 1;
     }
-    if (mapping_name.empty()) {
+    if (append_mapping && mapping_name.empty()) {
         std::cerr << "[vg prune]: parameter --append-mapping requires --mapping" << std::endl;
         return 1;
     }
