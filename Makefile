@@ -398,6 +398,7 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
+	cd $(DEP_DIR) && cd gperftools && $(MAKE) clean
 	rm -Rf $(RAPTOR_DIR)/build/*
 	## TODO vg source code
 	## TODO LRU_CACHE

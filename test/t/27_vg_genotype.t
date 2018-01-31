@@ -24,9 +24,8 @@ rm -Rf tiny.vg tiny.vg.xg tiny.gam.index tiny.gam reads.txt
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
 vg index -x tiny.vg.xg -g tiny.vg.gcsa -k 16 tiny.vg
-# Simulate 0 reads
-vg sim -s 1337 -n 0 -x tiny.vg.xg -l 30 > reads.txt
-vg map -r reads.txt -g tiny.vg.gcsa -x tiny.vg.xg > tiny.gam
+# Make empty gam
+printf "" > tiny.gam
 vg index -d tiny.gam.index -N tiny.gam
 
 is "$(vg genotype tiny.vg tiny.gam.index -Sp --ref notARealPath 2>&1 | grep 'Found 0 ultrabubbles' | wc -l)" "1" "vg genotype finds no ultrabubbles for an empty subset"
@@ -67,7 +66,7 @@ vg construct -v call/bigins.vcf.gz -r tiny/tiny.fa > bigins.vg
 vg index -x bigins.vg.xg -g bigins.vg.gcsa -k 16 bigins.vg
 vg sim -s 1337 -n 100 -x bigins.vg.xg -l 12 > reads.txt
 vg map -T reads.txt -g bigins.vg.gcsa -x bigins.vg.xg > bigins.gam
-is "$(vg genotype bigins.vg -G bigins.gam -t 1 -v -i | grep GACGTTACAATGAGCCCTACAGACATATC | wc -l)" "1" "genotype finds big insert" 
+is "$(vg genotype bigins.vg -G bigins.gam -t 1 -v | grep GACGTTACAATGAGCCCTACAGACATATC | wc -l)" "1" "genotype finds big insert" 
 
 rm -rf bigins.vg bigins.vg.xg bigins.vg.gcsa bigins.vg.gcsa.lcp bigins.gam reads.txt 
 

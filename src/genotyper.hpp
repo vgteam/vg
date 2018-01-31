@@ -147,6 +147,9 @@ public:
     enum TraversalAlg { Reads, Exhaustive, Representative, Adaptive };
     TraversalAlg traversal_alg = TraversalAlg::Reads;
 
+    // Show progress
+    bool show_progress = false;
+
     /// Process and write output.
     /// Alignments must be embedded in the AugmentedGraph.
     void run(AugmentedGraph& graph,
@@ -156,7 +159,6 @@ public:
              string sample_name = "",
              string augmented_file_name = "",
              bool subset_graph = false,
-             bool show_progress = false,
              bool output_vcf = false,
              bool output_json = false,
              int length_override = 0,
@@ -315,7 +317,8 @@ public:
      * like count up the snarl length in the reference and so on. Called only
      * once per snarl, but may be called on multiple threads simultaneously.
      */
-    void report_snarl(const Snarl* snarl, const SnarlManager& manager, const PathIndex* index, VG& graph);
+    void report_snarl(const Snarl* snarl, const SnarlManager& manager, const PathIndex* index, VG& graph,
+                      PathIndex* reference_index);
     
     /**
      * Tell the statistics tracking code that a read traverses a snarl
@@ -323,11 +326,29 @@ public:
      * may be called in parallel.
      */
     void report_snarl_traversal(const Snarl* snarl, const SnarlManager& manager, VG& graph);
+
+    /**
+     * Print some information about affinities
+     */
+    void report_affinities(map<const Alignment*, vector<Genotyper::Affinity>>& affinities,
+                           vector<SnarlTraversal>& paths, VG& graph);
+
+    /**
+     * Write the variant as output
+     */
+    void write_variant();
     
     /**
      * Print snarl statistics to the given stream.
      */
     void print_statistics(ostream& out);
+
+    /**
+     * Subset the graph
+     */
+    VG make_subset_graph(VG& graph, const string& ref_path_name,
+                         map<string, const Alignment*>& reads_by_name); 
+      
 
     /*
      *
