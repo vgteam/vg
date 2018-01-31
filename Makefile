@@ -53,7 +53,7 @@ else
 	LD_LIB_FLAGS += -rdynamic
 
 	# We want to link against the elfutils libraries
-	LD_LIB_FLAGS += -ldw -ldwfl -ldwelf -lelf -lebl
+	LD_LIB_FLAGS += -ldwfl -ldw -ldwelf -lelf -lebl
 endif
 
 # Sometimes we need to filter the assembler output. The assembler can run during
