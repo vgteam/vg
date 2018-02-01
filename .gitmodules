@@ -70,3 +70,9 @@
 [submodule "deps/gbwt"]
 	path = deps/gbwt
 	url = https://github.com/jltsiren/gbwt.git
+[submodule "deps/backward-cpp"]
+	path = deps/backward-cpp
+	url = https://github.com/adamnovak/backward-cpp.git
+[submodule "deps/elfutils"]
+	path = deps/elfutils
+	url = git://sourceware.org/git/elfutils.git

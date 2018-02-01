@@ -25,6 +25,7 @@ RUN apt-get -qq update && apt-get -qq install -y \
     libtool \
     bison \
     flex \
+    gawk \
     git \
     liblzma-dev \
     zlib1g-dev \
