@@ -2111,6 +2111,21 @@ TEST_CASE("find_breakpoints() should determine where the graph needs to break to
     }
     
 }
+TEST_CASE("create_handle() correctly creates handles using given sequence and id", "[vg]") {
+    VG vg;
+        
+    handle_t h1 = vg.create_handle("GATT", 2);
+    handle_t h2 = vg.create_handle("AAAA", 4);
+    handle_t h3 = vg.create_handle("CA", 6);
+    
+    REQUIRE(vg.get_id(h1) == 2);
+    REQUIRE(vg.get_id(h2) == 4);
+    REQUIRE(vg.get_id(h3) == 6);
+    REQUIRE(vg.get_sequence(h1) == "GATT");
+    REQUIRE(vg.get_sequence(h2) == "AAAA");
+    REQUIRE(vg.get_sequence(h3) == "CA");
+    
+}
 
 }
 }

@@ -182,6 +182,11 @@ handle_t VG::create_handle(const string& sequence) {
     return get_handle(node->id(), false);
 }
 
+handle_t VG::create_handle(const string& sequence, const id_t& id) {
+    Node* node = create_node(sequence, id);
+    return get_handle(id, false);
+}
+
 void VG::destroy_handle(const handle_t& handle) {
     destroy_node(get_id(handle));
     // TODO: does destroy_node update paths?
