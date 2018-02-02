@@ -143,6 +143,6 @@ is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -
 is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -s 'CAAATAAGATTTGAAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "35" "mapping a read that matches a haplotype gets a small penalty"
 is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 0 --full-l-bonus 0 -s 'CAAATAAGATTTGAAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "36" "mapping a read that matches a haplotype with exponent 0 gets the base score"
 # This read matches no haplotypes but only visits used nodes
-is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -s 'CAAATAAGATTTGGAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "30" "mapping a read that matches no haplotypes gets a larger penalty"
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -s 'CAAATAAGATTTGGAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "22" "mapping a read that matches no haplotypes gets a larger penalty"
 
 rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa x.gcsa.lcp x.gbwt graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp

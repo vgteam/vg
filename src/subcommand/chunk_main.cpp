@@ -30,6 +30,7 @@ void help_chunk(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE       use this xg index to chunk subgraphs" << endl
+         << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction" << endl
          << "    -a, --gam-index FILE     chunk this gam index (made with vg index -a) instead of the graph" << endl
          << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
          << "path chunking:" << endl
@@ -66,6 +67,7 @@ int main_chunk(int argc, char** argv) {
     }
 
     string xg_file;
+    string gbwt_file;
     string gam_file;
     bool gam_and_graph = false;
     string region_string;
@@ -93,6 +95,7 @@ int main_chunk(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
+            {"gbwt-name", required_argument, 0, 'G'},
             {"gam-name", required_argument, 0, 'a'},
             {"gam-and-graph", no_argument, 0, 'g'},
             {"path", required_argument, 0, 'p'},
@@ -115,7 +118,7 @@ int main_chunk(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:gp:P:s:o:e:E:b:c:r:R:TfAt:n:l:",
+        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:TfAt:n:l:",
                 long_options, &option_index);
 
 
@@ -128,6 +131,10 @@ int main_chunk(int argc, char** argv) {
 
         case 'x':
             xg_file = optarg;
+            break;
+        
+        case 'G':
+            gbwt_file = optarg;
             break;
 
         case 'a':
@@ -265,6 +272,23 @@ int main_chunk(int argc, char** argv) {
         }
         xindex.load(in);
         in.close();
+    }
+
+    // Now load the haplotype data
+    unique_ptr<gbwt::GBWT> gbwt_index;
+    if (trace && !gbwt_file.empty()) {
+        // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
+        gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
+        
+        // Open up the index
+        ifstream in(gbwt_file.c_str());
+        if (!in) {
+            cerr << "error:[vg chunk] unable to load gbwt index file" << endl;
+            return 1;
+        }
+
+        // And load it
+        gbwt_index->load(in);
     }
 
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
@@ -464,7 +488,7 @@ int main_chunk(int argc, char** argv) {
             }
             int64_t trace_steps = trace_end - trace_start;
             Graph g;
-            trace_haplotypes_and_paths(xindex, trace_start, trace_steps,
+            trace_haplotypes_and_paths(xindex, gbwt_index.get(), trace_start, trace_steps,
                                        g, trace_thread_frequencies, false);
             subgraph->paths.for_each([&trace_thread_frequencies](const Path& path) {
                     trace_thread_frequencies[path.name()] = 1;});            

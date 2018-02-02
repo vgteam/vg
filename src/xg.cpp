@@ -161,7 +161,7 @@ void XG::load(istream& in) {
         
         case 5: // Fall through
         case 6:
-            cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. For better performance over repeated loads, consider recreating this XG with 'vg index'." << endl;
+            cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. For better performance over repeated loads, consider recreating this XG with 'vg index' or upgrading it with 'vg xg'." << endl;
             // Fall through
         case 7:
             {
@@ -3692,7 +3692,7 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
         Mapping* first_mapping = aln.mutable_path()->add_mapping();
         *first_mapping = mapping_at_path_position(name, pos1);
         Edit* e = first_mapping->add_edit();
-        e->set_to_length(node_length(first_mapping->position().node_id())-trim_start);
+        e->set_to_length(node_length(first_mapping->position().node_id()));
         e->set_from_length(e->to_length());
     }
     // get p to point to the next step (or past it, if we're a feature on a single node)

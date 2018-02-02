@@ -182,6 +182,11 @@ handle_t VG::create_handle(const string& sequence) {
     return get_handle(node->id(), false);
 }
 
+handle_t VG::create_handle(const string& sequence, const id_t& id) {
+    Node* node = create_node(sequence, id);
+    return get_handle(id, false);
+}
+
 void VG::destroy_handle(const handle_t& handle) {
     destroy_node(get_id(handle));
     // TODO: does destroy_node update paths?
@@ -1556,9 +1561,10 @@ set<Edge*> VG::get_path_edges(void) {
             auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
             auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
             // check that we always have an edge between the two nodes in the correct direction
-            assert(has_edge(s1, s2));
-            Edge* edge = get_edge(s1, s2);
-            edges.insert(edge);
+            if (has_edge(s1, s2)) {
+                Edge* edge = get_edge(s1, s2);
+                edges.insert(edge);
+            }
         }
         // if circular, include the cycle-closing edge
         if (path.is_circular()) {

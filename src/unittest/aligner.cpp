@@ -294,6 +294,27 @@ TEST_CASE("Full-length bonus can attach Ns to Ns", "[aligner][alignment][mapping
     }
     
 }
+
+TEST_CASE("Full-length bonus is applied to both ends by rescoring", "[aligner][alignment][scoring]") {
+    
+    string aln_str = R"({"sequence":"ACCCCGTCTCTACTAAAAATACAAAAATTAGCCGGGTGTGGTGGCATGCACCTGTAATCCCAGCTACTGGGCATGCTGAGGTAGCAGAATCGCTTGAACCCAGGAGGAACCGGTTGCAGTGAGCCGAGATTGTGCCACTCCACTCCAG","path":{"mapping":[{"position":{"node_id":2048512,"offset":21},"edit":[{"from_length":4,"to_length":4}],"rank":1},{"position":{"node_id":2048514},"edit":[{"from_length":1,"to_length":1}],"rank":2},{"position":{"node_id":2048515},"edit":[{"from_length":3,"to_length":3}],"rank":3},{"position":{"node_id":2048517},"edit":[{"from_length":1,"to_length":1}],"rank":4},{"position":{"node_id":2048518},"edit":[{"from_length":32,"to_length":32}],"rank":5},{"position":{"node_id":2048519},"edit":[{"from_length":32,"to_length":32}],"rank":6},{"position":{"node_id":2048520},"edit":[{"from_length":8,"to_length":8}],"rank":7},{"position":{"node_id":2048521},"edit":[{"from_length":1,"to_length":1}],"rank":8},{"position":{"node_id":2048523},"edit":[{"from_length":24,"to_length":24}],"rank":9},{"position":{"node_id":2048524},"edit":[{"from_length":1}],"rank":10},{"position":{"node_id":2048526},"edit":[{"from_length":2},{"from_length":3,"to_length":3},{"to_length":3,"sequence":"CCG"},{"from_length":27,"to_length":27}],"rank":11},{"position":{"node_id":2048527},"edit":[{"from_length":9,"to_length":9}],"rank":12}]},"fragment":[{"name":"21","length":413}]})";
+
+    Alignment aln;
+    json2pb(aln, aln_str.c_str(), aln_str.size());
+    
+    // Make an aligner with a full lenth bonus of 5
+    Aligner aligner1(1, 4, 6, 1, 5);
+    // And one with no bonus
+    Aligner aligner2(1, 4, 6, 1, 0);
+
+    REQUIRE(!softclip_start(aln));
+    REQUIRE(!softclip_end(aln));
+
+    // Normal score would be 129
+    REQUIRE(aligner2.score_ungapped_alignment(aln) == 129);
+    // And with a full length bonus at each end it's 139.
+    REQUIRE(aligner1.score_ungapped_alignment(aln) == 139);
+}
    
 }
 }

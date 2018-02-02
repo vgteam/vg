@@ -9,6 +9,7 @@ ALGORITHMS_OBJ_DIR:=$(OBJ_DIR)/algorithms
 UNITTEST_OBJ_DIR:=$(OBJ_DIR)/unittest
 SUBCOMMAND_OBJ_DIR:=$(OBJ_DIR)/subcommand
 LIB_DIR:=lib
+# INC_DIR must be a relative path
 INC_DIR:=include
 CPP_DIR:=cpp
 CWD:=$(shell pwd)
@@ -27,23 +28,36 @@ CXXFLAGS := -O3 -fopenmp -std=c++11 -ggdb -g -MMD -MP $(CXXFLAGS)
 
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -llzma -ldl
+LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4
 
 ifeq ($(shell uname -s),Darwin)
 	# We may need libraries from Macports
-	# TODO: where does Homebrew keep libraries?
-	ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
-	LD_LIB_FLAGS += -L/opt/local/lib
-endif
-ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
-	LD_LIB_FLAGS += -L/usr/local/lib
-endif
+    # TODO: where does Homebrew keep libraries?
+	
+    ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
+        # Use /opt/local/lib if present
+	    LD_LIB_FLAGS += -L/opt/local/lib
+    endif
+
+    ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
+        # Use /usr/local/lib if present.
+        LD_LIB_FLAGS += -L/usr/local/lib
+    endif
+
 else
+    # We are not running on OS X
 	# We can also have a normal Unix rpath
 	LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)
-	# Make sure to allow backtrace access to all our symbols.
+	# Make sure to allow backtrace access to all our symbols, even those which are not exported.
+    # Absolutely no help in a static build.
 	LD_LIB_FLAGS += -rdynamic
+
+	# We want to link against the elfutils libraries
+	LD_LIB_FLAGS += -ldwfl -ldw -ldwelf -lelf -lebl
 endif
+
+# These libs need to come after libdw if used, because libdw depends on them
+LD_LIB_FLAGS += -ldl -llzma
 
 # Sometimes we need to filter the assembler output. The assembler can run during
 # ./configure scripts, compiler calls, or $(MAKE) calls (other than $(MAKE)
@@ -78,9 +92,6 @@ OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,
 # And all the algorithms
 ALGORITHMS_OBJ = $(patsubst $(ALGORITHMS_SRC_DIR)/%.cpp,$(ALGORITHMS_OBJ_DIR)/%.o,$(wildcard $(ALGORITHMS_SRC_DIR)/*.cpp))
 
-# These go in libvg but come from dependencies
-DEP_OBJ = $(OBJ_DIR)/vg.pb.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/sha1.o
-
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_OBJ_DIR)/%.o,$(wildcard $(UNITTEST_SRC_DIR)/*.cpp))
 
@@ -105,9 +116,23 @@ SPARSEHASH_DIR:=deps/sparsehash
 SHA1_DIR:=deps/sha1
 DYNAMIC_DIR:=deps/DYNAMIC
 SSW_DIR:=deps/ssw/src
+BACKWARD_CPP_DIR:=deps/backward-cpp
+ELFUTILS_DIR:=deps/elfutils
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # Dependencies that go into libvg's archive
+# These go in libvg but come from dependencies
+DEP_OBJ =
+DEP_OBJ += $(OBJ_DIR)/vg.pb.o 
+DEP_OBJ += $(OBJ_DIR)/progress_bar.o
+DEP_OBJ += $(OBJ_DIR)/sha1.o
+DEP_ONJ += $(OBJ_DIR)/Fasta.o
+
+
+# These are libraries that we need to build before we link vg.
+# It would be nice to dump their contents into libvg to make it stand-alone.
+# But that requires fancy ar scripting.
+# If you just pass them to ar it puts the library *file* in libvg where nothing can read it.
 LIB_DEPS =
 LIB_DEPS += $(LIB_DIR)/libprotobuf.a
 LIB_DEPS += $(LIB_DIR)/libsdsl.a
@@ -116,7 +141,6 @@ LIB_DEPS += $(LIB_DIR)/libsnappy.a
 LIB_DEPS += $(LIB_DIR)/librocksdb.a
 LIB_DEPS += $(LIB_DIR)/libgcsa2.a
 LIB_DEPS += $(LIB_DIR)/libgbwt.a
-LIB_DEPS += $(OBJ_DIR)/Fasta.o
 LIB_DEPS += $(LIB_DIR)/libhts.a
 LIB_DEPS += $(LIB_DIR)/libvcflib.a
 LIB_DEPS += $(LIB_DIR)/libgssw.a
@@ -126,6 +150,16 @@ LIB_DEPS += $(LIB_DIR)/libsonlib.a
 LIB_DEPS += $(LIB_DIR)/libpinchesandcacti.a
 LIB_DEPS += $(LIB_DIR)/libraptor2.a
 LIB_DEPS += $(LIB_DIR)/libfml.a
+ifneq ($(shell uname -s),Darwin)
+	# On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
+	# backward-cpp will use.
+	LIB_DEPS += $(LIB_DIR)/libdw.a
+	LIB_DEPS += $(LIB_DIR)/libdwfl.a
+	LIB_DEPS += $(LIB_DIR)/libdwelf.a
+	LIB_DEPS += $(LIB_DIR)/libebl.a
+	LIB_DEPS += $(LIB_DIR)/libelf.a
+endif
+
 
 # common dependencies to build before all vg src files
 DEPS = $(LIB_DEPS)
@@ -138,6 +172,7 @@ DEPS += $(INC_DIR)/sparsehash/sparse_hash_map
 DEPS += $(INC_DIR)/gfakluge.hpp
 DEPS += $(INC_DIR)/sha1.hpp
 DEPS += $(INC_DIR)/progress_bar.hpp
+DEPS += $(INC_DIR)/backward.hpp
 
 ifneq ($(shell uname -s),Darwin)
 	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
@@ -154,11 +189,11 @@ static: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $
 
 $(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(DEP_OBJ) $(DEPS)
 	rm -f $@
-	ar rs $@ $(OBJ) $(ALGORITHMS_OBJ) $(DEP_OBJ) $(LIB_DEPS)
+	ar rs $@ $(OBJ) $(ALGORITHMS_OBJ) $(DEP_OBJ)
 
 # We have system-level deps to install
 get-deps:
-	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex libgoogle-perftools-dev liblz4-dev liblzma-dev
+	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev 
 
 # And we have submodule deps to build
 deps: $(DEPS)
@@ -284,6 +319,29 @@ $(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/*.c $(RAPTOR_DIR)/src/*.h
 $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 	+cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
 
+$(INC_DIR)/backward.hpp: $(BACKWARD_CPP_DIR)/backward.hpp
+	+cp $(BACKWARD_CPP_DIR)/backward.hpp $(CWD)/$(INC_DIR)/
+
+$(LIB_DIR)/libebl.a: $(LIB_DIR)/libelf.a
+
+$(LIB_DIR)/libdw.a: $(LIB_DIR)/libelf.a
+
+$(LIB_DIR)/libdwelf.a: $(LIB_DIR)/libelf.a
+
+$(LIB_DIR)/libdwfl.a: $(LIB_DIR)/libelf.a
+
+# We can't build elfutils from Git without "maintainer mode".
+# There are some release-only headers or something that it complains it can't find otherwise.
+# We also don't do a normal make and make install here because we don't want to build and install all the elfutils binaries and libasm.
+$(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/* $(ELFUTILS_DIR)/libdw/* $(ELFUTILS_DIR)/libelf/* $(ELFUTILS_DIR)/src/*
+	+cd $(ELFUTILS_DIR) && autoreconf -i -f && ./configure --enable-maintainer-mode --prefix=$(CWD) $(FILTER)
+	+cd $(ELFUTILS_DIR)/libelf && $(MAKE) libelf.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libebl && $(MAKE) libebl.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdw && $(MAKE) libdw.a known-dwarf.h $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) libdwfl.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) libdwelf.a $(FILTER)
+	+cd $(ELFUTILS_DIR) && mkdir -p $(CWD)/$(INC_DIR)/elfutils && cp libdw/known-dwarf.h libdw/libdw.h libebl/libebl.h libelf/elf-knowledge.h version.h libdwfl/libdwfl.h libdwelf/libdwelf.h $(CWD)/$(INC_DIR)/elfutils && cp libelf/gelf.h libelf/libelf.h libdw/dwarf.h $(CWD)/$(INC_DIR) && cp libebl/libebl.a libdw/libdw.a libdwfl/libdwfl.a libdwelf/libdwelf.a libelf/libelf.a $(CWD)/$(LIB_DIR)/
+
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
 
@@ -398,6 +456,7 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
+	cd $(DEP_DIR) && cd gperftools && $(MAKE) clean
 	rm -Rf $(RAPTOR_DIR)/build/*
 	## TODO vg source code
 	## TODO LRU_CACHE

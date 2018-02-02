@@ -27,6 +27,7 @@ void help_filter(char** argv) {
          << "options:" << endl
          << "    -s, --min-secondary N   minimum score to keep secondary alignment [default=0]" << endl
          << "    -r, --min-primary N     minimum score to keep primary alignment [default=0]" << endl
+         << "    -O, --rescore           re-score reads using default parameters and only alignment information" << endl
          << "    -f, --frac-score        normalize score based on length" << endl
          << "    -u, --substitutions     use substitution count instead of score" << endl
          << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
@@ -68,6 +69,7 @@ int main_filter(int argc, char** argv) {
             {
                 {"min-secondary", required_argument, 0, 's'},
                 {"min-primary", required_argument, 0, 'r'},
+                {"rescore", no_argument, 0, 'O'},
                 {"frac-score", required_argument, 0, 'f'},
                 {"substitutions", required_argument, 0, 'u'},
                 {"max-overhang", required_argument, 0, 'o'},
@@ -88,7 +90,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:t:",
+        c = getopt_long (argc, argv, "s:r:Od:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -102,6 +104,9 @@ int main_filter(int argc, char** argv) {
             break;
         case 'r':
             filter.min_primary = atof(optarg);
+            break;
+        case 'O':
+            filter.rescore = true;
             break;
         case 'f':
             filter.frac_score = true;
