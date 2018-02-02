@@ -38,6 +38,7 @@ struct PruningParameters
 {
     const static int    KMER_LENGTH = 16;
     const static int    EDGE_MAX = 4;
+    const static int    EDGE_MAX_UNFOLDING = 3;
     const static size_t SUBGRAPH_MIN = 33;
 };
 
@@ -47,9 +48,10 @@ void help_prune(char** argv) {
     std::cerr << "pruning removes the embedded paths." << std::endl;
     std::cerr << "pruning options:" << std::endl;
     std::cerr << "    -k, --kmer-length N    kmer length used for pruning (default: " << PruningParameters::KMER_LENGTH << ")" << std::endl;
-    std::cerr << "    -e, --edge-max N       prune paths making > N edge choices (default: " << PruningParameters::EDGE_MAX << ")" << std::endl;
-    std::cerr << "    -s, --subgraph-min N   prune subgraphs of < N bases (default: " << PruningParameters::SUBGRAPH_MIN << ")" << std::endl;
-    std::cerr << "    -P, --preserve-paths   preserve the embedded non-alt paths in the graph" << std::endl;
+    std::cerr << "    -e, --edge-max N       remove the edges on kmers making > N edge choices" << std::endl;
+    std::cerr << "                           (default: " << PruningParameters::EDGE_MAX << ", " << PruningParameters::EDGE_MAX_UNFOLDING << " with -g)" << std::endl;
+    std::cerr << "    -s, --subgraph-min N   remove subgraphs of < N bases (default: " << PruningParameters::SUBGRAPH_MIN << ")" << std::endl;
+    std::cerr << "    -P, --preserve-paths   preserve the non-alt paths and the edges on them" << std::endl;
     std::cerr << "unfolding options:" << std::endl;
     std::cerr << "    -g, --gbwt-name FILE   unfold the complex regions by using the threads in" << std::endl;
     std::cerr << "                           this GBWT index (requires -x, ignores -P)" << std::endl;
@@ -74,6 +76,9 @@ int main_prune(int argc, char** argv) {
     int threads = omp_get_max_threads();
     bool preserve_paths = false, append_mapping = false, show_progress = false;
     std::string gbwt_name, xg_name, mapping_name;
+
+    // Derived variables.
+    bool edge_max_set = false, unfold_paths = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -104,6 +109,7 @@ int main_prune(int argc, char** argv) {
             break;
         case 'e':
             edge_max = stoi(optarg);
+            edge_max_set = true;
             break;
         case 's':
             subgraph_min = stoul(optarg);
@@ -113,9 +119,11 @@ int main_prune(int argc, char** argv) {
             break;
         case 'g':
             gbwt_name = optarg;
+            unfold_paths = true;
             break;
         case 'x':
             xg_name = optarg;
+            unfold_paths = true;
             break;
         case 'm':
             mapping_name = optarg;
@@ -153,8 +161,11 @@ int main_prune(int argc, char** argv) {
         std::cerr << "[vg prune]: parameter --append-mapping requires --mapping" << std::endl;
         return 1;
     }
-    if (!gbwt_name.empty()) {
+    if (unfold_paths) {
         preserve_paths = false;
+        if (!edge_max_set) {
+            edge_max = PruningParameters::EDGE_MAX_UNFOLDING;
+        }
     }
 
     // Handle input.
@@ -201,7 +212,7 @@ int main_prune(int argc, char** argv) {
     }
 
     // Unfold phase threads.
-    if (!gbwt_name.empty()) {
+    if (unfold_paths) {
         xg::XG xg_index;
         get_input_file(xg_name, [&](std::istream& in) {
            xg_index.load(in); 
