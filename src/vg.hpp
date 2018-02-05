@@ -386,15 +386,8 @@ public:
         }
     }
 
-    /// Move constructor.
-    VG(VG&& other) noexcept {
-        init();
-        graph = other.graph;
-        paths = other.paths;
-        other.graph.Clear();
-        rebuild_indexes();
-        // should copy over indexes
-    }
+    //Default move constructor
+    VG(VG&& other) = default;
 
     /// Copy assignment operator.
     VG& operator=(const VG& other) {
@@ -403,12 +396,7 @@ public:
         return *this;
     }
 
-    /// Move assignment operator.
-    VG& operator=(VG&& other) noexcept {
-        std::swap(graph, other.graph);
-        rebuild_indexes();
-        return *this;
-    }
+    VG& operator=(VG&& other) = default;
 
     // TODO: document all these
 

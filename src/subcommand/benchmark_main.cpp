@@ -166,7 +166,19 @@ int main_benchmark(int argc, char** argv) {
         auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
     
     }));
-    
+
+    results.push_back(run_benchmark("vg copy constructor", 1000, [&]() {
+        vg_mut = vg;   
+    }, [&]() {
+        VG copyVG(vg_mut);
+    }));
+
+    results.push_back(run_benchmark("vg move constructor", 1000, [&]() {
+        vg_mut = vg;   
+    }, [&]() {
+        VG VGmove(std::move(vg_mut)); 
+    }));
+
     // Do the control against itself
     results.push_back(run_benchmark("control", 1000, benchmark_control));
 
