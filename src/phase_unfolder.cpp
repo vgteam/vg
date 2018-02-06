@@ -166,11 +166,12 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
                 Edge candidate = xg::make_edge(gbwt::Node::id(prev), gbwt::Node::is_reverse(prev),
                                                gbwt::Node::id(curr), gbwt::Node::is_reverse(curr));
                 if (!component.has_edge(candidate)) {
+                    this->insert_path(buffer);  // Insert a maximal path.
                     break;
                 }
                 buffer.push_back(curr);
                 if (this->border.find(gbwt::Node::id(curr)) != this->border.end()) {
-                    this->insert_path(buffer);
+                    this->insert_path(buffer);  // Insert a border-to-border path.
                 }
                 prev = curr;
             }
@@ -188,16 +189,17 @@ void PhaseUnfolder::generate_threads(VG& component, vg::id_t from) {
         bool is_reverse = gbwt::Node::is_reverse(state.second.back());
 
         std::vector<Edge*> edges = component.edges_of(component.get_node(node));
+        bool was_extended = false;
         for (Edge* edge : edges) {
             if (edge->from() == node && edge->from_start() == is_reverse) {
-                this->extend_state(state, edge->to(), edge->to_end());
+                was_extended = this->extend_state(state, edge->to(), edge->to_end());
             }
             else if (edge->to() == node && edge->to_end() != is_reverse) {
-                this->extend_state(state, edge->from(), !edge->from_start());
+                was_extended = this->extend_state(state, edge->from(), !edge->from_start());
             }
         }
 
-        if (this->border.find(node) != this->border.end()) {
+        if (!was_extended || this->border.find(node) != this->border.end()) {
             this->insert_path(state.second);
         }
     }
@@ -211,13 +213,14 @@ void PhaseUnfolder::create_state(vg::id_t node, bool is_reverse) {
     this->states.push(std::make_pair(search, path_type {search.node}));
 }
 
-void PhaseUnfolder::extend_state(state_type state, vg::id_t node, bool is_reverse) {
+bool PhaseUnfolder::extend_state(state_type state, vg::id_t node, bool is_reverse) {
     state.first = this->gbwt_index.extend(state.first, gbwt::Node::encode(node, is_reverse));
     if (state.first.empty()) {
-        return;
+        return false;
     }
     state.second.push_back(state.first.node);
     this->states.push(state);
+    return true;
 }
 
 void PhaseUnfolder::insert_path(const path_type& path) {

@@ -2,8 +2,8 @@
 #define VG_PHASE_UNFOLDER_HPP_INCLUDED
 
 /** \file
- * This file contains the PhaseUnfolder, which duplicates and un-crosslinks
- * complex regions of a graph using information about phased traversals.
+ * This file contains the PhaseUnfolder, which replaces pruned regions of
+ * the graph with paths supported by XG paths or GBWT threads.
  */
 
 #include "vg.hpp"
@@ -27,6 +27,9 @@ namespace vg {
  * pruning to simplify the graph for GCSA2 indexing without losing observed
  * variation.
  * Requires XG and GBWT indexes for the original graph.
+ * Note: A "border-to-border" path is a) a path from a border node to
+ * another border node containing no other border nodes; or b) maximal path
+ * starting from a border node encountering no other border nodes.
  */
 class PhaseUnfolder {
 public:
@@ -97,7 +100,7 @@ private:
      * it into the stack if it is supported by the GBWT index.
      */
     void create_state(vg::id_t node, bool is_reverse);
-    void extend_state(state_type state, vg::id_t node, bool is_reverse);
+    bool extend_state(state_type state, vg::id_t node, bool is_reverse);
 
     /// Insert the path into the set in the canonical orientation.
     void insert_path(const path_type& path);
