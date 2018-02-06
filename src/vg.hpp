@@ -23,6 +23,7 @@
 #include "path.hpp"
 #include "utility.hpp"
 #include "alignment.hpp"
+#include "prune.hpp"
 
 #include "vg.pb.h"
 #include "hash_map.hpp"
