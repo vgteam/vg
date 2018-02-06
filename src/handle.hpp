@@ -207,6 +207,9 @@ class MutableHandleGraph : public HandleGraph {
 public:
     /// Create a new node with the given sequence and return the handle.
     virtual handle_t create_handle(const string& sequence) = 0;
+
+    /// Create a new node with the given id and sequence, then return the handle.
+    virtual handle_t create_handle(const string& sequence, const id_t& id) = 0;
     
     /// Remove the node belonging to the given handle and all of its edges.
     /// Does not update any stored paths.
