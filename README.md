@@ -74,7 +74,6 @@ Note: vg has been shown to build on Mac with GCC versions 4.9, 5.3, and 6.
 
 ```
 brew tap homebrew/versions  # for gcc49
-brew tap homebrew/science  # for samtools
 brew install automake libtool jq jansson coreutils gcc49 samtools pkg-config cmake raptor bison lz4 xz
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 
