@@ -23,6 +23,7 @@
 #include "path.hpp"
 #include "utility.hpp"
 #include "alignment.hpp"
+#include "prune.hpp"
 
 #include "vg.pb.h"
 #include "hash_map.hpp"
@@ -1053,76 +1054,6 @@ public:
                                   bool print_score_matrices = false);
     
     
-
-
-    /// Calls a function on all node-crossing paths with up to length across node boundaries.
-    /// Considers each node in forward orientation to produce the kpaths around it.
-    void for_each_kpath(int k, bool path_only, int edge_max,
-                        function<void(NodeTraversal)> handle_prev_maxed,
-                        function<void(NodeTraversal)> handle_next_maxed,
-                        function<void(list<NodeTraversal>::iterator, list<NodeTraversal>&)> lambda);
-    /// Calls a function on all kpaths of the given node.
-    void for_each_kpath_parallel(int k, bool path_only, int edge_max,
-                                 function<void(NodeTraversal)> handle_prev_maxed,
-                                 function<void(NodeTraversal)> handle_next_maxed,
-                                 function<void(list<NodeTraversal>::iterator, list<NodeTraversal>&)> lambda);
-    /// Calls a function on all node-crossing paths with up to length across node boundaries.
-    /// Considers each node in forward orientation to produce the kpaths around it.
-    void for_each_kpath(int k, bool path_only, int edge_max,
-                        function<void(NodeTraversal)> handle_prev_maxed,
-                        function<void(NodeTraversal)> handle_next_maxed,
-                        function<void(size_t,Path&)> lambda);
-    /// Calls a function on all kpaths of the given node.
-    void for_each_kpath_parallel(int k, bool path_only, int edge_max,
-                                 function<void(NodeTraversal)> handle_prev_maxed,
-                                 function<void(NodeTraversal)> handle_next_maxed,
-                                 function<void(size_t,Path&)> lambda);
-    /// Calls a function on all kpaths of the given node.
-    void for_each_kpath_of_node(Node* node, int k, bool path_only, int edge_max,
-                                function<void(NodeTraversal)> handle_prev_maxed,
-                                function<void(NodeTraversal)> handle_next_maxed,
-                                function<void(list<NodeTraversal>::iterator, list<NodeTraversal>&)> lambda);
-    /// Calls a function on all kpaths of the given node.
-    void for_each_kpath_of_node(Node* n, int k, bool path_only, int edge_max,
-                                function<void(NodeTraversal)> handle_prev_maxed,
-                                function<void(NodeTraversal)> handle_next_maxed,
-                                function<void(size_t,Path&)> lambda);
-
-    /// Get kpaths. TODO: what is this for?
-    void kpaths(set<list<NodeTraversal> >& paths, int length, bool path_only, int edge_max,
-                function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
-    /// Get kpaths. TODO: what is this for?
-    void kpaths(vector<Path>& paths, int length, bool path_only, int edge_max,
-                function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
-
-    /// Get kpaths on a particular node. TODO: what is this for?
-    void kpaths_of_node(Node* node, set<list<NodeTraversal> >& paths,
-                        int length, bool path_only, int edge_max,
-                        function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
-    /// Get kpaths on a particular node. TODO: what is this for?
-    void kpaths_of_node(Node* node, vector<Path>& paths,
-                        int length, bool path_only, int edge_max,
-                        function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
-    /// Get kpaths on a particular node. TODO: what is this for?
-    void kpaths_of_node(id_t node_id, vector<Path>& paths, int length, bool path_only, int edge_max,
-                        function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
-    /// Given an oriented start node, a length in bp, a maximum number of edges
-    /// to cross, and a stack of nodes visited so far, fill in the set of paths
-    /// with all the paths starting at the oriented start node and going left off
-    /// its end no longer than the specified length, calling maxed_nodes on nodes
-    /// which can't be visited due to the edge-crossing limit. Produces paths
-    /// ending with the specified node. TODO: postfix should not be (potentially)
-    /// copied on every call.
-    void prev_kpaths_from_node(NodeTraversal node, int length, bool path_only, int edge_max, bool edge_bounding,
-                               list<NodeTraversal> postfix, set<list<NodeTraversal> >& walked_paths,
-                               const vector<string>& followed_paths,
-                               function<void(NodeTraversal)>& maxed_nodes);
-    /// Do the same as prec_kpaths_from_node, except going right, producing a path starting with the specified node.
-    void next_kpaths_from_node(NodeTraversal node, int length, bool path_only, int edge_max, bool edge_bounding,
-                               list<NodeTraversal> prefix, set<list<NodeTraversal> >& walked_paths,
-                               const vector<string>& followed_paths,
-                               function<void(NodeTraversal)>& maxed_nodes);
-
     void paths_between(Node* from, Node* to, vector<Path>& paths);
     void paths_between(id_t from, id_t to, vector<Path>& paths);
     void likelihoods(vector<Alignment>& alignments, vector<Path>& paths, vector<long double>& likelihoods);
