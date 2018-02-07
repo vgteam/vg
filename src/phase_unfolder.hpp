@@ -72,6 +72,11 @@ public:
      */
     void read_mapping(const std::string& filename);
 
+    /**
+     * Get the id of the corresponding node in the original graph.
+     */
+    vg::id_t get_mapping(vg::id_t node) const;
+
 private:
     /**
      * Generate a complement graph consisting of the edges that are in the

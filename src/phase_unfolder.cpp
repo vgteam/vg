@@ -46,6 +46,10 @@ void PhaseUnfolder::read_mapping(const std::string& filename) {
     in.close();
 }
 
+vg::id_t PhaseUnfolder::get_mapping(vg::id_t node) const {
+    return this->mapping(node);
+}
+
 std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress) {
     VG complement;
 
@@ -151,6 +155,7 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
     return haplotype_paths;
 }
 
+// TODO: Also generate paths backwards.
 void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
     static int component_id = 0;
     for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
@@ -161,19 +166,24 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
         for (size_t occurrence : occurrences) {
             gbwt::node_type prev = gbwt::Node::encode(path.node(occurrence), path.is_reverse(occurrence));
             path_type buffer { prev };
+            bool found_border = false;
             for (size_t i = occurrence + 1; i < path_length; i++) {
                 gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
                 Edge candidate = xg::make_edge(gbwt::Node::id(prev), gbwt::Node::is_reverse(prev),
                                                gbwt::Node::id(curr), gbwt::Node::is_reverse(curr));
                 if (!component.has_edge(candidate)) {
-                    this->insert_path(buffer);  // Insert a maximal path.
                     break;
                 }
                 buffer.push_back(curr);
                 if (this->border.find(gbwt::Node::id(curr)) != this->border.end()) {
                     this->insert_path(buffer);  // Insert a border-to-border path.
+                    found_border = true;
+                    break;
                 }
                 prev = curr;
+            }
+            if (!found_border) {
+                this->insert_path(buffer);  // Insert a maximal path.
             }
         }
     }
