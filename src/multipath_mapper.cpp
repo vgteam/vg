@@ -1124,6 +1124,7 @@ namespace vg {
         cerr << "clustering MEMs..." << endl;
 #endif
         
+        // find the count of the most unique match among the MEMs to assess how repetitive the sequence is
         size_t min_match_count_1 = numeric_limits<int64_t>::max();
         size_t min_match_count_2 = numeric_limits<int64_t>::max();
         for (const MaximalExactMatch& mem : mems1) {
@@ -1134,24 +1135,35 @@ namespace vg {
         }
         
         // initialize cluster variables
-        
         vector<memcluster_t> clusters1, clusters2;
         vector<clustergraph_t> cluster_graphs1, cluster_graphs2;
         vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs;
         
-        // memos for the results of expensive succinct operations that we may need to do multiple times
+        // intialize memos for the results of expensive succinct operations that we may need to do multiple times
         OrientedDistanceClusterer::paths_of_node_memo_t paths_of_node_memo;
         OrientedDistanceClusterer::oriented_occurences_memo_t oriented_occurences_memo;
         OrientedDistanceClusterer::handle_memo_t handle_memo;
         
-        // do we want to try to only cluster one read end and rescue the other
+        // do we want to try to only cluster one read end and rescue the other?
         bool do_repeat_rescue_from_1 = min_match_count_1 > rescue_only_min && min_match_count_2 <= rescue_only_anchor_max;
         bool do_repeat_rescue_from_2 = min_match_count_2 > rescue_only_min && min_match_count_1 <= rescue_only_anchor_max;
+        
+        bool rescued_order_length_runs_1 = false, rescued_order_length_runs_2 = false;
         
         if (do_repeat_rescue_from_1 || do_repeat_rescue_from_2) {
             
             // one side appears to be repetitive and the other non-repetitive, so try to only align the non-repetitive side
             // and get the other side from rescue
+            
+            // try to rescue high count runs of order-length MEMs for any read we're going to perform clustering on
+            if (order_length_repeat_hit_max && do_repeat_rescue_from_1 && !rescued_order_length_runs_1) {
+                rescue_high_count_order_length_mems(mems1, order_length_repeat_hit_max);
+                rescued_order_length_runs_1 = true;
+            }
+            if (order_length_repeat_hit_max && do_repeat_rescue_from_2 && !rescued_order_length_runs_2) {
+                rescue_high_count_order_length_mems(mems2, order_length_repeat_hit_max);
+                rescued_order_length_runs_2 = true;
+            }
             
             attempt_rescue_of_repeat_from_non_repeat(alignment1, alignment2, mems1, mems2, do_repeat_rescue_from_1, do_repeat_rescue_from_2,
                                                      clusters1, clusters2, cluster_graphs1, cluster_graphs2, multipath_aln_pairs_out,
@@ -1161,6 +1173,13 @@ namespace vg {
                 // we've clustered and extracted read 1, but rescue failed, so do the same for read 2 to prepare for the
                 // normal pair clustering routine
                 
+                // rescue high count runs of order-length MEMs now that we're going to cluster here
+                if (order_length_repeat_hit_max && !rescued_order_length_runs_2) {
+                    rescue_high_count_order_length_mems(mems2, order_length_repeat_hit_max);
+                    rescued_order_length_runs_2 = true;
+                }
+                
+                // do the clustering
                 if (adjust_alignments_for_base_quality) {
                     OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                          unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
@@ -1179,6 +1198,14 @@ namespace vg {
                 // we've clustered and extracted read 2, but rescue failed, so do the same for read 1 to prepare for the
                 // normal pair clustering routine
                 
+                
+                // rescue high count runs of order-length MEMs now that we're going to cluster here
+                if (order_length_repeat_hit_max && !rescued_order_length_runs_1) {
+                    rescue_high_count_order_length_mems(mems1, order_length_repeat_hit_max);
+                    rescued_order_length_runs_1 = true;
+                }
+                
+                // do the clustering
                 if (adjust_alignments_for_base_quality) {
                     OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                          unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
@@ -1194,8 +1221,20 @@ namespace vg {
             }
         }
         else {
-            // TODO: Making OrientedDistanceClusterers is the only place we actually
-            // need to distinguish between regular_aligner and qual_adj_aligner
+            // we have reasonably unique hits on both reads, so cluster them both and extract the graphs (i.e. don't try
+            // to rely on rescue for either end yet)
+            
+            // try to rescue high count runs of order-length MEMs for both reads before clustering
+            if (order_length_repeat_hit_max && !rescued_order_length_runs_1) {
+                rescue_high_count_order_length_mems(mems1, order_length_repeat_hit_max);
+                rescued_order_length_runs_1 = true;
+            }
+            if (order_length_repeat_hit_max && !rescued_order_length_runs_2) {
+                rescue_high_count_order_length_mems(mems2, order_length_repeat_hit_max);
+                rescued_order_length_runs_2 = true;
+            }
+            
+            // do the clustering
             if (adjust_alignments_for_base_quality) {
                 OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
@@ -1237,7 +1276,7 @@ namespace vg {
 #endif
         
         if (multipath_aln_pairs_out.empty()) {
-            // we haven't done already obtained a paired mapping by rescuing into a repeat, so we should try to get one
+            // we haven't already obtained a paired mapping by rescuing into a repeat, so we should try to get one
             // by cluster pairing
             
             // make vectors of cluster pointers to shim into the cluster pairing function

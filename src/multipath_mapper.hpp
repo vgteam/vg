@@ -89,6 +89,7 @@ namespace vg {
         double recombination_penalty = 1e-9;
         size_t rescue_only_min = 128;
         size_t rescue_only_anchor_max = 16;
+        size_t order_length_repeat_hit_max = 0;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
