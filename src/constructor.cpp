@@ -419,6 +419,7 @@ namespace vg {
                         // Some VCFs may include multiple variants at the same
                         // position with the same ref and alt. We will only take the
                         // first one.
+#pragma omp critical (cerr)
                         cerr << "warning:[vg::Constructor] Skipping duplicate variant with hash " << variant_name
                             << " at " << variant->sequenceName << ":" << variant->position << endl;
                         duplicates.insert(variant);
@@ -1024,10 +1025,34 @@ namespace vg {
                 // We have a last node from the last chunk that we want to glom onto
                 // this chunk.
 
-                // Grab the first node, which we know must be the single source for
-                // the chunk.
-                Node* mutable_first_node = chunk.graph.mutable_node(0);
-                assert(chunk.left_ends.count(mutable_first_node->id()) == 1);
+                // We want to merge it with the single source node for this
+                // chunk. But depending on the variant structure it may not be
+                // the first node generated (because we generate variant alt
+                // material first, and a variant may lead the chunk). So we do
+                // a linear scan.
+                
+                // This seems slow, but actually shouldn't be: most of the time
+                // we succeed on the first try, the whole process is linear in
+                // graph size anyway, and we never have to scan through more
+                // than a variant's worth of nodes.
+                
+                // This is the node we want
+                auto wanted_id = *chunk.left_ends.begin();
+                
+                // We will fill this in
+                Node* mutable_first_node = nullptr;
+                for (size_t i = 0; i < chunk.graph.node_size(); i++) {
+                    // Look at each node in turn
+                    mutable_first_node = chunk.graph.mutable_node(i);
+                    
+                    if (mutable_first_node->id() == wanted_id) {
+                        // We found the left end we want
+                        break;
+                    }
+                }
+                
+                // Make sure we found it
+                assert(mutable_first_node != nullptr && mutable_first_node->id() == wanted_id);
 
                 // Combine the sequences for the two nodes
                 string combined_sequence = last_node_buffer.sequence() + mutable_first_node->sequence();

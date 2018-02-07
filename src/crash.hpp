@@ -9,8 +9,8 @@ namespace vg {
 
 using namespace std;
 
-// Emit a stack trace when something bad happens. Add as a signal handler with sigaction.
-void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContext);
+/// Main should call this to turn on our stack tracing support.
+void enable_crash_handling();
 
 }
 #endif

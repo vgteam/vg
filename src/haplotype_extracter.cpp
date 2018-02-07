@@ -219,9 +219,9 @@ vector<pair<thread_t,int> > list_haplotypes(xg::XG& index, const gbwt::GBWT& hap
   // We still keep our data as thread_ts full of xg ThreadMappings and convert on the fly.
   thread_t first_thread = {start_node};
   auto first_node = gbwt::Node::encode(start_node.node_id, start_node.is_reverse);
-  gbwt::SearchState first_state = haplotype_database.prefix(first_node);
+  gbwt::SearchState first_state = haplotype_database.find(first_node);
 #ifdef debug
-  cerr << "Start with state " << first_state << " for node " << first_node << endl;
+  cerr << "Start with state " << first_state << " for node " << gbwt::Node::id(first_node) << endl;
 #endif
   vector<Edge> edges = start_node.is_reverse ?
             index.edges_on_start(start_node.node_id) :
@@ -235,7 +235,7 @@ vector<pair<thread_t,int> > list_haplotypes(xg::XG& index, const gbwt::GBWT& hap
     auto extend_node = gbwt::Node::encode(next_node.node_id, next_node.is_reverse);
     auto new_state = haplotype_database.extend(first_state, extend_node);
 #ifdef debug
-    cerr << "Extend state " << first_state << " to " << new_state << " with " << extend_node << endl;
+    cerr << "Extend state " << first_state << " to " << new_state << " with " << gbwt::Node::id(extend_node) << endl;
 #endif
     thread_t new_thread = first_thread;
     new_thread.push_back(next_node);
@@ -266,7 +266,7 @@ vector<pair<thread_t,int> > list_haplotypes(xg::XG& index, const gbwt::GBWT& hap
         auto extend_node = gbwt::Node::encode(next_node.node_id, next_node.is_reverse);
         auto new_state = haplotype_database.extend(last.second, extend_node);
 #ifdef debug
-        cerr << "Extend state " << last.second << " to " << new_state << " with " << extend_node << endl;
+        cerr << "Extend state " << last.second << " to " << new_state << " with " << gbwt::Node::id(extend_node) << endl;
 #endif
         thread_t new_thread = last.first;
         new_thread.push_back(next_node);
