@@ -27,7 +27,7 @@ void help_surject(char** argv) {
          << "    -x, --xg-name FILE      use the graph in this xg index" << endl
          << "    -t, --threads N         number of threads to use" << endl
          << "    -p, --into-path NAME    surject into this path (many allowed, default: all in xg)" << endl
-         << "    -i, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
+         << "    -F, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
          << "    -n, --context-depth N   expand this many steps when collecting graph for surjection (default: 3)" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
@@ -60,7 +60,7 @@ int main_surject(int argc, char** argv) {
             {"xb-name", required_argument, 0, 'x'},
             {"threads", required_argument, 0, 't'},
             {"into-path", required_argument, 0, 'p'},
-            {"into-paths", required_argument, 0, 'i'},
+            {"into-paths", required_argument, 0, 'F'},
             {"into-prefix", required_argument, 0, 'P'},
             {"cram-output", no_argument, 0, 'c'},
             {"bam-output", no_argument, 0, 'b'},
@@ -72,7 +72,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:i:P:cbsH:C:t:n:",
+        c = getopt_long (argc, argv, "hx:p:F:P:cbsH:C:t:n:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -90,7 +90,7 @@ int main_surject(int argc, char** argv) {
             path_names.insert(optarg);
             break;
 
-        case 'i':
+        case 'F':
             path_file = optarg;
             break;
 
@@ -218,13 +218,7 @@ int main_surject(int argc, char** argv) {
                 tmp[0] = compress_level + '0'; tmp[1] = '\0';
                 strcat(out_mode, tmp);
             }
-            // get the header
-            /*
-               if (header_file.empty()) {
-               cerr << "[vg surject] error: --header-from must be specified for SAM/BAM/CRAM output" << endl;
-               return 1;
-               }
-               */
+            // Define a string to hold the SAM header, to be generated later.
             string header;
             int thread_count = get_thread_count();
             vector<vector<tuple<string, int64_t, bool, Alignment> > > buffer;
