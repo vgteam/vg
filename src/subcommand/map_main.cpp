@@ -61,7 +61,7 @@ void help_map(char** argv) {
          << "    -b, --hts-input FILE    align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
          << "    -G, --gam-input FILE    realign GAM input" << endl
          << "    -f, --fastq FILE        input fastq (possibly compressed), two are allowed, one for each mate" << endl
-         << "    -i, --interleaved       fastq is interleaved paired-ended" << endl
+         << "    -i, --interleaved       fastq or GAM is interleaved paired-ended" << endl
          << "    -N, --sample NAME       for --reads input, add this sample" << endl
          << "    -R, --read-group NAME   for --reads input, add this read group" << endl
          << "output:" << endl
