@@ -243,6 +243,7 @@ int main_surject(int argc, char** argv) {
 
             bam_hdr_t* hdr = NULL;
             int64_t count = 0;
+            // TODO: What good is this lock if we continue without getting it if the buffer is overfull???
             omp_lock_t output_lock;
             omp_init_lock(&output_lock);
 
@@ -274,6 +275,7 @@ int main_surject(int argc, char** argv) {
                             }
                         }
                         // try to get a lock, and force things if we've built up a huge buffer waiting
+                        // TODO: Is continuing without the lock safe? And if so why do we have the lock in the first place?
                         if (omp_test_lock(&output_lock) || buf.size() > 10*buffer_limit) {
                             for (auto& s : buf) {
                                 auto& path_nom = get<0>(s);
@@ -315,8 +317,11 @@ int main_surject(int argc, char** argv) {
                                                  &out_mode,
                                                  &handle_buffer](Alignment& src) {
                     string path_name;
-                    int64_t path_pos;
-                    bool path_reverse;
+                    // Make sure to initialize to 0 since it may not be set by
+                    // surject_alignment if the read is unmapped, and unmapped
+                    // reads need to come out with a 0 1-based position.
+                    int64_t path_pos = -1; 
+                    bool path_reverse = false;
                     int tid = omp_get_thread_num();
                     auto surj = mapper[tid]->surject_alignment(src, path_names, path_name, path_pos, path_reverse);
                     if (!surj.path().mapping_size()) {

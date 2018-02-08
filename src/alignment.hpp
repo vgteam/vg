@@ -69,7 +69,13 @@ bam1_t* alignment_to_bam(const string& sam_header,
                          const string& mateseq,
                          const int32_t matepos,
                          const int32_t tlen);
-
+/**
+ * Convert an Alignment to a SAM record. If the alignment is unmapped, refpos
+ * must be -1. Otherwise, refpos must be the position on the reference sequence
+ * to which the alignment is aligned. Similarly, refseq must be the sequence
+ * aligned to, or "" if unaligned. The mateseq and matepos fields must be set
+ * similarly for the mate.
+ */
 string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,

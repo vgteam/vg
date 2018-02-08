@@ -577,14 +577,13 @@ string alignment_to_sam(const Alignment& alignment,
     
     stringstream sam;
 
-    // We need to strip the /1 and /2 from paired reads so the two ends have the same name.
-    string alignment_name = regex_replace(alignment.name(), regex("/[12]$"), "");
+    // We need to strip the /1 and /2 or _1 and _2 from paired reads so the two ends have the same name.
+    string alignment_name = regex_replace(alignment.name(), regex("[/_][12]$"), "");
 
     sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
         << (refseq.empty() ? "*" : refseq) << "\t"
         << refpos + 1 << "\t"
-        //<< (alignment.path().mapping_size() ? refpos + 1 : 0) << "\t" // positions are 1-based in SAM, 0 means unmapped
         << alignment.mapping_quality() << "\t"
         << (alignment.has_path() && alignment.path().mapping_size() ? cigar : "*") << "\t"
         << (mateseq == refseq ? "=" : mateseq) << "\t"
@@ -702,7 +701,7 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
 // Produces CIGAR in forward strand space of the reference sequence.
 string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
     vector<pair<int, char> > cigar;
-    if (!alignment.has_path()) return "";
+    if (!alignment.has_path() || alignment.path().mapping_size() == 0) return "";
     const Path& path = alignment.path();
     int l = 0;
     for (const auto& mapping : path.mapping()) {
@@ -737,7 +736,7 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
         flag |= (BAM_FPAIRED | BAM_FREAD2);
     }
 
-    if (alignment.score() == 0) {
+    if (alignment.path().mapping_size() == 0) {
         // unmapped
         flag |= BAM_FUNMAP;
     } else if (flag & BAM_FPAIRED) {
