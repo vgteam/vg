@@ -49,7 +49,6 @@ int main_surject(int argc, char** argv) {
     string input_type = "gam";
     string header_file;
     int compress_level = 9;
-    string fasta_filename;
     int context_depth = 3;
 
     int c;
@@ -64,7 +63,6 @@ int main_surject(int argc, char** argv) {
             {"into-paths", required_argument, 0, 'i'},
             {"into-prefix", required_argument, 0, 'P'},
             {"cram-output", no_argument, 0, 'c'},
-            {"reference", required_argument, 0, 'f'},
             {"bam-output", no_argument, 0, 'b'},
             {"sam-output", no_argument, 0, 's'},
             {"header-from", required_argument, 0, 'H'},
@@ -74,7 +72,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:i:P:cbsH:C:t:f:n:",
+        c = getopt_long (argc, argv, "hx:p:i:P:cbsH:C:t:n:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -106,10 +104,6 @@ int main_surject(int argc, char** argv) {
 
         case 'c':
             output_type = "cram";
-            break;
-
-        case 'f':
-            fasta_filename = optarg;
             break;
 
         case 'b':
@@ -250,7 +244,7 @@ int main_surject(int argc, char** argv) {
             // handles buffers, possibly opening the output file if we're on the first record
             auto handle_buffer =
                 [&hdr, &header, &path_length, &rg_sample, &buffer_limit,
-                &out_mode, &out, &output_lock, &fasta_filename](vector<tuple<string, int64_t, bool, Alignment> >& buf) {
+                &out_mode, &out, &output_lock](vector<tuple<string, int64_t, bool, Alignment> >& buf) {
                     if (buf.size() >= buffer_limit) {
                         // do we have enough data to open the file?
 #pragma omp critical (hts_header)
@@ -258,12 +252,6 @@ int main_surject(int argc, char** argv) {
                             if (!hdr) {
                                 hdr = hts_string_header(header, path_length, rg_sample);
                                 if ((out = sam_open("-", out_mode)) == 0) {
-                                    /*
-                                       if (!fasta_filename.empty()) {
-                                       string fai_filename = fasta_filename + ".fai";
-                                       hts_set_fai_filename(out, fai_filename.c_str());
-                                       }
-                                       */
                                     cerr << "[vg surject] failed to open stdout for writing HTS output" << endl;
                                     exit(1);
                                 } else {
