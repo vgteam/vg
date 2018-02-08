@@ -700,11 +700,12 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
 // act like the path this is against is the reference
 // and generate an equivalent cigar
 // Produces CIGAR in forward strand space of the reference sequence.
-string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
+string cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress) {
     vector<pair<int, char> > cigar;
     if (!alignment.has_path()) return "";
     const Path& path = alignment.path();
     int l = 0;
+
     for (const auto& mapping : path.mapping()) {
         mapping_cigar(mapping, cigar);
     }
@@ -715,13 +716,28 @@ string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
     }
 
     // handle soft clips, which are just insertions at the start or end
-    if (cigar.front().second == 'I') {
-        cigar.front().second = 'S';
-    }
+    // back
     if (cigar.back().second == 'I') {
-        cigar.back().second = 'S';
+        // make sure we stay in the reference sequence when suppressing the softclips
+        if (cigar.back().first <= softclip_suppress
+            && pos + alignment_from_length(alignment) + cigar.back().first <= path_len) {
+            cigar.back().second = 'M';
+        } else {
+            cigar.back().second = 'S';
+        }
     }
-    
+    // front
+    if (cigar.front().second == 'I') {
+        // make sure we stay in the reference sequence when suppressing the softclips
+        if (cigar.front().first <= softclip_suppress
+            && pos - cigar.front().first >= 0) {
+            cigar.front().second = 'M';
+            pos -= cigar.front().first;
+        } else {
+            cigar.front().second = 'S';
+        }
+    }
+
     return cigar_string(cigar);
 }
 

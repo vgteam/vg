@@ -29,6 +29,7 @@ void help_surject(char** argv) {
          << "    -p, --into-path NAME    surject into this path (many allowed, default: all in xg)" << endl
          << "    -i, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
          << "    -n, --context-depth N   expand this many steps when collecting graph for surjection (default: 3)" << endl
+         << "    -S, --min-softclip N    emit softclips of less than or equal to this length as matches [4]" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
          << "    -C, --compression N     level for compression [0-9]" << endl;
@@ -51,6 +52,7 @@ int main_surject(int argc, char** argv) {
     int compress_level = 9;
     string fasta_filename;
     int context_depth = 3;
+    int min_softclip = 4;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -70,11 +72,12 @@ int main_surject(int argc, char** argv) {
             {"header-from", required_argument, 0, 'H'},
             {"compress", required_argument, 0, 'C'},
             {"context-depth", required_argument, 0, 'n'},
+            {"min-softclip", required_argument, 0, 'S'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:i:P:cbsH:C:t:f:n:",
+        c = getopt_long (argc, argv, "hx:p:i:P:cbsH:C:t:f:n:S:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -131,6 +134,10 @@ int main_surject(int argc, char** argv) {
 
         case 'n':
             context_depth = atoi(optarg);
+            break;
+
+        case 'S':
+            min_softclip = atoi(optarg);
             break;
 
         case 'h':
@@ -248,8 +255,8 @@ int main_surject(int argc, char** argv) {
 
             // handles buffers, possibly opening the output file if we're on the first record
             auto handle_buffer =
-                [&hdr, &header, &path_length, &rg_sample, &buffer_limit,
-                &out_mode, &out, &output_lock, &fasta_filename](vector<tuple<string, int64_t, bool, Alignment> >& buf) {
+                [&hdr, &header, &path_length, &rg_sample, &buffer_limit, &min_softclip,
+                 &out_mode, &out, &output_lock, &fasta_filename, &xgidx](vector<tuple<string, int64_t, bool, Alignment> >& buf) {
                     if (buf.size() >= buffer_limit) {
                         // do we have enough data to open the file?
 #pragma omp critical (hts_header)
@@ -280,7 +287,8 @@ int main_surject(int argc, char** argv) {
                                 auto& path_pos = get<1>(s);
                                 auto& path_reverse = get<2>(s);
                                 auto& surj = get<3>(s);
-                                string cigar = cigar_against_path(surj, path_reverse);
+                                size_t path_len = xgidx->path_length(path_nom);
+                                string cigar = cigar_against_path(surj, path_reverse, path_pos, path_len, min_softclip);
                                 bam1_t* b = alignment_to_bam(header,
                                         surj,
                                         path_nom,

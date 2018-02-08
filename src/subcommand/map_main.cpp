@@ -67,6 +67,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    --surject-to TYPE       surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
+         << "    --surj-min-softclip INT emit softclips of less than or equal to this length as matches [4]" << endl
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
@@ -153,6 +154,7 @@ int main_map(int argc, char** argv) {
     bool acyclic_graph = false;
     bool refpos_table = false;
     bool patch_alignments = false;
+    int surject_min_softclip = 4;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -218,11 +220,12 @@ int main_map(int argc, char** argv) {
                 {"refpos-table", no_argument, 0, 'v'},
                 {"surject-to", required_argument, 0, '5'},
                 {"patch-alns", no_argument, 0, '8'},
+                {"surj-min-softclip", required_argument, 0, '9'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:8",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:89:",
                          long_options, &option_index);
 
 
@@ -429,6 +432,10 @@ int main_map(int argc, char** argv) {
 
         case '8':
             patch_alignments = true;
+            break;
+
+        case '9':
+            surject_min_softclip = atoi(optarg);
             break;
 
         case 'I':
@@ -639,7 +646,7 @@ int main_map(int argc, char** argv) {
         }
     };
 
-    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out] (const vector<Alignment>& alns) {
+    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out, &xgidx, &surject_min_softclip] (const vector<Alignment>& alns) {
         if (alns.empty()) return;
         setup_sam_header();
         vector<tuple<string, int64_t, bool, Alignment> > surjects;
@@ -660,7 +667,8 @@ int main_map(int argc, char** argv) {
             auto& path_pos = get<1>(s);
             auto& path_reverse = get<2>(s);
             auto& surj = get<3>(s);
-            string cigar = cigar_against_path(surj, path_reverse);
+            size_t path_len = xgidx->path_length(path_nom);
+            string cigar = cigar_against_path(surj, path_reverse, path_pos, path_len, surject_min_softclip);
             bam1_t* b = alignment_to_bam(sam_header,
                                          surj,
                                          path_nom,

@@ -4817,7 +4817,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
             surjection = translator.translate(surjection_forward);
         }
     }
-    
+    //cerr << "surj " << pb2json(surjection) << endl;
 #ifdef debug_mapper
 
 #pragma omp critical (cerr)
@@ -4893,7 +4893,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     cerr << "Surjected alignment: " << pb2json(surjection) << endl;
     
 #endif
-    
+    //cerr << "final " << pb2json(surjection) << endl;
     return surjection;
 }
 

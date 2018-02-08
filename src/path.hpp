@@ -248,7 +248,7 @@ Mapping merge_adjacent_edits(const Mapping& m);
 // trim path so it starts and begins with a match (or is empty)
 Path trim_hanging_ends(const Path& p);
 // make a new mapping that concatenates the mappings
-Mapping concat_mappings(const Mapping& m, const Mapping& n);
+Mapping concat_mappings(const Mapping& m, const Mapping& n, bool trim_internal_deletions = true);
 // make a new path that concatenates the two given paths
 Path concat_paths(const Path& path1, const Path& path2);
 // extend the first path by the second, avoiding copy operations

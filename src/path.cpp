@@ -1130,7 +1130,7 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
                        && l->position().node_id() == m.position().node_id()
                        && l->position().offset() + mapping_from_length(*l) == m.position().offset()) {
                 // we can merge the current mapping onto the old one
-                *l = concat_mappings(*l, m);
+                *l = concat_mappings(*l, m, trim_internal_deletions);
             } else {
                 *s.add_mapping() = m;
             }
@@ -1212,14 +1212,14 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
 }
 
 // simple merge
-Mapping concat_mappings(const Mapping& m, const Mapping& n) {
+Mapping concat_mappings(const Mapping& m, const Mapping& n, bool trim_internal_deletions) {
     Mapping c = m;
     // add the edits on
     for (size_t i = 0; i < n.edit_size(); ++i) {
         *c.add_edit() = n.edit(i);
     }
     // merge anything that's identical
-    return simplify(c);
+    return simplify(c, trim_internal_deletions);
 }
 
 Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
