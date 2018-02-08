@@ -155,7 +155,6 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
     return haplotype_paths;
 }
 
-// TODO: Also generate paths backwards.
 void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
     static int component_id = 0;
     for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
@@ -164,26 +163,45 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
 
         std::vector<size_t> occurrences = this->xg_index.node_ranks_in_path(from, path_rank);
         for (size_t occurrence : occurrences) {
-            gbwt::node_type prev = gbwt::Node::encode(path.node(occurrence), path.is_reverse(occurrence));
-            path_type buffer { prev };
-            bool found_border = false;
-            for (size_t i = occurrence + 1; i < path_length; i++) {
-                gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
-                Edge candidate = xg::make_edge(gbwt::Node::id(prev), gbwt::Node::is_reverse(prev),
-                                               gbwt::Node::id(curr), gbwt::Node::is_reverse(curr));
-                if (!component.has_edge(candidate)) {
-                    break;
+            // Forward.
+            {
+                gbwt::node_type prev = gbwt::Node::encode(path.node(occurrence), path.is_reverse(occurrence));
+                path_type buffer { prev };
+                for (size_t i = occurrence + 1; i < path_length; i++) {
+                    gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
+                    Edge candidate = xg::make_edge(gbwt::Node::id(prev), gbwt::Node::is_reverse(prev),
+                                                   gbwt::Node::id(curr), gbwt::Node::is_reverse(curr));
+                    if (!component.has_edge(candidate)) {
+                        break;  // Found a maximal path.
+                    }
+                    buffer.push_back(curr);
+                    if (this->border.find(gbwt::Node::id(curr)) != this->border.end()) {
+                        break;  // Found a border-to-border path.
+                    }
+                    prev = curr;
                 }
-                buffer.push_back(curr);
-                if (this->border.find(gbwt::Node::id(curr)) != this->border.end()) {
-                    this->insert_path(buffer);  // Insert a border-to-border path.
-                    found_border = true;
-                    break;
-                }
-                prev = curr;
+                this->insert_path(buffer);
             }
-            if (!found_border) {
-                this->insert_path(buffer);  // Insert a maximal path.
+
+            // Backward.
+            {
+                gbwt::node_type prev = gbwt::Node::encode(path.node(occurrence), !path.is_reverse(occurrence));
+                path_type buffer { prev };
+                bool found_border = false;
+                for (size_t i = occurrence; i > 0 ; i--) {
+                    gbwt::node_type curr = gbwt::Node::encode(path.node(i - 1), !path.is_reverse(i - 1));
+                    Edge candidate = xg::make_edge(gbwt::Node::id(prev), gbwt::Node::is_reverse(prev),
+                                                   gbwt::Node::id(curr), gbwt::Node::is_reverse(curr));
+                    if (!component.has_edge(candidate)) {
+                        break;  // Found a maximal path.
+                    }
+                    buffer.push_back(curr);
+                    if (this->border.find(gbwt::Node::id(curr)) != this->border.end()) {
+                        break;  // Found a border-to-border path.
+                    }
+                    prev = curr;
+                }
+                this->insert_path(buffer);
             }
         }
     }
