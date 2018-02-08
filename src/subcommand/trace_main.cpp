@@ -20,12 +20,12 @@ void help_trace(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --index FILE           use this xg index" << endl
-         << "    -G, --gbwt-name            use this GBWT haplotype index instead of the xg's embedded gPBWT" << endl
+         << "    -G, --gbwt-name FILE       use this GBWT haplotype index instead of the xg's embedded gPBWT" << endl
          << "    -n, --start-node INT       start at this node" << endl
         //TODO: implement backwards iteration over graph
         // << "    -b, --backwards            iterate backwards over graph" << endl
          << "    -d, --extend-distance INT  extend search this many nodes [default=50]" << endl
-         << "    -a, --annotation-path      output file for haplotype frequency annotations" << endl
+         << "    -a, --annotation-path FILE output file for haplotype frequency annotations" << endl
          << "    -j, --json                 output subgraph in json instead of protobuf" << endl;
 }
 
