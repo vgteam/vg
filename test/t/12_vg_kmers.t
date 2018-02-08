@@ -36,9 +36,9 @@ is "$(vg kmers -g -k 11 -t 1 x.vg | grep CATATTAGCCA | cut -f 3)" "G,A" "GCSA2 o
 rm x.vg
 rm -rf x.vg.index
 
-vg mod -p -l 11 -e 2 jumble/j.vg > j.vg
+vg mod -p -l 11 -e 8 -S jumble/j.vg > j.vg
 is $(vg kmers -g -k 11 j.vg | wc -l) \
-   6412 \
+   26148 \
    "edge-max correctly bounds the number of kmers in a complex graph"
 rm -f j.vg
 
