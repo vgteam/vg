@@ -628,53 +628,139 @@ int main_map(int argc, char** argv) {
             }
             hdr = hts_string_header(sam_header, path_length, rg_sample);
             if ((sam_out = sam_open("-", out_mode)) == 0) {
-                cerr << "[vg surject] failed to open stdout for writing HTS output" << endl;
+                cerr << "[vg map] failed to open stdout for writing HTS output" << endl;
                 exit(1);
             } else {
                 // write the header
                 if (sam_hdr_write(sam_out, hdr) != 0) {
-                    cerr << "[vg surject] error: failed to write the SAM header" << endl;
+                    cerr << "[vg map] error: failed to write the SAM header" << endl;
                 }
             }
         }
     };
 
-    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out] (const vector<Alignment>& alns) {
-        if (alns.empty()) return;
+    // TODO: Refactor the surjection code out of surject_main and intto somewhere where we can jsyt use it here!
+
+    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out] (const vector<Alignment>& alns1,
+        const vector<Alignment>& alns2) {
+        
+        if (alns1.empty()) return;
         setup_sam_header();
-        vector<tuple<string, int64_t, bool, Alignment> > surjects;
+        vector<tuple<string, int64_t, bool, Alignment> > surjects1, surjects2;
         int tid = omp_get_thread_num();
-        for (auto& aln : alns) {
-            string path_name; int64_t path_pos; bool path_reverse;
+        for (auto& aln : alns1) {
+            // Surject each alignment of the first read in the pair
+            string path_name;
+            int64_t path_pos = -1;
+            bool path_reverse = false;
+            
             auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse);
-            surjects.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
+            surjects1.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
+            
             // hack: if we haven't established the header, we look at the reads to guess which read groups to put in it
             if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {
 #pragma omp critical (hts_header)
                 rg_sample[surj.read_group()] = surj.sample_name();
             }
         }
-        // write out the surjections
-        for (auto& s : surjects) {
-            auto& path_nom = get<0>(s);
-            auto& path_pos = get<1>(s);
-            auto& path_reverse = get<2>(s);
-            auto& surj = get<3>(s);
-            string cigar = cigar_against_path(surj, path_reverse);
-            bam1_t* b = alignment_to_bam(sam_header,
-                                         surj,
-                                         path_nom,
-                                         path_pos,
-                                         path_reverse,
-                                         cigar,
-                                         "=",
-                                         path_pos,
-                                         0);
-            int r = 0;
+        
+        for (auto& aln : alns2) {
+            // Surject each alignment of the second read in the pair, if any
+            string path_name;
+            int64_t path_pos = -1;
+            bool path_reverse = false;
+            
+            auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse);
+            surjects2.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
+            
+            // Don't try and populate the header; it should have happened already
+        }
+        
+        if (surjects2.empty()) {
+            // Write out surjected single-end reads
+        
+            for (auto& s : surjects1) {
+                auto& path_name = get<0>(s);
+                auto& path_pos = get<1>(s);
+                auto& path_reverse = get<2>(s);
+                auto& surj = get<3>(s);
+                string cigar = cigar_against_path(surj, path_reverse);
+                bam1_t* b = alignment_to_bam(sam_header,
+                                             surj,
+                                             path_name,
+                                             path_pos,
+                                             path_reverse,
+                                             cigar);
+                int r = 0;
 #pragma omp critical (cout)
-            r = sam_write1(sam_out, hdr, b);
-            if (r == 0) { cerr << "[vg surject] error: writing to stdout failed" << endl; exit(1); }
-            bam_destroy1(b);
+                r = sam_write1(sam_out, hdr, b);
+                if (r == 0) { cerr << "[vg map] error: writing to stdout failed" << endl; exit(1); }
+                bam_destroy1(b);
+            }
+        } else {
+            // Write out surjected paired-end reads
+            
+            // Paired-end reads come in corresponding pairs, allowing duplicate reads.
+            assert(surjects1.size() == surjects2.size());
+            
+            for (size_t i = 0; i < surjects1.size(); i++) {
+                // For each corresponding pair
+                auto& s1 = surjects1[i];
+                auto& s2 = surjects2[i];
+
+                // Unpack each read
+                auto& path_name1 = get<0>(s1);
+                auto& path_pos1 = get<1>(s1);
+                auto& path_reverse1 = get<2>(s1);
+                auto& surj1 = get<3>(s1);
+                
+                auto& path_name2 = get<0>(s2);
+                auto& path_pos2 = get<1>(s2);
+                auto& path_reverse2 = get<2>(s2);
+                auto& surj2 = get<3>(s2);
+                
+                // Compute CIGARs
+                string cigar1 = cigar_against_path(surj1, path_reverse1);
+                string cigar2 = cigar_against_path(surj2, path_reverse2);
+                
+                // TODO: compute template length based on
+                // pair distance and alignment content.
+                int template_length = 0;
+                
+                // Make BAM records
+                bam1_t* b1 = alignment_to_bam(sam_header,
+                                              surj1,
+                                              path_name1,
+                                              path_pos1,
+                                              path_reverse1,
+                                              cigar1,
+                                              path_name2,
+                                              path_pos2,
+                                              template_length);
+                bam1_t* b2 = alignment_to_bam(sam_header,
+                                              surj2,
+                                              path_name2,
+                                              path_pos2,
+                                              path_reverse2,
+                                              cigar2,
+                                              path_name1,
+                                              path_pos1,
+                                              template_length);
+                
+                // Write the records
+                int r = 0;
+#pragma omp critical (cout)
+                r = sam_write1(sam_out, hdr, b1);
+                if (r == 0) { cerr << "[vg map] error: writing to stdout failed" << endl; exit(1); }
+                bam_destroy1(b1);
+                r = 0;
+#pragma omp critical (cout)
+                r = sam_write1(sam_out, hdr, b2);
+                if (r == 0) { cerr << "[vg map] error: writing to stdout failed" << endl; exit(1); }
+                bam_destroy1(b2);
+            }
+            
+            
         }
     };
 
@@ -725,8 +811,7 @@ int main_map(int argc, char** argv) {
             }
         } else if (!surject_type.empty()) {
             // surject
-            surject_alignments(alns1);
-            surject_alignments(alns2);
+            surject_alignments(alns1, alns2);
         } else {
             // Otherwise write them through the buffer for our thread
             int tid = omp_get_thread_num();
