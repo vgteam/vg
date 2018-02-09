@@ -667,7 +667,10 @@ int main_map(int argc, char** argv) {
             auto& path_pos = get<1>(s);
             auto& path_reverse = get<2>(s);
             auto& surj = get<3>(s);
-            size_t path_len = xgidx->path_length(path_nom);
+            size_t path_len;
+            if (path_nom != "") {
+                path_len = xgidx->path_length(path_nom);
+            }
             string cigar = cigar_against_path(surj, path_reverse, path_pos, path_len, surject_min_softclip);
             bam1_t* b = alignment_to_bam(sam_header,
                                          surj,
