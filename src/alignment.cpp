@@ -549,6 +549,10 @@ string alignment_to_sam_internal(const Alignment& alignment,
     // Determine flags, using orientation, next/prev fragments, and pairing status.
     int32_t flags = sam_flag(alignment, refrev, paired);
     
+    // We've observed some reads with the unmapped flag set and also a CIGAR string set, which shouldn't happen.
+    // We will check for this. The CIGAR string will only be set in the output if the alignment has a path.
+    assert((bool)(flags & BAM_FUNMAP) != (alignment.has_path() && alignment.path().mapping_size()));
+    
     stringstream sam;
     
     string alignment_name;
@@ -802,7 +806,7 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
         // Respect the alignment's internal crossreferences.
         // Allow for multiple-read-long fragments. 
         
-        flag += BAM_FPAIRED;
+        flag |= BAM_FPAIRED;
         if (!alignment.has_fragment_next()) {
             // This is the last read in a pair
             flag |= BAM_FREAD2;
@@ -816,7 +820,7 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
         // TODO: catch reads with pair partners when they shouldn't be paired?
     }
 
-    if (alignment.path().mapping_size() == 0) {
+    if (!alignment.has_path() || alignment.path().mapping_size() == 0) {
         // unmapped
         flag |= BAM_FUNMAP;
     } else if (flag & BAM_FPAIRED) {
