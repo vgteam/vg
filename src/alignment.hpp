@@ -126,7 +126,7 @@ string alignment_to_sam(const Alignment& alignment,
 
 string cigar_against_path(const Alignment& alignment, bool on_reverse_strand);
 
-int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand);
+int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired);
 short quality_char_to_short(char c);
 char quality_short_to_char(short i);
 string string_quality_char_to_short(const string& quality);

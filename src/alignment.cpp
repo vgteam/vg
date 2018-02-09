@@ -546,8 +546,8 @@ string alignment_to_sam_internal(const Alignment& alignment,
                                  const int32_t tlen,
                                  bool paired) {
                         
-    // Determine flags, using orientation and read name suffix.
-    int32_t flags = sam_flag(alignment, refrev);
+    // Determine flags, using orientation, next/prev fragments, and pairing status.
+    int32_t flags = sam_flag(alignment, refrev, paired);
     
     stringstream sam;
     
@@ -779,16 +779,25 @@ string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
     return cigar_string(cigar);
 }
 
-int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
+int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired) {
     int16_t flag = 0;
 
-    if (alignment.has_fragment_next()) {
-        // This is the first read in a pair
-        flag |= (BAM_FPAIRED | BAM_FREAD1);
-    }
-    if (alignment.has_fragment_prev()) {
-        // This is the second read in a pair
-        flag |= (BAM_FPAIRED | BAM_FREAD2);
+    if (paired) {
+        // Respect the alignment's internal crossreferences.
+        // Allow for multiple-read-long fragments. 
+        
+        flag += BAM_FPAIRED;
+        if (!alignment.has_fragment_next()) {
+            // This is the last read in a pair
+            flag |= BAM_FREAD2;
+        }
+        if (!alignment.has_fragment_prev()) {
+            // This is the first read in a pair
+            flag |= BAM_FREAD1;
+        }
+        
+        // TODO: Should we do something about "paired" reads that don't know about their pair partners?
+        // Or reads with pair partners when they shouldn't be paired?
     }
 
     if (alignment.path().mapping_size() == 0) {
