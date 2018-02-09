@@ -169,7 +169,8 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
     pair<const Mapping*, int64_t> open_del(NULL, -1);
     for (int i = 0; i < path.mapping_size(); ++i) {
         const Mapping& mapping = path.mapping(i);
-        int rank = mapping.rank() <= 0 ? i + 1 : mapping.rank(); 
+        //int rank = mapping.rank() <= 0 ? i + 1 : mapping.rank();
+        int rank = i + 1; // ignore ranks in the gams 
         if (_graph->has_node(mapping.position().node_id())) {
             const Node* node = _graph->get_node(mapping.position().node_id());
             NodePileup* pileup = get_create_node_pileup(node);
