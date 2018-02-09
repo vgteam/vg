@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <list>
+#include <map>
 #include <set>
 #include <stack>
 #include <utility>
@@ -111,16 +112,21 @@ private:
     void insert_path(const path_type& path);
 
     /// XG and GBWT indexes for the original graph.
-    const xg::XG&          xg_index;
-    const gbwt::GBWT&      gbwt_index;
+    const xg::XG&     xg_index;
+    const gbwt::GBWT& gbwt_index;
 
     /// Mapping from duplicated nodes to original ids.
-    gcsa::NodeMapping      mapping;
+    gcsa::NodeMapping mapping;
 
     /// Internal data structures for the current component.
-    std::set<vg::id_t>     border;
-    std::stack<state_type> states;
-    std::set<path_type>    paths;
+    std::unordered_set<vg::id_t> border;
+    std::stack<state_type>       states;
+
+    /// Tries for the unfolded prefixes and reverse suffixes.
+    /// prefixes[(from, to)] is the mapping for to, and
+    /// suffixes[(from, to)] is the mapping for from.
+    std::unordered_map<std::pair<gbwt::node_type, gbwt::node_type>, gbwt::node_type> prefixes, suffixes;
+    std::unordered_set<std::pair<gbwt::node_type, gbwt::node_type>> crossing_edges;
 };
 
 }

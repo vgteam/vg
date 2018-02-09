@@ -7010,15 +7010,15 @@ void VG::prune_short_subgraphs(size_t min_size) {
         Node* head_node = this->get_node(head);
         size_t subgraph_size = head_node->sequence().size();
         std::stack<Node*> to_check; to_check.push(head_node);
-        std::unordered_set<Node*> subgraph { head_node };
+        std::unordered_set<vg::id_t> subgraph { head };
         while(subgraph_size < min_size && !to_check.empty()) {
             Node* curr = to_check.top(); to_check.pop();
             std::vector<Edge*> edges = this->edges_of(curr);
             for (Edge* edge : edges) {
                 Node* next = this->get_node(edge->from() == curr->id() ? edge->to() : edge->from());
-                if (subgraph.find(next) == subgraph.end()) {
+                if (subgraph.find(next->id()) == subgraph.end()) {
                     subgraph_size += next->sequence().size();
-                    subgraph.insert(next);
+                    subgraph.insert(next->id());
                     to_check.push(next);
                 }
             }
@@ -7026,22 +7026,10 @@ void VG::prune_short_subgraphs(size_t min_size) {
 
         // Destroy the component if it was small enough.
         if (subgraph_size < min_size) {
-            for (Node* node : subgraph) {
+            for (vg::id_t node : subgraph) {
                 this->destroy_node(node);
             }
         }
-
-/*        std::set<Node*> subgraph;
-        this->collect_subgraph(this->get_node(head), subgraph);
-        size_t total_size = 0;
-        for (Node* node : subgraph) {
-            total_size += node->sequence().size();
-        }
-        if (total_size < min_size) {
-            for (Node* node : subgraph) {
-                this->destroy_node(node);
-            }
-        }*/
     }
 }
 
