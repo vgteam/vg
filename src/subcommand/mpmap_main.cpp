@@ -36,6 +36,8 @@ void help_mpmap(char** argv) {
     << "  -f, --fastq FILE          input FASTQ (possibly compressed), can be given twice for paired ends (for stdin use -)" << endl
     << "  -G, --gam-input FILE      input GAM (for stdin, use -)" << endl
     << "  -i, --interleaved         FASTQ or GAM contains interleaved paired ends" << endl
+    << "  -N, --sample NAME        add this sample name to output GAM" << endl
+    << "  -R, --read-group NAME     add this read group to output GAM" << endl
     << "  -e, --same-strand         read pairs are from the same strand of the DNA molecule" << endl
     << "algorithm:" << endl
     << "  -S, --single-path-mode    produce single-path alignments (GAM) instead of multipath alignments (GAMP) (ignores -sua)" << endl
@@ -45,7 +47,7 @@ void help_mpmap(char** argv) {
     << endl
     << "advanced options:" << endl
     << "algorithm:" << endl
-    << "  -U, --snarl-max-cut INT   do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
+    << "  -X, --snarl-max-cut INT   do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
     << "  -a, --alt-paths INT       align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
     << "  -n, --unstranded          use lazy strand consistency when clustering MEMs" << endl
     << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
@@ -65,7 +67,7 @@ void help_mpmap(char** argv) {
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
     << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
-    << "  -R, --prune-exp FLOAT     prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
+    << "  -U, --prune-exp FLOAT     prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
     << "scoring:" << endl
     << "  -q, --match INT           use this match score [1]" << endl
     << "  -z, --mismatch INT        use this mismatch penalty [4]" << endl
@@ -137,6 +139,8 @@ int main_mpmap(int argc, char** argv) {
     double secondary_rescue_score_diff = 0.8;
     size_t rescue_only_min = 128;
     size_t rescue_only_anchor_max = 16;
+    string sample_name = "";
+    string read_group = "";
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -148,11 +152,13 @@ int main_mpmap(int argc, char** argv) {
             {"gcsa-name", required_argument, 0, 'g'},
             {"fastq", required_argument, 0, 'f'},
             {"gam-input", required_argument, 0, 'G'},
+            {"sample", required_argument, 0, 'N'},
+            {"read-group", required_argument, 0, 'R'},
             {"interleaved", no_argument, 0, 'i'},
             {"same-strand", no_argument, 0, 'e'},
             {"single-path-mode", no_argument, 0, 'S'},
             {"snarls", required_argument, 0, 's'},
-            {"snarl-max-cut", required_argument, 0, 'U'},
+            {"snarl-max-cut", required_argument, 0, 'X'},
             {"alt-paths", required_argument, 0, 'a'},
             {"unstranded", no_argument, 0, 'n'},
             {"frag-sample", required_argument, 0, 'b'},
@@ -172,7 +178,7 @@ int main_mpmap(int argc, char** argv) {
             {"max-dist-error", required_argument, 0, 'd'},
             {"approx-exp", required_argument, 0, 'w'},
             {"drop-subgraph", required_argument, 0, 'C'},
-            {"prune-ratio", required_argument, 0, 'R'},
+            {"prune-exp", required_argument, 0, 'U'},
             {"match", required_argument, 0, 'q'},
             {"mismatch", required_argument, 0, 'z'},
             {"gap-open", required_argument, 0, 'o'},
@@ -186,7 +192,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:nb:I:D:Bv:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:f:G:N:R:ieSs:u:a:nb:I:D:Bv:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -241,6 +247,22 @@ int main_mpmap(int argc, char** argv) {
                 }
                 break;
                 
+            case 'N':
+                sample_name = optarg;
+                if (sample_name.empty()) {
+                    cerr << "error:[vg mpmap] Must provide sample name file with -N." << endl;
+                    exit(1);
+                }
+                break;
+                
+            case 'R':
+                read_group = optarg;
+                if (read_group.empty()) {
+                    cerr << "error:[vg mpmap] Must provide read group with -R." << endl;
+                    exit(1);
+                }
+                break;
+                
             case 'i':
                 interleaved_input = true;
                 break;
@@ -261,7 +283,7 @@ int main_mpmap(int argc, char** argv) {
                 }
                 break;
                 
-            case 'U':
+            case 'X':
                 snarl_cut_size = atoi(optarg);
                 break;
                 
@@ -359,7 +381,7 @@ int main_mpmap(int argc, char** argv) {
                 cluster_ratio = atof(optarg);
                 break;
                 
-            case 'R':
+            case 'U':
                 suboptimal_path_exponent = atof(optarg);
                 break;
                 
@@ -718,6 +740,14 @@ int main_mpmap(int argc, char** argv) {
         // move all the alignments over to the output buffer
         for (MultipathAlignment& mp_aln : mp_alns) {
             output_buf.emplace_back(move(mp_aln));
+            
+            // label with read group and sample name
+            if (!read_group.empty()) {
+                output_buf.back().set_read_group(read_group);
+            }
+            if (!sample_name.empty()) {
+                output_buf.back().set_sample_name(sample_name);
+            }
         }
         
         stream::write_buffered(cout, output_buf, buffer_size);
@@ -732,6 +762,14 @@ int main_mpmap(int argc, char** argv) {
             optimal_alignment(mp_aln, output_buf.back());
             // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
+            
+            // label with read group and sample name
+            if (!read_group.empty()) {
+                output_buf.back().set_read_group(read_group);
+            }
+            if (!sample_name.empty()) {
+                output_buf.back().set_sample_name(sample_name);
+            }
         }
         
         stream::write_buffered(cout, output_buf, buffer_size);
@@ -745,6 +783,14 @@ int main_mpmap(int argc, char** argv) {
         for (pair<MultipathAlignment, MultipathAlignment>& mp_aln_pair : mp_aln_pairs) {
             output_buf.emplace_back(move(mp_aln_pair.first));
             
+            // label with read group and sample name
+            if (!read_group.empty()) {
+                output_buf.back().set_read_group(read_group);
+            }
+            if (!sample_name.empty()) {
+                output_buf.back().set_sample_name(sample_name);
+            }
+            
             // switch second read back to the opposite strand if necessary
             if (same_strand) {
                 output_buf.emplace_back(move(mp_aln_pair.second));
@@ -754,6 +800,14 @@ int main_mpmap(int argc, char** argv) {
                 rev_comp_multipath_alignment(mp_aln_pair.second,
                                              [&](vg::id_t node_id) { return xg_index.node_length(node_id); },
                                              output_buf.back());
+            }
+            
+            // label with read group and sample name
+            if (!read_group.empty()) {
+                output_buf.back().set_read_group(read_group);
+            }
+            if (!sample_name.empty()) {
+                output_buf.back().set_sample_name(sample_name);
             }
         }
         
@@ -772,6 +826,14 @@ int main_mpmap(int argc, char** argv) {
             // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
+            // label with read group and sample name
+            if (!read_group.empty()) {
+                output_buf.back().set_read_group(read_group);
+            }
+            if (!sample_name.empty()) {
+                output_buf.back().set_sample_name(sample_name);
+            }
+            
             output_buf.emplace_back();
             optimal_alignment(mp_aln_pair.second, output_buf.back());
             // compute identity again
@@ -781,6 +843,14 @@ int main_mpmap(int argc, char** argv) {
             if (!same_strand) {
                 reverse_complement_alignment_in_place(&output_buf.back(),
                                                       [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+            }
+            
+            // label with read group and sample name
+            if (!read_group.empty()) {
+                output_buf.back().set_read_group(read_group);
+            }
+            if (!sample_name.empty()) {
+                output_buf.back().set_sample_name(sample_name);
             }
         }
         stream::write_buffered(cout, output_buf, buffer_size);

@@ -31,6 +31,7 @@ void help_surject(char** argv) {
          << "    -n, --context-depth N   expand this many steps when collecting graph for surjection (default: 3)" << endl
          << "    -i, --interleaved       GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
          << "    -c, --cram-output       write CRAM to stdout" << endl
+         << "    -S, --min-softclip N    emit softclips of less than or equal to this length as matches [4]" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
          << "    -C, --compression N     level for compression [0-9]" << endl;
@@ -53,6 +54,7 @@ int main_surject(int argc, char** argv) {
     string header_file;
     int compress_level = 9;
     int context_depth = 3;
+    int min_softclip = 4;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -72,11 +74,12 @@ int main_surject(int argc, char** argv) {
             {"header-from", required_argument, 0, 'H'},
             {"compress", required_argument, 0, 'C'},
             {"context-depth", required_argument, 0, 'n'},
+            {"min-softclip", required_argument, 0, 'S'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:P:icbsH:C:t:n:",
+        c = getopt_long (argc, argv, "hx:p:F:P:icbsH:C:t:n:S:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -133,6 +136,10 @@ int main_surject(int argc, char** argv) {
 
         case 'n':
             context_depth = atoi(optarg);
+            break;
+
+        case 'S':
+            min_softclip = atoi(optarg);
             break;
 
         case 'h':
@@ -351,8 +358,15 @@ int main_surject(int argc, char** argv) {
                                     auto& surj2 = get<3>(surjected_pair.second);
                                     
                                     // Compute CIGAR strings
-                                    string cigar1 = cigar_against_path(surj1, reverse1);
-                                    string cigar2 = cigar_against_path(surj2, reverse2);
+                                    size_t path_len1 = 0, path_len2 = 0;
+                                    if (name1 != "") {
+                                        path_len1 = xgidx->path_length(name1);
+                                    }
+                                    if (name2 != "") {
+                                        path_len2 = xgidx->path_length(name2);
+                                    }
+                                    string cigar1 = cigar_against_path(surj1, reverse1, pos1, path_len1, min_softclip);
+                                    string cigar2 = cigar_against_path(surj2, reverse2, pos2, path_len2, min_softclip);
                                     
                                     // TODO: compute template length based on
                                     // pair distance and alignment content.
@@ -424,7 +438,11 @@ int main_surject(int argc, char** argv) {
                                 auto& surj = get<3>(s);
                                 
                                 // Generate a CIGAR string for it
-                                string cigar = cigar_against_path(surj, reverse);
+                                size_t path_len = 0;
+                                if (name != "") {
+                                    path_len = xgidx->path_length(name);
+                                }
+                                string cigar = cigar_against_path(surj, reverse, pos, path_len, min_softclip);
                                 
                                 // Create and write a single unpaired BAM record
                                 write_bam_record(alignment_to_bam(header, surj, name, pos, reverse, cigar));

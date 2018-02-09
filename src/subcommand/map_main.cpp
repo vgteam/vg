@@ -67,6 +67,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    --surject-to TYPE       surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
+         << "    --surj-min-softclip INT emit softclips of less than or equal to this length as matches [4]" << endl
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
@@ -153,6 +154,7 @@ int main_map(int argc, char** argv) {
     bool acyclic_graph = false;
     bool refpos_table = false;
     bool patch_alignments = false;
+    int surject_min_softclip = 4;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -218,11 +220,12 @@ int main_map(int argc, char** argv) {
                 {"refpos-table", no_argument, 0, 'v'},
                 {"surject-to", required_argument, 0, '5'},
                 {"patch-alns", no_argument, 0, '8'},
+                {"surj-min-softclip", required_argument, 0, '9'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:8",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:89:",
                          long_options, &option_index);
 
 
@@ -429,6 +432,10 @@ int main_map(int argc, char** argv) {
 
         case '8':
             patch_alignments = true;
+            break;
+
+        case '9':
+            surject_min_softclip = atoi(optarg);
             break;
 
         case 'I':
@@ -639,10 +646,10 @@ int main_map(int argc, char** argv) {
         }
     };
 
-    // TODO: Refactor the surjection code out of surject_main and intto somewhere where we can jsyt use it here!
+    // TODO: Refactor the surjection code out of surject_main and intto somewhere where we can just use it here!
 
-    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out] (const vector<Alignment>& alns1,
-        const vector<Alignment>& alns2) {
+    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out, &xgidx,
+        &surject_min_softclip] (const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
         
         if (alns1.empty()) return;
         setup_sam_header();
@@ -684,7 +691,12 @@ int main_map(int argc, char** argv) {
                 auto& path_pos = get<1>(s);
                 auto& path_reverse = get<2>(s);
                 auto& surj = get<3>(s);
-                string cigar = cigar_against_path(surj, path_reverse);
+                
+                size_t path_len = 0;
+                if (path_name != "") {
+                    path_len = xgidx->path_length(path_name);
+                }
+                string cigar = cigar_against_path(surj, path_reverse, path_pos, path_len, surject_min_softclip);
                 bam1_t* b = alignment_to_bam(sam_header,
                                              surj,
                                              path_name,
@@ -720,8 +732,15 @@ int main_map(int argc, char** argv) {
                 auto& surj2 = get<3>(s2);
                 
                 // Compute CIGARs
-                string cigar1 = cigar_against_path(surj1, path_reverse1);
-                string cigar2 = cigar_against_path(surj2, path_reverse2);
+                size_t path_len1, path_len2;
+                if (path_name1 != "") {
+                    path_len1 = xgidx->path_length(path_name1);
+                }
+                if (path_name2 != "") {
+                    path_len2 = xgidx->path_length(path_name2);
+                }
+                string cigar1 = cigar_against_path(surj1, path_reverse1, path_pos1, path_len1, surject_min_softclip);
+                string cigar2 = cigar_against_path(surj2, path_reverse2, path_pos2, path_len2, surject_min_softclip);
                 
                 // TODO: compute template length based on
                 // pair distance and alignment content.

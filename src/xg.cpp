@@ -2495,7 +2495,12 @@ void XG::get_id_range_by_length(int64_t id, int64_t length, Graph& g, bool forwa
 }
 
 size_t XG::path_length(const string& name) const {
-    return paths[path_rank(name)-1]->offsets.size();
+    auto rank = path_rank(name);
+    if (rank == 0) {
+        // Existence checking might be slightly slower but it will be worth it in saved head scratching
+        throw runtime_error("Path \"" + name + "\" not found in xg index");
+    }
+    return paths[rank-1]->offsets.size();
 }
 
 size_t XG::path_length(size_t rank) const {

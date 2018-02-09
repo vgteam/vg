@@ -220,7 +220,6 @@ public:
     double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = true;
-    size_t order_length_repeat_hit_max = 0; // in tracts of order-length MEMs above the hit max, fill one
     
     // Remove any bonuses used by the aligners from the final reported scores.
     // Does NOT (yet) remove the haplotype consistency bonus.
