@@ -196,7 +196,7 @@ int main_prune(int argc, char** argv) {
         });
         graph->paths.remove_paths(to_remove);
         if (show_progress) {
-            std::cerr << "Removed non-alt paths" << std::endl;
+            std::cerr << "Removed alt paths" << std::endl;
         }
     } else {
         graph->paths.clear();

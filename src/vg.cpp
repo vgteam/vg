@@ -7,6 +7,8 @@
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
 
+#include <stack>
+
 //#define debug
 
 namespace vg {
@@ -6990,21 +6992,56 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
 }
 
 void VG::prune_short_subgraphs(size_t min_size) {
-    list<VG> subgraphs;
-    disjoint_subgraphs(subgraphs);
-    for (auto& g : subgraphs) {
-        vector<Node*> heads;
-        g.head_nodes(heads);
-        // calculate length
-        // if < N
-        if (g.total_length_of_nodes() < min_size) {
-            //cerr << "removing" << endl;
-            g.for_each_node([this](Node* n) {
-                    // remove from this graph a node of the same id
-                    //cerr << n->id() << endl;
-                    this->destroy_node(n->id());
-                });
+
+    // Find the head nodes.
+    std::vector<vg::id_t> heads;
+    this->for_each_node([&](Node* node) {
+        if (this->is_head_node(node)) {
+            heads.push_back(node->id());
         }
+    });
+
+    for (vg::id_t head : heads) {
+        if (!this->has_node(head)) {
+            continue;   // Already pruned.
+        }
+
+        // Explore the neighborhood until the component is too large.
+        Node* head_node = this->get_node(head);
+        size_t subgraph_size = head_node->sequence().size();
+        std::stack<Node*> to_check; to_check.push(head_node);
+        std::unordered_set<Node*> subgraph { head_node };
+        while(subgraph_size < min_size && !to_check.empty()) {
+            Node* curr = to_check.top(); to_check.pop();
+            std::vector<Edge*> edges = this->edges_of(curr);
+            for (Edge* edge : edges) {
+                Node* next = this->get_node(edge->from() == curr->id() ? edge->to() : edge->from());
+                if (subgraph.find(next) == subgraph.end()) {
+                    subgraph_size += next->sequence().size();
+                    subgraph.insert(next);
+                    to_check.push(next);
+                }
+            }
+        }
+
+        // Destroy the component if it was small enough.
+        if (subgraph_size < min_size) {
+            for (Node* node : subgraph) {
+                this->destroy_node(node);
+            }
+        }
+
+/*        std::set<Node*> subgraph;
+        this->collect_subgraph(this->get_node(head), subgraph);
+        size_t total_size = 0;
+        for (Node* node : subgraph) {
+            total_size += node->sequence().size();
+        }
+        if (total_size < min_size) {
+            for (Node* node : subgraph) {
+                this->destroy_node(node);
+            }
+        }*/
     }
 }
 
