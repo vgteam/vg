@@ -635,12 +635,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     mems.erase(unique(mems.begin(), mems.end()), mems.end());
     // remove MEMs that are overlapping positionally (they may be redundant)
     
-    
-    // are we rescuing tracts of MEMs that are high count and length at the order of the GCSA index?
-    if (order_length_repeat_hit_max) {
-        rescue_high_count_order_length_mems(mems, order_length_repeat_hit_max);
-    }
-    
     return mems;
 }
 
