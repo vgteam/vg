@@ -535,19 +535,96 @@ string string_quality_char_to_short(const string& quality) {
     return buffer;
 }
 
-// remember to clean up with bam_destroy1(b);
-bam1_t* alignment_to_bam(const string& sam_header,
-                         const Alignment& alignment,
-                         const string& refseq,
-                         const int32_t refpos,
-                         const bool refrev,
-                         const string& cigar,
-                         const string& mateseq,
-                         const int32_t matepos,
-                         const int32_t tlen) {
+// Internal conversion function for both paired and unpaired codepaths
+string alignment_to_sam_internal(const Alignment& alignment,
+                                 const string& refseq,
+                                 const int32_t refpos,
+                                 const bool refrev,
+                                 const string& cigar,
+                                 const string& mateseq,
+                                 const int32_t matepos,
+                                 const int32_t tlen,
+                                 bool paired) {
+                        
+    // Determine flags, using orientation and read name suffix.
+    int32_t flags = sam_flag(alignment, refrev);
+    
+    stringstream sam;
+    
+    string alignment_name;
+    if (paired) {
+        // We need to strip the /1 and /2 or _1 and _2 from paired reads so the two ends have the same name.
+        alignment_name = regex_replace(alignment.name(), regex("[/_][12]$"), "");
+    } else {
+        // Keep the alignment name as is because even if the name looks paired, the reads are semantically unpaired.
+        alignment_name = alignment.name();
+    }
+
+    sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
+        << flags << "\t"
+        << (refseq.empty() ? "*" : refseq) << "\t"
+        << refpos + 1 << "\t"
+        << alignment.mapping_quality() << "\t"
+        << (alignment.has_path() && alignment.path().mapping_size() ? cigar : "*") << "\t"
+        << (mateseq == "" ? "*" : (mateseq == refseq ? "=" : mateseq)) << "\t"
+        << matepos + 1 << "\t"
+        << tlen << "\t"
+        // Make sure sequence always comes out in reference forward orientation by looking at the flags.
+        << (!alignment.sequence().empty() ? (refrev ? reverse_complement(alignment.sequence()) : alignment.sequence()) : "*") << "\t";
+    if (!alignment.quality().empty()) {
+        const string& quality = alignment.quality();
+        for (int i = 0; i < quality.size(); ++i) {
+            sam << quality_short_to_char(quality[i]);
+        }
+    } else {
+        sam << "*";
+    }
+    //<< (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
+    if (!alignment.read_group().empty()) sam << "\tRG:Z:" << alignment.read_group();
+    sam << "\n";
+    return sam.str();
+}
+
+string alignment_to_sam(const Alignment& alignment,
+                        const string& refseq,
+                        const int32_t refpos,
+                        const bool refrev,
+                        const string& cigar,
+                        const string& mateseq,
+                        const int32_t matepos,
+                        const int32_t tlen) {
+    
+    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, true);
+
+}
+
+string alignment_to_sam(const Alignment& alignment,
+                        const string& refseq,
+                        const int32_t refpos,
+                        const bool refrev,
+                        const string& cigar) {
+    
+    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, "", -1, 0, false);
+
+}
+
+// Internal conversion function for both paired and unpaired codepaths
+bam1_t* alignment_to_bam_internal(const string& sam_header,
+                                  const Alignment& alignment,
+                                  const string& refseq,
+                                  const int32_t refpos,
+                                  const bool refrev,
+                                  const string& cigar,
+                                  const string& mateseq,
+                                  const int32_t matepos,
+                                  const int32_t tlen,
+                                  bool paired) {
 
     assert(!sam_header.empty());
-    string sam_file = "data:," + sam_header + alignment_to_sam(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen);
+    
+    // Make a tiny SAM file. Remember to URL-encode it, since it may contain '%'
+    string sam_file = "data:," + percent_url_encode(sam_header +
+        alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, paired));
     const char* sam = sam_file.c_str();
     samFile *in = sam_open(sam, "r");
     bam_hdr_t *header = sam_hdr_read(in);
@@ -563,7 +640,8 @@ bam1_t* alignment_to_bam(const string& sam_header,
     }
 }
 
-string alignment_to_sam(const Alignment& alignment,
+bam1_t* alignment_to_bam(const string& sam_header,
+                        const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
@@ -571,43 +649,20 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& mateseq,
                         const int32_t matepos,
                         const int32_t tlen) {
-                        
-    // Determine flags, using orientation and read name suffix.
-    int32_t flags = sam_flag(alignment, refrev);
     
-    stringstream sam;
+    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, true);
 
-    // We need to strip the /1 and /2 or _1 and _2 from paired reads so the two ends have the same name.
-    string alignment_name = regex_replace(alignment.name(), regex("[/_][12]$"), "");
+}
 
-    sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
-        << flags << "\t"
-        << (refseq.empty() ? "*" : refseq) << "\t"
-        << refpos + 1 << "\t"
-        << alignment.mapping_quality() << "\t"
-        << (alignment.has_path() && alignment.path().mapping_size() ? cigar : "*") << "\t"
-        << (mateseq == refseq ? "=" : mateseq) << "\t"
-        << matepos + 1 << "\t"
-        << tlen << "\t"
-        // Make sure sequence always comes out in reference forward orientation by looking at the flags.
-        << (!alignment.sequence().empty() ? (refrev ? reverse_complement(alignment.sequence()) : alignment.sequence()) : "*") << "\t";
-    // hack much?
-    if (!alignment.quality().empty()) {
-        const string& quality = alignment.quality();
-        stringstream q;
-        for (int i = 0; i < quality.size(); ++i) {
-            q << quality_short_to_char(quality[i]);
-            //sam << quality_short_to_char(quality[i]);
-        }
-        sam << percent_url_encode(q.str());
-    } else {
-        sam << "*";
-        //sam << string(alignment.sequence().size(), 'I');
-    }
-    //<< (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
-    if (!alignment.read_group().empty()) sam << "\tRG:Z:" << alignment.read_group();
-    sam << "\n";
-    return sam.str();
+bam1_t* alignment_to_bam(const string& sam_header,
+                        const Alignment& alignment,
+                        const string& refseq,
+                        const int32_t refpos,
+                        const bool refrev,
+                        const string& cigar) {
+    
+    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, 0, false);
+
 }
 
 string cigar_string(vector<pair<int, char> >& cigar) {
