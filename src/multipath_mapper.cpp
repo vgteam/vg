@@ -1145,8 +1145,8 @@ namespace vg {
         OrientedDistanceClusterer::handle_memo_t handle_memo;
         
         // do we want to try to only cluster one read end and rescue the other?
-        bool do_repeat_rescue_from_1 = min_match_count_1 > rescue_only_min && min_match_count_2 <= rescue_only_anchor_max;
-        bool do_repeat_rescue_from_2 = min_match_count_2 > rescue_only_min && min_match_count_1 <= rescue_only_anchor_max;
+        bool do_repeat_rescue_from_1 = min_match_count_2 > rescue_only_min && min_match_count_1 <= rescue_only_anchor_max;
+        bool do_repeat_rescue_from_2 = min_match_count_1 > rescue_only_min && min_match_count_2 <= rescue_only_anchor_max;
         
         bool rescued_order_length_runs_1 = false, rescued_order_length_runs_2 = false;
         
