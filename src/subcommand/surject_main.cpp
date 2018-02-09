@@ -297,11 +297,13 @@ int main_surject(int argc, char** argv) {
                     if (!hdr) {
                         hdr = hts_string_header(header, path_length, rg_sample);
                         if ((out = sam_open("-", out_mode)) == 0) {
-                            cerr << "[vg surject] failed to open stdout for writing HTS output" << endl;
+#pragma omp critical (cerr)
+                            cerr << "[vg surject] error: failed to open stdout for writing HTS output" << endl;
                             exit(1);
                         } else {
                             // write the header
                             if (sam_hdr_write(out, hdr) != 0) {
+#pragma omp critical (cerr)
                                 cerr << "[vg surject] error: failed to write the SAM header" << endl;
                             }
                         }
@@ -317,6 +319,7 @@ int main_surject(int argc, char** argv) {
 #pragma omp critical (cout)
                 r = sam_write1(out, hdr, b);
                 if (r == 0) {
+#pragma omp critical (cerr)
                     cerr << "[vg surject] error: writing to stdout failed" << endl;
                     exit(1);
                 }
@@ -389,6 +392,45 @@ int main_surject(int argc, char** argv) {
                 // Define a function to surject the pair and fill in the
                 // HTSlib-required crossreferences
                 function<void(Alignment&,Alignment&)> lambda = [&](Alignment& aln1, Alignment& aln2) {
+                    // Make sure that the alignments being surjected are
+                    // actually paired with each other (proper
+                    // fragment_prev/fragment_next). We want to catch people
+                    // giving us un-interleaved GAMs as interleaved.
+                    if (aln1.has_fragment_next()) {
+                        // Alignment 1 comes first in fragment
+                        if (aln1.fragment_next().name() != aln2.name() ||
+                            !aln2.has_fragment_prev() ||
+                            aln2.fragment_prev().name() != aln1.name()) {
+                        
+#pragma omp critical (cerr)
+                            cerr << "[vg surject] error: alignments " << aln1.name()
+                                 << " and " << aln2.name() << " are adjacent but not paired" << endl;
+                                 
+                            exit(1);
+                        
+                        }
+                    } else if (aln2.has_fragment_next()) {
+                        // Alignment 2 comes first in fragment
+                        if (aln2.fragment_next().name() != aln1.name() ||
+                            !aln1.has_fragment_prev() ||
+                            aln1.fragment_prev().name() != aln2.name()) {
+                        
+#pragma omp critical (cerr)
+                            cerr << "[vg surject] error: alignments " << aln1.name()
+                                 << " and " << aln2.name() << " are adjacent but not paired" << endl;
+                                 
+                            exit(1);
+                        
+                        }
+                    } else {
+                        // Alignments aren't paired up at all
+#pragma omp critical (cerr)
+                        cerr << "[vg surject] error: alignments " << aln1.name()
+                             << " and " << aln2.name() << " are adjacent but not paired" << endl;
+                             
+                        exit(1);
+                    }
+                    
                     // Find our buffer
                     auto& thread_buffer = buffer[omp_get_thread_num()];
                     // Surject each of the pair and buffer the surjected pair
