@@ -812,8 +812,8 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
             flag |= BAM_FREAD1;
         }
         
-        // TODO: Should we do something about "paired" reads that don't know about their pair partners?
-        // Or reads with pair partners when they shouldn't be paired?
+        // Invalid paired GAM is caught, for surject, on GAM input
+        // TODO: catch reads with pair partners when they shouldn't be paired?
     }
 
     if (alignment.path().mapping_size() == 0) {
