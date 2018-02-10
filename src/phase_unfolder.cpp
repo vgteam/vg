@@ -26,6 +26,33 @@ void PhaseUnfolder::unfold(VG& graph, bool show_progress) {
     graph.extend(unfolded);
 }
 
+void PhaseUnfolder::restore_paths(VG& graph, bool show_progress) {
+
+    for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
+        const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
+        size_t path_length = path.ids.size();
+        if (path_length == 0) {
+            continue;
+        }
+
+        gbwt::node_type prev = gbwt::Node::encode(path.node(0), path.is_reverse(0));
+        for (size_t i = 1; i < path_length; i++) {
+            gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
+            Edge candidate = make_edge(prev, curr);
+            if (!graph.has_edge(candidate)) {
+                graph.add_node(this->xg_index.node(candidate.from()));
+                graph.add_node(this->xg_index.node(candidate.to()));
+                graph.add_edge(candidate);
+            }
+            prev = curr;
+        }
+    }
+
+    if (show_progress) {
+        std::cerr << "Restored graph: " << graph.node_count() << " nodes, " << graph.edge_count() << " edges" << std::endl;
+    }
+}
+
 void PhaseUnfolder::write_mapping(const std::string& filename) const {
     std::ofstream out(filename, std::ios_base::binary);
     if (!out) {
@@ -63,8 +90,7 @@ std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress
         gbwt::node_type prev = gbwt::Node::encode(path.node(0), path.is_reverse(0));
         for (size_t i = 1; i < path_length; i++) {
             gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
-            Edge candidate = xg::make_edge(gbwt::Node::id(prev), gbwt::Node::is_reverse(prev),
-                                           gbwt::Node::id(curr), gbwt::Node::is_reverse(curr));
+            Edge candidate = make_edge(prev, curr);
             if (!graph.has_edge(candidate)) {
                 complement.add_node(this->xg_index.node(candidate.from()));
                 complement.add_node(this->xg_index.node(candidate.to()));
@@ -82,8 +108,7 @@ std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress
             if (outedge.first == gbwt::ENDMARKER) {
                 continue;
             }
-            Edge candidate = xg::make_edge(gbwt::Node::id(gbwt_node), gbwt::Node::is_reverse(gbwt_node),
-                                           gbwt::Node::id(outedge.first), gbwt::Node::is_reverse(outedge.first));
+            Edge candidate = make_edge(gbwt_node, outedge.first);
             if (!graph.has_edge(candidate)) {
                 complement.add_node(this->xg_index.node(candidate.from()));
                 complement.add_node(this->xg_index.node(candidate.to()));
@@ -127,21 +152,18 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
         gbwt::node_type from = mapping.first.first, to = mapping.second;
         insert_node(from);
         insert_node(to);
-        unfolded.add_edge(xg::make_edge(gbwt::Node::id(from), gbwt::Node::is_reverse(from),
-                                        gbwt::Node::id(to), gbwt::Node::is_reverse(to)));
+        unfolded.add_edge(make_edge(from, to));
     }
     for (auto mapping : this->suffixes) {
         gbwt::node_type from = mapping.second, to = mapping.first.second;
         insert_node(from);
         insert_node(to);
-        unfolded.add_edge(xg::make_edge(gbwt::Node::id(from), gbwt::Node::is_reverse(from),
-                                        gbwt::Node::id(to), gbwt::Node::is_reverse(to)));
+        unfolded.add_edge(make_edge(from, to));
     }
     for (auto edge : this->crossing_edges) {
         insert_node(edge.first);
         insert_node(edge.second);
-        unfolded.add_edge(xg::make_edge(gbwt::Node::id(edge.first), gbwt::Node::is_reverse(edge.first),
-                                        gbwt::Node::id(edge.second), gbwt::Node::is_reverse(edge.second)));
+        unfolded.add_edge(make_edge(edge.first, edge.second));
     }
 
     size_t haplotype_paths = this->crossing_edges.size();
@@ -166,8 +188,7 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
                 path_type buffer { prev };
                 for (size_t i = occurrence + 1; i < path_length; i++) {
                     gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
-                    Edge candidate = xg::make_edge(gbwt::Node::id(prev), gbwt::Node::is_reverse(prev),
-                                                   gbwt::Node::id(curr), gbwt::Node::is_reverse(curr));
+                    Edge candidate = make_edge(prev, curr);
                     if (!component.has_edge(candidate)) {
                         break;  // Found a maximal path.
                     }
@@ -187,8 +208,7 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
                 bool found_border = false;
                 for (size_t i = occurrence; i > 0 ; i--) {
                     gbwt::node_type curr = gbwt::Node::encode(path.node(i - 1), !path.is_reverse(i - 1));
-                    Edge candidate = xg::make_edge(gbwt::Node::id(prev), gbwt::Node::is_reverse(prev),
-                                                   gbwt::Node::id(curr), gbwt::Node::is_reverse(curr));
+                    Edge candidate = make_edge(prev, curr);
                     if (!component.has_edge(candidate)) {
                         break;  // Found a maximal path.
                     }

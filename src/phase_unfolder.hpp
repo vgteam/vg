@@ -27,10 +27,12 @@ namespace vg {
  * disconnected distinct traversal haplotypes. Use in combination with
  * pruning to simplify the graph for GCSA2 indexing without losing observed
  * variation.
- * Requires XG and GBWT indexes for the original graph.
+ * Requires the XG index of the original graph and an empty GBWT index or
+ * an GBWT index of the original graph.
  * Note: A "border-to-border" path is a) a path from a border node to
  * another border node containing no other border nodes; or b) maximal path
  * starting from a border node encountering no other border nodes.
+ * Note: PhaseUnfolder only considers paths of length >= 2.
  */
 class PhaseUnfolder {
 public:
@@ -60,6 +62,13 @@ public:
     void unfold(VG& graph, bool show_progress = false);
 
     /**
+     * Restore the edges on XG paths. This is effectively the same as
+     * unfolding with an empty GBWT index, except that the inserted nodes will
+     * have their original identifiers.
+     */
+    void restore_paths(VG& graph, bool show_progress);
+
+    /**
      * Write the mapping to the specified file with a header. The file will
      * contain mappings from header.next_node - header.mapping_size
      * (inclusive) to header.next_node (exclusive).
@@ -77,6 +86,14 @@ public:
      * Get the id of the corresponding node in the original graph.
      */
     vg::id_t get_mapping(vg::id_t node) const;
+
+    /**
+     * Create an edge between two node orientations.
+     */
+    static Edge make_edge(gbwt::node_type from, gbwt::node_type to) {
+        return xg::make_edge(gbwt::Node::id(from), gbwt::Node::is_reverse(from),
+                             gbwt::Node::id(to), gbwt::Node::is_reverse(to));
+    }
 
 private:
     /**
