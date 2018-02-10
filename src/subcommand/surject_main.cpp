@@ -27,8 +27,10 @@ void help_surject(char** argv) {
          << "    -x, --xg-name FILE      use the graph in this xg index" << endl
          << "    -t, --threads N         number of threads to use" << endl
          << "    -p, --into-path NAME    surject into this path (many allowed, default: all in xg)" << endl
-         << "    -i, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
+         << "    -F, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
          << "    -n, --context-depth N   expand this many steps when collecting graph for surjection (default: 3)" << endl
+         << "    -i, --interleaved       GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
+         << "    -c, --cram-output       write CRAM to stdout" << endl
          << "    -S, --min-softclip N    emit softclips of less than or equal to this length as matches [4]" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
@@ -48,9 +50,9 @@ int main_surject(int argc, char** argv) {
     string path_file;
     string output_type = "gam";
     string input_type = "gam";
+    bool interleaved = false;
     string header_file;
     int compress_level = 9;
-    string fasta_filename;
     int context_depth = 3;
     int min_softclip = 4;
 
@@ -63,10 +65,10 @@ int main_surject(int argc, char** argv) {
             {"xb-name", required_argument, 0, 'x'},
             {"threads", required_argument, 0, 't'},
             {"into-path", required_argument, 0, 'p'},
-            {"into-paths", required_argument, 0, 'i'},
+            {"into-paths", required_argument, 0, 'F'},
             {"into-prefix", required_argument, 0, 'P'},
+            {"interleaved", no_argument, 0, 'i'},
             {"cram-output", no_argument, 0, 'c'},
-            {"reference", required_argument, 0, 'f'},
             {"bam-output", no_argument, 0, 'b'},
             {"sam-output", no_argument, 0, 's'},
             {"header-from", required_argument, 0, 'H'},
@@ -77,7 +79,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:i:P:cbsH:C:t:f:n:S:",
+        c = getopt_long (argc, argv, "hx:p:F:P:icbsH:C:t:n:S:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -95,7 +97,7 @@ int main_surject(int argc, char** argv) {
             path_names.insert(optarg);
             break;
 
-        case 'i':
+        case 'F':
             path_file = optarg;
             break;
 
@@ -107,12 +109,12 @@ int main_surject(int argc, char** argv) {
             header_file = optarg;
             break;
 
+        case 'i':
+            interleaved = true;
+            break;
+            
         case 'c':
             output_type = "cram";
-            break;
-
-        case 'f':
-            fasta_filename = optarg;
             break;
 
         case 'b':
@@ -209,7 +211,7 @@ int main_surject(int argc, char** argv) {
                 string path_name;
                 int64_t path_pos;
                 bool path_reverse;
-                buffer[tid].push_back(mapper[tid]->surject_alignment(src, path_names,path_name, path_pos, path_reverse));
+                buffer[tid].push_back(mapper[tid]->surject_alignment(src, path_names, path_name, path_pos, path_reverse));
                 stream::write_buffered(cout, buffer[tid], 100);
             };
             get_input_file(file_name, [&](istream& in) {
@@ -231,126 +233,293 @@ int main_surject(int argc, char** argv) {
                 tmp[0] = compress_level + '0'; tmp[1] = '\0';
                 strcat(out_mode, tmp);
             }
-            // get the header
-            /*
-               if (header_file.empty()) {
-               cerr << "[vg surject] error: --header-from must be specified for SAM/BAM/CRAM output" << endl;
-               return 1;
-               }
-               */
-            string header;
+            
             int thread_count = get_thread_count();
-            vector<vector<tuple<string, int64_t, bool, Alignment> > > buffer;
-            buffer.resize(thread_count);
-            map<string, string> rg_sample;
-
+            
             // bam/sam/cram output
-            samFile* out = 0;
+            
+            // Define a string to hold the SAM header, to be generated later.
+            string header;
+            // To generate the header, we need to know the read group for each sample name.
+            map<string, string> rg_sample;
+            
+            samFile* out = nullptr;
             int buffer_limit = 100;
 
-            bam_hdr_t* hdr = NULL;
+            bam_hdr_t* hdr = nullptr;
             int64_t count = 0;
+            // TODO: What good is this lock if we continue without getting it if the buffer is overfull???
             omp_lock_t output_lock;
             omp_init_lock(&output_lock);
-
-            // handles buffers, possibly opening the output file if we're on the first record
-            auto handle_buffer =
-                [&hdr, &header, &path_length, &rg_sample, &buffer_limit, &min_softclip,
-                 &out_mode, &out, &output_lock, &fasta_filename, &xgidx](vector<tuple<string, int64_t, bool, Alignment> >& buf) {
-                    if (buf.size() >= buffer_limit) {
-                        // do we have enough data to open the file?
+            
+            // We define a type to represent a surjected alignment, ready for
+            // HTSlib output. It consists of surjected path name (or ""),
+            // surjected position (or -1), surjected orientation, and the
+            // actual Alignment.
+            using surjected_t = tuple<string, int64_t, bool, Alignment>;
+            // You make one with make_tuple()
+            
+            // We define a basic surject function, which also fills in the read group info we need to make the header
+            auto surject_alignment = [&](const Alignment& src) {
+                
+                // Set out some variables to populate with the linear position
+                // info we need for SAM/BAM/CRAM
+                string path_name;
+                // Make sure to initialize pos to -1 since it may not be set by
+                // surject_alignment if the read is unmapped, and unmapped
+                // reads need to come out with a 0 1-based position.
+                int64_t path_pos = -1; 
+                bool path_reverse = false;
+                auto surj = mapper[omp_get_thread_num()]->surject_alignment(src, path_names, path_name, path_pos, path_reverse);
+                if (!surj.path().mapping_size()) {
+                    // We didn't find a surjection, so keep the original.
+                    surj = src;
+                }
+                
+                if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {
+                    // There's no header yet (although we race its
+                    // construction) and we have a sample and a read group.
+                    
+                    // Record the read group for the sample that this read
+                    // represents, so that when we build the header we list it.
 #pragma omp critical (hts_header)
-                        {
-                            if (!hdr) {
-                                hdr = hts_string_header(header, path_length, rg_sample);
-                                if ((out = sam_open("-", out_mode)) == 0) {
-                                    /*
-                                       if (!fasta_filename.empty()) {
-                                       string fai_filename = fasta_filename + ".fai";
-                                       hts_set_fai_filename(out, fai_filename.c_str());
-                                       }
-                                       */
-                                    cerr << "[vg surject] failed to open stdout for writing HTS output" << endl;
-                                    exit(1);
-                                } else {
-                                    // write the header
-                                    if (sam_hdr_write(out, hdr) != 0) {
-                                        cerr << "[vg surject] error: failed to write the SAM header" << endl;
-                                    }
-                                }
+                    rg_sample[surj.read_group()] = surj.sample_name();
+                }
+                
+                return make_tuple(path_name, path_pos, path_reverse, surj);
+            };
+            
+            // We also define a function to emit the header if it hasn't been made already.
+            // Note that the header will only list the samples and read groups in reads we have encountered so far!
+            auto ensure_header = [&]() {
+#pragma omp critical (hts_header)
+                {
+                    if (!hdr) {
+                        hdr = hts_string_header(header, path_length, rg_sample);
+                        if ((out = sam_open("-", out_mode)) == 0) {
+#pragma omp critical (cerr)
+                            cerr << "[vg surject] error: failed to open stdout for writing HTS output" << endl;
+                            exit(1);
+                        } else {
+                            // write the header
+                            if (sam_hdr_write(out, hdr) != 0) {
+#pragma omp critical (cerr)
+                                cerr << "[vg surject] error: failed to write the SAM header" << endl;
                             }
                         }
+                    }
+                }
+            };
+            
+            // Finally, we have a little widget function to write a BAM record and check for errors.
+            // Consumes the passed record.
+            auto write_bam_record = [&](bam1_t* b) {
+                assert(out != nullptr);
+                int r = 0;
+#pragma omp critical (cout)
+                r = sam_write1(out, hdr, b);
+                if (r == 0) {
+#pragma omp critical (cerr)
+                    cerr << "[vg surject] error: writing to stdout failed" << endl;
+                    exit(1);
+                }
+                bam_destroy1(b);
+            };
+            
+            if (interleaved) {
+                // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations              
+                
+                // We keep a buffer, one per thread, of pairs of surjected alignments
+                vector<vector<pair<surjected_t, surjected_t>>> buffer;
+                buffer.resize(thread_count);
+                
+                // Define a function that handles buffers, possibly opening the
+                // output file if we're on the first record
+                auto handle_buffer = [&](vector<pair<surjected_t, surjected_t>>& buf) {
+                     if (buf.size() >= buffer_limit) {
+                            // We have enough data to start the file.
+                            
+                            // Make sure we have emitted the header
+                            ensure_header();
+
+                            // try to get a lock, and force things if we've built up a huge buffer waiting
+                            // TODO: Is continuing without the lock safe? And if so why do we have the lock in the first place?
+                            if (omp_test_lock(&output_lock) || buf.size() > 10*buffer_limit) {
+                                for (auto& surjected_pair : buf) {
+                                    // For each pair of surjected reads
+                                
+                                    // Unpack the first read
+                                    auto& name1 = get<0>(surjected_pair.first);
+                                    auto& pos1 = get<1>(surjected_pair.first);
+                                    auto& reverse1 = get<2>(surjected_pair.first);
+                                    auto& surj1 = get<3>(surjected_pair.first);
+                                    
+                                    // Unpack the second read
+                                    auto& name2 = get<0>(surjected_pair.second);
+                                    auto& pos2 = get<1>(surjected_pair.second);
+                                    auto& reverse2 = get<2>(surjected_pair.second);
+                                    auto& surj2 = get<3>(surjected_pair.second);
+                                    
+                                    // Compute CIGAR strings
+                                    size_t path_len1 = 0, path_len2 = 0;
+                                    if (name1 != "") {
+                                        path_len1 = xgidx->path_length(name1);
+                                    }
+                                    if (name2 != "") {
+                                        path_len2 = xgidx->path_length(name2);
+                                    }
+                                    string cigar1 = cigar_against_path(surj1, reverse1, pos1, path_len1, min_softclip);
+                                    string cigar2 = cigar_against_path(surj2, reverse2, pos2, path_len2, min_softclip);
+                                    
+                                    // TODO: compute template length based on
+                                    // pair distance and alignment content.
+                                    int template_length = 0;
+                                    
+                                    // Create and write paired BAM records referencing each other
+                                    write_bam_record(alignment_to_bam(header, surj1, name1, pos1, reverse1, cigar1,
+                                        name2, pos2, template_length));
+                                    write_bam_record(alignment_to_bam(header, surj2, name2, pos2, reverse2, cigar2,
+                                        name1, pos1, template_length));
+                                
+                                }
+                                
+                                omp_unset_lock(&output_lock);
+                                buf.clear();
+                            }
+                        }
+                };
+                
+                // Define a function to surject the pair and fill in the
+                // HTSlib-required crossreferences
+                function<void(Alignment&,Alignment&)> lambda = [&](Alignment& aln1, Alignment& aln2) {
+                    // Make sure that the alignments being surjected are
+                    // actually paired with each other (proper
+                    // fragment_prev/fragment_next). We want to catch people
+                    // giving us un-interleaved GAMs as interleaved.
+                    if (aln1.has_fragment_next()) {
+                        // Alignment 1 comes first in fragment
+                        if (aln1.fragment_next().name() != aln2.name() ||
+                            !aln2.has_fragment_prev() ||
+                            aln2.fragment_prev().name() != aln1.name()) {
+                        
+#pragma omp critical (cerr)
+                            cerr << "[vg surject] error: alignments " << aln1.name()
+                                 << " and " << aln2.name() << " are adjacent but not paired" << endl;
+                                 
+                            exit(1);
+                        
+                        }
+                    } else if (aln2.has_fragment_next()) {
+                        // Alignment 2 comes first in fragment
+                        if (aln2.fragment_next().name() != aln1.name() ||
+                            !aln1.has_fragment_prev() ||
+                            aln1.fragment_prev().name() != aln2.name()) {
+                        
+#pragma omp critical (cerr)
+                            cerr << "[vg surject] error: alignments " << aln1.name()
+                                 << " and " << aln2.name() << " are adjacent but not paired" << endl;
+                                 
+                            exit(1);
+                        
+                        }
+                    } else {
+                        // Alignments aren't paired up at all
+#pragma omp critical (cerr)
+                        cerr << "[vg surject] error: alignments " << aln1.name()
+                             << " and " << aln2.name() << " are adjacent but not paired" << endl;
+                             
+                        exit(1);
+                    }
+                    
+                    // Find our buffer
+                    auto& thread_buffer = buffer[omp_get_thread_num()];
+                    // Surject each of the pair and buffer the surjected pair
+                    thread_buffer.emplace_back(surject_alignment(aln1), surject_alignment(aln2));
+                    // Spit out the buffer if (over)full
+                    handle_buffer(thread_buffer);
+                };
+                
+                // now apply the alignment processor to the stream
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each_interleaved_pair_parallel(in, lambda);
+                });
+                
+                // Spit out any remaining data
+                buffer_limit = 0;
+                for (auto& buf : buffer) {
+                    handle_buffer(buf);
+                }
+                
+            } else {
+                // GAM input is single-ended, so each read can be surjected
+                // independently
+                
+                // We keep a buffer, one per thread, of surjected alignments.
+                vector<vector<surjected_t>> buffer;
+                buffer.resize(thread_count);
+
+                // Define a function that handles buffers, possibly opening the
+                // output file if we're on the first record
+                auto handle_buffer = [&](vector<surjected_t>& buf) {
+                    if (buf.size() >= buffer_limit) {
+                        // We have enough data to start the file.
+                        
+                        // Make sure we have emitted the header
+                        ensure_header();
+
                         // try to get a lock, and force things if we've built up a huge buffer waiting
+                        // TODO: Is continuing without the lock safe? And if so why do we have the lock in the first place?
                         if (omp_test_lock(&output_lock) || buf.size() > 10*buffer_limit) {
                             for (auto& s : buf) {
-                                auto& path_nom = get<0>(s);
-                                auto& path_pos = get<1>(s);
-                                auto& path_reverse = get<2>(s);
+                                // For each alignment in the buffer
+                                
+                                // Unpack it
+                                auto& name = get<0>(s);
+                                auto& pos = get<1>(s);
+                                auto& reverse = get<2>(s);
                                 auto& surj = get<3>(s);
-                                size_t path_len = xgidx->path_length(path_nom);
-                                string cigar = cigar_against_path(surj, path_reverse, path_pos, path_len, min_softclip);
-                                bam1_t* b = alignment_to_bam(header,
-                                        surj,
-                                        path_nom,
-                                        path_pos,
-                                        path_reverse,
-                                        cigar,
-                                        "=",
-                                        path_pos,
-                                        0);
-                                int r = 0;
-#pragma omp critical (cout)
-                                r = sam_write1(out, hdr, b);
-                                if (r == 0) { cerr << "[vg surject] error: writing to stdout failed" << endl; exit(1); }
-                                bam_destroy1(b);
+                                
+                                // Generate a CIGAR string for it
+                                size_t path_len = 0;
+                                if (name != "") {
+                                    path_len = xgidx->path_length(name);
+                                }
+                                string cigar = cigar_against_path(surj, reverse, pos, path_len, min_softclip);
+                                
+                                // Create and write a single unpaired BAM record
+                                write_bam_record(alignment_to_bam(header, surj, name, pos, reverse, cigar));
+                                
                             }
+                            
                             omp_unset_lock(&output_lock);
                             buf.clear();
                         }
                     }
                 };
 
-            function<void(Alignment&)> lambda = [&xgidx,
-                                                 &mapper,
-                                                 &path_names,
-                                                 &path_length,
-                                                 &rg_sample,
-                                                 &header,
-                                                 &out,
-                                                 &buffer,
-                                                 &count,
-                                                 &hdr,
-                                                 &out_mode,
-                                                 &handle_buffer](Alignment& src) {
-                    string path_name;
-                    int64_t path_pos;
-                    bool path_reverse;
-                    int tid = omp_get_thread_num();
-                    auto surj = mapper[tid]->surject_alignment(src, path_names, path_name, path_pos, path_reverse);
-                    if (!surj.path().mapping_size()) {
-                        surj = src;
-                    }
-                    // record
-                    if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {
-#pragma omp critical (hts_header)
-                        rg_sample[surj.read_group()] = surj.sample_name();
-                    }
-
-                    buffer[tid].push_back(make_tuple(path_name, path_pos, path_reverse, surj));
-                    handle_buffer(buffer[tid]);
-
+                function<void(Alignment&)> lambda = [&](Alignment& src) {
+                    auto& thread_buffer = buffer[omp_get_thread_num()];
+                    thread_buffer.push_back(surject_alignment(src));
+                    handle_buffer(thread_buffer);
                 };
 
 
-            // now apply the alignment processor to the stream
-            get_input_file(file_name, [&](istream& in) {
-                stream::for_each_parallel(in, lambda);
-            });
-            buffer_limit = 0;
-            for (auto& buf : buffer) {
-                handle_buffer(buf);
+                // now apply the alignment processor to the stream
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each_parallel(in, lambda);
+                });
+                buffer_limit = 0;
+                for (auto& buf : buffer) {
+                    handle_buffer(buf);
+                }
+                
             }
-            bam_hdr_destroy(hdr);
+            
+            
+            if (hdr != nullptr) {
+                bam_hdr_destroy(hdr);
+            }
+            assert(out != nullptr);
             sam_close(out);
             omp_destroy_lock(&output_lock);
         }

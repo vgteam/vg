@@ -60,6 +60,15 @@ string mapping_string(const string& source, const Mapping& mapping);
 
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
 
+/**
+ * Convert a paired Alignment to a BAM record. If the alignment is unmapped,
+ * refpos must be -1. Otherwise, refpos must be the position on the reference
+ * sequence to which the alignment is aligned. Similarly, refseq must be the
+ * sequence aligned to, or "" if unaligned. The mateseq and matepos fields must
+ * be set similarly for the mate. Note that mateseq must not be "=".
+ *
+ * Remember to clean up with bam_destroy1(b);
+ */
 bam1_t* alignment_to_bam(const string& sam_header,
                          const Alignment& alignment,
                          const string& refseq,
@@ -69,7 +78,29 @@ bam1_t* alignment_to_bam(const string& sam_header,
                          const string& mateseq,
                          const int32_t matepos,
                          const int32_t tlen);
-
+                         
+/**
+ * Convert an unpaired Alignment to a BAM record. If the alignment is unmapped,
+ * refpos must be -1. Otherwise, refpos must be the position on the reference
+ * sequence to which the alignment is aligned. Similarly, refseq must be the
+ * sequence aligned to, or "" if unaligned.
+ *
+ * Remember to clean up with bam_destroy1(b);
+ */
+bam1_t* alignment_to_bam(const string& sam_header,
+                        const Alignment& alignment,
+                        const string& refseq,
+                        const int32_t refpos,
+                        const bool refrev,
+                        const string& cigar);
+                         
+/**
+ * Convert a paired Alignment to a SAM record. If the alignment is unmapped,
+ * refpos must be -1. Otherwise, refpos must be the position on the reference
+ * sequence to which the alignment is aligned. Similarly, refseq must be the
+ * sequence aligned to, or "" if unaligned. The mateseq and matepos fields must
+ * be set similarly for the mate. Note that mateseq must not be "=".
+ */
 string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
@@ -78,10 +109,24 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& mateseq,
                         const int32_t matepos,
                         const int32_t tlen);
+                        
+/**
+ * Convert an unpaired Alignment to a SAM record. If the alignment is unmapped,
+ * refpos must be -1. Otherwise, refpos must be the position on the reference
+ * sequence to which the alignment is aligned. Similarly, refseq must be the
+ * sequence aligned to, or "" if unaligned.
+ */
+string alignment_to_sam(const Alignment& alignment,
+                        const string& refseq,
+                        const int32_t refpos,
+                        const bool refrev,
+                        const string& cigar);
+                        
+
 
 string cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
 
-int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand);
+int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired);
 short quality_char_to_short(char c);
 char quality_short_to_char(short i);
 string string_quality_char_to_short(const string& quality);
