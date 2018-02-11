@@ -66,7 +66,14 @@ public:
      * unfolding with an empty GBWT index, except that the inserted nodes will
      * have their original identifiers.
      */
-    void restore_paths(VG& graph, bool show_progress);
+    void restore_paths(VG& graph, bool show_progress = false) const;
+
+    /**
+     * Verify that the graph contains the XG paths and the GBWT threads in the
+     * backing indexes. Returns the number of paths for which the verification
+     * failed. Uses OMP threads.
+     */
+    size_t verify_paths(VG& unfolded) const;
 
     /**
      * Write the mapping to the specified file with a header. The file will

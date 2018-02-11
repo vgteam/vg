@@ -7,6 +7,8 @@
 #include <iostream>
 #include <map>
 
+#include <omp.h>
+
 #include <gbwt/dynamic_gbwt.h>
 
 #include "../phase_unfolder.hpp"
@@ -121,6 +123,25 @@ void prune_and_unfold(VG& vg_graph, const std::set<vg::id_t>& to_remove, PhaseUn
         vg_graph.destroy_node(node);
     }
     unfolder.unfold(vg_graph);
+
+    SECTION("the unfolded graph should contain all indexed paths") {
+        omp_set_num_threads(1);
+        size_t failures = unfolder.verify_paths(vg_graph);
+        REQUIRE(failures == 0);
+    }
+}
+
+void prune_and_restore(VG& vg_graph, const std::set<vg::id_t>& to_remove, PhaseUnfolder& unfolder) {
+    for (vg::id_t node : to_remove) {
+        vg_graph.destroy_node(node);
+    }
+    unfolder.restore_paths(vg_graph);
+
+    SECTION("the restored graph should contain all indexed paths") {
+        omp_set_num_threads(1);
+        size_t failures = unfolder.verify_paths(vg_graph);
+        REQUIRE(failures == 0);
+    }
 }
 
 // A toy graph for GA(T|GGG)TA(C|A)A with some additional edges.
@@ -235,6 +256,49 @@ TEST_CASE("PhaseUnfolder can unfold XG paths", "[phaseunfolder][indexing]") {
         };
         std::set<std::vector<vg::id_t>> expected_paths {
             { 2, 3, 5 }, { 6, 7, 9 }
+        };
+        check_unfolded_edges(vg_graph, unfolder, corresponding_edges, expected_paths, next_id);
+    }
+}
+
+TEST_CASE("PhaseUnfolder can restore XG paths", "[phaseunfolder][indexing]") {
+
+    // Build an XG index with a path.
+    Graph graph_with_path;
+    json2pb(graph_with_path, unfolder_graph_path.c_str(), unfolder_graph_path.size());
+    xg::XG xg_index(graph_with_path);
+
+    // Build an empty GBWT index.
+    gbwt::GBWT gbwt_index;
+
+    // Build a PhaseUnfolder with duplicate node ids starting from 10.
+    vg::id_t next_id = 10;
+    PhaseUnfolder unfolder(xg_index, gbwt_index, next_id);
+
+    // Build a VG graph.
+    VG vg_graph;
+    Graph temp_graph;
+    json2pb(temp_graph, unfolder_graph.c_str(), unfolder_graph.size());
+    vg_graph.merge(temp_graph);
+
+    // Remove branching regions from the VG graph, including the last node,
+    // but keep the edge (1, 6) in the graph.
+    std::set<vg::id_t> to_remove { 3, 4, 7, 8, 9 };
+    prune_and_restore(vg_graph, to_remove, unfolder);
+
+    // Check the nodes.
+    SECTION("the unfolded graph should have 7 nodes") {
+        std::set<vg::id_t> expected_nodes { 1, 2, 3, 5, 6, 7, 9 };
+        std::multiset<vg::id_t> corresponding_nodes { 1, 2, 3, 5, 6, 7, 9 };
+        check_unfolded_nodes(vg_graph, xg_index, unfolder, expected_nodes, corresponding_nodes);
+    }
+
+    // Check the edges.
+    SECTION("the unfolded graph should have 7 edges") {
+        std::multiset<std::pair<vg::id_t, vg::id_t>> corresponding_edges {
+            { 1, 2 }, { 1, 6 }, { 2, 3 }, { 3, 5 }, { 5, 6 }, { 6, 7 }, { 7, 9 }
+        };
+        std::set<std::vector<vg::id_t>> expected_paths {
         };
         check_unfolded_edges(vg_graph, unfolder, corresponding_edges, expected_paths, next_id);
     }

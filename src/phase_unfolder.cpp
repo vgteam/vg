@@ -1,5 +1,6 @@
 #include "phase_unfolder.hpp"
 
+#include <atomic>
 #include <iostream>
 #include <map>
 
@@ -26,17 +27,16 @@ void PhaseUnfolder::unfold(VG& graph, bool show_progress) {
     graph.extend(unfolded);
 }
 
-void PhaseUnfolder::restore_paths(VG& graph, bool show_progress) {
+void PhaseUnfolder::restore_paths(VG& graph, bool show_progress) const {
 
     for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
         const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
-        size_t path_length = path.ids.size();
-        if (path_length == 0) {
+        if (path.ids.size() == 0) {
             continue;
         }
 
         gbwt::node_type prev = gbwt::Node::encode(path.node(0), path.is_reverse(0));
-        for (size_t i = 1; i < path_length; i++) {
+        for (size_t i = 1; i < path.ids.size(); i++) {
             gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
             Edge candidate = make_edge(prev, curr);
             if (!graph.has_edge(candidate)) {
@@ -51,6 +51,139 @@ void PhaseUnfolder::restore_paths(VG& graph, bool show_progress) {
     if (show_progress) {
         std::cerr << "Restored graph: " << graph.node_count() << " nodes, " << graph.edge_count() << " edges" << std::endl;
     }
+}
+
+size_t path_size(const xg::XGPath& path) {
+    return path.ids.size();
+}
+
+size_t path_size(const std::vector<gbwt::node_type>& path) {
+    return path.size();
+}
+
+vg::id_t path_node(const xg::XGPath& path, size_t i) {
+    return path.node(i);
+}
+
+vg::id_t path_node(const std::vector<gbwt::node_type>& path, size_t i) {
+    return gbwt::Node::id(path[i]);
+}
+
+bool path_reverse(const xg::XGPath& path, size_t i) {
+    return path.is_reverse(i);
+}
+
+bool path_reverse(const std::vector<gbwt::node_type>& path, size_t i) {
+    return gbwt::Node::is_reverse(path[i]);
+}
+
+struct PathBranch {
+    size_t offset;
+    size_t curr;    // Branch to choose at offset.
+    size_t next;    // Branch to choose at offset + 1.
+
+    void advance() {
+        offset++;
+        curr = next;
+        next = 0;
+    }
+};
+
+template<class PathType>
+bool verify_path(const PathType& path, VG& unfolded, const std::unordered_map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
+
+    if (path_size(path) < 2) {
+        return true;
+    }
+
+    // For each branching point: (offset, next duplicate to investigate).
+    // Note that we can discard all unexplored branches every time the graph
+    // contains the original node or only one duplicate of the current node.
+    std::vector<PathBranch> branches { { 0, 0, 0 } };
+    while (!branches.empty()) {
+        PathBranch branch = branches.back(); branches.pop_back();
+        size_t curr_duplicates = 0;
+        vg::id_t node_id = path_node(path, branch.offset);
+        auto iter = reverse_mapping.find(node_id);
+        if (iter != reverse_mapping.end()) {
+            const std::vector<vg::id_t>& duplicates = iter->second;
+            curr_duplicates = duplicates.size();
+            node_id = duplicates[branch.curr];
+        }
+
+        // Extend the next path from the current branch.
+        gbwt::node_type curr = gbwt::Node::encode(node_id, path_reverse(path, branch.offset));
+        while (branch.offset + 1 < path_size(path)) {
+            size_t next_duplicates = 0;
+            node_id = path_node(path, branch.offset + 1);
+            iter = reverse_mapping.find(node_id);
+            if (iter != reverse_mapping.end()) {
+                const std::vector<vg::id_t>& duplicates = iter->second;
+                next_duplicates = duplicates.size();
+                node_id = duplicates[branch.next];
+                if (branch.next + 1 < duplicates.size()) {
+                    branches.push_back({ branch.offset, branch.curr, branch.next + 1 });
+                } else if (branch.curr + 1 < curr_duplicates) {
+                    branches.push_back({ branch.offset, branch.curr + 1, 0 });
+                }
+            } else if (branch.curr + 1 < curr_duplicates) {
+                branches.push_back({ branch.offset, branch.curr + 1, 0 });
+            }
+            gbwt::node_type next = gbwt::Node::encode(node_id, path_reverse(path, branch.offset + 1));
+            Edge candidate = PhaseUnfolder::make_edge(curr, next);
+            if (!unfolded.has_edge(candidate)) {
+                break;
+            }
+            if (next_duplicates <= 1) { // All paths corresponding to this must go through the next node.
+                branches.clear();
+            }
+            curr = next;
+            curr_duplicates = next_duplicates;
+            branch.advance();
+        }
+        if (branch.offset + 1 >= path_size(path)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+size_t PhaseUnfolder::verify_paths(VG& unfolded) const {
+
+    std::atomic<size_t> failures(0);
+
+    // Create a mapping from original -> duplicates.
+    // TODO Interface for the duplicate range in NodeMapping.
+    std::unordered_map<vg::id_t, std::vector<vg::id_t>> reverse_mapping;
+    for (gcsa::size_type duplicate = this->mapping.first_node; duplicate < this->mapping.next_node; duplicate++) {
+        vg::id_t original_id = this->mapping(duplicate);
+        reverse_mapping[original_id].push_back(duplicate);
+        if (unfolded.has_node(original_id)) {
+            reverse_mapping[original_id].push_back(original_id);
+        }
+    }
+    for (auto& mapping : reverse_mapping) {
+        gcsa::removeDuplicates(mapping.second, false);
+    }
+
+    size_t total_paths = this->xg_index.max_path_rank() + this->gbwt_index.sequences();
+    #pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < total_paths; i++) {
+        if (i < this->xg_index.max_path_rank()) {
+            const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(i + 1));
+            if (!verify_path(path, unfolded, reverse_mapping)) {
+                failures++;
+            }
+        } else {
+            std::vector<gbwt::node_type> path = this->gbwt_index.extract(i - this->xg_index.max_path_rank());
+            if (!verify_path(path, unfolded, reverse_mapping)) {
+                failures++;
+            }
+        }
+    }
+
+    return failures;
 }
 
 void PhaseUnfolder::write_mapping(const std::string& filename) const {
@@ -83,12 +216,11 @@ std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress
     // Add missing edges supported by XG paths.
     for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
         const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
-        size_t path_length = path.ids.size();
-        if (path_length == 0) {
+        if (path.ids.size() == 0) {
             continue;
         }
         gbwt::node_type prev = gbwt::Node::encode(path.node(0), path.is_reverse(0));
-        for (size_t i = 1; i < path_length; i++) {
+        for (size_t i = 1; i < path.ids.size(); i++) {
             gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
             Edge candidate = make_edge(prev, curr);
             if (!graph.has_edge(candidate)) {
@@ -178,7 +310,6 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
 
     for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
         const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
-        size_t path_length = path.ids.size();
 
         std::vector<size_t> occurrences = this->xg_index.node_ranks_in_path(from, path_rank);
         for (size_t occurrence : occurrences) {
@@ -186,7 +317,7 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
             {
                 gbwt::node_type prev = gbwt::Node::encode(path.node(occurrence), path.is_reverse(occurrence));
                 path_type buffer { prev };
-                for (size_t i = occurrence + 1; i < path_length; i++) {
+                for (size_t i = occurrence + 1; i < path.ids.size(); i++) {
                     gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
                     Edge candidate = make_edge(prev, curr);
                     if (!component.has_edge(candidate)) {
