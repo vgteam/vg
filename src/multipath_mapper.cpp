@@ -1150,6 +1150,10 @@ namespace vg {
         
         bool rescued_order_length_runs_1 = false, rescued_order_length_runs_2 = false;
         
+#ifdef debug_multipath_mapper_mapping
+        cerr << "min hit count on read 1: " << min_match_count_1 << ", on read 2: " << min_match_count_2 << ", doing rescue from read 1? " << (do_repeat_rescue_from_1 ? "yes" : "no") << ", from read 2? " << (do_repeat_rescue_from_2 ? "yes" : "no") << endl;
+#endif
+        
         if (do_repeat_rescue_from_1 || do_repeat_rescue_from_2) {
             
             // one side appears to be repetitive and the other non-repetitive, so try to only align the non-repetitive side
@@ -1172,6 +1176,10 @@ namespace vg {
             if (multipath_aln_pairs_out.empty() && do_repeat_rescue_from_1 && !do_repeat_rescue_from_2) {
                 // we've clustered and extracted read 1, but rescue failed, so do the same for read 2 to prepare for the
                 // normal pair clustering routine
+                
+#ifdef debug_multipath_mapper_mapping
+                cerr << "repeat rescue failed from read 1, extracting clusters for read 2 and transitioning to standard clustering approach" << endl;
+#endif
                 
                 // rescue high count runs of order-length MEMs now that we're going to cluster here
                 if (order_length_repeat_hit_max && !rescued_order_length_runs_2) {
@@ -1198,6 +1206,9 @@ namespace vg {
                 // we've clustered and extracted read 2, but rescue failed, so do the same for read 1 to prepare for the
                 // normal pair clustering routine
                 
+#ifdef debug_multipath_mapper_mapping
+                cerr << "repeat rescue failed from read 2, extracting clusters for read 1 and transitioning to standard clustering approach" << endl;
+#endif
                 
                 // rescue high count runs of order-length MEMs now that we're going to cluster here
                 if (order_length_repeat_hit_max && !rescued_order_length_runs_1) {
@@ -1471,6 +1482,10 @@ namespace vg {
         
         if (do_repeat_rescue_from_1) {
             
+#ifdef debug_multipath_mapper_mapping
+            cerr << "attempting repeat rescue from read 1" << endl;
+#endif
+            
             // get the clusters for the non repeat
             if (adjust_alignments_for_base_quality) {
                 OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
@@ -1494,6 +1509,11 @@ namespace vg {
             
             // move the rescued pairs to the output vectors
             if (rescue_succeeded_from_1) {
+                
+#ifdef debug_multipath_mapper_mapping
+                cerr << "repeat rescue succeeded" << endl;
+#endif
+                
                 for (auto& multipath_aln_pair : rescued_pairs) {
                     multipath_aln_pairs_out.emplace_back(move(multipath_aln_pair));
                 }
@@ -1505,6 +1525,10 @@ namespace vg {
         
         if (do_repeat_rescue_from_2) {
             // TODO: duplicative code
+            
+#ifdef debug_multipath_mapper_mapping
+            cerr << "attempting repeat rescue from read 2" << endl;
+#endif
             
             // get the clusters for the non repeat
             if (adjust_alignments_for_base_quality) {
@@ -1529,6 +1553,10 @@ namespace vg {
             
             // move the rescued pairs to the output vectors
             if (rescue_succeeded_from_2) {
+                
+#ifdef debug_multipath_mapper_mapping
+                cerr << "repeat rescue succeeded" << endl;
+#endif
                 for (auto& multipath_aln_pair : rescued_pairs) {
                     multipath_aln_pairs_out.emplace_back(move(multipath_aln_pair));
                 }
