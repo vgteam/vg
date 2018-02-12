@@ -23,8 +23,8 @@ namespace vg {
     //size_t MultipathMapper::SUBGRAPH_TOTAL = 0;
     
     MultipathMapper::MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
-                                     SnarlManager* snarl_manager) :
-        BaseMapper(xg_index, gcsa_index, lcp_array),
+                                     gbwt::GBWT* gbwt_index, SnarlManager* snarl_manager) :
+        BaseMapper(xg_index, gcsa_index, lcp_array, gbwt_index),
         snarl_manager(snarl_manager)
     {
         // nothing to do
