@@ -7,6 +7,8 @@
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
 
+#include <stack>
+
 //#define debug
 
 namespace vg {
@@ -1552,6 +1554,7 @@ set<Edge*> VG::get_path_edges(void) {
     // We'll populate a set with edges.
     // This set shadows our function anme but we're not recursive so that's fine.
     set<Edge*> edges;
+
     function<void(const Path&)> lambda = [this, &edges](const Path& path) {
         for (size_t i = 1; i < path.mapping_size(); ++i) {
             auto& m1 = path.mapping(i-1);
@@ -6946,21 +6949,32 @@ double VG::path_identity(const Path& path1, const Path& path2) {
     return best_score == 0 ? 0 : (double)aln.score() / (double)best_score;
 }
 
-void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
+void VG::prune_complex_with_head_tail(int path_length, int edge_max, bool preserve_paths) {
     Node* head_node = NULL;
     Node* tail_node = NULL;
     id_t head_id = 0, tail_id = 0;
     add_start_end_markers(path_length, '#', '$', head_node, tail_node, head_id, tail_id);
-    prune_complex(path_length, edge_max, head_node, tail_node);
+    prune_complex(path_length, edge_max, head_node, tail_node, preserve_paths);
     destroy_node(head_node);
     destroy_node(tail_node);
 }
 
-void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
+void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node, bool preserve_paths) {
+
+    // Determine the edges that are on embedded paths and should not be destroyed.
+    std::unordered_set<edge_t> to_preserve;
+    if (preserve_paths) {
+        std::set<Edge*> path_edges = get_path_edges();
+        for (Edge* edge : path_edges) {
+            to_preserve.insert(edge_handle(get_handle(edge->from(), edge->from_start()), get_handle(edge->to(), edge->to_end())));
+        }
+    }
 
     vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
     for (auto& e : to_destroy) {
-        destroy_edge(e.first, e.second);
+        if (to_preserve.find(e) == to_preserve.end()) {
+            destroy_edge(e.first, e.second);
+        }
     }
 
     for (auto* n : head_nodes()) {
@@ -6978,20 +6992,43 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
 }
 
 void VG::prune_short_subgraphs(size_t min_size) {
-    list<VG> subgraphs;
-    disjoint_subgraphs(subgraphs);
-    for (auto& g : subgraphs) {
-        vector<Node*> heads;
-        g.head_nodes(heads);
-        // calculate length
-        // if < N
-        if (g.total_length_of_nodes() < min_size) {
-            //cerr << "removing" << endl;
-            g.for_each_node([this](Node* n) {
-                    // remove from this graph a node of the same id
-                    //cerr << n->id() << endl;
-                    this->destroy_node(n->id());
-                });
+
+    // Find the head nodes.
+    std::vector<vg::id_t> heads;
+    this->for_each_node([&](Node* node) {
+        if (this->is_head_node(node)) {
+            heads.push_back(node->id());
+        }
+    });
+
+    for (vg::id_t head : heads) {
+        if (!this->has_node(head)) {
+            continue;   // Already pruned.
+        }
+
+        // Explore the neighborhood until the component is too large.
+        Node* head_node = this->get_node(head);
+        size_t subgraph_size = head_node->sequence().size();
+        std::stack<Node*> to_check; to_check.push(head_node);
+        std::unordered_set<vg::id_t> subgraph { head };
+        while(subgraph_size < min_size && !to_check.empty()) {
+            Node* curr = to_check.top(); to_check.pop();
+            std::vector<Edge*> edges = this->edges_of(curr);
+            for (Edge* edge : edges) {
+                Node* next = this->get_node(edge->from() == curr->id() ? edge->to() : edge->from());
+                if (subgraph.find(next->id()) == subgraph.end()) {
+                    subgraph_size += next->sequence().size();
+                    subgraph.insert(next->id());
+                    to_check.push(next);
+                }
+            }
+        }
+
+        // Destroy the component if it was small enough.
+        if (subgraph_size < min_size) {
+            for (vg::id_t node : subgraph) {
+                this->destroy_node(node);
+            }
         }
     }
 }

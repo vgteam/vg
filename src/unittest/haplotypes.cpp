@@ -146,6 +146,8 @@ TEST_CASE("We can score haplotypes using gPBWT", "[haplo-score][xg]") {
 }
 
 TEST_CASE("We can score haplotypes using GBWT", "[haplo-score][gbwt]") {
+
+  gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
   gbwt::DynamicGBWT* gbwt_index = new gbwt::DynamicGBWT;
   
   vector<gbwt::node_type> tm = {

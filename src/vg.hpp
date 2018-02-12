@@ -1127,11 +1127,12 @@ public:
 
     /// Take all nodes that would introduce paths of > edge_max edge crossings, remove them, and link their neighbors to
     /// head_node or tail_node depending on which direction the path extension was stopped.
+    /// Optionally preserve edges on the embedded paths.
     /// For pruning graph prior to indexing with gcsa2.
-    void prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node);
+    void prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node, bool preserve_paths = false);
     /// Wrap the graph with heads and tails before doing the prune.
     /// Utility function for preparing for indexing.
-    void prune_complex_with_head_tail(int path_length, int edge_max);
+    void prune_complex_with_head_tail(int path_length, int edge_max, bool preserve_paths = false);
 
 private:
     /// Call the given function on each kmer. If parallel is specified, goes
