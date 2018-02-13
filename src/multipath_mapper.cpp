@@ -2856,7 +2856,14 @@ namespace vg {
             
             // record the recombination score
             if (include_population_component && all_paths_pop_consistent) {
-                auto pop_score = haplo_DP::score(alignment.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                pair<double, bool> pop_score;
+                if (gbwt != nullptr) {
+                    // Score form the GBWT
+                    pop_score = haplo_DP::score(alignment.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                } else {
+                    // Score from the XG
+                    pop_score = haplo_DP::score(alignment.path(), *gbwt, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                }
                 pop_scores[i] = pop_score.first;
                 all_paths_pop_consistent = all_paths_pop_consistent && pop_score.second;
                 min_pop_score = min(min_pop_score, pop_score.first);

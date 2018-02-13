@@ -157,9 +157,9 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam-names snp1kg 2>&1 &
         JOB_ARRAY+=("$!")
     fi
-
+    
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-gbwt" ]]; then
-        # Do the full snp1kg graph with GBWT
+        # Do the full snp1kg graph with smaller GBWT
         toil-vg mapeval "${TREE_PATH}/snp1kg-gbwt" "${OUTPUT_PATH}/snp1kg-gbwt" \
             --use-gbwt \
             --map_opts "--hap-exp 1" \
@@ -170,17 +170,40 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         JOB_ARRAY+=("$!")
     fi
 
-     if [[ ! -e "${OUTPUT_PATH}/snp1kg-fullgbwt" ]]; then
-        # Do the full snp1kg graph with GBWT
-        toil-vg mapeval "${TREE_PATH}/snp1kg-fullgbwt" "${OUTPUT_PATH}/snp1kg-fullgbwt" \
-            --use-gbwt \
-            --map_opts "--hap-exp 1" \
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp" ]]; then
+        # Do the full snp1kg graph multipath
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp" "${OUTPUT_PATH}/snp1kg-mp" \
+            --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_fullgbwt" \
-            --gam-names snp1kg-fullgbwt 2>&1 &
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+            --gam-names snp1kg-mp 2>&1 
         JOB_ARRAY+=("$!")
     fi
+    
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-gbwt" ]]; then
+        # Do the full snp1kg graph multipath with gbwt
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp-gbwt" "${OUTPUT_PATH}/snp1kg-mp-gbwt" \
+            --multipath-only \
+            --use-gbwt \
+            --gam_input_reads "${READS_DIR}/sim.gam" \
+            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+            --gam-names snp1kg-mp-gbwt 2>&1 
+        JOB_ARRAY+=("$!")
+    fi
+    
+    #if [[ ! -e "${OUTPUT_PATH}/snp1kg-fullgbwt" ]]; then
+    #   # Do the full snp1kg graph with GBWT
+    #   toil-vg mapeval "${TREE_PATH}/snp1kg-fullgbwt" "${OUTPUT_PATH}/snp1kg-fullgbwt" \
+    #       --use-gbwt \
+    #       --map_opts "--hap-exp 1" \
+    #       --gam_input_reads "${READS_DIR}/sim.gam" \
+    #       --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+    #       --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_fullgbwt" \
+    #       --gam-names snp1kg-fullgbwt 2>&1 &
+    #   JOB_ARRAY+=("$!")
+    #fi
     
     #if [[ ! -e "${OUTPUT_PATH}/snp1kg-gbwt-slight" ]]; then
     #    # Do the full snp1kg graph with GBWT
@@ -245,7 +268,9 @@ fi
 # Combine all the position.results.tsv files into one
 cat "${OUTPUT_PATH}/snp1kg/position.results.tsv" > "${OUTPUT_PATH}/position.results.tsv"
 cat "${OUTPUT_PATH}/snp1kg-gbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-fullgbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/snp1kg-mp/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/snp1kg-mp-gbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+#cat "${OUTPUT_PATH}/snp1kg-fullgbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
 #cat "${OUTPUT_PATH}/snp1kg-gbwt-slight/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
 cat "${OUTPUT_PATH}/snp1kg-minaf/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
 cat "${OUTPUT_PATH}/snp1kg-negative/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
