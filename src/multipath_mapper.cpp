@@ -1121,7 +1121,6 @@ namespace vg {
         for (MaximalExactMatch mem : mems2) {
             cerr << "\t" << mem << " (" << mem.nodes.size() << " hits filled out of " << mem.match_count << ")" << endl;
         }
-        cerr << "clustering MEMs..." << endl;
 #endif
         
         // find the count of the most unique match among the MEMs to assess how repetitive the sequence is
@@ -1234,6 +1233,10 @@ namespace vg {
         else {
             // we have reasonably unique hits on both reads, so cluster them both and extract the graphs (i.e. don't try
             // to rely on rescue for either end yet)
+            
+#ifdef debug_multipath_mapper_mapping
+            cerr << "clustering MEMs on both read ends..." << endl;
+#endif
             
             // try to rescue high count runs of order-length MEMs for both reads before clustering
             if (order_length_repeat_hit_max && !rescued_order_length_runs_1) {
