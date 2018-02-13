@@ -855,7 +855,7 @@ int main_mpmap(int argc, char** argv) {
                 output_buf.back().set_sample_name(sample_name);
             }
             // arbitrarily decide that this is the "next" fragment
-            output_buf.back().mutable_fragment_prev()->set_name(mp_aln_pair.second.name());
+            output_buf.back().mutable_fragment_prev()->set_name(mp_aln_pair.first.name());
         }
         stream::write_buffered(cout, output_buf, buffer_size);
     };
