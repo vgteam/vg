@@ -217,35 +217,35 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #    JOB_ARRAY+=("$!")
     #fi
         
-    if [[ ! -e "${OUTPUT_PATH}/snp1kg-minaf" ]]; then
-        # And with the min allele frequency
-        toil-vg mapeval "${TREE_PATH}/snp1kg-minaf" "${OUTPUT_PATH}/snp1kg-minaf" \
-            --gam_input_reads "${READS_DIR}/sim.gam" \
-            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minaf_${MIN_AF}" \
-            --gam-names snp1kg-minaf 2>&1 &
-        JOB_ARRAY+=("$!")
-    fi
+    #if [[ ! -e "${OUTPUT_PATH}/snp1kg-minaf" ]]; then
+    #    # And with the min allele frequency
+    #    toil-vg mapeval "${TREE_PATH}/snp1kg-minaf" "${OUTPUT_PATH}/snp1kg-minaf" \
+    #        --gam_input_reads "${READS_DIR}/sim.gam" \
+    #        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minaf_${MIN_AF}" \
+    #        --gam-names snp1kg-minaf 2>&1 &
+    #    JOB_ARRAY+=("$!")
+    #fi
     
-    if [[ ! -e "${OUTPUT_PATH}/snp1kg-negative" ]]; then    
-        # And the negative control with correct variants removed
-        toil-vg mapeval "${TREE_PATH}/snp1kg-negative" "${OUTPUT_PATH}/snp1kg-negative" \
-            --gam_input_reads "${READS_DIR}/sim.gam" \
-            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minus_${SAMPLE_NAME}" \
-            --gam-names snp1kg-negative 2>&1 &
-        JOB_ARRAY+=("$!")
-    fi
+    #if [[ ! -e "${OUTPUT_PATH}/snp1kg-negative" ]]; then    
+    #    # And the negative control with correct variants removed
+    #    toil-vg mapeval "${TREE_PATH}/snp1kg-negative" "${OUTPUT_PATH}/snp1kg-negative" \
+    #        --gam_input_reads "${READS_DIR}/sim.gam" \
+    #        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minus_${SAMPLE_NAME}" \
+    #        --gam-names snp1kg-negative 2>&1 &
+    #    JOB_ARRAY+=("$!")
+    #fi
         
-    if [[ ! -e "${OUTPUT_PATH}/primary" ]]; then
-        # And the primary path only
-        toil-vg mapeval "${TREE_PATH}/primary" "${OUTPUT_PATH}/primary" \
-            --gam_input_reads "${READS_DIR}/sim.gam" \
-            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_primary" \
-            --gam-names primary 2>&1 &
-        JOB_ARRAY+=("$!")
-    fi
+    #if [[ ! -e "${OUTPUT_PATH}/primary" ]]; then
+    #    # And the primary path only
+    #    toil-vg mapeval "${TREE_PATH}/primary" "${OUTPUT_PATH}/primary" \
+    #        --gam_input_reads "${READS_DIR}/sim.gam" \
+    #        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_primary" \
+    #        --gam-names primary 2>&1 &
+    #    JOB_ARRAY+=("$!")
+    #fi
 
     # Now wait for all the jobs and fail if any failed
     for JOB in "${JOB_ARRAY[@]}"; do
@@ -272,9 +272,9 @@ cat "${OUTPUT_PATH}/snp1kg-mp/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/
 cat "${OUTPUT_PATH}/snp1kg-mp-gbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
 #cat "${OUTPUT_PATH}/snp1kg-fullgbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
 #cat "${OUTPUT_PATH}/snp1kg-gbwt-slight/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-minaf/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-negative/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/primary/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+#cat "${OUTPUT_PATH}/snp1kg-minaf/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+#cat "${OUTPUT_PATH}/snp1kg-negative/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+#cat "${OUTPUT_PATH}/primary/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
 
 # Determine our source directory, where the ROC plotting script also lives
 # See <https://stackoverflow.com/a/246128>
