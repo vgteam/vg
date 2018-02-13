@@ -94,34 +94,48 @@ namespace vg {
         }
     }
     
+    /// We define this struct for holding the dynamic programming problem for a
+    /// multipath alignment, which we use for finding the optimal alignment,
+    /// scoring the optimal alignment, and enumerating the top alignments.
+    struct MultipathProblem {
+        // score of the optimal alignment ending in this subpath
+        vector<int32_t> prefix_score;
+        // previous subpath for traceback (we refer to subpaths by their index)
+        vector<int64_t> prev_subpath;
+        // the length of read sequence preceding this subpath
+        vector<int64_t> prefix_length;
+        
+        /// Make a new MultipathProblem over the given number of subpaths
+        MultipathProblem(size_t subpath_size) : prefix_score(subpath_size, 0),
+            prev_subpath(subpath_size, -1), prefix_length(subpath_size, 0) {
+            
+            // Nothing to do!
+        }
+    };
+    
     int32_t optimal_alignment_internal(const MultipathAlignment& multipath_aln, Alignment* aln_out) {
         
         // initialize DP structures
-        // score of the optimal alignment ending in this subpath
-        vector<int32_t> prefix_score(multipath_aln.subpath_size(), 0);
-        // previous subpath for traceback (we refer to subpaths by their index)
-        vector<int64_t> prev_subpath(multipath_aln.subpath_size(), -1);
-        // the length of read sequence preceding this subpath
-        vector<int64_t> prefix_length(multipath_aln.subpath_size(), 0);
+        MultipathProblem problem(multipath_aln.subpath_size());
         
         int32_t opt_score = 0;
         int64_t opt_subpath = -1; // we refer to subpaths by their index
         
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             const Subpath& subpath = multipath_aln.subpath(i);
-            int32_t extended_score = prefix_score[i] + subpath.score();
+            int32_t extended_score = problem.prefix_score[i] + subpath.score();
             
             // carry DP forward
             if (subpath.next_size() > 0) {
-                int64_t thru_length = path_to_length(subpath.path()) + prefix_length[i];
+                int64_t thru_length = path_to_length(subpath.path()) + problem.prefix_length[i];
                 for (size_t j = 0; j < subpath.next_size(); j++) {
                     int64_t next = subpath.next(j);
-                    prefix_length[next] = thru_length;
+                    problem.prefix_length[next] = thru_length;
                     
                     // can we improve prefix score on following subpath through this one?
-                    if (extended_score >= prefix_score[next]) {
-                        prev_subpath[next] = i;
-                        prefix_score[next] = extended_score;
+                    if (extended_score >= problem.prefix_score[next]) {
+                        problem.prev_subpath[next] = i;
+                        problem.prefix_score[next] = extended_score;
                     }
                 }
             }
@@ -142,20 +156,20 @@ namespace vg {
             while (curr >= 0) {
                 optimal_path_chunks.push_back(&(multipath_aln.subpath(curr).path()));
                 prev = curr;
-                curr = prev_subpath[curr];
+                curr = problem.prev_subpath[curr];
             }
             
             Path* opt_path = aln_out->mutable_path();
             
             // check for a softclip of entire subpaths on the beginning
-            if (prefix_length[prev]) {
+            if (problem.prefix_length[prev]) {
                 Mapping* soft_clip_mapping = opt_path->add_mapping();
                 
                 soft_clip_mapping->set_rank(1);
                 
                 Edit* edit = soft_clip_mapping->add_edit();
-                edit->set_to_length(prefix_length[prev]);
-                edit->set_sequence(multipath_aln.sequence().substr(0, prefix_length[prev]));
+                edit->set_to_length(problem.prefix_length[prev]);
+                edit->set_sequence(multipath_aln.sequence().substr(0, problem.prefix_length[prev]));
                 
                 *soft_clip_mapping->mutable_position() = optimal_path_chunks.back()->mapping(0).position();
             }
@@ -211,7 +225,7 @@ namespace vg {
             }
             
             // check for a softclip of entire subpaths on the end
-            int64_t seq_thru_length = prefix_length[opt_subpath] + path_to_length(multipath_aln.subpath(opt_subpath).path());
+            int64_t seq_thru_length = problem.prefix_length[opt_subpath] + path_to_length(multipath_aln.subpath(opt_subpath).path());
             if (seq_thru_length < multipath_aln.sequence().size()) {
                 
                 Mapping* final_mapping = opt_path->mutable_mapping(opt_path->mapping_size() - 1);
@@ -242,6 +256,10 @@ namespace vg {
     int32_t optimal_alignment_score(const MultipathAlignment& multipath_aln){
         // do dynamic programming without traceback
         return optimal_alignment_internal(multipath_aln, nullptr);
+    }
+    
+    vector<Alignment> optimal_alignments(const MultipathAlignment& multipath_aln, size_t count) {
+        //
     }
     
     /// Stores the reverse complement of a Subpath in another Subpath
