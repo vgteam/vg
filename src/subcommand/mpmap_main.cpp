@@ -32,7 +32,7 @@ void help_mpmap(char** argv) {
     << "graph/index:" << endl
     << "  -x, --xg-name FILE        use this xg index (required)" << endl
     << "  -g, --gcsa-name FILE      use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
-    << "  -H, --gbwt-name FILE      use this GBWT haplotype index" << endl
+    << "  -H, --gbwt-name FILE      use this GBWT haplotype index for population-based MAPQs" << endl
     << "input:" << endl
     << "  -f, --fastq FILE          input FASTQ (possibly compressed), can be given twice for paired ends (for stdin use -)" << endl
     << "  -G, --gam-input FILE      input GAM (for stdin, use -)" << endl
@@ -691,6 +691,7 @@ int main_mpmap(int argc, char** argv) {
     // set mapping quality parameters
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
+    multipath_mapper.use_population_mapqs = (gbwt != nullptr);
     
     // set pruning and clustering parameters
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
