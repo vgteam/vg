@@ -135,7 +135,7 @@ int main_mpmap(int argc, char** argv) {
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
     double secondary_rescue_score_diff = 0.8;
-    size_t rescue_only_min = 128;
+    size_t rescue_only_min = numeric_limits<size_t>::max(); // disabling this for now
     size_t rescue_only_anchor_max = 16;
     
     int c;
