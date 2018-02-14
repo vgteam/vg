@@ -191,10 +191,11 @@ namespace vg {
         }
         
         // merge the subpaths into one optimal path in the Alignment object
-        auto next_subpath = current_subpath;
-        ++next_subpath;
-        while (next_subpath != traceback_end) {
-            // For all but the very last subpath in the traceback
+        for (auto next_subpath = current_subpath; next_subpath != traceback_end; ++next_subpath) {
+            // For all subpaths in the traceback
+            
+            // Advance only if we don't hit the end
+            current_subpath = next_subpath;
             
             if (output->mapping_size() == 0) {
                 // There's nothing in the output yet, so just copy all the mappings from this subpath
@@ -243,18 +244,17 @@ namespace vg {
                     next_mapping->set_rank(output->mapping_size());
                 }
             }
-            
-            // Advance
-            current_subpath = next_subpath;
-            // Peek ahead
-            ++next_subpath;
         }
         
-        // Now current_subpath is right before traceback_end, and is thus the last real subpath in the traceback.
+        // Now current_subpath is right before traceback_end
         
         // check for a softclip of entire subpaths on the end
         int64_t seq_thru_length = problem.prefix_length[*current_subpath] + path_to_length(multipath_aln.subpath(*current_subpath).path());
         if (seq_thru_length < multipath_aln.sequence().size()) {
+            
+            if (output->mapping_size() == 0) {
+                output->add_mapping();
+            }
             
             Mapping* final_mapping = output->mutable_mapping(output->mapping_size() - 1);
             
@@ -362,9 +362,8 @@ namespace vg {
         
         // TODO: how do we know where an alignment is allowed to start/end?
         
-        while (!queue.empty()) {
+        while (!queue.empty() && to_return.size() < count) {
             // Each iteration
-            // TODO: limit things emitted
             
             // Grab the best list as our basis
             queue.sort();
@@ -373,8 +372,8 @@ namespace vg {
             tie(basis_score_difference, basis) = move(queue.front());
             queue.pop_front();
             
-            if (!basis.empty() && problem.prefix_length[basis.front()] == 0) {
-                // If it leads all the way to a source (prefix length = 0)
+            if (!basis.empty() && problem.prev_subpath[basis.front()] == -1) {
+                // If it leads all the way to a read that is optimal as a start
                 
                 // Make an Alignment to emit it in
                 to_return.emplace_back();
@@ -401,8 +400,22 @@ namespace vg {
                 // working on the optimal alignment going through that subpath.
                 list<pair<int64_t, int32_t>> destinations;
                 if (basis.empty()) {
-                    // The destinations will be all the places we can end
-                    // TODO: find them!
+                    // The destinations will be all the places we can end.
+                    
+                    // Our basis is length 0, so its best prefix score is the optimal score
+                    auto& best_prefix_score = opt_score;
+                    
+                    for(size_t prev = 0; prev < multipath_aln.subpath_size(); prev++) {
+                        // We can end with any subpath.
+                        
+                        // For each, compute the score of the optimal alignment ending at that predecessor
+                        auto prev_opt_score = problem.prefix_score[prev] + multipath_aln.subpath(prev).score();
+                        
+                        // What's the difference we would take if we went with this predecessor?
+                        auto additional_penalty = best_prefix_score - prev_opt_score;
+                        
+                        destinations.emplace_back(prev, additional_penalty);
+                    }
                 } else {
                     // The destinations will be all places we could have arrived here from
                     auto& here = basis.front();
@@ -441,6 +454,9 @@ namespace vg {
                 
             }
         }
+        
+        return to_return;
+        
     }
     
     /// Stores the reverse complement of a Subpath in another Subpath

@@ -339,6 +339,67 @@ namespace vg {
             }
         }
         
+        TEST_CASE("Multipath alignment correctly identifies suboptimal alignments") {
+        
+            SECTION( "Multipath alignment can identify optimal and suboptimal alignment between two disjoint paths" ) {
+                
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("CTGA");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n4);
+                graph.create_edge(n3, n4);
+                
+                string read = string("T");
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence(read);
+                
+                // add subpaths
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                
+                // set edges between subpaths
+                
+                // set scores
+                subpath0->set_score(1);
+                subpath1->set_score(0);
+                
+                // designate mappings
+                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                mapping0->mutable_position()->set_node_id(2);
+                
+                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                mapping1->mutable_position()->set_node_id(3);
+                
+                // get top 10 alignments
+                auto top10 = optimal_alignments(multipath_aln, 10);
+                
+                // There should be two alignments
+                REQUIRE(top10.size() == 2);
+                
+                // The best alignment should be the same one we got for this example before as optimal
+                REQUIRE(top10[0].path().mapping_size() == multipath_aln.subpath(0).path().mapping_size());
+                for (int i = 0; i < top10[0].path().mapping_size(); i++) {
+                    REQUIRE(top10[0].path().mapping(i).position().node_id() == multipath_aln.subpath(0).path().mapping(i).position().node_id());
+                }
+                REQUIRE(top10[0].score() == multipath_aln.subpath(0).score());
+                
+                // The second best alignment should be that 0-score subpath
+                REQUIRE(top10[1].path().mapping_size() == multipath_aln.subpath(1).path().mapping_size());
+                for (int i = 0; i < top10[1].path().mapping_size(); i++) {
+                    REQUIRE(top10[1].path().mapping(i).position().node_id() == multipath_aln.subpath(1).path().mapping(i).position().node_id());
+                }
+                REQUIRE(top10[1].score() == multipath_aln.subpath(1).score());
+                
+            }
+        
+        }
+        
         TEST_CASE( "Reverse complementing multipath alignments works correctly",
                   "[alignment][multipath][mapping]" ) {
             
