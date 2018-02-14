@@ -4,6 +4,8 @@
 
 #include "multipath_alignment.hpp"
 
+#include <type_traits>
+
 using namespace std;
 namespace vg {
     
@@ -157,76 +159,100 @@ namespace vg {
     
     }
     
-    /// We define this helper to turn tracebacks through a DP problem into Paths that we can put in an Alignment.
+    /// We define this helper to turn tracebacks through a DP problem into
+    /// Paths that we can put in an Alignment. We use iterators to the start
+    /// and past-the-end of the traceback (in some kind of list of int64_t
+    /// subpath indexes) to define it.
     void populate_path_from_traceback(const MultipathAlignment& multipath_aln, const MultipathProblem& problem,
-        int64_t start_subpath, int64_t end_subpath, const vector<const Path*>& optimal_path_chunks, Path* output) {
+        list<int64_t>::const_iterator traceback_start, list<int64_t>::const_iterator traceback_end, Path* output) {
         
+        static_assert(is_same<decltype(*traceback_start), const int64_t&>::value, "traceback must contain int64_t items");
+        
+        if (traceback_start == traceback_end) {
+            // We have been given an empty range. Do nothing.
+            return;
+        }
+        
+        // We need to maintain a persistent iterator so we can easily get whatever's before traceback_end.
+        auto current_subpath = traceback_start;
     
         // check for a softclip of entire subpaths on the beginning
-        if (problem.prefix_length[start_subpath]) {
+        if (problem.prefix_length[*current_subpath]) {
             Mapping* soft_clip_mapping = output->add_mapping();
             
             soft_clip_mapping->set_rank(1);
             
             Edit* edit = soft_clip_mapping->add_edit();
-            edit->set_to_length(problem.prefix_length[start_subpath]);
-            edit->set_sequence(multipath_aln.sequence().substr(0, problem.prefix_length[start_subpath]));
+            edit->set_to_length(problem.prefix_length[*current_subpath]);
+            edit->set_sequence(multipath_aln.sequence().substr(0, problem.prefix_length[*current_subpath]));
             
-            *soft_clip_mapping->mutable_position() = optimal_path_chunks.back()->mapping(0).position();
+            *soft_clip_mapping->mutable_position() = multipath_aln.subpath(*current_subpath).path().mapping(0).position();
         }
         
         // merge the subpaths into one optimal path in the Alignment object
-        for (auto iter = optimal_path_chunks.rbegin(); iter != optimal_path_chunks.rend(); iter++) {
+        auto next_subpath = current_subpath;
+        ++next_subpath;
+        while (next_subpath != traceback_end) {
+            // For all but the very last subpath in the traceback
+            
             if (output->mapping_size() == 0) {
-                *output = *(*iter);
-                continue;
-            }
+                // There's nothing in the output yet, so just copy all the mappings from this subpath
+                *output = multipath_aln.subpath(*current_subpath).path();
+            } else {
+                // There's already content in the output so we have to merge stuff
+                Mapping* curr_end_mapping = output->mutable_mapping(output->mapping_size() - 1);
             
-            Mapping* curr_end_mapping = output->mutable_mapping(output->mapping_size() - 1);
-            
-            // get the first mapping of the next path
-            const Path& next_path = *(*iter);
-            const Mapping& next_start_mapping = next_path.mapping(0);
-            
-            size_t mapping_start_idx = 0;
-            // merge mappings if they occur on the same node and same strand
-            if (curr_end_mapping->position().node_id() == next_start_mapping.position().node_id()
-                && curr_end_mapping->position().is_reverse() == next_start_mapping.position().is_reverse()) {
+                // get the first mapping of the next path
+                const Path& next_path = multipath_aln.subpath(*current_subpath).path();
+                const Mapping& next_start_mapping = next_path.mapping(0);
                 
-                Edit* last_edit = curr_end_mapping->mutable_edit(curr_end_mapping->edit_size() - 1);
-                const Edit& first_edit = next_start_mapping.edit(0);
-                
-                // merge the first edit if it is the same type
-                size_t edit_start_idx = 0;
-                if ((last_edit->from_length() > 0) == (first_edit.from_length() > 0)
-                        && (last_edit->to_length() > 0) == (first_edit.to_length() > 0)
-                        && (last_edit->sequence().empty()) == (first_edit.sequence().empty())) {
+                size_t mapping_start_idx = 0;
+                // merge mappings if they occur on the same node and same strand
+                if (curr_end_mapping->position().node_id() == next_start_mapping.position().node_id()
+                    && curr_end_mapping->position().is_reverse() == next_start_mapping.position().is_reverse()) {
+                    
+                    Edit* last_edit = curr_end_mapping->mutable_edit(curr_end_mapping->edit_size() - 1);
+                    const Edit& first_edit = next_start_mapping.edit(0);
+                    
+                    // merge the first edit if it is the same type
+                    size_t edit_start_idx = 0;
+                    if ((last_edit->from_length() > 0) == (first_edit.from_length() > 0)
+                            && (last_edit->to_length() > 0) == (first_edit.to_length() > 0)
+                            && (last_edit->sequence().empty()) == (first_edit.sequence().empty())) {
+                            
+                            last_edit->set_from_length(last_edit->from_length() + first_edit.from_length());
+                            last_edit->set_to_length(last_edit->to_length() + first_edit.to_length());
+                            last_edit->set_sequence(last_edit->sequence() + first_edit.sequence());
                         
-                        last_edit->set_from_length(last_edit->from_length() + first_edit.from_length());
-                        last_edit->set_to_length(last_edit->to_length() + first_edit.to_length());
-                        last_edit->set_sequence(last_edit->sequence() + first_edit.sequence());
+                        edit_start_idx++;
+                    }
+                        
+                    // append the rest of the edits
+                    for (size_t j = edit_start_idx; j < next_start_mapping.edit_size(); j++) {
+                        *curr_end_mapping->add_edit() = next_start_mapping.edit(j);
+                    }
                     
-                    edit_start_idx++;
-                }
-                    
-                // append the rest of the edits
-                for (size_t j = edit_start_idx; j < next_start_mapping.edit_size(); j++) {
-                    *curr_end_mapping->add_edit() = next_start_mapping.edit(j);
+                    mapping_start_idx++;
                 }
                 
-                mapping_start_idx++;
+                // append the rest of the mappings
+                for (size_t j = mapping_start_idx; j < next_path.mapping_size(); j++) {
+                    Mapping* next_mapping = output->add_mapping();
+                    *next_mapping = next_path.mapping(j);
+                    next_mapping->set_rank(output->mapping_size());
+                }
             }
             
-            // append the rest of the mappings
-            for (size_t j = mapping_start_idx; j < next_path.mapping_size(); j++) {
-                Mapping* next_mapping = output->add_mapping();
-                *next_mapping = next_path.mapping(j);
-                next_mapping->set_rank(output->mapping_size());
-            }
+            // Advance
+            current_subpath = next_subpath;
+            // Peek ahead
+            ++next_subpath;
         }
         
+        // Now current_subpath is right before traceback_end, and is thus the last real subpath in the traceback.
+        
         // check for a softclip of entire subpaths on the end
-        int64_t seq_thru_length = problem.prefix_length[end_subpath] + path_to_length(multipath_aln.subpath(end_subpath).path());
+        int64_t seq_thru_length = problem.prefix_length[*current_subpath] + path_to_length(multipath_aln.subpath(*current_subpath).path());
         if (seq_thru_length < multipath_aln.sequence().size()) {
             
             Mapping* final_mapping = output->mutable_mapping(output->mapping_size() - 1);
@@ -257,20 +283,19 @@ namespace vg {
         if (aln_out && opt_subpath >= 0) {
             
             // traceback the optimal subpaths until hitting sentinel (-1)
-            vector<const Path*> optimal_path_chunks;
+            list<int64_t> opt_traceback;
             int64_t curr = opt_subpath;
-            int64_t prev = -1;
             while (curr >= 0) {
-            optimal_path_chunks.push_back(&(multipath_aln.subpath(curr).path()));
-            prev = curr; curr = problem.prev_subpath[curr]; }
+                opt_traceback.push_front(curr);
+                curr = problem.prev_subpath[curr];
+            }
             
             Path* opt_path = aln_out->mutable_path();
             
             // Fill in the path in the alignment with the alignment represented
-            // by these collected chunks between these subpaths in this DP
-            // problem for this multipath alignment.
-            // TODO: Can we make the function round up the chunks instead?
-            populate_path_from_traceback(multipath_aln, problem, curr, opt_subpath, optimal_path_chunks, opt_path);
+            // by this traceback in this DP problem for this multipath
+            // alignment.
+            populate_path_from_traceback(multipath_aln, problem, opt_traceback.begin(), opt_traceback.end(), opt_path);
             
             
         }
@@ -320,6 +345,8 @@ namespace vg {
         list<pair<int32_t, step_list_t>> queue;
         // Start with the empty list at 0 score difference
         queue.emplace_front(piecewise_construct, make_tuple(0), make_tuple());
+        
+        // TODO: how do we know where an alignment is allowed to start/end?
         
         while (!queue.empty()) {
             // Each iteration
