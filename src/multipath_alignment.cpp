@@ -163,10 +163,11 @@ namespace vg {
     /// Paths that we can put in an Alignment. We use iterators to the start
     /// and past-the-end of the traceback (in some kind of list of int64_t
     /// subpath indexes) to define it.
+    template<typename TracebackIterator>
     void populate_path_from_traceback(const MultipathAlignment& multipath_aln, const MultipathProblem& problem,
-        list<int64_t>::const_iterator traceback_start, list<int64_t>::const_iterator traceback_end, Path* output) {
+        TracebackIterator traceback_start, TracebackIterator traceback_end, Path* output) {
         
-        static_assert(is_same<decltype(*traceback_start), const int64_t&>::value, "traceback must contain int64_t items");
+        static_assert(is_convertible<decltype(*traceback_start), int64_t>::value, "traceback must contain int64_t items");
         
         if (traceback_start == traceback_end) {
             // We have been given an empty range. Do nothing.
@@ -336,6 +337,19 @@ namespace vg {
         // And the optimal score
         int32_t& opt_score = get<2>(dp_result);
         
+        // Subpaths only keep track of their nexts, so we need to invert that so we can get all valid prev subpaths
+        vector<vector<int64_t>> prev_subpaths;
+        prev_subpaths.resize(multipath_aln.subpath_size());
+        for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            // For each subpath
+            for (auto& next_subpath : multipath_aln.subpath(i).next()) {
+                // For each next subpath it lists
+                
+                // Register this subpath as a predecessor of the next
+                prev_subpaths[next_subpath].push_back(i);
+            }
+        }
+        
         // Keep lists of DP steps, which are subpath numbers to visit.
         // Even going to the end subpath (where prefix length + subpath length = read length) is a DP step
         using step_list_t = list<int64_t>;
@@ -350,6 +364,7 @@ namespace vg {
         
         while (!queue.empty()) {
             // Each iteration
+            // TODO: limit things emitted
             
             // Grab the best list as our basis
             queue.sort();
@@ -360,13 +375,71 @@ namespace vg {
             
             if (!basis.empty() && problem.prefix_length[basis.front()] == 0) {
                 // If it leads all the way to a source (prefix length = 0)
-                    // Emit it with score
+                
+                // Make an Alignment to emit it in
+                to_return.emplace_back();
+                Alignment& aln_out = to_return.back();
+                
+                // Set up read info and MAPQ
+                // TODO: MAPQ on secondaries?
+                transfer_read_metadata(multipath_aln, aln_out);
+                aln_out.set_mapping_quality(multipath_aln.mapping_quality());
+                
+                // Populate path
+                populate_path_from_traceback(multipath_aln, problem, basis.begin(), basis.end(), aln_out.mutable_path());
+                
+                // Set score
+                aln_out.set_score(opt_score - basis_score_difference);
+            } else {
+                // The path does not lead all the way to a source
+                
+                // Find out all the places we can come from, and the score
+                // penalties, relative to the optimal score for an alignment
+                // visiting the basis's lead subpath, that we would take if we
+                // came from each.
+                // Note that we will only do this once per subpath, when we are
+                // working on the optimal alignment going through that subpath.
+                list<pair<int64_t, int32_t>> destinations;
+                if (basis.empty()) {
+                    // The destinations will be all the places we can end
+                    // TODO: find them!
+                } else {
+                    // The destinations will be all places we could have arrived here from
+                    auto& here = basis.front();
+                    
+                    // To compute the additional score difference, we need to know what our optimal prefix score was.
+                    auto& best_prefix_score = problem.prefix_score[here];
+                    
+                    for (auto& prev : prev_subpaths[here]) {
+                        // For each, compute the score of the optimal alignment ending at that predecessor
+                        auto prev_opt_score = problem.prefix_score[prev] + multipath_aln.subpath(prev).score();
+                        
+                        // What's the difference we would take if we went with this predecessor?
+                        auto additional_penalty = best_prefix_score - prev_opt_score;
+                        
+                        destinations.emplace_back(prev, additional_penalty);
+                    }
+                }
+                
+                for (auto& destination : destinations) {
+                    // Prepend each of the things that can be prepended
+                    
+                    // Unpack
+                    auto& prev = destination.first;
+                    auto& additional_penalty = destination.second;
+                    
+                    // Make an extended path
+                    auto extended_path = basis;
+                    extended_path.push_front(prev);
+                    
+                    // Calculate the score differences from optimal
+                    auto total_penalty = basis_score_difference + additional_penalty;
+                    
+                    // Put them in the priority queue
+                    queue.emplace_back(total_penalty, move(extended_path));
+                }
+                
             }
-            
-            // Otherwise
-                // Prepend each of the things that can be prepended
-                // Calculate the score differences from optimal
-                // Put them in the priority queue
         }
     }
     
