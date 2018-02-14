@@ -46,13 +46,13 @@ Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
 
 ##### using Mac Ports
 
-VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
+VG won't build with XCode's compiler (clang), but it should work with GCC >= 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen clang-3.8
+    sudo port install gcc7 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen clang-3.8
 
-To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
+To make GCC 7 the default compiler, run (use `none` instead of `mp-gcc7` to revert back):
 
-    sudo port select gcc mp-gcc49
+    sudo port select gcc mp-gcc7
 
 Some OSX users also need to have the MacPorts clang assembler for dependencies (use `none` instead of `mp-clang-3.8` to revert back):
 
@@ -66,7 +66,7 @@ VG can now be cloned and built:
     
 **Note that static binaries cannot yet be built for Mac.**
 
-Note: vg has been shown to build on Mac with GCC versions 4.9, 5.3, and 6.
+Our team has also successfully built vg on Mac with GCC versions 4.9, 5.3, 6, and 7.3.
 
 ##### using Homebrew
 
