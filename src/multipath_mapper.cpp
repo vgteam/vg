@@ -2972,8 +2972,14 @@ namespace vg {
             
             // compute the population contribution to the score
             if (include_population_component && all_paths_pop_consistent) {
-                auto pop_score_1 = haplo_DP::score(alignment1.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
-                auto pop_score_2 = haplo_DP::score(alignment2.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                pair<double, bool> pop_score_1, pop_score_2;
+                if (gbwt != nullptr) {
+                    pop_score_1 = haplo_DP::score(alignment1.path(), *gbwt, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                    pop_score_2 = haplo_DP::score(alignment2.path(), *gbwt, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                } else {
+                    pop_score_1 = haplo_DP::score(alignment1.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                    pop_score_2 = haplo_DP::score(alignment2.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                }
                 
                 double pop_score = (pop_score_1.first + pop_score_2.first) / log_base;
                 all_paths_pop_consistent = all_paths_pop_consistent && pop_score_1.second && pop_score_2.second;
