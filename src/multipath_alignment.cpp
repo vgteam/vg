@@ -98,7 +98,9 @@ namespace vg {
     /// multipath alignment, which we use for finding the optimal alignment,
     /// scoring the optimal alignment, and enumerating the top alignments.
     struct MultipathProblem {
-        // score of the optimal alignment ending in this subpath
+        // Score of the optimal alignment ending immediately before this
+        // subpath. To get the score of the optimal alignment ending with the
+        // subpath, add the subpath's score.
         vector<int32_t> prefix_score;
         // previous subpath for traceback (we refer to subpaths by their index)
         vector<int64_t> prev_subpath;
@@ -155,6 +157,86 @@ namespace vg {
     
     }
     
+    /// We define this helper to turn tracebacks through a DP problem into Paths that we can put in an Alignment.
+    void populate_path_from_traceback(const MultipathAlignment& multipath_aln, const MultipathProblem& problem,
+        int64_t start_subpath, int64_t end_subpath, const vector<const Path*>& optimal_path_chunks, Path* output) {
+        
+    
+        // check for a softclip of entire subpaths on the beginning
+        if (problem.prefix_length[start_subpath]) {
+            Mapping* soft_clip_mapping = output->add_mapping();
+            
+            soft_clip_mapping->set_rank(1);
+            
+            Edit* edit = soft_clip_mapping->add_edit();
+            edit->set_to_length(problem.prefix_length[start_subpath]);
+            edit->set_sequence(multipath_aln.sequence().substr(0, problem.prefix_length[start_subpath]));
+            
+            *soft_clip_mapping->mutable_position() = optimal_path_chunks.back()->mapping(0).position();
+        }
+        
+        // merge the subpaths into one optimal path in the Alignment object
+        for (auto iter = optimal_path_chunks.rbegin(); iter != optimal_path_chunks.rend(); iter++) {
+            if (output->mapping_size() == 0) {
+                *output = *(*iter);
+                continue;
+            }
+            
+            Mapping* curr_end_mapping = output->mutable_mapping(output->mapping_size() - 1);
+            
+            // get the first mapping of the next path
+            const Path& next_path = *(*iter);
+            const Mapping& next_start_mapping = next_path.mapping(0);
+            
+            size_t mapping_start_idx = 0;
+            // merge mappings if they occur on the same node and same strand
+            if (curr_end_mapping->position().node_id() == next_start_mapping.position().node_id()
+                && curr_end_mapping->position().is_reverse() == next_start_mapping.position().is_reverse()) {
+                
+                Edit* last_edit = curr_end_mapping->mutable_edit(curr_end_mapping->edit_size() - 1);
+                const Edit& first_edit = next_start_mapping.edit(0);
+                
+                // merge the first edit if it is the same type
+                size_t edit_start_idx = 0;
+                if ((last_edit->from_length() > 0) == (first_edit.from_length() > 0)
+                        && (last_edit->to_length() > 0) == (first_edit.to_length() > 0)
+                        && (last_edit->sequence().empty()) == (first_edit.sequence().empty())) {
+                        
+                        last_edit->set_from_length(last_edit->from_length() + first_edit.from_length());
+                        last_edit->set_to_length(last_edit->to_length() + first_edit.to_length());
+                        last_edit->set_sequence(last_edit->sequence() + first_edit.sequence());
+                    
+                    edit_start_idx++;
+                }
+                    
+                // append the rest of the edits
+                for (size_t j = edit_start_idx; j < next_start_mapping.edit_size(); j++) {
+                    *curr_end_mapping->add_edit() = next_start_mapping.edit(j);
+                }
+                
+                mapping_start_idx++;
+            }
+            
+            // append the rest of the mappings
+            for (size_t j = mapping_start_idx; j < next_path.mapping_size(); j++) {
+                Mapping* next_mapping = output->add_mapping();
+                *next_mapping = next_path.mapping(j);
+                next_mapping->set_rank(output->mapping_size());
+            }
+        }
+        
+        // check for a softclip of entire subpaths on the end
+        int64_t seq_thru_length = problem.prefix_length[end_subpath] + path_to_length(multipath_aln.subpath(end_subpath).path());
+        if (seq_thru_length < multipath_aln.sequence().size()) {
+            
+            Mapping* final_mapping = output->mutable_mapping(output->mapping_size() - 1);
+            
+            Edit* edit = final_mapping->add_edit();
+            edit->set_to_length(multipath_aln.sequence().size() - seq_thru_length);
+            edit->set_sequence(multipath_aln.sequence().substr(seq_thru_length,
+                                                               multipath_aln.sequence().size() - seq_thru_length));
+        }
+    }
     
     int32_t optimal_alignment_internal(const MultipathAlignment& multipath_aln, Alignment* aln_out) {
         
@@ -179,87 +261,18 @@ namespace vg {
             int64_t curr = opt_subpath;
             int64_t prev = -1;
             while (curr >= 0) {
-                optimal_path_chunks.push_back(&(multipath_aln.subpath(curr).path()));
-                prev = curr;
-                curr = problem.prev_subpath[curr];
-            }
+            optimal_path_chunks.push_back(&(multipath_aln.subpath(curr).path()));
+            prev = curr; curr = problem.prev_subpath[curr]; }
             
             Path* opt_path = aln_out->mutable_path();
             
-            // check for a softclip of entire subpaths on the beginning
-            if (problem.prefix_length[prev]) {
-                Mapping* soft_clip_mapping = opt_path->add_mapping();
-                
-                soft_clip_mapping->set_rank(1);
-                
-                Edit* edit = soft_clip_mapping->add_edit();
-                edit->set_to_length(problem.prefix_length[prev]);
-                edit->set_sequence(multipath_aln.sequence().substr(0, problem.prefix_length[prev]));
-                
-                *soft_clip_mapping->mutable_position() = optimal_path_chunks.back()->mapping(0).position();
-            }
+            // Fill in the path in the alignment with the alignment represented
+            // by these collected chunks between these subpaths in this DP
+            // problem for this multipath alignment.
+            // TODO: Can we make the function round up the chunks instead?
+            populate_path_from_traceback(multipath_aln, problem, curr, opt_subpath, optimal_path_chunks, opt_path);
             
-            // merge the subpaths into one optimal path in the Alignment object
-            for (auto iter = optimal_path_chunks.rbegin(); iter != optimal_path_chunks.rend(); iter++) {
-                if (opt_path->mapping_size() == 0) {
-                    *opt_path = *(*iter);
-                    continue;
-                }
-                
-                Mapping* curr_end_mapping = opt_path->mutable_mapping(opt_path->mapping_size() - 1);
-                
-                // get the first mapping of the next path
-                const Path& next_path = *(*iter);
-                const Mapping& next_start_mapping = next_path.mapping(0);
-                
-                size_t mapping_start_idx = 0;
-                // merge mappings if they occur on the same node and same strand
-                if (curr_end_mapping->position().node_id() == next_start_mapping.position().node_id()
-                    && curr_end_mapping->position().is_reverse() == next_start_mapping.position().is_reverse()) {
-                    
-                    Edit* last_edit = curr_end_mapping->mutable_edit(curr_end_mapping->edit_size() - 1);
-                    const Edit& first_edit = next_start_mapping.edit(0);
-                    
-                    // merge the first edit if it is the same type
-                    size_t edit_start_idx = 0;
-                    if ((last_edit->from_length() > 0) == (first_edit.from_length() > 0)
-                        && (last_edit->to_length() > 0) == (first_edit.to_length() > 0)
-                        && (last_edit->sequence().empty()) == (first_edit.sequence().empty())) {
-                        
-                        last_edit->set_from_length(last_edit->from_length() + first_edit.from_length());
-                        last_edit->set_to_length(last_edit->to_length() + first_edit.to_length());
-                        last_edit->set_sequence(last_edit->sequence() + first_edit.sequence());
-                        
-                        edit_start_idx++;
-                    }
-                    
-                    // append the rest of the edits
-                    for (size_t j = edit_start_idx; j < next_start_mapping.edit_size(); j++) {
-                        *curr_end_mapping->add_edit() = next_start_mapping.edit(j);
-                    }
-                    
-                    mapping_start_idx++;
-                }
-                
-                // append the rest of the mappings
-                for (size_t j = mapping_start_idx; j < next_path.mapping_size(); j++) {
-                    Mapping* next_mapping = opt_path->add_mapping();
-                    *next_mapping = next_path.mapping(j);
-                    next_mapping->set_rank(opt_path->mapping_size());
-                }
-            }
             
-            // check for a softclip of entire subpaths on the end
-            int64_t seq_thru_length = problem.prefix_length[opt_subpath] + path_to_length(multipath_aln.subpath(opt_subpath).path());
-            if (seq_thru_length < multipath_aln.sequence().size()) {
-                
-                Mapping* final_mapping = opt_path->mutable_mapping(opt_path->mapping_size() - 1);
-                
-                Edit* edit = final_mapping->add_edit();
-                edit->set_to_length(multipath_aln.sequence().size() - seq_thru_length);
-                edit->set_sequence(multipath_aln.sequence().substr(seq_thru_length,
-                                                                   multipath_aln.sequence().size() - seq_thru_length));
-            }
         }
         
         // Return the optimal score, or 0 if unaligned.
@@ -285,7 +298,49 @@ namespace vg {
     }
     
     vector<Alignment> optimal_alignments(const MultipathAlignment& multipath_aln, size_t count) {
-        //
+        
+        // Keep a list of what we're going to emit.
+        vector<Alignment> to_return;
+        
+        // Fill out the dynamic programming problem
+        auto dp_result = run_multipath_dp(multipath_aln);
+        // Get the filled DP problem
+        MultipathProblem& problem = get<0>(dp_result);
+        // And the optimal final subpath
+        int64_t& opt_subpath = get<1>(dp_result);
+        // And the optimal score
+        int32_t& opt_score = get<2>(dp_result);
+        
+        // Keep lists of DP steps, which are subpath numbers to visit.
+        // Even going to the end subpath (where prefix length + subpath length = read length) is a DP step
+        using step_list_t = list<int64_t>;
+        
+        // Put them in a priority queue by score difference (positive) from optimal
+        // TODO: use a real priority queue instead of a sorted list
+        list<pair<int32_t, step_list_t>> queue;
+        // Start with the empty list at 0 score difference
+        queue.emplace_front(piecewise_construct, make_tuple(0), make_tuple());
+        
+        while (!queue.empty()) {
+            // Each iteration
+            
+            // Grab the best list as our basis
+            queue.sort();
+            int32_t basis_score_difference;
+            step_list_t basis;
+            tie(basis_score_difference, basis) = move(queue.front());
+            queue.pop_front();
+            
+            if (!basis.empty() && problem.prefix_length[basis.front()] == 0) {
+                // If it leads all the way to a source (prefix length = 0)
+                    // Emit it with score
+            }
+            
+            // Otherwise
+                // Prepend each of the things that can be prepended
+                // Calculate the score differences from optimal
+                // Put them in the priority queue
+        }
     }
     
     /// Stores the reverse complement of a Subpath in another Subpath
