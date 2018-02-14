@@ -113,14 +113,18 @@ namespace vg {
         }
     };
     
-    int32_t optimal_alignment_internal(const MultipathAlignment& multipath_aln, Alignment* aln_out) {
-        
-        // initialize DP structures
-        MultipathProblem problem(multipath_aln.subpath_size());
-        
-        int32_t opt_score = 0;
-        int64_t opt_subpath = -1; // we refer to subpaths by their index
-        
+    /// Internal helper function for running the dynamic programming problem
+    /// represented by a multipath alignment. Returns the filled DP problem,
+    /// the optimal ending subpath, or -1 if no subpath is optimal, and the
+    /// optimal score, or 0 if no score is optimal.
+    tuple<MultipathProblem, int64_t, int32_t> run_multipath_dp(const MultipathAlignment& multipath_aln) {
+    
+        // Create and unpack the return value (including setting up the DP table)
+        tuple<MultipathProblem, int64_t, int32_t> to_return(multipath_aln.subpath_size(), -1, 0);
+        auto& problem = get<0>(to_return);
+        auto& opt_subpath = get<1>(to_return);
+        auto& opt_score = get<2>(to_return);
+    
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             const Subpath& subpath = multipath_aln.subpath(i);
             int32_t extended_score = problem.prefix_score[i] + subpath.score();
@@ -141,10 +145,31 @@ namespace vg {
             }
             // check if optimal alignment ends here
             if (extended_score >= opt_score) {
+                // We have a better optimal subpath
                 opt_score = extended_score;
                 opt_subpath = i;
             }
         }
+        
+        return to_return;
+    
+    }
+    
+    
+    int32_t optimal_alignment_internal(const MultipathAlignment& multipath_aln, Alignment* aln_out) {
+        
+        // Run the dynamic programming
+        auto dp_result = run_multipath_dp(multipath_aln);
+        
+        // C++17 finally gets http://en.cppreference.com/w/cpp/language/structured_binding
+        // Until then we have to unpack tuples like this.
+        
+        // Get the filled DP problem
+        MultipathProblem& problem = get<0>(dp_result);
+        // And the optimal final subpath
+        int64_t& opt_subpath = get<1>(dp_result);
+        // And the optimal score
+        int32_t& opt_score = get<2>(dp_result);
         
         // are we constructing the alignment, or just getting the score?
         if (aln_out && opt_subpath >= 0) {
@@ -237,6 +262,7 @@ namespace vg {
             }
         }
         
+        // Return the optimal score, or 0 if unaligned.
         return opt_score;
     }
     
