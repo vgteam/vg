@@ -409,66 +409,141 @@ haplo_DP_column* haplo_DP::get_current_column() {
 linear_haplo_DP
 *******************************************************************************/
 
-
-vector<int64_t> linear_haplo_DP::potential_snps(const vg::Path& path) const {
-  if(path.mapping_size() < 1) {
-    return vector<int64_t>();
-  }
-  vector<int64_t> to_return;
-  for(size_t i = 0; i < path.mapping_size(); i++) {
-    vg::Mapping mapping = path.mapping(i);
-    size_t node_length = vg::mapping_from_length(mapping);
-    if(node_length == 1) {
-      auto pos = mapping.position();
-      to_return.push_back(pos.node_id());
+linear_haplo_DP::nodeType linear_haplo_DP::get_type(int64_t node_id) const {
+  if(xg_index.node_length(node_id) == 1) {
+    if(is_snv(node_id)) {
+            return snv;
+    } else {
+      if(xg_index.path_contains_node(xg_index.path_name(xg_ref_rank), node_id)) {
+        return ref_span;
+      }
+      return invalid;
+    }
+  } else {
+    if(xg_index.path_contains_node(xg_index.path_name(xg_ref_rank), node_id)) {
+      return ref_span;
+    } else {
+      return invalid;
     }
   }
-  return to_return;
 }
 
-vector<int64_t> linear_haplo_DP::potential_deletions(const vg::Path& path) const {
-  if(path.mapping_size() < 1) {
-    return vector<int64_t>();
+int64_t linear_haplo_DP::path_mapping_node_id(const vg::Path& path, size_t i) const {
+  vg::Mapping this_mapping = path.mapping(i);
+  auto last_pos = this_mapping.position();
+  return last_pos.node_id();
+}
+
+int64_t linear_haplo_DP::get_SNP_ref_position(size_t node_id) const {
+  vector<vg::Edge> lnbr_edges = xg_index.edges_on_start(node_id);
+  int64_t lnbr = lnbr_edges[0].from();
+  vector<vg::Edge> SNP_allele_edges = xg_index.edges_on_end(lnbr);
+  for(size_t i = 0; i < SNP_allele_edges.size(); i++) {
+    if(xg_index.path_contains_node(xg_index.path_name(xg_ref_rank), SNP_allele_edges[i].to())) {
+      return position_assuming_acyclic(SNP_allele_edges[i].to());
+    }
   }
-  vector<int64_t> to_return;
-  vg::Mapping last_mapping = path.mapping(0);
-  auto last_pos = last_mapping.position();
+  throw runtime_error("no ref allele at SNP");
+}
+
+void linear_haplo_DP::SNVvector::push_back(alleleValue allele, size_t ref_pos, bool deletion) {
+  ref_positions.push_back(ref_pos);
+  if(deletion) {
+    alleles.push_back(gap);
+  } else {
+    alleles.push_back(allele);
+  }
+}
+
+alleleValue linear_haplo_DP::get_SNV_allele(int64_t node_id) const {
+  char allele_char = xg_index.node_sequence(node_id).at(0);
+  return allele::from_char(allele_char);
+}
+
+size_t linear_haplo_DP::SNVvector::ref_position(size_t i) const {
+  return ref_positions.at(i);
+}
+
+alleleValue linear_haplo_DP::SNVvector::allele(size_t i) const {
+  return alleles.at(i);
+}
+
+size_t linear_haplo_DP::SNVvector::size() const {
+  return nodes.size();
+}
+
+bool linear_haplo_DP::sn_deletion_between_ref(int64_t left, int64_t right) const {
+  int64_t gap = position_assuming_acyclic(left) + xg_index.node_length(left) - position_assuming_acyclic(right);
+  if(gap == 0) {
+    return false;
+  } else if(gap == 1) {
+    return true;
+  } else {
+    throw linearUnrepresentable();
+  }
+}
+int64_t linear_haplo_DP::get_ref_following(int64_t node_id) const {
+  vector<vg::Edge> r_edges = xg_index.edges_on_end(node_id);
+  for(size_t i = 0; i < r_edges.size(); i++) {
+    if(xg_index.path_contains_node(xg_index.path_name(xg_ref_rank), r_edges[i].to())) {
+      return r_edges[i].to();
+    }
+  }
+  throw runtime_error("no ref node following");
+}
+
+linear_haplo_DP::SNVvector linear_haplo_DP::SNVs(const vg::Path& path) const {
+  SNVvector to_return;
+  if(path.mapping_size() < 1) {
+    return to_return;
+  }
+  int64_t last_node = path_mapping_node_id(path, 0);
+  nodeType last_type = get_type(last_node);
+  size_t last_pos;
+  if(last_type == ref_span) {
+    last_pos = position_assuming_acyclic(last_node);
+  } else if(last_type == snv) {
+    last_pos = get_SNP_ref_position(last_node);
+    to_return.push_back(get_SNV_allele(last_node), last_pos, false);
+  } else {
+    throw linearUnrepresentable();
+  }
+
   for(size_t i = 1; i < path.mapping_size(); i++) {
-    vg::Mapping mapping = path.mapping(i);
-    auto pos = mapping.position();
-    size_t last_length = vg::mapping_from_length(last_mapping);
-    size_t last_position = position_assuming_acyclic(last_pos.node_id());
-    size_t this_position = position_assuming_acyclic(pos.node_id());
-    if(last_position + last_length < this_position) {
-      vector<vg::Edge> r_edges = xg_index.edges_on_end(last_pos.node_id());
-      for(size_t i = 0; i < r_edges.size(); i++) {
-        int64_t node = r_edges[i].to();
-        if(xg_index.node_length(node) == 1) {
-          vector<vg::Edge> r_r_edges = xg_index.edges_on_end(node);
-          if(r_r_edges.size() == 1 && r_r_edges[0].to() == pos.node_id()) {
-            to_return.push_back(node);
-          }
+    int64_t this_node = path_mapping_node_id(path, i);
+    nodeType this_type = get_type(this_node);
+    size_t this_pos;
+
+    if(this_type == invalid || (last_type == snv && this_type == last_type)) {
+      throw linearUnrepresentable();
+    } else if(this_type == snv) {
+      this_pos = get_SNP_ref_position(last_node);
+      if(this_pos != last_pos + xg_index.node_length(last_node)) {
+        throw linearUnrepresentable();
+      }
+      to_return.push_back(get_SNV_allele(this_node), this_pos, false);
+    } else {
+      this_pos = position_assuming_acyclic(last_node);
+      if(last_type == snv) {
+        if(this_pos != last_pos + xg_index.node_length(last_node)) {
+          throw linearUnrepresentable();
+        }
+      } else {
+        if(sn_deletion_between_ref(last_node, this_node)) {
+          int64_t ref_node = get_ref_following(last_node);
+          to_return.push_back(gap, position_assuming_acyclic(ref_node), true);
         }
       }
     }
-    last_mapping = mapping;
-    last_pos = pos;
   }
   return to_return;
 }
 
 size_t linear_haplo_DP::position_assuming_acyclic(int64_t node_id) const {
-  return xg_index.position_in_path(node_id, xg_ref_rank).at(0);
-}
-
-vector<int64_t> linear_haplo_DP::actual_snvs(const vector<int64_t>& potential_snvs) const {
-  vector<int64_t> to_return;
-  for(size_t i = 0; i < potential_snvs.size(); i++) {
-    if(is_snv(potential_snvs[i])) {
-      to_return.push_back(potential_snvs[i]);
-    }
+  if(!xg_index.path_contains_node(xg_index.path_name(xg_ref_rank), node_id)) {
+    throw runtime_error("requested position-in-path of node not in path");
   }
-  return to_return;
+  return xg_index.position_in_path(node_id, xg_ref_rank).at(0);
 }
 
 bool linear_haplo_DP::is_snv(int64_t node_id) const {
@@ -507,11 +582,11 @@ bool linear_haplo_DP::is_snv(int64_t node_id) const {
   // from r_of_lnbr to l_of_rnbr. If so, must be bijection as are finite sets of same size
   for(size_t i = 0; i < r_of_lnbr.size(); i++) {
     if(r_of_lnbr[i] == rnbr) {
-      r_of_lnbr[i] == -1;
+      r_of_lnbr[i] = -1;
     } else {
       for(size_t j = 0; j < l_of_rnbr.size(); j++) {
         if(r_of_lnbr[i] == l_of_rnbr[j]) {
-          r_of_lnbr[i] == -1;
+          r_of_lnbr[i] = -1;
         }
       }
     }
@@ -522,7 +597,7 @@ bool linear_haplo_DP::is_snv(int64_t node_id) const {
       snv = false;
     }
   }
-    return snv;
+  return snv;
 }
 
 inputHaplotype* linear_haplo_DP::path_to_input_haplotype(const vg::Path& path) const {
@@ -530,69 +605,59 @@ inputHaplotype* linear_haplo_DP::path_to_input_haplotype(const vg::Path& path) c
     return new inputHaplotype();
   }
   
-  vector<int64_t> snp_ins_nodes = actual_snvs(potential_snps(path));
-  vector<int64_t> del_nodes = actual_snvs(potential_deletions(path));
+  SNVvector SNV_candidates;
   
-  if(snp_ins_nodes.size() + del_nodes.size() == 0) {
+  try {
+    SNV_candidates = SNVs(path);
+  } catch(linearUnrepresentable& e) {
     return new inputHaplotype();
   }
   
-  vector<size_t> snp_ins_positions(snp_ins_nodes.size());
-  vector<size_t> del_positions(del_nodes.size());
-  for(size_t i = 0; i < snp_ins_nodes.size(); i++) {
-    snp_ins_positions[i] = position_assuming_acyclic(snp_ins_nodes[i]);
-  }
-  for(size_t i = 0; i < del_nodes.size(); i++) {
-    del_positions[i] = position_assuming_acyclic(del_nodes[i]);
-  }
-  
-  
-  
-  vector<size_t> positions;
-  positions.reserve(snp_ins_nodes.size() + del_nodes.size());
-  vector<alleleValue> alleles;
-  alleles.reserve(snp_ins_nodes.size() + del_nodes.size());
-  
-  size_t d_i = 0;
-  size_t s_i = 0;
-  for(d_i, s_i; d_i < del_nodes.size() && s_i < snp_ins_nodes.size(); ) {
-    if(snp_ins_positions[s_i] > del_positions[d_i]) {
-      if(index->is_site(del_positions[d_i])) {
-        positions.push_back(del_positions[d_i]);
-        alleles.push_back(gap);
-      }      
-      ++d_i;
-    } else if(del_positions[d_i] > snp_ins_positions[s_i]) {
-      if(index->is_site(snp_ins_positions[s_i])) {
-        positions.push_back(snp_ins_positions[s_i]);
-        alleles.push_back(allele::from_char(xg_index.node_sequence(snp_ins_nodes[s_i])[0]));
-      }      
-      ++s_i;
-    } else {
-      return new inputHaplotype();
-      // ++d_i;
-      // ++s_i;
-    }
-  }
-  
-  for(size_t i = 1; i < positions.size(); i++) {
-    if(positions[i] <= positions[i - 1]) {
-      return new inputHaplotype();
-    }
-  }
-   
-  size_t start = position_assuming_acyclic(path.mapping(0).position().node_id());
+  size_t start = position_assuming_acyclic(path_mapping_node_id(path, 0));
   size_t length = 0;
   for(size_t i = 0; i < path.mapping_size(); i++) {
     vg::Mapping mapping = path.mapping(i);
     length += vg::mapping_from_length(mapping);
   }  
   
+  if(SNV_candidates.size() == 0) {
+    return new inputHaplotype(vector<alleleValue>(0), vector<size_t>(0), index, start, length);
+  }
+  
+  vector<size_t> positions;
+  vector<alleleValue> alleles;
+  
+  for(size_t i = 0; i < SNV_candidates.size(); i++) {
+    if(index->is_site(SNV_candidates.ref_position(i))) {
+      positions.push_back(SNV_candidates.ref_position(i));
+      alleles.push_back(SNV_candidates.allele(i));
+    }
+  }
+
+  for(size_t i = 1; i < positions.size(); i++) {
+    if(positions[i] <= positions[i - 1]) {
+      return new inputHaplotype();
+    }
+  }
+  
+  size_t last_i = index->get_site_index(SNV_candidates.ref_position(0));
+  for(size_t i = 1; i < SNV_candidates.size(); i++) {
+    size_t this_i = index->get_site_index(SNV_candidates.ref_position(i)); 
+    if(this_i != last_i + 1) {
+      return new inputHaplotype();
+    } else {
+      last_i = this_i;
+    }
+  }
+  
   inputHaplotype* to_return = new inputHaplotype(alleles, vector<size_t>(positions.size(), 0), index, start, length);
   return to_return;
 }
 
-linear_haplo_DP::linear_haplo_DP(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, const xg::XG& xg_index, size_t xg_ref_rank) : xg_index(xg_index), xg_ref_rank(xg_ref_rank) {
+linear_haplo_DP::linear_haplo_DP(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, xg::XG& xg_index, size_t xg_ref_rank) : xg_index(xg_index), xg_ref_rank(xg_ref_rank) {
+  if(xg_ref_rank >= xg_index.max_path_rank()) {
+    throw runtime_error("reference path rank out of bounds");
+  }
   index = new siteIndex(slls_index);
   cohort = new haplotypeCohort(slls_index, index);
   penalties = new penaltySet(log_recomb_penalty, log_mut_penalty, cohort->get_n_haplotypes());

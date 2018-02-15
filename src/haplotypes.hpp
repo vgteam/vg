@@ -307,28 +307,49 @@ public:
 
 struct linear_haplo_DP{
 private:
+  class linearUnrepresentable : public exception {
+    using exception::exception;
+  };
+
+  typedef enum nodeType{
+    ref_span,
+    snv,
+    invalid
+  } nodeType;
+
   siteIndex* index = nullptr;
   haplotypeCohort* cohort = nullptr;
   penaltySet* penalties = nullptr;
-  const xg::XG& xg_index;
-  const size_t xg_ref_rank;
+  xg::XG& xg_index;
+  size_t xg_ref_rank;
 public:
-  linear_haplo_DP(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, const xg::XG& xg_index, size_t xg_ref_rank);
+  struct SNVvector{
+  private:
+    vector<int64_t> nodes;
+    vector<size_t> ref_positions;
+    vector<alleleValue> alleles;
+  public:
+    void push_back(alleleValue allele, size_t ref_pos, bool deletion);
+    size_t ref_position(size_t i) const;
+    alleleValue allele(size_t i) const;
+    size_t size() const;
+  };
+  
+  linear_haplo_DP(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, xg::XG& xg_index, size_t xg_ref_rank);
   ~linear_haplo_DP();
   haplo_score_type score(const vg::Path& path) const;
   
   inputHaplotype* path_to_input_haplotype(const vg::Path& path) const;
   
   size_t position_assuming_acyclic(int64_t node_id) const;
-
-  // "potential snps" are length-1 nodes which have neighbours on both sides
-  vector<int64_t> potential_snps(const vg::Path& path) const;
-  // "potential deletions" are nodes where following an alternative edge from the previous nodes causes a length-1
-  // discontinuity in node start positions
-  vector<int64_t> potential_deletions(const vg::Path& path) const;
-  // is_snv if 
+  nodeType get_type(int64_t node_id) const;
+  int64_t path_mapping_node_id(const vg::Path& path, size_t i) const;
+  int64_t get_SNP_ref_position(size_t node_id) const;
+  bool sn_deletion_between_ref(int64_t left, int64_t right) const;
+  int64_t get_ref_following(int64_t node_id) const;
+  SNVvector SNVs(const vg::Path& path) const;
   bool is_snv(int64_t node_id) const;
-  vector<int64_t> actual_snvs(const vector<int64_t>& potential_snvs) const;
+  alleleValue get_SNV_allele(int64_t node_id) const;
 };
 
 
