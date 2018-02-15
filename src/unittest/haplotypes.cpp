@@ -15,7 +15,142 @@ xg::XG::ThreadMapping make_xg_mapping(int64_t node_id) {
   return to_return;
 }
 
-//TODO test paths that aren't in the index
+using thread_t = vector<xg::XG::ThreadMapping>;
+
+vg::Path path_from_thread_t(thread_t& t) {
+	vg::Path toReturn;
+	int rank = 1;
+	for(int i = 0; i < t.size(); i++) {
+		vg::Mapping* mapping = toReturn.add_mapping();
+
+    // Set up the position
+    mapping->mutable_position()->set_node_id(t[i].node_id);
+    mapping->mutable_position()->set_is_reverse(t[i].is_reverse);
+
+    // Set the rank
+    mapping->set_rank(rank++);
+  }
+  // We're done making the path
+  return toReturn;
+}
+
+TEST_CASE("We can represent appropriate graphs according to linear reference", "[slls][bubble-finding]") {
+
+  string graph_json = R"(
+  {"node":[{"id":1,"sequence":"AAA"},
+  {"id":2,"sequence":"C"},
+  {"id":3,"sequence":"T"},
+  {"id":4,"sequence":"AAA"},
+  {"id":5,"sequence":"C"},
+  {"id":6,"sequence":"C"},
+  {"id":7,"sequence":"T"},
+  {"id":8,"sequence":"AAA"},
+  {"id":9,"sequence":"G"},
+  {"id":10,"sequence":"AAA"},
+  {"id":11,"sequence":"C"},
+  {"id":12,"sequence":"T"},
+  {"id":13,"sequence":"AAA"},
+  {"id":14,"sequence":"C"},
+  {"id":15,"sequence":"G"},
+  {"id":16,"sequence":"TG"},
+  {"id":17,"sequence":"AAA"}],
+  "edge":[{"to":2,"from":1},
+  {"to":3,"from":1},
+  {"to":4,"from":2},
+  {"to":4,"from":3},
+  {"to":5,"from":4},
+  {"to":6,"from":4},
+  {"to":7,"from":6},
+  {"to":8,"from":5},
+  {"to":8,"from":7},
+  {"to":9,"from":8},
+  {"to":10,"from":9},
+  {"to":10,"from":8},
+  {"to":11,"from":10},
+  {"to":12,"from":10},
+  {"to":13,"from":10},
+  {"to":13,"from":11},
+  {"to":13,"from":12},
+  {"to":14,"from":13},
+  {"to":15,"from":13},
+  {"to":16,"from":13},
+  {"to":17,"from":14},
+  {"to":17,"from":15},
+  {"to":17,"from":16}],
+  "path":[{"name":"0","mapping":[{"position":{"node_id":1},"rank":1},
+  {"position":{"node_id":2},"rank":2},
+  {"position":{"node_id":4},"rank":3},
+  {"position":{"node_id":5},"rank":4},
+  {"position":{"node_id":8},"rank":5},
+  {"position":{"node_id":9},"rank":6},
+  {"position":{"node_id":10},"rank":7},
+  {"position":{"node_id":11},"rank":8},
+  {"position":{"node_id":13},"rank":9},
+  {"position":{"node_id":15},"rank":10},
+  {"position":{"node_id":17},"rank":11}]}]})";
+
+  vector<xg::XG::ThreadMapping> tm = {
+    make_xg_mapping(1),
+    make_xg_mapping(1),
+    make_xg_mapping(2),
+    make_xg_mapping(3),
+    make_xg_mapping(4),
+    make_xg_mapping(5),
+    make_xg_mapping(6),
+    make_xg_mapping(7),
+    make_xg_mapping(8),
+    make_xg_mapping(9),
+    make_xg_mapping(10),
+    make_xg_mapping(11),
+    make_xg_mapping(12),
+    make_xg_mapping(13),
+    make_xg_mapping(14),
+    make_xg_mapping(15),
+    make_xg_mapping(16),
+    make_xg_mapping(17)
+  };
+  
+  vg::Graph proto_graph;
+  json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+  // Build the xg index
+  xg::XG xg_index(proto_graph);
+
+  thread_t test_thread = {tm[1], tm[2], tm[4], tm[5], tm[8], tm[9], tm[10], tm[13], tm[15], tm[17]};
+  vg::Path test_path = path_from_thread_t(test_thread);
+
+  string disjoint_test_file = "disjoint_test.slls";
+  ofstream dj_slls_out;
+  dj_slls_out.open(disjoint_test_file, ios::out | ios::trunc);
+  dj_slls_out << "0\t23\t2\n7\t19\n3\n0\t0\t0\t3\t0\n0\t1\t2\n0\t0\t0\t3\t0\n0\t1\t2";
+  dj_slls_out.close();  
+  ifstream dj_slls_in;
+  dj_slls_in.open(disjoint_test_file, ios::in);
+  haplo::linear_haplo_DP disjoint_lin_DP(dj_slls_in, -3, -2, xg_index, 0);
+  dj_slls_in.close();
+  remove(disjoint_test_file.c_str());
+
+  string matching_test_file = "matching_test.slls";
+  ofstream slls_out;
+  slls_out.open(matching_test_file, ios::out | ios::trunc);
+  slls_out << "0\t23\t2\n7\t19\n3\n0\t0\t0\t3\t0\n0\t1\t2\n0\t0\t0\t3\t0\n0\t1\t2";
+  slls_out.close();  
+  ifstream slls_in;
+  slls_in.open(matching_test_file, ios::in);
+  haplo::linear_haplo_DP matching_lin_DP(slls_in, -3, -2, xg_index, 0);
+  slls_in.close();
+  remove(matching_test_file.c_str());
+
+  vector<int64_t> found_potential_snps = disjoint_lin_DP.potential_snps(test_path);
+  vector<int64_t> found_potential_deletions = disjoint_lin_DP.potential_deletions(test_path);
+
+  REQUIRE(disjoint_lin_DP.is_snv(2));
+  REQUIRE(disjoint_lin_DP.is_snv(12));
+  REQUIRE(disjoint_lin_DP.is_snv(9));
+  REQUIRE(!disjoint_lin_DP.is_snv(5));
+  REQUIRE(!disjoint_lin_DP.is_snv(15));
+  REQUIRE(!disjoint_lin_DP.path_to_input_haplotype(test_path)->is_valid());
+  REQUIRE(!disjoint_lin_DP.path_to_input_haplotype(test_path)->is_valid());
+}
 
 TEST_CASE("We can score haplotypes using gPBWT", "[haplo-score][xg]") {
   //     / [3] \   / [6] \         ###################

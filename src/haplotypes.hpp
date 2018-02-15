@@ -11,6 +11,11 @@
 #include <gbwt/gbwt.h>
 #include <gbwt/dynamic_gbwt.h>
 
+#include <sublinearLS/reference.hpp>
+#include <sublinearLS/penalty_set.hpp>
+#include <sublinearLS/input_haplotype.hpp>
+#include <sublinearLS/probability.hpp>
+
 using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -298,6 +303,34 @@ public:
   static haplo_score_type score(const gbwt_thread_t& thread, GBWTType& graph, haploMath::RRMemo& memo);
 };
 
+//------------------------------------------------------------------------------
+
+struct linear_haplo_DP{
+private:
+  siteIndex* index = nullptr;
+  haplotypeCohort* cohort = nullptr;
+  penaltySet* penalties = nullptr;
+  const xg::XG& xg_index;
+  const size_t xg_ref_rank;
+public:
+  linear_haplo_DP(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, const xg::XG& xg_index, size_t xg_ref_rank);
+  ~linear_haplo_DP();
+  haplo_score_type score(const vg::Path& path) const;
+  
+  inputHaplotype* path_to_input_haplotype(const vg::Path& path) const;
+  
+  size_t position_assuming_acyclic(int64_t node_id) const;
+
+  // "potential snps" are length-1 nodes which have neighbours on both sides
+  vector<int64_t> potential_snps(const vg::Path& path) const;
+  // "potential deletions" are nodes where following an alternative edge from the previous nodes causes a length-1
+  // discontinuity in node start positions
+  vector<int64_t> potential_deletions(const vg::Path& path) const;
+  // is_snv if 
+  bool is_snv(int64_t node_id) const;
+  vector<int64_t> actual_snvs(const vector<int64_t>& potential_snvs) const;
+};
+
 
 //------------------------------------------------------------------------------
 // template implementations
@@ -311,9 +344,7 @@ hDP_gbwt_graph_accessor<GBWTType>::hDP_gbwt_graph_accessor(GBWTType& graph,
   graph(graph), length(new_length),
   old_node(gbwt::invalid_node()), new_node(new_node), memo(memo) {
   
-  // Nothing will work well if we have a node that has no record at all in the GBWT.
   assert(graph.contains(new_node));
-    
 }
 
 template<class GBWTType>
