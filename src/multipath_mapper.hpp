@@ -8,7 +8,6 @@
 #define multipath_mapper_hpp
 
 #include "hash_map.hpp"
-#include "suffix_tree.hpp"
 #include "mapper.hpp"
 #include "gssw_aligner.hpp"
 #include "types.hpp"
@@ -22,6 +21,7 @@
 #include "snarls.hpp"
 #include "haplotypes.hpp"
 
+#include <structures/suffix_tree.hpp>
 #include <gbwt/gbwt.h>
 
 using namespace std;

@@ -17,6 +17,8 @@
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/weakly_connected_components.hpp"
 
+#include <structures/union_find.hpp>
+
 namespace vg {
     
     //size_t MultipathMapper::PRUNE_COUNTER = 0;

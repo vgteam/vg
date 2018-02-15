@@ -11,7 +11,8 @@
 #include <chrono>
 #include <vector>
 #include <algorithm>
-#include "utility.hpp"
+#include <iostream>
+#include <structures/union_find.hpp>
 
 #include "catch.hpp"
 
