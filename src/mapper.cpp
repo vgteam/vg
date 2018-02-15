@@ -620,12 +620,15 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                               { return mem.begin < seq_begin || mem.end > seq_end; }),
                mems.end());
 
-    // return the MEMs in order along the read
-    // TODO: there should actually be a linear time method to merge and order the sub-MEMs, since
-    // they are ordered by the parent MEMs
+    // return the MEMs in order by first index and then descending by length (this helps prefiltering MEMs)
     std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-        return m1.begin < m2.begin ? true : (m1.begin == m2.begin ? m1.end < m2.end : false);
+        return m1.begin < m2.begin || (m1.begin == m2.begin && m1.length() > m2.length());
     });
+    
+    // try to identify which hits are redundant sub-MEMs and filter them out
+    if (prefilter_redundant_hits && reseed_length) {
+        prefilter_redundant_sub_mems(mems);
+    }
 
     std::for_each(mems.begin(), mems.end(), [&total_mems](const MaximalExactMatch& mem) { total_mems += mem.nodes.size(); });
     fraction_filtered = (double) filtered_mems / (double) total_mems;
@@ -987,7 +990,64 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
         }
     }
 }
+
+void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems) {
+
+    vector<size_t> sub_mem_range_end(mems.size());
     
+    // TODO: it would actually be better in recursive sub-MEMs to prefilter using the parent rather
+    // than the ancestor and to do it in post-order
+    // the parent has more of the redundant hits and is more likely to be on the same node as the child
+    
+    for (size_t i = 0; i < mems.size(); ) {
+        
+        // find the end of the range of MEMs for which this MEM is a parent
+        // note: takes advantage of sort order
+        size_t j = i + 1;
+        while (j < mems.size() ? mems[j].end <= mems[i].end : false) {
+            sub_mem_range_end[j] = j + 1;
+            j++;
+        }
+        sub_mem_range_end[i] = j;
+        i = j;
+    }
+    
+    // for each MEM
+    for (size_t i = 0; i < mems.size(); i++) {
+        for (size_t j = i + 1; j < sub_mem_range_end[i]; j++) {
+            
+            // how much farther the sub-MEM should be
+            int64_t relative_offset = mems[j].begin - mems[i].begin;
+            
+            // get the supposed position this will be for each hit (if it is on the same node)
+            unordered_set<pos_t> extended_hit_positions;
+            for (gcsa::node_type hit : mems[i].nodes) {
+                pos_t hit_pos = make_pos_t(hit);
+                extended_hit_positions.emplace(id(hit_pos), is_rev(hit_pos), offset(hit_pos) + relative_offset);
+            }
+            
+            // remove any nodes whose hit location matches the extended position
+            auto& nodes = mems[j].nodes;
+            size_t removed_so_far = 0;
+            for (size_t k = 0; k < nodes.size(); k++) {
+                if (extended_hit_positions.count(make_pos_t(nodes[k]))) {
+                    // definitely redundant, skip this one
+                    removed_so_far++;
+                }
+                else if (removed_so_far > 0) {
+                    // move this one up in the list past
+                    nodes[k - removed_so_far] = nodes[k];
+                }
+            }
+            
+            // take off the end of the list, all of which have been moved up
+            if (removed_so_far) {
+                nodes.resize(nodes.size() - removed_so_far);
+            }
+        }
+    }
+}
+
 void BaseMapper::rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
                                                      size_t max_rescue_hit_count) {
     
