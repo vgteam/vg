@@ -1014,9 +1014,10 @@ void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems) {
     
     // for each MEM
     for (size_t i = 0; i < mems.size(); i++) {
+        // for the range of its sub-MEMs
         for (size_t j = i + 1; j < sub_mem_range_end[i]; j++) {
             
-            // how much farther the sub-MEM should be
+            // how much farther should the sub-MEM be?
             int64_t relative_offset = mems[j].begin - mems[i].begin;
             
             // get the supposed position this will be for each hit (if it is on the same node)
@@ -1035,12 +1036,12 @@ void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems) {
                     removed_so_far++;
                 }
                 else if (removed_so_far > 0) {
-                    // move this one up in the list past
+                    // move this one up in the list to its new index accounting for skips
                     nodes[k - removed_so_far] = nodes[k];
                 }
             }
             
-            // take off the end of the list, all of which have been moved up
+            // take off the end of the list, which only contains skipped hits and hits that have moved up
             if (removed_so_far) {
                 nodes.resize(nodes.size() - removed_so_far);
             }
