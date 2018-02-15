@@ -329,6 +329,11 @@ namespace vg {
                 REQUIRE(aln.path().mapping(1).position().node_id() == 3);
                 REQUIRE(aln.path().mapping(2).position().node_id() == 5);
                 
+                // has correct ranks
+                REQUIRE(aln.path().mapping(0).rank() == 1);
+                REQUIRE(aln.path().mapping(1).rank() == 2);
+                REQUIRE(aln.path().mapping(2).rank() == 3);
+                
                 // has correct score
                 REQUIRE(aln.score() == 12);
                 
@@ -396,6 +401,166 @@ namespace vg {
                 }
                 REQUIRE(top10[1].score() == multipath_aln.subpath(1).score());
                 
+            }
+            
+            SECTION( "Multipath alignment correctly merge Mappings while finding optimal and suboptimal alignments" ) {
+                
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("GTTGA");
+                Node* n4 = graph.create_node("A");
+                Node* n5 = graph.create_node("CTGA");
+                
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                
+                string read = string("GCAGTGACTGA");
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence(read);
+                
+                // add subpaths
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                Subpath* subpath2 = multipath_aln.add_subpath();
+                Subpath* subpath3 = multipath_aln.add_subpath();
+                Subpath* subpath4 = multipath_aln.add_subpath();
+                Subpath* subpath5 = multipath_aln.add_subpath();
+                
+                // set edges between subpaths
+                subpath0->add_next(2);
+                subpath1->add_next(2);
+                subpath2->add_next(3);
+                subpath3->add_next(4);
+                subpath3->add_next(5);
+                
+                // set scores
+                subpath0->set_score(3);
+                subpath1->set_score(0);
+                subpath2->set_score(3);
+                subpath3->set_score(2);
+                subpath4->set_score(0);
+                subpath5->set_score(4);
+                
+                // designate mappings
+                // TODO: Note that these edits aren't quite realistic
+                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                mapping0->mutable_position()->set_node_id(1);
+                
+                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                mapping1->mutable_position()->set_node_id(2);
+                
+                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                mapping2->mutable_position()->set_node_id(3);
+                Edit* edit2 = mapping2->add_edit();
+                edit2->set_from_length(2);
+                edit2->set_to_length(2);
+                
+                Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
+                mapping3->mutable_position()->set_node_id(3);
+                mapping3->mutable_position()->set_offset(2);
+                Edit* edit3 = mapping3->add_edit();
+                edit3->set_from_length(3);
+                edit3->set_to_length(3);
+                
+                Mapping* mapping4 = subpath4->mutable_path()->add_mapping();
+                mapping4->mutable_position()->set_node_id(4);
+                
+                Mapping* mapping5 = subpath5->mutable_path()->add_mapping();
+                mapping5->mutable_position()->set_node_id(5);
+                
+                // get top 10 alignments
+                identify_start_subpaths(multipath_aln);
+                vector<Alignment> top10 = optimal_alignments(multipath_aln, 10);
+                
+                SECTION("Top alignment is correct") {
+                    // Exists
+                    REQUIRE(top10.size() > 0);
+                    
+                    // follows correct path
+                    REQUIRE(top10[0].path().mapping_size() == 3);
+                    REQUIRE(top10[0].path().mapping(0).position().node_id() == 1);
+                    REQUIRE(top10[0].path().mapping(1).position().node_id() == 3);
+                    REQUIRE(top10[0].path().mapping(2).position().node_id() == 5);
+                    
+                    // has correct score
+                    REQUIRE(top10[0].score() == 12);
+                    
+                    // has correct edits
+                    REQUIRE(top10[0].path().mapping(1).position().offset() == 0);
+                    REQUIRE(top10[0].path().mapping(1).edit(0).from_length() == 5);
+                    REQUIRE(top10[0].path().mapping(1).edit(0).to_length() == 5);
+                }
+                
+                SECTION("Secondary alignment is correct") {
+                    
+                    // Exists
+                    REQUIRE(top10.size() > 1);
+                    
+                    // follows correct path
+                    REQUIRE(top10[1].path().mapping_size() == 3);
+                    REQUIRE(top10[1].path().mapping(0).position().node_id() == 2);
+                    REQUIRE(top10[1].path().mapping(1).position().node_id() == 3);
+                    REQUIRE(top10[1].path().mapping(2).position().node_id() == 5);
+                    
+                    // has correct score
+                    REQUIRE(top10[1].score() == 9);
+                    
+                    // has correct edits
+                    REQUIRE(top10[1].path().mapping(1).position().offset() == 0);
+                    REQUIRE(top10[1].path().mapping(1).edit(0).from_length() == 5);
+                    REQUIRE(top10[1].path().mapping(1).edit(0).to_length() == 5);
+                
+                }
+                
+                SECTION("Tertiary alignment is correct") {
+                    
+                    // Exists
+                    REQUIRE(top10.size() > 2);
+                    
+                    // follows correct path
+                    REQUIRE(top10[2].path().mapping_size() == 3);
+                    REQUIRE(top10[2].path().mapping(0).position().node_id() == 1);
+                    REQUIRE(top10[2].path().mapping(1).position().node_id() == 3);
+                    REQUIRE(top10[2].path().mapping(2).position().node_id() == 4);
+                    
+                    // has correct score
+                    REQUIRE(top10[2].score() == 8);
+                    
+                    // has correct edits
+                    REQUIRE(top10[2].path().mapping(1).position().offset() == 0);
+                    REQUIRE(top10[2].path().mapping(1).edit(0).from_length() == 5);
+                    REQUIRE(top10[2].path().mapping(1).edit(0).to_length() == 5);
+                
+                }
+                
+                SECTION("Quaternary alignment is correct") {
+                    
+                    // Exists
+                    REQUIRE(top10.size() > 3);
+                    
+                    // follows correct path
+                    REQUIRE(top10[3].path().mapping_size() == 3);
+                    REQUIRE(top10[3].path().mapping(0).position().node_id() == 2);
+                    REQUIRE(top10[3].path().mapping(1).position().node_id() == 3);
+                    REQUIRE(top10[3].path().mapping(2).position().node_id() == 4);
+                    
+                    // has correct score
+                    REQUIRE(top10[3].score() == 5);
+                    
+                    // has correct edits
+                    REQUIRE(top10[3].path().mapping(1).position().offset() == 0);
+                    REQUIRE(top10[3].path().mapping(1).edit(0).from_length() == 5);
+                    REQUIRE(top10[3].path().mapping(1).edit(0).to_length() == 5);
+                
+                }
+                
+                SECTION("Quinary alignment does not exist") {
+                    REQUIRE(top10.size() < 5);
+                }
             }
         
         }

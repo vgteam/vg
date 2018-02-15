@@ -337,30 +337,67 @@ namespace vg {
         // And the optimal score
         int32_t& opt_score = get<2>(dp_result);
         
-        // Subpaths only keep track of their nexts, so we need to invert that so we can get all valid prev subpaths
-        vector<vector<int64_t>> prev_subpaths;
-        prev_subpaths.resize(multipath_aln.subpath_size());
-        for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            // For each subpath
-            for (auto& next_subpath : multipath_aln.subpath(i).next()) {
-                // For each next subpath it lists
-                
-                // Register this subpath as a predecessor of the next
-                prev_subpaths[next_subpath].push_back(i);
-            }
-        }
-        
         // Keep lists of DP steps, which are subpath numbers to visit.
         // Even going to the end subpath (where prefix length + subpath length = read length) is a DP step
+        // We never deal with empty lists; we always seed with the traceback start node.
         using step_list_t = list<int64_t>;
         
         // Put them in a priority queue by score difference (positive) from optimal
         // TODO: use a real priority queue instead of a sorted list
         list<pair<int32_t, step_list_t>> queue;
-        // Start with the empty list at 0 score difference
-        queue.emplace_front(piecewise_construct, make_tuple(0), make_tuple());
         
-        // TODO: how do we know where an alignment is allowed to start/end?
+        // Also, subpaths only keep track of their nexts, so we need to invert
+        // that so we can get all valid prev subpaths.
+        vector<vector<int64_t>> prev_subpaths;
+        
+        // We want to be able to start the traceback only from places where we
+        // won't get shorter versions of same- or higher-scoring alignments.
+        // This means that we want exactly the subpaths that have no successors
+        // with nonnegative subpath score.
+        
+        // So we go through all the subpaths, check all their successors, and
+        // add starting points for all satisfactory subpaths to the queue.
+        // Sinks in the graphs will always be in here, as will the starting
+        // point for tracing back the optimal alignment.
+        
+        // We know what the penalty from optimal is for each, because we know
+        // the optimal score overall and the score we would get for the optimal
+        // alignment ending at each.
+        
+        prev_subpaths.resize(multipath_aln.subpath_size());
+        for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            // For each subpath
+            
+            // If it has no successors, we can start a traceback here
+            bool valid_traceback_start = true;
+            
+            for (auto& next_subpath : multipath_aln.subpath(i).next()) {
+                // For each next subpath it lists
+                
+                // Register this subpath as a predecessor of the next
+                prev_subpaths[next_subpath].push_back(i);
+                
+                if (multipath_aln.subpath(next_subpath).score() >= 0) {
+                    // This successor has a nonnegative score, so taking it
+                    // after us would generate a longer, same- or
+                    // higher-scoring alignment. So we shouldn't start a
+                    // traceback from subpath i.
+                    valid_traceback_start = false;
+                }
+            }
+            
+            if (valid_traceback_start) {
+                // We can start a traceback here.
+                
+                // The score penalty for starting here is the optimal score minus the optimal score starting here
+                auto penalty = opt_score - (problem.prefix_score[i] + multipath_aln.subpath(i).score());
+                
+                // The path is just to be here
+                step_list_t starting_path{i};
+                
+                queue.emplace_front(penalty, move(starting_path));
+            }
+        }
         
         while (!queue.empty() && to_return.size() < count) {
             // Each iteration
@@ -372,7 +409,9 @@ namespace vg {
             tie(basis_score_difference, basis) = move(queue.front());
             queue.pop_front();
             
-            if (!basis.empty() && problem.prev_subpath[basis.front()] == -1) {
+            assert(!basis.empty());
+            
+            if (problem.prev_subpath[basis.front()] == -1) {
                 // If it leads all the way to a read that is optimal as a start
                 
                 // Make an Alignment to emit it in
@@ -399,40 +438,24 @@ namespace vg {
                 // Note that we will only do this once per subpath, when we are
                 // working on the optimal alignment going through that subpath.
                 list<pair<int64_t, int32_t>> destinations;
-                if (basis.empty()) {
-                    // The destinations will be all the places we can end.
+                
+                // The destinations will be all places we could have arrived here from
+                auto& here = basis.front();
+                
+                // To compute the additional score difference, we need to know what our optimal prefix score was.
+                auto& best_prefix_score = problem.prefix_score[here];
+                
+                for (auto& prev : prev_subpaths[here]) {
+                    // For each, compute the score of the optimal alignment ending at that predecessor
+                    auto prev_opt_score = problem.prefix_score[prev] + multipath_aln.subpath(prev).score();
                     
-                    // Our basis is length 0, so its best prefix score is the optimal score
-                    auto& best_prefix_score = opt_score;
+                    // What's the difference we would take if we went with this predecessor?
+                    auto additional_penalty = best_prefix_score - prev_opt_score;
                     
-                    for(size_t prev = 0; prev < multipath_aln.subpath_size(); prev++) {
-                        // We can end with any subpath.
-                        
-                        // For each, compute the score of the optimal alignment ending at that predecessor
-                        auto prev_opt_score = problem.prefix_score[prev] + multipath_aln.subpath(prev).score();
-                        
-                        // What's the difference we would take if we went with this predecessor?
-                        auto additional_penalty = best_prefix_score - prev_opt_score;
-                        
-                        destinations.emplace_back(prev, additional_penalty);
-                    }
-                } else {
-                    // The destinations will be all places we could have arrived here from
-                    auto& here = basis.front();
-                    
-                    // To compute the additional score difference, we need to know what our optimal prefix score was.
-                    auto& best_prefix_score = problem.prefix_score[here];
-                    
-                    for (auto& prev : prev_subpaths[here]) {
-                        // For each, compute the score of the optimal alignment ending at that predecessor
-                        auto prev_opt_score = problem.prefix_score[prev] + multipath_aln.subpath(prev).score();
-                        
-                        // What's the difference we would take if we went with this predecessor?
-                        auto additional_penalty = best_prefix_score - prev_opt_score;
-                        
-                        destinations.emplace_back(prev, additional_penalty);
-                    }
+                    destinations.emplace_back(prev, additional_penalty);
                 }
+                
+                // TODO: unify loops!
                 
                 for (auto& destination : destinations) {
                     // Prepend each of the things that can be prepended
