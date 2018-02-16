@@ -4,6 +4,7 @@
 
 #include "multipath_alignment.hpp"
 #include <structures/immutable_list.hpp>
+#include <structures/min_max_heap.hpp>
 
 #include <type_traits>
 
@@ -343,9 +344,24 @@ namespace vg {
         // We never deal with empty lists; we always seed with the traceback start node.
         using step_list_t = ImmutableList<int64_t>;
         
-        // Put them in a priority queue by score difference (positive) from optimal
-        // TODO: use a real priority queue instead of a sorted list
-        list<pair<int32_t, step_list_t>> queue;
+        // Put them in a size-limited priority queue by score difference (positive) from optimal
+        MinMaxHeap<pair<int32_t, step_list_t>> queue;
+        
+        // We define a function to put stuff in the queue and limit its size to
+        // the (count - to_return.size()) items with lowest penalty.
+        auto try_enqueue = [&](const pair<int32_t, step_list_t>& item) {
+            if (queue.empty() || item < queue.max()) {
+                // The item belongs in the queue because it beats the current
+                // worst thing.
+                queue.push(item);
+            }
+            
+            while(queue.size() > count - to_return.size()) {
+                // We have more possibilities than we need to consider to emit
+                // the top count alignments. Get rid of the worst one.
+                queue.pop_max();
+            }
+        };
         
         // Also, subpaths only keep track of their nexts, so we need to invert
         // that so we can get all valid prev subpaths.
@@ -396,7 +412,7 @@ namespace vg {
                 // The path is just to be here
                 step_list_t starting_path{i};
                 
-                queue.emplace_front(penalty, move(starting_path));
+                try_enqueue(make_pair(penalty, starting_path));
             }
         }
         
@@ -404,11 +420,10 @@ namespace vg {
             // Each iteration
             
             // Grab the best list as our basis
-            queue.sort();
             int32_t basis_score_difference;
             step_list_t basis;
-            tie(basis_score_difference, basis) = move(queue.front());
-            queue.pop_front();
+            tie(basis_score_difference, basis) = queue.min();
+            queue.pop_min();
             
             assert(!basis.empty());
             
@@ -472,7 +487,7 @@ namespace vg {
                     auto total_penalty = basis_score_difference + additional_penalty;
                     
                     // Put them in the priority queue
-                    queue.emplace_back(total_penalty, move(extended_path));
+                    try_enqueue(make_pair(total_penalty, extended_path));
                 }
                 
             }
