@@ -415,11 +415,15 @@ int main_msga(int argc, char** argv) {
         ref.open(fasta_file_name);
         if (debug) cerr << "loading " << fasta_file_name << endl;
         for (auto& name : ref.index->sequenceNames) {
-            if (!seq_names.empty() && seq_names.count(name) == 0) continue;
+            if (!seq_names.empty() && seq_names.count(name) == 0) {
+                cerr << "[vg msga] Warning: sequence " << name << " is seen multiple times in input, ignoring all but the first instance" << endl;
+                continue;
+            }
             // only use the sequence if we have whitelisted it
             // and also sanitize the input so we have only ATGCN
             strings[name] = nonATGCNtoN(ref.getSequence(name));
             names_in_order.push_back(name);
+            seq_names.insert(name);
         }
     }
 
