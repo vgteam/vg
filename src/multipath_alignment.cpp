@@ -202,6 +202,11 @@ namespace vg {
             if (output->mapping_size() == 0) {
                 // There's nothing in the output yet, so just copy all the mappings from this subpath
                 *output = multipath_aln.subpath(*current_subpath).path();
+                
+                for(size_t i = 0; i < output->mapping_size(); i++) {
+                    // Set all the ranks
+                    output->mutable_mapping(i)->set_rank(i + 1);
+                }
             } else {
                 // There's already content in the output so we have to merge stuff
                 Mapping* curr_end_mapping = output->mutable_mapping(output->mapping_size() - 1);
@@ -350,13 +355,14 @@ namespace vg {
         // We define a function to put stuff in the queue and limit its size to
         // the (count - to_return.size()) items with lowest penalty.
         auto try_enqueue = [&](const pair<int32_t, step_list_t>& item) {
-            if (queue.empty() || item < queue.max()) {
-                // The item belongs in the queue because it beats the current
-                // worst thing.
+            auto max_size = count - to_return.size();
+            if (queue.size() < max_size || item < queue.max()) {
+                // The item belongs in the queue because it fits or it beats
+                // the current worst thing.
                 queue.push(item);
             }
             
-            while(queue.size() > count - to_return.size()) {
+            while(queue.size() > max_size) {
                 // We have more possibilities than we need to consider to emit
                 // the top count alignments. Get rid of the worst one.
                 queue.pop_max();
