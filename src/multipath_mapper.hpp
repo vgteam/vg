@@ -22,6 +22,8 @@
 #include "snarls.hpp"
 #include "haplotypes.hpp"
 
+#include <gbwt/gbwt.h>
+
 using namespace std;
 using namespace haplo;
 
@@ -37,7 +39,7 @@ namespace vg {
         ////////////////////////////////////////////////////////////////////////
     
         MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
-                        SnarlManager* snarl_manager = nullptr);
+                        gbwt::GBWT* gbwt = nullptr, SnarlManager* snarl_manager = nullptr);
         ~MultipathMapper();
         
         /// Map read in alignment to graph and make multipath alignments.
