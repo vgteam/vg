@@ -4861,7 +4861,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 
     if (count_reverse && count_forward) {
         if (surjection_reverse.score() > surjection_forward.score()) {
-             surjection = reverse_complement_alignment(translator.translate(surjection_reverse), node_length);
+            surjection = reverse_complement_alignment(translator.translate(surjection_reverse), node_length);
         } else {
             surjection = translator.translate(surjection_forward);
         }
