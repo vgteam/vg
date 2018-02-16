@@ -82,12 +82,14 @@ namespace vg {
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
+        double max_mapping_p_value = 0.00001;
         bool unstranded_clustering = true;
         size_t max_rescue_attempts = 32;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
         double mapq_scaling_factor = 1.0 / 4.0;
         bool use_population_mapqs = false;
+        size_t population_path_count = 1;
         double recombination_penalty = 1e-9;
         size_t rescue_only_min = 128;
         size_t rescue_only_anchor_max = 16;

@@ -46,7 +46,10 @@ using namespace std;
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace haplo {
-  
+
+// If this global is set, warn the user when scoring fails
+extern bool warn_on_score_fail;
+ 
 using thread_t = vector<xg::XG::ThreadMapping>;
 
 namespace haploMath{
@@ -448,31 +451,39 @@ template<class GBWTType>
 haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, haploMath::RRMemo& memo) {
   if (!graph.contains(thread[0])) {
     // We start on a node that has no haplotype index entry
-    cerr << "[WARNING] Path starts outside of haplotype index and cannot be scored" << endl;
-    cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+    if (warn_on_score_fail) {
+      cerr << "[WARNING] Path starts outside of haplotype index and cannot be scored" << endl;
+      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+    }
     return pair<double, bool>(nan(""), false);
   }
   
   hDP_gbwt_graph_accessor<GBWTType> ga_i(graph, thread[0], thread.nodelength(0), memo);
   haplo_DP hdp(ga_i);
   if(ga_i.new_height() == 0) {
-    cerr << "[WARNING] Initial node in path is visited by 0 reference haplotypes" << endl;
-    cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
-    ga_i.print(cerr);
+    if (warn_on_score_fail) {
+      cerr << "[WARNING] Initial node in path is visited by 0 reference haplotypes" << endl;
+      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+      ga_i.print(cerr);
+    }
     return pair<double, bool>(nan(""), false);
   }
   for(size_t i = 1; i < thread.size(); i++) {
     if (!graph.contains(thread[i])) {
-      cerr << "[WARNING] Node " << i + 1 << " in path leaves haplotype index and cannot be scored" << endl;
-      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+      if (warn_on_score_fail) { 
+        cerr << "[WARNING] Node " << i + 1 << " in path leaves haplotype index and cannot be scored" << endl;
+        cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+      }
       return pair<double, bool>(nan(""), false);
     }
     
     hDP_gbwt_graph_accessor<GBWTType> ga(graph, thread[i-1], thread[i], thread.nodelength(i), memo);
     if(ga.new_height() == 0) {
-      cerr << "[WARNING] Node " << i + 1 << " in path is visited by 0 reference haplotypes" << endl;
-      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
-      ga.print(cerr);
+      if (warn_on_score_fail) {
+        cerr << "[WARNING] Node " << i + 1 << " in path is visited by 0 reference haplotypes" << endl;
+        cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+        ga.print(cerr);
+      }
       return pair<double, bool>(nan(""), false);
     } else {
       hdp.DP_column.extend(ga);
