@@ -3,6 +3,7 @@
 //
 
 #include "multipath_alignment.hpp"
+#include <structures/immutable_list.hpp>
 
 #include <type_traits>
 
@@ -340,7 +341,7 @@ namespace vg {
         // Keep lists of DP steps, which are subpath numbers to visit.
         // Even going to the end subpath (where prefix length + subpath length = read length) is a DP step
         // We never deal with empty lists; we always seed with the traceback start node.
-        using step_list_t = list<int64_t>;
+        using step_list_t = ImmutableList<int64_t>;
         
         // Put them in a priority queue by score difference (positive) from optimal
         // TODO: use a real priority queue instead of a sorted list
@@ -465,8 +466,7 @@ namespace vg {
                     auto& additional_penalty = destination.second;
                     
                     // Make an extended path
-                    auto extended_path = basis;
-                    extended_path.push_front(prev);
+                    auto extended_path = basis.push_front(prev);
                     
                     // Calculate the score differences from optimal
                     auto total_penalty = basis_score_difference + additional_penalty;
