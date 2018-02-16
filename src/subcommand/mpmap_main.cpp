@@ -141,6 +141,7 @@ int main_mpmap(int argc, char** argv) {
     size_t rescue_only_anchor_max = 16;
     string sample_name = "";
     string read_group = "";
+    bool prefilter_redundant_hits = true;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -663,6 +664,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
     multipath_mapper.use_approx_sub_mem_count = false;
+    multipath_mapper.prefilter_redundant_hits = prefilter_redundant_hits;
     if (min_clustering_mem_length) {
         multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
     }
