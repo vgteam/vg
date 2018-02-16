@@ -52,6 +52,7 @@ void help_map(char** argv) {
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
+         << "    --drop-full-l-bonus     remove the full length bonus from the score" << endl
          << "    -a, --hap-exp FLOAT     the exponent for haplotype consistency likelihood in alignment score [1]" << endl
          << "    -A, --qual-adjust       perform base quality adjusted alignments (requires base quality input)" << endl
          << "input:" << endl
@@ -221,11 +222,12 @@ int main_map(int argc, char** argv) {
                 {"surject-to", required_argument, 0, '5'},
                 {"patch-alns", no_argument, 0, '8'},
                 {"surj-min-softclip", required_argument, 0, '9'},
+                {"drop-full-l-bonus", no_argument, 0, '2'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:89:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:89:2",
                          long_options, &option_index);
 
 
@@ -282,7 +284,11 @@ int main_map(int argc, char** argv) {
         case 'L':
             full_length_bonus = atoi(optarg);
             break;
-            
+
+        case '2':
+            strip_bonuses = true;
+            break;
+
         case 'a':
             haplotype_consistency_exponent = atof(optarg);
             break;
