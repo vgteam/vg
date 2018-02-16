@@ -409,21 +409,23 @@ int main_msga(int argc, char** argv) {
 
     // open the fasta files, read in the sequences
     vector<string> names_in_order;
+    set<string> seen_seq_names;
 
     for (auto& fasta_file_name : fasta_files) {
         FastaReference ref;
         ref.open(fasta_file_name);
         if (debug) cerr << "loading " << fasta_file_name << endl;
         for (auto& name : ref.index->sequenceNames) {
-            if (!seq_names.empty() && seq_names.count(name) == 0) {
+            if (!seq_names.empty() && seq_names.count(name) == 0) continue;
+            // only use the sequence if we have whitelisted it
+            // and also sanitize the input so we have only ATGCN
+            if (seen_seq_names.count(name)) {
                 cerr << "[vg msga] Warning: sequence " << name << " is seen multiple times in input, ignoring all but the first instance" << endl;
                 continue;
             }
-            // only use the sequence if we have whitelisted it
-            // and also sanitize the input so we have only ATGCN
             strings[name] = nonATGCNtoN(ref.getSequence(name));
             names_in_order.push_back(name);
-            seq_names.insert(name);
+            seen_seq_names.insert(name);
         }
     }
 
