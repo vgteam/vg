@@ -4,8 +4,8 @@
 //
 //
 
-//#define debug_multipath_mapper_mapping
-//#define debug_multipath_mapper_alignment
+#define debug_multipath_mapper_mapping
+#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
 
@@ -2896,11 +2896,19 @@ namespace vg {
             // is turned on and it succeeded for the others.
             bool query_population = include_population_component && all_paths_pop_consistent;
             
-            // Generate the top alignment, or the top population_path_count
+            // Generate the top alignment, or the top population_max_paths
             // alignments if we are doing multiple alignments for population
             // scoring.
-            auto alignments = optimal_alignments(multipath_alns[i], query_population ? population_path_count : 1);
+            auto wanted_alignments = query_population ? population_max_paths : 1;
+            auto alignments = optimal_alignments(multipath_alns[i], wanted_alignments);
             assert(!alignments.empty());
+            
+#ifdef debug_multipath_mapper_mapping
+            cerr << "Got " << alignments.size() << " / " << wanted_alignments << " tracebacks for multipath " << i << endl;
+#endif
+#ifdef debug_multipath_mapper_alignment
+            cerr << pb2json(multipath_alns[i]) << endl;
+#endif
            
             // Collect the score of the optimal alignment, to use if population
             // scoring fails for a multipath alignment. Put it in the optimal
@@ -2928,7 +2936,10 @@ namespace vg {
                    
 #ifdef debug_multipath_mapper_mapping
                     cerr << "Got pop score " << pop_score.first << ", " << pop_score.second << " for alignment " << j
-                        << " of multipath " << i << endl;
+                        << " score " << alignments[j].score() << " of multipath " << i << endl;
+#endif
+#ifdef debug_multipath_mapper_alignment
+                    cerr << pb2json(alignments[j]) << endl;
 #endif
                    
                     alignment_pop_scores[j] = pop_score.first;
@@ -3063,10 +3074,10 @@ namespace vg {
             bool query_population = include_population_component && all_paths_pop_consistent;
             
             // Generate the top alignments on each side, or the top
-            // population_path_count alignments if we are doing multiple
+            // population_max_paths alignments if we are doing multiple
             // alignments for population scoring.
-            auto alignments1 = optimal_alignments(multipath_aln_pair.first, query_population ? population_path_count : 1);
-            auto alignments2 = optimal_alignments(multipath_aln_pair.second, query_population ? population_path_count : 1);
+            auto alignments1 = optimal_alignments(multipath_aln_pair.first, query_population ? population_max_paths : 1);
+            auto alignments2 = optimal_alignments(multipath_aln_pair.second, query_population ? population_max_paths : 1);
             assert(!alignments1.empty());
             assert(!alignments2.empty());
             
@@ -4258,14 +4269,15 @@ namespace vg {
                 cut_segments.emplace_back(curr_level->second, path->mapping_size());
             }
             
-            // did we cut out any segments?
-            if (!cut_segments.empty()) {
 #ifdef debug_multipath_mapper_alignment
-                cerr << "found cut segments:" << endl;
+                cerr << "found " << cut_segments.size() << " cut segments:" << endl;
                 for (auto seg : cut_segments) {
                     cerr << "\t" << seg.first << ":" << seg.second << endl;
                 }
 #endif
+            
+            // did we cut out any segments?
+            if (!cut_segments.empty()) {
                 
                 // we may have decided to cut the segments of both a parent and child snarl, so now we
                 // collapse the list of intervals, which is sorted on the end index by construction

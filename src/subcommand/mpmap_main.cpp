@@ -60,6 +60,7 @@ void help_mpmap(char** argv) {
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [48]" << endl
+    << "  -O, --max-paths INT       consider (up to) this many paths per alignment when scoring by population consistency [1]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
     << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
@@ -106,6 +107,7 @@ int main_mpmap(int argc, char** argv) {
     bool interleaved_input = false;
     int snarl_cut_size = 5;
     int max_map_attempts = 48;
+    int population_max_paths = 1;
     int max_rescue_attempts = 32;
     int max_num_mappings = 1;
     int buffer_size = 100;
@@ -176,6 +178,7 @@ int main_mpmap(int argc, char** argv) {
             {"mq-max", required_argument, 0, 'Q'},
             {"band-padding", required_argument, 0, 'p'},
             {"map-attempts", required_argument, 0, 'u'},
+            {"max-paths", required_argument, 0, 'O'},
             {"max-multimaps", required_argument, 0, 'M'},
             {"reseed-length", required_argument, 0, 'r'},
             {"reseed-diff", required_argument, 0, 'W'},
@@ -199,7 +202,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:f:G:N:R:ieSs:u:a:nb:I:D:BP:v:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:f:G:N:R:ieSs:u:O:a:nb:I:D:BP:v:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -360,6 +363,10 @@ int main_mpmap(int argc, char** argv) {
                 max_map_attempts = atoi(optarg);
                 break;
                 
+            case 'O':
+                population_max_paths = atoi(optarg);
+                break;
+                
             case 'M':
                 max_num_mappings = atoi(optarg);
                 break;
@@ -518,6 +525,16 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (population_max_paths < 1) {
+        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set to " << population_max_paths << ", must set to a positive integer." << endl;
+        exit(1);
+    }
+    
+    if (population_max_paths != 1 && gbwt_name.empty()) {
+        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set when population database (-H) not provided." << endl;
+        exit(1);
+    }
+    
     if (max_num_mappings > max_map_attempts && max_map_attempts != 0) {
         cerr << "warning:[vg mpmap] Reporting up to " << max_num_mappings << " mappings, but only computing up to " << max_map_attempts << " mappings." << endl;
     }
@@ -589,18 +606,10 @@ int main_mpmap(int argc, char** argv) {
     
     if (single_path_alignment_mode) {
         // TODO: I don't like having these constants floating around in two different places, but it's not very risky, just a warning
-        if (!snarls_name.empty()) {
-            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S)." << endl;
-        }
         if (num_alt_alns != 4) {
             cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S)." << endl;
         }
-        if (snarl_cut_size != 5) {
-            cerr << "warning:[vg mpmap] Snarl cut limit (-u) is ignored in single path mode (-S)." << endl;
-        }
-        snarls_name = "";
         num_alt_alns = 1;
-        snarl_cut_size = 0;
     }
     
     // ensure required parameters are provided
@@ -702,6 +711,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
     multipath_mapper.use_population_mapqs = (gbwt != nullptr);
+    multipath_mapper.population_max_paths = population_max_paths;
     
     // set pruning and clustering parameters
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;

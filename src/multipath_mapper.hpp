@@ -89,7 +89,7 @@ namespace vg {
         double secondary_rescue_score_diff = 1.0;
         double mapq_scaling_factor = 1.0 / 4.0;
         bool use_population_mapqs = false;
-        size_t population_path_count = 1;
+        size_t population_max_paths = 1;
         double recombination_penalty = 1e-9;
         size_t rescue_only_min = 128;
         size_t rescue_only_anchor_max = 16;
