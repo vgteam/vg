@@ -239,6 +239,8 @@ protected:
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
     /// that contain it
     void find_sub_mems(const vector<MaximalExactMatch>& mems,
+                       int parent_layer_begin,
+                       int parent_layer_end,
                        int mem_idx,
                        string::const_iterator next_mem_end,
                        int min_mem_length,
@@ -253,8 +255,7 @@ protected:
                             int mem_idx,
                             string::const_iterator leftmost_seeding_bound,
                             int min_sub_mem_length,
-                            int recursion_depth,
-                            bool include_parent_in_sub_mem_count);
+                            vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
     
     /// finds the nodes of sub MEMs that do not occur inside parent MEMs, each sub MEM should be associated
     /// with a vector of the indices of the SMEMs that contain it in the parent MEMs vector
