@@ -210,6 +210,10 @@ public:
     void rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
                                              size_t max_rescue_hit_count);
     
+    /// identifies hits for sub-MEMs that are redundant hits to the parent MEMs and removes them
+    /// from the hit lists. for speed's sake, can have false negatives but no false positives
+    void prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems);
+    
     int sub_mem_thinning_burn_in = 0; // start counting at this many bases to verify sub-MEM count
     int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count
     int min_mem_length; // a mem must be >= this length
@@ -221,6 +225,7 @@ public:
     int hit_max;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = true;
     int max_sub_mem_recursion_depth = 1;
+    bool prefilter_redundant_hits = false;
     
     // Remove any bonuses used by the aligners from the final reported scores.
     // Does NOT (yet) remove the haplotype consistency bonus.
