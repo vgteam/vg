@@ -212,7 +212,8 @@ public:
     
     /// identifies hits for sub-MEMs that are redundant hits to the parent MEMs and removes them
     /// from the hit lists. for speed's sake, can have false negatives but no false positives
-    void prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems);
+    void prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
+                                      vector<pair<int, vector<size_t>>>& sub_mem_containment_graph);
     
     int sub_mem_thinning_burn_in = 0; // start counting at this many bases to verify sub-MEM count
     int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count

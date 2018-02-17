@@ -501,9 +501,10 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     
     // the graph of containment relationships between MEMs by index, also keeps track of what the sub-MEM min
     // length the children should be
-    vector<pair<int, vector<size_t>>> sub_mem_containment_graph(mems.size());
+    vector<pair<int, vector<size_t>>> sub_mem_containment_graph;
 
     if (reseed_length) {
+        sub_mem_containment_graph.resize(mems.size());
         
         // record what the minimum length of sub-MEMs they contain should be according to the parameters
         for (size_t i = 0; i < mems.size(); i++) {
@@ -526,7 +527,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             // for all of the MEMs at this depth from the SMEMs in the containment graph
             for (int i = layer_begin; i < layer_end; i++) {
                 
-                auto& mem = mems[i];
+                MaximalExactMatch& mem = mems[i];
                 // invalid mem
                 // TODO: why are we ever producing these??
                 if (mem.begin < seq_begin || mem.end > seq_end) continue;
@@ -545,7 +546,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                     string::const_iterator seed_boundary = i + 1 < layer_end ? mems[i + 1].end : mems[i].begin;
                     
                     // reseed using the technique indicated by the mapper's parameters
-                    vector<pair<MaximalExactMatch, vector<size_t> > > sub_mems;
+                    vector<pair<MaximalExactMatch, vector<size_t>>> sub_mems;
                     if (fast_reseed) {
                         find_sub_mems_fast(mems, layer_begin, layer_end, i, seed_boundary,
                                            min_sub_mem_length, sub_mems);
@@ -555,7 +556,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                                       min_sub_mem_length, sub_mems);
                     }
                     
-                    for (pair<MaximalExactMatch, vector<size_t> >& sub_mem_and_parents : sub_mems) {
+                    for (pair<MaximalExactMatch, vector<size_t>>& sub_mem_and_parents : sub_mems) {
                         // move the MEM to the return vector and the parents to the containment graph
                         mems.emplace_back(move(sub_mem_and_parents.first));
                         sub_mem_containment_graph.emplace_back(0, move(sub_mem_and_parents.second));
@@ -621,12 +622,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
         return m1.begin < m2.begin || (m1.begin == m2.begin && m1.length() > m2.length());
     });
-    
-    // try to identify which hits are redundant sub-MEMs and filter them out
-    if (prefilter_redundant_hits && reseed_length) {
-        prefilter_redundant_sub_mems(mems);
-    }
-
     std::for_each(mems.begin(), mems.end(), [&total_mems](const MaximalExactMatch& mem) { total_mems += mem.nodes.size(); });
     fraction_filtered = (double) filtered_mems / (double) total_mems;
     
@@ -635,6 +630,11 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     mems.erase(unique(mems.begin(), mems.end()), mems.end());
     // remove MEMs that are overlapping positionally (they may be redundant)
     
+    // try to identify which hits are redundant sub-MEMs and filter them out
+    if (prefilter_redundant_hits && reseed_length) {
+        prefilter_redundant_sub_mems(mems, sub_mem_containment_graph);
+    }
+
     return mems;
 }
 
@@ -1015,60 +1015,45 @@ void BaseMapper::find_sub_mems_fast(vector<MaximalExactMatch>& mems,
     reverse(sub_mems_out.begin(), sub_mems_out.end());
 }
 
-void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems) {
+void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
+                                              vector<pair<int, vector<size_t>>>& sub_mem_containment_graph) {
 
     vector<size_t> sub_mem_range_end(mems.size());
     
-    // TODO: it would actually be better in recursive sub-MEMs to prefilter using the parent rather
-    // than the ancestor and to do it in post-order
-    // the parent has more of the redundant hits and is more likely to be on the same node as the child
-    
-    for (size_t i = 0; i < mems.size(); ) {
-        
-        // find the end of the range of MEMs for which this MEM is a parent
-        // note: takes advantage of sort order
-        size_t j = i + 1;
-        while (j < mems.size() ? mems[j].end <= mems[i].end : false) {
-            sub_mem_range_end[j] = j + 1;
-            j++;
-        }
-        sub_mem_range_end[i] = j;
-        i = j;
-    }
-    
     // for each MEM
-    for (size_t i = 0; i < mems.size(); i++) {
-        // for the range of its sub-MEMs
-        for (size_t j = i + 1; j < sub_mem_range_end[i]; j++) {
+    // note: reverse iteration is post order by construction
+    for (int64_t i = mems.size() - 1; i >= 0; i--) {
+        // for all of its parents
+        
+        // get the supposed position this will be for each hit (if it is on the same node)
+        unordered_set<pos_t> extended_hit_positions;
+        for (size_t j : sub_mem_containment_graph[i].second) {
             
-            // how much farther should the sub-MEM be?
-            int64_t relative_offset = mems[j].begin - mems[i].begin;
-            
-            // get the supposed position this will be for each hit (if it is on the same node)
-            unordered_set<pos_t> extended_hit_positions;
-            for (gcsa::node_type hit : mems[i].nodes) {
+            // how much farther should the sub-MEM be than the parent?
+            int64_t relative_offset = mems[i].begin - mems[j].begin;
+            for (gcsa::node_type hit : mems[j].nodes) {
                 pos_t hit_pos = make_pos_t(hit);
                 extended_hit_positions.emplace(id(hit_pos), is_rev(hit_pos), offset(hit_pos) + relative_offset);
             }
-            
-            // remove any nodes whose hit location matches the extended position
-            auto& nodes = mems[j].nodes;
-            size_t removed_so_far = 0;
-            for (size_t k = 0; k < nodes.size(); k++) {
-                if (extended_hit_positions.count(make_pos_t(nodes[k]))) {
-                    // definitely redundant, skip this one
-                    removed_so_far++;
-                }
-                else if (removed_so_far > 0) {
-                    // move this one up in the list to its new index accounting for skips
-                    nodes[k - removed_so_far] = nodes[k];
-                }
+        }
+        
+        // remove any nodes whose hit location matches the extended position
+        vector<gcsa::node_type>& nodes = mems[i].nodes;
+        size_t removed_so_far = 0;
+        for (size_t k = 0; k < nodes.size(); k++) {
+            if (extended_hit_positions.count(make_pos_t(nodes[k]))) {
+                // definitely redundant, skip this one
+                removed_so_far++;
             }
-            
-            // take off the end of the list, which only contains skipped hits and hits that have moved up
-            if (removed_so_far) {
-                nodes.resize(nodes.size() - removed_so_far);
+            else if (removed_so_far > 0) {
+                // move this one up in the list to its new index accounting for skips
+                nodes[k - removed_so_far] = nodes[k];
             }
+        }
+        
+        // take off the end of the list, which only contains skipped hits and hits that have moved up
+        if (removed_so_far) {
+            nodes.resize(nodes.size() - removed_so_far);
         }
     }
 }
