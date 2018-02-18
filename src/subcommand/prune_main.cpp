@@ -37,23 +37,20 @@ using namespace vg::subcommand;
 struct PruningParameters
 {
     const static int    KMER_LENGTH = 16;
-    const static int    KMER_LENGTH_UNFOLDING = 16;
-    const static int    EDGE_MAX = 4;
-    const static int    EDGE_MAX_UNFOLDING = 4;
+    const static int    KMER_LENGTH_UNFOLDING = 24;
+    const static int    EDGE_MAX = 3;
+    const static int    EDGE_MAX_UNFOLDING = 3;
     const static size_t SUBGRAPH_MIN = 33;
     const static size_t SUBGRAPH_MIN_UNFOLDING = 33;
 };
 
-enum PruningMode { mode_prune, mode_preserve, mode_restore, mode_unfold };
+enum PruningMode { mode_prune, mode_restore, mode_unfold };
 
 std::string mode_name(PruningMode mode) {
     std::string result = "unknown";
     switch (mode) {
     case mode_prune:
         result = "(plain)";
-        break;
-    case mode_preserve:
-        result = "--preserve-paths";
         break;
     case mode_restore:
         result = "--restore-paths";
@@ -67,8 +64,8 @@ std::string mode_name(PruningMode mode) {
 
 void help_prune(char** argv) {
     std::cerr << "usage: " << argv[0] << " prune [options] <graph.vg> >[output.vg]" << std::endl;
-    std::cerr << "Prunes the complex regions of the graph for GCSA2 indexing. By default," << std::endl;
-    std::cerr << "pruning removes the embedded paths." << std::endl;
+    std::cerr << "Prunes the complex regions of the graph for GCSA2 indexing. Prunign the graph" << std::endl;
+    std::cerr << "removes embedded paths." << std::endl;
     std::cerr << "pruning parameters:" << std::endl;
     std::cerr << "    -k, --kmer-length N    kmer length used for pruning" << std::endl;
     std::cerr << "                           (default: " << PruningParameters::KMER_LENGTH << "; " << PruningParameters::KMER_LENGTH_UNFOLDING << " with unfolding)" << std::endl;
@@ -76,13 +73,12 @@ void help_prune(char** argv) {
     std::cerr << "                           (default: " << PruningParameters::EDGE_MAX << "; " << PruningParameters::EDGE_MAX_UNFOLDING << " with unfolding)" << std::endl;
     std::cerr << "    -s, --subgraph-min N   remove subgraphs of < N bases" << std::endl;
     std::cerr << "                           (default: " << PruningParameters::SUBGRAPH_MIN << "; " << PruningParameters::SUBGRAPH_MIN_UNFOLDING << " with unfolding)" << std::endl;
-    std::cerr << "pruning modes (-P, -r, and -u are mutually exclusive):" << std::endl;
-    std::cerr << "    -P, --preserve-paths   preserve the non-alt paths and the edges on them" << std::endl;
+    std::cerr << "pruning modes (-r and -u are mutually exclusive):" << std::endl;
     std::cerr << "    -r, --restore-paths    restore the edges on XG paths (requires -x)" << std::endl;
     std::cerr << "    -u, --unfold-paths     unfold XG paths (requires -x)" << std::endl;
-    std::cerr << "    -x, --xg-name FILE     use this XG index" << std::endl;
     std::cerr << "    -v, --verify-paths     verify that the path exist after pruning" << std::endl;
     std::cerr << "unfolding options:" << std::endl;
+    std::cerr << "    -x, --xg-name FILE     unfold XG paths" << std::endl;
     std::cerr << "    -g, --gbwt-name FILE   also unfold GBWT threads" << std::endl;
     std::cerr << "    -m, --mapping FILE     store the node mapping for duplicates in this file" << std::endl;
     std::cerr << "    -a, --append-mapping   append to the existing node mapping (requires -m)" << std::endl;
@@ -119,11 +115,10 @@ int main_prune(int argc, char** argv) {
             { "kmer-length", required_argument, 0, 'k' },
             { "edge-max", required_argument, 0, 'e' },
             { "subgraph-min", required_argument, 0, 's' },
-            { "preserve-paths", no_argument, 0, 'P' },
             { "restore-paths", no_argument, 0, 'r' },
             { "unfold-paths", no_argument, 0, 'u' },
-            { "xg-name", required_argument, 0, 'x' },
             { "verify-paths", no_argument, 0, 'v' },
+            { "xg-name", required_argument, 0, 'x' },
             { "gbwt-name", required_argument, 0, 'g' },
             { "mapping", required_argument, 0, 'm' },
             { "append-mapping", no_argument, 0, 'a' },
@@ -134,7 +129,7 @@ int main_prune(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "k:e:s:Prux:vg:m:apt:d", long_options, &option_index);
+        c = getopt_long (argc, argv, "k:e:s:ruvx:g:m:apt:d", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -151,20 +146,17 @@ int main_prune(int argc, char** argv) {
             subgraph_min = stoul(optarg);
             subgraph_min_set = true;
             break;
-        case 'P':
-            mode = mode_preserve;
-            break;
         case 'r':
             mode = mode_restore;
             break;
         case 'u':
             mode = mode_unfold;
             break;
-        case 'x':
-            xg_name = optarg;
-            break;
         case 'v':
             verify_paths = true;
+            break;
+        case 'x':
+            xg_name = optarg;
             break;
         case 'g':
             gbwt_name = optarg;
@@ -196,11 +188,7 @@ int main_prune(int argc, char** argv) {
             std::abort();
         }
     }
-    if (optind >= argc) {
-        std::cerr << "[vg prune]: graph name was not specified" << std::endl;
-        return 1;
-    }
-    vg_name = argv[optind];
+    vg_name = (optind >= argc ? "(stdin)" : argv[optind]);
     if (!(kmer_length > 0 && edge_max > 0)) {
         std::cerr << "[vg prune]: --kmer-length and --edge-max must be positive" << std::endl;
         return 1;
@@ -216,12 +204,6 @@ int main_prune(int argc, char** argv) {
             std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not have paths to verify" << std::endl;
             return 1;
         }
-        if (!(xg_name.empty() && gbwt_name.empty() && mapping_name.empty())) {
-            std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not use additional files" << std::endl;
-            return 1;
-        }
-    }
-    if (mode == mode_preserve) {
         if (!(xg_name.empty() && gbwt_name.empty() && mapping_name.empty())) {
             std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not use additional files" << std::endl;
             return 1;
@@ -287,7 +269,7 @@ int main_prune(int argc, char** argv) {
 
     // Handle the input.
     VG* graph;
-    get_input_file(vg_name, [&](std::istream& in) {
+    get_input_file(optind, argc, argv, [&](std::istream& in) {
         graph = new VG(in);
     });
     vg::id_t max_node_id = graph->max_node_id();
@@ -295,28 +277,14 @@ int main_prune(int argc, char** argv) {
         std::cerr << "Original graph " << vg_name << ": " << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
     }
 
-    // Remove unnecessary paths.
-    if (mode == mode_preserve) {
-        regex is_alt("_alt_.+_[0-9]+");
-        std::set<std::string> to_remove;
-        graph->paths.for_each([&](const Path& path) {
-            if (regex_match(path.name(), is_alt)) {
-                to_remove.insert(path.name());
-            }
-        });
-        graph->paths.remove_paths(to_remove);
-        if (show_progress) {
-            std::cerr << "Removed alt paths" << std::endl;
-        }
-    } else {
-        graph->paths.clear();
-        if (show_progress) {
-            std::cerr << "Removed all paths" << std::endl;
-        }
+    // Remove all paths.
+    graph->paths.clear();
+    if (show_progress) {
+        std::cerr << "Removed all paths" << std::endl;
     }
 
     // Prune the graph.
-    graph->prune_complex_with_head_tail(kmer_length, edge_max, (mode == mode_preserve));
+    graph->prune_complex_with_head_tail(kmer_length, edge_max);
     if (show_progress) {
         std::cerr << "Pruned complex regions: "
                   << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
@@ -325,17 +293,6 @@ int main_prune(int argc, char** argv) {
     if (show_progress) {
         std::cerr << "Removed small subgraphs: "
                   << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
-    }
-
-    // Preserve the VG paths.
-    if (mode == mode_preserve) {
-        if (verify_paths) {
-            if (!graph->is_valid(false, false, true, false)) {
-                std::cerr << "[vg prune]: verification failed" << std::endl;
-            } else if (show_progress) {
-                std::cerr << "Verification successful" << std::endl;
-            }
-        }
     }
 
     // Restore the XG paths.
