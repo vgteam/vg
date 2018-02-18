@@ -1984,8 +1984,6 @@ size_t XG::node_start(int64_t id) const {
 }
 
 size_t XG::max_path_rank(void) const {
-    //cerr << pn_bv << endl;
-    //cerr << "..." << pn_bv_rank(pn_bv.size()) << endl;
     return pn_bv.size() ? pn_bv_rank(pn_bv.size()) : 0;
 }
 
