@@ -97,48 +97,52 @@ bool verify_path(const PathType& path, VG& unfolded, const std::map<vg::id_t, st
     }
 
     // For each branching point: (offset, next duplicate at offset, next duplicate at offset + 1).
+    // Initialize with all duplicates of the first node.
+    std::vector<PathBranch> branches;
+    {
+        vg::id_t node_id = path_node(path, 0);
+        auto iter = reverse_mapping.find(node_id);
+        if (iter != reverse_mapping.end()) {
+            for (size_t i = 0; i < iter->second.size(); i++) {
+                branches.push_back({ 0, i, 0 });
+            }
+        } else {
+            branches.push_back({ 0, 0, 0 });
+        }
+    }
+
     // Note that we can discard all unexplored branches every time the graph
     // contains the original node or only one duplicate of the current node.
-    std::vector<PathBranch> branches { { 0, 0, 0 } };
     while (!branches.empty()) {
         PathBranch branch = branches.back(); branches.pop_back();
-        size_t curr_duplicates = 0;
         vg::id_t node_id = path_node(path, branch.offset);
         auto iter = reverse_mapping.find(node_id);
         if (iter != reverse_mapping.end()) {
-            const std::vector<vg::id_t>& duplicates = iter->second;
-            curr_duplicates = duplicates.size();
-            node_id = duplicates[branch.curr];
+            node_id = iter->second[branch.curr];
         }
+        gbwt::node_type curr = gbwt::Node::encode(node_id, path_reverse(path, branch.offset));
 
         // Extend the next path from the current branch.
-        gbwt::node_type curr = gbwt::Node::encode(node_id, path_reverse(path, branch.offset));
         while (branch.offset + 1 < path_size(path)) {
-            size_t next_duplicates = 0;
             node_id = path_node(path, branch.offset + 1);
+            size_t duplicates = 0;
             iter = reverse_mapping.find(node_id);
             if (iter != reverse_mapping.end()) {
-                const std::vector<vg::id_t>& duplicates = iter->second;
-                next_duplicates = duplicates.size();
-                node_id = duplicates[branch.next];
-                if (branch.next + 1 < duplicates.size()) {
+                node_id = iter->second[branch.next];
+                duplicates = iter->second.size();
+                if (branch.next + 1 < duplicates) {
                     branches.push_back({ branch.offset, branch.curr, branch.next + 1 });
-                } else if (branch.curr + 1 < curr_duplicates) {
-                    branches.push_back({ branch.offset, branch.curr + 1, 0 });
                 }
-            } else if (branch.curr + 1 < curr_duplicates) {
-                branches.push_back({ branch.offset, branch.curr + 1, 0 });
             }
             gbwt::node_type next = gbwt::Node::encode(node_id, path_reverse(path, branch.offset + 1));
             Edge candidate = PhaseUnfolder::make_edge(curr, next);
             if (!unfolded.has_edge(candidate)) {
                 break;
             }
-            if (next_duplicates <= 1) { // All paths corresponding to this must go through the next node.
+            if (duplicates <= 1) {  // All paths corresponding to this must go through the next node.
                 branches.clear();
             }
             curr = next;
-            curr_duplicates = next_duplicates;
             branch.advance();
         }
         if (branch.offset + 1 >= path_size(path)) {
@@ -197,6 +201,7 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
 
     if (show_progress) {
         delete progress; progress = nullptr;
+        std::cerr << std::endl;
     }
     return failures;
 }
