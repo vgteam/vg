@@ -1082,15 +1082,13 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
             *aln.mutable_path()->add_mapping() = m;
         }
         if (i == 0) {
-            merged = aln; merged.clear_sequence();
+            merged = aln;
         } else {
             if (!merged.quality().empty()) merged.mutable_quality()->append(aln.quality());
             extend_path(*merged.mutable_path(), aln.path());
             merged.mutable_sequence()->append(aln.sequence());
         }
     }
-    //*merged.mutable_path() = simplify(merged.path());
-    //merged.mutable_sequence() = 
     return merged;
 }
 
