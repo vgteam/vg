@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 46
+plan tests 47
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -162,3 +162,8 @@ is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '*\n*')" "surjecti
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16')" "surjection of unpaired reads to SAM produces correct flags"
 
 rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa x.gcsa.lcp x.gbwt graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp surjected.sam
+
+vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >tiny.vg
+vg index -k 16 -x tiny.xg -g tiny.gcsa tiny.vg
+is $(vg map -d tiny -f tiny/tiny.fa -j | jq .identity) 1 "mapper can read FASTA input"
+rm -f tiny.vg tiny.xg tiny.gcsa tiny.gcsa.lcp

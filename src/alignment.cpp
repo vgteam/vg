@@ -98,11 +98,18 @@ bam_hdr_t* hts_string_header(string& header,
 bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment) {
 
     alignment.Clear();
-
+    bool is_fasta = false;
     // handle name
     if (0!=gzgets(fp,buffer,len)) {
         buffer[strlen(buffer)-1] = '\0';
         string name = buffer;
+        if (name[0] == '@') {
+            is_fasta = false;
+        } else if (name[0] = '>') {
+            is_fasta = true;
+        } else {
+            throw runtime_error("Found unexpected delimiter " + name.substr(0,1) + " in fastq/fasta input");
+        }
         name = name.substr(1); // trim off leading @
         // keep trailing /1 /2
         alignment.set_name(name);
@@ -115,18 +122,20 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
         cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
     }
     // handle "+" sep
-    if (0!=gzgets(fp,buffer,len)) {
-    } else {
-        cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
-    }
-    // handle quality
-    if (0!=gzgets(fp,buffer,len)) {
-        buffer[strlen(buffer)-1] = '\0';
-        string quality = string_quality_char_to_short(buffer);
-        //cerr << string_quality_short_to_char(quality) << endl;
-        alignment.set_quality(quality);
-    } else {
-        cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
+    if (!is_fasta) {
+        if (0!=gzgets(fp,buffer,len)) {
+        } else {
+            cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
+        }
+        // handle quality
+        if (0!=gzgets(fp,buffer,len)) {
+            buffer[strlen(buffer)-1] = '\0';
+            string quality = string_quality_char_to_short(buffer);
+            //cerr << string_quality_short_to_char(quality) << endl;
+            alignment.set_quality(quality);
+        } else {
+            cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
+        }
     }
 
     return true;
