@@ -41,4 +41,4 @@ vg map -x x.xg -g x.gcsa -T x.reads >x.gam
 is "$(vg stats -a x.gam x.vg | md5sum | cut -f 1 -d\ )" "$(md5sum correct/10_vg_stats/15.txt | cut -f 1 -d\ )" "aligned read stats are computed correctly"
 rm -f x.vg x.xg x.gcsa x.gam x.reads
 
-is $(vg msga -f msgas/cycle.fa -b s1 -w 64 -N --patch-aln -t 1 | vg mod -U 10 - | vg stats -O - | wc -l) 77 "a path overlap description of a cyclic graph built by msga has the expected length"
+is $(vg msga -f msgas/cycle.fa -b s1 -w 64 -N -t 1 | vg mod -U 10 - | vg stats -O - | wc -l) 77 "a path overlap description of a cyclic graph built by msga has the expected length"
