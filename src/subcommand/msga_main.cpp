@@ -45,7 +45,7 @@ void help_msga(char** argv) {
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [10*{-w}]" << endl
          << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [1]" << endl
          << "    -M, --max-multimaps INT consider this many alternate alignments for the entire sequence [1]" << endl
-         << "    --patch-aln             patch banded alignments by attempting to align unaligned regions" << endl 
+         << "    --no-patch-aln          do not patch banded alignments by locally aligning unaligned regions" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -129,7 +129,7 @@ int main_msga(int argc, char** argv) {
     bool use_fast_reseed = true;
     bool show_align_progress = false;
     bool bigger_first = true;
-    bool patch_alignments = false;
+    bool patch_alignments = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -178,7 +178,7 @@ int main_msga(int argc, char** argv) {
                 {"drop-chain", required_argument, 0, 'C'},
                 {"align-progress", no_argument, 0, 'S'},
                 {"bigger-first", no_argument, 0, 'a'},
-                {"patch-alns", no_argument, 0, '8'},
+                {"no-patch-aln", no_argument, 0, '8'},
                 {0, 0, 0, 0}
             };
 
@@ -357,7 +357,7 @@ int main_msga(int argc, char** argv) {
             break;
 
         case '8':
-            patch_alignments = true;
+            patch_alignments = false;
             break;
 
         case 'h':

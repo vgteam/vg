@@ -45,7 +45,7 @@ void help_map(char** argv) {
          << "    -F, --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
          << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
-         << "    --patch-aln             patch banded alignments by attempting to align unaligned regions" << endl 
+         << "    --no-patch-aln          do not patch banded alignments by locally aligning unaligned regions" << endl
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -154,7 +154,7 @@ int main_map(int argc, char** argv) {
     int fragment_model_update = 10;
     bool acyclic_graph = false;
     bool refpos_table = false;
-    bool patch_alignments = false;
+    bool patch_alignments = true;
     int surject_min_softclip = 4;
 
     int c;
@@ -220,7 +220,7 @@ int main_map(int argc, char** argv) {
                 {"id-mq-weight", required_argument, 0, '7'},
                 {"refpos-table", no_argument, 0, 'v'},
                 {"surject-to", required_argument, 0, '5'},
-                {"patch-alns", no_argument, 0, '8'},
+                {"no-patch-aln", no_argument, 0, '8'},
                 {"surj-min-softclip", required_argument, 0, '9'},
                 {"drop-full-l-bonus", no_argument, 0, '2'},
                 {0, 0, 0, 0}
@@ -437,7 +437,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case '8':
-            patch_alignments = true;
+            patch_alignments = false;
             break;
 
         case '9':
