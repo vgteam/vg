@@ -77,6 +77,7 @@ void help_prune(char** argv) {
     std::cerr << "    -r, --restore-paths    restore the edges on XG paths (requires -x)" << std::endl;
     std::cerr << "    -u, --unfold-paths     unfold XG paths (requires -x)" << std::endl;
     std::cerr << "    -v, --verify-paths     verify that the path exist after pruning" << std::endl;
+    std::cerr << "                           (potentially very slow)" << std::endl;
     std::cerr << "unfolding options:" << std::endl;
     std::cerr << "    -x, --xg-name FILE     unfold XG paths" << std::endl;
     std::cerr << "    -g, --gbwt-name FILE   also unfold GBWT threads" << std::endl;
@@ -305,11 +306,9 @@ int main_prune(int argc, char** argv) {
         PhaseUnfolder unfolder(xg_index, gbwt_index, max_node_id + 1);
         unfolder.restore_paths(*graph, show_progress);
         if (verify_paths) {
-            size_t failures = unfolder.verify_paths(*graph);
+            size_t failures = unfolder.verify_paths(*graph, show_progress);
             if (failures > 0) {
                 std::cerr << "[vg prune]: verification failed for " << failures << " paths" << std::endl;
-            } else if (show_progress) {
-                std::cerr << "Verification successful" << std::endl;
             }
         }
     }
@@ -335,11 +334,9 @@ int main_prune(int argc, char** argv) {
             unfolder.write_mapping(mapping_name);
         }
         if (verify_paths) {
-            size_t failures = unfolder.verify_paths(*graph);
+            size_t failures = unfolder.verify_paths(*graph, show_progress);
             if (failures > 0) {
                 std::cerr << "[vg prune]: verification failed for " << failures << " paths" << std::endl;
-            } else if (show_progress) {
-                std::cerr << "Verification successful" << std::endl;
             }
         }
     }

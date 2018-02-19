@@ -1,6 +1,6 @@
 #include "phase_unfolder.hpp"
+#include "progress_bar.hpp"
 
-#include <atomic>
 #include <iostream>
 #include <map>
 
@@ -90,13 +90,13 @@ struct PathBranch {
 };
 
 template<class PathType>
-bool verify_path(const PathType& path, VG& unfolded, const std::unordered_map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
+bool verify_path(const PathType& path, VG& unfolded, const std::map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
 
     if (path_size(path) < 2) {
         return true;
     }
 
-    // For each branching point: (offset, next duplicate to investigate).
+    // For each branching point: (offset, next duplicate at offset, next duplicate at offset + 1).
     // Note that we can discard all unexplored branches every time the graph
     // contains the original node or only one duplicate of the current node.
     std::vector<PathBranch> branches { { 0, 0, 0 } };
@@ -149,13 +149,12 @@ bool verify_path(const PathType& path, VG& unfolded, const std::unordered_map<vg
     return false;
 }
 
-size_t PhaseUnfolder::verify_paths(VG& unfolded) const {
-
-    std::atomic<size_t> failures(0);
+size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
 
     // Create a mapping from original -> duplicates.
     // TODO Interface for the duplicate range in NodeMapping.
-    std::unordered_map<vg::id_t, std::vector<vg::id_t>> reverse_mapping;
+    // TODO Replace with a hash map once the hashing issue has been resolved.
+    std::map<vg::id_t, std::vector<vg::id_t>> reverse_mapping;
     for (gcsa::size_type duplicate = this->mapping.first_node; duplicate < this->mapping.next_node; duplicate++) {
         vg::id_t original_id = this->mapping(duplicate);
         reverse_mapping[original_id].push_back(duplicate);
@@ -167,22 +166,38 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded) const {
         gcsa::removeDuplicates(mapping.second, false);
     }
 
-    size_t total_paths = this->xg_index.max_path_rank() + this->gbwt_index.sequences();
+    size_t total_paths = this->xg_index.max_path_rank() + this->gbwt_index.sequences(), verified = 0, failures = 0;
+    ProgressBar* progress = nullptr;
+    if (show_progress) {
+        progress = new ProgressBar(total_paths, "Verifying paths");
+        progress->Progressed(verified);
+    }
+
     #pragma omp parallel for schedule(dynamic, 1)
     for (size_t i = 0; i < total_paths; i++) {
+        bool successful = true;
         if (i < this->xg_index.max_path_rank()) {
             const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(i + 1));
-            if (!verify_path(path, unfolded, reverse_mapping)) {
-                failures++;
-            }
+            successful = verify_path(path, unfolded, reverse_mapping);
         } else {
             std::vector<gbwt::node_type> path = this->gbwt_index.extract(i - this->xg_index.max_path_rank());
-            if (!verify_path(path, unfolded, reverse_mapping)) {
+            successful = verify_path(path, unfolded, reverse_mapping);
+        }
+        #pragma omp critical
+        {
+            if (!successful) {
                 failures++;
+            }
+            verified++;
+            if (show_progress) {
+                progress->Progressed(verified);
             }
         }
     }
 
+    if (show_progress) {
+        delete progress; progress = nullptr;
+    }
     return failures;
 }
 

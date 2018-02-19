@@ -73,7 +73,7 @@ public:
      * backing indexes. Returns the number of paths for which the verification
      * failed. Uses OMP threads.
      */
-    size_t verify_paths(VG& unfolded) const;
+    size_t verify_paths(VG& unfolded, bool show_progress = false) const;
 
     /**
      * Write the mapping to the specified file with a header. The file will
