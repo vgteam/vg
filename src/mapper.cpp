@@ -3675,6 +3675,7 @@ vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, vect
         }
         //cerr << "position: " << p << " strip " << to_strip[i].first << " " << to_strip[i].second << endl;
         auto& aln = bands[i];
+        aln.set_name(read.name());
         aln.set_sequence(read.sequence().substr(p, segment_size));
         if (!read.quality().empty()) aln.set_quality(read.quality().substr(p, segment_size));
         ++i;
@@ -4321,6 +4322,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                 // let's try to patch this insertion into the gap between the neighboring bits
                 //cerr << "patching " << pb2json(edit) << endl;
                 Alignment patch;
+                patch.set_name(aln.name());
                 patch.set_sequence(edit.sequence());
                 if (!aln.quality().empty()) {
                     patch.set_quality(aln.quality().substr(read_pos, edit.sequence().size()));

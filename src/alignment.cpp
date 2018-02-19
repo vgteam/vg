@@ -1063,6 +1063,7 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
     // execute a serial merge
     // buliding up the alignment
     Alignment merged;
+    merged.set_name(alns.front().name());
 
     size_t len = 0;
     for (size_t i = 0; i < alns.size(); ++i) {
@@ -1108,6 +1109,7 @@ Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug)
     if (debug) cerr << "merging alignments " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
     // concatenate them
     Alignment a3;
+    a3.set_name(a1.name());
     a3.set_sequence(a1.sequence() + a2.sequence());
     *a3.mutable_path() = concat_paths(a1.path(), a2.path());
     if (debug) cerr << "merged alignments, result is " << endl << pb2json(a3) << endl;
