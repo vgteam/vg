@@ -604,12 +604,21 @@ int main_mpmap(int argc, char** argv) {
     
     // adjust parameters that produce irrelevant extra work in single path mode
     
-    if (single_path_alignment_mode) {
+    if (single_path_alignment_mode && population_max_paths == 1) {
         // TODO: I don't like having these constants floating around in two different places, but it's not very risky, just a warning
+        if (!snarls_name.empty()) {
+            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
+        }
+        
+        if (snarl_cut_size != 5) {
+            cerr << "warning:[vg mpmap] Snarl cut limit (-u) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
+        }
+        
         if (num_alt_alns != 4) {
-            cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S)." << endl;
+            cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
         }
         num_alt_alns = 1;
+        
     }
     
     // ensure required parameters are provided

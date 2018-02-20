@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 7
+plan tests 11
 
 
 # Exercise the GBWT
@@ -17,24 +17,24 @@ vg index -x xy2.xg -g xy2.gcsa -v small/xy2.vcf.gz --gbwt-name xy2.gbwt -k 16 xy
 
 # This read is part ref and part alt which matches a haplotype on X, but is possible on Y as well.
 is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa -f reads/xy2.match.fq -S | vg view -aj - | jq '.mapping_quality')" "null" "MAPQ is 0 without haplotype info"
-is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.match.fq -S | vg view -aj - | jq '.mapping_quality')" "18" "haplotype match can disambiguate"
+is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.match.fq -S | vg view -aj - | jq '.mapping_quality')" "1" "haplotype match can disambiguate"
 
 # For paired end, don't do any fragment length estimation
 
 is "$(vg mpmap -B -P 1 -I 200 -D 200 -x xy2.xg -g xy2.gcsa -f reads/xy2.matchpaired.fq -i -S | vg view -aj - | head -n1 | jq '.mapping_quality')" "null" "MAPQ is 0 when paired without haplotype info"
-is "$(vg mpmap -B -P 1 -I 200 -D 200 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.matchpaired.fq -i -S | vg view -aj - | head -n1 | jq '.mapping_quality')" "18" "haplotype match can disambiguate paired"
+is "$(vg mpmap -B -P 1 -I 200 -D 200 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.matchpaired.fq -i -S | vg view -aj - | head -n1 | jq '.mapping_quality')" "1" "haplotype match can disambiguate paired"
 
-# Now we map a read with genotype 0,1,0,1 against haplotypes 1,1,1,1|0,1,0,0 and 1,1,1,1|0,0,0,1 on X and Y
-# Variant 2 is an insert, while variant 4 is a SNP.
-# So haplotypes 2 on X and 2 on Y look the same for crossovers
-# Until you look at scores and the SNP-mismatch alignment to X is 0 crossovers at 1 mismatch and better than the indel-alignment to Y
-# The best place for it is X haplotype 2 with a mismatch instead of the second alt variant
+# Now we map a read with genotype 0,1,0,1 against haplotypes 1,1,1,1|0,1,0,0 and 1,1,0,1|0,0,1,0 on X and Y
+# First 2 variants are inserts; second 2 are SNPs
+# The right place is haplotype 2 on X with a SNP mismatch. But unless you do multiple tracebacks it gets placed on Y at MAPQ 0
 
 # We need to use snarl cutting to actually consider the alignment as not just a single subpath
-vg snarls xy2.xg > xy2.snarls
+vg snarls xy2.vg > xy2.snarls
 
-is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 1 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.mapping_quality')" "0" "MAPQ is 0 with haplotype info at one path per MultipathAlignment"
-is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 10 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.mapping_quality')" "18" "more paths per MultipathAlignment can disambiguate"
+is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 1 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.path.mapping[0].position.node_id')" "50" "Single traceback places read on the wrong contig"
+is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 1 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.mapping_quality')" "null" "Single traceback places read with MAPQ 0"
+is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 20 -f reads/xy2.discordant.fq -t 1 -S | vg view -aj - | jq '.path.mapping[0].position.node_id')" "1" "Multiple tracebacks place read on the right contig"
+is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 10 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.mapping_quality')" "1" "Multiple tracebacks place read with nonzero MAPQ"
 
 rm -f xy2.vg xy2.xg xy2.gcsa xy2.gcsa.lcp xy2.gbwt xy2.snarls
 
