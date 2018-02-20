@@ -1090,7 +1090,7 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
             merged.mutable_sequence()->append(aln.sequence());
         }
     }
-    return merged;
+    return simplify(merged);
 }
 
 Alignment& extend_alignment(Alignment& a1, const Alignment& a2, bool debug) {

@@ -1012,6 +1012,11 @@ Path& extend_path(Path& path1, const Path& path2) {
         exit(1);
     }
     */
+    // set path ranks
+    for (size_t i = 0; i < path1.mapping_size(); ++i) {
+        auto* m = path1.mutable_mapping(i);
+        m->set_rank(i+1);
+    }
     // and return a reference to the first path where we added the mappings of the second
     return path1;
 }
@@ -1072,7 +1077,7 @@ Path concat_paths(const Path& path1, const Path& path2) {
     //cerr << ">>>>" << endl;
     //cerr << pb2json(res) << endl;
     //cerr << "<<<<<<<<<<<<<<<<<<<<<<<<<<<< end " << endl;
-    return res;
+    return simplify(res);
 }
 
 Path simplify(const Path& p, bool trim_internal_deletions) {
