@@ -21,9 +21,9 @@ BaseMapper::BaseMapper(xg::XG* xidex,
       , min_mem_length(1)
       , mem_reseed_length(0)
       , fast_reseed(true)
-      , fast_reseed_length_diff(0.75)
+      , fast_reseed_length_diff(0.45)
       , adaptive_reseed_diff(false)
-      , adaptive_diff_exponent(0.05)
+      , adaptive_diff_exponent(0.065)
       , hit_max(0)
       , alignment_threads(1)
       , qual_adj_aligner(nullptr)
@@ -2103,7 +2103,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length,
-                                                     true, false, false, true, 2);
+                                                     false, true, true, false);
 
     vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
                                                      read2.sequence().end(),
@@ -2112,7 +2112,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length,
-                                                     true, false, false, true, 2);
+                                                     false, true, true, false);
 
     double mq_cap1, mq_cap2;
     mq_cap1 = mq_cap2 = max_mapping_quality;
@@ -2364,7 +2364,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size() && (!to_drop1.count(&cluster1)
-                                || filled1 < min_multimaps)) {
+                                || filled1 < max_multimaps)) {
             p.first = align_cluster(read1, cluster1, true);
             ++filled1;
         } else {
@@ -2374,7 +2374,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_path();
         }
         if (cluster2.size() && (!to_drop2.count(&cluster2)
-                                || filled2 < min_multimaps)) {
+                                || filled2 < max_multimaps)) {
             p.second = align_cluster(read2, cluster2, true);
             ++filled2;
         } else {
@@ -3006,7 +3006,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     for (auto& cluster : clusters) {
         if (alns.size() >= total_multimaps) { break; }
         // skip if we've filtered the cluster
-        if (to_drop.count(&cluster) && filled >= min_multimaps*4) {
+        if (to_drop.count(&cluster) && filled >= max_multimaps) {
             alns.push_back(aln);
             used_clusters.push_back(&cluster);
             continue;
@@ -4014,7 +4014,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         max_mem_length,
                                                         min_mem_length,
                                                         mem_reseed_length,
-                                                        true, false, false, true, 2);
+                                                        false, true, true, false);
         // query mem hits
         alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }

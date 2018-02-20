@@ -21,17 +21,17 @@ void help_map(char** argv) {
          << "    -1, --gbwt-name         use this GBWT haplotype index (defaults to <graph>"<<gbwt::GBWT::EXTENSION << ")" << endl
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
-         << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
+         << "    -k, --min-seed INT      minimum seed (MEM) length [1]" << endl
          << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [1024]" << endl
-         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [1e-4]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
-         << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
+         << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than FLOAT*cluster length {-W} [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [2]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than FLOAT [0]" << endl
          << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
-         << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0]" << endl
+         << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT (set to -1 to estimated via -e) [-1]" << endl
+         << "    -e, --cluster-p FLOAT   set {-W} such that this fraction of {-W} length hits will by chance [1e-4]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
@@ -114,8 +114,8 @@ int main_map(int argc, char** argv) {
     bool always_rescue = false;
     bool top_pairs_only = false;
     int max_mem_length = 0;
-    int min_mem_length = -1;
-    int min_cluster_length = 0;
+    int min_mem_length = 1;
+    int min_cluster_length = -1;
     float mem_reseed_factor = 1.5;
     int max_target_factor = 100;
     int buffer_size = 512;
@@ -143,7 +143,7 @@ int main_map(int argc, char** argv) {
     bool fragment_direction = true;
     float chance_match = 1e-4;
     bool use_fast_reseed = true;
-    float drop_chain = 0.0;
+    float drop_chain = 0.4;
     float mq_overlap = 0.0;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
@@ -207,7 +207,7 @@ int main_map(int argc, char** argv) {
                 {"full-l-bonus", required_argument, 0, 'L'},
                 {"hap-exp", required_argument, 0, 'a'},
                 {"acyclic-graph", no_argument, 0, 'm'},
-                {"seed-chance", required_argument, 0, 'e'},
+                {"cluster-p", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
                 {"mq-overlap", required_argument, 0, 'n'},
                 {"try-at-least", required_argument, 0, 'l'},
@@ -868,10 +868,10 @@ int main_map(int argc, char** argv) {
         m->min_identity = min_score;
         m->drop_chain = drop_chain;
         m->mq_overlap = mq_overlap;
-        m->min_mem_length = (min_mem_length > 0 ? min_mem_length
-                             : m->random_match_length(chance_match));
-        m->mem_reseed_length = round(mem_reseed_factor * m->min_mem_length);
-        m->min_cluster_length = min_cluster_length;
+        m->min_mem_length = min_mem_length;
+        m->min_cluster_length = (min_cluster_length > 0 ? min_cluster_length
+                                 : m->random_match_length(chance_match));
+        m->mem_reseed_length = round(mem_reseed_factor * max(m->min_mem_length, m->min_cluster_length));
         if (debug && i == 0) {
             cerr << "[vg map] : min_mem_length = " << m->min_mem_length
                  << ", mem_reseed_length = " << m->mem_reseed_length

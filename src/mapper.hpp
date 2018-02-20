@@ -218,12 +218,12 @@ public:
     int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count
     int min_mem_length; // a mem must be >= this length
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
-    bool fast_reseed; // use the fast reseed algorithm
-    double fast_reseed_length_diff; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
-    bool adaptive_reseed_diff; // use an adaptive length difference algorithm in reseed algorithm
-    double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
+    bool fast_reseed = true; // use the fast reseed algorithm
+    double fast_reseed_length_diff = 0.45; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
+    bool adaptive_reseed_diff = true; // use an adaptive length difference algorithm in reseed algorithm
+    double adaptive_diff_exponent = 0.065; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
-    bool use_approx_sub_mem_count = true;
+    bool use_approx_sub_mem_count = false;
     bool prefilter_redundant_hits = true;
     
     // Remove any bonuses used by the aligners from the final reported scores.
