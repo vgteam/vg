@@ -2367,7 +2367,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size() && (!to_drop1.count(&cluster1)
-                                || filled1 < max_multimaps)) {
+                                || filled1 < min_multimaps)) {
             p.first = align_cluster(read1, cluster1, true);
             ++filled1;
         } else {
@@ -2377,7 +2377,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_path();
         }
         if (cluster2.size() && (!to_drop2.count(&cluster2)
-                                || filled2 < max_multimaps)) {
+                                || filled2 < min_multimaps)) {
             p.second = align_cluster(read2, cluster2, true);
             ++filled2;
         } else {
@@ -3009,7 +3009,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     for (auto& cluster : clusters) {
         if (alns.size() >= total_multimaps) { break; }
         // skip if we've filtered the cluster
-        if (to_drop.count(&cluster) && filled >= max_multimaps) {
+        if (to_drop.count(&cluster) && filled >= min_multimaps*4) {
             alns.push_back(aln);
             used_clusters.push_back(&cluster);
             continue;
