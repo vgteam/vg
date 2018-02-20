@@ -32,6 +32,7 @@ void help_mpmap(char** argv) {
     << "graph/index:" << endl
     << "  -x, --xg-name FILE        use this xg index (required)" << endl
     << "  -g, --gcsa-name FILE      use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
+    << "  -H, --gbwt-name FILE      use this GBWT haplotype index for population-based MAPQs" << endl
     << "input:" << endl
     << "  -f, --fastq FILE          input FASTQ (possibly compressed), can be given twice for paired ends (for stdin use -)" << endl
     << "  -G, --gam-input FILE      input GAM (for stdin, use -)" << endl
@@ -91,6 +92,7 @@ int main_mpmap(int argc, char** argv) {
     // initialize parameters with their default options
     string xg_name;
     string gcsa_name;
+    string gbwt_name;
     string snarls_name;
     string fastq_name_1;
     string fastq_name_2;
@@ -151,6 +153,7 @@ int main_mpmap(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
             {"gcsa-name", required_argument, 0, 'g'},
+            {"gbwt-name", required_argument, 0, 'H'},
             {"fastq", required_argument, 0, 'f'},
             {"gam-input", required_argument, 0, 'G'},
             {"sample", required_argument, 0, 'N'},
@@ -193,7 +196,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:f:G:N:R:ieSs:u:a:nb:I:D:Bv:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:f:G:N:R:ieSs:u:a:nb:I:D:Bv:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -217,6 +220,10 @@ int main_mpmap(int argc, char** argv) {
                     cerr << "error:[vg mpmap] Must provide GCSA file with -g." << endl;
                     exit(1);
                 }
+                break;
+                
+            case 'H':
+                gbwt_name = optarg;
                 break;
                 
             case 'f':
@@ -634,6 +641,17 @@ int main_mpmap(int argc, char** argv) {
     gcsa::LCPArray lcp_array;
     lcp_array.load(lcp_stream);
     
+    gbwt::GBWT* gbwt = nullptr;
+    if (!gbwt_name.empty()) {
+        ifstream gbwt_stream(gbwt_name);
+        if (!gbwt_stream) {
+            cerr << "error:[vg mpmap] Cannot open GBWT file " << gbwt_name << endl;
+            exit(1);
+        }
+        gbwt = new gbwt::GBWT();
+        gbwt->load(gbwt_stream);
+    }
+    
     SnarlManager* snarl_manager = nullptr;
     if (!snarls_name.empty()) {
         ifstream snarl_stream(snarls_name);
@@ -644,7 +662,7 @@ int main_mpmap(int argc, char** argv) {
         snarl_manager = new SnarlManager(snarl_stream);
     }
         
-    MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, snarl_manager);
+    MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, gbwt, snarl_manager);
     
     // set alignment parameters
     multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
@@ -675,6 +693,7 @@ int main_mpmap(int argc, char** argv) {
     // set mapping quality parameters
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
+    multipath_mapper.use_population_mapqs = (gbwt != nullptr);
     
     // set pruning and clustering parameters
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
@@ -1003,7 +1022,13 @@ int main_mpmap(int argc, char** argv) {
     //cerr << "MEM cluster filtering efficiency: " << ((double) OrientedDistanceClusterer::PRUNE_COUNTER) / OrientedDistanceClusterer::CLUSTER_TOTAL << " (" << OrientedDistanceClusterer::PRUNE_COUNTER << "/" << OrientedDistanceClusterer::CLUSTER_TOTAL << ")" << endl;
     //cerr << "subgraph filtering efficiency: " << ((double) MultipathMapper::PRUNE_COUNTER) / MultipathMapper::SUBGRAPH_TOTAL << " (" << MultipathMapper::PRUNE_COUNTER << "/" << MultipathMapper::SUBGRAPH_TOTAL << ")" << endl;
     
-    delete snarl_manager;
+    if (snarl_manager != nullptr) {
+        delete snarl_manager;
+    }
+    
+    if (gbwt != nullptr) {
+        delete gbwt;
+    }
     
     return 0;
 }

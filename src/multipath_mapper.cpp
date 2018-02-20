@@ -23,8 +23,8 @@ namespace vg {
     //size_t MultipathMapper::SUBGRAPH_TOTAL = 0;
     
     MultipathMapper::MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
-                                     SnarlManager* snarl_manager) :
-        BaseMapper(xg_index, gcsa_index, lcp_array),
+                                     gbwt::GBWT* gbwt_index, SnarlManager* snarl_manager) :
+        BaseMapper(xg_index, gcsa_index, lcp_array, gbwt_index),
         snarl_manager(snarl_manager)
     {
         // nothing to do
@@ -2887,7 +2887,14 @@ namespace vg {
             
             // record the recombination score
             if (include_population_component && all_paths_pop_consistent) {
-                auto pop_score = haplo_DP::score(alignment.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                pair<double, bool> pop_score;
+                if (gbwt != nullptr) {
+                    // Score form the GBWT
+                    pop_score = haplo_DP::score(alignment.path(), *gbwt, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                } else {
+                    // Score from the XG
+                    pop_score = haplo_DP::score(alignment.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                }
                 pop_scores[i] = pop_score.first;
                 all_paths_pop_consistent = all_paths_pop_consistent && pop_score.second;
                 min_pop_score = min(min_pop_score, pop_score.first);
@@ -2996,8 +3003,14 @@ namespace vg {
             
             // compute the population contribution to the score
             if (include_population_component && all_paths_pop_consistent) {
-                auto pop_score_1 = haplo_DP::score(alignment1.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
-                auto pop_score_2 = haplo_DP::score(alignment2.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                pair<double, bool> pop_score_1, pop_score_2;
+                if (gbwt != nullptr) {
+                    pop_score_1 = haplo_DP::score(alignment1.path(), *gbwt, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                    pop_score_2 = haplo_DP::score(alignment2.path(), *gbwt, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                } else {
+                    pop_score_1 = haplo_DP::score(alignment1.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                    pop_score_2 = haplo_DP::score(alignment2.path(), *xindex, get_rr_memo(recombination_penalty, xindex->get_haplotype_count()));
+                }
                 
                 double pop_score = (pop_score_1.first + pop_score_2.first) / log_base;
                 all_paths_pop_consistent = all_paths_pop_consistent && pop_score_1.second && pop_score_2.second;
