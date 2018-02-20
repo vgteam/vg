@@ -314,7 +314,6 @@ TEST_CASE("We can recognize a required crossover", "[hapo-score][gbwt]") {
   REQUIRE(sizes.size() == 1);
   REQUIRE(accumulate(sizes.begin(), sizes.end(), 0) == 2);
   REQUIRE(hdpc0.current_sum() <= 0);
-  double last_sum = hdpc0.current_sum();
   
   
   // Run them out until they differ
@@ -328,9 +327,6 @@ TEST_CASE("We can recognize a required crossover", "[hapo-score][gbwt]") {
     // In some iterations we will match two haplotypes but in some we will match only one.
     REQUIRE(sizes.size() <= 2);
     REQUIRE(accumulate(sizes.begin(), sizes.end(), 0) <= 2);
-    // TODO: Why does this invariant not hold?
-    //REQUIRE(hdpc0.current_sum() < last_sum);
-    last_sum = hdpc0.current_sum();
   }
   
   // Now do different things for each
@@ -343,7 +339,6 @@ TEST_CASE("We can recognize a required crossover", "[hapo-score][gbwt]") {
   sizes = hdpc0.get_sizes();
   REQUIRE(sizes.size() == 1);
   REQUIRE(accumulate(sizes.begin(), sizes.end(), 0) == 1);
-  //REQUIRE(hdpc0.current_sum() < last_sum);
   auto last_sum0 = hdpc0.current_sum();
   
   // The second one should match nothing and force a crossover
@@ -353,7 +348,6 @@ TEST_CASE("We can recognize a required crossover", "[hapo-score][gbwt]") {
   sizes = hdpc1.get_sizes();
   REQUIRE(sizes.size() == 1);
   REQUIRE(accumulate(sizes.begin(), sizes.end(), 0) == 1);
-  //REQUIRE(hdpc1.current_sum() < last_sum);
   auto last_sum1 = hdpc1.current_sum();
   
   // Crossing over has to be worse
