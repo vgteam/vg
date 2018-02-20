@@ -5,6 +5,8 @@
 #include "catch.hpp"
 #include "haplotypes.hpp"
 
+#include <numeric>
+
 namespace unittest {
 using namespace std;
 
@@ -254,4 +256,110 @@ TEST_CASE("We can score haplotypes using GBWT", "[haplo-score][gbwt]") {
   REQUIRE(!(haplo::haplo_DP::score(empty_node, *gbwt_index, memo).second));
   delete gbwt_index;
 }
+
+TEST_CASE("We can recognize a required crossover", "[hapo-score][gbwt]") {
+  // This graph is the start of xy2 from test/small
+  string graph_json = R"({"node": [{"id": 1, "sequence": "CAAATAAGGCTT"}, {"id": 2, "sequence": "G"}, {"id": 3, "sequence": "GGAAATTTTC"}, {"id": 4, "sequence": "C"}, {"id": 5, "sequence": "TGGAGTTCTATTATATTCC"}, {"id": 6, "sequence": "G"}, {"id": 7, "sequence": "A"}, {"id": 8, "sequence": "ACTCTCTGGTTCCTG"}, {"id": 9, "sequence": "A"}, {"id": 10, "sequence": "G"}, {"id": 11, "sequence": "TGCTATGTGTAACTAGTAATGGTAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAATGGAAAGAATACAAGATTTGGAGCCA"}], "edge": [{"from": 1, "to": 2}, {"from": 1, "to": 3}, {"from": 2, "to": 3}, {"from": 3, "to": 4}, {"from": 3, "to": 5}, {"from": 4, "to": 5}, {"from": 5, "to": 6}, {"from": 5, "to": 7}, {"from": 6, "to": 8}, {"from": 7, "to": 8}, {"from": 8, "to": 9}, {"from": 8, "to": 10}, {"from": 9, "to": 11}, {"from": 10, "to": 11}]})";
+  
+  // Load the JSON
+  vg::Graph proto_graph;
+  json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+  // Build the xg index
+  xg::XG xg_index(proto_graph);
+    
+  gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+  gbwt::DynamicGBWT* gbwt_index = new gbwt::DynamicGBWT;
+  
+  // Populate a map from node ID to encoded GBWT node.
+  map<vg::id_t, gbwt::node_type> tm;
+  // And a map of node lengths
+  map<vg::id_t, size_t> node_lengths;
+  xg_index.for_each_handle([&](const vg::handle_t& here) {
+    tm[xg_index.get_id(here)] = gbwt::Node::encode(xg_index.get_id(here), false);
+    node_lengths[xg_index.get_id(here)] = xg_index.get_length(here);
+  });
+  
+  // Make the two threads
+  vector<gbwt::node_type> thread0 = {tm[1], tm[3], tm[4], tm[5], tm[7], tm[8], tm[10], tm[11], gbwt::ENDMARKER};
+  vector<gbwt::node_type> thread1 = {tm[1], tm[2], tm[3], tm[4], tm[5], tm[6], tm[8], tm[9], tm[11], gbwt::ENDMARKER};
+  
+  vector<vector<gbwt::node_type> > haplotypes_to_add = {
+    thread0,
+    thread1
+  };
+  
+  for(size_t i = 0; i < haplotypes_to_add.size(); i++) {
+    gbwt_index->insert(haplotypes_to_add[i]);
+  }
+  
+  REQUIRE(gbwt_index->nodeSize(tm[1]) == 2);
+  REQUIRE(gbwt_index->nodeSize(tm[7]) == 1);
+  REQUIRE(gbwt_index->nodeSize(tm[10]) == 1);
+  
+  haplo::haploMath::RRMemo memo(9, 2);
+  
+  // Now we trace a haplotype that should match
+  vector<gbwt::node_type> should_match = {tm[1], tm[3], tm[4], tm[5], tm[7], tm[8], tm[10], tm[11]};
+  //And one that should need a crossover
+  vector<gbwt::node_type> should_crossover = {tm[1], tm[3], tm[4], tm[5], tm[7], tm[8], tm[9], tm[11]};
+  
+  // initial node (same for both)
+  size_t i = 0;
+  auto here = should_match[i];
+  haplo::hDP_gbwt_graph_accessor<gbwt::DynamicGBWT> ga(*gbwt_index, here, node_lengths[gbwt::Node::id(here)], memo);
+  // We have to run two columns in parallel since there is no deep copy and copies share mutable state
+  haplo::haplo_DP_column hdpc0(ga);
+  haplo::haplo_DP_column hdpc1(ga);
+  auto sizes = hdpc0.get_sizes();
+  REQUIRE(sizes.size() == 1);
+  REQUIRE(accumulate(sizes.begin(), sizes.end(), 0) == 2);
+  REQUIRE(hdpc0.current_sum() <= 0);
+  double last_sum = hdpc0.current_sum();
+  
+  
+  // Run them out until they differ
+  for (i++; should_match[i] == should_crossover[i]; i++) {
+    auto last = here;
+    here = should_match[i];
+    haplo::hDP_gbwt_graph_accessor<gbwt::DynamicGBWT> ga(*gbwt_index, last, here, node_lengths[gbwt::Node::id(here)], memo);
+    hdpc0.extend(ga);
+    hdpc1.extend(ga);
+    auto sizes = hdpc0.get_sizes();
+    // In some iterations we will match two haplotypes but in some we will match only one.
+    REQUIRE(sizes.size() <= 2);
+    REQUIRE(accumulate(sizes.begin(), sizes.end(), 0) <= 2);
+    // TODO: Why does this invariant not hold?
+    //REQUIRE(hdpc0.current_sum() < last_sum);
+    last_sum = hdpc0.current_sum();
+  }
+  
+  // Now do different things for each
+  auto last = here;
+  
+  // The first one should match something
+  here = should_match[i];
+  haplo::hDP_gbwt_graph_accessor<gbwt::DynamicGBWT> ga0(*gbwt_index, last, here, node_lengths[gbwt::Node::id(here)], memo);
+  hdpc0.extend(ga0);
+  sizes = hdpc0.get_sizes();
+  REQUIRE(sizes.size() == 1);
+  REQUIRE(accumulate(sizes.begin(), sizes.end(), 0) == 1);
+  //REQUIRE(hdpc0.current_sum() < last_sum);
+  auto last_sum0 = hdpc0.current_sum();
+  
+  // The second one should match nothing and force a crossover
+  here = should_crossover[i];
+  haplo::hDP_gbwt_graph_accessor<gbwt::DynamicGBWT> ga1(*gbwt_index, last, here, node_lengths[gbwt::Node::id(here)], memo);
+  hdpc1.extend(ga1);
+  sizes = hdpc1.get_sizes();
+  REQUIRE(sizes.size() == 1);
+  REQUIRE(accumulate(sizes.begin(), sizes.end(), 0) == 1);
+  //REQUIRE(hdpc1.current_sum() < last_sum);
+  auto last_sum1 = hdpc1.current_sum();
+  
+  // Crossing over has to be worse
+  REQUIRE(last_sum1 < last_sum0);
+    
+    
+}
+
 }

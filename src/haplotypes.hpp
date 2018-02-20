@@ -468,6 +468,13 @@ haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, h
     }
     return pair<double, bool>(nan(""), false);
   }
+#ifdef debug
+  cerr << "After entry 0 (" << gbwt::Node::id(thread[0]) << ") height: " << ga_i.new_height() << " intervals: ";
+  for (auto& interval : hdp.DP_column.get_sizes()) {
+    cerr << interval << " ";
+  }
+  cerr << "score: " << hdp.DP_column.current_sum() << endl;
+#endif
   for(size_t i = 1; i < thread.size(); i++) {
     if (!graph.contains(thread[i])) {
       if (warn_on_score_fail) { 
@@ -488,6 +495,13 @@ haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, h
     } else {
       hdp.DP_column.extend(ga);
     }
+#ifdef debug
+    cerr << "After entry " << i << " (" << gbwt::Node::id(thread[i]) << ") height: " << ga.new_height() << " intervals: ";
+    for (auto& interval : hdp.DP_column.get_sizes()) {
+      cerr << interval << " ";
+    }
+    cerr << "score: " << hdp.DP_column.current_sum() << endl;
+#endif
   }
   return pair<double, bool>(hdp.DP_column.current_sum(), true);
 }

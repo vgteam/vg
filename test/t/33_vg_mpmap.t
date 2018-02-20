@@ -24,13 +24,19 @@ is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.m
 is "$(vg mpmap -B -P 1 -I 200 -D 200 -x xy2.xg -g xy2.gcsa -f reads/xy2.matchpaired.fq -i -S | vg view -aj - | head -n1 | jq '.mapping_quality')" "null" "MAPQ is 0 when paired without haplotype info"
 is "$(vg mpmap -B -P 1 -I 200 -D 200 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.matchpaired.fq -i -S | vg view -aj - | head -n1 | jq '.mapping_quality')" "18" "haplotype match can disambiguate paired"
 
-# Now we map a read with genotype 0,1,0,1 against haplotypes 1,1,1,1|0,1,0,0 and 1,1,1,1|0,0,0,0 on X and Y
+# Now we map a read with genotype 0,1,0,1 against haplotypes 1,1,1,1|0,1,0,0 and 1,1,1,1|0,0,0,1 on X and Y
+# Variant 2 is an insert, while variant 4 is a SNP.
+# So haplotypes 2 on X and 2 on Y look the same for crossovers
+# Until you look at scores and the SNP-mismatch alignment to X is 0 crossovers at 1 mismatch and better than the indel-alignment to Y
 # The best place for it is X haplotype 2 with a mismatch instead of the second alt variant
 
-is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt --max-paths 1 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.mapping_quality')" "null" "MAPQ is 0 with haplotype info at one path per MultipathAlignment"
-is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt --max-paths 10 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.mapping_quality')" "18" "more paths per MultipathAlignment can disambiguate"
+# We need to use snarl cutting to actually consider the alignment as not just a single subpath
+vg snarls xy2.xg > xy2.snarls
 
-rm -f xy2.vg xy2.xg xy2.gcsa xy2.gcsa.lcp xy2.gbwt
+is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 1 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.mapping_quality')" "0" "MAPQ is 0 with haplotype info at one path per MultipathAlignment"
+is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 10 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.mapping_quality')" "18" "more paths per MultipathAlignment can disambiguate"
+
+rm -f xy2.vg xy2.xg xy2.gcsa xy2.gcsa.lcp xy2.gbwt xy2.snarls
 
 # Do a largetr-scale test
 

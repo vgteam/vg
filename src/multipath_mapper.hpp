@@ -90,7 +90,8 @@ namespace vg {
         double mapq_scaling_factor = 1.0 / 4.0;
         bool use_population_mapqs = false;
         size_t population_max_paths = 1;
-        double recombination_penalty = 1e-9;
+        // Note that, like the haplotype scoring code, we work with recombiantion penalties in exponent form.
+        double recombination_penalty = 9;
         size_t rescue_only_min = 128;
         size_t rescue_only_anchor_max = 16;
         size_t order_length_repeat_hit_max = 0;
