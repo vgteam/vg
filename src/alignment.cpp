@@ -156,7 +156,7 @@ size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Al
     if (!fp) {
         cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
     }
-    size_t len = 2 << 18; // 256k
+    size_t len = 2 << 22; // 4M
     size_t nLines = 0;
     int thread_count = get_thread_count();
     vector<Alignment> *batch = nullptr;
@@ -390,7 +390,7 @@ size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)
     if (!fp) {
         cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
     }
-    size_t len = 2 << 18; // 256k
+    size_t len = 2 << 22; // 4M
     size_t nLines = 0;
     char *buffer = new char[len];
     Alignment alignment;
