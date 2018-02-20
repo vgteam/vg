@@ -90,7 +90,7 @@ struct PathBranch {
 };
 
 template<class PathType>
-bool verify_path(const PathType& path, VG& unfolded, const std::map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
+bool verify_path(const PathType& path, VG& unfolded, const hash_map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
 
     if (path_size(path) < 2) {
         return true;
@@ -157,8 +157,7 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
 
     // Create a mapping from original -> duplicates.
     // TODO Interface for the duplicate range in NodeMapping.
-    // TODO Replace with a hash map once the hashing issue has been resolved.
-    std::map<vg::id_t, std::vector<vg::id_t>> reverse_mapping;
+    hash_map<vg::id_t, std::vector<vg::id_t>> reverse_mapping;
     for (gcsa::size_type duplicate = this->mapping.first_node; duplicate < this->mapping.next_node; duplicate++) {
         vg::id_t original_id = this->mapping(duplicate);
         reverse_mapping[original_id].push_back(duplicate);
@@ -445,23 +444,27 @@ void PhaseUnfolder::insert_path(const path_type& path) {
     // Prefixes.
     gbwt::node_type from = to_insert.front();
     for (size_t i = 1; i < (to_insert.size() + 1) / 2; i++) {
-        auto iter = this->prefixes.emplace(std::make_pair(from, to_insert[i]), 0).first;
-        if (iter->second == 0) {
+        std::pair<gbwt::node_type, gbwt::node_type> key(from, to_insert[i]);
+        auto iter = this->prefixes.find(key);
+        if (iter == this->prefixes.end()) {
             gbwt::size_type new_id = this->mapping.insert(gbwt::Node::id(to_insert[i]));
-            iter->second = gbwt::Node::encode(new_id, gbwt::Node::is_reverse(to_insert[i]));
+            from = this->prefixes[key] = gbwt::Node::encode(new_id, gbwt::Node::is_reverse(to_insert[i]));
+        } else {
+            from = iter->second;
         }
-        from = iter->second;
     }
 
     // Suffixes.
     gbwt::node_type to = to_insert.back();
     for (size_t i = to_insert.size() - 2; i >= (to_insert.size() + 1) / 2; i--) {
-        auto iter = this->suffixes.emplace(std::make_pair(to_insert[i], to), 0).first;
-        if (iter->second == 0) {
+        std::pair<gbwt::node_type, gbwt::node_type> key(to_insert[i], to);
+        auto iter = this->suffixes.find(key);
+        if (iter == this->suffixes.end()) {
             gbwt::size_type new_id = this->mapping.insert(gbwt::Node::id(to_insert[i]));
-            iter->second = gbwt::Node::encode(new_id, gbwt::Node::is_reverse(to_insert[i]));
+            to = this->suffixes[key] = gbwt::Node::encode(new_id, gbwt::Node::is_reverse(to_insert[i]));
+        } else {
+            to = iter->second;
         }
-        to = iter->second;
     }
 
     // Crossing edge.

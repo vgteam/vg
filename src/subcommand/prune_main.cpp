@@ -24,7 +24,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <regex>
-#include <set>
+#include <map>
 #include <string>
 
 #include <getopt.h>
@@ -34,23 +34,24 @@ using namespace vg;
 using namespace vg::subcommand;
 
 
-struct PruningParameters
-{
-    const static int    KMER_LENGTH = 16;
-    const static int    KMER_LENGTH_UNFOLDING = 24;
-    const static int    EDGE_MAX = 3;
-    const static int    EDGE_MAX_UNFOLDING = 3;
-    const static size_t SUBGRAPH_MIN = 33;
-    const static size_t SUBGRAPH_MIN_UNFOLDING = 33;
-};
-
 enum PruningMode { mode_prune, mode_restore, mode_unfold };
 
+struct PruningParameters
+{
+    static std::map<PruningMode, int>    kmer_length;
+    static std::map<PruningMode, int>    edge_max;
+    static std::map<PruningMode, size_t> subgraph_min;
+};
+
+std::map<PruningMode, int> PruningParameters::kmer_length { { mode_prune, 20 }, { mode_restore, 20 }, { mode_unfold, 24 } };
+std::map<PruningMode, int> PruningParameters::edge_max { { mode_prune, 3 }, { mode_restore, 3 }, { mode_unfold, 3 } };
+std::map<PruningMode, size_t> PruningParameters::subgraph_min { { mode_prune, 33 }, { mode_restore, 33 }, { mode_unfold, 33 } };
+
 std::string mode_name(PruningMode mode) {
-    std::string result = "unknown";
+    std::string result = "(unknown)";
     switch (mode) {
     case mode_prune:
-        result = "(plain)";
+        result = "--prune";
         break;
     case mode_restore:
         result = "--restore-paths";
@@ -62,21 +63,52 @@ std::string mode_name(PruningMode mode) {
     return result;
 }
 
+std::string short_mode_name(PruningMode mode) {
+    std::string result = "???";
+    switch (mode) {
+    case mode_prune:
+        result = "-P";
+        break;
+    case mode_restore:
+        result = "-r";
+        break;
+    case mode_unfold:
+        result = "-u";
+        break;
+    }
+    return result;
+}
+
+template<class ValueType>
+void print_defaults(const std::map<PruningMode, ValueType>& defaults) {
+    std::cerr << "defaults: ";
+    bool first = true;
+    for (auto setting : defaults) {
+        if (!first) {
+            std::cerr << "; ";
+        }
+        std::cerr << setting.second << " with " << short_mode_name(setting.first);
+        first = false;
+    }
+    std::cerr << std::endl;
+}
+
 void help_prune(char** argv) {
     std::cerr << "usage: " << argv[0] << " prune [options] <graph.vg> >[output.vg]" << std::endl;
-    std::cerr << "Prunes the complex regions of the graph for GCSA2 indexing. Prunign the graph" << std::endl;
+    std::cerr << "Prunes the complex regions of the graph for GCSA2 indexing. Pruning the graph" << std::endl;
     std::cerr << "removes embedded paths." << std::endl;
     std::cerr << "pruning parameters:" << std::endl;
     std::cerr << "    -k, --kmer-length N    kmer length used for pruning" << std::endl;
-    std::cerr << "                           (default: " << PruningParameters::KMER_LENGTH << "; " << PruningParameters::KMER_LENGTH_UNFOLDING << " with unfolding)" << std::endl;
+    std::cerr << "                           "; print_defaults(PruningParameters::kmer_length);
     std::cerr << "    -e, --edge-max N       remove the edges on kmers making > N edge choices" << std::endl;
-    std::cerr << "                           (default: " << PruningParameters::EDGE_MAX << "; " << PruningParameters::EDGE_MAX_UNFOLDING << " with unfolding)" << std::endl;
+    std::cerr << "                           "; print_defaults(PruningParameters::edge_max);
     std::cerr << "    -s, --subgraph-min N   remove subgraphs of < N bases" << std::endl;
-    std::cerr << "                           (default: " << PruningParameters::SUBGRAPH_MIN << "; " << PruningParameters::SUBGRAPH_MIN_UNFOLDING << " with unfolding)" << std::endl;
-    std::cerr << "pruning modes (-r and -u are mutually exclusive):" << std::endl;
+    std::cerr << "                           "; print_defaults(PruningParameters::subgraph_min);
+    std::cerr << "pruning modes (-P, -r, and -u are mutually exclusive):" << std::endl;
+    std::cerr << "    -P, --prune            simply prune the graph (default)" << std::endl;
     std::cerr << "    -r, --restore-paths    restore the edges on XG paths (requires -x)" << std::endl;
     std::cerr << "    -u, --unfold-paths     unfold XG paths (requires -x)" << std::endl;
-    std::cerr << "    -v, --verify-paths     verify that the path exist after pruning" << std::endl;
+    std::cerr << "    -v, --verify-paths     verify that the paths exist after pruning" << std::endl;
     std::cerr << "                           (potentially very slow)" << std::endl;
     std::cerr << "unfolding options:" << std::endl;
     std::cerr << "    -x, --xg-name FILE     unfold XG paths" << std::endl;
@@ -97,9 +129,9 @@ int main_prune(int argc, char** argv) {
     }
 
     // Command-line options.
-    int kmer_length = PruningParameters::KMER_LENGTH;
-    int edge_max = PruningParameters::EDGE_MAX;
-    size_t subgraph_min = PruningParameters::SUBGRAPH_MIN;
+    int kmer_length = 0;
+    int edge_max = 0;
+    size_t subgraph_min = 0;
     PruningMode mode = mode_prune;
     int threads = omp_get_max_threads();
     bool verify_paths = false, append_mapping = false, show_progress = false, dry_run = false;
@@ -116,6 +148,7 @@ int main_prune(int argc, char** argv) {
             { "kmer-length", required_argument, 0, 'k' },
             { "edge-max", required_argument, 0, 'e' },
             { "subgraph-min", required_argument, 0, 's' },
+            { "prune", no_argument, 0, 'P' },
             { "restore-paths", no_argument, 0, 'r' },
             { "unfold-paths", no_argument, 0, 'u' },
             { "verify-paths", no_argument, 0, 'v' },
@@ -130,7 +163,7 @@ int main_prune(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "k:e:s:ruvx:g:m:apt:d", long_options, &option_index);
+        c = getopt_long (argc, argv, "k:e:s:Pruvx:g:m:apt:d", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -146,6 +179,9 @@ int main_prune(int argc, char** argv) {
         case 's':
             subgraph_min = stoul(optarg);
             subgraph_min_set = true;
+            break;
+        case 'P':
+            mode = mode_prune;
             break;
         case 'r':
             mode = mode_restore;
@@ -190,6 +226,15 @@ int main_prune(int argc, char** argv) {
         }
     }
     vg_name = (optind >= argc ? "(stdin)" : argv[optind]);
+    if (!kmer_length_set) {
+        kmer_length = PruningParameters::kmer_length[mode];
+    }
+    if (!edge_max_set) {
+        edge_max = PruningParameters::edge_max[mode];
+    }
+    if (!subgraph_min_set) {
+        subgraph_min = PruningParameters::subgraph_min[mode];
+    }
     if (!(kmer_length > 0 && edge_max > 0)) {
         std::cerr << "[vg prune]: --kmer-length and --edge-max must be positive" << std::endl;
         return 1;
@@ -223,15 +268,6 @@ int main_prune(int argc, char** argv) {
     if (mode == mode_unfold) {
         if (xg_name.empty()) {
             std::cerr << "[vg prune]: mode " << mode_name(mode) << " requires --xg-name" << std::endl;
-        }
-        if (!kmer_length_set) {
-            kmer_length = PruningParameters::KMER_LENGTH_UNFOLDING;
-        }
-        if (!edge_max_set) {
-            edge_max = PruningParameters::EDGE_MAX_UNFOLDING;
-        }
-        if (!subgraph_min_set) {
-            subgraph_min = PruningParameters::SUBGRAPH_MIN_UNFOLDING;
         }
     }
 

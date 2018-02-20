@@ -16,7 +16,6 @@
 #include "sdsl/wavelet_trees.hpp"
 #include "sdsl/csa_wt.hpp"
 #include "sdsl/suffix_arrays.hpp"
-#include "hash_map_set.hpp"
 #include "position.hpp"
 #include "graph.hpp"
 #include "path.hpp"
