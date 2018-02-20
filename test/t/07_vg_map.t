@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 47
+plan tests 48
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -95,7 +95,7 @@ rm -Rf g.idx
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg sim -s 1337 -n 1000 -x x.xg >x.reads
-is $(vg map -T x.reads -d x -j -t 1 | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
+is $(vg map -T x.reads -d x -j | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
 
 is $(vg map -T <(head -1 x.reads) -d x -j -t 1 -Q 30 | jq .mapping_quality) 30 "the mapping quality may be capped"
 
@@ -166,4 +166,11 @@ rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa x.gcsa.lcp x.gbw
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >tiny.vg
 vg index -k 16 -x tiny.xg -g tiny.gcsa tiny.vg
 is $(vg map -d tiny -f tiny/tiny.fa -j | jq .identity) 1 "mapper can read FASTA input"
-rm -f tiny.vg tiny.xg tiny.gcsa tiny.gcsa.lcp
+cat <<EOF >t.fa
+>x
+CAAATAAGGCTTGGAAATTTTCTGGA
+GTTCTATTATATTCCAACTCTCTG
+EOF
+is $(vg map -d tiny -F t.fa -j | jq .identity) 1 "mapper can read multiline FASTA input"
+
+rm -f tiny.vg tiny.xg tiny.gcsa tiny.gcsa.lcp t.fa t.fa.fai

@@ -42,7 +42,7 @@ void help_map(char** argv) {
          << "                            max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
          << "    -U, --fixed-frag-model  don't learn the pair fragment model online, use {-I} without update" << endl
          << "    -p, --print-frag-model  suppress alignment output and print the fragment model on stdout as per {-I} format" << endl
-         << "    -F, --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
+         << "    --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
          << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
          << "    --no-patch-aln          do not patch banded alignments by locally aligning unaligned regions" << endl
@@ -62,6 +62,7 @@ void help_map(char** argv) {
          << "    -b, --hts-input FILE    align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
          << "    -G, --gam-input FILE    realign GAM input" << endl
          << "    -f, --fastq FILE        input fastq or (2-line format) fasta, possibly compressed, two are allowed, one for each mate" << endl
+         << "    -F, --fasta FILE        align the sequences in a FASTA file that may have multiple lines per reference sequence" << endl
          << "    -i, --interleaved       fastq or GAM is interleaved paired-ended" << endl
          << "    -N, --sample NAME       for --reads input, add this sample" << endl
          << "    -R, --read-group NAME   for --reads input, add this read group" << endl
@@ -96,6 +97,7 @@ int main_map(int argc, char** argv) {
     string gbwt_name;
     string read_file;
     string hts_file;
+    string fasta_file;
     bool keep_secondary = false;
     int hit_max = 1024;
     int max_multimaps = 1;
@@ -182,6 +184,7 @@ int main_map(int argc, char** argv) {
                 {"hts-input", required_argument, 0, 'b'},
                 {"keep-secondary", no_argument, 0, 'K'},
                 {"fastq", required_argument, 0, 'f'},
+                {"fasta", required_argument, 0, 'F'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"band-width", required_argument, 0, 'w'},
                 {"band-multi", required_argument, 0, 'B'},
@@ -216,7 +219,7 @@ int main_map(int argc, char** argv) {
                 {"approx-mq-cap", required_argument, 0, 'E'},
                 {"fixed-frag-model", no_argument, 0, 'U'},
                 {"print-frag-model", no_argument, 0, 'p'},
-                {"frag-calc", required_argument, 0, 'F'},
+                {"frag-calc", required_argument, 0, '4'},
                 {"id-mq-weight", required_argument, 0, '7'},
                 {"refpos-table", no_argument, 0, 'v'},
                 {"surject-to", required_argument, 0, '5'},
@@ -227,7 +230,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:89:2",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:89:24:",
                          long_options, &option_index);
 
 
@@ -321,6 +324,10 @@ int main_map(int argc, char** argv) {
             if (fastq1.empty()) fastq1 = optarg;
             else if (fastq2.empty()) fastq2 = optarg;
             else { cerr << "[vg map] error: more than two fastqs specified" << endl; exit(1); }
+            break;
+
+        case 'F':
+            fasta_file = optarg;
             break;
 
         case 'i':
@@ -478,7 +485,7 @@ int main_map(int argc, char** argv) {
             print_fragment_model = true;
             break;
 
-        case 'F':
+        case '4':
             fragment_model_update = atoi(optarg);
             break;
 
@@ -496,7 +503,7 @@ int main_map(int argc, char** argv) {
         }
     }
 
-    if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty() && gam_input.empty()) {
+    if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty() && gam_input.empty() && fasta_file.empty()) {
         cerr << "error:[vg map] A sequence or read file is required when mapping." << endl;
         return 1;
     }
@@ -967,6 +974,34 @@ int main_map(int argc, char** argv) {
                     output_alignments(alignments, empty_alns);
                 }
             }
+        }
+    }
+
+    if (!fasta_file.empty()) {
+        FastaReference ref;
+        ref.open(fasta_file);
+        auto align_seq = [&](const string& name, const string& seq) {
+            if (!seq.empty()) {
+                // Make an alignment
+                Alignment unaligned;
+                unaligned.set_sequence(seq);
+                unaligned.set_name(name);
+                int tid = omp_get_thread_num();
+                vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width);
+                for(auto& alignment : alignments) {
+                    // Set the alignment metadata
+                    if (!sample_name.empty()) alignment.set_sample_name(sample_name);
+                    if (!read_group.empty()) alignment.set_read_group(read_group);
+                }
+                // Output the alignments in JSON or protobuf as appropriate.
+                output_alignments(alignments, empty_alns);
+            }
+        };
+#pragma omp parallel for
+        for (size_t i = 0; i < ref.index->sequenceNames.size(); ++i) {
+            auto& name = ref.index->sequenceNames[i];
+            string seq = nonATGCNtoN(ref.getSequence(name));
+            align_seq(name, seq);
         }
     }
 
