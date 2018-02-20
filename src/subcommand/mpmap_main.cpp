@@ -144,6 +144,7 @@ int main_mpmap(int argc, char** argv) {
     string sample_name = "";
     string read_group = "";
     bool prefilter_redundant_hits = true;
+    int max_sub_mem_recursion_depth = 1;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -683,6 +684,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
     multipath_mapper.use_approx_sub_mem_count = false;
     multipath_mapper.prefilter_redundant_hits = prefilter_redundant_hits;
+    multipath_mapper.max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
     if (min_clustering_mem_length) {
         multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
     }

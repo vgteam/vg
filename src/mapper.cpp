@@ -624,9 +624,9 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                               { return mem.begin < seq_begin || mem.end > seq_end; }),
                mems.end());
 
-    // return the MEMs in order by first index and then descending by length (this helps prefiltering MEMs)
+    // return the MEMs in lexicographic order by the read interval
     std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-        return m1.begin < m2.begin || (m1.begin == m2.begin && m1.length() > m2.length());
+        return m1.begin < m2.begin || (m1.begin == m2.begin && m1.end < m2.end);
     });
     std::for_each(mems.begin(), mems.end(), [&total_mems](const MaximalExactMatch& mem) { total_mems += mem.nodes.size(); });
     fraction_filtered = (double) filtered_mems / (double) total_mems;
@@ -1024,17 +1024,25 @@ void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
     // for each MEM
     // note: reverse iteration is post order by construction
     for (int64_t i = mems.size() - 1; i >= 0; i--) {
+#ifdef debug_mapper
+        cerr << "prefiltering hits in MEM " << mems[i].sequence() << endl;
+#endif
         // for all of its parents
-        
         // get the supposed position this will be for each hit (if it is on the same node)
         unordered_set<pos_t> extended_hit_positions;
         for (size_t j : sub_mem_containment_graph[i].second) {
+#ifdef debug_mapper
+            cerr << "checking for extended hits from parent MEM " << mems[j].sequence() << endl;
+#endif
             
             // how much farther should the sub-MEM be than the parent?
             int64_t relative_offset = mems[i].begin - mems[j].begin;
             for (gcsa::node_type hit : mems[j].nodes) {
                 pos_t hit_pos = make_pos_t(hit);
                 extended_hit_positions.emplace(id(hit_pos), is_rev(hit_pos), offset(hit_pos) + relative_offset);
+#ifdef debug_mapper
+                cerr << "\textending hit " << hit_pos << " to " << make_pos_t(id(hit_pos), is_rev(hit_pos), offset(hit_pos) + relative_offset) << endl;
+#endif
             }
         }
         
@@ -1045,6 +1053,9 @@ void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
             if (extended_hit_positions.count(make_pos_t(nodes[k]))) {
                 // definitely redundant, skip this one
                 removed_so_far++;
+#ifdef debug_mapper
+                cerr << "found redundant hit " << make_pos_t(nodes[k]) << ", removing" << endl;
+#endif
             }
             else if (removed_so_far > 0) {
                 // move this one up in the list to its new index accounting for skips
