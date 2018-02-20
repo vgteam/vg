@@ -37,7 +37,7 @@ void help_msga(char** argv) {
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -e, --cluster-p FLOAT   set {-W} such that this fraction of {-W} length hits will by by chance [0.05]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.0]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl

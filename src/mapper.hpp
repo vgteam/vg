@@ -214,8 +214,8 @@ public:
     /// from the hit lists. for speed's sake, can have false negatives but no false positives
     void prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems);
     
-    int sub_mem_thinning_burn_in = 0; // start counting at this many bases to verify sub-MEM count
-    int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count
+    int sub_mem_thinning_burn_in = 16; // start counting at this many bases to verify sub-MEM count
+    int sub_mem_count_thinning = 4; // count every this many bases to verify sub-MEM count
     int min_mem_length; // a mem must be >= this length
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
     bool fast_reseed = true; // use the fast reseed algorithm
@@ -402,6 +402,7 @@ private:
                              Graph& graph,
                              size_t max_query_graph_ratio,
                              bool traceback,
+                             bool certainly_acyclic,
                              bool pinned_alignment = false,
                              bool pin_left = false,
                              bool global = false,
@@ -509,7 +510,7 @@ public:
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool banded_global = false);
+    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool certainly_acyclic, bool banded_global = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);

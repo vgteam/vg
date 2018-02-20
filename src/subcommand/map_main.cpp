@@ -30,8 +30,8 @@ void help_map(char** argv) {
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than FLOAT [0]" << endl
          << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT (set to -1 to estimated via -e) [-1]" << endl
-         << "    -e, --cluster-p FLOAT   set {-W} such that this fraction of {-W} length hits will by chance [1e-4]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
+         << "    -e, --cluster-p FLOAT   set {-W} such that this fraction of {-W} length hits will by chance [0.05]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0]" << endl
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
@@ -143,9 +143,9 @@ int main_map(int argc, char** argv) {
     double fragment_sigma = 10;
     bool fragment_orientation = false;
     bool fragment_direction = true;
-    float chance_match = 1e-4;
+    float chance_match = 0.05;
     bool use_fast_reseed = true;
-    float drop_chain = 0.4;
+    float drop_chain = 0.0;
     float mq_overlap = 0.0;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
