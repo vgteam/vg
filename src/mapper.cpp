@@ -501,10 +501,9 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     
     // the graph of containment relationships between MEMs by index, also keeps track of what the sub-MEM min
     // length the children should be
-    vector<pair<int, vector<size_t>>> sub_mem_containment_graph;
+    vector<pair<int, vector<size_t>>> sub_mem_containment_graph(mems.size());
 
     if (reseed_length) {
-        sub_mem_containment_graph.resize(mems.size());
         
         // record what the minimum length of sub-MEMs they contain should be according to the parameters
         for (size_t i = 0; i < mems.size(); i++) {
@@ -519,7 +518,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             }
         }
         
-        // record where this layer of disjoint
+        // record where this layer of disjoint MEMs begins and ends in the return vector
         int layer_begin = 0, layer_end = mems.size();
         
         // apply sub-MEM algorithm to SMEMs and possibly then to the sub-MEMs
@@ -610,6 +609,13 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         }
 #endif
     }
+    
+    // try to identify which hits are redundant sub-MEMs and filter them out
+    // note: do this before sorting the MEMs because the graph's adjacency list is ordered the same
+    // as the return vector
+    if (prefilter_redundant_hits && reseed_length) {
+        prefilter_redundant_sub_mems(mems, sub_mem_containment_graph);
+    }
 
     // TODO: uhhh... if we're actually producing these it's kind of a problem
     // remove strange MEMs
@@ -629,11 +635,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     // TODO: I think I already fixed this
     mems.erase(unique(mems.begin(), mems.end()), mems.end());
     // remove MEMs that are overlapping positionally (they may be redundant)
-    
-    // try to identify which hits are redundant sub-MEMs and filter them out
-    if (prefilter_redundant_hits && reseed_length) {
-        prefilter_redundant_sub_mems(mems, sub_mem_containment_graph);
-    }
 
     return mems;
 }
