@@ -307,15 +307,6 @@ public:
 
 struct linear_haplo_DP{
 private:
-  class linearUnrepresentable : public exception {
-    using exception::exception;
-  };
-
-  typedef enum nodeType{
-    ref_span,
-    snv,
-    invalid
-  } nodeType;
 
   siteIndex* index = nullptr;
   haplotypeCohort* cohort = nullptr;
@@ -323,6 +314,16 @@ private:
   xg::XG& xg_index;
   size_t xg_ref_rank;
 public:
+  typedef enum nodeType{
+    ref_span,
+    snv,
+    invalid
+  } nodeType;
+  
+  class linearUnrepresentable : public runtime_error {
+    using runtime_error::runtime_error;
+  };
+  
   struct SNVvector{
   private:
     vector<int64_t> nodes;
@@ -345,10 +346,11 @@ public:
   nodeType get_type(int64_t node_id) const;
   int64_t path_mapping_node_id(const vg::Path& path, size_t i) const;
   int64_t get_SNP_ref_position(size_t node_id) const;
-  bool sn_deletion_between_ref(int64_t left, int64_t right) const;
-  int64_t get_ref_following(int64_t node_id) const;
   SNVvector SNVs(const vg::Path& path) const;
   bool is_snv(int64_t node_id) const;
+  bool is_solitary_ref(int64_t node_id) const;
+  bool sn_deletion_between_ref(int64_t left, int64_t right) const;
+  int64_t get_ref_following(int64_t node_id) const;
   alleleValue get_SNV_allele(int64_t node_id) const;
 };
 
