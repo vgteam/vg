@@ -1041,7 +1041,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                     // even if the current sub-MEM is non-redundant, it still is a child of that sub-MEM, so we should mark it as
                     // such to improve the efficiency of prefiltering. however, it's probably not worth looking too deeply into the
                     // MEM vector to find the parent if it is not the last one (avoids possible quadratic behavior)
-                    if (mems.back().begin <= sub_mems_out.back().first.begin && mems.back().end <= sub_mems_out.back().first.end) {
+                    if (mems.back().begin <= sub_mems_out.back().first.begin && mems.back().end >= sub_mems_out.back().first.end) {
                         sub_mems_out.back().second.push_back(mems.size() - 1);
                     }
                 }
