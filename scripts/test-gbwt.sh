@@ -30,9 +30,9 @@ GRAPH_REGION="21"
 # Set a FASTQ to model reads after
 TRAINING_FASTQ="ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz"
 # And a read simulation seed
-READ_SEED="75"
+READ_SEED="90"
 # And a read count
-READ_COUNT="3000000"
+READ_COUNT="10000000"
     
 # Actually do a smaller test
 #REGION_NAME="MHC"
@@ -173,36 +173,42 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp" ]]; then
         # Do the full snp1kg graph multipath
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp" "${OUTPUT_PATH}/snp1kg-mp" \
+            --single_reads_chunk \
+            --alignment_cores 16 \
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-            --gam-names snp1kg 2>&1 
+            --gam-names snp1kg 2>&1 & 
         JOB_ARRAY+=("$!")
     fi
     
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-gbwt" ]]; then
         # Do the full snp1kg graph multipath with gbwt
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-gbwt" "${OUTPUT_PATH}/snp1kg-mp-gbwt" \
+            --single_reads_chunk \
+            --alignment_cores 16 \
             --multipath-only \
             --use-gbwt \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-            --gam-names snp1kg-gbwt 2>&1 
+            --gam-names snp1kg-gbwt 2>&1 &
         JOB_ARRAY+=("$!")
     fi
     
      if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback" ]]; then
         # Do the full snp1kg graph multipath with gbwt
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-gbwt-traceback" "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback" \
+            --single_reads_chunk \
+            --alignment_cores 16 \
             --multipath-only \
             --use-gbwt \
             --mpmap_opts "--max-paths 10" \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-            --gam-names snp1kg-gbwt-traceback 2>&1 
+            --gam-names snp1kg-gbwt-traceback 2>&1 &
         JOB_ARRAY+=("$!")
     fi
     
@@ -233,6 +239,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-minaf" ]]; then
         # And with the min allele frequency
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-minaf" "${OUTPUT_PATH}/snp1kg-mp-minaf" \
+            --single_reads_chunk \
+            --alignment_cores 16 \
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
@@ -254,6 +262,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-positive" ]]; then    
         # And the positive control with only real variants
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-positive" "${OUTPUT_PATH}/snp1kg-mp-positive" \
+            --single_reads_chunk \
+            --alignment_cores 16 \
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
@@ -265,6 +275,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     if [[ ! -e "${OUTPUT_PATH}/primary-mp" ]]; then
         # And the primary path only
         toil-vg mapeval "${TREE_PATH}/primary-mp" "${OUTPUT_PATH}/primary-mp" \
+            --single_reads_chunk \
+            --alignment_cores 16 \
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
