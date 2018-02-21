@@ -33,6 +33,8 @@ TRAINING_FASTQ="ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12
 READ_SEED="90"
 # And a read count
 READ_COUNT="10000000"
+# Chunks to simulate in (which affects results)
+READ_CHUNKS="32"
     
 # Actually do a smaller test
 #REGION_NAME="MHC"
@@ -123,7 +125,7 @@ if [[ ! -d "${GRAPHS_PATH}" ]]; then
         --gbwt_index
 fi
 
-READS_DIR="${GRAPHS_PATH}/sim-${READ_SEED}-${READ_COUNT}"
+READS_DIR="${GRAPHS_PATH}/sim-${READ_SEED}-${READ_COUNT}-${READ_CHUNKS}"
 
 if [[ ! -e "${READS_DIR}" ]]; then 
     # Now we need to simulate reads from the two haplotypes
@@ -136,6 +138,7 @@ if [[ ! -e "${READS_DIR}" ]]; then
         --annotate_xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
         --gam \
         --seed "${READ_SEED}" \
+        --sim_chunks "${READ_CHUNKS}" \
         --fastq "${TRAINING_FASTQ}"
 fi
 
