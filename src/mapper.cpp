@@ -4620,7 +4620,7 @@ Alignment Mapper::mem_to_alignment(MaximalExactMatch& mem) {
 // cross fingers
 
 Alignment Mapper::surject_alignment(const Alignment& source,
-                                    set<string>& path_names,
+                                    const set<string>& path_names,
                                     string& path_name,
                                     int64_t& path_pos,
                                     bool& path_reverse) {
@@ -4653,7 +4653,14 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         cerr << "Alignment " << source.name() << " is unmapped and cannot be surjected" << endl;
 
 #endif
+        
+        surjection.clear_score();
+        surjection.clear_identity();
+        surjection.clear_path();
         surjection.clear_mapping_quality();
+        path_name.clear();
+        path_pos = -1;
+        path_reverse = false;
         return surjection;
     }
 
@@ -4680,7 +4687,13 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     Alignment trimmed_source = strip_from_end(strip_from_start(source, non_match_start(source)), non_match_end(source));
     // check if we'd fail
     if (trimmed_source.sequence().size() == 0) {
+        surjection.clear_score();
+        surjection.clear_identity();
+        surjection.clear_path();
         surjection.clear_mapping_quality();
+        path_name.clear();
+        path_pos = -1;
+        path_reverse = false;
         return surjection;
     }
     vector<Path> source_path;
@@ -4820,7 +4833,13 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     }
 
     if (subgraph.node_size() == 0) {
+        surjection.clear_score();
+        surjection.clear_identity();
+        surjection.clear_path();
         surjection.clear_mapping_quality();
+        path_name.clear();
+        path_pos = -1;
+        path_reverse = false;
         return surjection; //empty graph, avoid further warnings
     }
 
@@ -4847,7 +4866,13 @@ Alignment Mapper::surject_alignment(const Alignment& source,
             surjection_reverse = simplify(align_to_graph(surjection_rc, subgraph, max_query_graph_ratio, true, false, false, true), false);
         }
     } catch (vg::NoAlignmentInBandException) {
+        surjection.clear_score();
+        surjection.clear_identity();
+        surjection.clear_path();
         surjection.clear_mapping_quality();
+        path_name.clear();
+        path_pos = -1;
+        path_reverse = false;
         return surjection; // null result, we couldn't align banded global
     }
 
@@ -4946,6 +4971,10 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         surjection.clear_path();
         surjection.clear_mapping_quality();
         
+        path_name.clear();
+        path_pos = -1;
+        path_reverse = false;
+        
 #ifdef debug_mapper
 
 #pragma omp critical (cerr)
@@ -4953,6 +4982,28 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 
 #endif
 
+    }
+    
+    if (path_name.empty() || path_pos == -1) {
+        // Last chance to catch cases where we surjected to nowhere but still have a path.
+        // TODO: revise/simplify the function to not need this
+    
+#ifdef debug_mapper
+
+#pragma omp critical (cerr)
+        cerr << "Alignment " << source.name() << " surjected to nowhere" << endl;
+
+#endif
+
+        surjection.clear_score();
+        surjection.clear_identity();
+        surjection.clear_path();
+        surjection.clear_mapping_quality();
+        
+        path_name.clear();
+        path_pos = -1;
+        path_reverse = false;
+        
     }
 
 #ifdef debug_mapper

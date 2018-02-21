@@ -796,7 +796,7 @@ public:
 
     /// Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep.
     /// The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths.
-    void keep_paths(set<string>& path_names, set<string>& kept_names);
+    void keep_paths(const set<string>& path_names, set<string>& kept_names);
     void keep_path(const string& path_name);
 
     /// Path stats.
