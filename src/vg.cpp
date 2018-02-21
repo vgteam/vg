@@ -6229,13 +6229,20 @@ void VG::to_gfa(ostream& out) {
 
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        link_elem l;
-        l.source_name = to_string(e->from());
-        l.sink_name = to_string(e->to());
-        l.source_orientation_forward = ! e->from_start();
-        l.sink_orientation_forward =  ! e->to_end();
-        l.cigar = std::to_string(e->overlap()) + "M";
-        gg.add_link(l.source_name, l);
+        edge_elem ee;
+        ee.source_name = to_string(e->from());
+        ee.sink_name = to_string(e->to());
+        ee.source_orientation_forward = ! e->from_start();
+        ee.sink_orientation_forward =  ! e->to_end();
+        ee.alignment = std::to_string(e->overlap()) + "M";
+        gg.add_edge(ee.source_name, ee);
+        //link_elem l;
+        //l.source_name = to_string(e->from());
+        //l.sink_name = to_string(e->to());
+        //l.source_orientation_forward = ! e->from_start();
+        //l.sink_orientation_forward =  ! e->to_end();
+        //l.cigar = std::to_string(e->overlap()) + "M";
+        //gg.add_link(l.source_name, l);
     }
     out << gg;
 }
