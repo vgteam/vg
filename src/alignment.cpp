@@ -548,6 +548,19 @@ string alignment_to_sam_internal(const Alignment& alignment,
                         
     // Determine flags, using orientation, next/prev fragments, and pairing status.
     int32_t flags = sam_flag(alignment, refrev, paired);
+   
+    // Have One True Flag for whether the read is mapped (and should have its
+    // mapping stuff set) or unmapped (and should have things *'d out).
+    bool mapped = !(flags & BAM_FUNMAP);
+    
+    if (mapped) {
+        // Make sure we have everything
+        assert(!refseq.empty());
+        assert(refpos != -1);
+        assert(!cigar.empty());
+        assert(alignment.has_path());
+        assert(alignment.path().mapping_size() > 0);
+    }
     
     // We've observed some reads with the unmapped flag set and also a CIGAR string set, which shouldn't happen.
     // We will check for this. The CIGAR string will only be set in the output if the alignment has a path.
@@ -566,17 +579,21 @@ string alignment_to_sam_internal(const Alignment& alignment,
 
     sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
-        << (refseq.empty() ? "*" : refseq) << "\t"
+        << (mapped ? refseq : "*") << "\t"
         << refpos + 1 << "\t"
-        << alignment.mapping_quality() << "\t"
-        << (alignment.has_path() && alignment.path().mapping_size() ? cigar : "*") << "\t"
+        << (mapped ? alignment.mapping_quality() : 0) << "\t"
+        << (mapped ? cigar : "*") << "\t"
         << (mateseq == "" ? "*" : (mateseq == refseq ? "=" : mateseq)) << "\t"
         << matepos + 1 << "\t"
         << tlen << "\t"
         // Make sure sequence always comes out in reference forward orientation by looking at the flags.
         << (!alignment.sequence().empty() ? (refrev ? reverse_complement(alignment.sequence()) : alignment.sequence()) : "*") << "\t";
     if (!alignment.quality().empty()) {
-        const string& quality = alignment.quality();
+        auto quality = alignment.quality();
+        if (refrev) {
+            // Quality also needs to be flipped
+            std::reverse(quality.begin(), quality.end());
+        }
         for (int i = 0; i < quality.size(); ++i) {
             sam << quality_short_to_char(quality[i]);
         }

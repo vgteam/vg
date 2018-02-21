@@ -10,7 +10,8 @@
 #include <random>
 #include <chrono>
 #include <vector>
-#include "suffix_tree.hpp"
+#include <iostream>
+#include <structures/suffix_tree.hpp>
 
 #include "catch.hpp"
 

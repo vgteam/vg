@@ -568,7 +568,7 @@ public:
     // lossily project an alignment into a particular path space of a graph
     // the resulting alignment is equivalent to a SAM record against the chosen path
     Alignment surject_alignment(const Alignment& source,
-                                set<string>& path_names,
+                                const set<string>& path_names,
                                 string& path_name,
                                 int64_t& path_pos,
                                 bool& path_reverse);

@@ -4709,7 +4709,7 @@ Alignment Mapper::mem_to_alignment(MaximalExactMatch& mem) {
 // cross fingers
 
 Alignment Mapper::surject_alignment(const Alignment& source,
-                                    set<string>& path_names,
+                                    const set<string>& path_names,
                                     string& path_name,
                                     int64_t& path_pos,
                                     bool& path_reverse) {
@@ -4720,6 +4720,12 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     surjection.clear_score();
     surjection.clear_identity();
     surjection.clear_path();
+
+    // Clear out the output variables to the unmapped state.
+    // We will fill them in later.
+    path_name.clear();
+    path_pos = -1;
+    path_reverse = false;
 
     int count_forward=0, count_reverse=0;
     for (auto& mapping : source.path().mapping()) {
@@ -4742,6 +4748,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         cerr << "Alignment " << source.name() << " is unmapped and cannot be surjected" << endl;
 
 #endif
+
         return surjection;
     }
 
@@ -4916,8 +4923,12 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     cerr << "sub " << pb2json(subgraph) << endl;
 #endif
 
+    // Flip the string and its quality around
     Alignment surjection_rc = surjection;
     surjection_rc.set_sequence(reverse_complement(surjection.sequence()));
+    string quality = surjection_rc.quality();
+    std::reverse(quality.begin(), quality.end());
+    surjection_rc.set_quality(quality);
 
     Alignment surjection_forward, surjection_reverse;
     // global align to the trimmed graph, and simplify without removal of internal deletions, as we'll need these for BAM reconstruction
@@ -5017,10 +5028,24 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #ifdef debug_mapper
         cerr << "path position " << path_name << ":" << path_pos << endl;
 #endif
+
+        // We surjected to somewhere!
+        assert(!path_name.empty());
+        assert(path_pos != -1);
         
     } else {
 
+        // Failed to align. Replace whatever (possibly reversed?) thing we have now with an unmapped alignment.
         surjection = source;
+        surjection.clear_score();
+        surjection.clear_identity();
+        surjection.clear_path();
+        surjection.clear_mapping_quality();
+        
+        path_name.clear();
+        path_pos = -1;
+        path_reverse = false;
+        
 #ifdef debug_mapper
 
 #pragma omp critical (cerr)
@@ -5029,7 +5054,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #endif
 
     }
-
+    
 #ifdef debug_mapper
     
 #pragma omp critical (cerr)
