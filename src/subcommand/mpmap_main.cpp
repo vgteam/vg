@@ -148,7 +148,7 @@ int main_mpmap(int argc, char** argv) {
     string sample_name = "";
     string read_group = "";
     bool prefilter_redundant_hits = true;
-    int max_sub_mem_recursion_depth = 1;
+    int max_sub_mem_recursion_depth = 2;
     
     int c;
     optind = 2; // force optind past command positional argument
