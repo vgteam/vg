@@ -3,7 +3,7 @@
 #include "haplotypes.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 
-#define debug_mapper
+//#define debug_mapper
 
 namespace vg {
 
