@@ -1075,6 +1075,11 @@ void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
     // for each MEM
     // note: reverse iteration is post order by construction
     for (int64_t i = mems.size() - 1; i >= 0; i--) {
+        
+        if (sub_mem_containment_graph[i].second.empty()) {
+            continue;
+        }
+        
 #ifdef debug_mapper
         cerr << "prefiltering hits in MEM " << mems[i].sequence() << endl;
 #endif
