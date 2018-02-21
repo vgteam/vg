@@ -413,13 +413,13 @@ size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string nam
     ////////////////////////////////////////////////////////////////////////
 
     written += sdsl::write_member(s_iv.size(), out, child, "sequence_length");
-    written += sdsl::write_member(i_iv.size(), out, child, "node_count");
+    //written += sdsl::write_member(i_iv.size(), out, child, "node_count");
     written += sdsl::write_member(edge_count, out, child, "edge_count");
     written += sdsl::write_member(path_count, out, child, "path_count");
     written += sdsl::write_member(min_id, out, child, "min_id");
     written += sdsl::write_member(max_id, out, child, "max_id");
 
-    written += i_iv.serialize(out, child, "id_rank_vector");
+    //written += i_iv.serialize(out, child, "id_rank_vector");
     written += r_iv.serialize(out, child, "rank_id_vector");
 
     written += g_iv.serialize(out, child, "graph_vector");
@@ -756,8 +756,8 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     util::assign(g_iv, int_vector<>(g_iv_size));
     util::assign(g_bv, bit_vector(g_iv_size));
     int64_t g = 0; // pointer into g_iv and g_bv
-    // for each node
-    for (int64_t i = 0; i < i_iv.size(); ++i) {
+    // for each node i_iv.size()
+    for (int64_t i = 0; i < node_count; ++i) {
         Node n = node(i_iv[i]);
         // now build up the record
         g_bv[g] = 1; // mark record start for later query
@@ -793,9 +793,10 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     // set up rank and select supports on g_bv so we can locate nodes in g_iv
     util::assign(g_bv_rank, rank_support_v<1>(&g_bv));
     util::assign(g_bv_select, bit_vector::select_1_type(&g_bv));
-
+    
     // convert the edges in g_iv to relativistic form
-    for (int64_t i = 0; i < i_iv.size(); ++i) {
+    //i_iv.size()
+    for (int64_t i = 0; i < node_count; ++i) {
         int64_t id = i_iv[i];
         // find the start of the node's record in g_iv
         int64_t g = g_bv_select(id_to_rank(id));
@@ -957,7 +958,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     cerr << "|f_bv| = " << size_in_mega_bytes(f_bv) << endl;
     cerr << "|t_bv| = " << size_in_mega_bytes(t_bv) << endl;
 
-    cerr << "|i_iv| = " << size_in_mega_bytes(i_iv) << endl;
+    //cerr << "|i_iv| = " << size_in_mega_bytes(i_iv) << endl;
     //cerr << "|i_wt| = " << size_in_mega_bytes(i_wt) << endl;
 
     cerr << "|s_bv| = " << size_in_mega_bytes(s_bv) << endl;
@@ -992,7 +993,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         //+ size_in_mega_bytes(s_bv)
         + size_in_mega_bytes(f_bv)
         + size_in_mega_bytes(t_bv)
-        + size_in_mega_bytes(i_iv)
+        //+ size_in_mega_bytes(i_iv)
         //+ size_in_mega_bytes(i_wt)
         + size_in_mega_bytes(s_bv)
         + size_in_mega_bytes(h_civ)
@@ -1002,15 +1003,17 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         ) << endl;
 
 #endif
-
     if (print_graph) {
         cerr << "printing graph" << endl;
         // we have to print the relativistic graph manually because the default sdsl printer assumes unsigned integers are stored in it
         for (size_t i = 0; i < g_iv.size(); ++i) {
             cerr << (int64_t)g_iv[i] << " ";
         } cerr << endl;
-        for (int64_t i = 0; i < i_iv.size(); ++i) {
-            int64_t id = i_iv[i];
+        //i_iv.size()
+        for (int64_t i = 0; i < node_count; ++i) {
+            //int64_t id = i_iv[i];
+            //cerr << "i_iv[i]: "<< i_iv[i] << "rank_to_id(i+1): " << rank_to_id(i+1)<<endl;
+            int64_t id = rank_to_id(i+1);
             // find the start of the node's record in g_iv
             int64_t g = g_bv_select(id_to_rank(id));
             // get to the edges to
@@ -1025,13 +1028,21 @@ void XG::build(vector<pair<id_t, string> >& node_label,
             int64_t t = g + G_NODE_HEADER_LENGTH;
             int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
             cerr << " from ";
+//            for (int64_t j = t; j < f; ) {
+//                cerr << i_iv[g_bv_rank(g+g_iv[j])] << " ";
+//                j += 2;
+//            }
             for (int64_t j = t; j < f; ) {
-                cerr << i_iv[g_bv_rank(g+g_iv[j])] << " ";
+                cerr << rank_to_id(g_bv_rank(g+g_iv[j])+1) << " ";
                 j += 2;
             }
-            cerr << "to ";
+//            cerr << "to ";
+//            for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
+//                cerr << i_iv[g_bv_rank(g+g_iv[j])] << " ";
+//                j += 2;
+//            }
             for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
-                cerr << i_iv[g_bv_rank(g+g_iv[j])] << " ";
+                cerr << rank_to_id(g_bv_rank(g+g_iv[j])+1) << " ";
                 j += 2;
             }
             cerr << endl;
@@ -1041,7 +1052,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
             cerr << revdna3bit(s_iv[i]);
         } cerr << endl;
         cerr << s_bv << endl;
-        cerr << i_iv << endl;
+        //cerr << i_iv << endl;
         cerr << "paths (" << paths.size() << ")" << endl;
         for (size_t i = 0; i < paths.size(); i++) {
             // Go through paths by number, so we can determine rank
@@ -1529,11 +1540,22 @@ int64_t XG::rank_to_id(size_t rank) const {
         cerr << "[xg] error: Request for id of rank 0" << endl;
         assert(false);
     }
-    if(rank > i_iv.size()) {
-        cerr << "[xg] error: Request for id of rank " << rank << "/" << i_iv.size() << endl;
+    if(rank > node_count) {
+        // node_count instead of i_iv.size()
+        cerr << "[xg] error: Request for id of rank " << rank << "/" << node_count << endl;
         assert(false);
     }
-    return i_iv[rank-1];
+    int i = 0;
+    int j = 0;
+    while(rank!=i){
+        if (g_bv[j] == 1){
+            i++;
+        }
+        j++;
+    }
+    //cerr << "i_iv[rank-1]: " << i_iv[rank-1] << "g_iv[j-1]: " << g_iv[j-1] << endl;
+    //return i_iv[rank-1];
+    return g_iv[j-1];
 }
 
 int XG::edge_type(bool from_start, bool to_end) const {
