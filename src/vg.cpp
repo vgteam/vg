@@ -4140,7 +4140,7 @@ void VG::remove_orphan_edges(void) {
     }
 }
 
-void VG::keep_paths(set<string>& path_names, set<string>& kept_names) {
+void VG::keep_paths(const set<string>& path_names, set<string>& kept_names) {
 
     set<id_t> to_keep;
     paths.for_each([&](const Path& path) {

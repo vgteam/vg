@@ -8,7 +8,6 @@
 #define multipath_mapper_hpp
 
 #include "hash_map.hpp"
-#include "suffix_tree.hpp"
 #include "mapper.hpp"
 #include "gssw_aligner.hpp"
 #include "types.hpp"
@@ -22,6 +21,7 @@
 #include "snarls.hpp"
 #include "haplotypes.hpp"
 
+#include <structures/suffix_tree.hpp>
 #include <gbwt/gbwt.h>
 
 using namespace std;
@@ -82,13 +82,16 @@ namespace vg {
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
+        double max_mapping_p_value = 0.00001;
         bool unstranded_clustering = true;
         size_t max_rescue_attempts = 32;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
         double mapq_scaling_factor = 1.0 / 4.0;
         bool use_population_mapqs = false;
-        double recombination_penalty = 1e-9;
+        size_t population_max_paths = 1;
+        // Note that, like the haplotype scoring code, we work with recombiantion penalties in exponent form.
+        double recombination_penalty = 9 * 2.3;
         size_t rescue_only_min = 128;
         size_t rescue_only_anchor_max = 16;
         size_t order_length_repeat_hit_max = 0;
