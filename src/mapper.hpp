@@ -255,10 +255,11 @@ protected:
     /// Provides same semantics as find_sub_mems but with a different algorithm. This algorithm uses the
     /// min_mem_length as a pruning tool instead of the LCP index. It can be expected to be faster when both
     /// the min_mem_length reasonably large relative to the reseed_length (e.g. 1/2 of SMEM size or similar).
-    void find_sub_mems_fast(vector<MaximalExactMatch>& mems,
+    void find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                             int parent_layer_begin,
                             int parent_layer_end,
                             int mem_idx,
+                            string::const_iterator leftmost_guaranteed_disjoint_bound,
                             string::const_iterator leftmost_seeding_bound,
                             int min_sub_mem_length,
                             vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
