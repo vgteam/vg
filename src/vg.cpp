@@ -6230,6 +6230,7 @@ void VG::to_gfa(ostream& out) {
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         edge_elem ee;
+        ee.type = 1;
         ee.source_name = to_string(e->from());
         ee.sink_name = to_string(e->to());
         ee.source_orientation_forward = ! e->from_start();
