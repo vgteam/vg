@@ -43,7 +43,7 @@ struct PruningParameters
     static std::map<PruningMode, size_t> subgraph_min;
 };
 
-std::map<PruningMode, int> PruningParameters::kmer_length { { mode_prune, 20 }, { mode_restore, 20 }, { mode_unfold, 24 } };
+std::map<PruningMode, int> PruningParameters::kmer_length { { mode_prune, 24 }, { mode_restore, 24 }, { mode_unfold, 24 } };
 std::map<PruningMode, int> PruningParameters::edge_max { { mode_prune, 3 }, { mode_restore, 3 }, { mode_unfold, 3 } };
 std::map<PruningMode, size_t> PruningParameters::subgraph_min { { mode_prune, 33 }, { mode_restore, 33 }, { mode_unfold, 33 } };
 
