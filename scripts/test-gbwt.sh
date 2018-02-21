@@ -148,27 +148,27 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     # What do they return?
     JOB_RETURNS=()
 
-    if [[ ! -e "${OUTPUT_PATH}/snp1kg" ]]; then
-        # Do the full snp1kg graph without the GBWT
-        toil-vg mapeval "${TREE_PATH}/snp1kg" "${OUTPUT_PATH}/snp1kg" \
-            --gam_input_reads "${READS_DIR}/sim.gam" \
-            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-            --gam-names snp1kg 2>&1 &
-        JOB_ARRAY+=("$!")
-    fi
+    #if [[ ! -e "${OUTPUT_PATH}/snp1kg" ]]; then
+    #    # Do the full snp1kg graph without the GBWT
+    #    toil-vg mapeval "${TREE_PATH}/snp1kg" "${OUTPUT_PATH}/snp1kg" \
+    #        --gam_input_reads "${READS_DIR}/sim.gam" \
+    #        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+    #        --gam-names snp1kg 2>&1 &
+    #    JOB_ARRAY+=("$!")
+    #fi
     
-    if [[ ! -e "${OUTPUT_PATH}/snp1kg-gbwt" ]]; then
-        # Do the full snp1kg graph with smaller GBWT
-        toil-vg mapeval "${TREE_PATH}/snp1kg-gbwt" "${OUTPUT_PATH}/snp1kg-gbwt" \
-            --use-gbwt \
-            --map_opts "--hap-exp 1" \
-            --gam_input_reads "${READS_DIR}/sim.gam" \
-            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-            --gam-names snp1kg-gbwt 2>&1 &
-        JOB_ARRAY+=("$!")
-    fi
+    #if [[ ! -e "${OUTPUT_PATH}/snp1kg-gbwt" ]]; then
+    #    # Do the full snp1kg graph with smaller GBWT
+    #    toil-vg mapeval "${TREE_PATH}/snp1kg-gbwt" "${OUTPUT_PATH}/snp1kg-gbwt" \
+    #        --use-gbwt \
+    #        --map_opts "--hap-exp 1" \
+    #        --gam_input_reads "${READS_DIR}/sim.gam" \
+    #        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+    #        --gam-names snp1kg-gbwt 2>&1 &
+    #    JOB_ARRAY+=("$!")
+    #fi
 
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp" ]]; then
         # Do the full snp1kg graph multipath
@@ -177,7 +177,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-            --gam-names snp1kg-mp 2>&1 
+            --gam-names snp1kg 2>&1 
         JOB_ARRAY+=("$!")
     fi
     
@@ -189,7 +189,20 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-            --gam-names snp1kg-mp-gbwt 2>&1 
+            --gam-names snp1kg-gbwt 2>&1 
+        JOB_ARRAY+=("$!")
+    fi
+    
+     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback" ]]; then
+        # Do the full snp1kg graph multipath with gbwt
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp-gbwt-traceback" "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback" \
+            --multipath-only \
+            --use-gbwt \
+            --mpmap_opts "--max-paths 10" \
+            --gam_input_reads "${READS_DIR}/sim.gam" \
+            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+            --gam-names snp1kg-gbwt-traceback 2>&1 
         JOB_ARRAY+=("$!")
     fi
     
@@ -217,15 +230,16 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #    JOB_ARRAY+=("$!")
     #fi
         
-    #if [[ ! -e "${OUTPUT_PATH}/snp1kg-minaf" ]]; then
-    #    # And with the min allele frequency
-    #    toil-vg mapeval "${TREE_PATH}/snp1kg-minaf" "${OUTPUT_PATH}/snp1kg-minaf" \
-    #        --gam_input_reads "${READS_DIR}/sim.gam" \
-    #        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minaf_${MIN_AF}" \
-    #        --gam-names snp1kg-minaf 2>&1 &
-    #    JOB_ARRAY+=("$!")
-    #fi
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-minaf" ]]; then
+        # And with the min allele frequency
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp-minaf" "${OUTPUT_PATH}/snp1kg-mp-minaf" \
+            --multipath-only \
+            --gam_input_reads "${READS_DIR}/sim.gam" \
+            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minaf_${MIN_AF}" \
+            --gam-names snp1kg-minaf 2>&1 &
+        JOB_ARRAY+=("$!")
+    fi
     
     #if [[ ! -e "${OUTPUT_PATH}/snp1kg-negative" ]]; then    
     #    # And the negative control with correct variants removed
@@ -236,19 +250,36 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #        --gam-names snp1kg-negative 2>&1 &
     #    JOB_ARRAY+=("$!")
     #fi
+    
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-positive" ]]; then    
+        # And the positive control with only real variants
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp-positive" "${OUTPUT_PATH}/snp1kg-mp-positive" \
+            --multipath-only \
+            --gam_input_reads "${READS_DIR}/sim.gam" \
+            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}" \
+            --gam-names snp1kg-positive 2>&1 &
+        JOB_ARRAY+=("$!")
+    fi
         
-    #if [[ ! -e "${OUTPUT_PATH}/primary" ]]; then
-    #    # And the primary path only
-    #    toil-vg mapeval "${TREE_PATH}/primary" "${OUTPUT_PATH}/primary" \
-    #        --gam_input_reads "${READS_DIR}/sim.gam" \
-    #        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_primary" \
-    #        --gam-names primary 2>&1 &
-    #    JOB_ARRAY+=("$!")
-    #fi
+    if [[ ! -e "${OUTPUT_PATH}/primary-mp" ]]; then
+        # And the primary path only
+        toil-vg mapeval "${TREE_PATH}/primary-mp" "${OUTPUT_PATH}/primary-mp" \
+            --multipath-only \
+            --gam_input_reads "${READS_DIR}/sim.gam" \
+            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_primary" \
+            --gam-names primary 2>&1 &
+        JOB_ARRAY+=("$!")
+    fi
 
     # Now wait for all the jobs and fail if any failed
     for JOB in "${JOB_ARRAY[@]}"; do
+        if [[ -z "${JOB}" ]]; then
+            # Drop empty strings that get in here
+            # TODO: how did they do that?
+            continue
+        fi
         wait "${JOB}"
         JOB_RETURNS+=("$?")
     done
@@ -266,15 +297,17 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
 fi
     
 # Combine all the position.results.tsv files into one
-cat "${OUTPUT_PATH}/snp1kg/position.results.tsv" > "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-gbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-mp/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+#cat "${OUTPUT_PATH}/snp1kg/position.results.tsv" > "${OUTPUT_PATH}/position.results.tsv"
+#cat "${OUTPUT_PATH}/snp1kg-gbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/snp1kg-mp/position.results.tsv" > "${OUTPUT_PATH}/position.results.tsv"
 cat "${OUTPUT_PATH}/snp1kg-mp-gbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
 #cat "${OUTPUT_PATH}/snp1kg-fullgbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
 #cat "${OUTPUT_PATH}/snp1kg-gbwt-slight/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-#cat "${OUTPUT_PATH}/snp1kg-minaf/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/snp1kg-mp-minaf/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
 #cat "${OUTPUT_PATH}/snp1kg-negative/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-#cat "${OUTPUT_PATH}/primary/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/snp1kg-mp-positive/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+cat "${OUTPUT_PATH}/primary-mp/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
 
 # Determine our source directory, where the ROC plotting script also lives
 # See <https://stackoverflow.com/a/246128>
@@ -284,9 +317,10 @@ SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
 Rscript "${SCRIPT_DIRECTORY}/plot-pr.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/pr.svg"
 
+# TODO: automate wrong read table generation
 
 rmdir "${TREE_PATH}"
-echo "Successfully produced ROC plot ${OUTPUT_PATH}/roc.svg"
+echo "Successfully produced plots ${OUTPUT_PATH}/roc.svg and ${OUTPUT_PATH}/pr.svg"
 
 
 
