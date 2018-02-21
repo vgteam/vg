@@ -965,8 +965,9 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 }
             }
             
+            bool possibly_redundant = (right_search_bound == mems[mem_idx].end && probe_string_begin >= leftmost_guaranteed_disjoint_bound);
             bool not_redundant = true;
-            if (right_search_bound == mems[mem_idx].end && probe_string_begin >= leftmost_guaranteed_disjoint_bound) {
+            if (possibly_redundant) {
                 // this sub-MEM is abutting the right end of the parent MEM and contained in the next MEM.
                 // sometimes this means the sub-MEM is actually a truncated version of a sub-MEM of the next
                 // MEM which was artificially cut short by the end of the current parent MEM, so we check that here
@@ -1034,6 +1035,16 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                         break;
                     }
                 }
+                
+                if (possibly_redundant && mem_idx + 1 != mems.size()) {
+                    // the sub-MEM we might be redundant with is likely to be the last sub-MEM we identified (although not always).
+                    // even if the current sub-MEM is non-redundant, it still is a child of that sub-MEM, so we should mark it as
+                    // such to improve the efficiency of prefiltering. however, it's probably not worth looking too deeply into the
+                    // MEM vector to find the parent if it is not the last one (avoids possible quadratic behavior)
+                    if (mems.back().begin <= sub_mems_out.back().first.begin && mems.back().end <= sub_mems_out.back().first.end) {
+                        sub_mems_out.back().second.push_back(mems.size() - 1);
+                    }
+                }
             }
             
             // the closest possible independent probe string will now occur one position
@@ -1077,6 +1088,7 @@ void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
     for (int64_t i = mems.size() - 1; i >= 0; i--) {
         
         if (sub_mem_containment_graph[i].second.empty()) {
+            // this MEM has no parents, so it cannot have redundant hits
             continue;
         }
         
