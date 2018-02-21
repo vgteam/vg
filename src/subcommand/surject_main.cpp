@@ -271,10 +271,7 @@ int main_surject(int argc, char** argv) {
                 int64_t path_pos = -1; 
                 bool path_reverse = false;
                 auto surj = mapper[omp_get_thread_num()]->surject_alignment(src, path_names, path_name, path_pos, path_reverse);
-                if (!surj.path().mapping_size()) {
-                    // We didn't find a surjection, so keep the original.
-                    surj = src;
-                }
+                // Always use the surjected alignment, even if it surjects to unmapped.
                 
                 if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {
                     // There's no header yet (although we race its
@@ -360,16 +357,16 @@ int main_surject(int argc, char** argv) {
                                     auto& reverse2 = get<2>(surjected_pair.second);
                                     auto& surj2 = get<3>(surjected_pair.second);
                                     
-                                    // Compute CIGAR strings
-                                    size_t path_len1 = 0, path_len2 = 0;
+                                    // Compute CIGAR strings if actually surjected
+                                    string cigar1 = "", cigar2 = "";
                                     if (name1 != "") {
-                                        path_len1 = xgidx->path_length(name1);
+                                        size_t path_len1 = xgidx->path_length(name1);
+                                        cigar1 = cigar_against_path(surj1, reverse1, pos1, path_len1, min_softclip);
                                     }
                                     if (name2 != "") {
-                                        path_len2 = xgidx->path_length(name2);
+                                        size_t path_len2 = xgidx->path_length(name2);
+                                        cigar2 = cigar_against_path(surj2, reverse2, pos2, path_len2, min_softclip);
                                     }
-                                    string cigar1 = cigar_against_path(surj1, reverse1, pos1, path_len1, min_softclip);
-                                    string cigar2 = cigar_against_path(surj2, reverse2, pos2, path_len2, min_softclip);
                                     
                                     // TODO: compute template length based on
                                     // pair distance and alignment content.
@@ -480,11 +477,11 @@ int main_surject(int argc, char** argv) {
                                 auto& surj = get<3>(s);
                                 
                                 // Generate a CIGAR string for it
-                                size_t path_len = 0;
+                                string cigar = "";
                                 if (name != "") {
-                                    path_len = xgidx->path_length(name);
+                                    size_t path_len = xgidx->path_length(name);
+                                    cigar = cigar_against_path(surj, reverse, pos, path_len, min_softclip);    
                                 }
-                                string cigar = cigar_against_path(surj, reverse, pos, path_len, min_softclip);
                                 
                                 // Create and write a single unpaired BAM record
                                 write_bam_record(alignment_to_bam(header, surj, name, pos, reverse, cigar));
