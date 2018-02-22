@@ -104,11 +104,21 @@ inline ostream& operator<<(ostream& out, const NodeSide& nodeside) {
     return out << nodeside.node << " " << (nodeside.is_end ? "end" : "start");
 }
 
-}
-
-namespace std {
-/// Hash functor to hash `NodeSide`s.
+/// Hash functor to hash `NodeSide`s using vg::wang_hash.
 /// We need to implement a hash function for these if we want to be able to use them in keys in hash maps.
+template<>
+struct wang_hash<NodeSide> {
+    /// Produce a hash of a NodeSide.
+    size_t operator()(const NodeSide& x) const {
+        return wang_hash<pair<id_t, bool>>()(make_pair(x.node, x.is_end));
+    }
+};
+
+}   // namespace vg
+
+
+/// Hash functor to hash `NodeSide`s using std::hash.
+namespace std {
 template <> struct hash<vg::NodeSide>
 {
     /// Produce a hash of a NodeSide.

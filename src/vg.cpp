@@ -6949,32 +6949,21 @@ double VG::path_identity(const Path& path1, const Path& path2) {
     return best_score == 0 ? 0 : (double)aln.score() / (double)best_score;
 }
 
-void VG::prune_complex_with_head_tail(int path_length, int edge_max, bool preserve_paths) {
+void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
     Node* head_node = NULL;
     Node* tail_node = NULL;
     id_t head_id = 0, tail_id = 0;
     add_start_end_markers(path_length, '#', '$', head_node, tail_node, head_id, tail_id);
-    prune_complex(path_length, edge_max, head_node, tail_node, preserve_paths);
+    prune_complex(path_length, edge_max, head_node, tail_node);
     destroy_node(head_node);
     destroy_node(tail_node);
 }
 
-void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node, bool preserve_paths) {
-
-    // Determine the edges that are on embedded paths and should not be destroyed.
-    std::unordered_set<edge_t> to_preserve;
-    if (preserve_paths) {
-        std::set<Edge*> path_edges = get_path_edges();
-        for (Edge* edge : path_edges) {
-            to_preserve.insert(edge_handle(get_handle(edge->from(), edge->from_start()), get_handle(edge->to(), edge->to_end())));
-        }
-    }
+void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
 
     vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
     for (auto& e : to_destroy) {
-        if (to_preserve.find(e) == to_preserve.end()) {
-            destroy_edge(e.first, e.second);
-        }
+        destroy_edge(e.first, e.second);
     }
 
     for (auto* n : head_nodes()) {
