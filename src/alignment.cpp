@@ -141,55 +141,55 @@ bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, s
     return get_next_alignment_from_fastq(fp1, buffer, len, mate1) && get_next_alignment_from_fastq(fp2, buffer, len, mate2);
 }
 
-
-size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Alignment&)> lambda) {
-    gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
-    if (!fp) {
-        cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
-    }
-    size_t len = 2 << 18; // 256k
+size_t unpaired_for_each_parallel(function<bool(Alignment&)> get_read_if_available, function<void(Alignment&)> lambda) {
+    
     size_t nLines = 0;
-    int thread_count = get_thread_count();
     vector<Alignment> *batch = nullptr;
-    char* buf = new char[len];
-    const uint64_t batch_size = 2 << 8;;
-    // max # of such batches to be holding in memory
-    const uint64_t max_batches_outstanding = 2 << 8;
     // number of batches currently being processed
     uint64_t batches_outstanding = 0;
-    bool more_data = true;
-#pragma omp parallel default(none) shared(fp, more_data, batches_outstanding, batch, len, buf, nLines, lambda)
+#pragma omp parallel default(none) shared(batches_outstanding, batch, nLines, get_read_if_available, lambda)
 #pragma omp single
     {
+        // max # of such batches to be holding in memory
+        const uint64_t max_batches_outstanding = 1 << 9; // 512
+        // number of pairs in each batch
+        const uint64_t batch_size = 1 << 9; // 512
+        
+        // alignments to hold the incoming data
+        Alignment aln;
+        // did we find the end of the file yet?
+        bool more_data = true;
+        
         while (more_data) {
-            if (!batch) {
-                batch = new std::vector<Alignment>();
-                batch->reserve(batch_size);
-            }
-            Alignment aln;
-            bool got_anything = false;
-            {
-                int i = 0;
-                while (more_data && i++ < batch_size) {
-                    //got_anything = more_data = get_next_interleaved_alignment_pair_from_fastq(fp, buf, len, mate1, mate2);
-                    got_anything = more_data = get_next_alignment_from_fastq(fp, buf, len, aln);
-                    if (got_anything) {
-                        batch->push_back(std::move(aln));
-                        nLines++;
-                    }
+            // init a new batch
+            batch = new std::vector<Alignment>();
+            batch->reserve(batch_size);
+            
+            // load up to the batch-size number of reads
+            for (int i = 0; i < batch_size; i++) {
+                
+                more_data = get_read_if_available(aln);
+                
+                if (more_data) {
+                    batch->emplace_back(std::move(aln));
+                    nLines++;
+                }
+                else {
+                    break;
                 }
             }
+            
+            // did we get a batch?
             if (batch->size()) {
-                uint64_t b;
+                
+                // how many batch tasks are outstanding currently, including this one?
+                uint64_t current_batches_outstanding;
 #pragma omp atomic capture
-                b = ++batches_outstanding;
-                while (b >= max_batches_outstanding) {
-                    usleep(1000);
-#pragma omp atomic read
-                    b = batches_outstanding;
-                }
-#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda)
-                {
+                current_batches_outstanding = ++batches_outstanding;
+                
+                if (current_batches_outstanding >= max_batches_outstanding) {
+                    // do this batch in the current thread because we've spawned the maximum number of
+                    // concurrent batch tasks
                     for (auto& aln : *batch) {
                         lambda(aln);
                     }
@@ -197,68 +197,86 @@ size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Al
 #pragma omp atomic update
                     batches_outstanding--;
                 }
-            }
-            batch = nullptr; // reset batch pointer
-        }
-    }
-    delete buf;
-    gzclose(fp);
-    return nLines;
-}
-
-size_t fastq_paired_interleaved_for_each_parallel(const string& filename, function<void(Alignment&, Alignment&)> lambda) {
-    return fastq_paired_interleaved_for_each_parallel_after_wait(filename, lambda, [](void) {return true;});
-}
-    
-size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filename,
-                                                             function<void(Alignment&, Alignment&)> lambda,
-                                                             function<bool(void)> single_threaded_until_true) {
-    gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
-    if (!fp) {
-        cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
-    }
-    size_t len = 2 << 18; // 256k
-    size_t nLines = 0;
-    int thread_count = get_thread_count();
-    vector<pair<Alignment, Alignment> > *batch = nullptr;
-    char* buf = new char[len];
-    const uint64_t batch_size = 2 << 8;
-    // max # of such batches to be holding in memory
-    uint64_t max_batches_outstanding = 2 << 8;
-    // number of batches currently being processed
-    uint64_t batches_outstanding = 0;
-    bool more_data = true;
-#pragma omp parallel default(none) shared(fp, more_data, max_batches_outstanding, batches_outstanding, single_threaded_until_true, batch, len, buf, nLines, lambda)
-#pragma omp single
-    {
-        while (more_data) {
-            if (!batch) {
-                batch = new std::vector<pair<Alignment, Alignment> >();
-                batch->reserve(batch_size);
-            }
-            Alignment mate1, mate2;
-            bool got_anything = false;
-            {
-                int i = 0;
-                while (more_data && i++ < batch_size) {
-                    got_anything = more_data = get_next_interleaved_alignment_pair_from_fastq(fp, buf, len, mate1, mate2);
-                    if (got_anything) {
-                        batch->emplace_back(std::move(mate1), std::move(mate2));
-                        nLines++;
+                else {
+                    // spawn a new task to take care of this batch
+#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda)
+                    {
+                        for (auto& aln : *batch) {
+                            lambda(aln);
+                        }
+                        delete batch;
+#pragma omp atomic update
+                        batches_outstanding--;
                     }
                 }
             }
-            if (batch->size()) {
-                uint64_t b;
-#pragma omp atomic capture
-                b = ++batches_outstanding;
-                while (b >= max_batches_outstanding) {
-                    usleep(1000);
-#pragma omp atomic read
-                    b = batches_outstanding;
+        }
+    }
+    return nLines;
+}
+
+size_t paired_for_each_parallel_after_wait(function<bool(Alignment&, Alignment&)> get_pair_if_available,
+                                           function<void(Alignment&, Alignment&)> lambda,
+                                           function<bool(void)> single_threaded_until_true) {
+    
+    
+    size_t nLines = 0;
+    vector<pair<Alignment, Alignment> > *batch = nullptr;
+    // number of batches currently being processed
+    uint64_t batches_outstanding = 0;
+    
+#pragma omp parallel default(none) shared(batches_outstanding, batch, nLines, get_pair_if_available, single_threaded_until_true, lambda)
+#pragma omp single
+    {
+        
+        // max # of such batches to be holding in memory
+        const uint64_t max_batches_outstanding = 1 << 9; // 512
+        // number of pairs in each batch
+        const uint64_t batch_size = 1 << 9; // 512
+        
+        // alignments to hold the incoming data
+        Alignment mate1, mate2;
+        // did we find the end of the file yet?
+        bool more_data = true;
+        
+        while (more_data) {
+            // init a new batch
+            batch = new std::vector<pair<Alignment, Alignment>>();
+            batch->reserve(batch_size);
+            
+            // load up to the batch-size number of pairs
+            for (int i = 0; i < batch_size; i++) {
+                
+                more_data = get_pair_if_available(mate1, mate2);
+                
+                if (more_data) {
+                    batch->emplace_back(std::move(mate1), std::move(mate2));
+                    nLines++;
                 }
-                if (single_threaded_until_true()) {
-                    
+                else {
+                    break;
+                }
+            }
+            
+            // did we get a batch?
+            if (batch->size()) {
+                // how many batch tasks are outstanding currently, including this one?
+                uint64_t current_batches_outstanding;
+#pragma omp atomic capture
+                current_batches_outstanding = ++batches_outstanding;
+                
+                if (current_batches_outstanding >= max_batches_outstanding || !single_threaded_until_true()) {
+                    // do this batch in the current thread because we've spawned the maximum number of
+                    // concurrent batch tasks or because we are directed to work in a single thread
+                    for (auto& p : *batch) {
+                        lambda(p.first, p.second);
+                    }
+                    delete batch;
+#pragma omp atomic update
+                    batches_outstanding--;
+                }
+                else {
+                    // spawn a new task to take care of this batch
 #pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda)
                     {
                         for (auto& p : *batch) {
@@ -269,32 +287,71 @@ size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filen
                         batches_outstanding--;
                     }
                 }
-                else {
-                    // process this batch in the current thread
-                    {
-                        for (auto& p : *batch) {
-                            lambda(p.first, p.second);
-                        }
-                        delete batch;
-                        batches_outstanding--;
-                    }
-                }
             }
-            batch = nullptr; // reset batch pointer
         }
     }
-    delete buf;
-    gzclose(fp);
+    
     return nLines;
 }
 
+size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Alignment&)> lambda) {
+    
+    gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    if (!fp) {
+        cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
+    }
+    
+    size_t len = 1 << 18; // 256k
+    char* buf = new char[len];
+    
+    function<bool(Alignment&)> get_read = [&](Alignment& aln) {
+        return get_next_alignment_from_fastq(fp, buf, len, aln);;
+    };
+    
+    
+    size_t nLines = unpaired_for_each_parallel(get_read, lambda);
+    
+    delete buf;
+    gzclose(fp);
+    return nLines;
+    
+}
+
+size_t fastq_paired_interleaved_for_each_parallel(const string& filename, function<void(Alignment&, Alignment&)> lambda) {
+    return fastq_paired_interleaved_for_each_parallel_after_wait(filename, lambda, [](void) {return true;});
+}
+    
 size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda) {
     return fastq_paired_two_files_for_each_parallel_after_wait(file1, file2, lambda, [](void) {return true;});
+}
+    
+size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filename,
+                                                             function<void(Alignment&, Alignment&)> lambda,
+                                                             function<bool(void)> single_threaded_until_true) {
+    
+    gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    if (!fp) {
+        cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
+    }
+    
+    size_t len = 1 << 18; // 256k
+    char* buf = new char[len];
+    
+    function<bool(Alignment&, Alignment&)> get_pair = [&](Alignment& mate1, Alignment& mate2) {
+        return get_next_interleaved_alignment_pair_from_fastq(fp, buf, len, mate1, mate2);
+    };
+    
+    size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true);
+    
+    delete buf;
+    gzclose(fp);
+    return nLines;
 }
     
 size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, const string& file2,
                                                            function<void(Alignment&, Alignment&)> lambda,
                                                            function<bool(void)> single_threaded_until_true) {
+    
     gzFile fp1 = (file1 != "-") ? gzopen(file1.c_str(), "r") : gzdopen(fileno(stdin), "r");
     if (!fp1) {
         cerr << "[vg::alignment.cpp] couldn't open " << file1 << endl; exit(1);
@@ -303,73 +360,16 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
     if (!fp2) {
         cerr << "[vg::alignment.cpp] couldn't open " << file2 << endl; exit(1);
     }
-    size_t len = 2 << 18; // 256k
-    size_t nLines = 0;
-    int thread_count = get_thread_count();
-    vector<pair<Alignment, Alignment> > *batch = nullptr;
+    
+    size_t len = 1 << 18; // 256k
     char* buf = new char[len];
-    const uint64_t batch_size = 2 << 8;
-    // max # of such batches to be holding in memory
-    uint64_t max_batches_outstanding = 2 << 8;
-    // number of batches currently being processed
-    uint64_t batches_outstanding = 0;
-    bool more_data = true;
-#pragma omp parallel default(none) shared(fp1, fp2, more_data, max_batches_outstanding, batches_outstanding, single_threaded_until_true, batch, len, buf, nLines, lambda)
-#pragma omp single
-    {
-        // spinlock until wait function evaluates to true
-        while (more_data) {
-            if (!batch) {
-                batch = new std::vector<pair<Alignment, Alignment> >();
-                batch->reserve(batch_size);
-            }
-            Alignment mate1, mate2;
-            bool got_anything = false;
-            {
-                int i = 0;
-                while (more_data && i++ < batch_size) {
-                    got_anything = more_data = get_next_alignment_pair_from_fastqs(fp1, fp2, buf, len, mate1, mate2);
-                    if (got_anything) {
-                        batch->push_back(std::move(make_pair(mate1, mate2)));
-                        nLines++;
-                    }
-                }
-            }
-            if (batch->size()) {
-                uint64_t b;
-#pragma omp atomic capture
-                b = ++batches_outstanding;
-                while (b >= max_batches_outstanding) {
-                    usleep(1000);
-#pragma omp atomic read
-                    b = batches_outstanding;
-                }
-                if (single_threaded_until_true()) {
-                    
-#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda)
-                    {
-                        for (auto& p : *batch) {
-                            lambda(p.first, p.second);
-                        }
-                        delete batch;
-#pragma omp atomic update
-                        batches_outstanding--;
-                    }
-                }
-                else {
-                    // process this batch in the current thread
-                    {
-                        for (auto& p : *batch) {
-                            lambda(p.first, p.second);
-                        }
-                        delete batch;
-                        batches_outstanding--;
-                    }
-                }
-            }
-            batch = nullptr; // reset batch pointer
-        }
-    }
+    
+    function<bool(Alignment&, Alignment&)> get_pair = [&](Alignment& mate1, Alignment& mate2) {
+        return get_next_alignment_pair_from_fastqs(fp1, fp2, buf, len, mate1, mate2);
+    };
+    
+    size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true);
+    
     delete buf;
     gzclose(fp1);
     gzclose(fp2);
