@@ -142,14 +142,41 @@ if [[ ! -e "${READS_DIR}" ]]; then
         --fastq "${TRAINING_FASTQ}"
 fi
 
+ # Now we do a bunch of stuff in parallel
+JOB_ARRAY=()
+
+# What do they return?
+JOB_RETURNS=()
+
+# We have a function to wait for the parallel jobs to finish
+function wait_on_jobs() {
+    # Now wait for all the jobs and fail if any failed
+    for JOB in "${JOB_ARRAY[@]}"; do
+        if [[ -z "${JOB}" ]]; then
+            # Drop empty strings that get in here. This happens if we forget
+            # the trailing & on something intended to be in parallel.
+            continue
+        fi
+        wait "${JOB}"
+        JOB_RETURNS+=("$?")
+    done
+
+    JOB_NUMBER=1
+    for JOB_RETURN in "${JOB_RETURNS[@]}"; do
+        echo "Job ${JOB_NUMBER} exit status: ${JOB_RETURN}"
+        ((JOB_NUMBER=JOB_NUMBER+1))
+        if [[ "${JOB_RETURN}" != "0" ]]; then
+            echo "Job failed!" 1>&2
+            exit 1
+        fi
+    done
+    
+    JOB_ARRAY=()
+    JOB_RETURNS=()
+}
+
 if [[ "${RUN_JOBS}" == "1" ]]; then
     # We actually want to run the toil-vg jobs
-
-    # Now we do a bunch of stuff in parallel
-    JOB_ARRAY=()
-    
-    # What do they return?
-    JOB_RETURNS=()
 
     #if [[ ! -e "${OUTPUT_PATH}/snp1kg" ]]; then
     #    # Do the full snp1kg graph without the GBWT
@@ -177,7 +204,9 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         # Do the full snp1kg graph multipath
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp" "${OUTPUT_PATH}/snp1kg-mp" \
             --single_reads_chunk \
-            --alignment_cores 16 \
+            --alignment_cores 64 \
+            --alignment_disk 20G \
+            --max_disk 100G \
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
@@ -190,7 +219,9 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         # Do the full snp1kg graph multipath with gbwt
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-gbwt" "${OUTPUT_PATH}/snp1kg-mp-gbwt" \
             --single_reads_chunk \
-            --alignment_cores 16 \
+            --alignment_cores 64 \
+            --alignment_disk 20G \
+            --max_disk 100G \
             --multipath-only \
             --use-gbwt \
             --gam_input_reads "${READS_DIR}/sim.gam" \
@@ -200,11 +231,15 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         JOB_ARRAY+=("$!")
     fi
     
-     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback" ]]; then
+    wait_on_jobs
+    
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback" ]]; then
         # Do the full snp1kg graph multipath with gbwt
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-gbwt-traceback" "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback" \
             --single_reads_chunk \
-            --alignment_cores 16 \
+            --alignment_cores 64 \
+            --alignment_disk 20G \
+            --max_disk 100G \
             --multipath-only \
             --use-gbwt \
             --mpmap_opts "--max-paths 10" \
@@ -243,7 +278,9 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         # And with the min allele frequency
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-minaf" "${OUTPUT_PATH}/snp1kg-mp-minaf" \
             --single_reads_chunk \
-            --alignment_cores 16 \
+            --alignment_cores 64 \
+            --alignment_disk 20G \
+            --max_disk 100G \
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
@@ -251,6 +288,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam-names snp1kg-minaf 2>&1 &
         JOB_ARRAY+=("$!")
     fi
+    
+    wait_on_jobs
     
     #if [[ ! -e "${OUTPUT_PATH}/snp1kg-negative" ]]; then    
     #    # And the negative control with correct variants removed
@@ -266,7 +305,9 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         # And the positive control with only real variants
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-positive" "${OUTPUT_PATH}/snp1kg-mp-positive" \
             --single_reads_chunk \
-            --alignment_cores 16 \
+            --alignment_cores 64 \
+            --alignment_disk 20G \
+            --max_disk 100G \
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
@@ -279,7 +320,9 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         # And the primary path only
         toil-vg mapeval "${TREE_PATH}/primary-mp" "${OUTPUT_PATH}/primary-mp" \
             --single_reads_chunk \
-            --alignment_cores 16 \
+            --alignment_cores 64 \
+            --alignment_disk 20G \
+            --max_disk 100G \
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
@@ -288,26 +331,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         JOB_ARRAY+=("$!")
     fi
 
-    # Now wait for all the jobs and fail if any failed
-    for JOB in "${JOB_ARRAY[@]}"; do
-        if [[ -z "${JOB}" ]]; then
-            # Drop empty strings that get in here
-            # TODO: how did they do that?
-            continue
-        fi
-        wait "${JOB}"
-        JOB_RETURNS+=("$?")
-    done
-
-    JOB_NUMBER=1
-    for JOB_RETURN in "${JOB_RETURNS[@]}"; do
-        echo "Job ${JOB_NUMBER} exit status: ${JOB_RETURN}"
-        ((JOB_NUMBER=JOB_NUMBER+1))
-        if [[ "${JOB_RETURN}" != "0" ]]; then
-            echo "Job failed!" 1>&2
-            exit 1
-        fi
-    done
+    wait_on_jobs
 
 fi
     
