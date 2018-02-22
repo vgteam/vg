@@ -2240,9 +2240,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double maybe_pair_mq = maybe_mq1+maybe_mq2;
 
     // if estimated mq is high scale difficulty using the estimated mapping quality
+    /*
     if (maybe_pair_mq > max_mapping_quality) {
         total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(maybe_pair_mq)));
     }
+    */
 
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << " " << total_multimaps << endl;
     if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << fraction_filtered2 << " " << max_possible_mq << " " << total_multimaps << endl;
@@ -2457,7 +2459,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size() && (!to_drop1.count(&cluster1)
-                                || filled1 < max_multimaps)) {
+                                || filled1 < min_multimaps)) {
             p.first = align_cluster(read1, cluster1, true);
             ++filled1;
         } else {
@@ -2467,7 +2469,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_path();
         }
         if (cluster2.size() && (!to_drop2.count(&cluster2)
-                                || filled2 < max_multimaps)) {
+                                || filled2 < min_multimaps)) {
             p.second = align_cluster(read2, cluster2, true);
             ++filled2;
         } else {
@@ -2978,9 +2980,11 @@ Mapper::align_mem_multi(const Alignment& aln,
     }
 
     // scale difficulty using the estimated mapping quality
+    /*
     if (maybe_mq > max_mapping_quality) {
         total_multimaps = max(max(min_multimaps*4, max_multimaps), min(total_multimaps, (int)round(maybe_mq)));
     }
+    */
 
     if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_mq << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << " " << total_multimaps << " " << mem_read_ratio << " " << fraction_filtered << " " << max_possible_mq << " " << total_multimaps << endl;
 
@@ -3100,7 +3104,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     for (auto& cluster : clusters) {
         if (alns.size() >= total_multimaps) { break; }
         // skip if we've filtered the cluster
-        if (to_drop.count(&cluster) && filled >= max_multimaps) {
+        if (to_drop.count(&cluster) && filled >= min_multimaps) {
             alns.push_back(aln);
             used_clusters.push_back(&cluster);
             continue;

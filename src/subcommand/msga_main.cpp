@@ -33,7 +33,7 @@ void help_msga(char** argv) {
          << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [1024]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-W} * FLOAT [1.5]" << endl
-         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [48]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [2]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT (set to -1 to estimated via -e) [-1]" << endl
          << "    -e, --cluster-p FLOAT   set {-W} such that this fraction of {-W} length hits will by by chance [0.05]" << endl
@@ -120,7 +120,7 @@ int main_msga(int argc, char** argv) {
     float mem_reseed_factor = 1.5;
     float random_match_chance = 0.05;
     int extra_multimaps = 512;
-    int min_multimaps = 48;
+    int min_multimaps = 2;
     float drop_chain = 0.5;
     int max_mapping_quality = 60;
     int method_code = 1;
