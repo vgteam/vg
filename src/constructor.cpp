@@ -1202,7 +1202,7 @@ namespace vg {
 
         if (insertions.size() == 1){
             // If we only get one fasta file for insertions, we'll
-            //             // open it and take all insert sequences from there.
+            // open it and take all insert sequences from there.
             do_external_insertions = true;
             insertion_fasta = insertions[0];
         }
@@ -1231,7 +1231,7 @@ namespace vg {
             auto vvar = variant_source.get();
 
             if (do_svs) {
-                variant_acceptable = vvar->canonicalize_sv(reference, insertions, -1);
+                variant_acceptable = vvar->canonicalize_sv(reference, insertions, true, -1);
             }
 
             for (string& alt : vvar->alt) {
@@ -1251,7 +1251,7 @@ namespace vg {
                             }
                         }
                         if (warn) {
-                            cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant(s)!" << endl;
+                            cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant(s) " << *vvar <<" !" << endl;
                         }
                     }
                     break;
