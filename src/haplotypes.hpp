@@ -305,7 +305,7 @@ public:
 
 //------------------------------------------------------------------------------
 
-struct linear_haplo_DP{
+struct linear_haplo_structure{
 private:
 
   siteIndex* index = nullptr;
@@ -336,8 +336,8 @@ public:
     size_t size() const;
   };
   
-  linear_haplo_DP(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, xg::XG& xg_index, size_t xg_ref_rank);
-  ~linear_haplo_DP();
+  linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, xg::XG& xg_index, size_t xg_ref_rank);
+  ~linear_haplo_structure();
   haplo_score_type score(const vg::Path& path) const;
   
   inputHaplotype* path_to_input_haplotype(const vg::Path& path) const;

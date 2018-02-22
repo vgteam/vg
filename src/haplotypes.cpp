@@ -406,10 +406,10 @@ haplo_DP_column* haplo_DP::get_current_column() {
 }
 
 /*******************************************************************************
-linear_haplo_DP
+linear_haplo_structure
 *******************************************************************************/
 
-linear_haplo_DP::nodeType linear_haplo_DP::get_type(int64_t node_id) const {
+linear_haplo_structure::nodeType linear_haplo_structure::get_type(int64_t node_id) const {
   if(is_solitary_ref(node_id)) {
     return ref_span;
   }
@@ -419,13 +419,13 @@ linear_haplo_DP::nodeType linear_haplo_DP::get_type(int64_t node_id) const {
   return invalid;
 }
 
-int64_t linear_haplo_DP::path_mapping_node_id(const vg::Path& path, size_t i) const {
+int64_t linear_haplo_structure::path_mapping_node_id(const vg::Path& path, size_t i) const {
   vg::Mapping this_mapping = path.mapping(i);
   auto last_pos = this_mapping.position();
   return last_pos.node_id();
 }
 
-int64_t linear_haplo_DP::get_SNP_ref_position(size_t node_id) const {
+int64_t linear_haplo_structure::get_SNP_ref_position(size_t node_id) const {
   vector<vg::Edge> lnbr_edges = xg_index.edges_on_start(node_id);
   int64_t lnbr = lnbr_edges[0].from();
   vector<vg::Edge> SNP_allele_edges = xg_index.edges_on_end(lnbr);
@@ -437,7 +437,7 @@ int64_t linear_haplo_DP::get_SNP_ref_position(size_t node_id) const {
   throw runtime_error("no ref allele at SNP");
 }
 
-void linear_haplo_DP::SNVvector::push_back(alleleValue allele, size_t ref_pos, bool deletion) {
+void linear_haplo_structure::SNVvector::push_back(alleleValue allele, size_t ref_pos, bool deletion) {
   ref_positions.push_back(ref_pos);
   if(deletion) {
     alleles.push_back(gap);
@@ -446,24 +446,24 @@ void linear_haplo_DP::SNVvector::push_back(alleleValue allele, size_t ref_pos, b
   }
 }
 
-alleleValue linear_haplo_DP::get_SNV_allele(int64_t node_id) const {
+alleleValue linear_haplo_structure::get_SNV_allele(int64_t node_id) const {
   char allele_char = xg_index.node_sequence(node_id).at(0);
   return allele::from_char(allele_char);
 }
 
-size_t linear_haplo_DP::SNVvector::ref_position(size_t i) const {
+size_t linear_haplo_structure::SNVvector::ref_position(size_t i) const {
   return ref_positions.at(i);
 }
 
-alleleValue linear_haplo_DP::SNVvector::allele(size_t i) const {
+alleleValue linear_haplo_structure::SNVvector::allele(size_t i) const {
   return alleles.at(i);
 }
 
-size_t linear_haplo_DP::SNVvector::size() const {
+size_t linear_haplo_structure::SNVvector::size() const {
   return nodes.size();
 }
 
-bool linear_haplo_DP::sn_deletion_between_ref(int64_t left, int64_t right) const {
+bool linear_haplo_structure::sn_deletion_between_ref(int64_t left, int64_t right) const {
   int64_t gap = position_assuming_acyclic(right) - position_assuming_acyclic(left) - xg_index.node_length(left);
   if(gap == 0) {
     return false;
@@ -474,7 +474,7 @@ bool linear_haplo_DP::sn_deletion_between_ref(int64_t left, int64_t right) const
   }
 }
 
-int64_t linear_haplo_DP::get_ref_following(int64_t node_id) const {
+int64_t linear_haplo_structure::get_ref_following(int64_t node_id) const {
   vector<vg::Edge> r_edges = xg_index.edges_on_end(node_id);
   vector<int64_t> refs;
   for(size_t i = 0; i < r_edges.size(); i++) {
@@ -496,7 +496,7 @@ int64_t linear_haplo_DP::get_ref_following(int64_t node_id) const {
   return node;
 }
 
-linear_haplo_DP::SNVvector linear_haplo_DP::SNVs(const vg::Path& path) const {
+linear_haplo_structure::SNVvector linear_haplo_structure::SNVs(const vg::Path& path) const {
   SNVvector to_return;
   if(path.mapping_size() < 1) {
     return to_return;
@@ -548,7 +548,7 @@ linear_haplo_DP::SNVvector linear_haplo_DP::SNVs(const vg::Path& path) const {
   return to_return;
 }
 
-size_t linear_haplo_DP::position_assuming_acyclic(int64_t node_id) const {
+size_t linear_haplo_structure::position_assuming_acyclic(int64_t node_id) const {
   if(!xg_index.path_contains_node(xg_index.path_name(xg_ref_rank), node_id)) {
     throw runtime_error("requested position-in-path of node not in path");
   }
@@ -556,7 +556,7 @@ size_t linear_haplo_DP::position_assuming_acyclic(int64_t node_id) const {
 }
 
 
-bool linear_haplo_DP::is_solitary_ref(int64_t node_id) const {
+bool linear_haplo_structure::is_solitary_ref(int64_t node_id) const {
   if(!xg_index.path_contains_node(xg_index.path_name(xg_ref_rank), node_id)) {
     return false;
   }
@@ -600,7 +600,7 @@ bool linear_haplo_DP::is_solitary_ref(int64_t node_id) const {
   return true;
 }
 
-bool linear_haplo_DP::is_snv(int64_t node_id) const {  
+bool linear_haplo_structure::is_snv(int64_t node_id) const {  
   // has only one left and one right neighbour
   int64_t lnbr;
   int64_t rnbr;
@@ -660,7 +660,7 @@ bool linear_haplo_DP::is_snv(int64_t node_id) const {
   return true;
 }
 
-inputHaplotype* linear_haplo_DP::path_to_input_haplotype(const vg::Path& path) const {
+inputHaplotype* linear_haplo_structure::path_to_input_haplotype(const vg::Path& path) const {
   if(path.mapping_size() == 0) {
     return new inputHaplotype();
   }
@@ -714,7 +714,7 @@ inputHaplotype* linear_haplo_DP::path_to_input_haplotype(const vg::Path& path) c
   return to_return;
 }
 
-linear_haplo_DP::linear_haplo_DP(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, xg::XG& xg_index, size_t xg_ref_rank) : xg_index(xg_index), xg_ref_rank(xg_ref_rank) {
+linear_haplo_structure::linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, xg::XG& xg_index, size_t xg_ref_rank) : xg_index(xg_index), xg_ref_rank(xg_ref_rank) {
   if(xg_ref_rank > xg_index.max_path_rank()) {
     throw runtime_error("reference path rank out of bounds");
   }
@@ -723,12 +723,12 @@ linear_haplo_DP::linear_haplo_DP(istream& slls_index, double log_mut_penalty, do
   penalties = new penaltySet(log_recomb_penalty, log_mut_penalty, cohort->get_n_haplotypes());
 }
 
-linear_haplo_DP::~linear_haplo_DP() {
+linear_haplo_structure::~linear_haplo_structure() {
   delete cohort;
   delete penalties;
 }
 
-haplo_score_type linear_haplo_DP::score(const vg::Path& path) const {
+haplo_score_type linear_haplo_structure::score(const vg::Path& path) const {
   inputHaplotype* observed = path_to_input_haplotype(path);
   haplo_score_type to_return;
   if(observed->is_valid()) {

@@ -175,19 +175,19 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   slls_out.close();  
   ifstream slls_in;
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_DP SNP_lin_DP(slls_in, -3, -2, SNP_xg_index, 1);
+  haplo::linear_haplo_structure SNP_lin_DP(slls_in, -3, -2, SNP_xg_index, 1);
   slls_in.close();
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_DP del_lin_DP(slls_in, -3, -2, del_xg_index, 1);
+  haplo::linear_haplo_structure del_lin_DP(slls_in, -3, -2, del_xg_index, 1);
   slls_in.close();
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_DP long_lin_DP(slls_in, -3, -2, long_xg_index, 1);
+  haplo::linear_haplo_structure long_lin_DP(slls_in, -3, -2, long_xg_index, 1);
   slls_in.close();
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_DP double_lin_DP(slls_in, -3, -2, double_xg_index, 1);
+  haplo::linear_haplo_structure double_lin_DP(slls_in, -3, -2, double_xg_index, 1);
   slls_in.close();
   slls_in.open(matching_test_file, ios::in);
-  haplo::linear_haplo_DP match_lin_DP(slls_in, -3, -2, SNP_xg_index, 1);
+  haplo::linear_haplo_structure match_lin_DP(slls_in, -3, -2, SNP_xg_index, 1);
   slls_in.close();
   remove(matching_test_file.c_str());
   
@@ -198,7 +198,7 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   nslls_out.close();  
   ifstream nslls_in;
   nslls_in.open(nonmatching_test_file, ios::in);
-  haplo::linear_haplo_DP nonmatch_lin_DP(nslls_in, -3, -2, SNP_xg_index, 1);
+  haplo::linear_haplo_structure nonmatch_lin_DP(nslls_in, -3, -2, SNP_xg_index, 1);
   nslls_in.close();
   remove(nonmatching_test_file.c_str());
 
@@ -218,27 +218,27 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
     REQUIRE(SNP_lin_DP.is_snv(3) == true);
     REQUIRE(long_lin_DP.is_snv(3) == false);
     REQUIRE(double_lin_DP.is_snv(3) == false);
-    REQUIRE(SNP_lin_DP.get_type(1) == haplo::linear_haplo_DP::ref_span);
-    REQUIRE(SNP_lin_DP.get_type(2) == haplo::linear_haplo_DP::snv);
-    REQUIRE(long_lin_DP.get_type(3) == haplo::linear_haplo_DP::invalid);
-    REQUIRE(double_lin_DP.get_type(3) == haplo::linear_haplo_DP::invalid);
+    REQUIRE(SNP_lin_DP.get_type(1) == haplo::linear_haplo_structure::ref_span);
+    REQUIRE(SNP_lin_DP.get_type(2) == haplo::linear_haplo_structure::snv);
+    REQUIRE(long_lin_DP.get_type(3) == haplo::linear_haplo_structure::invalid);
+    REQUIRE(double_lin_DP.get_type(3) == haplo::linear_haplo_structure::invalid);
   }
   SECTION( "graph with SNP" ) {
     bool passed = true;
-    haplo::linear_haplo_DP::SNVvector SNP_snvs = SNP_lin_DP.SNVs(SNP_path);
+    haplo::linear_haplo_structure::SNVvector SNP_snvs = SNP_lin_DP.SNVs(SNP_path);
     try{
-      haplo::linear_haplo_DP::SNVvector SNP_snvs = SNP_lin_DP.SNVs(SNP_path);
-    } catch(haplo::linear_haplo_DP::linearUnrepresentable& e) {
+      haplo::linear_haplo_structure::SNVvector SNP_snvs = SNP_lin_DP.SNVs(SNP_path);
+    } catch(haplo::linear_haplo_structure::linearUnrepresentable& e) {
       passed = false;
     }
     REQUIRE(passed);
   }
   SECTION( "graph with deletion" ) {
     bool passed = true;
-    haplo::linear_haplo_DP::SNVvector del_snvs = del_lin_DP.SNVs(del_path);
+    haplo::linear_haplo_structure::SNVvector del_snvs = del_lin_DP.SNVs(del_path);
     try{
-      haplo::linear_haplo_DP::SNVvector SNP_snvs = SNP_lin_DP.SNVs(SNP_path);
-    } catch(haplo::linear_haplo_DP::linearUnrepresentable& e) {
+      haplo::linear_haplo_structure::SNVvector SNP_snvs = SNP_lin_DP.SNVs(SNP_path);
+    } catch(haplo::linear_haplo_structure::linearUnrepresentable& e) {
       passed = false;
     }
     REQUIRE(passed);
@@ -246,8 +246,8 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   SECTION( "graph with too long polymorphism" ) {
     bool passed = true;
     try{
-      haplo::linear_haplo_DP::SNVvector long_snvs = long_lin_DP.SNVs(long_path);
-    } catch(haplo::linear_haplo_DP::linearUnrepresentable& e) {
+      haplo::linear_haplo_structure::SNVvector long_snvs = long_lin_DP.SNVs(long_path);
+    } catch(haplo::linear_haplo_structure::linearUnrepresentable& e) {
       passed = false;
     }
     REQUIRE(!passed);
@@ -255,15 +255,15 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   SECTION( "graph with 2-node path in superbubble" ) {
     bool passed = true;
     try{
-      haplo::linear_haplo_DP::SNVvector double_snvs = double_lin_DP.SNVs(double_path);
-    } catch(haplo::linear_haplo_DP::linearUnrepresentable& e) {
+      haplo::linear_haplo_structure::SNVvector double_snvs = double_lin_DP.SNVs(double_path);
+    } catch(haplo::linear_haplo_structure::linearUnrepresentable& e) {
       passed = false;
     }
     REQUIRE(!passed);
   }
   SECTION( "interpreting as inputHaplotype" ) {
-      // REQUIRE(match_lin_DP.path_to_input_haplotype(test_path)->is_valid());
-      // REQUIRE(!nonmatch_lin_DP.path_to_input_haplotype(test_path)->is_valid());
+    REQUIRE(match_lin_DP.path_to_input_haplotype(test_path)->is_valid());
+    REQUIRE(!nonmatch_lin_DP.path_to_input_haplotype(test_path)->is_valid());
   }
 }
 
