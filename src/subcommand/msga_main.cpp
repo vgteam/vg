@@ -32,12 +32,12 @@ void help_msga(char** argv) {
          << "    -k, --min-seed INT      minimum seed (MEM) length [1]" << endl
          << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [1024]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
-         << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
-         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [64]" << endl
+         << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-W} * FLOAT [1.5]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [48]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
-         << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
+         << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT (set to -1 to estimated via -e) [-1]" << endl
          << "    -e, --cluster-p FLOAT   set {-W} such that this fraction of {-W} length hits will by by chance [0.05]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.0]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
@@ -55,7 +55,7 @@ void help_msga(char** argv) {
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes [16]" << endl
          << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
-         << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max [2]" << endl
+         << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max [3]" << endl
          << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
          << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes [2]" << endl
@@ -100,7 +100,7 @@ int main_msga(int argc, char** argv) {
     bool debug_align = false;
     size_t node_max = 0;
     int alignment_threads = get_thread_count();
-    int edge_max = 2;
+    int edge_max = 3;
     int subgraph_prune = 0;
     bool normalize = false;
     int iter_max = 1;
@@ -120,7 +120,7 @@ int main_msga(int argc, char** argv) {
     float mem_reseed_factor = 1.5;
     float random_match_chance = 0.05;
     int extra_multimaps = 512;
-    int min_multimaps = 64;
+    int min_multimaps = 48;
     float drop_chain = 0.5;
     int max_mapping_quality = 60;
     int method_code = 1;

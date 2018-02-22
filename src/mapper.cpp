@@ -497,9 +497,103 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         if (mem.begin < seq_begin || mem.end > seq_end) continue;
         mem.match_count = gcsa->count(mem.range);
         mem.primary = true;
-        // if we aren't filtering on hit count, or if we have up to the max allowed hits
+    }
+    
+    // the graph of containment relationships between MEMs by index, also keeps track of what the sub-MEM min
+    // length the children should be
+    vector<pair<int, vector<size_t>>> sub_mem_containment_graph(mems.size());
+
+    if (reseed_length) {
+        
+        // record what the minimum length of sub-MEMs they contain should be according to the parameters
+        for (size_t i = 0; i < mems.size(); i++) {
+            if (use_diff_based_fast_reseed && adaptive_reseed_diff) {
+                sub_mem_containment_graph[i].first = max<int>(get_adaptive_min_reseed_length(mems[i].length()), min_mem_length);
+            }
+            else if (use_diff_based_fast_reseed) {
+                sub_mem_containment_graph[i].first = max<int>(ceil(fast_reseed_length_diff * mems[i].length()), min_mem_length);
+            }
+            else {
+                sub_mem_containment_graph[i].first = min_mem_length;
+            }
+        }
+        
+        // record where this layer of disjoint MEMs begins and ends in the return vector
+        int layer_begin = 0, layer_end = mems.size();
+        
+        // apply sub-MEM algorithm to SMEMs and possibly then to the sub-MEMs
+        for (int depth = 0; depth < max_sub_mem_recursion_depth; depth++) {
+            // for all of the MEMs at this depth from the SMEMs in the containment graph
+            for (int i = layer_begin; i < layer_end; i++) {
+                
+                MaximalExactMatch& mem = mems[i];
+                // invalid mem
+                // TODO: why are we ever producing these??
+                if (mem.begin < seq_begin || mem.end > seq_end) continue;
+                
+                int min_sub_mem_length = sub_mem_containment_graph[i].first;
+                
+                // should we look for sub-MEMs from this MEM?
+                if (mem.length() >= min_mem_length &&
+                    mem.length() > min_sub_mem_length &&
+                    (use_lcp_reseed_heuristic && record_max_lcp
+                     && i < lcp_maxima.size() ? lcp_maxima[i] : mem.length()) >= reseed_length &&
+                    (reseed_below == 0 || mem.match_count <= reseed_below)){
+                    
+                    // where should we start looking for sub-MEMs to ensure that we find independent hits
+                    // from adjacent MEMs that might overlap this one?
+                    string::const_iterator seed_boundary = i + 1 < layer_end ? mems[i + 1].end : mems[i].begin;
+                    
+                    // what's the leftmost index where a sub-MEM might be contained in the next MEM to the right?
+                    string::const_iterator possible_containment_boundary = i - 1 >= layer_begin ? mems[i - 1].begin : mems[i].end;
+                    
+                    // reseed using the technique indicated by the mapper's parameters
+                    vector<pair<MaximalExactMatch, vector<size_t>>> sub_mems;
+                    if (fast_reseed) {
+                        find_sub_mems_fast(mems, layer_begin, layer_end, i,
+                                           possible_containment_boundary, seed_boundary,
+                                           min_sub_mem_length, sub_mems);
+                    }
+                    else {
+                        find_sub_mems(mems, layer_begin, layer_end, i, seed_boundary,
+                                      min_sub_mem_length, sub_mems);
+                    }
+                    
+                    for (pair<MaximalExactMatch, vector<size_t>>& sub_mem_and_parents : sub_mems) {
+                        // move the MEM to the return vector and the parents to the containment graph
+                        mems.emplace_back(move(sub_mem_and_parents.first));
+                        sub_mem_containment_graph.emplace_back(0, move(sub_mem_and_parents.second));
+                        
+                        // set the minimum sub-MEM length to the maximum of its parents' minimum lengths
+                        for (size_t j : sub_mem_containment_graph.back().second) {
+                            sub_mem_containment_graph.back().first = max(sub_mem_containment_graph.back().first,
+                                                                         sub_mem_containment_graph[j].first);
+                        }
+                    }
+                }
+            }
+            
+            // we're done with this containment layer, mark its boundaries for the next iteration
+            layer_begin = layer_end;
+            layer_end = mems.size();
+        }
+    }
+    
+    // query the locations of the hits
+    // note: iterate in reverse so we remove the parent count from the children MEMs before decrementing
+    // the parent count itself
+    for (int64_t i = mems.size() - 1; i >= 0; i--) {
+        
+        MaximalExactMatch& mem = mems[i];
+        
+        if (!include_parent_in_sub_mem_count) {
+            // remove the redundant hits with the parent from the total count
+            for (size_t parent_idx : sub_mem_containment_graph[i].second) {
+                mem.match_count -= mems[parent_idx].match_count;
+            }
+        }
+        
         if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
-            // extract the graph positions matching the range
             gcsa->locate(mem.range, mem.nodes);
             // it may be necessary to impose the cap on mem hits?
             if (hit_max > 0 && mem.nodes.size() > hit_max) {
@@ -519,117 +613,25 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         }
 #endif
     }
-
-    if (reseed_length) {
-        // get the sub_mem_and_parents
-        vector<pair<MaximalExactMatch, vector<size_t> > > sub_mems;
-
-        // run the reseeding
-        for (int i = 0; i < mems.size(); ++i) {
-            auto& mem = mems[i];
-            // invalid mem
-            if (mem.begin < seq_begin || mem.end > seq_end) continue;
-            int lcpmax = 0;
-            if (record_max_lcp) lcpmax = lcp_maxima[i];
-            // reseed when...
-            if (mem.length() >= min_mem_length // our mem is greater than the min mem length (should be by default)
-                && (use_lcp_reseed_heuristic ? lcpmax : mem.length()) >= reseed_length // is the right length to reseed
-                //&& mem.nodes.size() // and wasn't filtered
-                && (reseed_below == 0  // and has fewer hits than our threshold for reseeding, if there is a threshold
-                    || mem.nodes.size() <= reseed_below)) {
-                    
-                // reseed using the technique indicated by the mapper's parameters
-                if (fast_reseed) {
-                    if (use_diff_based_fast_reseed) {
-                        if (adaptive_reseed_diff) {
-                            find_sub_mems_fast(mems, i,
-                                               i+1 < mems.size() ? mems[i+1].end : seq_begin,
-                                               max<int>(get_adaptive_min_reseed_length(mem.length()), min_mem_length),
-                                               sub_mems);
-                        }
-                        else {
-                            find_sub_mems_fast(mems, i,
-                                               i+1 < mems.size() ? mems[i+1].end : seq_begin,
-                                               max<int>(ceil(fast_reseed_length_diff * mem.length()), min_mem_length),
-                                               sub_mems);
-                        }
-                    }
-                    else {
-                        find_sub_mems_fast(mems, i,
-                                           i+1 < mems.size() ? mems[i+1].end : seq_begin,
-                                           min_mem_length,
-                                           sub_mems);
-                    }
-                }
-                else {
-                    find_sub_mems(mems, i,
-                                  i+1 < mems.size() ? mems[i+1].end : seq_begin,
-                                  min_mem_length,
-                                  sub_mems);
-                }
-            }
-            
-        }
-        
-        // determine counts of matches
-        for (pair<MaximalExactMatch, vector<size_t> >& sub_mem_and_parents : sub_mems) {
-            // count in entire range, including parents
-            sub_mem_and_parents.first.match_count = gcsa->count(sub_mem_and_parents.first.range);
-            if (!include_parent_in_sub_mem_count) {
-                // remove parents from count
-                for (size_t parent_idx : sub_mem_and_parents.second) {
-                    sub_mem_and_parents.first.match_count -= mems[parent_idx].match_count;
-                }
-            }
-        }
-        
-        // fill MEMs with positions and set flag indicating they are submems
-        for (auto& m : sub_mems) {
-            auto& mem = m.first;
-            mem.primary = false;
-            if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
-                gcsa->locate(mem.range, mem.nodes);
-                // it may be necessary to impose the cap on mem hits?
-                if (hit_max > 0 && mem.nodes.size() > hit_max) {
-                    filtered_mems += mem.nodes.size();
-                    total_mems += mem.nodes.size();
-                    mem.nodes.clear();
-                }
-            }
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                cerr << "sub-MEM " << mem.sequence() << " has " << mem.match_count << " hits: ";
-                for (auto nt : mem.nodes) {
-                    cerr << make_pos_t(nt) << ", ";
-                }
-                cerr << endl;
-            }
-#endif
-        }
-        
-        // combine the MEM and sub-MEM lists
-        for (auto iter = sub_mems.begin(); iter != sub_mems.end(); iter++) {
-            mems.push_back(std::move(iter->first));
-        }
+    
+    // try to identify which hits are redundant sub-MEMs and filter them out
+    // note: do this before sorting the MEMs because the graph's adjacency list is ordered the same
+    // as the return vector
+    if (prefilter_redundant_hits && reseed_length) {
+        prefilter_redundant_sub_mems(mems, sub_mem_containment_graph);
     }
 
+    // TODO: uhhh... if we're actually producing these it's kind of a problem
     // remove strange MEMs
     mems.erase(std::remove_if(mems.begin(), mems.end(),
                               [&seq_begin, &seq_end](const MaximalExactMatch& mem)
                               { return mem.begin < seq_begin || mem.end > seq_end; }),
                mems.end());
 
-    // return the MEMs in order by first index and then descending by length (this helps prefiltering MEMs)
+    // return the MEMs in lexicographic order by the read interval
     std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-        return m1.begin < m2.begin || (m1.begin == m2.begin && m1.length() > m2.length());
+        return m1.begin < m2.begin || (m1.begin == m2.begin && m1.end < m2.end);
     });
-    
-    // try to identify which hits are redundant sub-MEMs and filter them out
-    if (prefilter_redundant_hits && reseed_length) {
-        prefilter_redundant_sub_mems(mems);
-    }
-
     std::for_each(mems.begin(), mems.end(), [&total_mems](const MaximalExactMatch& mem) { total_mems += mem.nodes.size(); });
     fraction_filtered = (double) filtered_mems / (double) total_mems;
     
@@ -637,18 +639,20 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     // TODO: I think I already fixed this
     mems.erase(unique(mems.begin(), mems.end()), mems.end());
     // remove MEMs that are overlapping positionally (they may be redundant)
-    
+
     return mems;
 }
 
 void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
+                               int parent_layer_begin,
+                               int parent_layer_end,
                                int mem_idx,
                                string::const_iterator next_mem_end,
-                               int min_mem_length,
+                               int min_sub_mem_length,
                                vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out) {
     
     // get the most recently added MEM
-    const MaximalExactMatch& mem = mems.back();
+    const MaximalExactMatch& mem = mems[mem_idx];
     
 #ifdef debug_mapper
 #pragma omp critical
@@ -657,7 +661,7 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
         for (auto iter = mem.begin; iter != mem.end; iter++) {
             cerr << *iter;
         }
-        cerr << ", min mem length " << min_mem_length << endl;
+        cerr << ", min mem length " << min_sub_mem_length << endl;
     }
 #endif
     
@@ -692,9 +696,9 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
             // interval as a sub MEM
             string::const_iterator sub_mem_begin = cursor + 1;
             
-            if (sub_mem_end - sub_mem_begin >= min_mem_length && !prev_iter_jumped_lcp) {
-                sub_mems_out.push_back(make_pair(MaximalExactMatch(sub_mem_begin, sub_mem_end, last_range),
-                                                 vector<size_t>{(uint64_t)mem_idx}));
+            if (sub_mem_end - sub_mem_begin >= min_sub_mem_length && !prev_iter_jumped_lcp) {
+                sub_mems_out.emplace_back(MaximalExactMatch(sub_mem_begin, sub_mem_end, last_range),
+                                          vector<size_t>(1, mem_idx));
 #ifdef debug_mapper
 #pragma omp critical
                 {
@@ -713,7 +717,7 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
                 }
 #endif
                 // identify all previous MEMs that also contain this sub-MEM
-                for (int64_t i = mem_idx - 1; i >= 0; --i) {
+                for (int64_t i = mem_idx - 1; i >= parent_layer_begin; --i) {
                     if (sub_mem_begin >= mems[i].begin) {
                         // contined in next MEM, add its index to sub MEM's list of parents
                         sub_mems_out.back().second.push_back(i);
@@ -754,8 +758,8 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
     
     // add a final sub MEM if there is one and it is not contained in the next parent MEM
     if (sub_mem_end > next_mem_end && sub_mem_end - mem.begin >= min_mem_length && !prev_iter_jumped_lcp) {
-        sub_mems_out.push_back(make_pair(MaximalExactMatch(mem.begin, sub_mem_end, range),
-                                         vector<size_t>{(uint64_t)mem_idx}));
+        sub_mems_out.emplace_back(MaximalExactMatch(mem.begin, sub_mem_end, range),
+                                  vector<size_t>(1, mem_idx));
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -781,6 +785,15 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
         }
     }
 #endif
+    
+    
+    // annotate the MEMs
+    for (pair<MaximalExactMatch, vector<size_t>>& sub_mem_and_parents : sub_mems_out) {
+        // count in entire range, including parents
+        sub_mem_and_parents.first.match_count = gcsa->count(sub_mem_and_parents.first.range);
+        // mark this is a sub-MEM
+        sub_mem_and_parents.first.primary = false;
+    }
 }
 
 // TODO: rewrite roughly as follows
@@ -792,36 +805,36 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
 // goal is to get to roughly a linear number of LFs an parent()s per MEM we reseed
 
 void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
+                                    int parent_layer_begin,
+                                    int parent_layer_end,
                                     int mem_idx,
-                                    string::const_iterator next_mem_end,
+                                    string::const_iterator leftmost_guaranteed_disjoint_bound,
+                                    string::const_iterator leftmost_seeding_bound,
                                     int min_sub_mem_length,
                                     vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out) {
-
-    // get the indicated MEM
-    const MaximalExactMatch& mem = mems[mem_idx];
     
 #ifdef debug_mapper
 #pragma omp critical
     cerr << "find_sub_mems_fast: mem ";
-    for (auto iter = mem.begin; iter != mem.end; iter++) {
+    for (auto iter = mems[mem_idx].begin; iter != mems[mem_idx].end; iter++) {
         cerr << *iter;
     }
     cerr << ", min_sub_mem_length " << min_sub_mem_length << endl;
 #endif
     
     // how many times does the parent MEM occur in the index?
-    size_t parent_range_count = use_approx_sub_mem_count ? gcsa::Range::length(mem.range) : mem.match_count;
+    size_t parent_range_count = use_approx_sub_mem_count ? gcsa::Range::length(mems[mem_idx].range) : mems[mem_idx].match_count;
     
     // the end of the leftmost substring that is at least the minimum length and not contained
     // in the next SMEM
-    string::const_iterator probe_string_end = mem.begin + min_sub_mem_length;
-    if (probe_string_end <= next_mem_end) {
-        probe_string_end = next_mem_end + 1;
+    string::const_iterator probe_string_end = mems[mem_idx].begin + min_sub_mem_length;
+    if (probe_string_end <= leftmost_seeding_bound) {
+        probe_string_end = leftmost_seeding_bound + 1;
     }
     // the leftmost possible index of the next sub-MEM
-    string::const_iterator leftmost_bound = mem.begin;
+    string::const_iterator leftmost_extension_bound = mems[mem_idx].begin;
     
-    while (probe_string_end <= mem.end) {
+    while (probe_string_end <= mems[mem_idx].end) {
         
         // locate the probe substring of length equal to the minimum length for a sub-MEM
         // that we are going to test to see if it's inside any sub-MEM
@@ -829,7 +842,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
         
 #ifdef debug_mapper
 #pragma omp critical
-        cerr << "probe string is mem[" << probe_string_begin - mem.begin << ":" << probe_string_end - mem.begin << "] ";
+        cerr << "probe string is mem[" << probe_string_begin - mems[mem_idx].begin << ":" << probe_string_end - mems[mem_idx].begin << "] ";
         for (auto iter = probe_string_begin; iter != probe_string_end; iter++) {
             cerr << *iter;
         }
@@ -862,15 +875,15 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
         }
         
         if (probe_string_more_frequent) {
-            // this is the prefix of a sub-MEM of length >= the minimum, now we need to
-            // find its end using binary search
+            // this string is contained in a sub-MEM of length >= the minimum length, now we need to
+            // find its ends
             
-            if (probe_string_begin > leftmost_bound) {
+            if (probe_string_begin > leftmost_extension_bound) {
                 // the probe string is contained in a sub-MEM, but that doesn't mean it's been
                 // extended as far as possible to the left
                 
                 // extend match until beginning of SMEM or until the end of the independent hit
-                while (cursor >= leftmost_bound) {
+                while (cursor >= leftmost_extension_bound) {
                     gcsa::range_type last_range = range;
                     range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                     
@@ -886,10 +899,11 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 probe_string_begin = cursor + 1;
             }
             
+            // now find the right end of the sub-MEM using binary search
             
             // inclusive interval that contains the past-the-last index of the sub-MEM
             string::const_iterator left_search_bound = probe_string_end;
-            string::const_iterator right_search_bound = mem.end;
+            string::const_iterator right_search_bound = mems[mem_idx].end;
             
             // the match range of the longest prefix of the sub-MEM we've found so far (if we initialize
             // it here, the binary search is guaranteed to LF along the full sub-MEM in some iteration)
@@ -903,7 +917,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
 #ifdef debug_mapper
 #pragma omp critical
                 {
-                    cerr << "checking extension mem[" << probe_string_begin - mem.begin << ":" << middle - mem.begin << "] ";
+                    cerr << "checking extension mem[" << probe_string_begin - mems[mem_idx].begin << ":" << middle - mems[mem_idx].begin << "] ";
                     for (auto iter = probe_string_begin; iter != middle; iter++) {
                         cerr << *iter;
                     }
@@ -921,7 +935,11 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                     
                     range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                     
-                    if (cursor == probe_string_begin || ((cursor - mem.begin) % sub_mem_count_thinning == 0)) {
+                    // do count operations on the final index and on intervals of the thinning parameter once we pass the
+                    // burn in parameter
+                    int64_t relative_idx = middle - cursor - 1;
+                    if (cursor == probe_string_begin ||
+                        (relative_idx >= sub_mem_thinning_burn_in && (relative_idx - sub_mem_thinning_burn_in) % sub_mem_count_thinning == 0)) {
                         if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
                             // this probe is too long and it no longer is contained in the indendent hit
                             // that we detected
@@ -947,28 +965,85 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 }
             }
             
+            bool possibly_redundant = (right_search_bound == mems[mem_idx].end && probe_string_begin >= leftmost_guaranteed_disjoint_bound);
+            bool not_redundant = true;
+            if (possibly_redundant) {
+                // this sub-MEM is abutting the right end of the parent MEM and contained in the next MEM.
+                // sometimes this means the sub-MEM is actually a truncated version of a sub-MEM of the next
+                // MEM which was artificially cut short by the end of the current parent MEM, so we check that here
+                
+#ifdef debug_mapper
+                cerr << "sub-MEM may be artificially truncated, checking extended sub-MEM" << endl;
+                cerr << "current: " << MaximalExactMatch(probe_string_begin, right_search_bound, sub_mem_range).sequence() << endl;
+#endif
+                
+                // the count of the current sub-MEM
+                size_t current_count = use_approx_sub_mem_count ? gcsa::Range::length(sub_mem_range) : gcsa->count(sub_mem_range);
+                
+                // get the GCSA range of the current sub-MEM extended one base past the end of the current parent MEM
+                cursor = right_search_bound;
+                range = gcsa::range_type(0, gcsa->size() - 1);
+                size_t extended_count = numeric_limits<size_t>::max();
+                bool contained_in_independent_match = true;
+                while (cursor >= probe_string_begin) {
+                    range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
+                    int64_t relative_idx = right_search_bound - cursor + 1;
+                    if (cursor == probe_string_begin ||
+                        (relative_idx >= sub_mem_thinning_burn_in && (relative_idx - sub_mem_thinning_burn_in) % sub_mem_count_thinning == 0)) {
+                        extended_count = use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range);
+                        if (extended_count < current_count) {
+                            // the count of the full lengthened sub-MEM will be fewer than the one we just found
+                            break;
+                        }
+                    }
+                    
+                    cursor--;
+                }
+                
+#ifdef debug_mapper
+                cerr << "lengthened sub-MEM has count " << extended_count << ", compared to current count " << current_count << endl;
+#endif
+                
+                // since the current sub-MEM is contained in the lengthened one, the lengthened sub-MEM can only have the same number
+                // of hits or fewer. if it has the same number then the current sub-MEM is artificially truncated
+                not_redundant = (extended_count < current_count);
+                
+            }
+            
+            if (not_redundant) {
 #ifdef debug_mapper
 #pragma omp critical
-            cerr << "final sub-MEM is mem[" << probe_string_begin - mem.begin << ":" << right_search_bound - mem.begin << "] ";
-            for (auto iter = probe_string_begin; iter != right_search_bound; iter++) {
-                cerr << *iter;
-            }
-            cerr << endl;
-#endif
-            
-            // record the sub-MEM
-            sub_mems_out.push_back(make_pair(MaximalExactMatch(probe_string_begin, right_search_bound, sub_mem_range),
-                                             vector<size_t>{(uint64_t)mem_idx}));
-            
-            // identify all previous MEMs that also contain this sub-MEM
-            for (int64_t i = mem_idx - 1; i >= 0; --i) { //((int64_t) mems.size()) - 2; i >= 0; i--) {
-                if (probe_string_begin >= mems[i].begin) {
-                    // contained in next MEM, add its index to sub MEM's list of parents
-                    sub_mems_out.back().second.push_back(i);
+                cerr << "final sub-MEM is mem[" << probe_string_begin - mems[mem_idx].begin << ":" << right_search_bound - mems[mem_idx].begin << "] ";
+                for (auto iter = probe_string_begin; iter != right_search_bound; iter++) {
+                    cerr << *iter;
                 }
-                else {
-                    // not contained in the next MEM, cannot be contained in earlier ones
-                    break;
+                cerr << endl;
+#endif
+                
+                // record the sub-MEM
+                sub_mems_out.emplace_back(MaximalExactMatch(probe_string_begin, right_search_bound, sub_mem_range),
+                                          vector<size_t>(1, mem_idx));
+                
+                // identify all previous MEMs that also contain this sub-MEM
+                for (int64_t i = mem_idx - 1; i >= parent_layer_begin; --i) {
+                    if (probe_string_begin >= mems[i].begin) {
+                        // contained in next MEM, add its index to sub MEM's list of parents
+                        sub_mems_out.back().second.push_back(i);
+                    }
+                    else {
+                        // not contained in the next MEM, cannot be contained in earlier ones
+                        break;
+                    }
+                }
+                
+                if (possibly_redundant && mem_idx + 1 != mems.size()) {
+                    // the sub-MEM we might be redundant with is likely to be the last sub-MEM we identified (although not always).
+                    // even if the current sub-MEM is non-redundant, it still is a child of that sub-MEM, so we should mark it as
+                    // such to improve the efficiency of prefiltering. however, it's probably not worth looking too deeply into the
+                    // MEM vector to find the parent if it is not the last one (avoids possible quadratic behavior)
+                    if (mems.back().begin <= sub_mems_out.back().first.begin && mems.back().end >= sub_mems_out.back().first.end) {
+                        sub_mems_out.back().second.push_back(mems.size() - 1);
+                    }
                 }
             }
             
@@ -978,7 +1053,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             
             // any sub-MEMs will need to have their start position at least one position to the right
             // of this one
-            leftmost_bound = probe_string_begin + 1;
+            leftmost_extension_bound = probe_string_begin + 1;
             
         }
         else {
@@ -989,62 +1064,76 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             probe_string_end = cursor + min_sub_mem_length + 1;
         }
     }
+    
+    // annotate the MEMs
+    for (pair<MaximalExactMatch, vector<size_t>>& sub_mem_and_parents : sub_mems_out) {
+        // count in entire range, including parents
+        sub_mem_and_parents.first.match_count = gcsa->count(sub_mem_and_parents.first.range);
+        // mark this is a sub-MEM
+        sub_mem_and_parents.first.primary = false;
+    }
+    
+    // fast algorithm produces sub-MEMs left-to-right, switch the order so that they remain right-to-left
+    // within the layer (as this algorithm expects in recursive calls)
+    reverse(sub_mems_out.begin(), sub_mems_out.end());
 }
 
-void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems) {
+void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
+                                              vector<pair<int, vector<size_t>>>& sub_mem_containment_graph) {
 
     vector<size_t> sub_mem_range_end(mems.size());
     
-    // TODO: it would actually be better in recursive sub-MEMs to prefilter using the parent rather
-    // than the ancestor and to do it in post-order
-    // the parent has more of the redundant hits and is more likely to be on the same node as the child
-    
-    for (size_t i = 0; i < mems.size(); ) {
-        
-        // find the end of the range of MEMs for which this MEM is a parent
-        // note: takes advantage of sort order
-        size_t j = i + 1;
-        while (j < mems.size() ? mems[j].end <= mems[i].end : false) {
-            sub_mem_range_end[j] = j + 1;
-            j++;
-        }
-        sub_mem_range_end[i] = j;
-        i = j;
-    }
-    
     // for each MEM
-    for (size_t i = 0; i < mems.size(); i++) {
-        // for the range of its sub-MEMs
-        for (size_t j = i + 1; j < sub_mem_range_end[i]; j++) {
+    // note: reverse iteration is post order by construction
+    for (int64_t i = mems.size() - 1; i >= 0; i--) {
+        
+        if (sub_mem_containment_graph[i].second.empty()) {
+            // this MEM has no parents, so it cannot have redundant hits
+            continue;
+        }
+        
+#ifdef debug_mapper
+        cerr << "prefiltering hits in MEM " << mems[i].sequence() << endl;
+#endif
+        // for all of its parents
+        // get the supposed position this will be for each hit (if it is on the same node)
+        unordered_set<pos_t> extended_hit_positions;
+        for (size_t j : sub_mem_containment_graph[i].second) {
+#ifdef debug_mapper
+            cerr << "checking for extended hits from parent MEM " << mems[j].sequence() << endl;
+#endif
             
-            // how much farther should the sub-MEM be?
-            int64_t relative_offset = mems[j].begin - mems[i].begin;
-            
-            // get the supposed position this will be for each hit (if it is on the same node)
-            unordered_set<pos_t> extended_hit_positions;
-            for (gcsa::node_type hit : mems[i].nodes) {
+            // how much farther should the sub-MEM be than the parent?
+            int64_t relative_offset = mems[i].begin - mems[j].begin;
+            for (gcsa::node_type hit : mems[j].nodes) {
                 pos_t hit_pos = make_pos_t(hit);
                 extended_hit_positions.emplace(id(hit_pos), is_rev(hit_pos), offset(hit_pos) + relative_offset);
+#ifdef debug_mapper
+                cerr << "\textending hit " << hit_pos << " to " << make_pos_t(id(hit_pos), is_rev(hit_pos), offset(hit_pos) + relative_offset) << endl;
+#endif
             }
-            
-            // remove any nodes whose hit location matches the extended position
-            auto& nodes = mems[j].nodes;
-            size_t removed_so_far = 0;
-            for (size_t k = 0; k < nodes.size(); k++) {
-                if (extended_hit_positions.count(make_pos_t(nodes[k]))) {
-                    // definitely redundant, skip this one
-                    removed_so_far++;
-                }
-                else if (removed_so_far > 0) {
-                    // move this one up in the list to its new index accounting for skips
-                    nodes[k - removed_so_far] = nodes[k];
-                }
+        }
+        
+        // remove any nodes whose hit location matches the extended position
+        vector<gcsa::node_type>& nodes = mems[i].nodes;
+        size_t removed_so_far = 0;
+        for (size_t k = 0; k < nodes.size(); k++) {
+            if (extended_hit_positions.count(make_pos_t(nodes[k]))) {
+                // definitely redundant, skip this one
+                removed_so_far++;
+#ifdef debug_mapper
+                cerr << "found redundant hit " << make_pos_t(nodes[k]) << ", removing" << endl;
+#endif
             }
-            
-            // take off the end of the list, which only contains skipped hits and hits that have moved up
-            if (removed_so_far) {
-                nodes.resize(nodes.size() - removed_so_far);
+            else if (removed_so_far > 0) {
+                // move this one up in the list to its new index accounting for skips
+                nodes[k - removed_so_far] = nodes[k];
             }
+        }
+        
+        // take off the end of the list, which only contains skipped hits and hits that have moved up
+        if (removed_so_far) {
+            nodes.resize(nodes.size() - removed_so_far);
         }
     }
 }
@@ -4631,7 +4720,7 @@ Alignment Mapper::mem_to_alignment(MaximalExactMatch& mem) {
 // cross fingers
 
 Alignment Mapper::surject_alignment(const Alignment& source,
-                                    set<string>& path_names,
+                                    const set<string>& path_names,
                                     string& path_name,
                                     int64_t& path_pos,
                                     bool& path_reverse) {
@@ -4642,6 +4731,12 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     surjection.clear_score();
     surjection.clear_identity();
     surjection.clear_path();
+
+    // Clear out the output variables to the unmapped state.
+    // We will fill them in later.
+    path_name.clear();
+    path_pos = -1;
+    path_reverse = false;
 
     int count_forward=0, count_reverse=0;
     for (auto& mapping : source.path().mapping()) {
@@ -4664,6 +4759,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         cerr << "Alignment " << source.name() << " is unmapped and cannot be surjected" << endl;
 
 #endif
+
         return surjection;
     }
 
@@ -4838,8 +4934,12 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     cerr << "sub " << pb2json(subgraph) << endl;
 #endif
 
+    // Flip the string and its quality around
     Alignment surjection_rc = surjection;
     surjection_rc.set_sequence(reverse_complement(surjection.sequence()));
+    string quality = surjection_rc.quality();
+    std::reverse(quality.begin(), quality.end());
+    surjection_rc.set_quality(quality);
 
     Alignment surjection_forward, surjection_reverse;
     // global align to the trimmed graph, and simplify without removal of internal deletions, as we'll need these for BAM reconstruction
@@ -4939,10 +5039,24 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #ifdef debug_mapper
         cerr << "path position " << path_name << ":" << path_pos << endl;
 #endif
+
+        // We surjected to somewhere!
+        assert(!path_name.empty());
+        assert(path_pos != -1);
         
     } else {
 
+        // Failed to align. Replace whatever (possibly reversed?) thing we have now with an unmapped alignment.
         surjection = source;
+        surjection.clear_score();
+        surjection.clear_identity();
+        surjection.clear_path();
+        surjection.clear_mapping_quality();
+        
+        path_name.clear();
+        path_pos = -1;
+        path_reverse = false;
+        
 #ifdef debug_mapper
 
 #pragma omp critical (cerr)
@@ -4951,7 +5065,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #endif
 
     }
-
+    
 #ifdef debug_mapper
     
 #pragma omp critical (cerr)
