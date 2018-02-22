@@ -2291,6 +2291,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             int max_length = max(read1.sequence().size(), read2.sequence().size());
             pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
             int64_t approx_dist = d.first; // take the "same orientation" distance
+            double overlap_length = mems_overlap_length(m1, m2);
             /*if (approx_dist < 32) {
                 approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
                 }*/
@@ -2302,9 +2303,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 int64_t distance = approx_dist;
                 double jump = abs((m2.begin - m1.begin) - distance);
                 if (jump) {
-                    return (double) -(gap_open + jump * gap_extension);
+                    return (double) -(gap_open + jump * gap_extension) -overlap_length;
                 } else {
-                    return 0.0;
+                    return -overlap_length;
                 }
             }
         }
@@ -2993,6 +2994,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         int64_t max_length = aln.sequence().size();
         pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
         int64_t approx_dist = d.first;// same orientation
+        double overlap_length = mems_overlap_length(m1, m2);
         /*if (approx_dist < 32 && same_orientation) {
             approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
             }*/
@@ -3010,9 +3012,9 @@ Mapper::align_mem_multi(const Alignment& aln,
             int64_t distance = approx_dist;
             double jump = abs((m2.begin - m1.begin) - distance);
             if (jump) {
-                return (double) -(gap_open + jump * gap_extension);
+                return (double) -(gap_open + jump * gap_extension) -overlap_length;
             } else {
-                return 0.0;
+                return -overlap_length;
             }
         }
     };
