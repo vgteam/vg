@@ -74,7 +74,15 @@ inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
     return out << (nodetraversal.node ? nodetraversal.node->id() : (int64_t) 0)  << " " << (nodetraversal.backward ? "rev" : "fwd");
 }
 
-}
+/// hash function for NodeTraversals
+template<>
+struct wang_hash<NodeTraversal> {
+    size_t operator()(const NodeTraversal& x) const {
+        return wang_hash<pair<vg::Node*, bool>>()(make_pair(x.node, x.backward));
+    }
+};
+
+}   // namespace vg
 
 namespace std {
     /// hash function for NodeTraversals

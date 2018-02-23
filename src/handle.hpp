@@ -10,6 +10,8 @@
 
 #include "types.hpp"
 #include "vg.pb.h"
+#include "hash_map.hpp"
+
 #include <functional>
 #include <cstdint>
 #include <vector>
@@ -62,7 +64,17 @@ inline bool operator!=(const handle_t& a, const handle_t& b) {
     return as_integer(a) != as_integer(b);
 }
 
-}
+/**
+ * Define hashes for handles.
+ */
+template<>
+struct wang_hash<handle_t> {
+    size_t operator()(const vg::handle_t& handle) const {
+        return wang_hash<std::int64_t>()(as_integer(handle));
+    }
+};
+
+}   // namespace vg
 
 // This needs to be outside the vg namespace
 

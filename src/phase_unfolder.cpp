@@ -1,6 +1,6 @@
 #include "phase_unfolder.hpp"
+#include "progress_bar.hpp"
 
-#include <atomic>
 #include <iostream>
 #include <map>
 
@@ -90,55 +90,59 @@ struct PathBranch {
 };
 
 template<class PathType>
-bool verify_path(const PathType& path, VG& unfolded, const std::unordered_map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
+bool verify_path(const PathType& path, VG& unfolded, const hash_map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
 
     if (path_size(path) < 2) {
         return true;
     }
 
-    // For each branching point: (offset, next duplicate to investigate).
+    // For each branching point: (offset, next duplicate at offset, next duplicate at offset + 1).
+    // Initialize with all duplicates of the first node.
+    std::vector<PathBranch> branches;
+    {
+        vg::id_t node_id = path_node(path, 0);
+        auto iter = reverse_mapping.find(node_id);
+        if (iter != reverse_mapping.end()) {
+            for (size_t i = 0; i < iter->second.size(); i++) {
+                branches.push_back({ 0, i, 0 });
+            }
+        } else {
+            branches.push_back({ 0, 0, 0 });
+        }
+    }
+
     // Note that we can discard all unexplored branches every time the graph
     // contains the original node or only one duplicate of the current node.
-    std::vector<PathBranch> branches { { 0, 0, 0 } };
     while (!branches.empty()) {
         PathBranch branch = branches.back(); branches.pop_back();
-        size_t curr_duplicates = 0;
         vg::id_t node_id = path_node(path, branch.offset);
         auto iter = reverse_mapping.find(node_id);
         if (iter != reverse_mapping.end()) {
-            const std::vector<vg::id_t>& duplicates = iter->second;
-            curr_duplicates = duplicates.size();
-            node_id = duplicates[branch.curr];
+            node_id = iter->second[branch.curr];
         }
+        gbwt::node_type curr = gbwt::Node::encode(node_id, path_reverse(path, branch.offset));
 
         // Extend the next path from the current branch.
-        gbwt::node_type curr = gbwt::Node::encode(node_id, path_reverse(path, branch.offset));
         while (branch.offset + 1 < path_size(path)) {
-            size_t next_duplicates = 0;
             node_id = path_node(path, branch.offset + 1);
+            size_t duplicates = 0;
             iter = reverse_mapping.find(node_id);
             if (iter != reverse_mapping.end()) {
-                const std::vector<vg::id_t>& duplicates = iter->second;
-                next_duplicates = duplicates.size();
-                node_id = duplicates[branch.next];
-                if (branch.next + 1 < duplicates.size()) {
+                node_id = iter->second[branch.next];
+                duplicates = iter->second.size();
+                if (branch.next + 1 < duplicates) {
                     branches.push_back({ branch.offset, branch.curr, branch.next + 1 });
-                } else if (branch.curr + 1 < curr_duplicates) {
-                    branches.push_back({ branch.offset, branch.curr + 1, 0 });
                 }
-            } else if (branch.curr + 1 < curr_duplicates) {
-                branches.push_back({ branch.offset, branch.curr + 1, 0 });
             }
             gbwt::node_type next = gbwt::Node::encode(node_id, path_reverse(path, branch.offset + 1));
             Edge candidate = PhaseUnfolder::make_edge(curr, next);
             if (!unfolded.has_edge(candidate)) {
                 break;
             }
-            if (next_duplicates <= 1) { // All paths corresponding to this must go through the next node.
+            if (duplicates <= 1) {  // All paths corresponding to this must go through the next node.
                 branches.clear();
             }
             curr = next;
-            curr_duplicates = next_duplicates;
             branch.advance();
         }
         if (branch.offset + 1 >= path_size(path)) {
@@ -149,13 +153,11 @@ bool verify_path(const PathType& path, VG& unfolded, const std::unordered_map<vg
     return false;
 }
 
-size_t PhaseUnfolder::verify_paths(VG& unfolded) const {
-
-    std::atomic<size_t> failures(0);
+size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
 
     // Create a mapping from original -> duplicates.
     // TODO Interface for the duplicate range in NodeMapping.
-    std::unordered_map<vg::id_t, std::vector<vg::id_t>> reverse_mapping;
+    hash_map<vg::id_t, std::vector<vg::id_t>> reverse_mapping;
     for (gcsa::size_type duplicate = this->mapping.first_node; duplicate < this->mapping.next_node; duplicate++) {
         vg::id_t original_id = this->mapping(duplicate);
         reverse_mapping[original_id].push_back(duplicate);
@@ -167,22 +169,39 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded) const {
         gcsa::removeDuplicates(mapping.second, false);
     }
 
-    size_t total_paths = this->xg_index.max_path_rank() + this->gbwt_index.sequences();
+    size_t total_paths = this->xg_index.max_path_rank() + this->gbwt_index.sequences(), verified = 0, failures = 0;
+    ProgressBar* progress = nullptr;
+    if (show_progress) {
+        progress = new ProgressBar(total_paths, "Verifying paths");
+        progress->Progressed(verified);
+    }
+
     #pragma omp parallel for schedule(dynamic, 1)
     for (size_t i = 0; i < total_paths; i++) {
+        bool successful = true;
         if (i < this->xg_index.max_path_rank()) {
             const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(i + 1));
-            if (!verify_path(path, unfolded, reverse_mapping)) {
-                failures++;
-            }
+            successful = verify_path(path, unfolded, reverse_mapping);
         } else {
             std::vector<gbwt::node_type> path = this->gbwt_index.extract(i - this->xg_index.max_path_rank());
-            if (!verify_path(path, unfolded, reverse_mapping)) {
+            successful = verify_path(path, unfolded, reverse_mapping);
+        }
+        #pragma omp critical
+        {
+            if (!successful) {
                 failures++;
+            }
+            verified++;
+            if (show_progress) {
+                progress->Progressed(verified);
             }
         }
     }
 
+    if (show_progress) {
+        delete progress; progress = nullptr;
+        std::cerr << std::endl;
+    }
     return failures;
 }
 
@@ -425,23 +444,27 @@ void PhaseUnfolder::insert_path(const path_type& path) {
     // Prefixes.
     gbwt::node_type from = to_insert.front();
     for (size_t i = 1; i < (to_insert.size() + 1) / 2; i++) {
-        auto iter = this->prefixes.emplace(std::make_pair(from, to_insert[i]), 0).first;
-        if (iter->second == 0) {
+        std::pair<gbwt::node_type, gbwt::node_type> key(from, to_insert[i]);
+        auto iter = this->prefixes.find(key);
+        if (iter == this->prefixes.end()) {
             gbwt::size_type new_id = this->mapping.insert(gbwt::Node::id(to_insert[i]));
-            iter->second = gbwt::Node::encode(new_id, gbwt::Node::is_reverse(to_insert[i]));
+            from = this->prefixes[key] = gbwt::Node::encode(new_id, gbwt::Node::is_reverse(to_insert[i]));
+        } else {
+            from = iter->second;
         }
-        from = iter->second;
     }
 
     // Suffixes.
     gbwt::node_type to = to_insert.back();
     for (size_t i = to_insert.size() - 2; i >= (to_insert.size() + 1) / 2; i--) {
-        auto iter = this->suffixes.emplace(std::make_pair(to_insert[i], to), 0).first;
-        if (iter->second == 0) {
+        std::pair<gbwt::node_type, gbwt::node_type> key(to_insert[i], to);
+        auto iter = this->suffixes.find(key);
+        if (iter == this->suffixes.end()) {
             gbwt::size_type new_id = this->mapping.insert(gbwt::Node::id(to_insert[i]));
-            iter->second = gbwt::Node::encode(new_id, gbwt::Node::is_reverse(to_insert[i]));
+            to = this->suffixes[key] = gbwt::Node::encode(new_id, gbwt::Node::is_reverse(to_insert[i]));
+        } else {
+            to = iter->second;
         }
-        to = iter->second;
     }
 
     // Crossing edge.
