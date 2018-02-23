@@ -36,7 +36,7 @@ void help_msga(char** argv) {
          << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [2]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT (set to -1 to estimated via -e) [-1]" << endl
-         << "    -e, --cluster-p FLOAT   set {-W} such that this fraction of {-W} length hits will by by chance [0.05]" << endl
+         << "    -e, --cluster-p FLOAT   set {-W} such that this fraction of {-W} length hits will by by chance [0.5]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
@@ -114,11 +114,10 @@ int main_msga(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool circularize = false;
-    float chance_match = 0.05;
+    float chance_match = 0.5;
     int mem_reseed_length = -1;
     int min_cluster_length = -1;
     float mem_reseed_factor = 1.5;
-    float random_match_chance = 0.05;
     int extra_multimaps = 512;
     int min_multimaps = 2;
     float drop_chain = 0.5;

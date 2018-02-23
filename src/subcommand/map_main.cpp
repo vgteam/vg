@@ -30,7 +30,7 @@ void help_map(char** argv) {
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than FLOAT [0]" << endl
          << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT (set to -1 to estimated via -e) [-1]" << endl
-         << "    -e, --cluster-p FLOAT   set {-W} such that this fraction of {-W} length hits will by chance [0.05]" << endl
+         << "    -e, --cluster-p FLOAT   set {-W} such that this fraction of {-W} length hits will by chance [0.5]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
@@ -143,7 +143,7 @@ int main_map(int argc, char** argv) {
     double fragment_sigma = 10;
     bool fragment_orientation = false;
     bool fragment_direction = true;
-    float chance_match = 0.05;
+    float chance_match = 0.5;
     bool use_fast_reseed = true;
     float drop_chain = 0.5;
     float mq_overlap = 0.0;
