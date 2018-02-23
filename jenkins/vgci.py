@@ -588,7 +588,7 @@ class VGCITest(TestCase):
         opts += '--annotate_xg {} '.format(base_xg_path)
         for source_path_name in source_path_names:
             opts += '--path {} '.format(source_path_name)
-        cmd = 'toil-vg sim {} {} {} {} --gam {}'.format(
+        cmd = 'toil-vg sim {} {} {} {} --gam {} --fastq_out'.format(
             job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
         subprocess.check_call(cmd, shell=True)
 
@@ -609,7 +609,8 @@ class VGCITest(TestCase):
             # don't waste time sharding reads since we only run on one node
             single_reads_chunk = True,
             mpmap_opts = ['-B', '-S'],
-            more_mpmap_opts = more_mpmap_opts
+            more_mpmap_opts = more_mpmap_opts,
+            force_outstore = self.force_outstore
         )
         
         # Make the context
@@ -628,7 +629,7 @@ class VGCITest(TestCase):
         mapeval_options.fasta = make_url(fasta_path)
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
-        mapeval_options.gam_input_reads = make_url(os.path.join(out_store, 'sim.gam'))
+        mapeval_options.fastq = [make_url(os.path.join(out_store, 'sim.fq.gz'))]
         # We have 150 bp reads reduced to a point position, at a resolution of
         # only the nearest 100 bp (on the primary graph). How close do two such
         # point positions need to be to say the read is in the right place?
@@ -660,6 +661,7 @@ class VGCITest(TestCase):
                                      plan.reads_gam_file_id,
                                      None,
                                      None,
+                                     plan.reads_fastq_file_ids,
                                      plan.fasta_file_id, 
                                      plan.bwa_index_ids, 
                                      plan.bam_file_ids,
