@@ -4865,15 +4865,11 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // XXX this hack is because we don't have a functional interface to the alignment so we have to touch this thread's aligner's scores
     int8_t saved_bonus = get_aligner(!surjection.quality().empty())->full_length_bonus;
     get_aligner(!surjection.quality().empty())->full_length_bonus = full_length_bonus_override;
-    try {
-        if (count_forward) {
-            surjection_forward = simplify(align_to_graph(surjection, graph.graph, max_query_graph_ratio, true, false, false, false, false, false), false);
-        }
-        if (count_reverse) {
-            surjection_reverse = simplify(align_to_graph(surjection_rc, graph.graph, max_query_graph_ratio, true, false, false, false, false, false), false);
-        }
-    } catch (vg::NoAlignmentInBandException) {
-        return surjection; // null result, we couldn't align banded global
+    if (count_forward) {
+        surjection_forward = simplify(align_to_graph(surjection, graph.graph, max_query_graph_ratio, true, false, false, false, false, false), false);
+    }
+    if (count_reverse) {
+        surjection_reverse = simplify(align_to_graph(surjection_rc, graph.graph, max_query_graph_ratio, true, false, false, false, false, false), false);
     }
     get_aligner(!surjection.quality().empty())->full_length_bonus = saved_bonus;
 
