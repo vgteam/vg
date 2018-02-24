@@ -2443,23 +2443,34 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             cerr << endl;
         }
     };
-        
+
     if (debug) {
         cerr << "### clusters after filtering:" << endl;
         show_paired_clusters();
     }
-    
+
     set<pair<string, string> > seen_alignments;
     int filled1 = 0, filled2 = 0;
-
+    int best_score = -1;
+    int last_score = -1;
+    int seen_last = 0;
+    int seen_best = 0;
+    int seen_bad = 0;
+    bool keep_trying = true;
+    int hopeless_threshold = 3; // how many times we see the same thing before giving up
+    float weak_alignment_ratio = 0.4; // how bad an alignment should be relative to the best to consider it hopeless
     for (auto& cluster_ptr : cluster_ptrs) {
         // break the cluster into two pieces
         auto& cluster1 = *cluster_ptr.first;
         auto& cluster2 = *cluster_ptr.second;
         alns.emplace_back();
         auto& p = alns.back();
-        if (cluster1.size() && (!to_drop1.count(&cluster1)
-                                || filled1 < min_multimaps)) {
+        bool clusters_long_enough = cluster_coverage(cluster1) + cluster_coverage(cluster2) > min_cluster_length * 2;
+        if (cluster1.size()
+            && keep_trying
+            && clusters_long_enough
+            && (!to_drop1.count(&cluster1)
+                || filled1 < min_multimaps)) {
             p.first = align_cluster(read1, cluster1, true);
             ++filled1;
         } else {
@@ -2468,8 +2479,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_identity();
             p.first.clear_path();
         }
-        if (cluster2.size() && (!to_drop2.count(&cluster2)
-                                || filled2 < min_multimaps)) {
+
+        if (cluster2.size()
+            && keep_trying
+            && clusters_long_enough
+            && (!to_drop2.count(&cluster2)
+                || filled2 < min_multimaps)) {
             p.second = align_cluster(read2, cluster2, true);
             ++filled2;
         } else {
@@ -2477,6 +2492,33 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.second.clear_score();
             p.second.clear_identity();
             p.second.clear_path();
+        }
+        // bail out if we have we seen the top score more than N times
+        int pair_score = p.first.score() + p.second.score();
+        if (keep_trying) {
+            if (pair_score != last_score) {
+                last_score = pair_score;
+                seen_last = 0;
+            } else if (pair_score == last_score) {
+                ++seen_last;
+                if (seen_last >= hopeless_threshold) {
+                    keep_trying = false;
+                }
+            }
+            if (pair_score > best_score) {
+                best_score = pair_score;
+            } else if (pair_score == best_score) {
+                ++seen_best;
+                if (seen_best >= hopeless_threshold) {
+                    keep_trying = false;
+                }
+            }
+            if (pair_score < best_score * weak_alignment_ratio) {
+                ++seen_bad;
+                if (seen_bad >= hopeless_threshold) {
+                    keep_trying = false;
+                }
+            }
         }
         auto pair_sig = signature(p.first, p.second);
         if (seen_alignments.count(pair_sig)) {

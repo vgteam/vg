@@ -226,7 +226,7 @@ public:
     int hit_max;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = false;
     bool prefilter_redundant_hits = true;
-    int max_sub_mem_recursion_depth = 2;
+    int max_sub_mem_recursion_depth = 1;
     
     // Remove any bonuses used by the aligners from the final reported scores.
     // Does NOT (yet) remove the haplotype consistency bonus.
