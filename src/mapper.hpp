@@ -572,7 +572,8 @@ public:
                                 const set<string>& path_names,
                                 string& path_name,
                                 int64_t& path_pos,
-                                bool& path_reverse);
+                                bool& path_reverse,
+                                int8_t full_length_bonus_override);
     
     // compute a mapping quality component based only on the MEMs we've obtained
     double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);

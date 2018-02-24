@@ -69,7 +69,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    --surject-to TYPE       surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
-         << "    --surj-min-softclip INT emit softclips of less than or equal to this length as matches [4]" << endl
+         << "    --surj-full-l-bonus INT use this full length bonus override when surjecting to discourage softclipping [20]" << endl
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
@@ -157,7 +157,7 @@ int main_map(int argc, char** argv) {
     bool acyclic_graph = false;
     bool refpos_table = false;
     bool patch_alignments = true;
-    int surject_min_softclip = 4;
+    int surject_full_length_bonus = 20;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -224,7 +224,7 @@ int main_map(int argc, char** argv) {
                 {"refpos-table", no_argument, 0, 'v'},
                 {"surject-to", required_argument, 0, '5'},
                 {"no-patch-aln", no_argument, 0, '8'},
-                {"surj-min-softclip", required_argument, 0, '9'},
+                {"surj-full-l-bonus", required_argument, 0, '9'},
                 {"drop-full-l-bonus", no_argument, 0, '2'},
                 {0, 0, 0, 0}
             };
@@ -448,7 +448,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case '9':
-            surject_min_softclip = atoi(optarg);
+            surject_full_length_bonus = atoi(optarg);
             break;
 
         case 'I':
@@ -665,7 +665,7 @@ int main_map(int argc, char** argv) {
     // TODO: Refactor the surjection code out of surject_main and intto somewhere where we can just use it here!
 
     auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out, &xgidx,
-        &surject_min_softclip] (const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
+        &surject_full_length_bonus] (const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
         
         if (alns1.empty()) return;
         setup_sam_header();
@@ -677,7 +677,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse);
+            auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse, surject_full_length_bonus);
             surjects1.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // hack: if we haven't established the header, we look at the reads to guess which read groups to put in it
@@ -693,7 +693,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse);
+            auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse, surject_full_length_bonus);
             surjects2.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // Don't try and populate the header; it should have happened already
@@ -712,7 +712,7 @@ int main_map(int argc, char** argv) {
                 if (path_name != "") {
                     path_len = xgidx->path_length(path_name);
                 }
-                string cigar = cigar_against_path(surj, path_reverse, path_pos, path_len, surject_min_softclip);
+                string cigar = cigar_against_path(surj, path_reverse, path_pos, path_len, 0);
                 bam1_t* b = alignment_to_bam(sam_header,
                                              surj,
                                              path_name,
@@ -755,8 +755,8 @@ int main_map(int argc, char** argv) {
                 if (path_name2 != "") {
                     path_len2 = xgidx->path_length(path_name2);
                 }
-                string cigar1 = cigar_against_path(surj1, path_reverse1, path_pos1, path_len1, surject_min_softclip);
-                string cigar2 = cigar_against_path(surj2, path_reverse2, path_pos2, path_len2, surject_min_softclip);
+                string cigar1 = cigar_against_path(surj1, path_reverse1, path_pos1, path_len1, 0);
+                string cigar2 = cigar_against_path(surj2, path_reverse2, path_pos2, path_len2, 0);
                 
                 // TODO: compute template length based on
                 // pair distance and alignment content.
