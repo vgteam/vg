@@ -602,8 +602,12 @@ namespace vg {
                             vector<string> ins_seqs = variant->get_insertion_sequences();
 
 
-                            //for (int i = 0; i < tags.size(); ++i){
-                                //cerr << tags[i] << endl;
+                            // for (int i = 0; i < tags.size(); ++i){
+                            //     if (svtypes[i] == "INS"){
+                            //     cerr << "Making " << tags[i] << " " << ins_seqs[i] << endl;
+
+                            //     }
+                            // }
                                 auto e_start = variant->position - chunk_offset;
                                 auto e_end = variant->position + variant->get_sv_len(alt_index) - chunk_offset - 1;
 
@@ -614,11 +618,13 @@ namespace vg {
                                 string sv_type = svtypes[alt_index];
 
                                 if (sv_type == "INS"){
-                                    cerr << "Insertions are not yet implemented" << endl;
-                                    continue;
+                                    // cerr << "Insertions are not yet implemented" << endl;
+                                    // continue;
                                     // Create insertion sequence nodes
-                                    if (created_nodes.count(key) == 0){
+                                    if (created_nodes.count(key) == 0 && ins_seqs[alt_index] != ""){
                                         vector<Node*> node_run = create_nodes(ins_seqs[alt_index]);
+
+                                    
 
                                         nodes_starting_at[e_start].insert(node_run.front()->id());
                                         nodes_ending_at[e_end].insert(node_run.back()->id());
@@ -627,6 +633,15 @@ namespace vg {
                                         inserts.insert(node_run.back()->id());
 
                                         created_nodes[key] = node_run;
+
+                                        if (alt_paths) {
+                                        for (Node* node : created_nodes[key]) {
+                                            // Add a visit to each node we created/found in
+                                            // order to the path for this alt of this
+                                            // variant.
+                                            add_match(alt_path, node);
+                                        }
+                                    }
                                     }
                                 }
                                 else if (sv_type == "DEL"){
@@ -1365,9 +1380,8 @@ namespace vg {
 
             if (do_svs) {
                 variant_acceptable = vvar->canonicalize_sv(reference, insertions, true, -1);
-                if (do_external_insertions){
-                    vvar->set_insertion_sequences(insertions);
-                }
+               // now called implicitly in canonicalize: vvar->set_insertion_sequences(insertions);
+                
             }
 
             for (string& alt : vvar->alt) {
