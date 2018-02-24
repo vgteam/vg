@@ -29,14 +29,14 @@ void help_msga(char** argv) {
          << "    -g, --graph FILE        include this graph" << endl
          << "    -a, --fasta-order       build the graph in the order the sequences are seen in the FASTA (default: bigger first)" << endl
          << "alignment:" << endl
-         << "    -k, --min-seed INT      minimum seed (MEM) length [1]" << endl
+         << "    -k, --min-mem INT       minimum MEM length (if 0 estimate via -e) [0]" << endl
+         << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [0.01]" << endl
          << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [1024]" << endl
-         << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
+         << "    -Y, --max-mem INT       ignore mems longer than this length (unset if 0) [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-W} * FLOAT [1.5]" << endl
          << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [2]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
-         << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT (set to -1 to estimated via -e) [-1]" << endl
-         << "    -e, --cluster-p FLOAT   set {-W} such that this fraction of {-W} length hits will by by chance [0.5]" << endl
+         << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
@@ -105,7 +105,7 @@ int main_msga(int argc, char** argv) {
     bool normalize = false;
     int iter_max = 1;
     int max_mem_length = 0;
-    int min_mem_length = 1;
+    int min_mem_length = 0;
     int max_target_factor = 100;
     bool idx_path_only = false;
     int match = 1;
@@ -114,9 +114,9 @@ int main_msga(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool circularize = false;
-    float chance_match = 0.5;
+    float chance_match = 0.01;
     int mem_reseed_length = -1;
-    int min_cluster_length = -1;
+    int min_cluster_length = 0;
     float mem_reseed_factor = 1.5;
     int extra_multimaps = 512;
     int min_multimaps = 2;
@@ -156,10 +156,10 @@ int main_msga(int argc, char** argv) {
                 {"idx-edge-max", required_argument, 0, 'E'},
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
-                {"min-seed", required_argument, 0, 'k'},
-                {"max-seed", required_argument, 0, 'Y'},
+                {"min-mem", required_argument, 0, 'k'},
+                {"max-mem", required_argument, 0, 'Y'},
                 {"hit-max", required_argument, 0, 'c'},
-                {"cluster-p", required_argument, 0, 'e'},
+                {"mem-chance", required_argument, 0, 'e'},
                 {"reseed-x", required_argument, 0, 'r'},
                 {"threads", required_argument, 0, 't'},
                 {"node-max", required_argument, 0, 'm'},
@@ -574,10 +574,10 @@ int main_msga(int argc, char** argv) {
             mapper->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width * 10;
             mapper->band_multimaps = band_multimaps;
             mapper->drop_chain = drop_chain;
-            mapper->min_mem_length = min_mem_length;
-            mapper->min_cluster_length = (min_cluster_length > 0 ? min_cluster_length
-                                          : mapper->random_match_length(chance_match));
-            mapper->mem_reseed_length = round(mem_reseed_factor * max(mapper->min_mem_length, mapper->min_cluster_length));
+            mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length
+                                 : mapper->random_match_length(chance_match));
+            mapper->min_cluster_length = min_cluster_length;
+            mapper->mem_reseed_length = round(mem_reseed_factor * mapper->min_mem_length);
             if (debug) {
                 cerr << "[vg msga] : min_mem_length = " << mapper->min_mem_length
                      << ", mem_reseed_length = " << mapper->mem_reseed_length
