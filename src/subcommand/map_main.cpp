@@ -27,7 +27,7 @@ void help_map(char** argv) {
          << "    -Y, --max-mem INT       ignore mems longer than this length (unset if 0) [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than FLOAT*--min-seed [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
-         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [2]" << endl
+         << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [1]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than FLOAT [0]" << endl
          << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
@@ -43,8 +43,9 @@ void help_map(char** argv) {
          << "    -U, --fixed-frag-model  don't learn the pair fragment model online, use {-I} without update" << endl
          << "    -p, --print-frag-model  suppress alignment output and print the fragment model on stdout as per {-I} format" << endl
          << "    --frag-calc INT         update the fragment model every INT perfect pairs [10]" << endl
-         << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
+         << "    --fragment-x FLOAT      calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
          << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
+         << "    -S, --unpaired-cost INT penalty for an unpaired read pair [17]" << endl
          << "    --no-patch-aln          do not patch banded alignments by locally aligning unaligned regions" << endl
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
@@ -126,11 +127,12 @@ int main_map(int argc, char** argv) {
     int8_t gap_open = 6;
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
+    int unpaired_penalty = 17;
     double haplotype_consistency_exponent = 1;
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
-    int min_multimaps = 2;
+    int min_multimaps = 1;
     int max_mapping_quality = 60;
     double maybe_mq_threshold = 0;
     double identity_weight = 2;
@@ -206,7 +208,7 @@ int main_map(int argc, char** argv) {
                 {"try-up-to", required_argument, 0, 'u'},
                 {"compare", no_argument, 0, 'X'},
                 {"fragment", required_argument, 0, 'I'},
-                {"fragment-x", required_argument, 0, 'S'},
+                {"fragment-x", required_argument, 0, '3'},
                 {"full-l-bonus", required_argument, 0, 'L'},
                 {"hap-exp", required_argument, 0, 'a'},
                 {"acyclic-graph", no_argument, 0, 'm'},
@@ -226,11 +228,12 @@ int main_map(int argc, char** argv) {
                 {"no-patch-aln", no_argument, 0, '8'},
                 {"surj-full-l-bonus", required_argument, 0, '9'},
                 {"drop-full-l-bonus", no_argument, 0, '2'},
+                {"unpaired-cost", required_argument, 0, 'S'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:89:24:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:89:24:3:",
                          long_options, &option_index);
 
 
@@ -469,8 +472,12 @@ int main_map(int argc, char** argv) {
         }
         break;
 
-        case 'S':
+        case '3':
             fragment_sigma = atof(optarg);
+            break;
+
+        case 'S':
+            unpaired_penalty = atoi(optarg);
             break;
 
         case 'O':
@@ -898,6 +905,7 @@ int main_map(int argc, char** argv) {
         m->frag_stats.fixed_fragment_model = fixed_fragment_model;
         m->frag_stats.fragment_max = fragment_max;
         m->frag_stats.fragment_sigma = fragment_sigma;
+        m->unpaired_penalty = unpaired_penalty;
         if (fragment_mean) {
             m->frag_stats.fragment_size = fragment_size;
             m->frag_stats.cached_fragment_length_mean = fragment_mean;

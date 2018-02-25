@@ -2451,26 +2451,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     set<pair<string, string> > seen_alignments;
     int filled1 = 0, filled2 = 0;
-    int best_score = -1;
-    int last_score = -1;
-    int seen_last = 0;
-    int seen_best = 0;
-    int seen_bad = 0;
-    bool keep_trying = true;
-    int hopeless_threshold = 3; // how many times we see the same thing before giving up
-    float weak_alignment_ratio = 0.4; // how bad an alignment should be relative to the best to consider it hopeless
     for (auto& cluster_ptr : cluster_ptrs) {
         // break the cluster into two pieces
         auto& cluster1 = *cluster_ptr.first;
         auto& cluster2 = *cluster_ptr.second;
         alns.emplace_back();
         auto& p = alns.back();
-        bool clusters_long_enough = cluster_coverage(cluster1) + cluster_coverage(cluster2) > min_cluster_length * 2;
         if (cluster1.size()
-            && keep_trying
-            && clusters_long_enough
-            && (!to_drop1.count(&cluster1)
-                || filled1 < min_multimaps)) {
+            && (filled1 < min_multimaps
+                || !to_drop1.count(&cluster1))) {
             p.first = align_cluster(read1, cluster1, true);
             ++filled1;
         } else {
@@ -2481,10 +2470,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
 
         if (cluster2.size()
-            && keep_trying
-            && clusters_long_enough
-            && (!to_drop2.count(&cluster2)
-                || filled2 < min_multimaps)) {
+            && (filled2 < min_multimaps
+                || !to_drop2.count(&cluster2))) {
             p.second = align_cluster(read2, cluster2, true);
             ++filled2;
         } else {
@@ -2492,33 +2479,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.second.clear_score();
             p.second.clear_identity();
             p.second.clear_path();
-        }
-        // bail out if we have we seen the top score more than N times
-        int pair_score = p.first.score() + p.second.score();
-        if (keep_trying) {
-            if (pair_score != last_score) {
-                last_score = pair_score;
-                seen_last = 0;
-            } else if (pair_score == last_score) {
-                ++seen_last;
-                if (seen_last >= hopeless_threshold) {
-                    keep_trying = false;
-                }
-            }
-            if (pair_score > best_score) {
-                best_score = pair_score;
-            } else if (pair_score == best_score) {
-                ++seen_best;
-                if (seen_best >= hopeless_threshold) {
-                    keep_trying = false;
-                }
-            }
-            if (pair_score < best_score * weak_alignment_ratio) {
-                ++seen_bad;
-                if (seen_bad >= hopeless_threshold) {
-                    keep_trying = false;
-                }
-            }
         }
         auto pair_sig = signature(p.first, p.second);
         if (seen_alignments.count(pair_sig)) {
@@ -2700,7 +2660,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         ++k;
     }
     update_aln_ptrs();
-    
+
     // Apply haplotype consistency scores if possible
     vector<Alignment*> flat_alns;
     flat_alns.reserve(aln_ptrs.size() * 2);
@@ -2709,9 +2669,21 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         flat_alns.push_back(&aln_pair->second);
     }
     apply_haplotype_consistency_scores(flat_alns);
-    
+
     sort_and_dedup();
     show_alignments("mixed");
+
+    // apply pair consistency penalty
+    if (frag_stats.fragment_size) {
+        for (auto& p : aln_ptrs) {
+            auto& aln1 = p->first;
+            auto& aln2 = p->second;
+            if (!pair_consistent(aln1, aln2, 1e-6)) {
+                aln1.set_score(max(0, aln1.score()-unpaired_penalty));
+                aln2.set_score(max(0, aln2.score()-unpaired_penalty));
+            }
+        }
+    }
 
     // calculate cluster mapping quality
 
@@ -2815,7 +2787,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         imperfect_pairs_to_retry.push_back(make_pair(read1, read2));
         results.first.clear();
         results.second.clear();
-        // we signal the fact that this isn't a perfect pair, so we don't write it out externally?
+        // we signal the fact that this isn't a perfect pair, so we don't write it out externally
         queued_resolve_later = true;
     }
 
