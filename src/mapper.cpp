@@ -4433,7 +4433,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                 // let's try to patch this insertion into the gap between the neighboring bits
                 //cerr << "patching " << pb2json(edit) << endl;
                 Alignment patch;
-                patch.set_name(aln.name());
                 patch.set_sequence(edit.sequence());
                 if (!aln.quality().empty()) {
                     patch.set_quality(aln.quality().substr(read_pos, edit.sequence().size()));
@@ -4615,6 +4614,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
         }
     }
     // finally, fix up the alignment score
+    patched.set_name(aln.name());
     patched.set_sequence(aln.sequence());
     if (!aln.quality().empty()) {
         patched.set_quality(aln.quality());
