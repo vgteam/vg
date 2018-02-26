@@ -2195,7 +2195,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length,
-                                                     true, true, true, false, 2);
+                                                     false, true, true, false);
 
     vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
                                                      read2.sequence().end(),
@@ -2204,7 +2204,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length,
-                                                     true, true, true, false, 2);
+                                                     false, true, true, false);
 
     double mq_cap1, mq_cap2;
     mq_cap1 = mq_cap2 = max_mapping_quality;
@@ -4125,7 +4125,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         max_mem_length,
                                                         min_mem_length,
                                                         mem_reseed_length,
-                                                        true, true, true, false, 2);
+                                                        false, true, true, false);
         // query mem hits
         alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }
