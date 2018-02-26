@@ -148,6 +148,7 @@ int main_mpmap(int argc, char** argv) {
     string sample_name = "";
     string read_group = "";
     bool prefilter_redundant_hits = true;
+    bool precollapse_order_length_hits = true;
     int max_sub_mem_recursion_depth = 2;
     
     int c;
@@ -709,6 +710,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
     multipath_mapper.use_approx_sub_mem_count = false;
     multipath_mapper.prefilter_redundant_hits = prefilter_redundant_hits;
+    multipath_mapper.precollapse_order_length_hits = precollapse_order_length_hits;
     multipath_mapper.max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
     multipath_mapper.max_mapping_p_value = max_mapping_p_value;
     if (min_clustering_mem_length) {

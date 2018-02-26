@@ -1169,7 +1169,7 @@ void BaseMapper::precollapse_order_length_runs(string::const_iterator seq_begin,
         unordered_map<pos_t, size_t> extended_hits;
         for (size_t j = 0; j < extending_mem.nodes.size(); j++) {
             pos_t pos = make_pos_t(extending_mem.nodes[j]);
-            extended_hits[make_pos_t(id(pos), offset(pos) + relative_offset, is_rev(pos))] = j;
+            extended_hits[make_pos_t(id(pos), is_rev(pos), offset(pos) + relative_offset)] = j;
         }
         
         // check if we find any of these hits
@@ -1190,6 +1190,7 @@ void BaseMapper::precollapse_order_length_runs(string::const_iterator seq_begin,
         
         // make collapsed MEMs and identify their hits
         
+        size_t num_uncollapsed_mems = mems.size();
         for (size_t i = 0; i + 1 < order_length_mems.size(); i++) {
             
             for (size_t j = 0; j < mems[order_length_mems[i]].nodes.size(); j++) {
@@ -1197,6 +1198,10 @@ void BaseMapper::precollapse_order_length_runs(string::const_iterator seq_begin,
                 if (collapsable_pairs[i].count(j) && !traversed.count(make_pair(i, j))) {
                     // here's a collapsable hit we haven't yet traversed (i.e. the start of a new collapsed hit)
                     
+#ifdef debug_mapper
+                    cerr << "premerging MEM hits:" << endl;
+                    cerr << "\t" << mems[order_length_mems[i]].sequence() << " " << make_pos_t(mems[order_length_mems[i]].nodes[j]) << endl;
+#endif
                     // follow the forward links until we've traversed all the collapsable pairs
                     size_t at = j;
                     size_t col = i;
@@ -1207,6 +1212,9 @@ void BaseMapper::precollapse_order_length_runs(string::const_iterator seq_begin,
                         col++;
                         collapsable_run.second = at;
                         traversed.emplace(col, at);
+#ifdef debug_mapper
+                        cerr << "\t" << mems[order_length_mems[col]].sequence() << " " << make_pos_t(mems[order_length_mems[col]].nodes[at]) << endl;
+#endif
                     }
                     
                     // find the interval of read indexes that the collapsed MEM will cover
@@ -1249,6 +1257,12 @@ void BaseMapper::precollapse_order_length_runs(string::const_iterator seq_begin,
             if (removed_so_far) {
                 nodes.resize(nodes.size() - removed_so_far);
             }
+        }
+        
+        // label the newly created MEMs with their hit count
+        
+        for (size_t i = num_uncollapsed_mems; i < mems.size(); i++) {
+            mems[i].match_count = mems[i].nodes.size();
         }
         
         // resort the MEMs in lexicographic order by the read interval
