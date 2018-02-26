@@ -30,8 +30,8 @@ void help_msga(char** argv) {
          << "    -a, --fasta-order       build the graph in the order the sequences are seen in the FASTA (default: bigger first)" << endl
          << "alignment:" << endl
          << "    -k, --min-mem INT       minimum MEM length (if 0 estimate via -e) [0]" << endl
-         << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [0.05]" << endl
-         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [1024]" << endl
+         << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [1e-5]" << endl
+         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index (0 for no limit) [0]" << endl
          << "    -Y, --max-mem INT       ignore mems longer than this length (unset if 0) [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-W} * FLOAT [1.5]" << endl
          << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [1]" << endl
@@ -87,7 +87,7 @@ int main_msga(int argc, char** argv) {
     vector<string> graph_files;
     string base_seq_name;
     int idx_kmer_size = 16;
-    int hit_max = 1024;
+    int hit_max = 0;
     // if we set this above 1, we use a dynamic programming process to determine the
     // optimal alignment through a series of bands based on a proximity metric
     int max_multimaps = 1;
@@ -114,7 +114,7 @@ int main_msga(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool circularize = false;
-    float chance_match = 0.05;
+    float chance_match = 1e-5;
     int mem_reseed_length = -1;
     int min_cluster_length = 0;
     float mem_reseed_factor = 1.5;
