@@ -2195,7 +2195,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length,
-                                                     false, true, true, false);
+                                                     true, true, true, false, 2);
 
     vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
                                                      read2.sequence().end(),
@@ -2204,7 +2204,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length,
-                                                     false, true, true, false);
+                                                     true, true, true, false, 2);
 
     double mq_cap1, mq_cap2;
     mq_cap1 = mq_cap2 = max_mapping_quality;
@@ -2939,10 +2939,6 @@ set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vec
             // are we overlapping?
             auto& other_cluster = clusters[j];
             if (to_drop.count(&other_cluster)) continue;
-            if (clusters_overlap_in_graph(this_cluster, other_cluster)) {
-                to_drop.insert(&this_cluster);
-                break;
-            }
             // if the overlap length is more than our drop_chain fraction
             if (drop_chain > 0
                 && clusters_overlap_in_read(this_cluster, other_cluster)) {
@@ -4129,7 +4125,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         max_mem_length,
                                                         min_mem_length,
                                                         mem_reseed_length,
-                                                        false, true, true, false);
+                                                        true, true, true, false, 2);
         // query mem hits
         alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }
@@ -4670,7 +4666,7 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
 
 // make a perfect-match alignment out of a vector of MEMs which each have only one recorded hit
 // use the base alignment sequence (which the SMEMs relate to) to fill in the gaps
-Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems) {
+Alignment Mapper::mems_to_alignment(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
     // base case--- empty alignment
     if (mems.empty()) {
         Alignment aln; return aln;
@@ -4718,7 +4714,7 @@ Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMat
 }
 
 // convert one mem into an alignment; validates that only one node is given
-Alignment Mapper::mem_to_alignment(MaximalExactMatch& mem) {
+Alignment Mapper::mem_to_alignment(const MaximalExactMatch& mem) {
     const string seq = mem.sequence();
     if (mem.nodes.size() > 1) {
         cerr << "[vg::Mapper] warning: generating first alignment from MEM with multiple recorded hits" << endl;

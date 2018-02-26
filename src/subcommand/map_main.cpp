@@ -22,7 +22,7 @@ void help_map(char** argv) {
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-mem INT       minimum MEM length (if 0 estimate via -e) [0]" << endl
-         << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [0.01]" << endl
+         << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [0.05]" << endl
          << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [1024]" << endl
          << "    -Y, --max-mem INT       ignore mems longer than this length (unset if 0) [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than FLOAT*--min-seed [1.5]" << endl
@@ -145,7 +145,7 @@ int main_map(int argc, char** argv) {
     double fragment_sigma = 10;
     bool fragment_orientation = false;
     bool fragment_direction = true;
-    float chance_match = 0.01;
+    float chance_match = 0.05;
     bool use_fast_reseed = true;
     float drop_chain = 0.5;
     float mq_overlap = 0.0;
@@ -878,7 +878,7 @@ int main_map(int argc, char** argv) {
         }
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;
-        m->min_multimaps = min_multimaps;
+        m->min_multimaps = max(min_multimaps, max_multimaps);
         m->band_multimaps = band_multimaps;
         m->maybe_mq_threshold = maybe_mq_threshold;
         m->debug = debug;

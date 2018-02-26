@@ -495,8 +495,8 @@ public:
 
     // takes the input alignment (with seq, etc) so we have reference to the base sequence
     // for reconstruction the alignments from the SMEMs
-    Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
-    Alignment mem_to_alignment(MaximalExactMatch& mem);
+    Alignment mems_to_alignment(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    Alignment mem_to_alignment(const MaximalExactMatch& mem);
     
     /// Use the scoring provided by the internal aligner to re-score the
     /// alignment, scoring gaps between nodes using graph distance from the XG
