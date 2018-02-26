@@ -602,12 +602,7 @@ namespace vg {
                             vector<string> ins_seqs = variant->get_insertion_sequences();
 
 
-                            // for (int i = 0; i < tags.size(); ++i){
-                            //     if (svtypes[i] == "INS"){
-                            //     cerr << "Making " << tags[i] << " " << ins_seqs[i] << endl;
 
-                            //     }
-                            // }
                                 auto e_start = variant->position - chunk_offset;
                                 auto e_end = variant->position + variant->get_sv_len(alt_index) - chunk_offset - 1;
 
@@ -618,8 +613,7 @@ namespace vg {
                                 string sv_type = svtypes[alt_index];
 
                                 if (sv_type == "INS"){
-                                    // cerr << "Insertions are not yet implemented" << endl;
-                                    // continue;
+
                                     // Create insertion sequence nodes
                                     if (created_nodes.count(key) == 0 && ins_seqs[alt_index] != ""){
                                         vector<Node*> node_run = create_nodes(ins_seqs[alt_index]);
@@ -646,19 +640,14 @@ namespace vg {
                                 }
                                 else if (sv_type == "DEL"){
                                     if (created_nodes.count(key) == 0){
-                                        //cerr << "CALLED "  << tags[alt_index] << endl;
-                                        //string del_seq = reference_sequence.substr(variant->position, variant->get_sv_len(alt_index));
-                                        //vector<Node*> node_run = create_nodes( del_seq );
-
-                                        //nodes_starting_at[e_start].insert(node_run.front()->id());
-                                        //nodes_ending_at[e_end].insert(node_run.back()->id());
-
 
                                         size_t arc_end = variant->position - chunk_offset + variant->get_sv_len(alt_index);
-                                        int64_t arc_start = (int64_t) variant->position - chunk_offset - 1;
+                                        int64_t arc_start = (int64_t) variant->position - chunk_offset; 
 
                                         deletions_ending_at[arc_end].insert(arc_start);
                                         deletion_starts.insert(arc_start);
+
+                                        
 
 
                                     }
