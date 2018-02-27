@@ -1670,8 +1670,8 @@ Mapper::Mapper(xg::XG* xidex,
     , max_band_jump(0)
     , patch_alignments(false)
     , identity_weight(2)
-    , pair_rescue_hang_threshold(0.5)
-    , pair_rescue_retry_threshold(0.7)
+    , pair_rescue_hang_threshold(0.7)
+    , pair_rescue_retry_threshold(0.5)
     , include_full_length_bonuses(true)
 {
     
@@ -2165,7 +2165,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int8_t gap_open = aligner->gap_open;
     int8_t full_length_bonus = aligner->full_length_bonus;
 
-    int total_multimaps = max(max_multimaps, extra_multimaps);
+    int total_multimaps = max(max_multimaps, extra_multimaps/4);
     double cluster_mq = 0;
 
     if(debug) {
@@ -2273,8 +2273,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // if we have a cached fragment orientation, use it to pick the min distance with the correct path relative orientation
             int64_t approx_dist = (!frag_stats.fragment_size ? min(d.first, d.second)
                                    : (frag_stats.cached_fragment_orientation_same ? d.first : d.second));
-            // rest on an approximate distance metric in the graph
-            approx_dist = min(approx_dist, approx_distance(m1_pos, m2_pos));
+            /*// could be expensive for pairs
+            if (approx_dist < max_length) {
+                approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
+            }
+            */
             if (approx_dist >= max_length) {
                 // too far apart or wrong path/pair relative orientation
                 return -std::numeric_limits<double>::max();
@@ -2291,13 +2294,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
             int64_t approx_dist = d.first; // take the "same orientation" distance
             double overlap_length = mems_overlap_length(m1, m2);
-            if (approx_dist < max_length) {
-                int64_t seq_dist = (is_rev(m1_pos) == is_rev(m2_pos) ?
-                                    approx_distance(m1_pos, m2_pos)
-                                    : numeric_limits<int64_t>::max());
-                approx_dist = min(seq_dist,
-                                  graph_distance(m1_pos, m2_pos, max_length));
-            }
+            /*if (approx_dist < 32) {
+                approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
+                }*/
             if (approx_dist > max_length) {
                 // too far
                 return -std::numeric_limits<double>::max();
@@ -3010,13 +3009,9 @@ Mapper::align_mem_multi(const Alignment& aln,
         pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
         int64_t approx_dist = d.first;// same orientation
         double overlap_length = mems_overlap_length(m1, m2);
-        if (approx_dist < max_length) {
-            int64_t seq_dist = (is_rev(m1_pos) == is_rev(m2_pos) ?
-                                approx_distance(m1_pos, m2_pos)
-                                : numeric_limits<int64_t>::max());
-            approx_dist = min(seq_dist,
-                              graph_distance(m1_pos, m2_pos, max_length));
-        }
+        /*if (approx_dist < 32 && same_orientation) {
+            approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
+            }*/
 #ifdef debug_mapper
 #pragma omp critical
         {
