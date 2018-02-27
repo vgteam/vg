@@ -266,7 +266,7 @@ void for_each_parallel_impl(std::istream& in,
                 // message.
                 coded_in.~CodedInputStream();
                 new (&coded_in) ::google::protobuf::io::CodedInputStream(&gzip_in);
-                // Alot space for size, and for reading next chunk's length
+                // Allot space for size, and for reading next chunk's length
                 coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
                 
                 uint32_t msgSize = 0;
@@ -289,14 +289,25 @@ void for_each_parallel_impl(std::istream& in,
                     // time to enqueue this batch for processing. first, block if
                     // we've hit max_batches_outstanding.
                     uint64_t b;
-                    #pragma omp atomic capture
+#pragma omp atomic capture
                     b = ++batches_outstanding;
-                    while (b >= max_batches_outstanding) {
-                        usleep(1000);
-                        #pragma omp atomic read
-                        b = batches_outstanding;
+                    if (b >= max_batches_outstanding || !single_threaded_until_true()) {
+                        
+                        // process this batch in the current thread
+                        {
+                            T obj1, obj2;
+                            for (int i = 0; i<batch_size; i+=2) {
+                                // parse protobuf objects and invoke lambda on the pair
+                                handle(obj1.ParseFromString(batch->at(i)));
+                                handle(obj2.ParseFromString(batch->at(i+1)));
+                                lambda2(obj1,obj2);
+                            }
+                        } // scope obj1 & obj2
+                        delete batch;
+#pragma omp atomic update
+                        batches_outstanding--;
                     }
-                    if (single_threaded_until_true()) {
+                    else {
                         // spawn a task in another thread to process this batch
 #pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda2, handle, single_threaded_until_true)
                         {
@@ -313,20 +324,6 @@ void for_each_parallel_impl(std::istream& in,
 #pragma omp atomic update
                             batches_outstanding--;
                         }
-                    }
-                    else {
-                        // process this batch in the current thread
-                        {
-                            T obj1, obj2;
-                            for (int i = 0; i<batch_size; i+=2) {
-                                // parse protobuf objects and invoke lambda on the pair
-                                handle(obj1.ParseFromString(batch->at(i)));
-                                handle(obj2.ParseFromString(batch->at(i+1)));
-                                lambda2(obj1,obj2);
-                            }
-                        } // scope obj1 & obj2
-                        delete batch;
-                        batches_outstanding--;
                     }
 
                     batch = nullptr;
