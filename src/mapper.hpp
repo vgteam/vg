@@ -210,6 +210,11 @@ public:
     void rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
                                              size_t max_rescue_hit_count);
     
+    /// identifies hits for order-length MEMs that are actually part of longer MEMs above the GCSA's limit and
+    /// merges them. for speed's sake, can have false negatives but no false positives
+    void precollapse_order_length_runs(string::const_iterator seq_begin,
+                                       vector<MaximalExactMatch>& mems);
+    
     /// identifies hits for sub-MEMs that are redundant hits to the parent MEMs and removes them
     /// from the hit lists. for speed's sake, can have false negatives but no false positives
     void prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
@@ -227,6 +232,7 @@ public:
     bool use_approx_sub_mem_count = true;
     int max_sub_mem_recursion_depth = 1;
     bool prefilter_redundant_hits = false;
+    bool precollapse_order_length_hits = false;
     
     // Remove any bonuses used by the aligners from the final reported scores.
     // Does NOT (yet) remove the haplotype consistency bonus.

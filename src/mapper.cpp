@@ -639,6 +639,10 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     // TODO: I think I already fixed this
     mems.erase(unique(mems.begin(), mems.end()), mems.end());
     // remove MEMs that are overlapping positionally (they may be redundant)
+    
+    if (precollapse_order_length_hits) {
+        precollapse_order_length_runs(seq_begin, mems);
+    }
 
     return mems;
 }
@@ -1135,6 +1139,136 @@ void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
         if (removed_so_far) {
             nodes.resize(nodes.size() - removed_so_far);
         }
+    }
+}
+    
+void BaseMapper::precollapse_order_length_runs(string::const_iterator seq_begin,
+                                               vector<MaximalExactMatch>& mems) {
+    
+    // find order length MEMs
+    vector<size_t> order_length_mems;
+    for (size_t i = 0; i < mems.size(); i++) {
+        if (mems[i].length() == gcsa->order()) {
+            order_length_mems.push_back(i);
+        }
+    }
+    
+    if (order_length_mems.empty()) {
+        return;
+    }
+    
+    vector<unordered_map<size_t, size_t>> collapsable_pairs(order_length_mems.size());
+    for (size_t i = 0; i + 1 < order_length_mems.size(); i++) {
+        
+        MaximalExactMatch& extending_mem = mems[order_length_mems[i]];
+        MaximalExactMatch& extend_to_mem = mems[order_length_mems[i + 1]];
+        
+        int64_t relative_offset = extend_to_mem.begin - extending_mem.begin;
+        
+        // find where hits should be if they are collapsable and on the same node
+        unordered_map<pos_t, size_t> extended_hits;
+        for (size_t j = 0; j < extending_mem.nodes.size(); j++) {
+            pos_t pos = make_pos_t(extending_mem.nodes[j]);
+            extended_hits[make_pos_t(id(pos), is_rev(pos), offset(pos) + relative_offset)] = j;
+        }
+        
+        // check if we find any of these hits
+        for (size_t j = 0; j < extend_to_mem.nodes.size(); j++) {
+            pos_t pos = make_pos_t(extend_to_mem.nodes[j]);
+            auto iter = extended_hits.find(pos);
+            if (iter != extended_hits.end()) {
+                collapsable_pairs[i].emplace(iter->second, j);
+            }
+        }
+    }
+    
+    // did we find any order-length MEMs that we can collapse into longer MEMs a priori?
+    if (!collapsable_pairs.empty()) {
+        
+        unordered_set<pair<size_t, size_t>> traversed;
+        unordered_map<pair<int64_t, int64_t>, size_t> collapsed_mems;
+        
+        // make collapsed MEMs and identify their hits
+        
+        size_t num_uncollapsed_mems = mems.size();
+        for (size_t i = 0; i + 1 < order_length_mems.size(); i++) {
+            
+            for (size_t j = 0; j < mems[order_length_mems[i]].nodes.size(); j++) {
+                
+                if (collapsable_pairs[i].count(j) && !traversed.count(make_pair(i, j))) {
+                    // here's a collapsable hit we haven't yet traversed (i.e. the start of a new collapsed hit)
+                    
+#ifdef debug_mapper
+                    cerr << "premerging MEM hits:" << endl;
+                    cerr << "\t" << mems[order_length_mems[i]].sequence() << " " << make_pos_t(mems[order_length_mems[i]].nodes[j]) << endl;
+#endif
+                    // follow the forward links until we've traversed all the collapsable pairs
+                    size_t at = j;
+                    size_t col = i;
+                    traversed.emplace(col, at);
+                    pair<size_t, size_t> collapsable_run(at, at);
+                    while (collapsable_pairs[col].count(at)) {
+                        at = collapsable_pairs[col][at];
+                        col++;
+                        collapsable_run.second = at;
+                        traversed.emplace(col, at);
+#ifdef debug_mapper
+                        cerr << "\t" << mems[order_length_mems[col]].sequence() << " " << make_pos_t(mems[order_length_mems[col]].nodes[at]) << endl;
+#endif
+                    }
+                    
+                    // find the interval of read indexes that the collapsed MEM will cover
+                    pair<int64_t, int64_t> range(mems[order_length_mems[i]].begin - seq_begin,
+                                                 mems[order_length_mems[col]].end - seq_begin);
+                    
+                    // make a new MEM for this read interval if we don't already have one
+                    if (!collapsed_mems.count(range)) {
+                        collapsed_mems[range] = mems.size();
+                        mems.emplace_back(mems[order_length_mems[i]].begin,
+                                          mems[order_length_mems[col]].end,
+                                          gcsa::range_type());
+                    }
+                    
+                    // get the MEM corresponding to this read interval
+                    MaximalExactMatch& collapsed_mem = mems[collapsed_mems[range]];
+                    
+                    // add the hit to the collapsed MEM's hits
+                    collapsed_mem.nodes.push_back(mems[order_length_mems[i]].nodes[j]);
+                }
+            }
+        }
+        
+        // remove the hits that we collapsed from their MEMs
+        
+        for (size_t i = 0; i < order_length_mems.size(); i++) {
+            
+            size_t removed_so_far = 0;
+            auto& nodes = mems[order_length_mems[i]].nodes;
+            for (size_t j = 0; j < nodes.size(); j++) {
+                
+                if (traversed.count(make_pair(i, j))) {
+                    removed_so_far++;
+                }
+                else if (removed_so_far) {
+                    nodes[j - removed_so_far] = nodes[j];
+                }
+            }
+            
+            if (removed_so_far) {
+                nodes.resize(nodes.size() - removed_so_far);
+            }
+        }
+        
+        // label the newly created MEMs with their hit count
+        
+        for (size_t i = num_uncollapsed_mems; i < mems.size(); i++) {
+            mems[i].match_count = mems[i].nodes.size();
+        }
+        
+        // resort the MEMs in lexicographic order by the read interval
+        std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
+            return m1.begin < m2.begin || (m1.begin == m2.begin && m1.end < m2.end);
+        });
     }
 }
 
