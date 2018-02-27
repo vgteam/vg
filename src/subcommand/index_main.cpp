@@ -6,7 +6,6 @@
 
 #include <string>
 #include <vector>
-#include <regex>
 
 #include "subcommand.hpp"
 
@@ -475,8 +474,6 @@ int main_index(int argc, char** argv) {
         // threads.
         // TODO: a better way to store path metadata
         map<string, Path> alt_paths;
-        // This is matched against the entire string.
-        regex is_alt("_alt_.+_[0-9]+");
 
         if (file_names.empty()) {
             // VGset or something segfaults when we feed it no graphs.
@@ -488,7 +485,7 @@ int main_index(int argc, char** argv) {
         VGset graphs(file_names);
         // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
         xg::XG index;
-        graphs.to_xg(index, store_threads, is_alt, alt_paths);
+        graphs.to_xg(index, store_threads, Paths::is_alt, alt_paths);
 
         if (show_progress) {
             cerr << "Built base XG index" << endl;

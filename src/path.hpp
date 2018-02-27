@@ -7,6 +7,7 @@
 #include <set>
 #include <list>
 #include <sstream>
+#include <regex>
 #include "json2pb.h"
 #include "vg.pb.h"
 #include "edit.hpp"
@@ -24,6 +25,9 @@ using namespace std;
 
 class Paths {
 public:
+
+    // This regex matches the names of alt paths.
+    const static std::regex is_alt;
 
     Paths(void);
 

@@ -5,15 +5,16 @@
  *
  * By default, pruning removes the nodes touched by paths of length
  * --kmer-length crossing more than --edge-max non-trivial edges. Graph
- * regions shorter than --subgraph_min are also removed. Pruning either removes
- * all embedded paths or preserves both the paths and the edges on non-alt
- * paths.
+ * regions shorter than --subgraph_min are also removed. Pruning also removes
+ * all embedded paths.
  *
- * With --gbwt-name and --xg-name, pruning unfolds the paths and threads in
- * the complex regions instead of pruning them. If --mapping is specified,
- * the mapping from duplicate node identifiers to the original identifiers is
- * stored in a file. This file can be used for building a GCSA2 index that
- * maps to the original graph.
+ * With --restore-paths, the nodes and edges on non-alt paths are added back
+ * after pruning.
+ *
+ * With --unfold-paths, pruning unfolds the non-alt paths and GBWT threads in
+ * the complex regions. If --mapping is specified, the mapping from duplicate
+ * node identifiers to the original identifiers is stored in a file. This file
+ * can be used for building a GCSA2 index that maps to the original graph.
  */
 
 #include "../phase_unfolder.hpp"
@@ -23,6 +24,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <list>
 #include <regex>
 #include <map>
 #include <string>
@@ -106,13 +108,12 @@ void help_prune(char** argv) {
     std::cerr << "                           "; print_defaults(PruningParameters::subgraph_min);
     std::cerr << "pruning modes (-P, -r, and -u are mutually exclusive):" << std::endl;
     std::cerr << "    -P, --prune            simply prune the graph (default)" << std::endl;
-    std::cerr << "    -r, --restore-paths    restore the edges on XG paths (requires -x)" << std::endl;
-    std::cerr << "    -u, --unfold-paths     unfold XG paths (requires -x)" << std::endl;
+    std::cerr << "    -r, --restore-paths    restore the edges on non-alt paths" << std::endl;
+    std::cerr << "    -u, --unfold-paths     unfold XG paths (requires -g)" << std::endl;
     std::cerr << "    -v, --verify-paths     verify that the paths exist after pruning" << std::endl;
     std::cerr << "                           (potentially very slow)" << std::endl;
     std::cerr << "unfolding options:" << std::endl;
-    std::cerr << "    -x, --xg-name FILE     unfold XG paths" << std::endl;
-    std::cerr << "    -g, --gbwt-name FILE   also unfold GBWT threads" << std::endl;
+    std::cerr << "    -g, --gbwt-name FILE   unfold the threads from this GBWT index" << std::endl;
     std::cerr << "    -m, --mapping FILE     store the node mapping for duplicates in this file" << std::endl;
     std::cerr << "    -a, --append-mapping   append to the existing node mapping (requires -m)" << std::endl;
     std::cerr << "other options:" << std::endl;
@@ -135,7 +136,7 @@ int main_prune(int argc, char** argv) {
     PruningMode mode = mode_prune;
     int threads = omp_get_max_threads();
     bool verify_paths = false, append_mapping = false, show_progress = false, dry_run = false;
-    std::string vg_name, gbwt_name, xg_name, mapping_name;
+    std::string vg_name, gbwt_name, mapping_name;
 
     // Derived variables.
     bool kmer_length_set = false, edge_max_set = false, subgraph_min_set = false;
@@ -152,7 +153,6 @@ int main_prune(int argc, char** argv) {
             { "restore-paths", no_argument, 0, 'r' },
             { "unfold-paths", no_argument, 0, 'u' },
             { "verify-paths", no_argument, 0, 'v' },
-            { "xg-name", required_argument, 0, 'x' },
             { "gbwt-name", required_argument, 0, 'g' },
             { "mapping", required_argument, 0, 'm' },
             { "append-mapping", no_argument, 0, 'a' },
@@ -163,7 +163,7 @@ int main_prune(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "k:e:s:Pruvx:g:m:apt:d", long_options, &option_index);
+        c = getopt_long (argc, argv, "k:e:s:Pruvg:m:apt:d", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -191,9 +191,6 @@ int main_prune(int argc, char** argv) {
             break;
         case 'v':
             verify_paths = true;
-            break;
-        case 'x':
-            xg_name = optarg;
             break;
         case 'g':
             gbwt_name = optarg;
@@ -250,24 +247,20 @@ int main_prune(int argc, char** argv) {
             std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not have paths to verify" << std::endl;
             return 1;
         }
-        if (!(xg_name.empty() && gbwt_name.empty() && mapping_name.empty())) {
+        if (!(gbwt_name.empty() && mapping_name.empty())) {
             std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not use additional files" << std::endl;
             return 1;
         }
     }
     if (mode == mode_restore) {
-        if (xg_name.empty()) {
-            std::cerr << "[vg prune]: mode " << mode_name(mode) << " requires --xg-name" << std::endl;
-            return 1;
-        }
         if (!(gbwt_name.empty() && mapping_name.empty())) {
-            std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not use --gbwt-name or --mapping-name" << std::endl;
+            std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not use additional files" << std::endl;
             return 1;
         }
     }
     if (mode == mode_unfold) {
-        if (xg_name.empty()) {
-            std::cerr << "[vg prune]: mode " << mode_name(mode) << " requires --xg-name" << std::endl;
+        if (gbwt_name.empty()) {
+            std::cerr << "[vg prune]: mode " << mode_name(mode) << " requires --gbwt-name" << std::endl;
         }
     }
 
@@ -292,9 +285,6 @@ int main_prune(int argc, char** argv) {
         if (!vg_name.empty()) {
             std::cerr << "VG:             " << vg_name << std::endl;
         }        
-        if (!xg_name.empty()) {
-            std::cerr << "XG:             " << xg_name << std::endl;
-        }
         if (!gbwt_name.empty()) {
             std::cerr << "GBWT:           " << gbwt_name << std::endl;
         }
@@ -306,6 +296,8 @@ int main_prune(int argc, char** argv) {
 
     // Handle the input.
     VG* graph;
+    xg::XG xg_index;
+    gbwt::GBWT gbwt_index;
     get_input_file(optind, argc, argv, [&](std::istream& in) {
         graph = new VG(in);
     });
@@ -314,7 +306,25 @@ int main_prune(int argc, char** argv) {
         std::cerr << "Original graph " << vg_name << ": " << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
     }
 
-    // Remove all paths.
+    // Remove the paths and build an XG index if needed.
+    if (mode == mode_restore || mode == mode_unfold) {
+        std::list<Path> non_alt_paths;
+        for (size_t i = 0; i < graph->graph.path_size(); i++) {
+            if (!std::regex_match(graph->graph.path(i).name(), Paths::is_alt)) {
+                non_alt_paths.emplace_back(graph->graph.path(i));
+            }
+        }
+        graph->graph.clear_path();
+        for (Path& path : non_alt_paths) {
+            *(graph->graph.add_path()) = path;
+        }
+        non_alt_paths.clear();
+        xg_index.from_graph(graph->graph);
+        if (show_progress) {
+            std::cerr << "Built a temporary XG index" << std::endl;
+        }
+    }
+    graph->graph.clear_path();
     graph->paths.clear();
     if (show_progress) {
         std::cerr << "Removed all paths" << std::endl;
@@ -332,13 +342,8 @@ int main_prune(int argc, char** argv) {
                   << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
     }
 
-    // Restore the XG paths.
+    // Restore the non-alt paths.
     if (mode == mode_restore) {
-        xg::XG xg_index;
-        get_input_file(xg_name, [&](std::istream& in) {
-           xg_index.load(in); 
-        });
-        gbwt::GBWT gbwt_index;
         PhaseUnfolder unfolder(xg_index, gbwt_index, max_node_id + 1);
         unfolder.restore_paths(*graph, show_progress);
         if (verify_paths) {
@@ -351,16 +356,9 @@ int main_prune(int argc, char** argv) {
 
     // Unfold the XG paths and the GBWT threads.
     if (mode == mode_unfold) {
-        xg::XG xg_index;
-        get_input_file(xg_name, [&](std::istream& in) {
-           xg_index.load(in); 
+        get_input_file(gbwt_name, [&](std::istream& in) {
+           gbwt_index.load(in);
         });
-        gbwt::GBWT gbwt_index;
-        if (!gbwt_name.empty()) {
-            get_input_file(gbwt_name, [&](std::istream& in) {
-               gbwt_index.load(in);
-            });
-        }
         PhaseUnfolder unfolder(xg_index, gbwt_index, max_node_id + 1);
         if (append_mapping) {
             unfolder.read_mapping(mapping_name);

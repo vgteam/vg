@@ -4,6 +4,8 @@
 
 namespace vg {
 
+const std::regex Paths::is_alt("_alt_.+_[0-9]+");
+
 Paths::Paths(void) {
     // noop
 }
