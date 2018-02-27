@@ -229,9 +229,8 @@ namespace vg {
         set<id_t> inserts;
 
         // We need to wire up our inversions super specially.
-        // A pair is an inversion front, inversion back node ID
-        // and they might be the same if only one node is inverted.
-        vector<pair<int64_t, int64_t>> inverted_nodes;
+        map<size_t, set<id_t> > inversion_starts;
+        map<size_t, set<id_t> > inversion_ends;
 
         // Here we remember deletions that end at paritcular positions in the
         // reference, which are the positions of the last deleted bases. We map from
@@ -242,6 +241,10 @@ namespace vg {
         // We also need to track all points at which deletions start, so we can
         // search for the next one when deciding where to break the reference.
         set<int64_t> deletion_starts;
+
+        // We need to track where the alt paths of deletions start/end (and maintain their ids)
+        // so that we can put them in the graph.
+        map<int64_t, string> deletion_start_to_alt_name;
 
         // We use this to get the next variant
         auto next_variant = variants.begin();
@@ -618,8 +621,6 @@ namespace vg {
                                     if (created_nodes.count(key) == 0 && ins_seqs[alt_index] != ""){
                                         vector<Node*> node_run = create_nodes(ins_seqs[alt_index]);
 
-                                    
-
                                         nodes_starting_at[e_start].insert(node_run.front()->id());
                                         nodes_ending_at[e_end].insert(node_run.back()->id());
 
@@ -647,14 +648,17 @@ namespace vg {
                                         deletions_ending_at[arc_end].insert(arc_start);
                                         deletion_starts.insert(arc_start);
 
+
+                                        if (alt_paths){
+                                            deletion_start_to_alt_name[arc_start] = alt_name;
+                                        }
+
                                         
 
 
                                     }
                                 }
                                 else if (sv_type == "INV"){
-                                    cerr << "Inversion not implemented " << endl;
-                                    continue;
                                     // Handle inversions
                                     // We only need reference nodes, plus two arcs
                                     // one from the inverted sequence's beginning to the sequence following
@@ -662,16 +666,13 @@ namespace vg {
                                     // one from the end of the sequence preceding the inversion to the back 
                                     // of the inverted sequence's last node.
                                     
-                                    vector<Node*> node_run = create_nodes(reference_sequence.substr(variant->position, variant->get_sv_len(alt_index)));
-                                    
-                                    nodes_starting_at[e_start].insert(node_run.front()->id());
-                                    nodes_ending_at[e_end].insert(node_run.back()->id());
+                                    size_t inv_end = variant->position - chunk_offset + variant->get_sv_len(alt_index);
+                                    int64_t inv_start = (int64_t) variant->position - chunk_offset;
+                                    // inversion_starts[inv_start - 1].insert(inv_end);
+                                    // inversion_ends[inv_end + 1].insert(inv_start);
 
-                                    
-                                    size_t inv_end = variant->position - chunk_offset + variant->get_sv_end(alt_index);
-                                    int64_t inv_start = (int64_t) variant->position - chunk_offset - 1;
-                                    inverted_nodes.push_back(std::make_pair(inv_start, inv_end));
-                                    created_nodes[key] = node_run;
+                                    inversion_starts[inv_start].insert(inv_end + 1);
+                                    inversion_ends[inv_end].insert(inv_start - 1);
                                 }
                                 
                                 
@@ -832,6 +833,18 @@ namespace vg {
                         to_return = min(to_return, (size_t)*deletion_start_iter);
                     }
 
+                    // Check to see if any inversions happen past this point
+                    // Inversions break the reference twice, much like deletions.
+                    auto inv_end_iter = inversion_ends.upper_bound(position);
+                    if (inv_end_iter != inversion_ends.end()){
+                        to_return = min(to_return, (size_t) inv_end_iter->first - 1);
+                    }
+
+                    auto inv_start_iter = inversion_starts.lower_bound(position);
+                    if (inv_start_iter != inversion_starts.end()){
+                        to_return = min(to_return, (size_t) inv_start_iter->first);
+                    }
+
                     return to_return;
 
                 };
@@ -898,6 +911,12 @@ namespace vg {
 
                                     // Add a match along the variant's ref allele path
                                     add_match(variant_ref_paths[variant], node);
+
+                                //if (alt_paths && deletion_start_to_alt_name.count(deletion_start) != 0){
+                                    //add_match(del_path, left_node);
+                                    //add_match(del_path, right_node);
+                                //}
+
                                 }
                             }
                         }
@@ -956,6 +975,8 @@ namespace vg {
                         edge->set_from(left_node);
                         edge->set_to(right_node);
                     }
+
+                    
 
                     // Now we do the deletions. We want to allow daisy-chaining
                     // deletions.
@@ -1027,12 +1048,47 @@ namespace vg {
                                 auto* edge = to_return.graph.add_edge();
                                 edge->set_from(left_node);
                                 edge->set_to(right_node);
+
                             }
                         }
                     }
+
+                    // for (auto& inv_end : inversion_starts[kv.first]){
+                    //     for (auto& n : nodes_ending_at[inv_end]){
+                    //         auto* e = to_return.graph.add_edge();
+                    //         e->set_from(right_node);
+                    //         e->set_to(n);
+                    //         e->set_from_start(false);
+                    //         e->set_to_end(true);
+                    //     }
+                    // }
+
+                    for (auto& inv_end : inversion_starts[kv.first]){
+                        for (auto& n : nodes_starting_at[inv_end]){
+                            auto* e = to_return.graph.add_edge();
+                            e->set_from(right_node);
+                            e->set_to(n);
+                            e->set_from_start(true);
+                            e->set_to_end(false);
+                        }
+                    }
+                    for (auto& inv_start : inversion_ends[kv.first]){
+                        for (auto& n : nodes_ending_at[inv_start]){
+                            auto* e = to_return.graph.add_edge();
+                            e->set_from(n);
+                            e->set_to(right_node);
+                            e->set_to_end(true);
+                            e->set_from_start(false);
+                        }
+                    }
+                    
+
+
                 }
             }
         }
+
+        
 
         for(auto& node_id : nodes_ending_at[reference_sequence.size() - 1]) {
             // Add each node that ends at the end of the chunk to the set of such nodes
