@@ -15,8 +15,8 @@ is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | 
 is $(vg msga -f msgas/s.fa -w 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) a269d441ef66b37940a6eeafdb8ab793 "msga alignment can detect and include large deletions in the graph"
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa >t.vg
-is $(vg msga -g t.vg -s CAAATTTTCTGGAGTTCTAT -N | vg stats -s - | wc -l) 1 "soft clips at node boundaries (start) are included correctly"
-is $(vg msga -g t.vg -s TTCTATAATATG -N | vg stats -s - | wc -l) 1 "soft clips at node boundaries (end) are included correctly"
+is $(vg msga -g t.vg -s CAAATTTTCTGGAGTTCTAT -k 8 -N | vg stats -s - | wc -l) 1 "soft clips at node boundaries (start) are included correctly"
+is $(vg msga -g t.vg -s TTCTATAATATG -k 8 -N | vg stats -s - | wc -l) 1 "soft clips at node boundaries (end) are included correctly"
 rm t.vg
 
 vg msga -f msgas/s.fa -b s1 -w 20 | vg mod -U 10 - | vg mod -c - >s.vg
