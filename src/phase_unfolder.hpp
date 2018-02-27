@@ -8,11 +8,10 @@
 
 #include "vg.hpp"
 #include "xg.hpp"
+#include "hash_map.hpp"
 
 #include <algorithm>
 #include <list>
-#include <map>
-#include <set>
 #include <stack>
 #include <utility>
 #include <vector>
@@ -73,7 +72,7 @@ public:
      * backing indexes. Returns the number of paths for which the verification
      * failed. Uses OMP threads.
      */
-    size_t verify_paths(VG& unfolded) const;
+    size_t verify_paths(VG& unfolded, bool show_progress = false) const;
 
     /**
      * Write the mapping to the specified file with a header. The file will
@@ -143,14 +142,14 @@ private:
     gcsa::NodeMapping mapping;
 
     /// Internal data structures for the current component.
-    std::unordered_set<vg::id_t> border;
-    std::stack<state_type>       states;
+    hash_set<vg::id_t>     border;
+    std::stack<state_type> states;
 
     /// Tries for the unfolded prefixes and reverse suffixes.
     /// prefixes[(from, to)] is the mapping for to, and
     /// suffixes[(from, to)] is the mapping for from.
-    std::unordered_map<std::pair<gbwt::node_type, gbwt::node_type>, gbwt::node_type> prefixes, suffixes;
-    std::unordered_set<std::pair<gbwt::node_type, gbwt::node_type>> crossing_edges;
+    pair_hash_map<std::pair<gbwt::node_type, gbwt::node_type>, gbwt::node_type> prefixes, suffixes;
+    pair_hash_set<std::pair<gbwt::node_type, gbwt::node_type>> crossing_edges;
 };
 
 }

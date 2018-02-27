@@ -16,7 +16,6 @@
 #include "sdsl/wavelet_trees.hpp"
 #include "sdsl/csa_wt.hpp"
 #include "sdsl/suffix_arrays.hpp"
-#include "hash_map_set.hpp"
 #include "position.hpp"
 #include "graph.hpp"
 #include "path.hpp"
@@ -224,6 +223,8 @@ public:
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
     virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+    // Copy over the tamplate version
+    using HandleGraph::for_each_handle;
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
 

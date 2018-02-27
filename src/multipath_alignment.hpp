@@ -48,6 +48,17 @@ namespace vg {
     ///
     int32_t optimal_alignment_score(const MultipathAlignment& multipath_aln);
     
+    /// Returns the top k highest-scoring alignments contained in the MultipathAlignment
+    ///
+    /// Note: Assumes that each subpath's Path object uses one Mapping per node and that
+    /// start subpaths have been identified
+    ///
+    ///  Args:
+    ///    multipath_aln     multipath alignment to find optimal paths through
+    ///    count             maximum number of top alignments to return
+    ///
+    vector<Alignment> optimal_alignments(const MultipathAlignment& multipath_aln, size_t count);
+    
     /// Stores the reverse complement of a MultipathAlignment in another MultipathAlignment
     ///
     ///  Args:

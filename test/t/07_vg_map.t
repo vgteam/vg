@@ -138,12 +138,12 @@ vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -v small/x.vcf.gz --gbwt-name x.gbwt -k 16 x.vg
 
 # This read is all ref which matches no haplotype in x.vcf.gz and visits some unused nodes
-is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -s 'CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTAT' -j | jq '.score')" "36" "mapping a read that touches unused nodes gets the base score"
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.unvisited.fq -j | jq '.score')" "36" "mapping a read that touches unused nodes gets the base score"
 # This read is all alt which does match a haplotype
-is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -s 'CAAATAAGATTTGAAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "35" "mapping a read that matches a haplotype gets a small penalty"
-is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 0 --full-l-bonus 0 -s 'CAAATAAGATTTGAAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "36" "mapping a read that matches a haplotype with exponent 0 gets the base score"
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.match.fq -j | jq '.score')" "35" "mapping a read that matches a haplotype gets a small penalty"
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 0 --full-l-bonus 0 -f reads/x.match.fq -j | jq '.score')" "36" "mapping a read that matches a haplotype with exponent 0 gets the base score"
 # This read matches no haplotypes but only visits used nodes
-is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -s 'CAAATAAGATTTGGAAATTTTCTGGAGTTCTATAAT' -j | jq '.score')" "22" "mapping a read that matches no haplotypes gets a larger penalty"
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.offhap.fq -j | jq '.score')" "22" "mapping a read that matches no haplotypes gets a larger penalty"
 
 # Test paired surjected mapping
 vg map -d x -iG <(vg sim -a -s 13241 -n 1 -p 500 -v 300 -x x.xg | vg view -a - | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --surject-to SAM >surjected.sam

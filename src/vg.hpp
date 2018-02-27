@@ -796,7 +796,7 @@ public:
 
     /// Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep.
     /// The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths.
-    void keep_paths(set<string>& path_names, set<string>& kept_names);
+    void keep_paths(const set<string>& path_names, set<string>& kept_names);
     void keep_path(const string& path_name);
 
     /// Path stats.
@@ -1129,10 +1129,10 @@ public:
     /// head_node or tail_node depending on which direction the path extension was stopped.
     /// Optionally preserve edges on the embedded paths.
     /// For pruning graph prior to indexing with gcsa2.
-    void prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node, bool preserve_paths = false);
+    void prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node);
     /// Wrap the graph with heads and tails before doing the prune.
     /// Utility function for preparing for indexing.
-    void prune_complex_with_head_tail(int path_length, int edge_max, bool preserve_paths = false);
+    void prune_complex_with_head_tail(int path_length, int edge_max);
 
 private:
     /// Call the given function on each kmer. If parallel is specified, goes
