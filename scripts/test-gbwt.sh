@@ -93,6 +93,11 @@ fi
 
 mkdir -p "${TREE_PATH}"
 
+# Generate a toil-vg config
+toil-vg generate-config > "${TREE_PATH}/toil-vg.conf"
+sed -i "s/alignment-cores:.*/alignment-cores: 64/" "${TREE_PATH}/toil-vg.conf"
+sed -i "s/alignment-disk:.*/alignment-disk: '20G'/" "${TREE_PATH}/toil-vg.conf"
+
 # Now we need to make sure our graphs exist and are downloaded
 
 if [[ ! -d "${GRAPHS_PATH}" ]]; then
@@ -110,6 +115,7 @@ if [[ ! -d "${GRAPHS_PATH}" ]]; then
     # Construct the graphs
     # Hardcoded constants here go with the snp1kg URLs above.
     toil-vg construct "${TREE_PATH}/construct" "${GRAPHS_PATH}" \
+        --config "${TREE_PATH}/toil-vg.conf" \
         --vcf "${SOURCE_BASE_URL}/${VCF_BASENAME}" \
         --fasta "${SOURCE_BASE_URL}/${FASTA_BASENAME}" \
         --out_name "snp1kg-${REGION_NAME}" \
@@ -135,6 +141,7 @@ if [[ ! -e "${READS_DIR}" ]]; then
         "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo_thread_1.xg" \
         "${READ_COUNT}" \
         "${READS_DIR}" \
+        --config "${TREE_PATH}/toil-vg.conf" \
         --annotate_xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
         --gam \
         --seed "${READ_SEED}" \
@@ -204,9 +211,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         # Do the full snp1kg graph multipath
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp" "${OUTPUT_PATH}/snp1kg-mp" \
             --single_reads_chunk \
-            --alignment_cores 64 \
-            --alignment_disk 20G \
-            --max_disk 100G \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
@@ -219,9 +225,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         # Do the full snp1kg graph multipath with gbwt
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-gbwt" "${OUTPUT_PATH}/snp1kg-mp-gbwt" \
             --single_reads_chunk \
-            --alignment_cores 64 \
-            --alignment_disk 20G \
-            --max_disk 100G \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
             --multipath-only \
             --use-gbwt \
             --gam_input_reads "${READS_DIR}/sim.gam" \
@@ -237,9 +242,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         # Do the full snp1kg graph multipath with gbwt
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-gbwt-traceback" "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback" \
             --single_reads_chunk \
-            --alignment_cores 64 \
-            --alignment_disk 20G \
-            --max_disk 100G \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
             --multipath-only \
             --use-gbwt \
             --mpmap_opts "--max-paths 10" \
@@ -278,9 +282,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         # And with the min allele frequency
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-minaf" "${OUTPUT_PATH}/snp1kg-mp-minaf" \
             --single_reads_chunk \
-            --alignment_cores 64 \
-            --alignment_disk 20G \
-            --max_disk 100G \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
@@ -305,9 +308,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         # And the positive control with only real variants
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-positive" "${OUTPUT_PATH}/snp1kg-mp-positive" \
             --single_reads_chunk \
-            --alignment_cores 64 \
-            --alignment_disk 20G \
-            --max_disk 100G \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
@@ -320,9 +322,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         # And the primary path only
         toil-vg mapeval "${TREE_PATH}/primary-mp" "${OUTPUT_PATH}/primary-mp" \
             --single_reads_chunk \
-            --alignment_cores 64 \
-            --alignment_disk 20G \
-            --max_disk 100G \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
@@ -334,32 +335,93 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     wait_on_jobs
 
 fi
+
+if [ ! -e "${OUTPUT_PATH}/position.results.tsv" ]; then
+
+    # Combine all the position.results.tsv files into one
+    #cat "${OUTPUT_PATH}/snp1kg/position.results.tsv" > "${OUTPUT_PATH}/position.results.tsv"
+    #cat "${OUTPUT_PATH}/snp1kg-gbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+    cat "${OUTPUT_PATH}/snp1kg-mp/position.results.tsv" > "${OUTPUT_PATH}/position.results.tsv"
+    cat "${OUTPUT_PATH}/snp1kg-mp-gbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+    cat "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+    #cat "${OUTPUT_PATH}/snp1kg-fullgbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+    #cat "${OUTPUT_PATH}/snp1kg-gbwt-slight/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+    cat "${OUTPUT_PATH}/snp1kg-mp-minaf/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+    #cat "${OUTPUT_PATH}/snp1kg-negative/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+    cat "${OUTPUT_PATH}/snp1kg-mp-positive/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+    cat "${OUTPUT_PATH}/primary-mp/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
     
-# Combine all the position.results.tsv files into one
-#cat "${OUTPUT_PATH}/snp1kg/position.results.tsv" > "${OUTPUT_PATH}/position.results.tsv"
-#cat "${OUTPUT_PATH}/snp1kg-gbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-mp/position.results.tsv" > "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-mp-gbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-#cat "${OUTPUT_PATH}/snp1kg-fullgbwt/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-#cat "${OUTPUT_PATH}/snp1kg-gbwt-slight/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-mp-minaf/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-#cat "${OUTPUT_PATH}/snp1kg-negative/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/snp1kg-mp-positive/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
-cat "${OUTPUT_PATH}/primary-mp/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
+fi
 
 # Determine our source directory, where the ROC plotting script also lives
 # See <https://stackoverflow.com/a/246128>
 SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Do the R plots
-Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
-Rscript "${SCRIPT_DIRECTORY}/plot-pr.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/pr.svg"
 
-# TODO: automate wrong read table generation
+if [ ! -e "${OUTPUT_PATH}/roc.svg" ]; then
+    Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
+fi
+if [ ! -e "${OUTPUT_PATH}/pr.svg" ]; then
+    Rscript "${SCRIPT_DIRECTORY}/plot-pr.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/pr.svg"
+fi
 
+if [ ! -e "${OUTPUT_PATH}/table.tsv" ]; then
+
+    # Generate a table of wrong read counts
+    printf "Condition\tWrong reads total\tAt MAPQ 60\tAt MAPQ 0\tAt MAPQ >0\tNew vs. mpmap\tFixed vs. mpmap\n" > "${OUTPUT_PATH}/table.tsv"
+
+    # First we need a baseline of snp1kg-mp for comparing against
+
+    cat "${OUTPUT_PATH}/snp1kg-mp/position.results.tsv" | sed 1d | grep -- "-pe" | grep -v "^1" | cut -f4 | sort > "${OUTPUT_PATH}/baseline-wrong-names.tsv"
+
+    for CONDITION in snp1kg-mp snp1kg-mp-gbwt snp1kg-mp-gbwt-traceback snp1kg-mp-minaf snp1kg-mp-positive primary-mp; do
+        
+        # We want a table like
+        # Condition 	Wrong reads total 	At MAPQ 60 	At MAPQ 0 	At MAPQ >0 	New vs. mpmap 	Fixed vs. mpmap
+        printf "${CONDITION}\t" >> "${OUTPUT_PATH}/table.tsv"
+        
+        
+        # Get the wrong reads for this condition
+        cat "${OUTPUT_PATH}/${CONDITION}/position.results.tsv" | sed 1d | grep -- "-pe" | grep -v "^1" > "${OUTPUT_PATH}/${CONDITION}/wrong.tsv"
+        
+        # Wrong total
+        cat "${OUTPUT_PATH}/${CONDITION}/wrong.tsv" | wc -l | tr -d '\n' >> "${OUTPUT_PATH}/table.tsv"
+        printf "\t" >> "${OUTPUT_PATH}/table.tsv"
+        
+        # Wrong at MAPQ 60
+        cat "${OUTPUT_PATH}/${CONDITION}/wrong.tsv" | grep -P "\t60\t" | wc -l | tr -d '\n' >> "${OUTPUT_PATH}/table.tsv"
+        printf "\t" >> "${OUTPUT_PATH}/table.tsv"
+        
+        # Wrong at MAPQ 0
+        cat "${OUTPUT_PATH}/${CONDITION}/wrong.tsv" | grep -P "\t0\t" | wc -l | tr -d '\n' >> "${OUTPUT_PATH}/table.tsv"
+        printf "\t" >> "${OUTPUT_PATH}/table.tsv"
+        
+        # Wrong at MAPQ >0
+        cat "${OUTPUT_PATH}/${CONDITION}/wrong.tsv" | grep -v -P "\t0\t" | wc -l | tr -d '\n' >> "${OUTPUT_PATH}/table.tsv"
+        printf "\t" >> "${OUTPUT_PATH}/table.tsv"
+        
+        # Get the wrong read names for this condition
+        cat "${OUTPUT_PATH}/${CONDITION}/wrong.tsv" | cut -f4 | sort > "${OUTPUT_PATH}/${CONDITION}/wrong-names.tsv"
+       
+        # Count newly wrong names (not in file 1 or both)
+        comm -1 -3 "${OUTPUT_PATH}/baseline-wrong-names.tsv" "${OUTPUT_PATH}/${CONDITION}/wrong-names.tsv" | wc -l | tr -d '\n' >> "${OUTPUT_PATH}/table.tsv"
+        printf "\t" >> "${OUTPUT_PATH}/table.tsv"
+        
+        # Count newly right names (not in file 2 or both)
+        comm -2 -3 "${OUTPUT_PATH}/baseline-wrong-names.tsv" "${OUTPUT_PATH}/${CONDITION}/wrong-names.tsv" | wc -l | tr -d '\n' >> "${OUTPUT_PATH}/table.tsv"
+        printf "\n" >> "${OUTPUT_PATH}/table.tsv"
+    done
+    
+    rm "${OUTPUT_PATH}/baseline-wrong-names.tsv"
+
+fi
+
+rm "${TREE_PATH}/toil-vg.conf"
 rmdir "${TREE_PATH}"
-echo "Successfully produced plots ${OUTPUT_PATH}/roc.svg and ${OUTPUT_PATH}/pr.svg"
+echo "Results available as plots ${OUTPUT_PATH}/roc.svg and ${OUTPUT_PATH}/pr.svg and table ${OUTPUT_PATH}/table.tsv"
+
+
 
 
 
