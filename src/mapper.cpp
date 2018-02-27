@@ -1974,7 +1974,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         orientations.insert(is_rev(mate_pos));
         int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
                             : min(frag_stats.fragment_max/2,
-                                  (int64_t)max((double)frag_stats.cached_fragment_length_stdev * 6.0,
+                                  (int64_t)max((double)frag_stats.cached_fragment_length_stdev * 10.0,
                                                mate1.sequence().size() * 3.0)));
         //cerr << "Getting at least " << get_at_least << endl;
         graph.MergeFrom(xindex->graph_context_id(mate_pos, get_at_least/2));
@@ -2113,8 +2113,8 @@ bool Mapper::pair_consistent(Alignment& aln1,
             int64_t len = pos2 - pos1;
             if (frag_stats.fragment_size) {
                 bool orientation_ok = frag_stats.cached_fragment_orientation_same && fwd1 == fwd2 || fwd1 != fwd2;
-                bool direction_ok = frag_stats.cached_fragment_direction && (!fwd1 && len > 0 || fwd1 && len < 0)
-                    || (fwd1 && len > 0 || !fwd1 && len < 0);
+                bool direction_ok = frag_stats.cached_fragment_direction && (!fwd1 && len >= 0 || fwd1 && len <= 0)
+                    || (fwd1 && len >= 0 || !fwd1 && len <= 0);
                 bool length_ok = frag_stats.fragment_length_pval(abs(len)) > pval;//|| pval == 0 && abs(len) < frag_stats.fragment_size;
                 return orientation_ok && direction_ok && length_ok;
             } else {
@@ -2678,7 +2678,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         for (auto& p : aln_ptrs) {
             auto& aln1 = p->first;
             auto& aln2 = p->second;
-            if (!pair_consistent(aln1, aln2, 1e-6)) {
+            if (!pair_consistent(aln1, aln2, 0)) {
                 aln1.set_score(max(0, aln1.score()-unpaired_penalty));
                 aln2.set_score(max(0, aln2.score()-unpaired_penalty));
             }
