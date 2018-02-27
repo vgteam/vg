@@ -44,8 +44,8 @@ void help_index(char** argv) {
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
          << "    -i, --dbg-in FILE      optionally use deBruijn graph encoded in FILE rather than an input VG (multiple allowed" << endl
          << "    -f, --mapping FILE     use this node mapping in GCSA2 construction" << endl
-         << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
-         << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
+         << "    -k, --kmer-size N      index kmers of size N in the graph (default " << gcsa::Key::MAX_LENGTH << ")" << endl
+         << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction (default " << gcsa::ConstructionParameters::DOUBLING_STEPS << ")" << endl
          << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
          << "    -O, --path-only        only index the kmers in paths embedded in the graph" << endl
          << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
@@ -129,7 +129,7 @@ int main_index(int argc, char** argv) {
     // This maps from graph path name (FASTA name) to VCF contig name
     map<string,string> path_to_vcf;
     vector<string> dbg_names;
-    int kmer_size = 0;
+    int kmer_size = gcsa::Key::MAX_LENGTH;
     bool path_only = false;
     int edge_max = 0;
     int kmer_stride = 1;
@@ -145,7 +145,7 @@ int main_index(int argc, char** argv) {
     bool allow_negs = false;
     bool compact = false;
     bool dump_alignments = false;
-    int doubling_steps = 3;
+    int doubling_steps = gcsa::ConstructionParameters::DOUBLING_STEPS;
     bool verify_index = false;
     bool forward_only = false;
     size_t size_limit = 200; // in gigabytes
@@ -400,20 +400,14 @@ int main_index(int argc, char** argv) {
         //cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
     }
-
-    if (kmer_size == 0 && !gcsa_name.empty() && dbg_names.empty()) {
-        // gcsa doesn't do anything if we tell it a kmer size of 0.
-        cerr << "error:[vg index] kmer size for GCSA2 index must be >0" << endl;
+    
+    if (kmer_size <= 0) {
+        cerr << "error:[vg index] kmer size must be positive" << endl;
         return 1;
     }
     
-    if (kmer_size < 0) {
-        cerr << "error:[vg index] kmer size cannot be negative" << endl;
-        return 1;
-    }
-    
-    if (kmer_size > 16 && !gcsa_name.empty()) {
-        cerr << "error:[vg index] GCSA2 cannot index with kmer size greater than 16" << endl;
+    if (kmer_size > gcsa::Key::MAX_LENGTH && !gcsa_name.empty()) {
+        cerr << "error:[vg index] GCSA2 cannot index with kmer size greater than " << gcsa::Key::MAX_LENGTH << endl;
         return 1;
     }
 
