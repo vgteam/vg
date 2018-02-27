@@ -146,6 +146,19 @@ namespace vg {
         }
     }
 
+    pair<int64_t, int64_t> Constructor::get_bounds(vcflib::Variant var, bool use_flat_alts){
+        int64_t start = numeric_limits<int64_t>::max();
+        int64_t end = -1;
+        if (var.is_sv()){
+            start = min(start, (int64_t) var.position);
+            end = max(end, (int64_t) var.get_sv_end(0));
+            return std::make_pair( start, end);
+        }
+        else{
+            
+        }
+    }
+
     pair<int64_t, int64_t> Constructor::get_bounds(const vector<list<vcflib::VariantAllele>>& trimmed_variant) {
 
         // We track the variable site bounds through all the alts
@@ -161,10 +174,10 @@ namespace vg {
             }
         }
 
-#ifdef debug
+        #ifdef debug
         cerr << "Edits for variant run " << variable_start << " through " << variable_stop
             << " ref length " << (variable_stop - variable_start + 1) << endl;
-#endif
+        #endif
 
         return make_pair(variable_start, variable_stop);
     }
@@ -215,6 +228,10 @@ namespace vg {
         // insert endpoints.
         set<id_t> inserts;
 
+        // We need to wire up our inversions super specially.
+        map<size_t, set<id_t> > inversion_starts;
+        map<size_t, set<id_t> > inversion_ends;
+
         // Here we remember deletions that end at paritcular positions in the
         // reference, which are the positions of the last deleted bases. We map from
         // last deleted base to last non-deleted base before the deletion, so we can
@@ -224,6 +241,10 @@ namespace vg {
         // We also need to track all points at which deletions start, so we can
         // search for the next one when deciding where to break the reference.
         set<int64_t> deletion_starts;
+
+        // We need to track where the alt paths of deletions start/end (and maintain their ids)
+        // so that we can put them in the graph.
+        map<int64_t, string> deletion_start_to_alt_name;
 
         // We use this to get the next variant
         auto next_variant = variants.begin();
@@ -361,7 +382,12 @@ namespace vg {
                 // overlaps the clump. It belongs in the clump
                 clump.push_back(&(*next_variant));
                 // It may make the clump longer and necessitate adding more variants.
-                clump_end = max(clump_end, next_variant->position + next_variant->ref.size() - chunk_offset);
+                if (!next_variant->is_sv()){
+                    clump_end = max(clump_end, next_variant->position + next_variant->ref.size() - chunk_offset);
+                }
+                else{
+                    clump_end = max(clump_end, next_variant->position + (long) next_variant->get_sv_len(0) - chunk_offset);
+                }
 
                 // Try the variant after that
                 next_variant++;
@@ -399,32 +425,41 @@ namespace vg {
                 set<vcflib::Variant*> duplicates;
 
                 for (vcflib::Variant* variant : clump) {
+                    //cerr << "Clump got sv" << *variant << endl;
 
                     // Check the variant's reference sequence to catch bad VCF/FASTA pairings
-                    auto expected_ref = reference_sequence.substr(variant->position - chunk_offset, variant->ref.size());
 
-                    if(variant->ref != expected_ref) {
+                    if (!variant->is_sv()){
+                        auto expected_ref = reference_sequence.substr(variant->position - chunk_offset, variant->ref.size());
+
+                        if(variant->ref != expected_ref) {
                         // TODO: report error to caller somehow
-#pragma omp critical (cerr)
-                        cerr << "error:[vg::Constructor] Variant/reference sequence mismatch: " << variant->ref
-                            << " vs " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl
-                            << "Variant: " << *variant << endl;
-                        exit(1);
+                        #pragma omp critical (cerr)
+                            cerr << "error:[vg::Constructor] Variant/reference sequence mismatch: " << variant->ref
+                                << " vs pos: " << variant->position << ": " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl
+                                << "Variant: " << *variant << endl;
+                            exit(1);
+                        }
                     }
+                    
 
                     // Name the variant and place it in the order that we'll
                     // actually construct nodes in (see utility.hpp)
+
+                    // cerr << *variant << " ";
                     string variant_name = make_variant_id(*variant);
+                    //cerr << variant_name << endl;
                     if (variants_by_name.count(variant_name)) {
                         // Some VCFs may include multiple variants at the same
                         // position with the same ref and alt. We will only take the
                         // first one.
-#pragma omp critical (cerr)
+                        #pragma omp critical (cerr)
                         cerr << "warning:[vg::Constructor] Skipping duplicate variant with hash " << variant_name
                             << " at " << variant->sequenceName << ":" << variant->position << endl;
                         duplicates.insert(variant);
                         continue;
                     }
+
                     variants_by_name[variant_name] = variant;
 
                     // We need to parse the variant into alts, each of which is a
@@ -435,11 +470,14 @@ namespace vg {
                     // reference allele of the variant won't appear here.
                     map<string, vector<vcflib::VariantAllele>> alternates = flat ? variant->flatAlternates() :
                         variant->parsedAlternates();
+                    if (!variant->is_sv()){
+                        //map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
+                        //auto alternates = use_flat_alts ? variant.flatAlternates() : variant.parsedAlternates();
+                        for (auto &kv : alternates){
+                     // For each alt in the variant
 
-                    for (auto& kv : alternates) {                
-                        // For each alt in the variant
-
-                        if (kv.first == variant->ref) {
+                        if (kv.first == variant->ref)
+                        {
                             // Skip the ref, because we can't make any ref nodes
                             // until all the edits for the clump are known.
                             continue;
@@ -451,17 +489,18 @@ namespace vg {
                         // Then look it up
                         size_t alt_index = variant->getAltAlleleIndex(alt_string);
 
-                        if (alt_index >= parsed_clump[variant].size()) {
+                        if (alt_index >= parsed_clump[variant].size())
+                        {
                             // Make sure we have enough room to store the VariantAlleles for this alt.
                             parsed_clump[variant].resize(alt_index + 1);
                         }
 
                         // Find the list of edits for this alt
-                        auto& alt_parts = parsed_clump[variant][alt_index];
+                        auto &alt_parts = parsed_clump[variant][alt_index];
 
-#ifdef debug
+                        #ifdef debug
                         cerr << "Non-ref allele " << alt_index << endl;
-#endif
+                        #endif
 
                         // Copy all the VariantAlleles into the list
                         alt_parts.assign(kv.second.begin(), kv.second.end());
@@ -470,13 +509,27 @@ namespace vg {
                         // matching nodes when necessary.
                         condense_edits(alt_parts);
                     }
-
                     // Trim the alts down to the variant's (possibly empty) variable
                     // region
                     trim_to_variable(parsed_clump[variant]);
-
+                }
+                else{
+                    // For now, only permit one allele for SVs
+                    // in the future, we'll build out VCF lib to fix this.
+                    // TODO build out vcflib to fix this.
+                    parsed_clump[variant].resize(1);
+                }
                     // Get the variable bounds in VCF space for all the trimmed alts of this variant
-                    auto bounds = get_bounds(parsed_clump[variant]);
+                    // Note: we still want bounds for SVs, we just have to get them differently
+                    std::pair<int64_t, int64_t> bounds;
+                    if (variant->is_sv()){
+                        bounds = get_bounds(*variant, true);
+                    }
+                    else{
+                        bounds = get_bounds(parsed_clump[variant]);
+
+                    }
+
                     if (bounds.first != numeric_limits<int64_t>::max() || bounds.second != -1) {
                         // There's a (possibly 0-length) variable region
                         bounds.first -= chunk_offset;
@@ -496,9 +549,9 @@ namespace vg {
                 assert(last_edit_end != -1);
                 assert(first_edit_start != numeric_limits<int64_t>::max());
 
-#ifdef debug
+                #ifdef debug
                 cerr << "Edits run between " << first_edit_start << " and " << last_edit_end << endl;
-#endif
+                #endif
 
                 // Create ref nodes from the end of the last clump (where the cursor
                 // is) to the start of this clump's interior non-ref content.
@@ -524,7 +577,7 @@ namespace vg {
 
                     if (alt_paths) {
                         // Declare its ref path straight away.
-                        // We fill inthe ref paths after we make all the nodes for the edits.
+                        // We fill in the ref paths after we make all the nodes for the edits.
                         variant_ref_paths[variant] = to_return.graph.add_path();
                         variant_ref_paths[variant]->set_name("_alt_" + variant_name + "_0");
                     }
@@ -543,12 +596,96 @@ namespace vg {
                             alt_path->set_name(alt_name);
                         }
 
-                        for (vcflib::VariantAllele& edit : parsed_clump[variant][alt_index]) {
-                            // For each VariantAllele used by the alt
+                        // SV HAX
+                        if (variant->is_sv()){
+                            // Get SV start and end
+                            // and the SV tag
+                            vector<string> tags = variant->sv_tags();
+                            vector<string> svtypes = variant->get_sv_type();
+                            vector<string> ins_seqs = variant->get_insertion_sequences();
 
-#ifdef debug
+
+
+                                auto e_start = variant->position - chunk_offset;
+                                auto e_end = variant->position + variant->get_sv_len(alt_index) - chunk_offset - 1;
+
+                                // Make in between nodes by grabbing our sequence from the fasta(s),
+                                // either from the reference (deletions) or from insertion sequences.
+                                auto key = make_tuple(variant->position - chunk_offset, tags[alt_index], "");
+
+                                string sv_type = svtypes[alt_index];
+
+                                if (sv_type == "INS"){
+
+                                    // Create insertion sequence nodes
+                                    if (created_nodes.count(key) == 0 && ins_seqs[alt_index] != ""){
+                                        vector<Node*> node_run = create_nodes(ins_seqs[alt_index]);
+
+                                        nodes_starting_at[e_start].insert(node_run.front()->id());
+                                        nodes_ending_at[e_end].insert(node_run.back()->id());
+
+                                        inserts.insert(node_run.front()->id());
+                                        inserts.insert(node_run.back()->id());
+
+                                        created_nodes[key] = node_run;
+
+                                        if (alt_paths) {
+                                        for (Node* node : created_nodes[key]) {
+                                            // Add a visit to each node we created/found in
+                                            // order to the path for this alt of this
+                                            // variant.
+                                            add_match(alt_path, node);
+                                        }
+                                    }
+                                    }
+                                }
+                                else if (sv_type == "DEL"){
+                                    if (created_nodes.count(key) == 0){
+
+                                        size_t arc_end = variant->position - chunk_offset + variant->get_sv_len(alt_index);
+                                        int64_t arc_start = (int64_t) variant->position - chunk_offset; 
+
+                                        deletions_ending_at[arc_end].insert(arc_start);
+                                        deletion_starts.insert(arc_start);
+
+
+                                        if (alt_paths){
+                                            deletion_start_to_alt_name[arc_start] = alt_name;
+                                        }
+
+                                        
+
+
+                                    }
+                                }
+                                else if (sv_type == "INV"){
+                                    // Handle inversions
+                                    // We only need reference nodes, plus two arcs
+                                    // one from the inverted sequence's beginning to the sequence following
+                                    // its last node and
+                                    // one from the end of the sequence preceding the inversion to the back 
+                                    // of the inverted sequence's last node.
+                                    
+                                    size_t inv_end = variant->position - chunk_offset + variant->get_sv_len(alt_index);
+                                    int64_t inv_start = (int64_t) variant->position - chunk_offset;
+                                    // inversion_starts[inv_start - 1].insert(inv_end);
+                                    // inversion_ends[inv_end + 1].insert(inv_start);
+
+                                    inversion_starts[inv_start].insert(inv_end + 1);
+                                    inversion_ends[inv_end].insert(inv_start - 1);
+                                }
+                                
+                                
+
+
+                            //}
+                        }
+                        else{
+                            for (vcflib::VariantAllele& edit : parsed_clump[variant][alt_index]) {
+                            // For each VariantAllele used by the alt
+                            #ifdef debug
                             cerr << "Apply " << edit.ref << " -> " << edit.alt << " @ " << edit.position << endl;
-#endif
+                            #endif
 
                             if (edit.alt != "") {
                                 // This is a visit to a node for the alt
@@ -564,9 +701,9 @@ namespace vg {
                                     auto edit_start = edit.position - chunk_offset;
                                     auto edit_end = edit.position - chunk_offset + edit.ref.size() - 1;
 
-#ifdef debug
+                                    #ifdef debug
                                     cerr << "Created nodes running " << edit_start << " to " << edit_end << endl;
-#endif
+                                    #endif
 
                                     // Remember where the first one starts and the last one ends, for wiring up later.
                                     nodes_starting_at[edit_start].insert(node_run.front()->id());
@@ -582,14 +719,14 @@ namespace vg {
                                         inserts.insert(node_run.front()->id());
                                         inserts.insert(node_run.back()->id());
 
-#ifdef debug
+                                        #ifdef debug
                                         cerr << "Nodes are insert" << endl;
-#endif
+                                        #endif
                                     }
                                 } else {
-#ifdef debug
+                                    #ifdef debug
                                     cerr << "Found existing nodes" << endl;
-#endif
+                                    #endif
                                 }
 
                                 if (alt_paths) {
@@ -611,9 +748,9 @@ namespace vg {
                                 // What is the before-the-beginning position (last non-deleted, may be -1)
                                 int64_t arc_start = (int64_t) edit.position - chunk_offset - 1;
 
-#ifdef debug
+                                #ifdef debug
                                 cerr << "Ensure deletion arc " << arc_start << " to " << arc_end << endl;
-#endif
+                                #endif
 
                                 // Add the arc (if it doesn't exist). We only index
                                 // arcs from the end, because we'll make them when
@@ -626,6 +763,7 @@ namespace vg {
                                 deletion_starts.insert(arc_start);
                             }
 
+                        }
                         }
 
                     }
@@ -695,6 +833,18 @@ namespace vg {
                         to_return = min(to_return, (size_t)*deletion_start_iter);
                     }
 
+                    // Check to see if any inversions happen past this point
+                    // Inversions break the reference twice, much like deletions.
+                    auto inv_end_iter = inversion_ends.upper_bound(position);
+                    if (inv_end_iter != inversion_ends.end()){
+                        to_return = min(to_return, (size_t) inv_end_iter->first - 1);
+                    }
+
+                    auto inv_start_iter = inversion_starts.lower_bound(position);
+                    if (inv_start_iter != inversion_starts.end()){
+                        to_return = min(to_return, (size_t) inv_start_iter->first);
+                    }
+
                     return to_return;
 
                 };
@@ -761,6 +911,12 @@ namespace vg {
 
                                     // Add a match along the variant's ref allele path
                                     add_match(variant_ref_paths[variant], node);
+
+                                //if (alt_paths && deletion_start_to_alt_name.count(deletion_start) != 0){
+                                    //add_match(del_path, left_node);
+                                    //add_match(del_path, right_node);
+                                //}
+
                                 }
                             }
                         }
@@ -819,6 +975,8 @@ namespace vg {
                         edge->set_from(left_node);
                         edge->set_to(right_node);
                     }
+
+                    
 
                     // Now we do the deletions. We want to allow daisy-chaining
                     // deletions.
@@ -890,12 +1048,47 @@ namespace vg {
                                 auto* edge = to_return.graph.add_edge();
                                 edge->set_from(left_node);
                                 edge->set_to(right_node);
+
                             }
                         }
                     }
+
+                    // for (auto& inv_end : inversion_starts[kv.first]){
+                    //     for (auto& n : nodes_ending_at[inv_end]){
+                    //         auto* e = to_return.graph.add_edge();
+                    //         e->set_from(right_node);
+                    //         e->set_to(n);
+                    //         e->set_from_start(false);
+                    //         e->set_to_end(true);
+                    //     }
+                    // }
+
+                    for (auto& inv_end : inversion_starts[kv.first]){
+                        for (auto& n : nodes_starting_at[inv_end]){
+                            auto* e = to_return.graph.add_edge();
+                            e->set_from(right_node);
+                            e->set_to(n);
+                            e->set_from_start(true);
+                            e->set_to_end(false);
+                        }
+                    }
+                    for (auto& inv_start : inversion_ends[kv.first]){
+                        for (auto& n : nodes_ending_at[inv_start]){
+                            auto* e = to_return.graph.add_edge();
+                            e->set_from(n);
+                            e->set_to(right_node);
+                            e->set_to_end(true);
+                            e->set_from_start(false);
+                        }
+                    }
+                    
+
+
                 }
             }
         }
+
+        
 
         for(auto& node_id : nodes_ending_at[reference_sequence.size() - 1]) {
             // Add each node that ends at the end of the chunk to the set of such nodes
@@ -1202,7 +1395,7 @@ namespace vg {
 
         if (insertions.size() == 1){
             // If we only get one fasta file for insertions, we'll
-            //             // open it and take all insert sequences from there.
+            // open it and take all insert sequences from there.
             do_external_insertions = true;
             insertion_fasta = insertions[0];
         }
@@ -1231,7 +1424,9 @@ namespace vg {
             auto vvar = variant_source.get();
 
             if (do_svs) {
-                variant_acceptable = vvar->canonicalize_sv(reference, insertions, -1);
+                variant_acceptable = vvar->canonicalize_sv(reference, insertions, true, -1);
+               // now called implicitly in canonicalize: vvar->set_insertion_sequences(insertions);
+                
             }
 
             for (string& alt : vvar->alt) {
@@ -1251,7 +1446,7 @@ namespace vg {
                             }
                         }
                         if (warn) {
-                            cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant(s)!" << endl;
+                            cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant(s) " << *vvar <<" !" << endl;
                         }
                     }
                     break;
