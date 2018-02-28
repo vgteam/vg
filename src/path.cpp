@@ -2022,4 +2022,23 @@ Path path_from_node_traversals(const list<NodeTraversal>& traversals) {
     return toReturn;
 }
 
+void remove_paths(Graph& graph, const std::regex& paths_to_take, std::list<Path>* matching) {
+
+    std::list<Path> non_matching;
+    for (size_t i = 0; i < graph.path_size(); i++) {
+        if (std::regex_match(graph.path(i).name(), paths_to_take)) {
+            if (matching != nullptr) {
+                matching->push_back(graph.path(i));
+            }
+        } else {
+            non_matching.push_back(graph.path(i));
+        }
+    }
+    graph.clear_path();
+
+    for (Path& path : non_matching) {
+        *(graph.add_path()) = path;
+    }
+}
+
 }

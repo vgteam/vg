@@ -294,6 +294,10 @@ pos_t final_position(const Path& path);
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 
+// Remove the paths with names matching the regex from the graph.
+// Store them in the list unless it is nullptr.
+void remove_paths(Graph& graph, const std::regex& paths_to_take, std::list<Path>* matching);
+
 }
 
 #endif

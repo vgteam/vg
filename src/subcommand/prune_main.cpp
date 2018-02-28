@@ -160,11 +160,12 @@ int main_prune(int argc, char** argv) {
             { "progress", no_argument, 0, 'p' },
             { "threads", required_argument, 0, 't' },
             { "dry-run", no_argument, 0, 'd' },
+            { "help", no_argument, 0, 'h' },
             { 0, 0, 0, 0 }
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "k:e:s:Pruvx:getopt_long:m:apt:d", long_options, &option_index);
+        c = getopt_long(argc, argv, "k:e:s:Pruvx:g:m:apt:dh", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -312,17 +313,7 @@ int main_prune(int argc, char** argv) {
 
     // Remove the paths and build an XG index if needed.
     if (mode == mode_restore || mode == mode_unfold) {
-        std::list<Path> non_alt_paths;
-        for (size_t i = 0; i < graph->graph.path_size(); i++) {
-            if (!std::regex_match(graph->graph.path(i).name(), Paths::is_alt)) {
-                non_alt_paths.emplace_back(graph->graph.path(i));
-            }
-        }
-        graph->graph.clear_path();
-        for (Path& path : non_alt_paths) {
-            *(graph->graph.add_path()) = path;
-        }
-        non_alt_paths.clear();
+        remove_paths(graph->graph, Paths::is_alt, nullptr);
         xg_index.from_graph(graph->graph);
         if (show_progress) {
             std::cerr << "Built a temporary XG index" << std::endl;
