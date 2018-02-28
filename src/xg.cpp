@@ -30,7 +30,7 @@ bool trav_is_rev(const trav_t& trav) {
     return trav.first < 0;
 }
 
-int32_t trav_rank(const trav_t& trav) {
+    int32_t trav_rank(const trav_t& trav) {
     return trav.second;
 }
 
@@ -593,6 +593,12 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
         ++node_count;
         seq_length += p.second.size();
     }
+    
+    if (node_count == 0) {
+        // Catch the empty graph with a sensible message instead of an assert fail
+        cerr << "[xg] error: cannot build an xg index from an empty graph" << endl;
+        exit(1);
+    }
 
     path_count = path_nodes.size();
     
@@ -642,6 +648,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
 #endif
 
     // for mapping of ids to ranks using a vector rather than wavelet tree
+    assert(!node_label.empty());
     min_id = node_label.begin()->first;
     max_id = node_label.rbegin()->first;
     
