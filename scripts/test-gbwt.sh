@@ -132,7 +132,7 @@ if [[ ! -d "${GRAPHS_PATH}" ]]; then
         --gcsa_index \
         --xg_index \
         --gbwt_index \
-        --snarl_index
+        --snarls_index
 fi
 
 READS_DIR="${GRAPHS_PATH}/sim-${READ_SEED}-${READ_COUNT}-${READ_CHUNKS}"
@@ -240,6 +240,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
         JOB_ARRAY+=("$!")
     fi
     
+    wait_on_jobs
+    
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback" ]]; then
         # Do the full snp1kg graph multipath with gbwt
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-gbwt-traceback" "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback" \
@@ -272,6 +274,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam-names snp1kg-gbwt-traceback 2>&1 &
         JOB_ARRAY+=("$!")
     fi
+    
+    wait_on_jobs
     
     #if [[ ! -e "${OUTPUT_PATH}/snp1kg-fullgbwt" ]]; then
     #   # Do the full snp1kg graph with GBWT
@@ -334,6 +338,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam-names snp1kg-positive 2>&1 &
         JOB_ARRAY+=("$!")
     fi
+    
+    wait_on_jobs
         
     if [[ ! -e "${OUTPUT_PATH}/primary-mp" ]]; then
         # And the primary path only
@@ -344,7 +350,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --multipath-only \
             --gam_input_reads "${READS_DIR}/sim.gam" \
             --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_primary" \
+            --index-bases "${GRAPHS_PATH}/primary" \
             --gam-names primary 2>&1 &
         JOB_ARRAY+=("$!")
     fi
