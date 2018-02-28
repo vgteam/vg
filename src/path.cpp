@@ -1151,6 +1151,11 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
         auto& m = s.mapping(i);
         if (!m.edit_size()) continue; // skips empty mappings
         *r.add_mapping() = m;
+        // remove position if it's empty
+        auto& l = *r.mutable_mapping(r.mapping_size()-1);
+        if (l.has_position() && l.position().node_id()==0) {
+            l.clear_position();
+        }
     }
     Path q;
     // remove leading and trailing deletions (these might result from global alignment)
