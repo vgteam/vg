@@ -4405,7 +4405,7 @@ Position Mapper::alignment_end_position(const Alignment& aln) {
                    get_node_length(b.path().mapping(0).position().node_id()));
 }
 
-Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
+Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bool trim_internal_deletions) {
     //cerr << "top of patch_alignment" << endl;
     Alignment patched;
     // walk along the alignment and find the portions that are unaligned
@@ -4584,7 +4584,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                     cerr << "band: " << pb2json(band) << endl;
                 }
                 */
-                patch = merge_alignments(bands);
+                patch = simplify(merge_alignments(bands));
                 if (patch.sequence() != edit.sequence()) {
                     cerr << "sequence mismatch" << endl;
                     cerr << "seq_expect: " << edit.sequence() << endl;
@@ -4626,7 +4626,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
     }
 #endif
     // simplify the mapping representation
-    patched = simplify(patched);
+    patched = simplify(patched, trim_internal_deletions);
     // set the identity
     patched.set_identity(identity(patched.path()));
     // recompute the score
@@ -4708,7 +4708,7 @@ Alignment Mapper::mems_to_alignment(const Alignment& aln, const vector<MaximalEx
     alns.emplace_back();
     alns.back().set_sequence(aln.sequence().substr(start, length));
 
-    auto alnm = merge_alignments(alns);
+    auto alnm = simplify(merge_alignments(alns));
     *alnm.mutable_quality() = aln.quality();
     return alnm;
 }
@@ -4728,8 +4728,8 @@ Alignment Mapper::surject_alignment(const Alignment& source,
                                     const set<string>& path_names,
                                     string& path_name,
                                     int64_t& path_pos,
-                                    bool& path_reverse,
-                                    int8_t full_length_bonus_override) {
+                                    bool& path_reverse) {
+
 
     Alignment surjection = source;
     // Leave the original mapping quality in place (because that's the quality
@@ -4737,12 +4737,6 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     surjection.clear_score();
     surjection.clear_identity();
     surjection.clear_path();
-
-    // Clear out the output variables to the unmapped state.
-    // We will fill them in later.
-    path_name.clear();
-    path_pos = -1;
-    path_reverse = false;
 
     int count_forward=0, count_reverse=0;
     for (auto& mapping : source.path().mapping()) {
@@ -4765,7 +4759,6 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         cerr << "Alignment " << source.name() << " is unmapped and cannot be surjected" << endl;
 
 #endif
-
         return surjection;
     }
 
@@ -4777,18 +4770,32 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     for (auto& node : nodes) {
         *graph.graph.add_node() = xindex->node(node);
     }
-    xindex->expand_context(graph.graph, context_depth*2, true); // get connected edges and path
+    xindex->expand_context(graph.graph, context_depth, true); // get connected edges and path
     graph.paths.append(graph.graph);
     graph.rebuild_indexes();
+    VG base_graph = graph;
+
+    // non-fiddly approach, rest on augmentation
+    // 0) remove softclips from the read
+    // 1) augment the graph with the read
+    // 2) keep the ref path and the aln path both in the graph
+    // 3) detach the nodes on the other sides of the aln path start and end from all other nodes
+    // 4) remove the non-path component
 
     Alignment trimmed_source = strip_from_end(strip_from_start(source, non_match_start(source)), non_match_end(source));
     // check if we'd fail
     if (trimmed_source.sequence().size() == 0) {
         return surjection;
     }
+    vector<Path> source_path;
+    source_path.push_back(trimmed_source.path());
+    source_path.back().set_name(source.name());
     // Make sure to pass true here to embed the alignment
-    Position start_pos = make_position(initial_position(trimmed_source.path()));
-    Position end_pos = make_position(final_position(trimmed_source.path()));
+    auto translation = graph.edit(source_path, true); //, true, true);
+    Translator translator(translation);
+    Path source_in_graph = graph.paths.path(source.name());
+    Position start_pos = make_position(initial_position(source_in_graph));
+    Position end_pos = make_position(final_position(source_in_graph));
     //cerr << "start and end pos " << pb2json(start_pos) << " " << pb2json(end_pos) << endl;
 
     // find then unlink the next and previous path nodes from the rest of the graph to isolate the graph-specific component
@@ -4860,34 +4867,113 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     set<string> kept_paths;
     graph.keep_paths(path_names, kept_paths);
     graph.remove_non_path();
+    // by definition we have found path
+    if (found_forward && found_reverse && cut_before == cut_after) {
+         graph.destroy_handle(cut_before);
+    } else {
+        if (found_forward) graph.destroy_handle(cut_before);
+        if (found_reverse) graph.destroy_handle(cut_after);
+    }
+    //graph.serialize_to_file("after-" + source.name() + ".vg");
+    //graph.serialize_to_file("after-" + graph.hash() + ".vg");
 
-    // use a huge full-length bonus to deal with soft clipping
+//#define debug_mapper
+#ifdef debug_mapper
+    cerr << "src " << pb2json(source) << endl;
+    cerr << "start " << pb2json(start_pos) << endl;
+    cerr << "end " << pb2json(end_pos) << endl;
+    cerr << "graph " << pb2json(graph.graph) << endl;
+#endif
+    //Position end_pos = alignment_end(source);
+    // assume DAG
+    set<vg::id_t> target_ids;
+    for (auto& mapping : source_in_graph.mapping()) {
+        target_ids.insert(mapping.position().node_id());
+    }
+
+    // otherwise, two cuts
+    // remove the links in both cases
+    // we can clean up by removing 
+    
+    // get only the subgraph that we want to align to
+    list<VG> subgraphs;
+    graph.disjoint_subgraphs(subgraphs);
+    
+    // Align the old alignment to the graph in both orientations. Apparently
+    // align only does a single oriantation, and we have no idea, even looking
+    // at the mappings, which of the orientations will correspond to the one the
+    // alignment is actually in.
+
+    Graph subgraph;
+    for (auto& graph : subgraphs) {
+        //cerr << pb2json(graph.graph) << endl;
+        bool found = false;
+        graph.for_each_handle([&](const handle_t& h) {
+                if (!found && target_ids.count(graph.get_id(h))) {
+                    found = true;
+                }
+            });
+        if (found) {
+            subgraph = graph.graph;
+            break;
+        }
+    }
+    if (subgraph.node_size() == 0) {
+        // couldn't find subgraph, try the one we've got
+        subgraph = graph.graph;
+    }
+
+    if (subgraph.node_size() == 0) {
+        return surjection; //empty graph, avoid further warnings
+    }
+
+    // DAG assumption
+    sort_by_id_dedup_and_clean(subgraph);
+#ifdef debug_mapper
+    cerr << "sub " << pb2json(subgraph) << endl;
+#endif
 
     // Flip the string and its quality around
-    Alignment surjection_rc = surjection;
-    surjection_rc.set_sequence(reverse_complement(surjection.sequence()));
-    string quality = surjection_rc.quality();
+    Alignment surjection_fwd = surjection;
+    Alignment surjection_rev = surjection;
+    surjection_rev.set_sequence(reverse_complement(surjection.sequence()));
+    string quality = surjection_rev.quality();
     std::reverse(quality.begin(), quality.end());
-    surjection_rc.set_quality(quality);
+    surjection_rev.set_quality(quality);
+    int start_softclip_length = non_match_start(source);
+    int end_softclip_length = non_match_end(source);
+    Alignment start_softclip_fwd, end_softclip_fwd;
+    Alignment start_softclip_rev, end_softclip_rev;
+    if (start_softclip_length) {
+        start_softclip_fwd = strip_from_end(surjection_fwd, surjection_fwd.sequence().size() - start_softclip_length);
+        start_softclip_rev = strip_from_start(surjection_rev, surjection_rev.sequence().size() - start_softclip_length);
+    }
+    if (end_softclip_length) {
+        end_softclip_fwd = strip_from_start(surjection_fwd, surjection_fwd.sequence().size() - end_softclip_length);
+        end_softclip_rev = strip_from_end(surjection_rev, surjection_rev.sequence().size() - end_softclip_length);
+    }
+    
+    surjection_fwd = strip_from_end(strip_from_start(surjection_fwd, start_softclip_length), end_softclip_length);
+    surjection_rev = strip_from_start(strip_from_end(surjection_rev, start_softclip_length), end_softclip_length);
 
     // align to the graph with a big full len, and simplify without removal of internal deletions, as we'll need these for BAM reconstruction
     Alignment surjection_forward, surjection_reverse;
-    // XXX this hack is because we don't have a functional interface to the alignment so we have to touch this thread's aligner's scores
-    int8_t saved_bonus = get_aligner(!surjection.quality().empty())->full_length_bonus;
-    get_aligner(!surjection.quality().empty())->full_length_bonus = full_length_bonus_override;
+    int fwd_score = 0, rev_score = 0;
     if (count_forward) {
-        surjection_forward = simplify(align_to_graph(surjection, graph.graph, max_query_graph_ratio, true, false, false, false, false, false), false);
+        surjection_forward = simplify(align_to_graph(surjection_fwd, graph.graph, max_query_graph_ratio, true, false, false, false, true, true), false);
+        fwd_score = surjection_forward.score();
     }
     if (count_reverse) {
-        surjection_reverse = simplify(align_to_graph(surjection_rc, graph.graph, max_query_graph_ratio, true, false, false, false, false, false), false);
+        surjection_reverse = simplify(align_to_graph(surjection_rev, graph.graph, max_query_graph_ratio, true, false, false, false, true, true), false);
+        rev_score = surjection_reverse.score();
     }
-    get_aligner(!surjection.quality().empty())->full_length_bonus = saved_bonus;
 
 #ifdef debug_mapper
     cerr << "fwd " << pb2json(surjection_forward) << endl;
     cerr << "rev " << pb2json(surjection_reverse) << endl;
 #endif
 
+    graph = base_graph;
     // We need this for inverting mappings to the correct strand
     function<int64_t(id_t)> node_length = [&graph](id_t node) {
         return graph.get_node(node)->sequence().size();
@@ -4898,6 +4984,25 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     cerr << surjection.name() << " " << surjection_forward.score() << " forward score, " << surjection_reverse.score() << " reverse score" << endl;
 #endif
 
+    // translate
+    if (count_forward) surjection_forward = translator.translate(surjection_forward);
+    if (count_reverse) surjection_reverse = translator.translate(surjection_reverse);
+
+    // patch
+    if (count_forward) patch_alignment(surjection_forward, surjection_forward.sequence().size(), false);
+    if (count_reverse) patch_alignment(surjection_reverse, surjection_reverse.sequence().size(), false);
+    
+    // reattach soft clips and set original score (score isn't really used through...)
+    if (count_forward) {
+        surjection_forward = merge_alignments({start_softclip_fwd, surjection_forward, end_softclip_fwd});
+        surjection_forward.set_score(fwd_score);
+    }
+    if (count_reverse) {
+        surjection_reverse = merge_alignments({start_softclip_rev, surjection_reverse, end_softclip_rev});
+        surjection_reverse.set_score(rev_score);
+    }
+
+    // choose
     if (count_reverse && count_forward) {
         if (surjection_reverse.score() > surjection_forward.score()) {
             surjection = reverse_complement_alignment(surjection_reverse, node_length);
@@ -4967,24 +5072,10 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #ifdef debug_mapper
         cerr << "path position " << path_name << ":" << path_pos << endl;
 #endif
-
-        // We surjected to somewhere!
-        assert(!path_name.empty());
-        assert(path_pos != -1);
         
     } else {
 
-        // Failed to align. Replace whatever (possibly reversed?) thing we have now with an unmapped alignment.
         surjection = source;
-        surjection.clear_score();
-        surjection.clear_identity();
-        surjection.clear_path();
-        surjection.clear_mapping_quality();
-        
-        path_name.clear();
-        path_pos = -1;
-        path_reverse = false;
-        
 #ifdef debug_mapper
 
 #pragma omp critical (cerr)
@@ -4993,7 +5084,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #endif
 
     }
-    
+
 #ifdef debug_mapper
     
 #pragma omp critical (cerr)
@@ -5002,7 +5093,10 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     
 #endif
     //cerr << "final " << pb2json(surjection) << endl;
-    return surjection;
+    Alignment final = source;
+    *final.mutable_path() = surjection.path();
+    final.set_score(surjection.score());
+    return final;
 }
 
 const int balanced_stride(int read_length, int kmer_size, int stride) {
@@ -5180,7 +5274,7 @@ vector<Alignment> AlignmentChainModel::traceback(const Alignment& read, int alt_
     for (auto& trace : traces) {
         alns.emplace_back();
         Alignment& merged = alns.back();
-        merged = merge_alignments(trace);
+        merged = simplify(merge_alignments(trace));
         merged.set_identity(identity(merged.path()));
         merged.set_quality(read.quality());
         merged.set_name(read.name());

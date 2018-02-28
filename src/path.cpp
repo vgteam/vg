@@ -1264,7 +1264,9 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
         for ( ; j < m.edit_size(); ++j) {
             auto& f = m.edit(j);
             // if the edit types are the same, merge them
-            if ((edit_is_match(e) && edit_is_match(f))
+            if (edit_is_empty(f)) {
+                continue;
+            } else if ((edit_is_match(e) && edit_is_match(f))
                 || (edit_is_sub(e) && edit_is_sub(f))
                 || (edit_is_deletion(e) && edit_is_deletion(f))
                 || (edit_is_insertion(e) && edit_is_insertion(f))) {

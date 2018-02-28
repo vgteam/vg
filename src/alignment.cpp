@@ -1068,7 +1068,7 @@ void reverse_complement_alignment_in_place(Alignment* aln,
 
 // merge that properly handles long indels
 // assumes that alignments should line up end-to-end
-Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
+Alignment merge_alignments(const vector<Alignment>& alns) {
 
     if (alns.size() == 0) {
         Alignment aln;
@@ -1107,7 +1107,7 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
             merged.mutable_sequence()->append(aln.sequence());
         }
     }
-    return simplify(merged);
+    return merged;
 }
 
 Alignment& extend_alignment(Alignment& a1, const Alignment& a2, bool debug) {

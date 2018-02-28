@@ -31,7 +31,6 @@ void help_surject(char** argv) {
          << "    -n, --context-depth N   expand this many steps when collecting graph for surjection (default: 3)" << endl
          << "    -i, --interleaved       GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
          << "    -c, --cram-output       write CRAM to stdout" << endl
-         << "    -L, --full-len-bonus N  force full length alignment by using this (high) full length bonus [20]" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
          << "    -C, --compression N     level for compression [0-9]" << endl;
@@ -54,7 +53,6 @@ int main_surject(int argc, char** argv) {
     string header_file;
     int compress_level = 9;
     int context_depth = 3;
-    int full_length_bonus = 20;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -74,12 +72,11 @@ int main_surject(int argc, char** argv) {
             {"header-from", required_argument, 0, 'H'},
             {"compress", required_argument, 0, 'C'},
             {"context-depth", required_argument, 0, 'n'},
-            {"full-len-bonus", required_argument, 0, 'L'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:P:icbsH:C:t:n:L:",
+        c = getopt_long (argc, argv, "hx:p:F:P:icbsH:C:t:n:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -136,10 +133,6 @@ int main_surject(int argc, char** argv) {
 
         case 'n':
             context_depth = atoi(optarg);
-            break;
-
-        case 'L':
-            full_length_bonus = atoi(optarg);
             break;
 
         case 'h':
@@ -202,7 +195,7 @@ int main_surject(int argc, char** argv) {
             int thread_count = get_thread_count();
             vector<vector<Alignment> > buffer;
             buffer.resize(thread_count);
-            function<void(Alignment&)> lambda = [&xgidx, &path_names, &buffer, &mapper, &full_length_bonus](Alignment& src) {
+            function<void(Alignment&)> lambda = [&xgidx, &path_names, &buffer, &mapper](Alignment& src) {
                 int tid = omp_get_thread_num();
                 Alignment surj;
                 // Since we're outputting full GAM, we ignore all this info
@@ -211,7 +204,7 @@ int main_surject(int argc, char** argv) {
                 string path_name;
                 int64_t path_pos;
                 bool path_reverse;
-                buffer[tid].push_back(mapper[tid]->surject_alignment(src, path_names, path_name, path_pos, path_reverse, full_length_bonus));
+                buffer[tid].push_back(mapper[tid]->surject_alignment(src, path_names, path_name, path_pos, path_reverse));
                 stream::write_buffered(cout, buffer[tid], 100);
             };
             get_input_file(file_name, [&](istream& in) {
@@ -270,7 +263,7 @@ int main_surject(int argc, char** argv) {
                 // reads need to come out with a 0 1-based position.
                 int64_t path_pos = -1; 
                 bool path_reverse = false;
-                auto surj = mapper[omp_get_thread_num()]->surject_alignment(src, path_names, path_name, path_pos, path_reverse, full_length_bonus);
+                auto surj = mapper[omp_get_thread_num()]->surject_alignment(src, path_names, path_name, path_pos, path_reverse);
                 // Always use the surjected alignment, even if it surjects to unmapped.
                 
                 if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {

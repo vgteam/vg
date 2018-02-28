@@ -22,16 +22,16 @@ void help_map(char** argv) {
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-mem INT       minimum MEM length (if 0 estimate via -e) [0]" << endl
-         << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [0.1]" << endl
+         << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [5e-4]" << endl
          << "    -c, --hit-max N         ignore MEMs who have >N hits in our index (0 for no limit) [0]" << endl
          << "    -Y, --max-mem INT       ignore mems longer than this length (unset if 0) [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than FLOAT*--min-seed [1.5]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds (1/2 for paired) [48]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds (1/2 for paired) [128]" << endl
          << "    -l, --try-at-least INT  attempt to align at least the INT best candidate chains of seeds [1]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than FLOAT [0]" << endl
          << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.45]" << endl
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
@@ -70,7 +70,6 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    --surject-to TYPE       surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
-         << "    --surj-full-l-bonus INT use this full length bonus override when surjecting to discourage softclipping [20]" << endl
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
@@ -131,7 +130,7 @@ int main_map(int argc, char** argv) {
     double haplotype_consistency_exponent = 1;
     bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 48;
+    int extra_multimaps = 128;
     int min_multimaps = 1;
     int max_mapping_quality = 60;
     double maybe_mq_threshold = 0;
@@ -145,9 +144,9 @@ int main_map(int argc, char** argv) {
     double fragment_sigma = 10;
     bool fragment_orientation = false;
     bool fragment_direction = true;
-    float chance_match = 0.1;
+    float chance_match = 5e-4;
     bool use_fast_reseed = true;
-    float drop_chain = 0.5;
+    float drop_chain = 0.45;
     float mq_overlap = 0.0;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
@@ -159,7 +158,6 @@ int main_map(int argc, char** argv) {
     bool acyclic_graph = false;
     bool refpos_table = false;
     bool patch_alignments = true;
-    int surject_full_length_bonus = 20;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -226,14 +224,13 @@ int main_map(int argc, char** argv) {
                 {"refpos-table", no_argument, 0, 'v'},
                 {"surject-to", required_argument, 0, '5'},
                 {"no-patch-aln", no_argument, 0, '8'},
-                {"surj-full-l-bonus", required_argument, 0, '9'},
                 {"drop-full-l-bonus", no_argument, 0, '2'},
                 {"unpaired-cost", required_argument, 0, 'S'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:89:24:3:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:824:3:",
                          long_options, &option_index);
 
 
@@ -448,10 +445,6 @@ int main_map(int argc, char** argv) {
 
         case '8':
             patch_alignments = false;
-            break;
-
-        case '9':
-            surject_full_length_bonus = atoi(optarg);
             break;
 
         case 'I':
@@ -671,8 +664,7 @@ int main_map(int argc, char** argv) {
 
     // TODO: Refactor the surjection code out of surject_main and intto somewhere where we can just use it here!
 
-    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out, &xgidx,
-        &surject_full_length_bonus] (const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
+    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out, &xgidx] (const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
         
         if (alns1.empty()) return;
         setup_sam_header();
@@ -684,7 +676,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse, surject_full_length_bonus);
+            auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse);
             surjects1.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // hack: if we haven't established the header, we look at the reads to guess which read groups to put in it
@@ -700,7 +692,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse, surject_full_length_bonus);
+            auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse);
             surjects2.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // Don't try and populate the header; it should have happened already

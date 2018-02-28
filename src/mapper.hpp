@@ -24,6 +24,7 @@
 #include "cluster.hpp"
 #include "graph.hpp"
 #include "translator.hpp"
+#include "algorithms/topological_sort.hpp"
 
 namespace vg {
 
@@ -510,7 +511,7 @@ public:
     void remove_full_length_bonuses(Alignment& aln);
     
     // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
-    Alignment patch_alignment(const Alignment& aln, int max_patch_length);
+    Alignment patch_alignment(const Alignment& aln, int max_patch_length, bool trim_internal_deletions = true);
     // Get the graph context of a particular cluster, not expanding beyond the middles of MEMs.
     VG cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // for aligning to a particular MEM cluster
@@ -573,8 +574,7 @@ public:
                                 const set<string>& path_names,
                                 string& path_name,
                                 int64_t& path_pos,
-                                bool& path_reverse,
-                                int8_t full_length_bonus_override);
+                                bool& path_reverse);
     
     // compute a mapping quality component based only on the MEMs we've obtained
     double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);
