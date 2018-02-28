@@ -643,6 +643,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     max_id = node_label.rbegin()->first;
     
     // set up our compressed representation
+    int_vector<> i_iv;
     util::assign(s_iv, int_vector<>(seq_length, 0, 3));
     util::assign(s_bv, bit_vector(seq_length));
     util::assign(i_iv, int_vector<>(node_count));
@@ -655,26 +656,28 @@ void XG::build(vector<pair<id_t, string> >& node_label,
 #endif
     size_t i = 0; // insertion point
     size_t r = 1;
+    
+    // first make i_iv and r_iv
     for (auto& p : node_label) {
         int64_t id = p.first;
-        const string& l = p.second;
-        s_bv[i] = 1; // record node start
         i_iv[r-1] = id;
         // store ids to rank mapping
         r_iv[id-min_id] = r;
         ++r;
+    }
+    util::bit_compress(i_iv);
+    util::bit_compress(r_iv);
+    
+    // then make s_bv and s_iv
+    for (auto& p : node_label) {
+        const string& l = p.second;
+        s_bv[i] = 1; // record node start
         for (auto c : l) {
             s_iv[i++] = dna3bit(c); // store sequence
         }
     }
-//    // keep only if we need to validate the graph
+    // keep only if we need to validate the graph
     if (!validate_graph) node_label.clear();
-
-    // we have to process all the nodes before we do the edges
-    // because we need to ensure full coverage of node space
-
-    util::bit_compress(i_iv);
-    util::bit_compress(r_iv);
 
     // to label the paths we'll need to compress and index our vectors
     util::bit_compress(s_iv);
@@ -689,7 +692,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     util::assign(g_iv, int_vector<>(g_iv_size));
     util::assign(g_bv, bit_vector(g_iv_size));
     int64_t g = 0; // pointer into g_iv and g_bv
-    // for each node i_iv.size()
     for (int64_t i = 0; i < node_count; ++i) {
         Node n = node(i_iv[i]);
         
@@ -729,7 +731,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     util::assign(g_bv_select, bit_vector::select_1_type(&g_bv));
     
     // convert the edges in g_iv to relativistic form
-    //i_iv.size()
     for (int64_t i = 0; i < node_count; ++i) {
         int64_t id = i_iv[i];
         // find the start of the node's record in g_iv
@@ -748,7 +749,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
             j += 2;
         }
     }
-
+    sdsl::util::clear(i_iv);
     util::bit_compress(g_iv);
 
 #if GPBWT_MODE == MODE_SDSL
@@ -943,10 +944,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         for (size_t i = 0; i < g_iv.size(); ++i) {
             cerr << (int64_t)g_iv[i] << " ";
         } cerr << endl;
-        //i_iv.size()
         for (int64_t i = 0; i < node_count; ++i) {
-            //int64_t id = i_iv[i];
-            //cerr << "i_iv[i]: "<< i_iv[i] << "rank_to_id(i+1): " << rank_to_id(i+1)<<endl;
             int64_t id = rank_to_id(i+1);
             // find the start of the node's record in g_iv
             int64_t g = g_bv_select(id_to_rank(id));
@@ -962,19 +960,10 @@ void XG::build(vector<pair<id_t, string> >& node_label,
             int64_t t = g + G_NODE_HEADER_LENGTH;
             int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
             cerr << " from ";
-//            for (int64_t j = t; j < f; ) {
-//                cerr << i_iv[g_bv_rank(g+g_iv[j])] << " ";
-//                j += 2;
-//            }
             for (int64_t j = t; j < f; ) {
                 cerr << rank_to_id(g_bv_rank(g+g_iv[j])+1) << " ";
                 j += 2;
             }
-//            cerr << "to ";
-//            for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
-//                cerr << i_iv[g_bv_rank(g+g_iv[j])] << " ";
-//                j += 2;
-//            }
             for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
                 cerr << rank_to_id(g_bv_rank(g+g_iv[j])+1) << " ";
                 j += 2;
@@ -986,7 +975,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
             cerr << revdna3bit(s_iv[i]);
         } cerr << endl;
         cerr << s_bv << endl;
-        //cerr << i_iv << endl;
         cerr << "paths (" << paths.size() << ")" << endl;
         for (size_t i = 0; i < paths.size(); i++) {
             // Go through paths by number, so we can determine rank
@@ -1052,109 +1040,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
             }
         }
         node_label.clear();
-
-        // -1 here seems weird
-        // what?
-        /*
-        cerr << "validating forward edge table" << endl;
-        for (size_t j = 0; j < f_iv.size()-1; ++j) {
-            if (f_bv[j] == 1) continue;
-            // from id == rank
-            size_t fid = i_iv[f_bv_rank(j)-1];
-            // to id == f_cbv[j]
-            size_t tid = i_iv[f_iv[j]-1];
-            bool from_start = f_from_start_bv[j];
-            // get the to_end
-            bool to_end = false;
-            for (auto& side : from_to[make_side(fid, from_start)]) {
-                if (side_id(side) == tid) {
-                    to_end = side_is_end(side);
-                }
-            }
-            bool has_edge = false;
-            for (auto& side : from_to[make_side(fid, from_start)]) {
-                if (side == make_side(tid, to_end)) { has_edge = true; break; }
-            }
-            if (!has_edge) {
-                cerr << "could not find edge (f) "
-                     << fid << (from_start ? "+" : "-")
-                     << " -> "
-                     << tid << (to_end ? "+" : "-")
-                     << endl;
-                assert(false);
-            }
-        }
-
-        cerr << "validating reverse edge table" << endl;
-        for (size_t j = 0; j < t_iv.size()-1; ++j) {
-            //cerr << j << endl;
-            if (t_bv[j] == 1) continue;
-            // from id == rank
-            size_t tid = i_iv[t_bv_rank(j)-1];
-            // to id == f_cbv[j]
-            size_t fid = i_iv[t_iv[j]-1];
-            //cerr << tid << " " << fid << endl;
-
-            bool to_end = t_to_end_bv[j];
-            // get the to_end
-            bool from_start = false;
-            for (auto& side : to_from[make_side(tid, to_end)]) {
-                if (side_id(side) == fid) {
-                    from_start = side_is_end(side);
-                }
-            }
-            bool has_edge = false;
-            for (auto& side : to_from[make_side(tid, to_end)]) {
-                if (side == make_side(fid, from_start)) { has_edge = true; break; }
-            }
-            if (!has_edge) {
-                cerr << "could not find edge (t) "
-                     << fid << (from_start ? "+" : "-")
-                     << " -> "
-                     << tid << (to_end ? "+" : "-")
-                     << endl;
-                assert(false);
-            }
-        }
-        */
-
-        /*
-        cerr << "validating paths" << endl;
-        for (auto& pathpair : path_nodes) {
-            const string& name = pathpair.first;
-            auto& path = pathpair.second;
-            size_t prank = path_rank(name);
-            //cerr << path_name(prank) << endl;
-            assert(path_name(prank) == name);
-            rrr_vector<>& pe_bv = paths[prank-1]->nodes;
-            int_vector<>& pp_iv = paths[prank-1]->positions;
-            sd_vector<>& dir_bv = paths[prank-1]->directions;
-            // check each entity in the nodes is present
-            // and check node reported at the positions in it
-            size_t pos = 0;
-            size_t in_path = 0;
-            for (auto& m : path) {
-                int64_t id = trav_id(m);
-                bool rev = trav_is_rev(m);
-                // todo rank
-                assert(pe_bv[node_rank_as_entity(id)-1]);
-                assert(dir_bv[in_path] == rev);
-                Node n = node(id);
-                //cerr << id << " in " << name << endl;
-                auto p = position_in_path(id, name);
-                assert(std::find(p.begin(), p.end(), pos) != p.end());
-                for (size_t k = 0; k < n.sequence().size(); ++k) {
-                    //cerr << "id " << id << " ==? " << node_at_path_position(name, pos+k) << endl;
-                    assert(id == node_at_path_position(name, pos+k));
-                    assert(id == mapping_at_path_position(name, pos+k).position().node_id());
-                }
-                pos += n.sequence().size();
-                ++in_path;
-            }
-            //cerr << path_name << " rank = " << prank << endl;
-            // check membership now for each entity in the path
-        }
-        */
         
 #if GPBWT_MODE == MODE_SDSL
         if(store_threads && is_sorted_dag) {
@@ -1475,7 +1360,6 @@ int64_t XG::rank_to_id(size_t rank) const {
         assert(false);
     }
     if(rank > node_count) {
-        // node_count instead of i_iv.size()
         cerr << "[xg] error: Request for id of rank " << rank << "/" << node_count << endl;
         assert(false);
     }
@@ -1487,8 +1371,6 @@ int64_t XG::rank_to_id(size_t rank) const {
         }
         j++;
     }
-    //cerr << "i_iv[rank-1]: " << i_iv[rank-1] << "g_iv[j-1]: " << g_iv[j-1] << endl;
-    //return i_iv[rank-1];
     return g_iv[j-1];
 }
 
