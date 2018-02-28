@@ -30,7 +30,7 @@ bool trav_is_rev(const trav_t& trav) {
     return trav.first < 0;
 }
 
-    int32_t trav_rank(const trav_t& trav) {
+int32_t trav_rank(const trav_t& trav) {
     return trav.second;
 }
 
