@@ -4916,7 +4916,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // 3) detach the nodes on the other sides of the aln path start and end from all other nodes
     // 4) remove the non-path component
 
-    Alignment trimmed_source = strip_from_end(strip_from_start(source, non_match_start(source)), non_match_end(source));
+    Alignment trimmed_source = strip_from_end(strip_from_start(source, softclip_start(source)), softclip_end(source));
     // check if we'd fail
     if (trimmed_source.sequence().size() == 0) {
         return surjection;
@@ -5074,8 +5074,8 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     string quality = surjection_rev.quality();
     std::reverse(quality.begin(), quality.end());
     surjection_rev.set_quality(quality);
-    int start_softclip_length = non_match_start(source);
-    int end_softclip_length = non_match_end(source);
+    int start_softclip_length = softclip_start(source);
+    int end_softclip_length = softclip_end(source);
     Alignment start_softclip_fwd, end_softclip_fwd;
     Alignment start_softclip_rev, end_softclip_rev;
     if (start_softclip_length) {
