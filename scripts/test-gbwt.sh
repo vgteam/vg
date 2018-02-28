@@ -36,11 +36,19 @@ READ_COUNT="10000000"
 # Chunks to simulate in (which affects results)
 READ_CHUNKS="32"
 
-MODE="test"
-if [[ "${MODE}" == "test" ]]; then
+MODE="tiny"
+if [[ "${MODE}" == "mhc" ]]; then
     # Actually do a smaller test
+    READ_COUNT="100000"
     REGION_NAME="MHC"
     GRAPH_REGION="6:28510119-33480577"
+    FASTA_BASENAME="chr6.fa.gz"
+    VCF_BASENAME="1kg_hg38-MHC.vcf.gz"
+elif [[ "${MODE}" == "tiny" ]]; then
+    # Do just 20 kb of MHC and a very few reads
+    READ_COUNT="1000"
+    REGION_NAME="MHC"
+    GRAPH_REGION="6:28510119-28520119"
     FASTA_BASENAME="chr6.fa.gz"
     VCF_BASENAME="1kg_hg38-MHC.vcf.gz"
 fi
