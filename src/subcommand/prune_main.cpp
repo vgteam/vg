@@ -153,6 +153,7 @@ int main_prune(int argc, char** argv) {
             { "restore-paths", no_argument, 0, 'r' },
             { "unfold-paths", no_argument, 0, 'u' },
             { "verify-paths", no_argument, 0, 'v' },
+            { "xg-name", no_argument, 0, 'x' }, // no longer needed
             { "gbwt-name", required_argument, 0, 'g' },
             { "mapping", required_argument, 0, 'm' },
             { "append-mapping", no_argument, 0, 'a' },
@@ -163,7 +164,7 @@ int main_prune(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "k:e:s:Pruvg:m:apt:d", long_options, &option_index);
+        c = getopt_long (argc, argv, "k:e:s:Pruvx:getopt_long:m:apt:d", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -191,6 +192,9 @@ int main_prune(int argc, char** argv) {
             break;
         case 'v':
             verify_paths = true;
+            break;
+        case 'x': // no longer needed
+            std::cerr << "[vg prune]: option --xg-name is no longer needed" << std::endl;
             break;
         case 'g':
             gbwt_name = optarg;
