@@ -161,9 +161,10 @@ void XG::load(istream& in) {
         
         case 5: // Fall through
         case 6:
+        case 7:
             cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. For better performance over repeated loads, consider recreating this XG with 'vg index' or upgrading it with 'vg xg'." << endl;
             // Fall through
-        case 7:
+        case 8:
             {
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
@@ -174,7 +175,11 @@ void XG::load(istream& in) {
                 sdsl::read_member(min_id, in);
                 sdsl::read_member(max_id, in);
 
-                i_iv.load(in);
+                if (file_version <= 7) {
+                    // Load the old id int vector to skip
+                    int_vector<> i_iv;
+                    i_iv.load(in);
+                }
                 r_iv.load(in);
 
                 g_iv.load(in);
@@ -662,7 +667,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
             s_iv[i++] = dna3bit(c); // store sequence
         }
     }
-    // keep only if we need to validate the graph
+//    // keep only if we need to validate the graph
     if (!validate_graph) node_label.clear();
 
     // we have to process all the nodes before we do the edges
@@ -670,78 +675,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
 
     util::bit_compress(i_iv);
     util::bit_compress(r_iv);
-
-    /*
-#ifdef VERBOSE_DEBUG    
-    cerr << "storing forward edges and adjacency table" << endl;
-#endif
-    size_t f_itr = 0;
-    size_t j_itr = 0; // edge adjacency pointer
-    for (size_t k = 0; k < node_count; ++k) {
-        int64_t f_id = i_iv[k];
-        size_t f_rank = k+1;
-        f_iv[f_itr] = f_rank;
-        f_bv[f_itr] = 1;
-        ++f_itr;
-        for (auto end : { false, true }) {
-            if (from_to.find(make_side(f_id, end)) != from_to.end()) {
-                auto t_side_itr = from_to.find(make_side(f_id, end));
-                if (t_side_itr != from_to.end()) {
-                    for (auto& t_side : t_side_itr->second) {
-                        size_t t_rank = id_to_rank(side_id(t_side));
-                        // store link
-                        f_iv[f_itr] = t_rank;
-                        f_bv[f_itr] = 0;
-                        // store side for start of edge
-                        f_from_start_bv[f_itr] = end;
-                        f_to_end_bv[f_itr] = side_is_end(t_side);
-                        ++f_itr;
-                    }
-                }
-            }
-        }
-    }
-
-    // compress the forward direction side information
-    util::assign(f_from_start_cbv, sd_vector<>(f_from_start_bv));
-    util::assign(f_to_end_cbv, sd_vector<>(f_to_end_bv));
-    
-    //assert(e_iv.size() == edge_count*3);
-#ifdef VERBOSE_DEBUG
-    cerr << "storing reverse edges" << endl;
-#endif
-
-    size_t t_itr = 0;
-    for (size_t k = 0; k < node_count; ++k) {
-        //cerr << k << endl;
-        int64_t t_id = i_iv[k];
-        size_t t_rank = k+1;
-        t_iv[t_itr] = t_rank;
-        t_bv[t_itr] = 1;
-        ++t_itr;
-        for (auto end : { false, true }) {
-            if (to_from.find(make_side(t_id, end)) != to_from.end()) {
-                auto f_side_itr = to_from.find(make_side(t_id, end));
-                if (f_side_itr != to_from.end()) {
-                    for (auto& f_side : f_side_itr->second) {
-                        size_t f_rank = id_to_rank(side_id(f_side));
-                        // store link
-                        t_iv[t_itr] = f_rank;
-                        t_bv[t_itr] = 0;
-                        // store side for end of edge
-                        t_to_end_bv[t_itr] = end;
-                        t_from_start_bv[t_itr] = side_is_end(f_side);
-                        ++t_itr;
-                    }
-                }
-            }
-        }
-    }
-
-    // compress the reverse direction side information
-    util::assign(t_to_end_cbv, sd_vector<>(t_to_end_bv));
-    util::assign(t_from_start_cbv, sd_vector<>(t_from_start_bv));
-    */
 
     // to label the paths we'll need to compress and index our vectors
     util::bit_compress(s_iv);
@@ -759,6 +692,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     // for each node i_iv.size()
     for (int64_t i = 0; i < node_count; ++i) {
         Node n = node(i_iv[i]);
+        
         // now build up the record
         g_bv[g] = 1; // mark record start for later query
         g_iv[g++] = n.id(); // save id
@@ -789,7 +723,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         }
         g_iv[from_edge_count_idx] = from_edge_count;
     }
-
+    
     // set up rank and select supports on g_bv so we can locate nodes in g_iv
     util::assign(g_bv_rank, rank_support_v<1>(&g_bv));
     util::assign(g_bv_select, bit_vector::select_1_type(&g_bv));
