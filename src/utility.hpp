@@ -330,56 +330,6 @@ struct TreeNode {
     }
 };
     
-/**
- * A custom Union-Find data structure that supports merging a set of indices in
- * disjoint sets in amortized nearly linear time. This implementation also supports
- * querying the size of the group containing an index in constant time and querying
- * the members of the group containing an index in linear time in the size of the group.
- */
-class UnionFind {
-public:
-    /// Construct UnionFind for this many indices
-    UnionFind(size_t size);
-    
-    /// Destructor
-    ~UnionFind();
-    
-    /// Returns the number of indices in the UnionFind
-    size_t size();
-    
-    /// Returns the group ID that index i belongs to (can change after calling union)
-    size_t find_group(size_t i);
-    
-    /// Merges the group containing index i with the group containing index j
-    void union_groups(size_t i, size_t j);
-    
-    /// Returns the size of the group containing index i
-    size_t group_size(size_t i);
-    
-    /// Returns a vector of the indices in the same group as index i
-    vector<size_t> group(size_t i);
-    
-    /// Returns all of the groups, each in a separate vector
-    vector<vector<size_t>> all_groups();
-    
-    /// A string representation of the current state for debugging
-    string current_state();
-    
-private:
-    
-    struct UFNode;
-    vector<UFNode> uf_nodes;
-};
-
-struct UnionFind::UFNode {
-    UFNode(size_t index) : head(index), rank(0), size(1) {}
-    ~UFNode() {}
-    
-    size_t rank;
-    size_t size;
-    size_t head;
-    unordered_set<size_t> children;
-};
 
     
 template<typename T>

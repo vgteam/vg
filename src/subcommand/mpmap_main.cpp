@@ -32,11 +32,12 @@ void help_mpmap(char** argv) {
     << "graph/index:" << endl
     << "  -x, --xg-name FILE        use this xg index (required)" << endl
     << "  -g, --gcsa-name FILE      use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
+    << "  -H, --gbwt-name FILE      use this GBWT haplotype index for population-based MAPQs" << endl
     << "input:" << endl
     << "  -f, --fastq FILE          input FASTQ (possibly compressed), can be given twice for paired ends (for stdin use -)" << endl
     << "  -G, --gam-input FILE      input GAM (for stdin, use -)" << endl
     << "  -i, --interleaved         FASTQ or GAM contains interleaved paired ends" << endl
-    << "  -N, --sample NAME        add this sample name to output GAM" << endl
+    << "  -N, --sample NAME         add this sample name to output GAM" << endl
     << "  -R, --read-group NAME     add this read group to output GAM" << endl
     << "  -e, --same-strand         read pairs are from the same strand of the DNA molecule" << endl
     << "algorithm:" << endl
@@ -54,10 +55,12 @@ void help_mpmap(char** argv) {
     << "  -I, --frag-mean           mean for fixed fragment length distribution" << endl
     << "  -D, --frag-stddev         standard deviation for fixed fragment length distribution" << endl
     << "  -B, --no-calibrate        do not auto-calibrate mismapping dectection" << endl
+    << "  -P, --max-p-val FLOAT     background model p value must be less than this to avoid mismapping detection [0.00001]" << endl
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - adaptive, 3 - exact [2]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [48]" << endl
+    << "  -O, --max-paths INT       consider (up to) this many paths per alignment when scoring by population consistency [1]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
     << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
@@ -91,6 +94,7 @@ int main_mpmap(int argc, char** argv) {
     // initialize parameters with their default options
     string xg_name;
     string gcsa_name;
+    string gbwt_name;
     string snarls_name;
     string fastq_name_1;
     string fastq_name_2;
@@ -103,6 +107,7 @@ int main_mpmap(int argc, char** argv) {
     bool interleaved_input = false;
     int snarl_cut_size = 5;
     int max_map_attempts = 48;
+    int population_max_paths = 1;
     int max_rescue_attempts = 32;
     int max_num_mappings = 1;
     int buffer_size = 100;
@@ -130,6 +135,7 @@ int main_mpmap(int argc, char** argv) {
     double frag_length_stddev = NAN;
     bool same_strand = false;
     bool auto_calibrate_mismapping_detection = true;
+    double max_mapping_p_value = 0.00001;
     size_t num_calibration_simulations = 250;
     size_t calibration_read_length = 150;
     bool unstranded_clustering = false;
@@ -137,10 +143,13 @@ int main_mpmap(int argc, char** argv) {
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
     double secondary_rescue_score_diff = 0.8;
-    size_t rescue_only_min = 128;
+    size_t rescue_only_min = numeric_limits<size_t>::max(); // disabling this for now
     size_t rescue_only_anchor_max = 16;
     string sample_name = "";
     string read_group = "";
+    bool prefilter_redundant_hits = true;
+    bool precollapse_order_length_hits = true;
+    int max_sub_mem_recursion_depth = 1;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -150,6 +159,7 @@ int main_mpmap(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
             {"gcsa-name", required_argument, 0, 'g'},
+            {"gbwt-name", required_argument, 0, 'H'},
             {"fastq", required_argument, 0, 'f'},
             {"gam-input", required_argument, 0, 'G'},
             {"sample", required_argument, 0, 'N'},
@@ -165,10 +175,12 @@ int main_mpmap(int argc, char** argv) {
             {"frag-mean", required_argument, 0, 'I'},
             {"frag-stddev", required_argument, 0, 'D'},
             {"no-calibrate", no_argument, 0, 'B'},
+            {"max-p-val", required_argument, 0, 'P'},
             {"mq-method", required_argument, 0, 'v'},
             {"mq-max", required_argument, 0, 'Q'},
             {"band-padding", required_argument, 0, 'p'},
             {"map-attempts", required_argument, 0, 'u'},
+            {"max-paths", required_argument, 0, 'O'},
             {"max-multimaps", required_argument, 0, 'M'},
             {"reseed-length", required_argument, 0, 'r'},
             {"reseed-diff", required_argument, 0, 'W'},
@@ -192,7 +204,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:f:G:N:R:ieSs:u:a:nb:I:D:Bv:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:f:G:N:R:ieSs:u:O:a:nb:I:D:BP:v:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -216,6 +228,10 @@ int main_mpmap(int argc, char** argv) {
                     cerr << "error:[vg mpmap] Must provide GCSA file with -g." << endl;
                     exit(1);
                 }
+                break;
+                
+            case 'H':
+                gbwt_name = optarg;
                 break;
                 
             case 'f':
@@ -311,6 +327,10 @@ int main_mpmap(int argc, char** argv) {
                 auto_calibrate_mismapping_detection = false;
                 break;
                 
+            case 'P':
+                max_mapping_p_value = atof(optarg);
+                break;
+                
             case 'v':
             {
                 int mapq_arg = atoi(optarg);
@@ -343,6 +363,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'u':
                 max_map_attempts = atoi(optarg);
+                break;
+                
+            case 'O':
+                population_max_paths = atoi(optarg);
                 break;
                 
             case 'M':
@@ -503,6 +527,16 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (population_max_paths < 1) {
+        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set to " << population_max_paths << ", must set to a positive integer." << endl;
+        exit(1);
+    }
+    
+    if (population_max_paths != 1 && gbwt_name.empty()) {
+        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set when population database (-H) not provided." << endl;
+        exit(1);
+    }
+    
     if (max_num_mappings > max_map_attempts && max_map_attempts != 0) {
         cerr << "warning:[vg mpmap] Reporting up to " << max_num_mappings << " mappings, but only computing up to " << max_map_attempts << " mappings." << endl;
     }
@@ -572,20 +606,21 @@ int main_mpmap(int argc, char** argv) {
     
     // adjust parameters that produce irrelevant extra work in single path mode
     
-    if (single_path_alignment_mode) {
+    if (single_path_alignment_mode && population_max_paths == 1) {
         // TODO: I don't like having these constants floating around in two different places, but it's not very risky, just a warning
         if (!snarls_name.empty()) {
-            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S)." << endl;
+            cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
         }
-        if (num_alt_alns != 4) {
-            cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S)." << endl;
-        }
+        
         if (snarl_cut_size != 5) {
-            cerr << "warning:[vg mpmap] Snarl cut limit (-u) is ignored in single path mode (-S)." << endl;
+            cerr << "warning:[vg mpmap] Snarl cut limit (-u) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
         }
-        snarls_name = "";
+        
+        if (num_alt_alns != 4) {
+            cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
+        }
         num_alt_alns = 1;
-        snarl_cut_size = 0;
+        
     }
     
     // ensure required parameters are provided
@@ -633,6 +668,17 @@ int main_mpmap(int argc, char** argv) {
     gcsa::LCPArray lcp_array;
     lcp_array.load(lcp_stream);
     
+    gbwt::GBWT* gbwt = nullptr;
+    if (!gbwt_name.empty()) {
+        ifstream gbwt_stream(gbwt_name);
+        if (!gbwt_stream) {
+            cerr << "error:[vg mpmap] Cannot open GBWT file " << gbwt_name << endl;
+            exit(1);
+        }
+        gbwt = new gbwt::GBWT();
+        gbwt->load(gbwt_stream);
+    }
+    
     SnarlManager* snarl_manager = nullptr;
     if (!snarls_name.empty()) {
         ifstream snarl_stream(snarls_name);
@@ -643,7 +689,7 @@ int main_mpmap(int argc, char** argv) {
         snarl_manager = new SnarlManager(snarl_stream);
     }
         
-    MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, snarl_manager);
+    MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, gbwt, snarl_manager);
     
     // set alignment parameters
     multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
@@ -663,6 +709,10 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
     multipath_mapper.use_approx_sub_mem_count = false;
+    multipath_mapper.prefilter_redundant_hits = prefilter_redundant_hits;
+    multipath_mapper.precollapse_order_length_hits = precollapse_order_length_hits;
+    multipath_mapper.max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
+    multipath_mapper.max_mapping_p_value = max_mapping_p_value;
     if (min_clustering_mem_length) {
         multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
     }
@@ -673,6 +723,8 @@ int main_mpmap(int argc, char** argv) {
     // set mapping quality parameters
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
+    multipath_mapper.use_population_mapqs = (gbwt != nullptr);
+    multipath_mapper.population_max_paths = population_max_paths;
     
     // set pruning and clustering parameters
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
@@ -833,6 +885,8 @@ int main_mpmap(int argc, char** argv) {
             if (!sample_name.empty()) {
                 output_buf.back().set_sample_name(sample_name);
             }
+            // arbitrarily decide that this is the "previous" fragment
+            output_buf.back().mutable_fragment_next()->set_name(mp_aln_pair.second.name());
             
             output_buf.emplace_back();
             optimal_alignment(mp_aln_pair.second, output_buf.back());
@@ -852,6 +906,8 @@ int main_mpmap(int argc, char** argv) {
             if (!sample_name.empty()) {
                 output_buf.back().set_sample_name(sample_name);
             }
+            // arbitrarily decide that this is the "next" fragment
+            output_buf.back().mutable_fragment_prev()->set_name(mp_aln_pair.first.name());
         }
         stream::write_buffered(cout, output_buf, buffer_size);
     };
@@ -997,7 +1053,13 @@ int main_mpmap(int argc, char** argv) {
     //cerr << "MEM cluster filtering efficiency: " << ((double) OrientedDistanceClusterer::PRUNE_COUNTER) / OrientedDistanceClusterer::CLUSTER_TOTAL << " (" << OrientedDistanceClusterer::PRUNE_COUNTER << "/" << OrientedDistanceClusterer::CLUSTER_TOTAL << ")" << endl;
     //cerr << "subgraph filtering efficiency: " << ((double) MultipathMapper::PRUNE_COUNTER) / MultipathMapper::SUBGRAPH_TOTAL << " (" << MultipathMapper::PRUNE_COUNTER << "/" << MultipathMapper::SUBGRAPH_TOTAL << ")" << endl;
     
-    delete snarl_manager;
+    if (snarl_manager != nullptr) {
+        delete snarl_manager;
+    }
+    
+    if (gbwt != nullptr) {
+        delete gbwt;
+    }
     
     return 0;
 }

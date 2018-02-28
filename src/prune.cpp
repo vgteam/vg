@@ -28,10 +28,9 @@ vector<edge_t> find_edges_to_prune(const HandleGraph& graph, size_t k, size_t ed
                         size_t next_count = 0;
                         graph.follow_edges(walk.curr, false, [&](const handle_t& next) { ++next_count; });
                         graph.follow_edges(walk.curr, false, [&](const handle_t& next) {
-                                auto e = make_pair(walk.curr, next);
                                 if (next_count > 1 && edge_max == walk.forks) { // our next step takes us over the max
                                     int tid = omp_get_thread_num();
-                                    edges_to_prune[tid].push_back(make_pair(walk.curr, next));
+                                    edges_to_prune[tid].push_back(graph.edge_handle(walk.curr, next));
                                 } else {
                                     walks.push_back(walk);
                                     auto& todo = walks.back();
@@ -66,10 +65,9 @@ vector<edge_t> find_edges_to_prune(const HandleGraph& graph, size_t k, size_t ed
                                 size_t next_count = 0;
                                 graph.follow_edges(walk.curr, false, [&](const handle_t& next) { ++next_count; });
                                 graph.follow_edges(walk.curr, false, [&](const handle_t& next) {
-                                        auto e = make_pair(walk.curr, next);
                                         if (next_count > 1 && edge_max == walk.forks) { // our next step takes us over the max
                                             int tid = omp_get_thread_num();
-                                            edges_to_prune[tid].push_back(e);
+                                            edges_to_prune[tid].push_back(graph.edge_handle(walk.curr, next));
                                         } else {
                                             walks.push_back(walk);
                                             auto& todo = walks.back();

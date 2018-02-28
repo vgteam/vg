@@ -210,6 +210,16 @@ public:
     void rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
                                              size_t max_rescue_hit_count);
     
+    /// identifies hits for order-length MEMs that are actually part of longer MEMs above the GCSA's limit and
+    /// merges them. for speed's sake, can have false negatives but no false positives
+    void precollapse_order_length_runs(string::const_iterator seq_begin,
+                                       vector<MaximalExactMatch>& mems);
+    
+    /// identifies hits for sub-MEMs that are redundant hits to the parent MEMs and removes them
+    /// from the hit lists. for speed's sake, can have false negatives but no false positives
+    void prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
+                                      vector<pair<int, vector<size_t>>>& sub_mem_containment_graph);
+    
     int sub_mem_thinning_burn_in = 0; // start counting at this many bases to verify sub-MEM count
     int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count
     int min_mem_length; // a mem must be >= this length
@@ -220,6 +230,9 @@ public:
     double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = true;
+    int max_sub_mem_recursion_depth = 1;
+    bool prefilter_redundant_hits = false;
+    bool precollapse_order_length_hits = false;
     
     // Remove any bonuses used by the aligners from the final reported scores.
     // Does NOT (yet) remove the haplotype consistency bonus.
@@ -238,6 +251,8 @@ protected:
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
     /// that contain it
     void find_sub_mems(const vector<MaximalExactMatch>& mems,
+                       int parent_layer_begin,
+                       int parent_layer_end,
                        int mem_idx,
                        string::const_iterator next_mem_end,
                        int min_mem_length,
@@ -247,8 +262,11 @@ protected:
     /// min_mem_length as a pruning tool instead of the LCP index. It can be expected to be faster when both
     /// the min_mem_length reasonably large relative to the reseed_length (e.g. 1/2 of SMEM size or similar).
     void find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
+                            int parent_layer_begin,
+                            int parent_layer_end,
                             int mem_idx,
-                            string::const_iterator next_mem_end,
+                            string::const_iterator leftmost_guaranteed_disjoint_bound,
+                            string::const_iterator leftmost_seeding_bound,
                             int min_sub_mem_length,
                             vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
     
@@ -556,7 +574,7 @@ public:
     // lossily project an alignment into a particular path space of a graph
     // the resulting alignment is equivalent to a SAM record against the chosen path
     Alignment surject_alignment(const Alignment& source,
-                                set<string>& path_names,
+                                const set<string>& path_names,
                                 string& path_name,
                                 int64_t& path_pos,
                                 bool& path_reverse);

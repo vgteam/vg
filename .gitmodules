@@ -76,3 +76,6 @@
 [submodule "deps/elfutils"]
 	path = deps/elfutils
 	url = git://sourceware.org/git/elfutils.git
+[submodule "deps/structures"]
+	path = deps/structures
+	url = https://github.com/vgteam/structures.git

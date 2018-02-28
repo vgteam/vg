@@ -18,7 +18,7 @@ void help_map(char** argv) {
          << "    -d, --base-name BASE    use BASE.xg and BASE.gcsa as the input index pair" << endl
          << "    -x, --xg-name FILE      use this xg index (defaults to <graph>.vg.xg)" << endl
          << "    -g, --gcsa-name FILE    use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
-         << "    -1, --gbwt-name         use this GBWT haplotype index (defaults to <graph>"<<gbwt::GBWT::EXTENSION << ")" << endl
+         << "    -1, --gbwt-name FILE    use this GBWT haplotype index (defaults to <graph>"<<gbwt::GBWT::EXTENSION << ")" << endl
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
@@ -531,7 +531,7 @@ int main_map(int argc, char** argv) {
     if (!db_name.empty()) {
         xg_name = db_name + ".xg";
         gcsa_name = db_name + gcsa::GCSA::EXTENSION;
-        gbwt_name = file_name + gbwt::GBWT::EXTENSION;
+        gbwt_name = db_name + gbwt::GBWT::EXTENSION;
     }
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
@@ -551,6 +551,9 @@ int main_map(int argc, char** argv) {
 
     if(xg_stream) {
         // We have an xg index!
+        
+        // TODO: tell when the user asked for an XG vs. when we guessed one,
+        // and error when the user asked for one and we can't find it.
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }

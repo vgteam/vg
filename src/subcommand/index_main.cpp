@@ -44,6 +44,7 @@ void help_index(char** argv) {
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
          << "    -i, --dbg-in FILE      optionally use deBruijn graph encoded in FILE rather than an input VG (multiple allowed" << endl
+         << "    -f, --mapping FILE     use this node mapping in GCSA2 construction" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
          << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
@@ -123,6 +124,7 @@ int main_index(int argc, char** argv) {
     string gcsa_name;
     string gbwt_name;
     string xg_name;
+    string mapping_name; // Node mapping used in GCSA2 construction.
     // Where should we import haplotype phasing paths from, if anywhere?
     string vcf_name;
     // This maps from graph path name (FASTA name) to VCF contig name
@@ -191,6 +193,7 @@ int main_index(int argc, char** argv) {
             {"store-threads", no_argument, 0, 'T'},
             {"node-alignments", no_argument, 0, 'N'},
             {"dbg-in", required_argument, 0, 'i'},
+            {"mapping", required_argument, 0, 'f'},
             {"discard-overlaps", no_argument, 0, 'o'},
             {"batch-size", required_argument, 0, 'B'},
             {"range", required_argument, 0, 'R'},
@@ -202,7 +205,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNoB:R:E:G:H:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:f:TNoB:R:E:G:H:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -345,6 +348,9 @@ int main_index(int argc, char** argv) {
             break;
         case 'i':
             dbg_names.push_back(optarg);
+            break;
+        case 'f':
+            mapping_name = optarg;
             break;
         case 'F':
             forward_only = true;
@@ -965,10 +971,8 @@ int main_index(int argc, char** argv) {
                     // Message needs to last as long as the bar itself.
                     string progress_message = "contig " + vcf_contig_name + ", samples " + std::to_string(batch_start) + " to " + std::to_string(batch_limit - 1);
                     if (show_progress) {
-                        cerr << progress_message << endl;
-                        // Disable the progress bar until the console issue is solved.
-/*                        progress = new ProgressBar(path_length, progress_message.c_str());
-                        progress->Progressed(0);*/
+                        progress = new ProgressBar(path_length, progress_message.c_str());
+                        progress->Progressed(0);
                     }
 
                     // Allocate a place to store actual variants
@@ -1116,7 +1120,7 @@ int main_index(int argc, char** argv) {
             tmpfiles = dbg_names;
         }
         // Make the index with the kmers
-        gcsa::InputGraph input_graph(tmpfiles, true);
+        gcsa::InputGraph input_graph(tmpfiles, true, gcsa::Alphabet(), mapping_name);
         gcsa::ConstructionParameters params;
         params.setSteps(doubling_steps);
         params.setLimit(size_limit);

@@ -395,6 +395,14 @@ Mapping XGPath::mapping(size_t offset) const {
     return m;
 }
 
+id_t XGPath::node(size_t offset) const {
+    return ids[offset];
+}
+
+bool XGPath::is_reverse(size_t offset) const {
+    return directions[offset];
+}
+
 size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string name) {
 
     sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
