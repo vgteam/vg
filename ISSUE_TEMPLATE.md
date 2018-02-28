@@ -6,5 +6,5 @@ Please describe:
 4. What data and command line to use to make the problem recur, if applicable
 
 ```
-Format code blocks or terminal copy-pastes like this, between tripple backticks.
+Format code blocks or terminal copy-pastes like this, between triple backticks.
 ```
