@@ -111,9 +111,9 @@ public:
                bool is_sorted_dag);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 7;
+    const static uint32_t MAX_INPUT_VERSION = 8;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 7;
+    const static uint32_t OUTPUT_VERSION = 8;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -799,9 +799,6 @@ public:
     XGPath& operator=(const XGPath& other) = delete;
     XGPath& operator=(XGPath&& other) = delete;
     
-    rrr_vector<> nodes;
-    rrr_vector<>::rank_1_type nodes_rank;
-    rrr_vector<>::select_1_type nodes_select;
     wt_gmr<> ids;
     sd_vector<> directions; // forward or backward through nodes
     int_vector<> positions;

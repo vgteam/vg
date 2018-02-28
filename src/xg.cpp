@@ -159,11 +159,7 @@ void XG::load(istream& in) {
         ////////////////////////////////////////////////////////////////////////
         switch (file_version) {
         
-        case 5: // Fall through
-        case 6:
-            cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. For better performance over repeated loads, consider recreating this XG with 'vg index' or upgrading it with 'vg xg'." << endl;
-            // Fall through
-        case 7:
+        case 8:
             {
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
@@ -264,9 +260,6 @@ void XG::load(istream& in) {
 }
 
 void XGPath::load(istream& in) {
-    nodes.load(in);
-    nodes_rank.load(in, &nodes);
-    nodes_select.load(in, &nodes);
     ids.load(in);
     directions.load(in);
     ranks.load(in);
@@ -281,9 +274,6 @@ size_t XGPath::serialize(std::ostream& out,
                          std::string name) const {
     sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
     size_t written = 0;
-    written += nodes.serialize(out, child, "path_membership_" + name);
-    written += nodes_rank.serialize(out, child, "path_membership_rank_" + name);
-    written += nodes_select.serialize(out, child, "path_membership_select_" + name);
     written += ids.serialize(out, child, "path_node_ids_" + name);
     written += directions.serialize(out, child, "path_node_directions_" + name);
     written += ranks.serialize(out, child, "path_mapping_ranks_" + name);
@@ -303,9 +293,6 @@ XGPath::XGPath(const string& path_name,
                XG& graph,
                size_t* unique_member_count_out) {
 
-    // nodes in the path
-    bit_vector nodes_bv;
-    util::assign(nodes_bv, bit_vector(node_count));
     // node ids, the literal path
     int_vector<> ids_iv;
     util::assign(ids_iv, int_vector<>(path.size()));
@@ -339,9 +326,6 @@ XGPath::XGPath(const string& path_name,
         auto& trav = path[i];
         auto node_id = trav_id(trav);
         bool is_reverse = trav_is_rev(trav);
-        //cerr << node_id << endl;
-        // record node
-        nodes_bv[graph.id_to_rank(node_id)-1] = 1;
         // record direction of passage through node
         directions_bv[i] = is_reverse;
         // and the external rank of the mapping
@@ -361,10 +345,6 @@ XGPath::XGPath(const string& path_name,
         // We don't need it but our caller might
         *unique_member_count_out = uniq_nodes.size();
     }
-    // compress path membership vectors
-    util::assign(nodes, nodes_bv);
-    util::assign(nodes_rank, rrr_vector<>::rank_1_type(&nodes));
-    util::assign(nodes_select, rrr_vector<>::select_1_type(&nodes));
     // and traversal information
     util::assign(directions, sd_vector<>(directions_bv));
     // handle entity lookup structure (wavelet tree)
@@ -874,9 +854,10 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         np_bv[np_off] = 1;
         np_iv[np_off] = 0; // null so we can detect entities with no path membership
         ++np_off;
-        for (size_t j = 0; j < paths.size(); ++j) {
-            if (paths[j]->nodes[i] == 1) {
-                np_iv[np_off++] = j+1;
+        id_t id = rank_to_id(i+1);
+        for (size_t j = 1; j <= paths.size(); ++j) {
+            if (node_occs_in_path(id, j) > 0) {
+                np_iv[np_off++] = j;
             }
         }
     }
@@ -951,19 +932,10 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         util::assign(ts_civ, ts_iv);
     }
     
-
 #ifdef DEBUG_CONSTRUCTION
     cerr << "|g_iv| = " << size_in_mega_bytes(g_iv) << endl;
     cerr << "|g_bv| = " << size_in_mega_bytes(g_bv) << endl;
     cerr << "|s_iv| = " << size_in_mega_bytes(s_iv) << endl;
-    cerr << "|f_iv| = " << size_in_mega_bytes(f_iv) << endl;
-    cerr << "|t_iv| = " << size_in_mega_bytes(t_iv) << endl;
-
-    cerr << "|f_from_start_cbv| = " << size_in_mega_bytes(f_from_start_cbv) << endl;
-    cerr << "|t_to_end_cbv| = " << size_in_mega_bytes(t_to_end_cbv) << endl;
-
-    cerr << "|f_bv| = " << size_in_mega_bytes(f_bv) << endl;
-    cerr << "|t_bv| = " << size_in_mega_bytes(t_bv) << endl;
 
     cerr << "|i_iv| = " << size_in_mega_bytes(i_iv) << endl;
     //cerr << "|i_wt| = " << size_in_mega_bytes(i_wt) << endl;
@@ -995,12 +967,9 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     
     cerr << "total size [MB] = " << (
         size_in_mega_bytes(s_iv)
-        + size_in_mega_bytes(f_iv)
-        + size_in_mega_bytes(t_iv)
         //+ size_in_mega_bytes(s_bv)
-        + size_in_mega_bytes(f_bv)
-        + size_in_mega_bytes(t_bv)
         + size_in_mega_bytes(i_iv)
+        + size_in_mega_bytes(g_iv)
         //+ size_in_mega_bytes(i_wt)
         + size_in_mega_bytes(s_bv)
         + size_in_mega_bytes(h_civ)
@@ -1056,7 +1025,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
             XGPath* path = paths[i];
             
             cerr << path_name(i + 1) << endl;
-            cerr << path->nodes << endl;
             // manually print IDs because simplified wavelet tree doesn't support ostream for some reason
             for (size_t j = 0; j + 1 < path->ids.size(); j++) {
                 cerr << path->ids[j] << " ";
@@ -2117,7 +2085,7 @@ string XG::path_name(size_t rank) const {
 }
 
 bool XG::path_contains_node(const string& name, int64_t id) const {
-    return 1 == paths[path_rank(name)-1]->nodes[id_to_rank(id)-1];
+    return node_occs_in_path(id, name) > 0;
 }
 
 vector<size_t> XG::paths_of_node(int64_t id) const {
