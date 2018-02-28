@@ -2686,7 +2686,7 @@ void VG::from_gfa(istream& in, bool showp) {
     gg.parse_gfa_file(in);
 
     map<string, sequence_elem, custom_key> name_to_seq = gg.get_name_to_seq();
-    map<std::string, vector<link_elem> > seq_to_link = gg.get_seq_to_link();
+    map<std::string, vector<edge_elem> > seq_to_edges = gg.get_seq_to_edges();
     map<string, sequence_elem>::iterator it;
     id_t curr_id = 1;
     map<string, id_t> id_names;
@@ -2714,7 +2714,7 @@ void VG::from_gfa(istream& in, bool showp) {
         // Now some edges. Since they're placed in this map
         // by their from_node, it's no big deal to just iterate
         // over them.
-        for (link_elem l : seq_to_link[(it->second).name]){
+        for (edge_elem l : seq_to_edges[(it->second).name]){
             auto sink_id = get_add_id(l.sink_name);
             Edge e;
             e.set_from(source_id);
@@ -2722,7 +2722,7 @@ void VG::from_gfa(istream& in, bool showp) {
             e.set_from_start(!l.source_orientation_forward);
             e.set_to_end(!l.sink_orientation_forward);
             // get the cigar
-            auto cigar_elems = vcflib::splitCigar(l.cigar);
+            auto cigar_elems = vcflib::splitCigar(l.alignment);
             if (cigar_elems.size() == 1
                 && cigar_elems.front().first > 0
                 && cigar_elems.front().second == "M") {
@@ -6229,13 +6229,21 @@ void VG::to_gfa(ostream& out) {
 
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        link_elem l;
-        l.source_name = to_string(e->from());
-        l.sink_name = to_string(e->to());
-        l.source_orientation_forward = ! e->from_start();
-        l.sink_orientation_forward =  ! e->to_end();
-        l.cigar = std::to_string(e->overlap()) + "M";
-        gg.add_link(l.source_name, l);
+        edge_elem ee;
+        ee.type = 1;
+        ee.source_name = to_string(e->from());
+        ee.sink_name = to_string(e->to());
+        ee.source_orientation_forward = ! e->from_start();
+        ee.sink_orientation_forward =  ! e->to_end();
+        ee.alignment = std::to_string(e->overlap()) + "M";
+        gg.add_edge(ee.source_name, ee);
+        //link_elem l;
+        //l.source_name = to_string(e->from());
+        //l.sink_name = to_string(e->to());
+        //l.source_orientation_forward = ! e->from_start();
+        //l.sink_orientation_forward =  ! e->to_end();
+        //l.cigar = std::to_string(e->overlap()) + "M";
+        //gg.add_link(l.source_name, l);
     }
     out << gg;
 }
