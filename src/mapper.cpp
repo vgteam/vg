@@ -3978,14 +3978,15 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         malns.push_back(bands[i]);
         for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
             Alignment& aln = *a;
-            aln = simplify(aln);
+            int mapqual = aln.mapping_quality();
+            //aln = simplify(aln);
             bool above_threshold = false;
             if (aln.score() > 0) {
                 // strip overlaps and re-score the part of the alignment we keep
                 aln = strip_from_start(aln, to_strip[i].first);
                 aln = strip_from_end(aln, to_strip[i].second);
                 aln.set_identity(identity(aln.path()));
-                above_threshold = aln.identity() >= min_identity && aln.mapping_quality() >= min_banded_mq;
+                above_threshold = aln.identity() >= min_identity && mapqual >= min_banded_mq;
             }
             if (!above_threshold) {
                 // treat as unmapped

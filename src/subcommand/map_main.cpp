@@ -38,6 +38,8 @@ void help_map(char** argv) {
          << "    -m, --acyclic-graph     improves runtime when the graph is acyclic" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [{-w}]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [1]" << endl
+         << "    -Z, --band-min-mq INT   treat bands with less than this MQ as unaligned [0]" << endl
          << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [5000:0:0:0:1]" << endl
          << "                            max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
          << "    -U, --fixed-frag-model  don't learn the pair fragment model online, use {-I} without update" << endl
@@ -70,12 +72,11 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    --surject-to TYPE       surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
-         << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [512]" << endl
+         << "    --buffer-size INT       buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT produce up to INT alignments for each read [1]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [1]" << endl
          << "    -Q, --mq-max INT        cap the mapping quality at INT [60]" << endl
          << "    -D, --debug             print debugging information about alignment to stderr" << endl;
 
@@ -158,6 +159,7 @@ int main_map(int argc, char** argv) {
     bool acyclic_graph = false;
     bool refpos_table = false;
     bool patch_alignments = true;
+    int min_banded_mq = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -189,6 +191,7 @@ int main_map(int argc, char** argv) {
                 {"band-width", required_argument, 0, 'w'},
                 {"band-multi", required_argument, 0, 'B'},
                 {"band-jump", required_argument, 0, 'J'},
+                {"band-min-mq", required_argument, 0, 'Z'},
                 {"min-ident", required_argument, 0, 'P'},
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem", required_argument, 0, 'k'},
@@ -197,7 +200,7 @@ int main_map(int argc, char** argv) {
                 {"min-chain", required_argument, 0, 'W'},
                 {"fast-reseed", no_argument, 0, '6'},
                 {"max-target-x", required_argument, 0, 'H'},
-                {"buffer-size", required_argument, 0, 'Z'},
+                {"buffer-size", required_argument, 0, '9'},
                 {"match", required_argument, 0, 'q'},
                 {"mismatch", required_argument, 0, 'z'},
                 {"gap-open", required_argument, 0, 'o'},
@@ -230,7 +233,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:824:3:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:824:3:9:",
                          long_options, &option_index);
 
 
@@ -378,6 +381,10 @@ int main_map(int argc, char** argv) {
             max_band_jump = atoi(optarg);
             break;
 
+        case 'Z':
+            min_banded_mq = atoi(optarg);
+            break;
+
         case 'P':
             min_score = atof(optarg);
             break;
@@ -402,7 +409,7 @@ int main_map(int argc, char** argv) {
             max_target_factor = atoi(optarg);
             break;
 
-        case 'Z':
+        case '9':
             buffer_size = atoi(optarg);
             break;
 
@@ -872,6 +879,7 @@ int main_map(int argc, char** argv) {
         m->max_multimaps = max_multimaps;
         m->min_multimaps = max(min_multimaps, max_multimaps);
         m->band_multimaps = band_multimaps;
+        m->min_banded_mq = min_banded_mq;
         m->maybe_mq_threshold = maybe_mq_threshold;
         m->debug = debug;
         m->min_identity = min_score;
