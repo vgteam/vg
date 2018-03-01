@@ -27,40 +27,37 @@ using namespace vg::subcommand;
 void help_index(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
          << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
-         << "already be in a joint ID space, and the graph containing the highest-ID node " << endl
-         << "must come first." << endl
+         << "already be in a joint ID space." << endl
+         << "general options:" << endl
+         << "    -t, --threads N        number of threads to use" << endl
+         << "    -p, --progress         show progress" << endl
          << "xg options:" << endl
-         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
-         << "                           the graph(s) (effectively replaces rocksdb)" << endl
-         << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
-         << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
-         << "    -T, --store-threads    use gPBWT to store the embedded paths (in addition to samples) as threads" << endl
+         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s)" << endl
+         << "gbwt options:" << endl
+         << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
+         << "    -T, --store-threads    generate threads from the embedded paths" << endl
+         << "    -G, --gbwt-name FILE   store the threads as GBWT in FILE" << endl
+         << "    -H, --write-haps FILE  store the threads as sequences in FILE" << endl
          << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
+         << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -E, --exclude SAMPLE   exclude any samples with the given name from haplotype indexing" << endl
-         << "    -G, --gbwt-name FILE   write the paths generated from the VCF file as GBWT to FILE (don't write gPBWT)" << endl
-         << "    -H, --write-haps FILE  write the paths generated from the VCF file in binary to FILE (don't write gPBWT)" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
-         << "    -i, --dbg-in FILE      optionally use deBruijn graph encoded in FILE rather than an input VG (multiple allowed" << endl
+         << "    -i, --dbg-in FILE      use kmers from FILE instead of input VG (may repeat)" << endl
          << "    -f, --mapping FILE     use this node mapping in GCSA2 construction" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph (default " << gcsa::Key::MAX_LENGTH << ")" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction (default " << gcsa::ConstructionParameters::DOUBLING_STEPS << ")" << endl
-         << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
-         << "    -O, --path-only        only index the kmers in paths embedded in the graph" << endl
-         << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
-         << "    -d, --db-name PATH     create rocksdb in PATH directory (default: <graph>.index/)" << endl
-         << "                           or GCSA2 index in PATH file (default: <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
-         << "                           (this is required if you are using multiple graphs files)" << endl
-         << "    -t, --threads N        number of threads to use" << endl
-         << "    -p, --progress         show progress" << endl
+         << "    -Z, --size-limit N     limit the size of temporary graphs to N gigabytes" << endl
+         << "    -b, --tmp-db-base DIR  store temporary graphs in directory DIR" << endl    // FIXME does not affect kmers
          << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
-         << "rocksdb options (ignored with -g):" << endl
-         << "    -d, --db-name  <X>     store the database in <X>" << endl
+         << "rocksdb options:" << endl
+         << "    -d, --db-name  <X>     store the RocksDB index in <X>" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
          << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
          << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
-         << "    -N, --node-alignments  input is (ideally, sorted) .gam format, cross reference nodes by alignment traversals" << endl
+         << "    -N, --node-alignments  input is (ideally, sorted) .gam format," << endl
+         << "                           cross reference nodes by alignment traversals" << endl
          << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
          << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
          << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
@@ -69,9 +66,9 @@ void help_index(char** argv) {
          << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
          << "    -L, --path-layout      describes the path layout of the graph" << endl
          << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
-         << "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
-         << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
+         << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants," << endl
+         << "                           call all but the first one as ref" << endl;
 }
 
 // Convert gbwt::node_type to ThreadMapping.
@@ -119,24 +116,40 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    string rocksdb_name;
-    string gcsa_name;
-    string gbwt_name;
-    string xg_name;
-    string mapping_name; // Node mapping used in GCSA2 construction.
-    // Where should we import haplotype phasing paths from, if anywhere?
-    string vcf_name;
-    // This maps from graph path name (FASTA name) to VCF contig name
-    map<string,string> path_to_vcf;
+    // Which indexes to build.
+    bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt, build_gcsa = false, build_rocksdb = false;
+
+    // Files we should read.
+    string vcf_name, mapping_name;
     vector<string> dbg_names;
-    int kmer_size = gcsa::Key::MAX_LENGTH;
-    bool path_only = false;
+
+    // Files we should write.
+    string xg_name, gbwt_name, threads_name, gcsa_name, rocksdb_name;
+
+    // General
+    bool show_progress = false;
+
+    // GBWT
+    bool index_haplotypes = false, index_paths = false;
+    size_t samples_in_batch = 200; // Samples per batch.
+    std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
+    map<string, string> path_to_vcf; // Path name conversion from --rename.
+    unordered_set<string> excluded_samples; // Excluded sample names from --exclude.
+
+    // GCSA
+    gcsa::size_type kmer_size = gcsa::Key::MAX_LENGTH;
+    gcsa::size_type doubling_steps = gcsa::ConstructionParameters::DOUBLING_STEPS;
+    gcsa::size_type size_limit = 200; // gigabytes
+    bool delete_kmer_files = true;
+    string temp_directory;
+    bool verify_gcsa = false;
+
+    // RocksDB
     int edge_max = 0;
     int kmer_stride = 1;
     int prune_kb = -1;
     bool dump_index = false;
     bool describe_index = false;
-    bool show_progress = false;
     bool set_kmer_size = false;
     bool path_layout = false;
     bool store_alignments = false;
@@ -145,27 +158,42 @@ int main_index(int argc, char** argv) {
     bool allow_negs = false;
     bool compact = false;
     bool dump_alignments = false;
-    int doubling_steps = gcsa::ConstructionParameters::DOUBLING_STEPS;
-    bool verify_index = false;
-    bool forward_only = false;
-    size_t size_limit = 200; // in gigabytes
-    size_t samples_in_batch = 200; // Samples per batch in GBWT construction.
-    std::pair<size_t, size_t> sample_range(0, ~(size_t)0);  // The semiopen range of samples to process.
-    unordered_set<string> excluded_samples; // Sample names to exclude from haplotype indexing
-    bool store_threads = false; // use gPBWT to store paths
     bool discard_overlaps = false;
-    string binary_haplotype_output;
-    string tmp_db_base;
 
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
         {
-            //{"verbose", no_argument,       &verbose_flag, 1},
-            {"db-name", required_argument, 0, 'd'},
+            // General
+            {"threads", required_argument, 0, 't'},
+            {"progress",  no_argument, 0, 'p'},
+
+            // XG
+            {"xg-name", required_argument, 0, 'x'},
+
+            // GBWT
+            {"vcf-phasing", required_argument, 0, 'v'},
+            {"store-threads", no_argument, 0, 'T'},
+            {"gbwt-name", required_argument, 0, 'G'},
+            {"write-haps", required_argument, 0, 'H'},
+            {"batch-size", required_argument, 0, 'B'},
+            {"range", required_argument, 0, 'R'},
+            {"rename", required_argument, 0, 'r'},
+            {"exclude", required_argument, 0, 'E'},
+
+            // GCSA
+            {"gcsa-name", required_argument, 0, 'g'},
+            {"dbg-in", required_argument, 0, 'i'},
+            {"mapping", required_argument, 0, 'f'},
             {"kmer-size", required_argument, 0, 'k'},
             {"doubling-steps", required_argument, 0, 'X'},
+            {"size-limit", required_argument, 0, 'Z'},
+            {"tmp-db-base", required_argument, 0, 'b'},
+            {"verify-index", no_argument, 0, 'V'},
+
+            // RocksDB
+            {"db-name", required_argument, 0, 'd'},
             {"edge-max", required_argument, 0, 'e'},
             {"kmer-stride", required_argument, 0, 'j'},
             {"store-graph", no_argument, 0, 's'},
@@ -175,36 +203,17 @@ int main_index(int argc, char** argv) {
             {"dump", no_argument, 0, 'D'},
             {"metadata", no_argument, 0, 'M'},
             {"set-kmer", no_argument, 0, 'S'},
-            {"threads", required_argument, 0, 't'},
-            {"progress",  no_argument, 0, 'p'},
             {"prune",  required_argument, 0, 'P'},
             {"path-layout", no_argument, 0, 'L'},
             {"compact", no_argument, 0, 'C'},
             {"allow-negs", no_argument, 0, 'n'},
-            {"gcsa-name", required_argument, 0, 'g'},
-            {"xg-name", required_argument, 0, 'x'},
-            {"vcf-phasing", required_argument, 0, 'v'},
-            {"rename", required_argument, 0, 'r'},
-            {"verify-index", no_argument, 0, 'V'},
-            {"forward-only", no_argument, 0, 'F'},
-            {"size-limit", required_argument, 0, 'Z'},
-            {"path-only", no_argument, 0, 'O'},
-            {"store-threads", no_argument, 0, 'T'},
             {"node-alignments", no_argument, 0, 'N'},
-            {"dbg-in", required_argument, 0, 'i'},
-            {"mapping", required_argument, 0, 'f'},
             {"discard-overlaps", no_argument, 0, 'o'},
-            {"batch-size", required_argument, 0, 'B'},
-            {"range", required_argument, 0, 'R'},
-            {"exclude", required_argument, 0, 'E'},
-            {"gbwt-name", required_argument, 0, 'G'},
-            {"write-haps", required_argument, 0, 'H'},
-            {"tmp-db-base", required_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:f:TNoB:R:E:G:H:",
+        c = getopt_long (argc, argv, "t:px:v:TG:H:B:R:r:E:g:i:f:k:X:Z:b:Vd:j:DshMe:SP:LmaCnANo",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -213,55 +222,61 @@ int main_index(int argc, char** argv) {
 
         switch (c)
         {
-        case 'd':
-            rocksdb_name = optarg;
+        // General
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            break;
+        case 'p':
+            show_progress = true;
             break;
 
+        // XG
         case 'x':
+            build_xg = true;
             xg_name = optarg;
             break;
 
+        // GBWT
         case 'v':
+            index_haplotypes = true;
+            build_xg = true;
             vcf_name = optarg;
             break;
-
+        case 'T':
+            index_paths = true;
+            build_xg = true;
+            break;
+        case 'G':
+            build_gbwt = true;
+            gbwt_name = optarg;
+            break;
+        case 'H':
+            write_threads = true;
+            threads_name = optarg;
+            break;
         case 'B':
             samples_in_batch = std::stoul(optarg);
             break;
-
         case 'R':
             {
                 // Parse first..last
                 string temp(optarg);
                 size_t found = temp.find("..");
                 if(found == string::npos || found == 0 || found + 2 == temp.size()) {
-                    cerr << "error:[vg construct] could not parse range " << temp << endl;
+                    cerr << "error: [vg index] could not parse range " << temp << endl;
                     exit(1);
                 }
                 sample_range.first = std::stoul(temp.substr(0, found));
                 sample_range.second = std::stoul(temp.substr(found + 2)) + 1;
             }
             break;
-            
-        case 'E':
-            excluded_samples.insert(optarg);
-            break;
-
-        case 'G':
-            gbwt_name = optarg;
-            break;
-
-        case 'H':
-            binary_haplotype_output = optarg;
-            break;
-            
         case 'r':
             {
                 // Parse the rename old=new
                 string key_value(optarg);
                 auto found = key_value.find('=');
                 if (found == string::npos || found == 0 || found + 1 == key_value.size()) {
-                    cerr << "error:[vg construct] could not parse rename " << key_value << endl;
+                    cerr << "error: [vg index] could not parse rename " << key_value << endl;
                     exit(1);
                 }
                 // Parse out the two parts
@@ -270,111 +285,83 @@ int main_index(int argc, char** argv) {
                 // Add the name mapping
                 path_to_vcf[graph_contig] = vcf_contig;
             }
+            break;            
+        case 'E':
+            excluded_samples.insert(optarg);
             break;
 
-        case 'P':
-            prune_kb = atoi(optarg);
-            break;
-
-        case 'k':
-            kmer_size = atoi(optarg);
-            break;
-
-
-        case 'O':
-            path_only = true;
-            break;
-
-        case 'e':
-            edge_max = atoi(optarg);
-            break;
-
-
-        case 'j':
-            kmer_stride = atoi(optarg);
-            break;
-
-        case 'p':
-            show_progress = true;
-            break;
-
-        case 'D':
-            dump_index = true;
-            break;
-
-        case 'M':
-            describe_index = true;
-            break;
-
-        case 'L':
-            path_layout = true;
-            break;
-
-        case 'S':
-            set_kmer_size = true;
-            break;
-
-        case 'a':
-            store_alignments = true;
-            break;
-
-        case 'A':
-            dump_alignments = true;
-            break;
-
-        case 'm':
-            store_mappings = true;
-            break;
-
-        case 'n':
-            allow_negs = true;
-            break;
-
-        case 'C':
-            compact = true;
-            break;
-
-        case 't':
-            omp_set_num_threads(atoi(optarg));
-            break;
-
+        // GCSA
         case 'g':
+            build_gcsa = true;
             gcsa_name = optarg;
             break;
-
-        case 'V':
-            verify_index = true;
-            break;
         case 'i':
+            delete_kmer_files = false;
             dbg_names.push_back(optarg);
             break;
         case 'f':
             mapping_name = optarg;
             break;
-        case 'F':
-            forward_only = true;
+        case 'k':
+            kmer_size = std::stoul(optarg);
             break;
-
         case 'X':
-            doubling_steps = atoi(optarg);
+            doubling_steps = std::stoul(optarg);
             break;
-
         case 'Z':
-            size_limit = atoi(optarg);
+            size_limit = std::stoul(optarg);
             break;
-
         case 'b':
-            tmp_db_base = optarg;
+            temp_directory = optarg;
+            break;
+        case 'V':
+            verify_gcsa = true;
             break;
 
-        case 'T':
-            store_threads = true;
+        // RocksDB
+        case 'd':
+            build_rocksdb = true;
+            rocksdb_name = optarg;
             break;
-
+        case 'P':
+            prune_kb = atoi(optarg);
+            break;
+        case 'e':
+            edge_max = atoi(optarg);
+            break;
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
+        case 'D':
+            dump_index = true;
+            break;
+        case 'M':
+            describe_index = true;
+            break;
+        case 'L':
+            path_layout = true;
+            break;
+        case 'S':
+            set_kmer_size = true;
+            break;
+        case 'a':
+            store_alignments = true;
+            break;
+        case 'A':
+            dump_alignments = true;
+            break;
+        case 'm':
+            store_mappings = true;
+            break;
+        case 'n':
+            allow_negs = true;
+            break;
+        case 'C':
+            compact = true;
+            break;
         case 'o':
             discard_overlaps = true;
             break;
-
         case 'N':
             store_node_alignments = true;
             break;
@@ -384,7 +371,6 @@ int main_index(int argc, char** argv) {
             help_index(argv);
             exit(1);
             break;
-
         default:
             abort ();
         }
@@ -402,154 +388,155 @@ int main_index(int argc, char** argv) {
     }
     
     if (kmer_size <= 0) {
-        cerr << "error:[vg index] kmer size must be positive" << endl;
+        cerr << "error: [vg index] kmer size must be positive" << endl;
         return 1;
     }
     
-    if (kmer_size > gcsa::Key::MAX_LENGTH && !gcsa_name.empty()) {
-        cerr << "error:[vg index] GCSA2 cannot index with kmer size greater than " << gcsa::Key::MAX_LENGTH << endl;
+    if (build_gcsa && kmer_size > gcsa::Key::MAX_LENGTH) {
+        cerr << "error: [vg index] GCSA2 cannot index with kmer size greater than " << gcsa::Key::MAX_LENGTH << endl;
         return 1;
     }
 
     if (kmer_stride <= 0) {
         // kmer strides of 0 (or negative) are silly.
-        cerr << "error:[vg index] kmer stride must be positive and nonzero" << endl;
+        cerr << "error: [vg index] kmer stride must be positive and nonzero" << endl;
         return 1;
     }
 
-    if (!vcf_name.empty() && samples_in_batch < 1) {
-        cerr << "error:[vg index] Batch size must be positive and nonzero" << endl;
+    if (index_haplotypes && samples_in_batch < 1) {
+        cerr << "error: [vg index] Batch size must be positive and nonzero" << endl;
         return 1;
     }
 
-    if (!vcf_name.empty() && !gbwt_name.empty() && !binary_haplotype_output.empty()) {
-        cerr << "error:[vg index] Cannot use both --gbwt-name and --write-haps" << endl;
-        return 1;
-    }
-
-    if (!gcsa_name.empty() && rocksdb_name.empty()) {
-        // We need to make a gcsa index and not a RocksDB index.
-        
-        if (edge_max != 0) {
-            // I have been passing this option to vg index -g for months
-            // thinking it worked. But it can't work. So we should tell the user
-            // they're wrong.
-            cerr << "error:[vg index] Cannot limit edge crossing (-e) when generating GCSA index (-g)."
-                << " Use vg mod -p to prune the graph instead." << endl;
-            exit(1);
-        }
-        
+    if (build_gcsa && edge_max != 0) {
+        // I have been passing this option to vg index -g for months
+        // thinking it worked. But it can't work. So we should tell the user
+        // they're wrong.
+        cerr << "error: [vg index] Cannot limit edge crossing (-e) when generating GCSA index (-g)."
+             << " Use vg prune to prune the graph instead." << endl;
+        exit(1);
     }
     
     // An edge_max of 0 really just means an edge_max of one edge every base
     if (edge_max == 0) edge_max = kmer_size + 1;
 
-    if (!xg_name.empty()) {
-        // We need to build an xg index
+    // Build XG
+    xg::XG* xg_index = new xg::XG();
+    map<string, Path> alt_paths;
+    if (build_xg) {
+        if (file_names.empty()) {
+            // VGset or something segfaults when we feed it no graphs.
+            cerr << "error: [vg index] at least one graph is required to build an xg index" << endl;
+            return 1;
+        }
+        VGset graphs(file_names);
+        build_gpbwt = !build_gbwt & !write_threads;
+        graphs.to_xg(*xg_index, index_paths & build_gpbwt, Paths::is_alt, alt_paths);
+        if (show_progress) {
+            cerr << "Built base XG index" << endl;
+        }
+    }
 
-        // We'll fill this with the opened VCF file if we need one.
-        vcflib::VariantCallFile variant_file;
+    // Generate threads
+    if (index_haplotypes || index_paths) {
 
-        if (!vcf_name.empty()) {
-            // There's a VCF we should load haplotype info from
+        if (!build_gbwt && !write_threads && !build_gpbwt) {
+            cerr << "error: [vg index] no output format specified for the threads" << endl;
+            return 1;
+        }
 
+        // Apparently there is no efficient way of determining the max id.
+        size_t id_width = 64;
+        {
+            xg::id_t max_id = 0;
+            size_t max_rank = xg_index->max_node_rank();
+            for (size_t i = 1; i <= max_rank; i++) { max_id = std::max(max_id, xg_index->rank_to_id(i)); }
+            id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
+        }
+        if (show_progress) {
+            cerr << "Node id width: " << id_width << endl;
+        }
+
+        NodeLengthBuffer node_length(*xg_index);     // Buffer recent node lengths for faster access
+        vector<string> thread_names;                // Store thread names in insertion order.
+        vector<xg::XG::thread_t> all_phase_threads; // Store all threads if building gPBWT.
+        size_t haplotype_count = 0;
+
+        // Do we build GBWT?
+        gbwt::GBWTBuilder* gbwt_builder = 0;
+        if (build_gbwt) {
+            if (show_progress) { cerr << "Building GBWT index" << endl; }
+            gbwt::Verbosity::set(gbwt::Verbosity::SILENT);  // Make the construction thread silent.
+            gbwt_builder = new gbwt::GBWTBuilder(id_width);
+        }
+
+        // Do we write threads?
+        gbwt::text_buffer_type binary_file;
+        if (write_threads) {
+            if (show_progress) { cerr << "Writing the threads to " << threads_name << endl; }
+            binary_file = gbwt::text_buffer_type(threads_name, std::ios::out, gbwt::MEGABYTE, id_width);
+        }
+
+        // Store a thread and its name.
+        auto store_thread = [&](const std::vector<gbwt::node_type>& to_save, const std::string& thread_name) {
+            if (build_gbwt) {
+                gbwt_builder->insert(to_save, true); // Insert in both orientations.
+            }
+            if (write_threads) {
+                for (auto node : to_save) { binary_file.push_back(node); }
+                binary_file.push_back(gbwt::ENDMARKER);
+            }
+            if (build_gpbwt) {
+                xg::XG::thread_t temp;
+                temp.reserve(to_save.size());
+                for (auto node : to_save) { temp.push_back(gbwt_to_thread_mapping(node)); }
+                all_phase_threads.push_back(temp);
+            }
+            thread_names.push_back(thread_name);
+        };
+
+        // Convert paths to threads
+        if (index_paths & !build_gpbwt) {
+            // FIXME implement
+            haplotype_count++;
+        }
+
+        // Generate haplotypes
+        if (index_haplotypes) {
+            vcflib::VariantCallFile variant_file;
             variant_file.open(vcf_name);
             if (!variant_file.is_open()) {
-                cerr << "error:[vg index] could not open " << vcf_name << endl;
+                cerr << "error: [vg index] could not open " << vcf_name << endl;
                 return 1;
             } else if (show_progress) {
                 cerr << "Opened variant file " << vcf_name << endl;
             }
 
-        }
-
-        // We want to siphon off the "_alt_<variant>_<number>" paths from "vg
-        // construct -a" and not index them, and use them for creating haplotype
-        // threads.
-        // TODO: a better way to store path metadata
-        map<string, Path> alt_paths;
-
-        if (file_names.empty()) {
-            // VGset or something segfaults when we feed it no graphs.
-            cerr << "error:[vg index] at least one graph is required to build an xg index" << endl;
-            return 1;
-        }
-
-        // store the graphs
-        VGset graphs(file_names);
-        // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
-        xg::XG index;
-        graphs.to_xg(index, store_threads, Paths::is_alt, alt_paths);
-
-        if (show_progress) {
-            cerr << "Built base XG index" << endl;
-        }
-
-        // Build gPBWT / GBWT or output the threads in binary.
-        if (variant_file.is_open()) {
-
-            // Apparently there is no efficient way of determining the max id.
-            size_t id_width = 64;
-            {
-                xg::id_t max_id = 0;
-                size_t max_rank = index.max_node_rank();
-                for (size_t i = 1; i <= max_rank; i++) { max_id = std::max(max_id, index.rank_to_id(i)); }
-                id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
-            }
-            if (show_progress) {
-                cerr << "Node id width: " << id_width << endl;
-            }
-
-            // Do we build GBWT?
-            gbwt::GBWTBuilder* gbwt_builder = 0;
-            if (!gbwt_name.empty()) {
-                if (show_progress) { cerr << "Building GBWT index" << endl; }
-                gbwt::Verbosity::set(gbwt::Verbosity::SILENT);  // Make the construction thread silent.
-                gbwt_builder = new gbwt::GBWTBuilder(id_width);
-            }
-
-            // Do we output the threads in binary instead of building GBWT?
-            gbwt::text_buffer_type binary_file;
-            if (!binary_haplotype_output.empty()) {
-                if (show_progress) { cerr << "Writing the haplotypes to " << binary_haplotype_output << endl; }
-                binary_file = gbwt::text_buffer_type(binary_haplotype_output, std::ios::out, gbwt::MEGABYTE, id_width);
-            }
-
-            // We're going to collect all the phase threads as XG threads (which
-            // aren't huge like Protobuf Paths), and then insert them all into xg in
-            // a batch, for speed. This will take a lot of memory (although not as
-            // much as a real vg::Paths index or vector<Path> would)
-            vector<xg::XG::thread_t> all_phase_threads;
-
-            // Buffer recent node lengths for faster access.
-            NodeLengthBuffer node_length(index);
-
             // How many samples are there?
             size_t num_samples = variant_file.sampleNames.size();
             if (num_samples == 0) {
-                cerr << "error:[vg index] The variant file does not contain phasings" << endl;
+                cerr << "error: [vg index] The variant file does not contain phasings" << endl;
                 return 1;
             }
 
             // Remember the sample names
             const vector<string>& sample_names = variant_file.sampleNames;
-            // We'll want to keep track of names too
-            vector<string> thread_names;
 
             // Determine the range of samples.
             sample_range.second = std::min(sample_range.second, num_samples);
+            haplotype_count += 2 * (sample_range.second - sample_range.first);  // Assuming a diploid genome
             if (show_progress) {
                 cerr << "Processing samples " << sample_range.first << " to " << (sample_range.second - 1) << " with batch size " << samples_in_batch << endl;
             }
 
-            for (size_t path_rank = 1; path_rank <= index.max_path_rank(); path_rank++) {
+            for (size_t path_rank = 1; path_rank <= xg_index->max_path_rank(); path_rank++) {
                 // Find all the reference paths and loop over them. We'll just
                 // assume paths that don't start with "_" might appear in the
                 // VCF. We need to use the xg path functions, since we didn't
                 // load up the whole vg graph.
 
                 // What path is this?
-                string path_name = index.path_name(path_rank);
+                string path_name = xg_index->path_name(path_rank);
                 
                 // Convert to VCF space if applicable
                 string vcf_contig_name = path_to_vcf.count(path_name) ? path_to_vcf[path_name] : path_name;
@@ -562,11 +549,11 @@ int main_index(int argc, char** argv) {
                 // removed, so it might be a primary contig.
 
                 // How many bases is it?
-                size_t path_length = index.path_length(path_name);
+                size_t path_length = xg_index->path_length(path_name);
                 
                 // We're going to extract it and index it, so we don't keep
                 // making queries against it for every sample.
-                PathIndex path_index(index.path(path_name));
+                PathIndex path_index(xg_index->path(path_name));
 
                 // Process the samples in batches to save memory.
                 size_t batch_start = sample_range.first, batch_limit = std::min(batch_start + samples_in_batch, sample_range.second);
@@ -587,41 +574,13 @@ int main_index(int argc, char** argv) {
                 vector<size_t> nonvariant_starts(phases_in_batch, 0);
 
                 // Completed ones just get dumped into the index
-                auto finish_phase = [&](size_t phase_number, string name) {
-                    // We have finished a phase (because an unphased variant
-                    // came up or we ran out of variants); dump it into the
-                    // index under a name and make a new Path for that phase.
-
-                    // Find where this path is in our vector
+                auto finish_phase = [&](size_t phase_number, const string& name) {
+                    // We have finished a phase (because an unphased variant came up or we ran out of variants).
                     std::vector<gbwt::node_type>& to_save = active_phase_threads[phase_number - first_phase];
-
                     if (to_save.size() > 0) {
-                        // Only actually do anything if we put in some mappings.
-
-                        if (!gbwt_name.empty()) {
-                            gbwt_builder->insert(to_save, true); // Insert in both orientations.
-                        } else if (!binary_haplotype_output.empty()) {
-                            for (auto node : to_save) { binary_file.push_back(node); }
-                            binary_file.push_back(gbwt::ENDMARKER);
-                        } else {
-                            // Copy the thread over to our batch that we GPBWT all
-                            // at once, exploiting the fact that VCF-derived graphs
-                            // are DAGs.
-                            xg::XG::thread_t temp;
-                            temp.reserve(to_save.size());
-                            for (auto node : to_save) { temp.push_back(gbwt_to_thread_mapping(node)); }
-                            all_phase_threads.push_back(temp);
-                        }
-
-                        // Some threads are much longer than the average, so
-                        // it's better to deallocate the memory here.
+                        store_thread(to_save, name);
                         to_save.clear();
-
-                        // Count this thread from this phase as being saved.
                         saved_phase_paths[phase_number - first_phase]++;
-
-                        // We use a hierarchical naming convention to tie together threads from the same phase.
-                        thread_names.push_back(name);
                     }
                 };
 
@@ -636,13 +595,13 @@ int main_index(int argc, char** argv) {
                     if (to_extend.size() > 0) {
                         gbwt::node_type previous = to_extend.back();
 
-                        if (!index.has_edge(xg::make_edge(gbwt::Node::id(previous), gbwt::Node::is_reverse(previous),
-                                                          gbwt::Node::id(next), gbwt::Node::is_reverse(next)))) {
+                        if (!xg_index->has_edge(xg::make_edge(gbwt::Node::id(previous), gbwt::Node::is_reverse(previous),
+                                                              gbwt::Node::id(next), gbwt::Node::is_reverse(next)))) {
                             // We can't have a thread take this edge (or an
                             // equivalent). Split and emit the current mappings
                             // and start a new path.
 #ifdef debug
-                            cerr << "warning:[vg index] phase " << phase_number << " wants edge "
+                            cerr << "warning: [vg index] phase " << phase_number << " wants edge "
                                 << gbwt::Node::id(previous) << (gbwt::Node::is_reverse(previous) ? "L" : "R") << " - "
                                 << gbwt::Node::id(next) << (gbwt::Node::is_reverse(next) ? "R" : "L")
                                 << " which does not exist. Splitting!" << endl;
@@ -872,8 +831,8 @@ int main_index(int argc, char** argv) {
                                     bool first_alt_orientation = alt_path_iter->second.mapping(0).position().is_reverse();
                                     
                                     // Get all the edges coming in to it
-                                    auto left_edges = (first_alt_orientation ? index.edges_on_end(first_alt_id) :
-                                        index.edges_on_start(first_alt_id));
+                                    auto left_edges = (first_alt_orientation ? xg_index->edges_on_end(first_alt_id) :
+                                        xg_index->edges_on_start(first_alt_id));
                                         
                                     // We need to fill in the ref to past the
                                     // end of the latest reference node that can
@@ -905,7 +864,7 @@ int main_index(int argc, char** argv) {
                                     // We lack both the ref and the alt path.
                                     // This site must have been skipped during
                                     // construction.
-                                    cerr << "warning:[vg index] Alt and ref paths for " << var_name 
+                                    cerr << "warning: [vg index] Alt and ref paths for " << var_name 
                                         << " at " << variant.sequenceName << ":" << variant.position
                                         << " missing/empty! Was variant skipped during construction?" << endl;
                                     continue;
@@ -1040,114 +999,97 @@ int main_index(int argc, char** argv) {
                     nonvariant_starts = std::vector<size_t>(phases_in_batch, 0);
                 }
             }
+        }
 
-            // Flush the buffers and do whatever work is still left.
-            if (!gbwt_name.empty()) {
-                // Build a GBWT
-                
-                gbwt_builder->finish();
-                if (show_progress) { cerr << "Saving GBWT to disk..." << endl; }
-                sdsl::store_to_file(gbwt_builder->index, gbwt_name);
-                delete gbwt_builder; gbwt_builder = 0;
-                
-                // The XG keeps the thread names
-                index.set_thread_names(thread_names);
-                // And the haplotype count
-                // TODO: We assume diploid
-                index.set_haplotype_count(sample_names.size() * 2);
-            } else if (!binary_haplotype_output.empty()) {
-                // Dump a flat file (which is done)
-                binary_file.close();
-            } else {
-                // Build a gPBWT in the XG
-                
-                // Now insert all the threads in a batch into the known-DAG VCF-
-                // derived graph.
-                if (show_progress) {
-                    cerr << "Inserting all phase threads into DAG..." << endl;
-                }
-                index.insert_threads_into_dag(all_phase_threads, thread_names);
-                all_phase_threads.clear();
-                
-                // We also need to copy over the haplotype count, because we
-                // don't want to be deriving it from the thread names except for
-                // when converting.
-                // TODO: We assume diploid
-                index.set_haplotype_count(sample_names.size() * 2);
+        // Store the threads and their names.
+        alt_paths.clear();
+        if (build_gbwt) {
+            gbwt_builder->finish();
+            if (show_progress) { cerr << "Saving GBWT to disk..." << endl; }
+            sdsl::store_to_file(gbwt_builder->index, gbwt_name);
+            delete gbwt_builder; gbwt_builder = nullptr;
+            if (!xg_name.empty()) {
+                xg_index->set_thread_names(thread_names);
+                xg_index->set_haplotype_count(haplotype_count);            
             }
         }
-
-        if (show_progress) {
-            cerr << "Saving index to disk..." << endl;
+        if (write_threads) {
+            binary_file.close();
+            if (!xg_name.empty()) {
+                xg_index->set_thread_names(thread_names);
+                xg_index->set_haplotype_count(haplotype_count);            
+            }
         }
-
-        // save the xg version to the file name we've been given
-        ofstream db_out(xg_name);
-        index.serialize(db_out);
-        db_out.close();
+        if (build_gpbwt) {
+            if (show_progress) {
+                cerr << "Inserting all phase threads into DAG..." << endl;
+            }
+            xg_index->insert_threads_into_dag(all_phase_threads, thread_names);
+            xg_index->set_haplotype_count(haplotype_count);            
+        }
     }
 
-    if (!gcsa_name.empty()) {
-        // We need to make a gcsa index.
+    // Save XG
+    if (!xg_name.empty()) {
+        if (show_progress) {
+            cerr << "Saving XG index to disk..." << endl;
+        }
+        ofstream db_out(xg_name);
+        xg_index->serialize(db_out);
+        db_out.close();
+    }
+    delete xg_index; xg_index = nullptr;
+
+    // Build GCSA
+    if (build_gcsa) {
 
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
-        if (!show_progress) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
-        
-        // Configure its temp directory to the system temp directory
-        if (tmp_db_base.empty()) {
-            gcsa::TempFile::setDirectory(find_temp_dir());
-        } else { // or the user-specified directory
-            gcsa::TempFile::setDirectory(tmp_db_base);
+        if (!show_progress) {
+            gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         }
 
-        // Load up the graphs
-        vector<string> tmpfiles;
+        // Configure its temp directory to the system temp directory
+        if (temp_directory.empty()) {   // FIXME we should set VG temp directory here
+            gcsa::TempFile::setDirectory(find_temp_dir());
+        } else { // or the user-specified directory
+            gcsa::TempFile::setDirectory(temp_directory);
+        }
+
+        // Generate temporary kmer files
         if (dbg_names.empty()) {
             VGset graphs(file_names);
             graphs.show_progress = show_progress;
-            // Go get the kmers of the correct size
-            tmpfiles = graphs.write_gcsa_kmers_binary(kmer_size);
-        } else {
-            tmpfiles = dbg_names;
+            dbg_names = graphs.write_gcsa_kmers_binary(kmer_size);
         }
-        // Make the index with the kmers
-        gcsa::InputGraph input_graph(tmpfiles, true, gcsa::Alphabet(), mapping_name);
+
+        // Build the index
+        gcsa::InputGraph input_graph(dbg_names, true, gcsa::Alphabet(), mapping_name);
         gcsa::ConstructionParameters params;
         params.setSteps(doubling_steps);
         params.setLimit(size_limit);
+        gcsa::GCSA gcsa_index(input_graph, params);
+        gcsa::LCPArray lcp_array(input_graph, params);
 
-        // build the GCSA index
-        gcsa::GCSA* gcsa_index = new gcsa::GCSA(input_graph, params);
-
-        // build the LCP array
-        string lcp_name = gcsa_name + ".lcp";
-        gcsa::LCPArray* lcp_array = new gcsa::LCPArray(input_graph, params);
-
-        if (verify_index) {
-            //cerr << "verifying index" << endl;
-            if (!gcsa::verifyIndex(*gcsa_index, lcp_array, input_graph)) {
-                cerr << "[vg::main]: GCSA2 index verification failed" << endl;
+        // Verify the index
+        if (verify_gcsa) {
+            if (!gcsa::verifyIndex(gcsa_index, &lcp_array, input_graph)) {
+                cerr << "warning: [vg index] GCSA2 index verification failed" << endl;
             }
         }
 
-        // clean up input graph temp files
-        if (dbg_names.empty()) {
-            for (auto& tfn : tmpfiles) {
-                remove(tfn.c_str());
+        // Delete the temporary kmer files
+        if (delete_kmer_files) {
+            for (auto& filename : dbg_names) {
+                remove(filename.c_str());
             }
         }
 
-        // Save the GCSA2 index
-        sdsl::store_to_file(*gcsa_index, gcsa_name);
-        delete gcsa_index;
-
-        // Save the LCP array
-        sdsl::store_to_file(*lcp_array, lcp_name);
-        delete lcp_array;
-
+        // Save the indexes
+        sdsl::store_to_file(gcsa_index, gcsa_name);
+        sdsl::store_to_file(lcp_array, gcsa_name + ".lcp");
     }
 
-    if (!rocksdb_name.empty()) {
+    if (build_rocksdb) {
 
         Index index;
 
