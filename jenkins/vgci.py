@@ -1308,7 +1308,7 @@ class VGCITest(TestCase):
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'),
                            more_mpmap_opts=['-u 8'])
 
-    @timeout_decorator.timeout(1800)
+    @timeout_decorator.timeout(4000)
     def test_sim_yeast_cactus(self):
         """ Yeast test based on the cactus graphs.  Reads are simulated from the SK1 path
         of the full graph.  The other graphs are made from this graph using vg mod:
