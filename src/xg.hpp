@@ -799,7 +799,7 @@ public:
     XGPath& operator=(const XGPath& other) = delete;
     XGPath& operator=(XGPath&& other) = delete;
     
-    wt_gmr<> ids;
+    wt_int<> ids;
     sd_vector<> directions; // forward or backward through nodes
     int_vector<> positions;
     int_vector<> ranks;
