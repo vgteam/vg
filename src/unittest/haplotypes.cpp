@@ -261,10 +261,6 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
     }
     REQUIRE(!passed);
   }
-  SECTION( "interpreting as inputHaplotype" ) {
-    REQUIRE(match_lin_DP.path_to_input_haplotype(test_path)->is_valid());
-    REQUIRE(!nonmatch_lin_DP.path_to_input_haplotype(test_path)->is_valid());
-  }
 }
 
 TEST_CASE("We can score haplotypes using gPBWT", "[haplo-score][xg]") {
