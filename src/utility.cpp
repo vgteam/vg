@@ -163,7 +163,7 @@ string toUppercase(const string& s) {
 }
 
 string tmpfilename(const string& base) {
-    string tmpname = base + "XXXXXXXX";
+    string tmpname = find_temp_dir() + "/" + base + "XXXXXXXX";
     // hack to use mkstemp to get us a safe temporary file name
     int fd = mkstemp(&tmpname[0]);
     if(fd != -1) {
@@ -196,8 +196,7 @@ string find_temp_dir() {
 }
 
 string tmpfilename() {
-    // Make a temp file in the system temp directory.
-    return tmpfilename(find_temp_dir() + "/vg");
+    return tmpfilename("vg-");
 }
 
 string get_or_make_variant_id(const vcflib::Variant& variant) {

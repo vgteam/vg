@@ -156,9 +156,8 @@ bool verify_path(const PathType& path, VG& unfolded, const hash_map<vg::id_t, st
 size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
 
     // Create a mapping from original -> duplicates.
-    // TODO Interface for the duplicate range in NodeMapping.
     hash_map<vg::id_t, std::vector<vg::id_t>> reverse_mapping;
-    for (gcsa::size_type duplicate = this->mapping.first_node; duplicate < this->mapping.next_node; duplicate++) {
+    for (gcsa::size_type duplicate = this->mapping.begin(); duplicate < this->mapping.end(); duplicate++) {
         vg::id_t original_id = this->mapping(duplicate);
         reverse_mapping[original_id].push_back(duplicate);
         if (unfolded.has_node(original_id)) {

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-export LC_ALL="C" # force a consistent sort order 
+export LC_ALL="C" # force a consistent sort order
 
 plan tests 43
 
@@ -118,7 +118,7 @@ vg sim -s 1337 -n 100 -e 0.01 -i 0.005 -x x.xg -a >x.sim
 vg map -x x.xg -g x.gcsa -G x.sim -t 1 >x.gam
 vg mod -Z x.trans -i x.gam x.vg >x.mod.vg
 is $(vg view -Z x.trans | wc -l) 1288 "the expected graph translation is exported when the graph is edited"
-rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
+rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans x.sim
 
 vg construct -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
@@ -127,7 +127,7 @@ vg sim -s 420 -l 30 -x 2snp.xg -n 30 -a >2snp.sim
 vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
 vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
 is $(vg mod -i 2snp.gam flat.vg | vg mod -D - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
-rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim 2snp.gam
+rm -f flat.vg flat.gcsa flat.xg 2snp.vg 2snp.xg 2snp.sim 2snp.gam
 
 # Note the math (and subsetting) only works out on a flat alleles graph
 vg construct -r small/x.fa -a -f -v small/x.vcf.gz >x.vg

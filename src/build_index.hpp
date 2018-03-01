@@ -25,7 +25,7 @@ void build_gcsa_lcp(VG& graph,
                     int kmer_size,
                     size_t doubling_steps = 3,
                     size_t size_limit = 500,
-                    const string& base_file_name = ".vg-kmers-tmp-");
+                    const string& base_file_name = "vg-kmers-tmp-");
 
 }
 

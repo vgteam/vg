@@ -39,5 +39,5 @@ is "$(vg view -Jv add/backward.json | vg add -v add/benedict.vcf - | vg stats -N
 
 is "$(vg view -Jv add/backward_and_forward.json | vg add -v add/benedict.vcf - | vg mod --unchop - | vg stats -N -)" "5" "graphs with backward and forward nodes can be added to"
 
-rm -rf ref.vg benedict.vg benedict.vg x-ref.vg x.vg refN.vg no-n.vg with-n.vg ngap.vg ngap-add.vg
+rm -rf ref.vg benedict.vg benedict2.vg x-ref.vg x.vg refN.vg no-n.vg with-n.vg ngap.vg ngap-add.vg
 

@@ -28,6 +28,8 @@ is $subgraph_count 1 "vg stats reports the correct number of subgraphs"
 subgraph_length=$(vg stats -s z.vg | head -1 | cut -f 2)
 is $subgraph_length $graph_length  "vg stats reports the correct subgraph length"
 
+rm -f z.vg
+
 is $(vg view -Fv msgas/q_redundant.gfa | vg stats -S - | md5sum | cut -f 1 -d\ ) 01fadb6a004ddb87e5fc5d056b565218 "perfect to and from siblings are determined"
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
