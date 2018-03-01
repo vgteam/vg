@@ -255,7 +255,7 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
 /// Find the system temp directory using defaults and environment variables
 string find_temp_dir();
 
-/// Create a temporary file starting with the given base name
+/// Create a temporary file starting with the given base name in the appropriate system temporary directory
 string tmpfilename(const string& base);
 
 /// Create a temporary file in the appropriate system temporary directory
