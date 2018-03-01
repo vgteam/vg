@@ -1,7 +1,7 @@
 /** \file gbwt_main.cpp
  *
  * Defines the "vg gbwt" subcommand, which wraps up access for commands we'd otherwise find
- * in the gbwt submodule.  This is handy if we want to be able to merge gbwt's without adding */
+ * in the gbwt submodule.  */
 
 #include <omp.h>
 #include <unistd.h>
@@ -30,7 +30,7 @@ void help_gbwt(char** argv) {
          << "Manipuate GBWTs." << endl
          << "merging:" << endl
          << "    -m, --merge            Merge the GBWT files from the input args and write to output" << endl
-         << "    -o, --output X         Use X as the base name for output (required)" << endl
+         << "    -o, --output X         Write output GBWT to X" << endl
          << "    -b, --batches N        Use batches of N sequences for merging (default: "
          << DynamicGBWT::MERGE_BATCH_SIZE << ")" << endl
          << "    -f, --fast             Fast merging algorithm (node ids must not overlap)" << endl
@@ -84,7 +84,7 @@ int main_gbwt(int argc, char** argv)
             break;
             
         case 'b':
-            batch_size = std::stoul(optarg);
+            batch_size = stoul(optarg);
             break;
 
         case 'f':
@@ -118,29 +118,29 @@ int main_gbwt(int argc, char** argv)
             cerr << "[vg gbwt] error: Output file must be specified with -o" << endl;
         }
         if (show_progress) {
-            printHeader("Algorithm"); std::cout << (fast_merging ? "fast" : "insert") << std::endl;
-            printHeader("Input files"); std::cout << input_files << std::endl;
-            printHeader("Output name"); std::cout << output << std::endl;
-            if(!fast_merging) { printHeader("Batch size"); std::cout << batch_size << std::endl; }
-            std::cout << std::endl;
+            printHeader("Algorithm"); cout << (fast_merging ? "fast" : "insert") << endl;
+            printHeader("Input files"); cout << input_files << endl;
+            printHeader("Output name"); cout << output << endl;
+            if(!fast_merging) { printHeader("Batch size"); cout << batch_size << endl; }
+            cout << endl;
         }
 
         double start = readTimer();
 
         if(fast_merging)
         {
-            std::vector<GBWT> indexes(argc - optind);
+            vector<GBWT> indexes(argc - optind);
             for(int i = optind; i < argc; i++)
             {
-                std::string input_name = argv[i];
-                sdsl::load_from_file(indexes[i - optind], input_name + GBWT::EXTENSION);
+                string input_name = argv[i];
+                sdsl::load_from_file(indexes[i - optind], input_name);
                 if (show_progress) {
                     printStatistics(indexes[i - optind], input_name);
                 }
                 total_inserted += indexes[i - optind].size();
             }
             GBWT merged(indexes);
-            sdsl::store_to_file(merged, output + GBWT::EXTENSION);
+            sdsl::store_to_file(merged, output);
             if (show_progress) {
                 printStatistics(merged, output);
             }
@@ -149,8 +149,8 @@ int main_gbwt(int argc, char** argv)
         {
             DynamicGBWT index;
             {
-                std::string input_name = argv[optind];
-                sdsl::load_from_file(index, input_name + DynamicGBWT::EXTENSION);
+                string input_name = argv[optind];
+                sdsl::load_from_file(index, input_name);
                 if (show_progress) {
                     printStatistics(index, input_name);
                 }
@@ -158,9 +158,9 @@ int main_gbwt(int argc, char** argv)
             }
             while(optind < argc)
             {
-                std::string input_name = argv[optind];
+                string input_name = argv[optind];
                 GBWT next;
-                sdsl::load_from_file(next, input_name + GBWT::EXTENSION);
+                sdsl::load_from_file(next, input_name);
                 if (show_progress) {
                     printStatistics(next, input_name);
                 }
@@ -168,7 +168,7 @@ int main_gbwt(int argc, char** argv)
                 total_inserted += next.size();
                 optind++;
             }
-            sdsl::store_to_file(index, output + DynamicGBWT::EXTENSION);
+            sdsl::store_to_file(index, output);
             if (show_progress) { 
                 printStatistics(index, output);
             }
@@ -178,10 +178,10 @@ int main_gbwt(int argc, char** argv)
 
         if (show_progress) {
 
-            std::cout << "Inserted " << total_inserted << " nodes in " << seconds << " seconds ("
-                      << (total_inserted / seconds) << " nodes/second)" << std::endl;
-            std::cout << "Memory usage " << inGigabytes(memoryUsage()) << " GB" << std::endl;
-            std::cout << std::endl;
+            cout << "Inserted " << total_inserted << " nodes in " << seconds << " seconds ("
+                      << (total_inserted / seconds) << " nodes/second)" << endl;
+            cout << "Memory usage " << inGigabytes(memoryUsage()) << " GB" << endl;
+            cout << endl;
         }
         
         return 0;
