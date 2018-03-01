@@ -16,6 +16,7 @@ vg view -J -v call/tiny.json > tiny.vg
 true > empty.gam
 vg augment tiny.vg empty.gam -Z empty.aug.trans -S empty.aug.support > empty.aug.vg
 vg call empty.aug.vg -z empty.aug.trans -s empty.aug.support -b tiny.vg --no-vcf > calls.loci
+rm -f empty.gam
 
 LOCUS_COUNT="$(vg view --locus-in -j calls.loci | wc -l)"
 REF_LOCUS_COUNT="$(vg view --locus-in -j calls.loci | jq -c 'select(.genotype[0].allele == [0, 0])' | wc -l)"

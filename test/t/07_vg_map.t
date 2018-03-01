@@ -90,7 +90,7 @@ rm -Rf e.xg e.gcsa e.vg
 vg index -k10 -g g.idx.gcsa -x g.idx.xg graphs/multimap.vg
 is $(vg map -M 2 -s "GCTAAGAGTAGGCCGGGGGTGTAGACCTTTGGGGTTGAATAAATCTATTGTACTAATCGG" -d g.idx -j | jq -c 'select(.is_secondary == true)' | wc -l) 1 "reads multi-map to multiple possible locations"
 
-rm -Rf g.idx
+rm -f g.idx.gcsa g.idx.xg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
