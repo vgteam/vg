@@ -70,7 +70,7 @@ public:
         int vertex_band_width = 10,
         int position_depth = 1,
         int max_connections = 30);
-    void score(const set<AlignmentChainModelVertex*>& exclude);
+    void score(const unordered_set<AlignmentChainModelVertex*>& exclude);
     AlignmentChainModelVertex* max_vertex(void);
     vector<Alignment> traceback(const Alignment& read, int alt_alns, bool paired, bool debug);
     void display(ostream& out);
@@ -210,6 +210,11 @@ public:
     void rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
                                              size_t max_rescue_hit_count);
     
+    /// identifies hits for sub-MEMs that are redundant hits to the parent MEMs and removes them
+    /// from the hit lists. for speed's sake, can have false negatives but no false positives
+    void prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems);
+    
+    int sub_mem_thinning_burn_in = 0; // start counting at this many bases to verify sub-MEM count
     int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count
     int min_mem_length; // a mem must be >= this length
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
@@ -219,7 +224,7 @@ public:
     double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = true;
-    size_t order_length_repeat_hit_max = 0; // in tracts of order-length MEMs above the hit max, fill one
+    bool prefilter_redundant_hits = false;
     
     // Remove any bonuses used by the aligners from the final reported scores.
     // Does NOT (yet) remove the haplotype consistency bonus.
@@ -317,7 +322,7 @@ protected:
     double haplotype_consistency_exponent = 1;
     // The recombination rate
     // TODO: expose to command line
-    constexpr static double NEG_LOG_PER_BASE_RECOMB_PROB = 9;
+    constexpr static double NEG_LOG_PER_BASE_RECOMB_PROB = 9 * 2.3;
     
     FragmentLengthDistribution fragment_length_distr;
 
@@ -556,7 +561,7 @@ public:
     // lossily project an alignment into a particular path space of a graph
     // the resulting alignment is equivalent to a SAM record against the chosen path
     Alignment surject_alignment(const Alignment& source,
-                                set<string>& path_names,
+                                const set<string>& path_names,
                                 string& path_name,
                                 int64_t& path_pos,
                                 bool& path_reverse);
@@ -624,6 +629,7 @@ public:
     int extra_multimaps; // Extra mappings considered
     int min_multimaps; // Minimum number of multimappings
     int band_multimaps; // the number of multimaps for to attempt for each band in a banded alignment
+    bool patch_alignments; // should we attempt alignment patching to resolve unaligned regions in banded alignment
     
     double maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality

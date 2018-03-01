@@ -3,6 +3,10 @@
 //
 
 #include "multipath_alignment.hpp"
+#include <structures/immutable_list.hpp>
+#include <structures/min_max_heap.hpp>
+
+#include <type_traits>
 
 using namespace std;
 namespace vg {
@@ -94,83 +98,121 @@ namespace vg {
         }
     }
     
-    int32_t optimal_alignment_internal(const MultipathAlignment& multipath_aln, Alignment* aln_out) {
-        
-        // initialize DP structures
-        // score of the optimal alignment ending in this subpath
-        vector<int32_t> prefix_score(multipath_aln.subpath_size(), 0);
+    /// We define this struct for holding the dynamic programming problem for a
+    /// multipath alignment, which we use for finding the optimal alignment,
+    /// scoring the optimal alignment, and enumerating the top alignments.
+    struct MultipathProblem {
+        // Score of the optimal alignment ending immediately before this
+        // subpath. To get the score of the optimal alignment ending with the
+        // subpath, add the subpath's score.
+        vector<int32_t> prefix_score;
         // previous subpath for traceback (we refer to subpaths by their index)
-        vector<int64_t> prev_subpath(multipath_aln.subpath_size(), -1);
+        vector<int64_t> prev_subpath;
         // the length of read sequence preceding this subpath
-        vector<int64_t> prefix_length(multipath_aln.subpath_size(), 0);
+        vector<int64_t> prefix_length;
         
-        int32_t opt_score = 0;
-        int64_t opt_subpath = -1; // we refer to subpaths by their index
-        
+        /// Make a new MultipathProblem over the given number of subpaths
+        MultipathProblem(size_t subpath_size) : prefix_score(subpath_size, 0),
+            prev_subpath(subpath_size, -1), prefix_length(subpath_size, 0) {
+            
+            // Nothing to do!
+        }
+    };
+    
+    /// Internal helper function for running the dynamic programming problem
+    /// represented by a multipath alignment. Returns the filled DP problem,
+    /// the optimal ending subpath, or -1 if no subpath is optimal, and the
+    /// optimal score, or 0 if no score is optimal.
+    tuple<MultipathProblem, int64_t, int32_t> run_multipath_dp(const MultipathAlignment& multipath_aln) {
+    
+        // Create and unpack the return value (including setting up the DP table)
+        tuple<MultipathProblem, int64_t, int32_t> to_return(multipath_aln.subpath_size(), -1, 0);
+        auto& problem = get<0>(to_return);
+        auto& opt_subpath = get<1>(to_return);
+        auto& opt_score = get<2>(to_return);
+    
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             const Subpath& subpath = multipath_aln.subpath(i);
-            int32_t extended_score = prefix_score[i] + subpath.score();
+            int32_t extended_score = problem.prefix_score[i] + subpath.score();
             
             // carry DP forward
             if (subpath.next_size() > 0) {
-                int64_t thru_length = path_to_length(subpath.path()) + prefix_length[i];
+                int64_t thru_length = path_to_length(subpath.path()) + problem.prefix_length[i];
                 for (size_t j = 0; j < subpath.next_size(); j++) {
                     int64_t next = subpath.next(j);
-                    prefix_length[next] = thru_length;
+                    problem.prefix_length[next] = thru_length;
                     
                     // can we improve prefix score on following subpath through this one?
-                    if (extended_score >= prefix_score[next]) {
-                        prev_subpath[next] = i;
-                        prefix_score[next] = extended_score;
+                    if (extended_score >= problem.prefix_score[next]) {
+                        problem.prev_subpath[next] = i;
+                        problem.prefix_score[next] = extended_score;
                     }
                 }
             }
             // check if optimal alignment ends here
             if (extended_score >= opt_score) {
+                // We have a better optimal subpath
                 opt_score = extended_score;
                 opt_subpath = i;
             }
         }
         
-        // are we constructing the alignment, or just getting the score?
-        if (aln_out && opt_subpath >= 0) {
+        return to_return;
+    
+    }
+    
+    /// We define this helper to turn tracebacks through a DP problem into
+    /// Paths that we can put in an Alignment. We use iterators to the start
+    /// and past-the-end of the traceback (in some kind of list of int64_t
+    /// subpath indexes) to define it.
+    template<typename TracebackIterator>
+    void populate_path_from_traceback(const MultipathAlignment& multipath_aln, const MultipathProblem& problem,
+        TracebackIterator traceback_start, TracebackIterator traceback_end, Path* output) {
+        
+        static_assert(is_convertible<decltype(*traceback_start), int64_t>::value, "traceback must contain int64_t items");
+        
+        if (traceback_start == traceback_end) {
+            // We have been given an empty range. Do nothing.
+            return;
+        }
+        
+        // We need to maintain a persistent iterator so we can easily get whatever's before traceback_end.
+        auto current_subpath = traceback_start;
+    
+        // check for a softclip of entire subpaths on the beginning
+        if (problem.prefix_length[*current_subpath]) {
+            Mapping* soft_clip_mapping = output->add_mapping();
             
-            // traceback the optimal subpaths until hitting sentinel (-1)
-            vector<const Path*> optimal_path_chunks;
-            int64_t curr = opt_subpath;
-            int64_t prev = -1;
-            while (curr >= 0) {
-                optimal_path_chunks.push_back(&(multipath_aln.subpath(curr).path()));
-                prev = curr;
-                curr = prev_subpath[curr];
-            }
+            soft_clip_mapping->set_rank(1);
             
-            Path* opt_path = aln_out->mutable_path();
+            Edit* edit = soft_clip_mapping->add_edit();
+            edit->set_to_length(problem.prefix_length[*current_subpath]);
+            edit->set_sequence(multipath_aln.sequence().substr(0, problem.prefix_length[*current_subpath]));
             
-            // check for a softclip of entire subpaths on the beginning
-            if (prefix_length[prev]) {
-                Mapping* soft_clip_mapping = opt_path->add_mapping();
+            *soft_clip_mapping->mutable_position() = multipath_aln.subpath(*current_subpath).path().mapping(0).position();
+        }
+        
+        // merge the subpaths into one optimal path in the Alignment object
+        for (auto next_subpath = current_subpath; next_subpath != traceback_end; ++next_subpath) {
+            // For all subpaths in the traceback
+            
+            // Advance only if we don't hit the end
+            current_subpath = next_subpath;
+            
+            if (output->mapping_size() == 0) {
+                // There's nothing in the output yet, so just copy all the mappings from this subpath
+                *output = multipath_aln.subpath(*current_subpath).path();
                 
-                soft_clip_mapping->set_rank(1);
-                
-                Edit* edit = soft_clip_mapping->add_edit();
-                edit->set_to_length(prefix_length[prev]);
-                edit->set_sequence(multipath_aln.sequence().substr(0, prefix_length[prev]));
-                
-                *soft_clip_mapping->mutable_position() = optimal_path_chunks.back()->mapping(0).position();
-            }
-            
-            // merge the subpaths into one optimal path in the Alignment object
-            for (auto iter = optimal_path_chunks.rbegin(); iter != optimal_path_chunks.rend(); iter++) {
-                if (opt_path->mapping_size() == 0) {
-                    *opt_path = *(*iter);
-                    continue;
+                for(size_t i = 0; i < output->mapping_size(); i++) {
+                    // Set all the ranks
+                    output->mutable_mapping(i)->set_rank(i + 1);
                 }
-                
-                Mapping* curr_end_mapping = opt_path->mutable_mapping(opt_path->mapping_size() - 1);
-                
+            } else {
+                // There's already content in the output so we have to merge stuff
+                Mapping* curr_end_mapping = output->mutable_mapping(output->mapping_size() - 1);
+            
                 // get the first mapping of the next path
-                const Path& next_path = *(*iter);
+                const Path& next_path = multipath_aln.subpath(*current_subpath).path();
                 const Mapping& next_start_mapping = next_path.mapping(0);
                 
                 size_t mapping_start_idx = 0;
@@ -184,16 +226,16 @@ namespace vg {
                     // merge the first edit if it is the same type
                     size_t edit_start_idx = 0;
                     if ((last_edit->from_length() > 0) == (first_edit.from_length() > 0)
-                        && (last_edit->to_length() > 0) == (first_edit.to_length() > 0)
-                        && (last_edit->sequence().empty()) == (first_edit.sequence().empty())) {
-                        
-                        last_edit->set_from_length(last_edit->from_length() + first_edit.from_length());
-                        last_edit->set_to_length(last_edit->to_length() + first_edit.to_length());
-                        last_edit->set_sequence(last_edit->sequence() + first_edit.sequence());
+                            && (last_edit->to_length() > 0) == (first_edit.to_length() > 0)
+                            && (last_edit->sequence().empty()) == (first_edit.sequence().empty())) {
+                            
+                            last_edit->set_from_length(last_edit->from_length() + first_edit.from_length());
+                            last_edit->set_to_length(last_edit->to_length() + first_edit.to_length());
+                            last_edit->set_sequence(last_edit->sequence() + first_edit.sequence());
                         
                         edit_start_idx++;
                     }
-                    
+                        
                     // append the rest of the edits
                     for (size_t j = edit_start_idx; j < next_start_mapping.edit_size(); j++) {
                         *curr_end_mapping->add_edit() = next_start_mapping.edit(j);
@@ -204,25 +246,69 @@ namespace vg {
                 
                 // append the rest of the mappings
                 for (size_t j = mapping_start_idx; j < next_path.mapping_size(); j++) {
-                    Mapping* next_mapping = opt_path->add_mapping();
+                    Mapping* next_mapping = output->add_mapping();
                     *next_mapping = next_path.mapping(j);
-                    next_mapping->set_rank(opt_path->mapping_size());
+                    next_mapping->set_rank(output->mapping_size());
                 }
-            }
-            
-            // check for a softclip of entire subpaths on the end
-            int64_t seq_thru_length = prefix_length[opt_subpath] + path_to_length(multipath_aln.subpath(opt_subpath).path());
-            if (seq_thru_length < multipath_aln.sequence().size()) {
-                
-                Mapping* final_mapping = opt_path->mutable_mapping(opt_path->mapping_size() - 1);
-                
-                Edit* edit = final_mapping->add_edit();
-                edit->set_to_length(multipath_aln.sequence().size() - seq_thru_length);
-                edit->set_sequence(multipath_aln.sequence().substr(seq_thru_length,
-                                                                   multipath_aln.sequence().size() - seq_thru_length));
             }
         }
         
+        // Now current_subpath is right before traceback_end
+        
+        // check for a softclip of entire subpaths on the end
+        int64_t seq_thru_length = problem.prefix_length[*current_subpath] + path_to_length(multipath_aln.subpath(*current_subpath).path());
+        if (seq_thru_length < multipath_aln.sequence().size()) {
+            
+            if (output->mapping_size() == 0) {
+                output->add_mapping();
+            }
+            
+            Mapping* final_mapping = output->mutable_mapping(output->mapping_size() - 1);
+            
+            Edit* edit = final_mapping->add_edit();
+            edit->set_to_length(multipath_aln.sequence().size() - seq_thru_length);
+            edit->set_sequence(multipath_aln.sequence().substr(seq_thru_length,
+                                                               multipath_aln.sequence().size() - seq_thru_length));
+        }
+    }
+    
+    int32_t optimal_alignment_internal(const MultipathAlignment& multipath_aln, Alignment* aln_out) {
+        
+        // Run the dynamic programming
+        auto dp_result = run_multipath_dp(multipath_aln);
+        
+        // C++17 finally gets http://en.cppreference.com/w/cpp/language/structured_binding
+        // Until then we have to unpack tuples like this.
+        
+        // Get the filled DP problem
+        MultipathProblem& problem = get<0>(dp_result);
+        // And the optimal final subpath
+        int64_t& opt_subpath = get<1>(dp_result);
+        // And the optimal score
+        int32_t& opt_score = get<2>(dp_result);
+        
+        // are we constructing the alignment, or just getting the score?
+        if (aln_out && opt_subpath >= 0) {
+            
+            // traceback the optimal subpaths until hitting sentinel (-1)
+            list<int64_t> opt_traceback;
+            int64_t curr = opt_subpath;
+            while (curr >= 0) {
+                opt_traceback.push_front(curr);
+                curr = problem.prev_subpath[curr];
+            }
+            
+            Path* opt_path = aln_out->mutable_path();
+            
+            // Fill in the path in the alignment with the alignment represented
+            // by this traceback in this DP problem for this multipath
+            // alignment.
+            populate_path_from_traceback(multipath_aln, problem, opt_traceback.begin(), opt_traceback.end(), opt_path);
+            
+            
+        }
+        
+        // Return the optimal score, or 0 if unaligned.
         return opt_score;
     }
     
@@ -242,6 +328,179 @@ namespace vg {
     int32_t optimal_alignment_score(const MultipathAlignment& multipath_aln){
         // do dynamic programming without traceback
         return optimal_alignment_internal(multipath_aln, nullptr);
+    }
+    
+    vector<Alignment> optimal_alignments(const MultipathAlignment& multipath_aln, size_t count) {
+        
+        // Keep a list of what we're going to emit.
+        vector<Alignment> to_return;
+        
+        // Fill out the dynamic programming problem
+        auto dp_result = run_multipath_dp(multipath_aln);
+        // Get the filled DP problem
+        MultipathProblem& problem = get<0>(dp_result);
+        // And the optimal final subpath
+        int64_t& opt_subpath = get<1>(dp_result);
+        // And the optimal score
+        int32_t& opt_score = get<2>(dp_result);
+        
+        // Keep lists of DP steps, which are subpath numbers to visit.
+        // Even going to the end subpath (where prefix length + subpath length = read length) is a DP step
+        // We never deal with empty lists; we always seed with the traceback start node.
+        using step_list_t = ImmutableList<int64_t>;
+        
+        // Put them in a size-limited priority queue by score difference (positive) from optimal
+        MinMaxHeap<pair<int32_t, step_list_t>> queue;
+        
+        // We define a function to put stuff in the queue and limit its size to
+        // the (count - to_return.size()) items with lowest penalty.
+        auto try_enqueue = [&](const pair<int32_t, step_list_t>& item) {
+            auto max_size = count - to_return.size();
+            if (queue.size() < max_size || item < queue.max()) {
+                // The item belongs in the queue because it fits or it beats
+                // the current worst thing.
+                queue.push(item);
+            }
+            
+            while(queue.size() > max_size) {
+                // We have more possibilities than we need to consider to emit
+                // the top count alignments. Get rid of the worst one.
+                queue.pop_max();
+            }
+        };
+        
+        // Also, subpaths only keep track of their nexts, so we need to invert
+        // that so we can get all valid prev subpaths.
+        vector<vector<int64_t>> prev_subpaths;
+        
+        // We want to be able to start the traceback only from places where we
+        // won't get shorter versions of same- or higher-scoring alignments.
+        // This means that we want exactly the subpaths that have no successors
+        // with nonnegative subpath score.
+        
+        // So we go through all the subpaths, check all their successors, and
+        // add starting points for all satisfactory subpaths to the queue.
+        // Sinks in the graphs will always be in here, as will the starting
+        // point for tracing back the optimal alignment.
+        
+        // We know what the penalty from optimal is for each, because we know
+        // the optimal score overall and the score we would get for the optimal
+        // alignment ending at each.
+        
+        prev_subpaths.resize(multipath_aln.subpath_size());
+        for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            // For each subpath
+            
+            // If it has no successors, we can start a traceback here
+            bool valid_traceback_start = true;
+            
+            for (auto& next_subpath : multipath_aln.subpath(i).next()) {
+                // For each next subpath it lists
+                
+                // Register this subpath as a predecessor of the next
+                prev_subpaths[next_subpath].push_back(i);
+                
+                if (multipath_aln.subpath(next_subpath).score() >= 0) {
+                    // This successor has a nonnegative score, so taking it
+                    // after us would generate a longer, same- or
+                    // higher-scoring alignment. So we shouldn't start a
+                    // traceback from subpath i.
+                    valid_traceback_start = false;
+                }
+            }
+            
+            if (valid_traceback_start) {
+                // We can start a traceback here.
+                
+                // The score penalty for starting here is the optimal score minus the optimal score starting here
+                auto penalty = opt_score - (problem.prefix_score[i] + multipath_aln.subpath(i).score());
+                
+                // The path is just to be here
+                step_list_t starting_path{i};
+                
+                try_enqueue(make_pair(penalty, starting_path));
+            }
+        }
+        
+        while (!queue.empty() && to_return.size() < count) {
+            // Each iteration
+            
+            // Grab the best list as our basis
+            int32_t basis_score_difference;
+            step_list_t basis;
+            tie(basis_score_difference, basis) = queue.min();
+            queue.pop_min();
+            
+            assert(!basis.empty());
+            
+            if (problem.prev_subpath[basis.front()] == -1) {
+                // If it leads all the way to a read that is optimal as a start
+                
+                // Make an Alignment to emit it in
+                to_return.emplace_back();
+                Alignment& aln_out = to_return.back();
+                
+                // Set up read info and MAPQ
+                // TODO: MAPQ on secondaries?
+                transfer_read_metadata(multipath_aln, aln_out);
+                aln_out.set_mapping_quality(multipath_aln.mapping_quality());
+                
+                // Populate path
+                populate_path_from_traceback(multipath_aln, problem, basis.begin(), basis.end(), aln_out.mutable_path());
+                
+                // Set score
+                aln_out.set_score(opt_score - basis_score_difference);
+            } else {
+                // The path does not lead all the way to a source
+                
+                // Find out all the places we can come from, and the score
+                // penalties, relative to the optimal score for an alignment
+                // visiting the basis's lead subpath, that we would take if we
+                // came from each.
+                // Note that we will only do this once per subpath, when we are
+                // working on the optimal alignment going through that subpath.
+                list<pair<int64_t, int32_t>> destinations;
+                
+                // The destinations will be all places we could have arrived here from
+                auto& here = basis.front();
+                
+                // To compute the additional score difference, we need to know what our optimal prefix score was.
+                auto& best_prefix_score = problem.prefix_score[here];
+                
+                for (auto& prev : prev_subpaths[here]) {
+                    // For each, compute the score of the optimal alignment ending at that predecessor
+                    auto prev_opt_score = problem.prefix_score[prev] + multipath_aln.subpath(prev).score();
+                    
+                    // What's the difference we would take if we went with this predecessor?
+                    auto additional_penalty = best_prefix_score - prev_opt_score;
+                    
+                    destinations.emplace_back(prev, additional_penalty);
+                }
+                
+                // TODO: unify loops!
+                
+                for (auto& destination : destinations) {
+                    // Prepend each of the things that can be prepended
+                    
+                    // Unpack
+                    auto& prev = destination.first;
+                    auto& additional_penalty = destination.second;
+                    
+                    // Make an extended path
+                    auto extended_path = basis.push_front(prev);
+                    
+                    // Calculate the score differences from optimal
+                    auto total_penalty = basis_score_difference + additional_penalty;
+                    
+                    // Put them in the priority queue
+                    try_enqueue(make_pair(total_penalty, extended_path));
+                }
+                
+            }
+        }
+        
+        return to_return;
+        
     }
     
     /// Stores the reverse complement of a Subpath in another Subpath

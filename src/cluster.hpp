@@ -3,6 +3,7 @@
 
 #include <gcsa/gcsa.h>
 #include <gcsa/lcp.h>
+#include <structures/union_find.hpp>
 #include "position.hpp"
 #include "gssw_aligner.hpp"
 #include "utility.hpp"
@@ -139,7 +140,7 @@ public:
         int band_width = 10,
         int position_depth = 1,
         int max_connections = 20);
-    void score(const set<MEMChainModelVertex*>& exclude);
+    void score(const unordered_set<MEMChainModelVertex*>& exclude);
     MEMChainModelVertex* max_vertex(void);
     vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool paired, bool debug);
     void display(ostream& out);

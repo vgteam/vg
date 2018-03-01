@@ -5,6 +5,7 @@
 #include "catch.hpp"
 #include "../genotyper.hpp"
 #include "../snarls.hpp"
+#include "../traversal_finder.hpp"
 
 namespace vg {
 namespace unittest {
@@ -88,7 +89,8 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
         map<string, const Alignment*> reads_by_name{{"read1", &fwd}};
 
         // Get paths through the 1 to 6 snarl supported by the read's alignment
-        vector<SnarlTraversal> paths = genotyper.get_paths_through_snarl(graph, snarls[0], manager, reads_by_name);
+        PathRestrictedTraversalFinder path_trav_finder(graph, manager, reads_by_name, 0);
+        vector<SnarlTraversal> paths = path_trav_finder.find_traversals(*snarls[0]);
         
         // We should cross the snarl the easy forward way.
         REQUIRE(paths.size() == 1);
@@ -116,11 +118,15 @@ TEST_CASE("traversals can be found from reads", "[genotyper]") {
         rev.mutable_path()->set_name("read1");
         graph.paths.extend(rev.path());
 
-        // Make a map to hold it
-        map<string, const Alignment*> reads_by_name{{"read1", &rev}};
+        // Make an augmented graph
+        AugmentedGraph aug;
+        aug.graph = graph;
+        vector<Alignment> alignments = {rev};
+        aug.augment_from_alignment_edits(alignments);
 
         // Get paths through the 1 to 6 snarl supported by the read's alignment
-        vector<SnarlTraversal> paths = genotyper.get_paths_through_snarl(graph, snarls[0], manager, reads_by_name);
+        ReadRestrictedTraversalFinder read_trav_finder(aug, manager, 0);
+        vector<SnarlTraversal> paths = read_trav_finder.find_traversals(*snarls[0]);
         
         // We should cross the snarl the easy forward way.
         REQUIRE(paths.size() == 1);

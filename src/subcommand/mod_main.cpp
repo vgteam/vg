@@ -15,6 +15,7 @@
 #include "../stream.hpp"
 #include "../utility.hpp"
 #include "../algorithms/topological_sort.hpp"
+#include "../algorithms/remove_high_degree.hpp"
 
 using namespace std;
 using namespace vg;
@@ -71,6 +72,7 @@ void help_mod(char** argv) {
          << "                            replace the pair with a single node that is the concatenation of their labels" << endl
          << "    -K, --kill-labels       delete the labels from the graph, resulting in empty nodes" << endl
          << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
+         << "    -M, --max-degree N      unlink nodes that have edge degree greater than N" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --length, for debugging" << endl
          << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
@@ -132,6 +134,7 @@ int main_mod(int argc, char** argv) {
     bool cactus = false;
     string vcf_filename;
     string loci_filename;
+    int max_degree = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -184,11 +187,12 @@ int main_mod(int argc, char** argv) {
             {"cactus", no_argument, 0, 'a'},
             {"sample-vcf", required_argument, 0, 'v'},
             {"sample-graph", required_argument, 0, 'G'},
+            {"max-degree", required_argument, 0, 'M'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNAf:CDFr:Ig:x:RTU:Bbd:Ow:L:y:Z:Eav:G:",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNAf:CDFr:Ig:x:RTU:Bbd:Ow:L:y:Z:Eav:G:M:",
                 long_options, &option_index);
 
 
@@ -374,6 +378,10 @@ int main_mod(int argc, char** argv) {
             
         case 'G':
             loci_filename = optarg;
+            break;
+
+        case 'M':
+            max_degree = atoi(optarg);
             break;
 
         case 'h':
@@ -813,6 +821,10 @@ int main_mod(int argc, char** argv) {
         graph->prune_complex_with_head_tail(path_length, edge_max);
     }
 
+    if (max_degree) {
+        algorithms::remove_high_degree_nodes(*graph, max_degree);
+    }
+
     if (prune_subgraphs) {
         graph->prune_short_subgraphs(path_length);
     }
@@ -833,7 +845,8 @@ int main_mod(int argc, char** argv) {
         }
         Node* head_node = NULL;
         Node* tail_node = NULL;
-        graph->add_start_end_markers(path_length, '#', '$', head_node, tail_node);
+        vg::id_t head_id = 0, tail_id = 0;
+        graph->add_start_end_markers(path_length, '#', '$', head_node, tail_node, head_id, tail_id);
     }
 
     if (destroy_node_id > 0) {

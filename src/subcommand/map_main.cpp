@@ -18,7 +18,7 @@ void help_map(char** argv) {
          << "    -d, --base-name BASE    use BASE.xg and BASE.gcsa as the input index pair" << endl
          << "    -x, --xg-name FILE      use this xg index (defaults to <graph>.vg.xg)" << endl
          << "    -g, --gcsa-name FILE    use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
-         << "    -1, --gbwt-name         use this GBWT haplotype index (defaults to <graph>"<<gbwt::GBWT::EXTENSION << ")" << endl
+         << "    -1, --gbwt-name FILE    use this GBWT haplotype index (defaults to <graph>"<<gbwt::GBWT::EXTENSION << ")" << endl
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
@@ -45,6 +45,7 @@ void help_map(char** argv) {
          << "    -F, --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
          << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
+         << "    --patch-aln             patch banded alignments by attempting to align unaligned regions" << endl 
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -60,18 +61,19 @@ void help_map(char** argv) {
          << "    -b, --hts-input FILE    align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
          << "    -G, --gam-input FILE    realign GAM input" << endl
          << "    -f, --fastq FILE        input fastq (possibly compressed), two are allowed, one for each mate" << endl
-         << "    -i, --interleaved       fastq is interleaved paired-ended" << endl
+         << "    -i, --interleaved       fastq or GAM is interleaved paired-ended" << endl
          << "    -N, --sample NAME       for --reads input, add this sample" << endl
          << "    -R, --read-group NAME   for --reads input, add this read group" << endl
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    --surject-to TYPE       surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
+         << "    --surj-min-softclip INT emit softclips of less than or equal to this length as matches [4]" << endl
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [512]" << endl
          << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT produce up to INT alignments for each read [1]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [1]" << endl
          << "    -Q, --mq-max INT        cap the mapping quality at INT [60]" << endl
          << "    -D, --debug             print debugging information about alignment to stderr" << endl;
 
@@ -106,7 +108,7 @@ int main_map(int argc, char** argv) {
     string fastq1, fastq2;
     bool interleaved_input = false;
     int band_width = 256;
-    int band_multimaps = 4;
+    int band_multimaps = 1;
     int max_band_jump = -1;
     bool always_rescue = false;
     bool top_pairs_only = false;
@@ -151,6 +153,8 @@ int main_map(int argc, char** argv) {
     int fragment_model_update = 10;
     bool acyclic_graph = false;
     bool refpos_table = false;
+    bool patch_alignments = false;
+    int surject_min_softclip = 4;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -215,11 +219,13 @@ int main_map(int argc, char** argv) {
                 {"id-mq-weight", required_argument, 0, '7'},
                 {"refpos-table", no_argument, 0, 'v'},
                 {"surject-to", required_argument, 0, '5'},
+                {"patch-alns", no_argument, 0, '8'},
+                {"surj-min-softclip", required_argument, 0, '9'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:89:",
                          long_options, &option_index);
 
 
@@ -424,6 +430,14 @@ int main_map(int argc, char** argv) {
             surject_type = optarg;
             break;
 
+        case '8':
+            patch_alignments = true;
+            break;
+
+        case '9':
+            surject_min_softclip = atoi(optarg);
+            break;
+
         case 'I':
         {
             vector<string> parts = split_delims(string(optarg), ":");
@@ -517,7 +531,7 @@ int main_map(int argc, char** argv) {
     if (!db_name.empty()) {
         xg_name = db_name + ".xg";
         gcsa_name = db_name + gcsa::GCSA::EXTENSION;
-        gbwt_name = file_name + gbwt::GBWT::EXTENSION;
+        gbwt_name = db_name + gbwt::GBWT::EXTENSION;
     }
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
@@ -537,6 +551,9 @@ int main_map(int argc, char** argv) {
 
     if(xg_stream) {
         // We have an xg index!
+        
+        // TODO: tell when the user asked for an XG vs. when we guessed one,
+        // and error when the user asked for one and we can't find it.
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
@@ -621,53 +638,151 @@ int main_map(int argc, char** argv) {
             }
             hdr = hts_string_header(sam_header, path_length, rg_sample);
             if ((sam_out = sam_open("-", out_mode)) == 0) {
-                cerr << "[vg surject] failed to open stdout for writing HTS output" << endl;
+                cerr << "[vg map] failed to open stdout for writing HTS output" << endl;
                 exit(1);
             } else {
                 // write the header
                 if (sam_hdr_write(sam_out, hdr) != 0) {
-                    cerr << "[vg surject] error: failed to write the SAM header" << endl;
+                    cerr << "[vg map] error: failed to write the SAM header" << endl;
                 }
             }
         }
     };
 
-    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out] (const vector<Alignment>& alns) {
-        if (alns.empty()) return;
+    // TODO: Refactor the surjection code out of surject_main and intto somewhere where we can just use it here!
+
+    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out, &xgidx,
+        &surject_min_softclip] (const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
+        
+        if (alns1.empty()) return;
         setup_sam_header();
-        vector<tuple<string, int64_t, bool, Alignment> > surjects;
+        vector<tuple<string, int64_t, bool, Alignment> > surjects1, surjects2;
         int tid = omp_get_thread_num();
-        for (auto& aln : alns) {
-            string path_name; int64_t path_pos; bool path_reverse;
+        for (auto& aln : alns1) {
+            // Surject each alignment of the first read in the pair
+            string path_name;
+            int64_t path_pos = -1;
+            bool path_reverse = false;
+            
             auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse);
-            surjects.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
+            surjects1.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
+            
             // hack: if we haven't established the header, we look at the reads to guess which read groups to put in it
             if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {
 #pragma omp critical (hts_header)
                 rg_sample[surj.read_group()] = surj.sample_name();
             }
         }
-        // write out the surjections
-        for (auto& s : surjects) {
-            auto& path_nom = get<0>(s);
-            auto& path_pos = get<1>(s);
-            auto& path_reverse = get<2>(s);
-            auto& surj = get<3>(s);
-            string cigar = cigar_against_path(surj, path_reverse);
-            bam1_t* b = alignment_to_bam(sam_header,
-                                         surj,
-                                         path_nom,
-                                         path_pos,
-                                         path_reverse,
-                                         cigar,
-                                         "=",
-                                         path_pos,
-                                         0);
-            int r = 0;
+        
+        for (auto& aln : alns2) {
+            // Surject each alignment of the second read in the pair, if any
+            string path_name;
+            int64_t path_pos = -1;
+            bool path_reverse = false;
+            
+            auto surj = mapper[tid]->surject_alignment(aln, path_names, path_name, path_pos, path_reverse);
+            surjects2.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
+            
+            // Don't try and populate the header; it should have happened already
+        }
+        
+        if (surjects2.empty()) {
+            // Write out surjected single-end reads
+        
+            for (auto& s : surjects1) {
+                auto& path_name = get<0>(s);
+                auto& path_pos = get<1>(s);
+                auto& path_reverse = get<2>(s);
+                auto& surj = get<3>(s);
+                
+                size_t path_len = 0;
+                if (path_name != "") {
+                    path_len = xgidx->path_length(path_name);
+                }
+                string cigar = cigar_against_path(surj, path_reverse, path_pos, path_len, surject_min_softclip);
+                bam1_t* b = alignment_to_bam(sam_header,
+                                             surj,
+                                             path_name,
+                                             path_pos,
+                                             path_reverse,
+                                             cigar);
+                int r = 0;
 #pragma omp critical (cout)
-            r = sam_write1(sam_out, hdr, b);
-            if (r == 0) { cerr << "[vg surject] error: writing to stdout failed" << endl; exit(1); }
-            bam_destroy1(b);
+                r = sam_write1(sam_out, hdr, b);
+                if (r == 0) { cerr << "[vg map] error: writing to stdout failed" << endl; exit(1); }
+                bam_destroy1(b);
+            }
+        } else {
+            // Write out surjected paired-end reads
+            
+            // Paired-end reads come in corresponding pairs, allowing duplicate reads.
+            assert(surjects1.size() == surjects2.size());
+            
+            for (size_t i = 0; i < surjects1.size(); i++) {
+                // For each corresponding pair
+                auto& s1 = surjects1[i];
+                auto& s2 = surjects2[i];
+
+                // Unpack each read
+                auto& path_name1 = get<0>(s1);
+                auto& path_pos1 = get<1>(s1);
+                auto& path_reverse1 = get<2>(s1);
+                auto& surj1 = get<3>(s1);
+                
+                auto& path_name2 = get<0>(s2);
+                auto& path_pos2 = get<1>(s2);
+                auto& path_reverse2 = get<2>(s2);
+                auto& surj2 = get<3>(s2);
+                
+                // Compute CIGARs
+                size_t path_len1, path_len2;
+                if (path_name1 != "") {
+                    path_len1 = xgidx->path_length(path_name1);
+                }
+                if (path_name2 != "") {
+                    path_len2 = xgidx->path_length(path_name2);
+                }
+                string cigar1 = cigar_against_path(surj1, path_reverse1, path_pos1, path_len1, surject_min_softclip);
+                string cigar2 = cigar_against_path(surj2, path_reverse2, path_pos2, path_len2, surject_min_softclip);
+                
+                // TODO: compute template length based on
+                // pair distance and alignment content.
+                int template_length = 0;
+                
+                // Make BAM records
+                bam1_t* b1 = alignment_to_bam(sam_header,
+                                              surj1,
+                                              path_name1,
+                                              path_pos1,
+                                              path_reverse1,
+                                              cigar1,
+                                              path_name2,
+                                              path_pos2,
+                                              template_length);
+                bam1_t* b2 = alignment_to_bam(sam_header,
+                                              surj2,
+                                              path_name2,
+                                              path_pos2,
+                                              path_reverse2,
+                                              cigar2,
+                                              path_name1,
+                                              path_pos1,
+                                              template_length);
+                
+                // Write the records
+                int r = 0;
+#pragma omp critical (cout)
+                r = sam_write1(sam_out, hdr, b1);
+                if (r == 0) { cerr << "[vg map] error: writing to stdout failed" << endl; exit(1); }
+                bam_destroy1(b1);
+                r = 0;
+#pragma omp critical (cout)
+                r = sam_write1(sam_out, hdr, b2);
+                if (r == 0) { cerr << "[vg map] error: writing to stdout failed" << endl; exit(1); }
+                bam_destroy1(b2);
+            }
+            
+            
         }
     };
 
@@ -718,8 +833,7 @@ int main_map(int argc, char** argv) {
             }
         } else if (!surject_type.empty()) {
             // surject
-            surject_alignments(alns1);
-            surject_alignments(alns2);
+            surject_alignments(alns1, alns2);
         } else {
             // Otherwise write them through the buffer for our thread
             int tid = omp_get_thread_num();
@@ -785,6 +899,7 @@ int main_map(int argc, char** argv) {
         m->identity_weight = identity_weight;
         m->assume_acyclic = acyclic_graph;
         m->context_depth = 3; // for surjection
+        m->patch_alignments = patch_alignments;
         mapper[i] = m;
     }
 

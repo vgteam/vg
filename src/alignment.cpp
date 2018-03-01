@@ -535,19 +535,117 @@ string string_quality_char_to_short(const string& quality) {
     return buffer;
 }
 
-// remember to clean up with bam_destroy1(b);
-bam1_t* alignment_to_bam(const string& sam_header,
-                         const Alignment& alignment,
-                         const string& refseq,
-                         const int32_t refpos,
-                         const bool refrev,
-                         const string& cigar,
-                         const string& mateseq,
-                         const int32_t matepos,
-                         const int32_t tlen) {
+// Internal conversion function for both paired and unpaired codepaths
+string alignment_to_sam_internal(const Alignment& alignment,
+                                 const string& refseq,
+                                 const int32_t refpos,
+                                 const bool refrev,
+                                 const string& cigar,
+                                 const string& mateseq,
+                                 const int32_t matepos,
+                                 const int32_t tlen,
+                                 bool paired) {
+                        
+    // Determine flags, using orientation, next/prev fragments, and pairing status.
+    int32_t flags = sam_flag(alignment, refrev, paired);
+   
+    // Have One True Flag for whether the read is mapped (and should have its
+    // mapping stuff set) or unmapped (and should have things *'d out).
+    bool mapped = !(flags & BAM_FUNMAP);
+    
+    if (mapped) {
+        // Make sure we have everything
+        assert(!refseq.empty());
+        assert(refpos != -1);
+        assert(!cigar.empty());
+        assert(alignment.has_path());
+        assert(alignment.path().mapping_size() > 0);
+    }
+    
+    // We've observed some reads with the unmapped flag set and also a CIGAR string set, which shouldn't happen.
+    // We will check for this. The CIGAR string will only be set in the output if the alignment has a path.
+    assert((bool)(flags & BAM_FUNMAP) != (alignment.has_path() && alignment.path().mapping_size()));
+    
+    stringstream sam;
+    
+    string alignment_name;
+    if (paired) {
+        // We need to strip the /1 and /2 or _1 and _2 from paired reads so the two ends have the same name.
+        alignment_name = regex_replace(alignment.name(), regex("[/_][12]$"), "");
+    } else {
+        // Keep the alignment name as is because even if the name looks paired, the reads are semantically unpaired.
+        alignment_name = alignment.name();
+    }
+
+    sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
+        << flags << "\t"
+        << (mapped ? refseq : "*") << "\t"
+        << refpos + 1 << "\t"
+        << (mapped ? alignment.mapping_quality() : 0) << "\t"
+        << (mapped ? cigar : "*") << "\t"
+        << (mateseq == "" ? "*" : (mateseq == refseq ? "=" : mateseq)) << "\t"
+        << matepos + 1 << "\t"
+        << tlen << "\t"
+        // Make sure sequence always comes out in reference forward orientation by looking at the flags.
+        << (!alignment.sequence().empty() ? (refrev ? reverse_complement(alignment.sequence()) : alignment.sequence()) : "*") << "\t";
+    if (!alignment.quality().empty()) {
+        auto quality = alignment.quality();
+        if (refrev) {
+            // Quality also needs to be flipped
+            std::reverse(quality.begin(), quality.end());
+        }
+        for (int i = 0; i < quality.size(); ++i) {
+            sam << quality_short_to_char(quality[i]);
+        }
+    } else {
+        sam << "*";
+    }
+    //<< (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
+    if (!alignment.read_group().empty()) sam << "\tRG:Z:" << alignment.read_group();
+    sam << "\n";
+    return sam.str();
+}
+
+string alignment_to_sam(const Alignment& alignment,
+                        const string& refseq,
+                        const int32_t refpos,
+                        const bool refrev,
+                        const string& cigar,
+                        const string& mateseq,
+                        const int32_t matepos,
+                        const int32_t tlen) {
+    
+    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, true);
+
+}
+
+string alignment_to_sam(const Alignment& alignment,
+                        const string& refseq,
+                        const int32_t refpos,
+                        const bool refrev,
+                        const string& cigar) {
+    
+    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, "", -1, 0, false);
+
+}
+
+// Internal conversion function for both paired and unpaired codepaths
+bam1_t* alignment_to_bam_internal(const string& sam_header,
+                                  const Alignment& alignment,
+                                  const string& refseq,
+                                  const int32_t refpos,
+                                  const bool refrev,
+                                  const string& cigar,
+                                  const string& mateseq,
+                                  const int32_t matepos,
+                                  const int32_t tlen,
+                                  bool paired) {
 
     assert(!sam_header.empty());
-    string sam_file = "data:," + sam_header + alignment_to_sam(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen);
+    
+    // Make a tiny SAM file. Remember to URL-encode it, since it may contain '%'
+    string sam_file = "data:," + percent_url_encode(sam_header +
+        alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, paired));
     const char* sam = sam_file.c_str();
     samFile *in = sam_open(sam, "r");
     bam_hdr_t *header = sam_hdr_read(in);
@@ -563,7 +661,8 @@ bam1_t* alignment_to_bam(const string& sam_header,
     }
 }
 
-string alignment_to_sam(const Alignment& alignment,
+bam1_t* alignment_to_bam(const string& sam_header,
+                        const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
@@ -571,41 +670,20 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& mateseq,
                         const int32_t matepos,
                         const int32_t tlen) {
-                        
-    // Determine flags, using orientation and read name suffix.
-    int32_t flags = sam_flag(alignment, refrev);
     
-    stringstream sam;
+    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, true);
 
-    // We need to strip the /1 and /2 from paired reads so the two ends have the same name.
-    string alignment_name = regex_replace(alignment.name(), regex("/[12]$"), "");
+}
 
-    sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
-        << flags << "\t"
-        << (refseq.empty() ? "*" : refseq) << "\t"
-        << refpos + 1 << "\t"
-        //<< (alignment.path().mapping_size() ? refpos + 1 : 0) << "\t" // positions are 1-based in SAM, 0 means unmapped
-        << alignment.mapping_quality() << "\t"
-        << (alignment.has_path() && alignment.path().mapping_size() ? cigar : "*") << "\t"
-        << (mateseq == refseq ? "=" : mateseq) << "\t"
-        << matepos + 1 << "\t"
-        << tlen << "\t"
-        // Make sure sequence always comes out in reference forward orientation by looking at the flags.
-        << (!alignment.sequence().empty() ? (refrev ? reverse_complement(alignment.sequence()) : alignment.sequence()) : "*") << "\t";
-    // hack much?
-    if (!alignment.quality().empty()) {
-        const string& quality = alignment.quality();
-        for (int i = 0; i < quality.size(); ++i) {
-            sam << quality_short_to_char(quality[i]);
-        }
-    } else {
-        sam << "*";
-        //sam << string(alignment.sequence().size(), 'I');
-    }
-    //<< (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
-    if (!alignment.read_group().empty()) sam << "\tRG:Z:" << alignment.read_group();
-    sam << "\n";
-    return sam.str();
+bam1_t* alignment_to_bam(const string& sam_header,
+                        const Alignment& alignment,
+                        const string& refseq,
+                        const int32_t refpos,
+                        const bool refrev,
+                        const string& cigar) {
+    
+    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, 0, false);
+
 }
 
 string cigar_string(vector<pair<int, char> >& cigar) {
@@ -697,11 +775,12 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
 // act like the path this is against is the reference
 // and generate an equivalent cigar
 // Produces CIGAR in forward strand space of the reference sequence.
-string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
+string cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress) {
     vector<pair<int, char> > cigar;
-    if (!alignment.has_path()) return "";
+    if (!alignment.has_path() || alignment.path().mapping_size() == 0) return "";
     const Path& path = alignment.path();
     int l = 0;
+
     for (const auto& mapping : path.mapping()) {
         mapping_cigar(mapping, cigar);
     }
@@ -712,29 +791,53 @@ string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
     }
 
     // handle soft clips, which are just insertions at the start or end
-    if (cigar.front().second == 'I') {
-        cigar.front().second = 'S';
-    }
+    // back
     if (cigar.back().second == 'I') {
-        cigar.back().second = 'S';
+        // make sure we stay in the reference sequence when suppressing the softclips
+        if (cigar.back().first <= softclip_suppress
+            && pos + alignment_from_length(alignment) + cigar.back().first <= path_len) {
+            cigar.back().second = 'M';
+        } else {
+            cigar.back().second = 'S';
+        }
     }
-    
+    // front
+    if (cigar.front().second == 'I') {
+        // make sure we stay in the reference sequence when suppressing the softclips
+        if (cigar.front().first <= softclip_suppress
+            && pos - cigar.front().first >= 0) {
+            cigar.front().second = 'M';
+            pos -= cigar.front().first;
+        } else {
+            cigar.front().second = 'S';
+        }
+    }
+
     return cigar_string(cigar);
 }
 
-int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
+int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired) {
     int16_t flag = 0;
 
-    if (alignment.has_fragment_next()) {
-        // This is the first read in a pair
-        flag |= (BAM_FPAIRED | BAM_FREAD1);
-    }
-    if (alignment.has_fragment_prev()) {
-        // This is the second read in a pair
-        flag |= (BAM_FPAIRED | BAM_FREAD2);
+    if (paired) {
+        // Respect the alignment's internal crossreferences.
+        // Allow for multiple-read-long fragments. 
+        
+        flag |= BAM_FPAIRED;
+        if (!alignment.has_fragment_next()) {
+            // This is the last read in a pair
+            flag |= BAM_FREAD2;
+        }
+        if (!alignment.has_fragment_prev()) {
+            // This is the first read in a pair
+            flag |= BAM_FREAD1;
+        }
+        
+        // Invalid paired GAM is caught, for surject, on GAM input
+        // TODO: catch reads with pair partners when they shouldn't be paired?
     }
 
-    if (alignment.score() == 0) {
+    if (!alignment.has_path() || alignment.path().mapping_size() == 0) {
         // unmapped
         flag |= BAM_FUNMAP;
     } else if (flag & BAM_FPAIRED) {
@@ -798,8 +901,24 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
 
     // add features to the alignment
     alignment.set_name(read_name);
-    alignment.set_sequence(sequence);
-    alignment.set_quality(quality);
+    // was the sequence reverse complemented?
+    if (b->core.flag & BAM_FREVERSE) {
+        
+        alignment.set_sequence(reverse_complement(sequence));
+        
+        string rev_quality;
+        rev_quality.resize(quality.size());
+        reverse_copy(quality.begin(), quality.end(), rev_quality.begin());
+        alignment.set_quality(rev_quality);
+    }
+    else {
+        
+        alignment.set_sequence(sequence);
+        alignment.set_quality(quality);
+        
+    }
+    
+    
     
     // TODO: htslib doesn't wrap this flag for some reason.
     alignment.set_is_secondary(b->core.flag & BAM_FSECONDARY);
@@ -953,6 +1072,13 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
     // buliding up the alignment
     Alignment merged;
 
+    size_t len = 0;
+    for (size_t i = 0; i < alns.size(); ++i) {
+        len += alns[i].sequence().size();
+    }
+    merged.mutable_sequence()->reserve(len);
+    if (alns.front().quality().size()) merged.mutable_quality()->reserve(len);
+
     // get the alignments ready for merge
     for (size_t i = 0; i < alns.size(); ++i) {
         Alignment aln = alns[i];
@@ -964,15 +1090,17 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
             *aln.mutable_path()->add_mapping() = m;
         }
         if (i == 0) {
-            merged = aln;
+            merged = aln; merged.clear_sequence();
         } else {
-            extend_alignment(merged, aln, debug);
+            if (!merged.quality().empty()) merged.mutable_quality()->append(aln.quality());
+            extend_path(*merged.mutable_path(), aln.path());
+            merged.mutable_sequence()->append(aln.sequence());
         }
     }
-    *merged.mutable_path() = simplify(merged.path());
+    //*merged.mutable_path() = simplify(merged.path());
+    //merged.mutable_sequence() = 
     return merged;
 }
-
 
 Alignment& extend_alignment(Alignment& a1, const Alignment& a2, bool debug) {
     //if (debug) cerr << "extending alignment " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
@@ -1216,11 +1344,16 @@ void parse_bed_regions(istream& bedstream,
         } else {
             ss >> name;
             assert(sbuf < ebuf);
-            // convert from BED-style to 0-based inclusive coordinates
-            ebuf -= 1;
-            Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name);
 
-            out_alignments->push_back(alignment);
+            if (xgindex->path_rank(seq) == 0) {
+                // This path doesn't exist, and we'll get a segfault or worse if
+                // we go look for positions in it.
+                cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
+            } else {
+                Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name);
+
+                out_alignments->push_back(alignment);
+            }
         }
     }
 }

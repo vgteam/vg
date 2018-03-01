@@ -12,7 +12,7 @@
 	url = https://github.com/illusori/bash-tap.git
 [submodule "progress_bar"]
 	path = deps/progress_bar
-	url = https://github.com/ekg/cpp_progress_bar.git
+	url = https://github.com/vgteam/cpp_progress_bar.git
 [submodule "lru_cache"]
 	path = deps/lru_cache
 	url = https://github.com/ekg/lru_cache.git
@@ -73,3 +73,12 @@
 [submodule "deps/sublinear-Li-Stephens"]
 	path = deps/sublinear-Li-Stephens
 	url = https://github.com/yoheirosen/sublinear-Li-Stephens.git
+[submodule "deps/backward-cpp"]
+	path = deps/backward-cpp
+	url = https://github.com/adamnovak/backward-cpp.git
+[submodule "deps/elfutils"]
+	path = deps/elfutils
+	url = git://sourceware.org/git/elfutils.git
+[submodule "deps/structures"]
+	path = deps/structures
+	url = https://github.com/vgteam/structures.git

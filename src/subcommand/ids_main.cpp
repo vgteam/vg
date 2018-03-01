@@ -16,6 +16,8 @@
 #include "../vg_set.hpp"
 #include "../algorithms/topological_sort.hpp"
 
+#include <gcsa/support.h>
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -29,6 +31,7 @@ void help_ids(char** argv) {
         << "    -j, --join           make a joint id space for all the graphs that are supplied" << endl
         << "                         by iterating through the supplied graphs and incrementing" << endl
         << "                         their ids to be non-conflicting (modifies original files)" << endl
+        << "    -m, --mapping FILE   create an empty node mapping for vg prune (use with -j)" << endl
         << "    -s, --sort           assign new node IDs in (generalized) topological sort order" << endl;
 }
 
@@ -44,6 +47,7 @@ int main_ids(int argc, char** argv) {
     bool sort = false;
     int64_t increment = 0;
     int64_t decrement = 0;
+    std::string mapping_name;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -54,13 +58,14 @@ int main_ids(int argc, char** argv) {
             {"increment", required_argument, 0, 'i'},
             {"decrement", required_argument, 0, 'd'},
             {"join", no_argument, 0, 'j'},
+            {"mapping", required_argument, 0, 'm'},
             {"sort", no_argument, 0, 's'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hci:d:js",
+        c = getopt_long (argc, argv, "hci:d:jm:s",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -83,6 +88,10 @@ int main_ids(int argc, char** argv) {
 
             case 'j':
                 join = true;
+                break;
+
+            case 'm':
+                mapping_name = optarg;
                 break;
 
             case 's':
@@ -135,8 +144,17 @@ int main_ids(int argc, char** argv) {
         }
 
         VGset graphs(graph_file_names);
-        graphs.merge_id_space();
-
+        vg::id_t max_node_id = graphs.merge_id_space();
+        if (!mapping_name.empty()) {
+            gcsa::NodeMapping mapping(max_node_id + 1);
+            std::ofstream out(mapping_name, std::ios_base::binary);
+            if (!out) {
+                std::cerr << "[vg ids]: cannot create node mapping file " << mapping_name << std::endl;
+            } else {
+                mapping.serialize(out);
+                out.close();
+            }
+        }
     }
 
     return 0;

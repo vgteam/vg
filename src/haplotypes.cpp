@@ -6,6 +6,9 @@
 
 namespace haplo {
 
+// By default, should we warn when haplotype scoring fails?
+bool warn_on_score_fail = false;
+
 /*******************************************************************************
 haplo_DP_edge_memo
 *******************************************************************************/
@@ -373,7 +376,6 @@ bool haplo_DP_column::is_empty() const {
 /*******************************************************************************
 haplo_DP
 *******************************************************************************/
-
 haplo_score_type haplo_DP::score(const vg::Path& path, xg::XG& graph, haploMath::RRMemo& memo) {
   return score(path_to_thread_t(path), graph, memo);
 }
@@ -381,22 +383,32 @@ haplo_score_type haplo_DP::score(const vg::Path& path, xg::XG& graph, haploMath:
 haplo_score_type haplo_DP::score(const thread_t& thread, xg::XG& graph, haploMath::RRMemo& memo) {
   hDP_graph_accessor ga_i(graph, thread[0], memo);
   haplo_DP hdp(ga_i);
+#ifdef debug
+  cerr << "After entry 0 (" << thread[0].node_id << ") height: " << ga_i.new_height() << " score: " << hdp.DP_column.current_sum() << endl;
+#endif
   if(ga_i.new_height() == 0) {
-    cerr << "[WARNING] Initial node in path is visited by 0 reference haplotypes" << endl;
-    cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
-    ga_i.print(cerr);
+    if (warn_on_score_fail) {
+      cerr << "[WARNING] Initial node in path is visited by 0 reference haplotypes" << endl;
+      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+      ga_i.print(cerr);
+    }
     return pair<double, bool>(nan(""), false);
   }
   for(size_t i = 1; i < thread.size(); i++) {
     hDP_graph_accessor ga(graph, thread[i-1], thread[i], memo);
     if(ga.new_height() == 0) {
-      cerr << "[WARNING] Node " << i + 1 << " in path is visited by 0 reference haplotypes" << endl;
-      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
-      ga.print(cerr);
+      if (warn_on_score_fail) {
+        cerr << "[WARNING] Node " << i + 1 << " in path is visited by 0 reference haplotypes" << endl;
+        cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+        ga.print(cerr);
+      }
       return pair<double, bool>(nan(""), false);
     } else {
       hdp.DP_column.extend(ga);
     }
+#ifdef debug
+  cerr << "After entry " << i << " (" << thread[i].node_id << ") height: " << ga.new_height() << " score: " << hdp.DP_column.current_sum() << endl;
+#endif
   }
   return pair<double, bool>(hdp.DP_column.current_sum(), true);
 }

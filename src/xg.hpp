@@ -223,7 +223,9 @@ public:
     virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee) const;
+    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+    // Copy over the tamplate version
+    using HandleGraph::for_each_handle;
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
 
@@ -814,6 +816,10 @@ public:
                      std::string name = "") const;
     // Get a mapping. Note that the mapping will not have its lengths filled in.
     Mapping mapping(size_t offset) const; // 0-based
+
+    // Get the node orientation at a 0-based offset.
+    id_t node(size_t offset) const;
+    bool is_reverse(size_t offset) const;
 };
 
 

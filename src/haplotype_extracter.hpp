@@ -6,18 +6,24 @@
 #include <iostream>
 #include <vector>
 
+#include <gbwt/gbwt.h>
+
 #include "vg.pb.h"
 #include "xg.hpp"
 
+namespace vg {
+
 using namespace std;
-using namespace vg;
+
 using thread_t = vector<xg::XG::ThreadMapping>;
 
 // Walk forward from a node, collecting all haplotypes.  Also do a regular
-// subgraph search for all the paths too.  Haplotype thread i will be
-// embedded as Paths a path with name thread_i.
-// Each path name (including threads) is mapped to a frequency in out_thread_frequencies
-void trace_haplotypes_and_paths(xg::XG& index,
+// subgraph search for all the paths too.  Haplotype thread i will be embedded
+// as Paths a path with name thread_i.  Each path name (including threads) is
+// mapped to a frequency in out_thread_frequencies.  Haplotypes will be pulled
+// from the xg index's gPBWT if haplotype_database is null, and from the given
+// GBWT index otherwise.
+void trace_haplotypes_and_paths(xg::XG& index, const gbwt::GBWT* haplotype_database,
                                 vg::id_t start_node, int extend_distance,
                                 Graph& out_graph,
                                 map<string, int>& out_thread_frequencies,
@@ -31,6 +37,13 @@ Path path_from_thread_t(thread_t& t);
 // Records, for each thread_t t the number of haplotypes of which t is a
 // subhaplotype
 vector<pair<thread_t,int> > list_haplotypes(xg::XG& index,
+            xg::XG::ThreadMapping start_node, int extend_distance);
+
+// Lists all the sub-haplotypes of length extend_distance nodes starting at
+// node start_node from the set of haplotypes embedded in the geven GBWT
+// haplotype database.  Records, for each thread_t t the number of haplotypes
+// of which t is a subhaplotype
+vector<pair<thread_t,int> > list_haplotypes(xg::XG& index, const gbwt::GBWT& haplotype_database,
             xg::XG::ThreadMapping start_node, int extend_distance);
 
 // writes to subgraph_ostream the subgraph covered by
@@ -55,5 +68,7 @@ void add_thread_edges_to_set(thread_t& t, set<pair<int,int> >& edges);
 // Turns a set of nodes and a set of edges into a Graph
 void construct_graph_from_nodes_and_edges(Graph& g, xg::XG& index,
             set<int64_t>& nodes, set<pair<int,int> >& edges);
+
+}
 
 #endif

@@ -26,7 +26,7 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/glennhickey/toil-vg.git@6c3a03e6f053b4adecb23199c68d324973e52d6a"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@249f626c3fcdfba57a713360c92e5190f489cfef"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
@@ -156,7 +156,7 @@ pip install requests
 pip install timeout_decorator
 pip install pytest
 pip install pygithub
-pip install toil[aws,mesos]==3.11.0
+pip install toil[aws,mesos]==3.13.0
 # Don't manually install boto since toil just installs its preferred version
 
 # Install toil-vg itself

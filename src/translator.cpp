@@ -126,7 +126,7 @@ Path Translator::translate(const Path& path) {
     for (int i = 0; i < path.mapping_size(); ++i) {
         *result.add_mapping() = translate(path.mapping(i));
     }
-    return simplify(result);
+    return simplify(result, false);
 }
 
 Alignment Translator::translate(const Alignment& aln) {

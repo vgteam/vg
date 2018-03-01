@@ -14,6 +14,7 @@
 
 #include "../vg.hpp"
 #include "../vg_set.hpp"
+#include "../kmer.hpp"
 
 using namespace std;
 using namespace vg;
@@ -21,26 +22,25 @@ using namespace vg::subcommand;
 
 void help_kmers(char** argv) {
     cerr << "usage: " << argv[0] << " kmers [options] <graph1.vg> [graph2.vg ...] >kmers.tsv" << endl
-
-        << "Generates kmers of the graph(s). Output is: kmer id pos" << endl
-        << endl
-        << "options:" << endl
-        << "    -k, --kmer-size N     print kmers of size N in the graph" << endl
-        << "    -e, --edge-max N      only consider paths which make edge choices at <= this many points" << endl
-        << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
-        << "    -t, --threads N       number of threads to use" << endl
-        << "    -d, --ignore-dups     filter out duplicated kmers in normal output" << endl
-        << "    -n, --allow-negs      don't filter out relative negative positions of kmers in normal output" << endl
-        << "    -g, --gcsa-out        output a table suitable for input to GCSA2:" << endl
-        << "                          kmer, starting position, previous characters," << endl
-        << "                          successive characters, successive positions." << endl
-        << "                          Forward and reverse strand kmers are reported." << endl
-        << "    -B, --gcsa-binary     Write the GCSA graph in binary format." << endl
-        << "    -F, --forward-only    When producing GCSA2 output, don't describe the reverse strand" << endl
-        << "    -P, --path-only       Only consider kmers if they occur in a path embedded in the graph" << endl
-        << "    -H, --head-id N       use the specified ID for the GCSA2 head sentinel node" << endl
-        << "    -T, --tail-id N       use the specified ID for the GCSA2 tail sentinel node" << endl
-        << "    -p, --progress        show progress" << endl;
+         << "Generates kmers of the graph(s). Output is: kmer id pos" << endl
+         << endl
+         << "options:" << endl
+         << "    -k, --kmer-size N     print kmers of size N in the graph" << endl
+         << "    -e, --edge-max N      only consider paths which make edge choices at <= this many points" << endl
+         << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
+         << "    -t, --threads N       number of threads to use" << endl
+         << "    -d, --ignore-dups     filter out duplicated kmers in normal output" << endl
+         << "    -n, --allow-negs      don't filter out relative negative positions of kmers in normal output" << endl
+         << "    -g, --gcsa-out        output a table suitable for input to GCSA2:" << endl
+         << "                          kmer, starting position, previous characters," << endl
+         << "                          successive characters, successive positions." << endl
+         << "                          Forward and reverse strand kmers are reported." << endl
+         << "    -B, --gcsa-binary     Write the GCSA graph in binary format." << endl
+         << "    -F, --forward-only    When producing GCSA2 output, don't describe the reverse strand" << endl
+         << "    -P, --path-only       Only consider kmers if they occur in a path embedded in the graph" << endl
+         << "    -H, --head-id N       use the specified ID for the GCSA2 head sentinel node" << endl
+         << "    -T, --tail-id N       use the specified ID for the GCSA2 tail sentinel node" << endl
+         << "    -p, --progress        show progress" << endl;
 }
 
 int main_kmers(int argc, char** argv) {
@@ -63,6 +63,7 @@ int main_kmers(int argc, char** argv) {
     int64_t tail_id = 0;
     bool forward_only = false;
     bool gcsa_binary = false;
+    bool handle_alg = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -182,22 +183,17 @@ int main_kmers(int argc, char** argv) {
             exit(1);
         }
         if (!gcsa_binary) {
-            graphs.write_gcsa_out(cout, kmer_size, path_only, forward_only, head_id, tail_id);
+            graphs.write_gcsa_kmers_ascii(cout, kmer_size, head_id, tail_id);
         } else {
-            graphs.write_gcsa_kmers_binary(cout, kmer_size, path_only, forward_only, head_id, tail_id);
+            graphs.write_gcsa_kmers_binary(cout, kmer_size, head_id, tail_id);
         }
     } else {
-        function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG& graph)>
-            lambda = [](string& kmer, list<NodeTraversal>::iterator n, int p, list<NodeTraversal>& path, VG& graph) {
-                // We encode orientation by negating the IDs for backward nodes.
-                // Their offsets are from the end of the node in its local forward
-                // orientation, and are negated in the output.
-                int sign = (*n).backward ? -1 : 1;
+        //function<void(const kmer_t& kmer)>
+        auto lambda = [](const kmer_t& kmer) {
 #pragma omp critical (cout)
-
-                cout << kmer << '\t' << (*n).node->id() * sign << '\t' << p * sign << '\n';
-            };
-        graphs.for_each_kmer_parallel(lambda, kmer_size, path_only, edge_max, kmer_stride, allow_dups, allow_negs);
+            cout << kmer << endl;
+        };
+        graphs.for_each_kmer_parallel(kmer_size, lambda);
     }
     cout.flush();
 

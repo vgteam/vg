@@ -20,13 +20,13 @@ This model is similar to a number of sequence graphs that have been used in asse
 ## Usage
 
 ### building
-
+e
 Before you begin, you'll need to install some basic tools if they are not already installed. You'll need the protobuf and jansson development libraries installed on your server. Additionally, to run the tests, you will need `jq`, `bc` and `rs`.
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
-                         jq bc rs curl unzip redland-utils librdf-dev bison flex lzma-dev \
-                         liblzma-dev liblz4-dev 
+                         jq bc rs curl unzip redland-utils librdf-dev bison flex gawk \
+                         lzma-dev liblzma-dev liblz4-dev  
 
 You can also run `make get-deps`.
 
@@ -46,13 +46,13 @@ Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
 
 ##### using Mac Ports
 
-VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
+VG won't build with XCode's compiler (clang), but it should work with GCC >= 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen clang-3.8
+    sudo port install gcc7 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen clang-3.8
 
-To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
+To make GCC 7 the default compiler, run (use `none` instead of `mp-gcc7` to revert back):
 
-    sudo port select gcc mp-gcc49
+    sudo port select gcc mp-gcc7
 
 Some OSX users also need to have the MacPorts clang assembler for dependencies (use `none` instead of `mp-clang-3.8` to revert back):
 
@@ -66,7 +66,7 @@ VG can now be cloned and built:
     
 **Note that static binaries cannot yet be built for Mac.**
 
-Note: vg has been shown to build on Mac with GCC versions 4.9, 5.3, and 6.
+Our team has also successfully built vg on Mac with GCC versions 4.9, 5.3, 6, and 7.3.
 
 ##### using Homebrew
 
@@ -74,7 +74,6 @@ Note: vg has been shown to build on Mac with GCC versions 4.9, 5.3, and 6.
 
 ```
 brew tap homebrew/versions  # for gcc49
-brew tap homebrew/science  # for samtools
 brew install automake libtool jq jansson coreutils gcc49 samtools pkg-config cmake raptor bison lz4 xz
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 
@@ -144,21 +143,20 @@ If your graph is large, you want to use `vg index` to store the graph and `vg ma
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 
 # store the graph in the xg/gcsa index pair
-vg index -x x.xg -g x.gcsa -k 11 x.vg
-
-# alternatively, store in a rocksdb backed index (recommended for surjection to BAM later)
-vg index -s -k 11 -d x.vg.index x.vg
+vg index -x x.xg -g x.gcsa -k 16 x.vg
 
 # align a read to the indexed version of the graph
 # note that the graph file is not opened, but x.vg.index is assumed
-vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -k 22 >read.gam
+vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa >read.gam
 
 # simulate a bunch of 150bp reads from the graph and map them
-vg map -r <(vg sim -n 1000 -l 150 -x x.xg ) -x x.xg -g x.gcsa -k 22 >aln.gam
+vg map -r <(vg sim -n 1000 -l 150 -x x.xg ) -x x.xg -g x.gcsa >aln.gam
 
 # surject the alignments back into the reference space of sequence "x", yielding a BAM file
-# NB: currently requires the rocksdb-backed index
 vg surject -x x.xg -b aln.gam >aln.bam
+
+# or alternatively, surject them to BAM in the call to map
+vg map -r <(vg sim -n 1000 -l 150 -x x.xg ) -x x.xg -g x.gcsa --surject-to bam >aln.bam
 ```
 ### Variant Calling
 

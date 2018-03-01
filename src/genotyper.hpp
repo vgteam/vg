@@ -66,7 +66,6 @@ public:
     };
 
 
-
     // How many nodes max should we walk when checking if a path runs through a superbubble/snarl
     size_t max_path_search_steps = 100;
     
@@ -134,8 +133,8 @@ public:
     // This maps from length in the reference to number of snarls of that length.
     unordered_map<size_t, size_t> snarl_reference_length_histogram;
     
-    // Which reads traverse all the way through each snarl?
-    unordered_map<const Snarl*, set<string>> snarl_traversals;
+    // Which snarls have been traversed by at least one read?
+    unordered_set<const Snarl*> snarl_traversals;
     
     // What snarls even exist?
     unordered_set<const Snarl*> all_snarls;
@@ -143,6 +142,13 @@ public:
     // We need to have aligners in our genotyper, for realigning around indels.
     Aligner normal_aligner;
     QualAdjAligner quality_aligner;
+
+    // Toggle traversal finder for testing
+    enum TraversalAlg { Reads, Exhaustive, Representative, Adaptive };
+    TraversalAlg traversal_alg = TraversalAlg::Reads;
+
+    // Show progress
+    bool show_progress = false;
 
     /// Process and write output.
     /// Alignments must be embedded in the AugmentedGraph.
@@ -153,7 +159,6 @@ public:
              string sample_name = "",
              string augmented_file_name = "",
              bool subset_graph = false,
-             bool show_progress = false,
              bool output_vcf = false,
              bool output_json = false,
              int length_override = 0,
@@ -175,43 +180,29 @@ public:
     int alignment_qual_score(VG& graph, const Snarl* snarl, const Alignment& alignment);
 
     /**
-     * Given a path (which may run either direction through a snarl, or not touch
-     * the ends at all), collect a list of NodeTraversals in order for the part
-     * of the path that is inside the snarl, in the same orientation as the path.
-     */
-    SnarlTraversal get_traversal_of_snarl(VG& graph, const Snarl* snarl, const SnarlManager& manager, const Path& path);
-    
-    /**
-     * Make a SnarlTraversal into the string it represents, including notes for nested child snarls.
-     */
-    string traversal_to_string(VG& graph, const SnarlTraversal& path);
-
-    /**
      * Check if a mapping corresponds to the beginning or end of snarl by making
      * sure it crosses the given side in the expected direction. The handle
      * should be forward for the left side and reverse for the right side.
      */
     static bool mapping_enters_side(const Mapping& mapping, const handle_t& side, const HandleGraph* graph);
     static bool mapping_exits_side(const Mapping& mapping, const handle_t& side, const HandleGraph* graph);
-   
+
     /**
-     * For the given snarl, emit all subpaths with unique sequences that run from
-     * start to end, out of the paths in the graph. Uses the map of reads by
-     * name to determine if a path is a read or a real named path. Paths through
-     * the snarl supported only by reads are subject to a min recurrence count,
-     * while those supported by actual embedded named paths are not.
-     */
-    vector<SnarlTraversal> get_paths_through_snarl(VG& graph, const Snarl* snarl,
-        const SnarlManager& manager, const map<string, const Alignment*>& reads_by_name);
-    
+     * Check if a snarl is small enough to be covered by reads (very conservative)
+     */ 
+    static bool is_snarl_smaller_than_reads(const Snarl* snarl,
+                                            const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                            map<string, const Alignment*>& reads_by_name);
+        
     /**
-     * For the given snarl, emit all paths through it with unique sequences that
-     * are supported by reads stored in the AugmentedGraph's read index. Paths
-     * through the snarl supported only by reads are subject to a min recurrence
-     * count.
+     * Get traversals of a snarl in one of several ways. 
      */
-    vector<SnarlTraversal> get_paths_through_snarl_from_reads(AugmentedGraph& aug,
-        const Snarl* snarl, const SnarlManager& manager);
+    vector<SnarlTraversal> get_snarl_traversals(AugmentedGraph& augmented_graph, SnarlManager& manager,
+                                                map<string, const Alignment*>& reads_by_name,
+                                                const Snarl* snarl,
+                                                const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                                PathIndex* reference_index,
+                                                TraversalAlg use_traversal_alg);
     
     /**
      * Get all the quality values in the alignment between the start and end
@@ -235,16 +226,24 @@ public:
      *
      * Affinity is a double out of 1.0. Higher is better.
      */ 
-    map<const Alignment*, vector<Affinity>> get_affinities(AugmentedGraph& aug, const map<string, const Alignment*>& reads_by_name,
-        const Snarl* snarl, const SnarlManager& manager, const vector<SnarlTraversal>& superbubble_paths);
+    map<const Alignment*, vector<Affinity>> get_affinities(AugmentedGraph& aug,
+                                                           const map<string, const Alignment*>& reads_by_name,
+                                                           const Snarl* snarl,
+                                                           const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                                           const SnarlManager& manager,
+                                                           const vector<SnarlTraversal>& superbubble_paths);
         
     /**
      * Get affinities as above but using only string comparison instead of
      * alignment. Affinities are 0 for mismatch and 1 for a perfect match.
      */
     map<const Alignment*, vector<Affinity>> get_affinities_fast(AugmentedGraph& aug,
-        const map<string, const Alignment*>& reads_by_name, const Snarl* snarl, const SnarlManager& manager,
-        const vector<SnarlTraversal>& superbubble_paths, bool allow_internal_alignments = false);
+                                                                const map<string, const Alignment*>& reads_by_name,
+                                                                const Snarl* snarl,
+                                                                const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                                                const SnarlManager& manager,
+                                                                const vector<SnarlTraversal>& superbubble_paths,
+                                                                bool allow_internal_alignments = false);
         
     /**
      * Compute annotated genotype from affinities and superbubble paths.
@@ -286,9 +285,12 @@ public:
      * Sometimes if we can't make a variant for the superbubble against the
      * reference path, we'll emit 0 variants.
      */
-    vector<vcflib::Variant> locus_to_variant(VG& graph, const Snarl* snarl, const SnarlManager& manager,
-        const PathIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus,
-        const string& sample_name = "SAMPLE");
+    vector<vcflib::Variant> locus_to_variant(VG& graph, const Snarl* snarl,
+                                             const pair<unordered_set<Node*>, unordered_set<Edge*> >& contents,
+                                             const SnarlManager& manager,
+                                             const PathIndex& index, vcflib::VariantCallFile& vcf,
+                                             const Locus& locus,
+                                             const string& sample_name = "SAMPLE");
     
     /**
      * Make a VCF header
@@ -315,19 +317,38 @@ public:
      * like count up the snarl length in the reference and so on. Called only
      * once per snarl, but may be called on multiple threads simultaneously.
      */
-    void report_snarl(const Snarl* snarl, const SnarlManager& manager, const PathIndex* index, VG& graph);
+    void report_snarl(const Snarl* snarl, const SnarlManager& manager, const PathIndex* index, VG& graph,
+                      PathIndex* reference_index);
     
     /**
      * Tell the statistics tracking code that a read traverses a snarl
      * completely. May be called multiple times for a given read and snarl, and
      * may be called in parallel.
      */
-    void report_snarl_traversal(const Snarl* snarl, const SnarlManager& manager, const string& read_name, VG& graph);
+    void report_snarl_traversal(const Snarl* snarl, const SnarlManager& manager, VG& graph);
+
+    /**
+     * Print some information about affinities
+     */
+    void report_affinities(map<const Alignment*, vector<Genotyper::Affinity>>& affinities,
+                           vector<SnarlTraversal>& paths, VG& graph);
+
+    /**
+     * Write the variant as output
+     */
+    void write_variant();
     
     /**
      * Print snarl statistics to the given stream.
      */
     void print_statistics(ostream& out);
+
+    /**
+     * Subset the graph
+     */
+    VG make_subset_graph(VG& graph, const string& ref_path_name,
+                         map<string, const Alignment*>& reads_by_name); 
+      
 
     /*
      *

@@ -28,32 +28,38 @@ void help_chunk(char** argv) {
     cerr << "usage: " << argv[0] << " chunk [options] > [chunk.vg]" << endl
          << "Splits a graph and/or alignment into smaller chunks" << endl
          << endl
+         << "Graph chunks are saved to .vg files, read chunks are saved to .gam files, and haplotype annotations are " << endl
+         << "saved to .annotate.txt files, of the form <BASENAME>-<i>-<region name or \"ids\">-<start>-<length>.<ext>." << endl
+         << "The BASENAME is specified with -b and defaults to \"./chunks\"." << endl
+         << "For a single-range chunk (-p or -r), the graph data is sent to standard output instead of a file." << endl
+         << endl
          << "options:" << endl
          << "    -x, --xg-name FILE       use this xg index to chunk subgraphs" << endl
+         << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction" << endl
          << "    -a, --gam-index FILE     chunk this gam index (made with vg index -a) instead of the graph" << endl
          << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
          << "path chunking:" << endl
          << "    -p, --path TARGET        write the chunk in the specified (0-based inclusive)\n"
-         << "                             path range TARGET=path[:pos1[-pos2]]" << endl
-         << "    -P, --path-list FILE     write chunks for all path regions in (line - separated file). format\n"
+         << "                             path range TARGET=path[:pos1[-pos2]] to standard output" << endl
+         << "    -P, --path-list FILE     write chunks for all path regions in (line - separated file). format" << endl
          << "                             for each as in -p (all paths chunked unless otherwise specified)" << endl
          << "    -e, --input-bed FILE     write chunks for all (0-based end-exclusive) bed regions" << endl
          << "id range chunking:" << endl
-         << "    -r, --node-range N:M     write the chunk for the specified node range\n"
-         << "    -R, --node-ranges FILE   write the chunk for each node range in (newline or whitespace separated) file\n"
-         << "    -n, --n-chunks N         generate this many id-range chunks, which are determined using the xg index\n"
+         << "    -r, --node-range N:M     write the chunk for the specified node range to standard output\n"
+         << "    -R, --node-ranges FILE   write the chunk for each node range in (newline or whitespace separated) file" << endl
+         << "    -n, --n-chunks N         generate this many id-range chunks, which are determined using the xg index" << endl
          << "general:" << endl
-         << "    -s, --chunk-size N       create chunks spanning N bases (or nodes with -r/-R) for all input regions.\n"
-         << "    -o, --overlap N          overlap between chunks when using -s [default = 0]" << endl        
+         << "    -s, --chunk-size N       create chunks spanning N bases (or nodes with -r/-R) for all input regions." << endl
+         << "    -o, --overlap N          overlap between chunks when using -s [0]" << endl        
          << "    -E, --output-bed FILE    write all created chunks to a bed file" << endl
-         << "    -b, --prefix PATH        prefix output chunk paths with PATH. each chunk will have the following name:\n"
-         << "                             <PATH>-<i>-<name>-<start>-<length>. <i> is the line# of the chunk in the\n"
-         << "                             output bed. [default=./chunk]" << endl
+         << "    -b, --prefix BASENAME    write output chunk files with the given base name. Files for chunk i will" << endl
+         << "                             be named: <BASENAME>-<i>-<name>-<start>-<length>.<ext> [./chunk]" << endl
          << "    -c, --context-steps N    expand the context of the chunk this many node steps [1]" << endl
          << "    -l, --context-length N   expand the context of the chunk by this many bp [0]" << endl
-         << "    -T, --trace              Trace haplotype threads in chunks (and only expand forward from input coordinates)" << endl
-         << "    -f, --fully-contained    Only return GAM alignments that are fully contained within chunk" << endl
-         << "    -A, --search-all         Search all nodes of alignment as opposed just the minimum (gam index must be made with -N)" << endl
+         << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
+         << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl 
+         << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
+         << "    -A, --search-all         search all nodes of alignment as opposed just the minimum (gam index must be made with -N)" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -66,6 +72,7 @@ int main_chunk(int argc, char** argv) {
     }
 
     string xg_file;
+    string gbwt_file;
     string gam_file;
     bool gam_and_graph = false;
     string region_string;
@@ -93,6 +100,7 @@ int main_chunk(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
+            {"gbwt-name", required_argument, 0, 'G'},
             {"gam-name", required_argument, 0, 'a'},
             {"gam-and-graph", no_argument, 0, 'g'},
             {"path", required_argument, 0, 'p'},
@@ -115,7 +123,7 @@ int main_chunk(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:gp:P:s:o:e:E:b:c:r:R:TfAt:n:l:",
+        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:TfAt:n:l:",
                 long_options, &option_index);
 
 
@@ -128,6 +136,10 @@ int main_chunk(int argc, char** argv) {
 
         case 'x':
             xg_file = optarg;
+            break;
+        
+        case 'G':
+            gbwt_file = optarg;
             break;
 
         case 'a':
@@ -260,11 +272,28 @@ int main_chunk(int argc, char** argv) {
 
         ifstream in(xg_file.c_str());
         if (!in) {
-            cerr << "error:[vg chunk] unable to load xg index file" << endl;
+            cerr << "error:[vg chunk] unable to load xg index file " << xg_file << endl;
             return 1;
         }
         xindex.load(in);
         in.close();
+    }
+
+    // Now load the haplotype data
+    unique_ptr<gbwt::GBWT> gbwt_index;
+    if (trace && !gbwt_file.empty()) {
+        // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
+        gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
+        
+        // Open up the index
+        ifstream in(gbwt_file.c_str());
+        if (!in) {
+            cerr << "error:[vg chunk] unable to load gbwt index file " << gbwt_file << endl;
+            return 1;
+        }
+
+        // And load it
+        gbwt_index->load(in);
     }
 
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
@@ -464,7 +493,7 @@ int main_chunk(int argc, char** argv) {
             }
             int64_t trace_steps = trace_end - trace_start;
             Graph g;
-            trace_haplotypes_and_paths(xindex, trace_start, trace_steps,
+            trace_haplotypes_and_paths(xindex, gbwt_index.get(), trace_start, trace_steps,
                                        g, trace_thread_frequencies, false);
             subgraph->paths.for_each([&trace_thread_frequencies](const Path& path) {
                     trace_thread_frequencies[path.name()] = 1;});            
@@ -476,10 +505,12 @@ int main_chunk(int argc, char** argv) {
         if (chunk_graph) {
             if ((!region_string.empty() || !node_range_string.empty()) &&
                 (regions.size()  == 1) && chunk_size == 0) {
-                // if only one chunk passed in using -p, we output chunk to stdout
+                // If we are going to output only one chunk, it should go to
+                // stdout instead of to a file on disk
                 out_stream = &cout;
             } else {
-                // otherwise, we write files using prefix-i-seq-start-end convention.
+                // Otherwise, we write files under the specified prefix, using
+                // a prefix-i-seq-start-end convention.
                 string name = chunk_name(i, output_regions[i], ".vg");
                 out_file.open(name);
                 if (!out_file) {
@@ -513,7 +544,9 @@ int main_chunk(int argc, char** argv) {
 
         // trace annotations
         if (trace) {
-            string annot_name = chunk_name(i, output_regions[i], "_trace_annotate.txt");
+            // Even if we have only one chunk, the trace annotation data always
+            // ends up in a file.
+            string annot_name = chunk_name(i, output_regions[i], ".annotate.txt");
             ofstream out_annot_file(annot_name);
             if (!out_annot_file) {
                 cerr << "error[vg chunk]: can't open output trace annotation file " << annot_name << endl;
@@ -539,7 +572,7 @@ int main_chunk(int argc, char** argv) {
             obed << seq << "\t" << oregion.start << "\t" << (oregion.end + 1)
                  << "\t" << chunk_name(i, oregion, chunk_gam ? ".gam" : ".vg");
             if (trace) {
-                obed << "\t" << chunk_name(i, oregion, "_trace_annotate.txt");
+                obed << "\t" << chunk_name(i, oregion, ".annotate.txt");
             }
             obed << "\n";
         }

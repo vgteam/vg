@@ -144,7 +144,7 @@ class VGCITest(TestCase):
             # Convert to a public HTTPS URL
             url = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
             # And download it
-            
+
             try:
                 connection = urllib2.urlopen(url)
                 return unicode(connection.read())
@@ -159,6 +159,13 @@ class VGCITest(TestCase):
             # Assume it's a raw path.
             with io.open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path), 'r', encoding='utf8') as f:
                 return f.read()
+
+    def _read_baseline_float(self, tag, path, error_val = '-inf'):
+        """ read a single float from a file, returning -inf something went wrong """
+        try:
+            return float(self._read_baseline_file(tag, path).strip())
+        except:
+            return float(error_val)
 
     def _get_remote_file(self, src, tgt):
         """
@@ -427,9 +434,7 @@ class VGCITest(TestCase):
                 # through _n for however many unbroken threads actually make up
                 # the haplotype we want to extract.
                 
-                # All threads seem to have names like _thread_NA12878_17_0_0 and
-                # _thread_NA12878_17_1_0
-                cmd = ['vg', 'find', '-q', '_thread_{}_{}_{}_0'.format(sample, chrom, hap),
+                cmd = ['vg', 'find', '-q', '_thread_{}_{}_{}'.format(sample, chrom, hap),
                        '-x', os.path.join(out_store_name, os.path.basename(index_path))]
                 toil.start(Job.wrapJobFn(toil_call, context, cmd,
                                          work_dir = os.path.abspath(self.workdir),
@@ -480,7 +485,7 @@ class VGCITest(TestCase):
             f1_score = float(f1_file.readline().strip())
             
         try:
-            baseline_f1 = float(self._read_baseline_file(tag, f1_name).strip())
+            baseline_f1 = self._read_baseline_float(tag, f1_name)
         except:
             # Couldn't read the baseline. Maybe it doesn't exist (yet)
             baseline_f1 = 0
@@ -1076,6 +1081,8 @@ class VGCITest(TestCase):
 
         # run calleval
         cmd = ['toil-vg', 'calleval', job_store, out_store]
+        if self.vg_docker:
+            cmd += ['--vg_docker', self.vg_docker]
         cmd += ['--calling_cores', str(min(2, self.cores))]
         cmd += ['--call_chunk_cores', str(min(6, self.cores))]
         cmd += ['--gam_index_cores', str(min(4, self.cores))]
@@ -1087,6 +1094,9 @@ class VGCITest(TestCase):
         cmd += ['--call_and_genotype']
         # vg genotype needs this not to run out of ram
         cmd += ['--call_chunk_size', '500000']
+        # turn off defray filter so genotype doesn't spend time xg-indexing chunks
+        # (but leave on the other filters)
+        # cmd += ['--filter_opts_gt', '-r', '0.9', '-fu', '-s', '1000', '-m', '1', '-q', '15']
         # run freebayes
         if bam_path:
             cmd += ['--freebayes']
@@ -1139,7 +1149,7 @@ class VGCITest(TestCase):
         for name, f1_path, summary_path in zip(output_names, output_f1_paths, output_summary_paths):
             with io.open(f1_path, 'r', encoding='utf8') as f1_file:
                 f1_scores.append(float(f1_file.readline().strip()))
-            baseline_scores.append(float(self._read_baseline_file(tag, f1_path).strip()))
+            baseline_scores.append(self._read_baseline_float(tag, os.path.basename(f1_path)))
             self._print_vcfeval_summary_table(summary_path, baseline_scores[-1], threshold,
                                               header=name==output_names[0], name=name)
         self._end_message()
@@ -1172,7 +1182,7 @@ class VGCITest(TestCase):
         if self.verify:
             self._verify_calleval(tag=tag, threshold=f1_threshold)
             
-    @skip("skipping test to keep runtime down")
+    #@skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(8000)            
     def test_call_chr21_snp1kg(self):
         """
@@ -1236,7 +1246,7 @@ class VGCITest(TestCase):
                            sample='HG00096',
                            assembly="hg19",
                            acc_threshold=0.0075, auc_threshold=0.075, multipath=True,
-                           sim_opts='-l 150 -p 500 -v 50 -e 0.01 -i 0.002')
+                           sim_opts='-l 150 -p 570 -v 150 -e 0.01 -i 0.002')
 
     @timeout_decorator.timeout(2400)        
     def test_sim_chr21_snp1kg_trained(self):
@@ -1247,7 +1257,7 @@ class VGCITest(TestCase):
                            assembly="hg19",
                            acc_threshold=0.0075, auc_threshold=0.075, multipath=True, paired_only=True,
                            tag_ext='-trained',
-                           sim_opts='-p 500 -v 50 -S 4 -i 0.002 -I',
+                           sim_opts='-p 570 -v 150 -S 4 -i 0.002 -I',
                            # 800k 148bp reads from Genome in a Bottle NA12878 library
                            # (placeholder while finding something better)
                            sim_fastq='ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz')
@@ -1354,6 +1364,7 @@ class VGCITest(TestCase):
     def test_full_brca2_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 primary graph """
         log.info("Test start at {}".format(datetime.now()))
+        self.f1_threshold = 0.01
         self._test_bakeoff('BRCA2', 'primary', False)
 
     @timeout_decorator.timeout(600)        

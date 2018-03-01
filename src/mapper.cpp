@@ -620,12 +620,15 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                               { return mem.begin < seq_begin || mem.end > seq_end; }),
                mems.end());
 
-    // return the MEMs in order along the read
-    // TODO: there should actually be a linear time method to merge and order the sub-MEMs, since
-    // they are ordered by the parent MEMs
+    // return the MEMs in order by first index and then descending by length (this helps prefiltering MEMs)
     std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-        return m1.begin < m2.begin ? true : (m1.begin == m2.begin ? m1.end < m2.end : false);
+        return m1.begin < m2.begin || (m1.begin == m2.begin && m1.length() > m2.length());
     });
+    
+    // try to identify which hits are redundant sub-MEMs and filter them out
+    if (prefilter_redundant_hits && reseed_length) {
+        prefilter_redundant_sub_mems(mems);
+    }
 
     std::for_each(mems.begin(), mems.end(), [&total_mems](const MaximalExactMatch& mem) { total_mems += mem.nodes.size(); });
     fraction_filtered = (double) filtered_mems / (double) total_mems;
@@ -634,12 +637,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     // TODO: I think I already fixed this
     mems.erase(unique(mems.begin(), mems.end()), mems.end());
     // remove MEMs that are overlapping positionally (they may be redundant)
-    
-    
-    // are we rescuing tracts of MEMs that are high count and length at the order of the GCSA index?
-    if (order_length_repeat_hit_max) {
-        rescue_high_count_order_length_mems(mems, order_length_repeat_hit_max);
-    }
     
     return mems;
 }
@@ -849,7 +846,12 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             
             range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
             
-            if (cursor == probe_string_begin || ((cursor - mem.begin) % sub_mem_count_thinning == 0)) {
+            // do a count operation if we've reached the beginning of the probe string or at invervals of the thinning parameter
+            // past the burn-in parameter
+            int64_t relative_idx = probe_string_end - cursor;
+            if (cursor == probe_string_begin ||
+                (relative_idx >= sub_mem_thinning_burn_in && (relative_idx - sub_mem_thinning_burn_in) % sub_mem_count_thinning == 0)) {
+                
                 if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
                     probe_string_more_frequent = false;
                     break;
@@ -988,7 +990,65 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
         }
     }
 }
+
+void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems) {
+
+    vector<size_t> sub_mem_range_end(mems.size());
     
+    // TODO: it would actually be better in recursive sub-MEMs to prefilter using the parent rather
+    // than the ancestor and to do it in post-order
+    // the parent has more of the redundant hits and is more likely to be on the same node as the child
+    
+    for (size_t i = 0; i < mems.size(); ) {
+        
+        // find the end of the range of MEMs for which this MEM is a parent
+        // note: takes advantage of sort order
+        size_t j = i + 1;
+        while (j < mems.size() ? mems[j].end <= mems[i].end : false) {
+            sub_mem_range_end[j] = j + 1;
+            j++;
+        }
+        sub_mem_range_end[i] = j;
+        i = j;
+    }
+    
+    // for each MEM
+    for (size_t i = 0; i < mems.size(); i++) {
+        // for the range of its sub-MEMs
+        for (size_t j = i + 1; j < sub_mem_range_end[i]; j++) {
+            
+            // how much farther should the sub-MEM be?
+            int64_t relative_offset = mems[j].begin - mems[i].begin;
+            
+            // get the supposed position this will be for each hit (if it is on the same node)
+            unordered_set<pos_t> extended_hit_positions;
+            for (gcsa::node_type hit : mems[i].nodes) {
+                pos_t hit_pos = make_pos_t(hit);
+                extended_hit_positions.emplace(id(hit_pos), is_rev(hit_pos), offset(hit_pos) + relative_offset);
+            }
+            
+            // remove any nodes whose hit location matches the extended position
+            auto& nodes = mems[j].nodes;
+            size_t removed_so_far = 0;
+            for (size_t k = 0; k < nodes.size(); k++) {
+                if (extended_hit_positions.count(make_pos_t(nodes[k]))) {
+                    // definitely redundant, skip this one
+                    removed_so_far++;
+                }
+                else if (removed_so_far > 0) {
+                    // move this one up in the list to its new index accounting for skips
+                    nodes[k - removed_so_far] = nodes[k];
+                }
+            }
+            
+            // take off the end of the list, which only contains skipped hits and hits that have moved up
+            if (removed_so_far) {
+                nodes.resize(nodes.size() - removed_so_far);
+            }
+        }
+    }
+}
+
 void BaseMapper::rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
                                                      size_t max_rescue_hit_count) {
     
@@ -1422,12 +1482,21 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         
         if (alns[i]->path().mapping_size() != 0) {
             // We actually did rescore this one
-        
+            
+            int64_t score_penalty = round(haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base));
+
             // Convert to points, raise to haplotype consistency exponent power, and apply
-            alns[i]->set_score(alns[i]->score() + 
-                round(haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base)));
+            alns[i]->set_score(alns[i]->score() + score_penalty);
             // Note that we successfully corrected the score
             alns[i]->set_haplotype_scored(true);
+            // And save the raw log probability
+            alns[i]->set_haplotype_logprob(haplotype_logprobs[i]);
+
+            if (debug) {
+                cerr << "Alignment statring at " << alns[i]->path().mapping(0).position().node_id()
+                    << " got logprob " << haplotype_logprobs[i] << " moving score " << score_penalty
+                    << " from " << alns[i]->score() - score_penalty << " to " << alns[i]->score() << endl;
+            }
         }
         // Otherwise leave haplotype_scored as false, the default.
     }
@@ -1510,6 +1579,7 @@ Mapper::Mapper(xg::XG* xidex,
     , maybe_mq_threshold(0)
     , min_banded_mq(0)
     , max_band_jump(0)
+    , patch_alignments(false)
     , identity_weight(2)
     , pair_rescue_hang_threshold(0.7)
     , pair_rescue_retry_threshold(0.5)
@@ -3717,12 +3787,14 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         return -((double)gap_open + (double)dist * (double)gap_extension);
     };
 
-    AlignmentChainModel chainer(multi_alns, this, transition_weight, 1, 64, 128);
+    AlignmentChainModel chainer(multi_alns, this, transition_weight, 4, 64, 128);
     if (debug) chainer.display(cerr);
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps, false, debug);
-    for (auto& aln : alignments) {
-        // patch the alignment to deal with short unaligned regions
-        aln = patch_alignment(aln, band_width);
+    if (patch_alignments) {
+        for (auto& aln : alignments) {
+            // patch the alignment to deal with short unaligned regions
+            aln = patch_alignment(aln, band_width);
+        }
     }
     // sort the alignments by score
     std::sort(alignments.begin(), alignments.end(), [](const Alignment& aln1, const Alignment& aln2) { return aln1.score() > aln2.score(); });
@@ -3730,8 +3802,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         alignments.front().set_mapping_quality(max_mapping_quality);
     } else {
         compute_mapping_qualities(alignments, 0, max_mapping_quality, max_mapping_quality);
+        filter_and_process_multimaps(alignments, max_multimaps);
     }
-    filter_and_process_multimaps(alignments, max_multimaps);
     //cerr << "got alignment " << pb2json(alignments.front()) << endl;
     return alignments;
 }
@@ -4548,7 +4620,7 @@ Alignment Mapper::mem_to_alignment(MaximalExactMatch& mem) {
 // cross fingers
 
 Alignment Mapper::surject_alignment(const Alignment& source,
-                                    set<string>& path_names,
+                                    const set<string>& path_names,
                                     string& path_name,
                                     int64_t& path_pos,
                                     bool& path_reverse) {
@@ -4559,6 +4631,12 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     surjection.clear_score();
     surjection.clear_identity();
     surjection.clear_path();
+
+    // Clear out the output variables to the unmapped state.
+    // We will fill them in later.
+    path_name.clear();
+    path_pos = -1;
+    path_reverse = false;
 
     int count_forward=0, count_reverse=0;
     for (auto& mapping : source.path().mapping()) {
@@ -4581,6 +4659,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         cerr << "Alignment " << source.name() << " is unmapped and cannot be surjected" << endl;
 
 #endif
+
         return surjection;
     }
 
@@ -4755,8 +4834,12 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     cerr << "sub " << pb2json(subgraph) << endl;
 #endif
 
+    // Flip the string and its quality around
     Alignment surjection_rc = surjection;
     surjection_rc.set_sequence(reverse_complement(surjection.sequence()));
+    string quality = surjection_rc.quality();
+    std::reverse(quality.begin(), quality.end());
+    surjection_rc.set_quality(quality);
 
     Alignment surjection_forward, surjection_reverse;
     // global align to the trimmed graph, and simplify without removal of internal deletions, as we'll need these for BAM reconstruction
@@ -4800,7 +4883,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
             surjection = translator.translate(surjection_forward);
         }
     }
-    
+    //cerr << "surj " << pb2json(surjection) << endl;
 #ifdef debug_mapper
 
 #pragma omp critical (cerr)
@@ -4856,10 +4939,24 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #ifdef debug_mapper
         cerr << "path position " << path_name << ":" << path_pos << endl;
 #endif
+
+        // We surjected to somewhere!
+        assert(!path_name.empty());
+        assert(path_pos != -1);
         
     } else {
 
+        // Failed to align. Replace whatever (possibly reversed?) thing we have now with an unmapped alignment.
         surjection = source;
+        surjection.clear_score();
+        surjection.clear_identity();
+        surjection.clear_path();
+        surjection.clear_mapping_quality();
+        
+        path_name.clear();
+        path_pos = -1;
+        path_reverse = false;
+        
 #ifdef debug_mapper
 
 #pragma omp critical (cerr)
@@ -4868,7 +4965,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #endif
 
     }
-
+    
 #ifdef debug_mapper
     
 #pragma omp critical (cerr)
@@ -4876,7 +4973,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     cerr << "Surjected alignment: " << pb2json(surjection) << endl;
     
 #endif
-    
+    //cerr << "final " << pb2json(surjection) << endl;
     return surjection;
 }
 
@@ -4936,25 +5033,21 @@ AlignmentChainModel::AlignmentChainModel(
     for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
         for (auto u = v+1; u != model.end(); ++u) {
             if (v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
-                if (v->band_idx + vertex_band_width <= u->band_idx) {
+                if (v->band_idx + vertex_band_width >= u->band_idx) {
                     double weight = transition_weight(*v->aln, *u->aln, v->positions, u->positions);
                     if (weight > -std::numeric_limits<double>::max()) {
                         v->next_cost.push_back(make_pair(&*u, weight));
                         u->prev_cost.push_back(make_pair(&*v, weight));
                     }
-                } else if (u->band_idx + vertex_band_width <= v->band_idx) {
-                    double weight = transition_weight(*u->aln, *v->aln, u->positions, v->positions);
-                    if (weight > -std::numeric_limits<double>::max()) {
-                        u->next_cost.push_back(make_pair(&*v, weight));
-                        v->prev_cost.push_back(make_pair(&*u, weight));
-                    }
+                } else {
+                    break;
                 }
-            }            
+            }
         }
     }
 }
 
-void AlignmentChainModel::score(const set<AlignmentChainModelVertex*>& exclude) {
+void AlignmentChainModel::score(const unordered_set<AlignmentChainModelVertex*>& exclude) {
     // propagate the scores in the model
     for (auto& m : model) {
         // score is equal to the max inbound + mem.weight
@@ -4992,7 +5085,7 @@ vector<Alignment> AlignmentChainModel::traceback(const Alignment& read, int alt_
     debug = true;
     vector<vector<Alignment> > traces;
     traces.reserve(alt_alns); // avoid reallocs so we can refer to pointers to the traces
-    set<AlignmentChainModelVertex*> exclude;
+    unordered_set<AlignmentChainModelVertex*> exclude;
     for (auto& v : redundant_vertexes) exclude.insert(&*v);
     for (int i = 0; i < alt_alns; ++i) {
         // score the model, accounting for excluded traces
@@ -5030,7 +5123,7 @@ vector<Alignment> AlignmentChainModel::traceback(const Alignment& read, int alt_
             exclude.insert(vertex_trace.front());
         }
         // fill this out when we're paired to help mask out in-fragment transitions
-        set<AlignmentChainModelVertex*> chain_members;
+        unordered_set<AlignmentChainModelVertex*> chain_members;
         if (paired) for (auto v : vertex_trace) chain_members.insert(v);
         traces.emplace_back();
         auto& aln_trace = traces.back();

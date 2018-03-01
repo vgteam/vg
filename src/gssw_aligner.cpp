@@ -1,7 +1,6 @@
 #include "gssw_aligner.hpp"
 #include "json2pb.h"
 
-// log(10)
 static const double quality_scale_factor = 10.0 / log(10.0);
 static const double exp_overflow_limit = log(std::numeric_limits<double>::max());
 
@@ -423,6 +422,33 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
     return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0)));
 }
 
+double BaseAligner::group_mapping_quality_exact(vector<double>& scaled_scores, vector<size_t>& group) {
+    
+    // if necessary, assume a null alignment of 0.0 for comparison since this is local
+    if (scaled_scores.size() == 1) {
+        scaled_scores.push_back(0.0);
+    }
+    
+    // work in log transformed values to avoid risk of overflow
+    double total_log_sum_exp = numeric_limits<double>::lowest();
+    double non_group_log_sum_exp = numeric_limits<double>::lowest();
+    
+    // go in reverse order because this has fewer numerical problems when the scores are sorted (as usual)
+    int64_t group_idx = group.size() - 1;
+    for (int64_t i = scaled_scores.size() - 1; i >= 0; i--) {
+        total_log_sum_exp = add_log(total_log_sum_exp, scaled_scores[i]);
+        if (group_idx >= 0 ? i == group[group_idx] : false) {
+            group_idx--;
+        }
+        else {
+            non_group_log_sum_exp = add_log(non_group_log_sum_exp, scaled_scores[i]);
+        }
+    }
+    double direct_mapq = quality_scale_factor * (total_log_sum_exp - non_group_log_sum_exp);
+    return (std::isinf(direct_mapq) || direct_mapq > numeric_limits<int32_t>::max()) ?
+           (double) numeric_limits<int32_t>::max() : direct_mapq;
+}
+
 void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
                                           int max_mapping_quality,
                                           bool fast_approximation,
@@ -499,6 +525,20 @@ int32_t BaseAligner::compute_mapping_quality(vector<double>& scores, bool fast_a
     size_t idx;
     return (int32_t) (fast_approximation ? maximum_mapping_quality_approx(scaled_scores, &idx)
                                          : maximum_mapping_quality_exact(scaled_scores, &idx));
+}
+
+int32_t BaseAligner::compute_group_mapping_quality(vector<double>& scores, vector<size_t>& group) {
+    
+    // ensure that group is in sorted order as following function expects
+    if (!is_sorted(group.begin(), group.end())) {
+        sort(group.begin(), group.end());
+    }
+    
+    vector<double> scaled_scores(scores.size(), 0.0);
+    for (size_t i = 0; i < scores.size(); i++) {
+        scaled_scores[i] = log_base * scores[i];
+    }
+    return group_mapping_quality_exact(scaled_scores, group);
 }
 
 void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
@@ -655,11 +695,16 @@ size_t BaseAligner::longest_detectable_gap(const Alignment& alignment) const {
 }
 
 int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
-    bool strip_bonuses) {
+    bool strip_bonuses) const {
     
     int score = 0;
     int read_offset = 0;
     auto& path = aln.path();
+
+    // We keep track of whether the last edit was a deletion for coalescing
+    // adjacent deletions across node boundaries
+    bool last_was_deletion = false;
+
     for (int i = 0; i < path.mapping_size(); ++i) {
         // For each mapping
         auto& mapping = path.mapping(i);
@@ -670,14 +715,34 @@ int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<
             // Score the edit according to its type
             if (edit_is_match(edit)) {
                 score += score_exact_match(aln, read_offset, edit.to_length());
+                last_was_deletion = false;
             } else if (edit_is_sub(edit)) {
                 score -= mismatch * edit.sequence().size();
+                last_was_deletion = false;
             } else if (edit_is_deletion(edit)) {
-                score -= edit.from_length() ? gap_open + (edit.from_length() - 1) * gap_extension : 0;
+                if (last_was_deletion) {
+                    // No need to charge a gap open
+                    score -= edit.from_length() * gap_extension;
+                } else {
+                    // We need a gap open
+                    score -= edit.from_length() ? gap_open + (edit.from_length() - 1) * gap_extension : 0;
+                }
+
+                if (edit.from_length()) {
+                    // We already charged a gap open
+                    last_was_deletion = true;
+                }
+                // If there's a 0-length deletion, leave the last_was_deletion flag unchanged.
             } else if (edit_is_insertion(edit) && !((i == 0 && j == 0) ||
                                                     (i == path.mapping_size()-1 && j == mapping.edit_size()-1))) {
                 // todo how do we score this qual adjusted?
                 score -= edit.to_length() ? gap_open + (edit.to_length() - 1) * gap_extension : 0;
+                last_was_deletion = false;
+                // No need to track if the last edit was an insertion because
+                // insertions will be all together in a single edit at a point.
+            } else {
+                // Edit has no score effect. Probably a softclip.
+                last_was_deletion = false;
             }
             read_offset += edit.to_length();
         }
@@ -696,7 +761,7 @@ int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<
             }
         }
     }
-    
+
     if (!strip_bonuses) {
         // We should report any bonuses used in the DP in the final score
         if (!softclip_start(aln)) {
@@ -710,11 +775,11 @@ int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<
     return score;
 }
 
-int32_t BaseAligner::score_ungapped_alignment(const Alignment& aln, bool strip_bonuses){
+int32_t BaseAligner::score_ungapped_alignment(const Alignment& aln, bool strip_bonuses) const {
     return score_gappy_alignment(aln, [](pos_t, pos_t, size_t){return (size_t) 0;}, strip_bonuses);
 }
 
-int32_t BaseAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) {
+int32_t BaseAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) const {
     int32_t score = aln.score();
     if (softclip_start(aln) == 0 && !(pinned && pin_left)) {
         // No softclip at the start, and a left end bonus was applied.
@@ -1052,7 +1117,7 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
 
 // Scoring an exact match is very simple in an ordinary Aligner
 
-int32_t Aligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) {
+int32_t Aligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {
     return match * length;
 }
 
@@ -1324,7 +1389,7 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
 }
 
-int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) {
+int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {
     auto& sequence = aln.sequence();
     auto& base_quality = aln.quality();
     int32_t score = 0;

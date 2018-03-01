@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 20
+plan tests 22
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -61,11 +61,13 @@ echo '{"sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, 
 is "$(vg surject -p x -x x.xg read.gam | vg view -aj - | jq '.mapping_quality')" "99" "mapping quality is preserved through surjection"
 
 echo '{"name": "read/2", "sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_prev": {"name": "read/1"}}' | vg view -JGa - > read.gam
-is "$(vg surject -p x -x x.xg read.gam | vg view -aj - | jq -r '.fragment_prev.name')" "read/1" "read pairing is preserved through GAM->GAM surjection"
+is "$(vg surject -p x -x x.xg -i read.gam | vg view -aj - | jq -r '.fragment_prev.name')" "read/1" "read pairing is preserved through GAM->GAM surjection"
 
-vg map -d x -iG <(vg sim -a -s 13241 -n 1 -p 500 -v 300 -x x.xg | vg view -a - | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) | vg surject -x x.xg -p x -s - >surjected.sam
+vg map -d x -iG <(vg sim -a -s 13241 -n 1 -p 500 -v 300 -x x.xg | vg view -a - | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) | vg surject -x x.xg -p x -s -i - >surjected.sam
+is "$(cat surjected.sam | grep -v '^@' | sort | cut -f 4)" "$(printf '321\n762')" "surjection of paired reads to SAM yields correct positions"
+is "$(cat surjected.sam | grep -v '^@' | sort | cut -f 8)" "$(printf '762\n321')" "surjection of paired reads to SAM yields correct pair partner positions"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "1" "surjection of paired reads to SAM yields properly matched QNAMEs"
-is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '=\n=')" "surjection of paired reads to SAM produces crossreferences"
+is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '=\n=')" "surjection of paired reads to SAM produces correct pair partner contigs"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 2 | sort -n)" "$(printf '83\n131')" "surjection of paired reads to SAM produces correct flags"
 
 rm -rf j.vg x.vg j.gam x.gam x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam

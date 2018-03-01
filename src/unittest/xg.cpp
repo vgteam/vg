@@ -303,6 +303,11 @@ TEST_CASE("Target to alignment extraction", "[xg-target-to-aln]") {
             
     xg::XG xg_index(graph);
 
+    SECTION("Subpath getting gives us the expected 1bp alignment") {
+        Alignment target = xg_index.target_alignment("path", 1, 2, "feature");
+        REQUIRE(alignment_from_length(target) == 2 - 1);
+    }
+
     SECTION("Subpath getting gives us the expected 10bp alignment") {
         Alignment target = xg_index.target_alignment("path", 10, 20, "feature");
         REQUIRE(alignment_from_length(target) == 20 - 10);

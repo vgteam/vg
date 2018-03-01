@@ -3,7 +3,6 @@
 
 #include "vg.pb.h"
 #include "types.hpp"
-//#include "xg.hpp"
 #include "utility.hpp"
 #include "json2pb.h"
 #include <gcsa/gcsa.h>

@@ -20,17 +20,12 @@ using namespace vg::subcommand;
 
 void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options] <graph.vg>" << endl
-        << "options:" << endl
-        << "  inspection:" << endl
-        << "    -x, --extract         return (as GAM alignments) the stored paths in the graph" << endl
-        << "    -L, --list            return (as a list of names, one per line) the path names" << endl
-        << "    -X, --list-xg FILE    return path names (as -L) but from given xg file" << endl  
-        << "  generation:" << endl
-        << "    -n, --node ID         starting at node with ID" << endl
-        << "    -l, --max-length N    generate paths of at most length N" << endl
-        << "    -e, --edge-max N      only consider paths which make edge choices at this many points" << endl
-        << "    -s, --as-seqs         write each path as a sequence" << endl
-        << "    -p, --path-only       only write kpaths from the graph if they traverse embedded paths" << endl;
+         << "options:" << endl
+         << "  inspection:" << endl
+         << "    -x, --extract         return (as GAM alignments) the stored paths in the graph" << endl
+         << "    -L, --list            return (as a list of names, one per line) the path names" << endl
+         << "    -X, --list-xg FILE    return path names (as -L) but from given xg file" << endl  
+         << "    -s, --as-seqs         write each path as a sequence" << endl;
 }
 
 int main_paths(int argc, char** argv) {
@@ -41,13 +36,10 @@ int main_paths(int argc, char** argv) {
     }
 
     int max_length = 0;
-    int edge_max = 0;
-    int64_t node_id = 0;
     bool as_seqs = false;
     bool extract = false;
     bool list_paths = false;
     string list_paths_xg;
-    bool path_only = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -58,16 +50,13 @@ int main_paths(int argc, char** argv) {
             {"extract", no_argument, 0, 'x'},
             {"list", no_argument, 0, 'L'},
             {"list-xg", required_argument, 0, 'X'},
-            {"node", required_argument, 0, 'n'},
             {"max-length", required_argument, 0, 'l'},
-            {"edge-max", required_argument, 0, 'e'},
             {"as-seqs", no_argument, 0, 's'},
-            {"path-only", no_argument, 0, 'p'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:l:hse:xLX:p",
+        c = getopt_long (argc, argv, "l:hs:xLX:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -89,24 +78,12 @@ int main_paths(int argc, char** argv) {
                 list_paths_xg = optarg;
                 break;                
 
-            case 'n':
-                node_id = atoll(optarg);
-                break;
-
             case 'l':
                 max_length = atoi(optarg);
                 break;
 
-            case 'e':
-                edge_max = atoi(optarg);
-                break;
-
             case 's':
                 as_seqs = true;
-                break;
-
-            case 'p':
-                path_only = true;
                 break;
 
             case 'h':
@@ -119,8 +96,6 @@ int main_paths(int argc, char** argv) {
                 abort ();
         }
     }
-
-    if (edge_max == 0) edge_max = max_length + 1;
 
     if (!list_paths_xg.empty()) {
         if (optind < argc) {
@@ -176,24 +151,6 @@ int main_paths(int argc, char** argv) {
     function<void(size_t, Path&)>* callback = &paths_to_seqs;
     if (!as_seqs) {
         callback = &paths_to_json;
-    }
-
-    auto noop = [](NodeTraversal) { }; // don't handle the failed regions of the graph yet
-
-    if (node_id) {
-
-        graph->for_each_kpath_of_node(graph->get_node(node_id),
-                path_only,
-                max_length,
-                edge_max,
-                noop, noop,
-                *callback);
-    } else {
-        graph->for_each_kpath_parallel(max_length,
-                path_only,
-                edge_max,
-                noop, noop,
-                *callback);
     }
 
     delete graph;

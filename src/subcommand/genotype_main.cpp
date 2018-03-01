@@ -31,12 +31,13 @@ void help_genotype(char** argv) {
          << "    -o, --offset INT        offset variant positions by this amount" << endl
          << "    -l, --length INT        override total sequence length" << endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << endl
-         << "    -q, --use_mapq          use mapping qualities" << endl
+         << "    -Q, --ignore_mapq       do not use mapping qualities" << endl
          << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << endl
-         << "    -i, --realign_indels    realign at indels" << endl
+         << "    -A, --no_indel_realign  disable indel realignment" << endl
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << endl
          << "    -P, --min_per_strand    min unique reads per strand for a called allele to accept a call" << endl
          << "    -E, --no_embed          dont embed gam edits into grpah" << endl
+         << "    -T, --traversal         traversal finder to use {reads, exhaustive, representative, adaptive} (adaptive)" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -68,6 +69,8 @@ int main_genotype(int argc, char** argv) {
     int64_t length_override = 0;
     // Should we embed gam edits (for debugging as we move to further decouple augmentation and calling)
     bool embed_gam_edits = true;
+    // Which traversal finder should we use
+    string traversal_finder = "adaptive";
 
     // Should we we just do a quick variant recall,
     // based on this VCF and GAM, then exit?
@@ -78,9 +81,9 @@ int main_genotype(int argc, char** argv) {
     bool useindex = true;
 
     // Should we use mapping qualities?
-    bool use_mapq = false;
+    bool use_mapq = true;
     // Should we do indel realignment?
-    bool realign_indels = false;
+    bool realign_indels = true;
 
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
@@ -106,9 +109,9 @@ int main_genotype(int argc, char** argv) {
                 {"offset", required_argument, 0, 'o'},
                 {"length", required_argument, 0, 'l'},
                 {"augmented", required_argument, 0, 'a'},
-                {"use_mapq", no_argument, 0, 'q'},
+                {"ignore_mapq", no_argument, 0, 'Q'},
                 {"subset-graph", no_argument, 0, 'S'},
-                {"realign_indels", no_argument, 0, 'i'},
+                {"no_indel_realign", no_argument, 0, 'A'},
                 {"het_prior_denom", required_argument, 0, 'd'},
                 {"min_per_strand", required_argument, 0, 'P'},
                 {"progress", no_argument, 0, 'p'},
@@ -119,11 +122,12 @@ int main_genotype(int argc, char** argv) {
                 {"insertions", required_argument, 0, 'I'},
                 {"call", no_argument, 0, 'z'},
                 {"no_embed", no_argument, 0, 'E'},
+                {"traversal", required_argument, 0, 'T'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qSid:P:pt:V:I:G:F:zE",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:QSAd:P:pt:V:I:G:F:zET:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -162,9 +166,9 @@ int main_genotype(int argc, char** argv) {
             // Dump augmented graph
             augmented_file_name = optarg;
             break;
-        case 'q':
-            // Use mapping qualities
-            use_mapq = true;
+        case 'Q':
+            // Ignore mapping qualities
+            use_mapq = false;
             break;
         case 'S':
             // Find sites on the graph subset with any read support
@@ -173,9 +177,9 @@ int main_genotype(int argc, char** argv) {
         case 'z':
             just_call = true;
             break;
-        case 'i':
-            // Do indel realignment
-            realign_indels = true;
+        case 'A':
+            // Don't do indel realignment
+            realign_indels = false;
             break;
         case 'd':
             // Set heterozygous genotype prior denominator
@@ -206,6 +210,9 @@ int main_genotype(int argc, char** argv) {
             break;
         case 'E':
             embed_gam_edits = false;
+            break;
+        case 'T':
+            traversal_finder = optarg;
             break;
         case 'h':
         case '?':
@@ -338,6 +345,20 @@ int main_genotype(int argc, char** argv) {
     assert(het_prior_denominator > 0);
     genotyper.het_prior_logprob = prob_to_logprob(1.0/het_prior_denominator);
     genotyper.min_unique_per_strand = min_unique_per_strand;
+    if (traversal_finder == "reads") {
+        genotyper.traversal_alg = Genotyper::TraversalAlg::Reads;
+    } else if (traversal_finder == "exhaustive") {
+        genotyper.traversal_alg = Genotyper::TraversalAlg::Exhaustive;
+    } else if (traversal_finder == "representative") {
+        genotyper.traversal_alg = Genotyper::TraversalAlg::Representative;
+    } else if (traversal_finder == "adaptive") {
+      genotyper.traversal_alg = Genotyper::TraversalAlg::Adaptive;
+    } else {
+        cerr << "Invalid value for traversal finder: " << traversal_finder
+             << ".  Must be in {reads, representative, exhaustive, adaptive}" << endl;
+        return 1;
+    }
+    genotyper.show_progress = show_progress;
 
     // Guess the reference path if not given
     if(ref_path_name.empty()) {
@@ -374,7 +395,6 @@ int main_genotype(int argc, char** argv) {
                   sample_name,
                   augmented_file_name,
                   subset_graph,
-                  show_progress,
                   output_vcf,
                   output_json,
                   length_override,

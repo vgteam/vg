@@ -161,7 +161,7 @@ void XG::load(istream& in) {
         
         case 5: // Fall through
         case 6:
-            cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. For better performance over repeated loads, consider recreating this XG with 'vg index'." << endl;
+            cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. For better performance over repeated loads, consider recreating this XG with 'vg index' or upgrading it with 'vg xg'." << endl;
             // Fall through
         case 7:
             {
@@ -390,6 +390,14 @@ Mapping XGPath::mapping(size_t offset) const {
     return m;
 }
 
+id_t XGPath::node(size_t offset) const {
+    return ids[offset];
+}
+
+bool XGPath::is_reverse(size_t offset) const {
+    return directions[offset];
+}
+
 size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string name) {
 
     sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
@@ -585,6 +593,12 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
         ++node_count;
         seq_length += p.second.size();
     }
+    
+    if (node_count == 0) {
+        // Catch the empty graph with a sensible message instead of an assert fail
+        cerr << "[xg] error: cannot build an xg index from an empty graph" << endl;
+        exit(1);
+    }
 
     path_count = path_nodes.size();
     
@@ -634,6 +648,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
 #endif
 
     // for mapping of ids to ranks using a vector rather than wavelet tree
+    assert(!node_label.empty());
     min_id = node_label.begin()->first;
     max_id = node_label.rbegin()->first;
     
@@ -1840,10 +1855,10 @@ bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     }
 }
 
-void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const {
+void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     // How big is the g vector entry size we are on?
     size_t entry_size = 0;
-    for (size_t g = 0; g < g_iv.size(); g += entry_size) {
+    auto lambda = [&](size_t g) {
         // Make the handle
         // We need to make sure our index won't set the orientation bit.
         assert((g & (~LOW_BITS)) == 0);
@@ -1863,6 +1878,16 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee) const 
         
         // This record is the header plus all the edge records it contains
         entry_size = G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
+    };
+    if (parallel) {
+#pragma omp parallel for schedule(dynamic,1)
+        for (size_t g = 0; g < g_iv.size(); g += entry_size) {
+            lambda(g);
+        }
+    } else {
+        for (size_t g = 0; g < g_iv.size(); g += entry_size) {
+            lambda(g);
+        }
     }
 }
 
@@ -2485,7 +2510,12 @@ void XG::get_id_range_by_length(int64_t id, int64_t length, Graph& g, bool forwa
 }
 
 size_t XG::path_length(const string& name) const {
-    return paths[path_rank(name)-1]->offsets.size();
+    auto rank = path_rank(name);
+    if (rank == 0) {
+        // Existence checking might be slightly slower but it will be worth it in saved head scratching
+        throw runtime_error("Path \"" + name + "\" not found in xg index");
+    }
+    return paths[rank-1]->offsets.size();
 }
 
 size_t XG::path_length(size_t rank) const {
@@ -3674,7 +3704,7 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
         Mapping* first_mapping = aln.mutable_path()->add_mapping();
         *first_mapping = mapping_at_path_position(name, pos1);
         Edit* e = first_mapping->add_edit();
-        e->set_to_length(node_length(first_mapping->position().node_id())-trim_start);
+        e->set_to_length(node_length(first_mapping->position().node_id()));
         e->set_from_length(e->to_length());
     }
     // get p to point to the next step (or past it, if we're a feature on a single node)
