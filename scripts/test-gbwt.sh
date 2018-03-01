@@ -36,7 +36,7 @@ READ_COUNT="10000000"
 # Chunks to simulate in (which affects results)
 READ_CHUNKS="32"
 
-MODE="tiny"
+MODE="21"
 if [[ "${MODE}" == "mhc" ]]; then
     # Actually do a smaller test
     READ_COUNT="100000"
