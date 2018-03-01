@@ -50,7 +50,7 @@ N_COUNT=$(vg view -j test.aug.vg | grep "N" | wc -l)
 
 is "${N_COUNT}" "0" "N bases are not augmented into the graph"
 
-rm -r reads.txt test.vg test.xg test.gcsa test.gcsa.lcp test.gam  test.aug.vg test.trans test.support empty.gam
+rm -rf reads.txt test.vg test.xg test.gcsa test.gcsa.lcp test.gam  test.aug.vg test.trans test.support empty.gam
 
 
 
