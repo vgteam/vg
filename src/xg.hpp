@@ -798,8 +798,8 @@ public:
     XGPath(XGPath&& other) = delete;
     XGPath& operator=(const XGPath& other) = delete;
     XGPath& operator=(XGPath&& other) = delete;
-    
-    wt_int<> ids;
+    int64_t min_node_id;
+    wt_gmr<> ids;
     sd_vector<> directions; // forward or backward through nodes
     int_vector<> positions;
     int_vector<> ranks;
@@ -816,6 +816,8 @@ public:
     // Get the node orientation at a 0-based offset.
     id_t node(size_t offset) const;
     bool is_reverse(size_t offset) const;
+    id_t local_id(id_t id) const;
+    id_t external_id(id_t id) const;
 };
 
 

@@ -260,6 +260,7 @@ void XG::load(istream& in) {
 }
 
 void XGPath::load(istream& in) {
+    sdsl::read_member(min_node_id, in);
     ids.load(in);
     directions.load(in);
     ranks.load(in);
@@ -274,6 +275,7 @@ size_t XGPath::serialize(std::ostream& out,
                          std::string name) const {
     sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
     size_t written = 0;
+    written += sdsl::write_member(min_node_id, out, child, "min_node_id" + name);
     written += ids.serialize(out, child, "path_node_ids_" + name);
     written += directions.serialize(out, child, "path_node_directions_" + name);
     written += ranks.serialize(out, child, "path_mapping_ranks_" + name);
@@ -308,12 +310,18 @@ XGPath::XGPath(const string& path_name,
     size_t members_off = 0;
     size_t positions_off = 0;
     size_t path_length = 0;
+    min_node_id = numeric_limits<int64_t>::max();
 
-    // determine total length
+    // determine min node id
+    for (size_t i = 0; i < path.size(); ++i) {
+        auto node_id = trav_id(path[i]);
+        min_node_id = min(min_node_id, node_id);
+    }
+    // determine total length and record node ids
     for (size_t i = 0; i < path.size(); ++i) {
         auto node_id = trav_id(path[i]);
         path_length += graph.node_length(node_id);
-        ids_iv[i] = node_id;
+        ids_iv[i] = local_id(node_id);
         // we will explode if the node isn't in the graph
     }
 
@@ -364,18 +372,30 @@ Mapping XGPath::mapping(size_t offset) const {
     // TODO actually store the "real" mapping
     Mapping m;
     // store the starting position and series of edits
-    m.mutable_position()->set_node_id(ids[offset]);
+    m.mutable_position()->set_node_id(node(offset));
     m.mutable_position()->set_is_reverse(directions[offset]);
     m.set_rank(ranks[offset]);
     return m;
 }
 
 id_t XGPath::node(size_t offset) const {
-    return ids[offset];
+    return external_id(ids[offset]);
 }
 
 bool XGPath::is_reverse(size_t offset) const {
     return directions[offset];
+}
+
+id_t XGPath::local_id(id_t id) const {
+    if (id < min_node_id) {
+        return numeric_limits<int64_t>::max();
+    } else {
+        return id-min_node_id+1;
+    }
+}
+
+id_t XGPath::external_id(id_t id) const {
+    return id+min_node_id-1;
 }
 
 size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string name) {
@@ -1034,10 +1054,10 @@ void XG::build(vector<pair<id_t, string> >& node_label,
             cerr << path_name(i + 1) << endl;
             // manually print IDs because simplified wavelet tree doesn't support ostream for some reason
             for (size_t j = 0; j + 1 < path->ids.size(); j++) {
-                cerr << path->ids[j] << " ";
+                cerr << path->node(j) << " ";
             }
             if (path->ids.size() > 0) {
-                cerr << path->ids[path->ids.size() - 1];
+                cerr << path->node(path->ids.size() - 1);
             }
             cerr << endl;
             cerr << path->ranks << endl;
@@ -3190,7 +3210,7 @@ vector<tuple<int64_t, bool, size_t>> XG::jump_along_closest_path(int64_t id, boo
 #endif
                     
                     size_t node_offset = path.positions[jump_rank];
-                    int64_t node_id = path.ids[jump_rank];
+                    int64_t node_id = path.node(jump_rank);
                     bool node_is_rev = path.directions[jump_rank];
                     
                     size_t offset = path_rev_strand ? node_offset + node_length(node_id) - target_path_pos : target_path_pos - node_offset;
@@ -3453,10 +3473,9 @@ void XG::for_path_range(const string& name, int64_t start, int64_t stop,
     size_t pr2 = path.offsets_rank(stop+1)-1;
 
     // Grab the IDs visited in order along the path
-    auto& pi_wt = path.ids;
     for (size_t i = pr1; i <= pr2; ++i) {
         // For all the visits along this section of path, grab the node being visited and all its edges.
-        int64_t id = pi_wt[i];
+        int64_t id = path.node(i);
         lambda(id);
     }
 }
@@ -3515,7 +3534,8 @@ size_t XG::node_occs_in_path(int64_t id, const string& name) const {
 size_t XG::node_occs_in_path(int64_t id, size_t rank) const {
     size_t p = rank-1;
     auto& pi_wt = paths[p]->ids;
-    return pi_wt.rank(pi_wt.size(), id);
+    int64_t local_id = paths[p]->local_id(id);
+    return pi_wt.rank(pi_wt.size(), local_id);
 }
 
 vector<size_t> XG::node_ranks_in_path(int64_t id, const string& name) const {
@@ -3526,8 +3546,9 @@ vector<size_t> XG::node_ranks_in_path(int64_t id, size_t rank) const {
     vector<size_t> ranks;
     size_t p = rank-1;
     size_t occs = node_occs_in_path(id, rank);
+    int64_t local_id = paths[p]->local_id(id);
     for (size_t i = 1; i <= occs; ++i) {
-        ranks.push_back(paths[p]->ids.select(i, id));
+        ranks.push_back(paths[p]->ids.select(i, local_id));
     }
     return ranks;
 }
@@ -3637,7 +3658,7 @@ int64_t XG::min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
 
 int64_t XG::node_at_path_position(const string& name, size_t pos) const {
     size_t p = path_rank(name)-1;
-    return paths[p]->ids[paths[p]->offsets_rank(pos+1)-1];
+    return paths[p]->node(paths[p]->offsets_rank(pos+1)-1);
 }
 
 Mapping XG::mapping_at_path_position(const string& name, size_t pos) const {
@@ -3656,7 +3677,7 @@ pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const 
     path_pos = min((size_t)path.offsets.size()-1, path_pos);
     size_t trav_idx = path.offsets_rank(path_pos+1)-1;
     int64_t offset = path_pos - path.positions[trav_idx];
-    id_t node_id = path.ids[trav_idx];
+    id_t node_id = path.node(trav_idx);
     bool is_rev = path.directions[trav_idx];
     return make_pos_t(node_id, is_rev, offset);
 }
