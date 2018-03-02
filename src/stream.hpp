@@ -232,13 +232,15 @@ void for_each_parallel_impl(std::istream& in,
     const uint64_t batch_size = 256;
     static_assert(batch_size % 2 == 0, "stream::for_each_parallel::batch_size must be even");
     // max # of such batches to be holding in memory
-    const uint64_t max_batches_outstanding = 256;
+    uint64_t max_batches_outstanding = 256;
+    // max # we will ever increase the batch buffer to
+    const uint64_t max_max_batches_outstanding = 1 << 13; // 8192
     // number of batches currently being processed
     uint64_t batches_outstanding = 0;
 
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    #pragma omp parallel default(none) shared(in, lambda1, lambda2, handle_count, batches_outstanding, single_threaded_until_true)
+    #pragma omp parallel default(none) shared(in, lambda1, lambda2, handle_count, batches_outstanding, max_batches_outstanding, single_threaded_until_true)
     #pragma omp single
     {
         auto handle = [](bool retval) -> void {
@@ -291,7 +293,9 @@ void for_each_parallel_impl(std::istream& in,
                     uint64_t b;
 #pragma omp atomic capture
                     b = ++batches_outstanding;
-                    if (b >= max_batches_outstanding || !single_threaded_until_true()) {
+                    
+                    bool do_single_threaded = !single_threaded_until_true();
+                    if (b >= max_batches_outstanding || do_single_threaded) {
                         
                         // process this batch in the current thread
                         {
@@ -304,8 +308,19 @@ void for_each_parallel_impl(std::istream& in,
                             }
                         } // scope obj1 & obj2
                         delete batch;
-#pragma omp atomic update
-                        batches_outstanding--;
+#pragma omp atomic capture
+                        b = --batches_outstanding;
+                        
+                        if (4 * b / 3 < max_batches_outstanding
+                            && max_batches_outstanding < max_max_batches_outstanding
+                            && !do_single_threaded) {
+                            // we went through at least 1/4 of the batch buffer while we were doing this thread's batch
+                            // this looks risky, since we want the batch buffer to stay populated the entire time we're
+                            // occupying this thread on compute, so let's increase the batch buffer size
+                            // (skip this adjustment if you're in single-threaded mode and thus expect the buffer to be
+                            // empty)
+                            max_batches_outstanding *= 2;
+                        }
                     }
                     else {
                         // spawn a task in another thread to process this batch
