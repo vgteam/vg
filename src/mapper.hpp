@@ -24,6 +24,8 @@
 #include "cluster.hpp"
 #include "graph.hpp"
 #include "translator.hpp"
+// TODO: pull out ScoreProvider into its own file
+#include "haplotypes.hpp"
 
 namespace vg {
 
@@ -145,8 +147,10 @@ private:
 class BaseMapper : public Progressive {
     
 public:
-    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
-    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, gbwt::GBWT* gbwt = nullptr);
+    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer
+    // index + LCP array, and which can score reads against haplotypes using
+    // the given ScoreProvider.
+    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
     BaseMapper(void);
     ~BaseMapper(void);
     
@@ -313,8 +317,8 @@ protected:
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
     
-    // GBWT index, if any, for determining haplotype concordance
-    gbwt::GBWT* gbwt = nullptr;
+    // Haplotype score provider, if any, for determining haplotype concordance
+    haplo::ScoreProvider* haplo_score_provider = nullptr;
     
     // The exponent for the haplotype consistency score.
     // 0 = no haplotype consistency scoring done.
@@ -442,8 +446,8 @@ private:
     
 public:
     // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
-    // LCP array, and an optional GBWT haplotype index.
-    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, gbwt::GBWT* gbwt = nullptr);
+    // LCP array, and an optional haplotype score provider.
+    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
     Mapper(void);
     ~Mapper(void);
 
