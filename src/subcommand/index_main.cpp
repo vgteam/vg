@@ -445,14 +445,7 @@ int main_index(int argc, char** argv) {
             return 1;
         }
 
-        // Apparently there is no efficient way of determining the max id.
-        size_t id_width = 64;
-        {
-            xg::id_t max_id = 0;
-            size_t max_rank = xg_index->max_node_rank();
-            for (size_t i = 1; i <= max_rank; i++) { max_id = std::max(max_id, xg_index->rank_to_id(i)); }
-            id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
-        }
+        size_t id_width = gbwt::bit_length(gbwt::Node::encode(xg_index->get_max_id(), true));
         if (show_progress) {
             cerr << "Node id width: " << id_width << endl;
         }
