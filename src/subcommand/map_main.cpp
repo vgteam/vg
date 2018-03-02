@@ -876,6 +876,7 @@ int main_map(int argc, char** argv) {
             throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
         }
         m->hit_max = hit_max;
+        m->hit_limit = max(max_multimaps, extra_multimaps);
         m->max_multimaps = max_multimaps;
         m->min_multimaps = max(min_multimaps, max_multimaps);
         m->band_multimaps = band_multimaps;

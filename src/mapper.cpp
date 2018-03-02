@@ -200,8 +200,15 @@ BaseMapper::find_mems_simple(string::const_iterator seq_begin,
     for (auto& mem : mems) {
         if (mem.length() >= min_mem_length) {
             mem.match_count = gcsa->count(mem.range);
-            if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
+            if (mem.match_count > 0) {
                 gcsa->locate(mem.range, mem.nodes);
+                if (hit_max > 0 && mem.nodes.size() > hit_max) {
+                    if (hit_limit) {
+                        mem.filter_hits_to(hit_limit);
+                    } else {
+                        mem.nodes.clear();
+                    }
+                }
             }
         }
     }
@@ -593,13 +600,17 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             }
         }
         
-        if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
+        if (mem.match_count > 0) {
             gcsa->locate(mem.range, mem.nodes);
-            // it may be necessary to impose the cap on mem hits?
             if (hit_max > 0 && mem.nodes.size() > hit_max) {
                 filtered_mems += mem.nodes.size();
                 total_mems += mem.nodes.size();
-                mem.nodes.clear();
+                if (hit_limit) {
+                    size_t kept = mem.filter_hits_to(hit_limit);
+                    filtered_mems -= kept;
+                } else {
+                    mem.nodes.clear();
+                }
             }
         }
 #ifdef debug_mapper

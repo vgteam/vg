@@ -565,6 +565,7 @@ int main_msga(int argc, char** argv) {
         mapper = new Mapper(xgidx, gcsaidx, lcpidx);
         { // set mapper variables
             mapper->hit_max = hit_max;
+            mapper->hit_limit = max(max_multimaps, extra_multimaps);
             mapper->max_multimaps = max_multimaps;
             mapper->min_multimaps = min_multimaps;
             mapper->maybe_mq_threshold = maybe_mq_threshold;
