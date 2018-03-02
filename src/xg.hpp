@@ -16,7 +16,6 @@
 #include "sdsl/wavelet_trees.hpp"
 #include "sdsl/csa_wt.hpp"
 #include "sdsl/suffix_arrays.hpp"
-#include "hash_map_set.hpp"
 #include "position.hpp"
 #include "graph.hpp"
 #include "path.hpp"
@@ -112,9 +111,9 @@ public:
                bool is_sorted_dag);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 7;
+    const static uint32_t MAX_INPUT_VERSION = 8;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 7;
+    const static uint32_t OUTPUT_VERSION = 8;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -799,10 +798,7 @@ public:
     XGPath(XGPath&& other) = delete;
     XGPath& operator=(const XGPath& other) = delete;
     XGPath& operator=(XGPath&& other) = delete;
-    
-    rrr_vector<> nodes;
-    rrr_vector<>::rank_1_type nodes_rank;
-    rrr_vector<>::select_1_type nodes_select;
+    int64_t min_node_id;
     wt_gmr<> ids;
     sd_vector<> directions; // forward or backward through nodes
     int_vector<> positions;
@@ -820,6 +816,8 @@ public:
     // Get the node orientation at a 0-based offset.
     id_t node(size_t offset) const;
     bool is_reverse(size_t offset) const;
+    id_t local_id(id_t id) const;
+    id_t external_id(id_t id) const;
 };
 
 

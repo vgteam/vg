@@ -21,9 +21,9 @@ BaseMapper::BaseMapper(xg::XG* xidex,
       , min_mem_length(1)
       , mem_reseed_length(0)
       , fast_reseed(true)
-      , fast_reseed_length_diff(0.75)
-      , adaptive_reseed_diff(false)
-      , adaptive_diff_exponent(0.05)
+      , fast_reseed_length_diff(0.45)
+      , adaptive_reseed_diff(true)
+      , adaptive_diff_exponent(0.065)
       , hit_max(0)
       , alignment_threads(1)
       , qual_adj_aligner(nullptr)
@@ -497,9 +497,103 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         if (mem.begin < seq_begin || mem.end > seq_end) continue;
         mem.match_count = gcsa->count(mem.range);
         mem.primary = true;
-        // if we aren't filtering on hit count, or if we have up to the max allowed hits
+    }
+    
+    // the graph of containment relationships between MEMs by index, also keeps track of what the sub-MEM min
+    // length the children should be
+    vector<pair<int, vector<size_t>>> sub_mem_containment_graph(mems.size());
+
+    if (reseed_length) {
+        
+        // record what the minimum length of sub-MEMs they contain should be according to the parameters
+        for (size_t i = 0; i < mems.size(); i++) {
+            if (use_diff_based_fast_reseed && adaptive_reseed_diff) {
+                sub_mem_containment_graph[i].first = max<int>(get_adaptive_min_reseed_length(mems[i].length()), min_mem_length);
+            }
+            else if (use_diff_based_fast_reseed) {
+                sub_mem_containment_graph[i].first = max<int>(ceil(fast_reseed_length_diff * mems[i].length()), min_mem_length);
+            }
+            else {
+                sub_mem_containment_graph[i].first = min_mem_length;
+            }
+        }
+        
+        // record where this layer of disjoint MEMs begins and ends in the return vector
+        int layer_begin = 0, layer_end = mems.size();
+        
+        // apply sub-MEM algorithm to SMEMs and possibly then to the sub-MEMs
+        for (int depth = 0; depth < max_sub_mem_recursion_depth; depth++) {
+            // for all of the MEMs at this depth from the SMEMs in the containment graph
+            for (int i = layer_begin; i < layer_end; i++) {
+                
+                MaximalExactMatch& mem = mems[i];
+                // invalid mem
+                // TODO: why are we ever producing these??
+                if (mem.begin < seq_begin || mem.end > seq_end) continue;
+                
+                int min_sub_mem_length = sub_mem_containment_graph[i].first;
+                
+                // should we look for sub-MEMs from this MEM?
+                if (mem.length() >= min_mem_length &&
+                    mem.length() > min_sub_mem_length &&
+                    (use_lcp_reseed_heuristic && record_max_lcp
+                     && i < lcp_maxima.size() ? lcp_maxima[i] : mem.length()) >= reseed_length &&
+                    (reseed_below == 0 || mem.match_count <= reseed_below)){
+                    
+                    // where should we start looking for sub-MEMs to ensure that we find independent hits
+                    // from adjacent MEMs that might overlap this one?
+                    string::const_iterator seed_boundary = i + 1 < layer_end ? mems[i + 1].end : mems[i].begin;
+                    
+                    // what's the leftmost index where a sub-MEM might be contained in the next MEM to the right?
+                    string::const_iterator possible_containment_boundary = i - 1 >= layer_begin ? mems[i - 1].begin : mems[i].end;
+                    
+                    // reseed using the technique indicated by the mapper's parameters
+                    vector<pair<MaximalExactMatch, vector<size_t>>> sub_mems;
+                    if (fast_reseed) {
+                        find_sub_mems_fast(mems, layer_begin, layer_end, i,
+                                           possible_containment_boundary, seed_boundary,
+                                           min_sub_mem_length, sub_mems);
+                    }
+                    else {
+                        find_sub_mems(mems, layer_begin, layer_end, i, seed_boundary,
+                                      min_sub_mem_length, sub_mems);
+                    }
+                    
+                    for (pair<MaximalExactMatch, vector<size_t>>& sub_mem_and_parents : sub_mems) {
+                        // move the MEM to the return vector and the parents to the containment graph
+                        mems.emplace_back(move(sub_mem_and_parents.first));
+                        sub_mem_containment_graph.emplace_back(0, move(sub_mem_and_parents.second));
+                        
+                        // set the minimum sub-MEM length to the maximum of its parents' minimum lengths
+                        for (size_t j : sub_mem_containment_graph.back().second) {
+                            sub_mem_containment_graph.back().first = max(sub_mem_containment_graph.back().first,
+                                                                         sub_mem_containment_graph[j].first);
+                        }
+                    }
+                }
+            }
+            
+            // we're done with this containment layer, mark its boundaries for the next iteration
+            layer_begin = layer_end;
+            layer_end = mems.size();
+        }
+    }
+    
+    // query the locations of the hits
+    // note: iterate in reverse so we remove the parent count from the children MEMs before decrementing
+    // the parent count itself
+    for (int64_t i = mems.size() - 1; i >= 0; i--) {
+        
+        MaximalExactMatch& mem = mems[i];
+        
+        if (!include_parent_in_sub_mem_count) {
+            // remove the redundant hits with the parent from the total count
+            for (size_t parent_idx : sub_mem_containment_graph[i].second) {
+                mem.match_count -= mems[parent_idx].match_count;
+            }
+        }
+        
         if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
-            // extract the graph positions matching the range
             gcsa->locate(mem.range, mem.nodes);
             // it may be necessary to impose the cap on mem hits?
             if (hit_max > 0 && mem.nodes.size() > hit_max) {
@@ -519,117 +613,25 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         }
 #endif
     }
-
-    if (reseed_length) {
-        // get the sub_mem_and_parents
-        vector<pair<MaximalExactMatch, vector<size_t> > > sub_mems;
-
-        // run the reseeding
-        for (int i = 0; i < mems.size(); ++i) {
-            auto& mem = mems[i];
-            // invalid mem
-            if (mem.begin < seq_begin || mem.end > seq_end) continue;
-            int lcpmax = 0;
-            if (record_max_lcp) lcpmax = lcp_maxima[i];
-            // reseed when...
-            if (mem.length() >= min_mem_length // our mem is greater than the min mem length (should be by default)
-                && (use_lcp_reseed_heuristic ? lcpmax : mem.length()) >= reseed_length // is the right length to reseed
-                //&& mem.nodes.size() // and wasn't filtered
-                && (reseed_below == 0  // and has fewer hits than our threshold for reseeding, if there is a threshold
-                    || mem.nodes.size() <= reseed_below)) {
-                    
-                // reseed using the technique indicated by the mapper's parameters
-                if (fast_reseed) {
-                    if (use_diff_based_fast_reseed) {
-                        if (adaptive_reseed_diff) {
-                            find_sub_mems_fast(mems, i,
-                                               i+1 < mems.size() ? mems[i+1].end : seq_begin,
-                                               max<int>(get_adaptive_min_reseed_length(mem.length()), min_mem_length),
-                                               sub_mems);
-                        }
-                        else {
-                            find_sub_mems_fast(mems, i,
-                                               i+1 < mems.size() ? mems[i+1].end : seq_begin,
-                                               max<int>(ceil(fast_reseed_length_diff * mem.length()), min_mem_length),
-                                               sub_mems);
-                        }
-                    }
-                    else {
-                        find_sub_mems_fast(mems, i,
-                                           i+1 < mems.size() ? mems[i+1].end : seq_begin,
-                                           min_mem_length,
-                                           sub_mems);
-                    }
-                }
-                else {
-                    find_sub_mems(mems, i,
-                                  i+1 < mems.size() ? mems[i+1].end : seq_begin,
-                                  min_mem_length,
-                                  sub_mems);
-                }
-            }
-            
-        }
-        
-        // determine counts of matches
-        for (pair<MaximalExactMatch, vector<size_t> >& sub_mem_and_parents : sub_mems) {
-            // count in entire range, including parents
-            sub_mem_and_parents.first.match_count = gcsa->count(sub_mem_and_parents.first.range);
-            if (!include_parent_in_sub_mem_count) {
-                // remove parents from count
-                for (size_t parent_idx : sub_mem_and_parents.second) {
-                    sub_mem_and_parents.first.match_count -= mems[parent_idx].match_count;
-                }
-            }
-        }
-        
-        // fill MEMs with positions and set flag indicating they are submems
-        for (auto& m : sub_mems) {
-            auto& mem = m.first;
-            mem.primary = false;
-            if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
-                gcsa->locate(mem.range, mem.nodes);
-                // it may be necessary to impose the cap on mem hits?
-                if (hit_max > 0 && mem.nodes.size() > hit_max) {
-                    filtered_mems += mem.nodes.size();
-                    total_mems += mem.nodes.size();
-                    mem.nodes.clear();
-                }
-            }
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                cerr << "sub-MEM " << mem.sequence() << " has " << mem.match_count << " hits: ";
-                for (auto nt : mem.nodes) {
-                    cerr << make_pos_t(nt) << ", ";
-                }
-                cerr << endl;
-            }
-#endif
-        }
-        
-        // combine the MEM and sub-MEM lists
-        for (auto iter = sub_mems.begin(); iter != sub_mems.end(); iter++) {
-            mems.push_back(std::move(iter->first));
-        }
+    
+    // try to identify which hits are redundant sub-MEMs and filter them out
+    // note: do this before sorting the MEMs because the graph's adjacency list is ordered the same
+    // as the return vector
+    if (prefilter_redundant_hits && reseed_length) {
+        prefilter_redundant_sub_mems(mems, sub_mem_containment_graph);
     }
 
+    // TODO: uhhh... if we're actually producing these it's kind of a problem
     // remove strange MEMs
     mems.erase(std::remove_if(mems.begin(), mems.end(),
                               [&seq_begin, &seq_end](const MaximalExactMatch& mem)
                               { return mem.begin < seq_begin || mem.end > seq_end; }),
                mems.end());
 
-    // return the MEMs in order by first index and then descending by length (this helps prefiltering MEMs)
+    // return the MEMs in lexicographic order by the read interval
     std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-        return m1.begin < m2.begin || (m1.begin == m2.begin && m1.length() > m2.length());
+        return m1.begin < m2.begin || (m1.begin == m2.begin && m1.end < m2.end);
     });
-    
-    // try to identify which hits are redundant sub-MEMs and filter them out
-    if (prefilter_redundant_hits && reseed_length) {
-        prefilter_redundant_sub_mems(mems);
-    }
-
     std::for_each(mems.begin(), mems.end(), [&total_mems](const MaximalExactMatch& mem) { total_mems += mem.nodes.size(); });
     fraction_filtered = (double) filtered_mems / (double) total_mems;
     
@@ -638,17 +640,23 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     mems.erase(unique(mems.begin(), mems.end()), mems.end());
     // remove MEMs that are overlapping positionally (they may be redundant)
     
+    if (precollapse_order_length_hits) {
+        precollapse_order_length_runs(seq_begin, mems);
+    }
+
     return mems;
 }
 
 void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
+                               int parent_layer_begin,
+                               int parent_layer_end,
                                int mem_idx,
                                string::const_iterator next_mem_end,
-                               int min_mem_length,
+                               int min_sub_mem_length,
                                vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out) {
     
     // get the most recently added MEM
-    const MaximalExactMatch& mem = mems.back();
+    const MaximalExactMatch& mem = mems[mem_idx];
     
 #ifdef debug_mapper
 #pragma omp critical
@@ -657,7 +665,7 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
         for (auto iter = mem.begin; iter != mem.end; iter++) {
             cerr << *iter;
         }
-        cerr << ", min mem length " << min_mem_length << endl;
+        cerr << ", min mem length " << min_sub_mem_length << endl;
     }
 #endif
     
@@ -692,9 +700,9 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
             // interval as a sub MEM
             string::const_iterator sub_mem_begin = cursor + 1;
             
-            if (sub_mem_end - sub_mem_begin >= min_mem_length && !prev_iter_jumped_lcp) {
-                sub_mems_out.push_back(make_pair(MaximalExactMatch(sub_mem_begin, sub_mem_end, last_range),
-                                                 vector<size_t>{(uint64_t)mem_idx}));
+            if (sub_mem_end - sub_mem_begin >= min_sub_mem_length && !prev_iter_jumped_lcp) {
+                sub_mems_out.emplace_back(MaximalExactMatch(sub_mem_begin, sub_mem_end, last_range),
+                                          vector<size_t>(1, mem_idx));
 #ifdef debug_mapper
 #pragma omp critical
                 {
@@ -713,7 +721,7 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
                 }
 #endif
                 // identify all previous MEMs that also contain this sub-MEM
-                for (int64_t i = mem_idx - 1; i >= 0; --i) {
+                for (int64_t i = mem_idx - 1; i >= parent_layer_begin; --i) {
                     if (sub_mem_begin >= mems[i].begin) {
                         // contined in next MEM, add its index to sub MEM's list of parents
                         sub_mems_out.back().second.push_back(i);
@@ -754,8 +762,8 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
     
     // add a final sub MEM if there is one and it is not contained in the next parent MEM
     if (sub_mem_end > next_mem_end && sub_mem_end - mem.begin >= min_mem_length && !prev_iter_jumped_lcp) {
-        sub_mems_out.push_back(make_pair(MaximalExactMatch(mem.begin, sub_mem_end, range),
-                                         vector<size_t>{(uint64_t)mem_idx}));
+        sub_mems_out.emplace_back(MaximalExactMatch(mem.begin, sub_mem_end, range),
+                                  vector<size_t>(1, mem_idx));
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -781,6 +789,15 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
         }
     }
 #endif
+    
+    
+    // annotate the MEMs
+    for (pair<MaximalExactMatch, vector<size_t>>& sub_mem_and_parents : sub_mems_out) {
+        // count in entire range, including parents
+        sub_mem_and_parents.first.match_count = gcsa->count(sub_mem_and_parents.first.range);
+        // mark this is a sub-MEM
+        sub_mem_and_parents.first.primary = false;
+    }
 }
 
 // TODO: rewrite roughly as follows
@@ -792,36 +809,36 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
 // goal is to get to roughly a linear number of LFs an parent()s per MEM we reseed
 
 void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
+                                    int parent_layer_begin,
+                                    int parent_layer_end,
                                     int mem_idx,
-                                    string::const_iterator next_mem_end,
+                                    string::const_iterator leftmost_guaranteed_disjoint_bound,
+                                    string::const_iterator leftmost_seeding_bound,
                                     int min_sub_mem_length,
                                     vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out) {
-
-    // get the indicated MEM
-    const MaximalExactMatch& mem = mems[mem_idx];
     
 #ifdef debug_mapper
 #pragma omp critical
     cerr << "find_sub_mems_fast: mem ";
-    for (auto iter = mem.begin; iter != mem.end; iter++) {
+    for (auto iter = mems[mem_idx].begin; iter != mems[mem_idx].end; iter++) {
         cerr << *iter;
     }
     cerr << ", min_sub_mem_length " << min_sub_mem_length << endl;
 #endif
     
     // how many times does the parent MEM occur in the index?
-    size_t parent_range_count = use_approx_sub_mem_count ? gcsa::Range::length(mem.range) : mem.match_count;
+    size_t parent_range_count = use_approx_sub_mem_count ? gcsa::Range::length(mems[mem_idx].range) : mems[mem_idx].match_count;
     
     // the end of the leftmost substring that is at least the minimum length and not contained
     // in the next SMEM
-    string::const_iterator probe_string_end = mem.begin + min_sub_mem_length;
-    if (probe_string_end <= next_mem_end) {
-        probe_string_end = next_mem_end + 1;
+    string::const_iterator probe_string_end = mems[mem_idx].begin + min_sub_mem_length;
+    if (probe_string_end <= leftmost_seeding_bound) {
+        probe_string_end = leftmost_seeding_bound + 1;
     }
     // the leftmost possible index of the next sub-MEM
-    string::const_iterator leftmost_bound = mem.begin;
+    string::const_iterator leftmost_extension_bound = mems[mem_idx].begin;
     
-    while (probe_string_end <= mem.end) {
+    while (probe_string_end <= mems[mem_idx].end) {
         
         // locate the probe substring of length equal to the minimum length for a sub-MEM
         // that we are going to test to see if it's inside any sub-MEM
@@ -829,7 +846,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
         
 #ifdef debug_mapper
 #pragma omp critical
-        cerr << "probe string is mem[" << probe_string_begin - mem.begin << ":" << probe_string_end - mem.begin << "] ";
+        cerr << "probe string is mem[" << probe_string_begin - mems[mem_idx].begin << ":" << probe_string_end - mems[mem_idx].begin << "] ";
         for (auto iter = probe_string_begin; iter != probe_string_end; iter++) {
             cerr << *iter;
         }
@@ -862,15 +879,15 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
         }
         
         if (probe_string_more_frequent) {
-            // this is the prefix of a sub-MEM of length >= the minimum, now we need to
-            // find its end using binary search
+            // this string is contained in a sub-MEM of length >= the minimum length, now we need to
+            // find its ends
             
-            if (probe_string_begin > leftmost_bound) {
+            if (probe_string_begin > leftmost_extension_bound) {
                 // the probe string is contained in a sub-MEM, but that doesn't mean it's been
                 // extended as far as possible to the left
                 
                 // extend match until beginning of SMEM or until the end of the independent hit
-                while (cursor >= leftmost_bound) {
+                while (cursor >= leftmost_extension_bound) {
                     gcsa::range_type last_range = range;
                     range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                     
@@ -886,10 +903,11 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 probe_string_begin = cursor + 1;
             }
             
+            // now find the right end of the sub-MEM using binary search
             
             // inclusive interval that contains the past-the-last index of the sub-MEM
             string::const_iterator left_search_bound = probe_string_end;
-            string::const_iterator right_search_bound = mem.end;
+            string::const_iterator right_search_bound = mems[mem_idx].end;
             
             // the match range of the longest prefix of the sub-MEM we've found so far (if we initialize
             // it here, the binary search is guaranteed to LF along the full sub-MEM in some iteration)
@@ -903,7 +921,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
 #ifdef debug_mapper
 #pragma omp critical
                 {
-                    cerr << "checking extension mem[" << probe_string_begin - mem.begin << ":" << middle - mem.begin << "] ";
+                    cerr << "checking extension mem[" << probe_string_begin - mems[mem_idx].begin << ":" << middle - mems[mem_idx].begin << "] ";
                     for (auto iter = probe_string_begin; iter != middle; iter++) {
                         cerr << *iter;
                     }
@@ -921,7 +939,11 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                     
                     range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
                     
-                    if (cursor == probe_string_begin || ((cursor - mem.begin) % sub_mem_count_thinning == 0)) {
+                    // do count operations on the final index and on intervals of the thinning parameter once we pass the
+                    // burn in parameter
+                    int64_t relative_idx = middle - cursor - 1;
+                    if (cursor == probe_string_begin ||
+                        (relative_idx >= sub_mem_thinning_burn_in && (relative_idx - sub_mem_thinning_burn_in) % sub_mem_count_thinning == 0)) {
                         if ((use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range)) <= parent_range_count) {
                             // this probe is too long and it no longer is contained in the indendent hit
                             // that we detected
@@ -947,28 +969,85 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 }
             }
             
+            bool possibly_redundant = (right_search_bound == mems[mem_idx].end && probe_string_begin >= leftmost_guaranteed_disjoint_bound);
+            bool not_redundant = true;
+            if (possibly_redundant) {
+                // this sub-MEM is abutting the right end of the parent MEM and contained in the next MEM.
+                // sometimes this means the sub-MEM is actually a truncated version of a sub-MEM of the next
+                // MEM which was artificially cut short by the end of the current parent MEM, so we check that here
+                
+#ifdef debug_mapper
+                cerr << "sub-MEM may be artificially truncated, checking extended sub-MEM" << endl;
+                cerr << "current: " << MaximalExactMatch(probe_string_begin, right_search_bound, sub_mem_range).sequence() << endl;
+#endif
+                
+                // the count of the current sub-MEM
+                size_t current_count = use_approx_sub_mem_count ? gcsa::Range::length(sub_mem_range) : gcsa->count(sub_mem_range);
+                
+                // get the GCSA range of the current sub-MEM extended one base past the end of the current parent MEM
+                cursor = right_search_bound;
+                range = gcsa::range_type(0, gcsa->size() - 1);
+                size_t extended_count = numeric_limits<size_t>::max();
+                bool contained_in_independent_match = true;
+                while (cursor >= probe_string_begin) {
+                    range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
+                    int64_t relative_idx = right_search_bound - cursor + 1;
+                    if (cursor == probe_string_begin ||
+                        (relative_idx >= sub_mem_thinning_burn_in && (relative_idx - sub_mem_thinning_burn_in) % sub_mem_count_thinning == 0)) {
+                        extended_count = use_approx_sub_mem_count ? gcsa::Range::length(range) : gcsa->count(range);
+                        if (extended_count < current_count) {
+                            // the count of the full lengthened sub-MEM will be fewer than the one we just found
+                            break;
+                        }
+                    }
+                    
+                    cursor--;
+                }
+                
+#ifdef debug_mapper
+                cerr << "lengthened sub-MEM has count " << extended_count << ", compared to current count " << current_count << endl;
+#endif
+                
+                // since the current sub-MEM is contained in the lengthened one, the lengthened sub-MEM can only have the same number
+                // of hits or fewer. if it has the same number then the current sub-MEM is artificially truncated
+                not_redundant = (extended_count < current_count);
+                
+            }
+            
+            if (not_redundant) {
 #ifdef debug_mapper
 #pragma omp critical
-            cerr << "final sub-MEM is mem[" << probe_string_begin - mem.begin << ":" << right_search_bound - mem.begin << "] ";
-            for (auto iter = probe_string_begin; iter != right_search_bound; iter++) {
-                cerr << *iter;
-            }
-            cerr << endl;
-#endif
-            
-            // record the sub-MEM
-            sub_mems_out.push_back(make_pair(MaximalExactMatch(probe_string_begin, right_search_bound, sub_mem_range),
-                                             vector<size_t>{(uint64_t)mem_idx}));
-            
-            // identify all previous MEMs that also contain this sub-MEM
-            for (int64_t i = mem_idx - 1; i >= 0; --i) { //((int64_t) mems.size()) - 2; i >= 0; i--) {
-                if (probe_string_begin >= mems[i].begin) {
-                    // contained in next MEM, add its index to sub MEM's list of parents
-                    sub_mems_out.back().second.push_back(i);
+                cerr << "final sub-MEM is mem[" << probe_string_begin - mems[mem_idx].begin << ":" << right_search_bound - mems[mem_idx].begin << "] ";
+                for (auto iter = probe_string_begin; iter != right_search_bound; iter++) {
+                    cerr << *iter;
                 }
-                else {
-                    // not contained in the next MEM, cannot be contained in earlier ones
-                    break;
+                cerr << endl;
+#endif
+                
+                // record the sub-MEM
+                sub_mems_out.emplace_back(MaximalExactMatch(probe_string_begin, right_search_bound, sub_mem_range),
+                                          vector<size_t>(1, mem_idx));
+                
+                // identify all previous MEMs that also contain this sub-MEM
+                for (int64_t i = mem_idx - 1; i >= parent_layer_begin; --i) {
+                    if (probe_string_begin >= mems[i].begin) {
+                        // contained in next MEM, add its index to sub MEM's list of parents
+                        sub_mems_out.back().second.push_back(i);
+                    }
+                    else {
+                        // not contained in the next MEM, cannot be contained in earlier ones
+                        break;
+                    }
+                }
+                
+                if (possibly_redundant && mem_idx + 1 != mems.size()) {
+                    // the sub-MEM we might be redundant with is likely to be the last sub-MEM we identified (although not always).
+                    // even if the current sub-MEM is non-redundant, it still is a child of that sub-MEM, so we should mark it as
+                    // such to improve the efficiency of prefiltering. however, it's probably not worth looking too deeply into the
+                    // MEM vector to find the parent if it is not the last one (avoids possible quadratic behavior)
+                    if (mems.back().begin <= sub_mems_out.back().first.begin && mems.back().end >= sub_mems_out.back().first.end) {
+                        sub_mems_out.back().second.push_back(mems.size() - 1);
+                    }
                 }
             }
             
@@ -978,7 +1057,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             
             // any sub-MEMs will need to have their start position at least one position to the right
             // of this one
-            leftmost_bound = probe_string_begin + 1;
+            leftmost_extension_bound = probe_string_begin + 1;
             
         }
         else {
@@ -989,63 +1068,207 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
             probe_string_end = cursor + min_sub_mem_length + 1;
         }
     }
+    
+    // annotate the MEMs
+    for (pair<MaximalExactMatch, vector<size_t>>& sub_mem_and_parents : sub_mems_out) {
+        // count in entire range, including parents
+        sub_mem_and_parents.first.match_count = gcsa->count(sub_mem_and_parents.first.range);
+        // mark this is a sub-MEM
+        sub_mem_and_parents.first.primary = false;
+    }
+    
+    // fast algorithm produces sub-MEMs left-to-right, switch the order so that they remain right-to-left
+    // within the layer (as this algorithm expects in recursive calls)
+    reverse(sub_mems_out.begin(), sub_mems_out.end());
 }
 
-void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems) {
+void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
+                                              vector<pair<int, vector<size_t>>>& sub_mem_containment_graph) {
 
     vector<size_t> sub_mem_range_end(mems.size());
     
-    // TODO: it would actually be better in recursive sub-MEMs to prefilter using the parent rather
-    // than the ancestor and to do it in post-order
-    // the parent has more of the redundant hits and is more likely to be on the same node as the child
-    
-    for (size_t i = 0; i < mems.size(); ) {
-        
-        // find the end of the range of MEMs for which this MEM is a parent
-        // note: takes advantage of sort order
-        size_t j = i + 1;
-        while (j < mems.size() ? mems[j].end <= mems[i].end : false) {
-            sub_mem_range_end[j] = j + 1;
-            j++;
-        }
-        sub_mem_range_end[i] = j;
-        i = j;
-    }
-    
     // for each MEM
-    for (size_t i = 0; i < mems.size(); i++) {
-        // for the range of its sub-MEMs
-        for (size_t j = i + 1; j < sub_mem_range_end[i]; j++) {
+    // note: reverse iteration is post order by construction
+    for (int64_t i = mems.size() - 1; i >= 0; i--) {
+        
+        if (sub_mem_containment_graph[i].second.empty()) {
+            // this MEM has no parents, so it cannot have redundant hits
+            continue;
+        }
+        
+#ifdef debug_mapper
+        cerr << "prefiltering hits in MEM " << mems[i].sequence() << endl;
+#endif
+        // for all of its parents
+        // get the supposed position this will be for each hit (if it is on the same node)
+        unordered_set<pos_t> extended_hit_positions;
+        for (size_t j : sub_mem_containment_graph[i].second) {
+#ifdef debug_mapper
+            cerr << "checking for extended hits from parent MEM " << mems[j].sequence() << endl;
+#endif
             
-            // how much farther should the sub-MEM be?
-            int64_t relative_offset = mems[j].begin - mems[i].begin;
-            
-            // get the supposed position this will be for each hit (if it is on the same node)
-            unordered_set<pos_t> extended_hit_positions;
-            for (gcsa::node_type hit : mems[i].nodes) {
+            // how much farther should the sub-MEM be than the parent?
+            int64_t relative_offset = mems[i].begin - mems[j].begin;
+            for (gcsa::node_type hit : mems[j].nodes) {
                 pos_t hit_pos = make_pos_t(hit);
                 extended_hit_positions.emplace(id(hit_pos), is_rev(hit_pos), offset(hit_pos) + relative_offset);
+#ifdef debug_mapper
+                cerr << "\textending hit " << hit_pos << " to " << make_pos_t(id(hit_pos), is_rev(hit_pos), offset(hit_pos) + relative_offset) << endl;
+#endif
             }
+        }
+        
+        // remove any nodes whose hit location matches the extended position
+        vector<gcsa::node_type>& nodes = mems[i].nodes;
+        size_t removed_so_far = 0;
+        for (size_t k = 0; k < nodes.size(); k++) {
+            if (extended_hit_positions.count(make_pos_t(nodes[k]))) {
+                // definitely redundant, skip this one
+                removed_so_far++;
+#ifdef debug_mapper
+                cerr << "found redundant hit " << make_pos_t(nodes[k]) << ", removing" << endl;
+#endif
+            }
+            else if (removed_so_far > 0) {
+                // move this one up in the list to its new index accounting for skips
+                nodes[k - removed_so_far] = nodes[k];
+            }
+        }
+        
+        // take off the end of the list, which only contains skipped hits and hits that have moved up
+        if (removed_so_far) {
+            nodes.resize(nodes.size() - removed_so_far);
+        }
+    }
+}
+    
+void BaseMapper::precollapse_order_length_runs(string::const_iterator seq_begin,
+                                               vector<MaximalExactMatch>& mems) {
+    
+    // find order length MEMs
+    vector<size_t> order_length_mems;
+    for (size_t i = 0; i < mems.size(); i++) {
+        if (mems[i].length() == gcsa->order()) {
+            order_length_mems.push_back(i);
+        }
+    }
+    
+    if (order_length_mems.empty()) {
+        return;
+    }
+    
+    vector<unordered_map<size_t, size_t>> collapsable_pairs(order_length_mems.size());
+    for (size_t i = 0; i + 1 < order_length_mems.size(); i++) {
+        
+        MaximalExactMatch& extending_mem = mems[order_length_mems[i]];
+        MaximalExactMatch& extend_to_mem = mems[order_length_mems[i + 1]];
+        
+        int64_t relative_offset = extend_to_mem.begin - extending_mem.begin;
+        
+        // find where hits should be if they are collapsable and on the same node
+        unordered_map<pos_t, size_t> extended_hits;
+        for (size_t j = 0; j < extending_mem.nodes.size(); j++) {
+            pos_t pos = make_pos_t(extending_mem.nodes[j]);
+            extended_hits[make_pos_t(id(pos), is_rev(pos), offset(pos) + relative_offset)] = j;
+        }
+        
+        // check if we find any of these hits
+        for (size_t j = 0; j < extend_to_mem.nodes.size(); j++) {
+            pos_t pos = make_pos_t(extend_to_mem.nodes[j]);
+            auto iter = extended_hits.find(pos);
+            if (iter != extended_hits.end()) {
+                collapsable_pairs[i].emplace(iter->second, j);
+            }
+        }
+    }
+    
+    // did we find any order-length MEMs that we can collapse into longer MEMs a priori?
+    if (!collapsable_pairs.empty()) {
+        
+        unordered_set<pair<size_t, size_t>> traversed;
+        unordered_map<pair<int64_t, int64_t>, size_t> collapsed_mems;
+        
+        // make collapsed MEMs and identify their hits
+        
+        size_t num_uncollapsed_mems = mems.size();
+        for (size_t i = 0; i + 1 < order_length_mems.size(); i++) {
             
-            // remove any nodes whose hit location matches the extended position
-            auto& nodes = mems[j].nodes;
+            for (size_t j = 0; j < mems[order_length_mems[i]].nodes.size(); j++) {
+                
+                if (collapsable_pairs[i].count(j) && !traversed.count(make_pair(i, j))) {
+                    // here's a collapsable hit we haven't yet traversed (i.e. the start of a new collapsed hit)
+                    
+#ifdef debug_mapper
+                    cerr << "premerging MEM hits:" << endl;
+                    cerr << "\t" << mems[order_length_mems[i]].sequence() << " " << make_pos_t(mems[order_length_mems[i]].nodes[j]) << endl;
+#endif
+                    // follow the forward links until we've traversed all the collapsable pairs
+                    size_t at = j;
+                    size_t col = i;
+                    traversed.emplace(col, at);
+                    pair<size_t, size_t> collapsable_run(at, at);
+                    while (collapsable_pairs[col].count(at)) {
+                        at = collapsable_pairs[col][at];
+                        col++;
+                        collapsable_run.second = at;
+                        traversed.emplace(col, at);
+#ifdef debug_mapper
+                        cerr << "\t" << mems[order_length_mems[col]].sequence() << " " << make_pos_t(mems[order_length_mems[col]].nodes[at]) << endl;
+#endif
+                    }
+                    
+                    // find the interval of read indexes that the collapsed MEM will cover
+                    pair<int64_t, int64_t> range(mems[order_length_mems[i]].begin - seq_begin,
+                                                 mems[order_length_mems[col]].end - seq_begin);
+                    
+                    // make a new MEM for this read interval if we don't already have one
+                    if (!collapsed_mems.count(range)) {
+                        collapsed_mems[range] = mems.size();
+                        mems.emplace_back(mems[order_length_mems[i]].begin,
+                                          mems[order_length_mems[col]].end,
+                                          gcsa::range_type());
+                    }
+                    
+                    // get the MEM corresponding to this read interval
+                    MaximalExactMatch& collapsed_mem = mems[collapsed_mems[range]];
+                    
+                    // add the hit to the collapsed MEM's hits
+                    collapsed_mem.nodes.push_back(mems[order_length_mems[i]].nodes[j]);
+                }
+            }
+        }
+        
+        // remove the hits that we collapsed from their MEMs
+        
+        for (size_t i = 0; i < order_length_mems.size(); i++) {
+            
             size_t removed_so_far = 0;
-            for (size_t k = 0; k < nodes.size(); k++) {
-                if (extended_hit_positions.count(make_pos_t(nodes[k]))) {
-                    // definitely redundant, skip this one
+            auto& nodes = mems[order_length_mems[i]].nodes;
+            for (size_t j = 0; j < nodes.size(); j++) {
+                
+                if (traversed.count(make_pair(i, j))) {
                     removed_so_far++;
                 }
-                else if (removed_so_far > 0) {
-                    // move this one up in the list to its new index accounting for skips
-                    nodes[k - removed_so_far] = nodes[k];
+                else if (removed_so_far) {
+                    nodes[j - removed_so_far] = nodes[j];
                 }
             }
             
-            // take off the end of the list, which only contains skipped hits and hits that have moved up
             if (removed_so_far) {
                 nodes.resize(nodes.size() - removed_so_far);
             }
         }
+        
+        // label the newly created MEMs with their hit count
+        
+        for (size_t i = num_uncollapsed_mems; i < mems.size(); i++) {
+            mems[i].match_count = mems[i].nodes.size();
+        }
+        
+        // resort the MEMs in lexicographic order by the read interval
+        std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
+            return m1.begin < m2.begin || (m1.begin == m2.begin && m1.end < m2.end);
+        });
     }
 }
 
@@ -1486,7 +1709,7 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
             int64_t score_penalty = round(haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base));
 
             // Convert to points, raise to haplotype consistency exponent power, and apply
-            alns[i]->set_score(alns[i]->score() + score_penalty);
+            alns[i]->set_score(max((int64_t)0, alns[i]->score() + score_penalty));
             // Note that we successfully corrected the score
             alns[i]->set_haplotype_scored(true);
             // And save the raw log probability
@@ -1607,13 +1830,14 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  Graph& graph,
                                  size_t max_query_graph_ratio,
                                  bool traceback,
+                                 bool certainly_acyclic,
                                  bool pinned_alignment,
                                  bool pin_left,
                                  bool banded_global,
                                  bool keep_bonuses) {
     // check if we need to make a vg graph to handle this graph
     Alignment aligned;
-    if (!is_id_sortable(graph) || has_inversion(graph)) {
+    if (!certainly_acyclic) { //!is_id_sortable(graph) || has_inversion(graph)) {
         VG vg;
         vg.extend(graph);
         if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
@@ -1884,7 +2108,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         orientations.insert(is_rev(mate_pos));
         int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
                             : min(frag_stats.fragment_max/2,
-                                  (int64_t)max((double)frag_stats.cached_fragment_length_stdev * 6.0,
+                                  (int64_t)max((double)frag_stats.cached_fragment_length_stdev * 10.0,
                                                mate1.sequence().size() * 3.0)));
         //cerr << "Getting at least " << get_at_least << endl;
         graph.MergeFrom(xindex->graph_context_id(mate_pos, get_at_least/2));
@@ -1894,13 +2118,14 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         // align against it
     }
     sort_by_id_dedup_and_clean(graph);
+    bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
     //VG g; g.extend(graph);string h = g.hash();
     //g.serialize_to_file("rescue-" + h + ".vg");
     int max_mate1_score = mate1.score();
     int max_mate2_score = mate2.score();
     for (auto& orientation : orientations) {
         if (rescue_off_first) {
-            Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback);
+            Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, certainly_acyclic);
             //write_alignment_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
@@ -1908,7 +2133,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
 #endif
             if (aln2.score() > max_mate2_score && (double)aln2.score()/perfect_score > min_threshold && pair_consistent(mate1, aln2, accept_pval)) {
                 if (!traceback) { // now get the traceback
-                    aln2 = align_maybe_flip(mate2, graph, orientation, true);
+                    aln2 = align_maybe_flip(mate2, graph, orientation, true, certainly_acyclic);
                 }
 #ifdef debug_rescue
                 if (debug) cerr << "rescued aln2 " << pb2json(aln2) << endl;
@@ -1918,7 +2143,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
                 rescued2 = true;
             }
         } else if (rescue_off_second) {
-            Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback);
+            Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, certainly_acyclic);
             //write_alignment_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
@@ -1926,7 +2151,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
 #endif
             if (aln1.score() > max_mate1_score && (double)aln1.score()/perfect_score > min_threshold && pair_consistent(aln1, mate2, accept_pval)) {
                 if (!traceback) { // now get the traceback
-                    aln1 = align_maybe_flip(mate1, graph, orientation, true);
+                    aln1 = align_maybe_flip(mate1, graph, orientation, true, certainly_acyclic);
                 }
 #ifdef debug_rescue
                 if (debug) cerr << "rescued aln1 " << pb2json(aln1) << endl;
@@ -1951,7 +2176,8 @@ Alignment Mapper::realign_from_start_position(const Alignment& aln, int extra, i
     Graph graph = xindex->graph_context_id(pos, get_at_least/1.61803);
     graph.MergeFrom(xindex->graph_context_id(reverse(pos, get_node_length(id(pos))), get_at_least*(1-1/1.61803)));
     sort_by_id_dedup_and_clean(graph);
-    Alignment result = align_maybe_flip(aln, graph, is_rev(pos), true);
+    bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
+    Alignment result = align_maybe_flip(aln, graph, is_rev(pos), true, certainly_acyclic);
     if (result.score() >= score) {
         return result;
     } else {
@@ -2021,8 +2247,8 @@ bool Mapper::pair_consistent(Alignment& aln1,
             int64_t len = pos2 - pos1;
             if (frag_stats.fragment_size) {
                 bool orientation_ok = frag_stats.cached_fragment_orientation_same && fwd1 == fwd2 || fwd1 != fwd2;
-                bool direction_ok = frag_stats.cached_fragment_direction && (!fwd1 && len > 0 || fwd1 && len < 0)
-                    || (fwd1 && len > 0 || !fwd1 && len < 0);
+                bool direction_ok = frag_stats.cached_fragment_direction && (!fwd1 && len >= 0 || fwd1 && len <= 0)
+                    || (fwd1 && len >= 0 || !fwd1 && len <= 0);
                 bool length_ok = frag_stats.fragment_length_pval(abs(len)) > pval;//|| pval == 0 && abs(len) < frag_stats.fragment_size;
                 return orientation_ok && direction_ok && length_ok;
             } else {
@@ -2073,7 +2299,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int8_t gap_open = aligner->gap_open;
     int8_t full_length_bonus = aligner->full_length_bonus;
 
-    int total_multimaps = max(max_multimaps, extra_multimaps);
+    int total_multimaps = max(max_multimaps, extra_multimaps/2);
     double cluster_mq = 0;
 
     if(debug) {
@@ -2103,7 +2329,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length,
-                                                     true, false, false, true, 2);
+                                                     false, true, true, false);
 
     vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
                                                      read2.sequence().end(),
@@ -2112,7 +2338,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length,
-                                                     true, false, false, true, 2);
+                                                     false, true, true, false);
 
     double mq_cap1, mq_cap2;
     mq_cap1 = mq_cap2 = max_mapping_quality;
@@ -2148,9 +2374,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double maybe_pair_mq = maybe_mq1+maybe_mq2;
 
     // if estimated mq is high scale difficulty using the estimated mapping quality
+    /*
     if (maybe_pair_mq > max_mapping_quality) {
         total_multimaps = max(max(min_multimaps, max_multimaps), min(total_multimaps, (int)round(maybe_pair_mq)));
     }
+    */
 
     if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << " " << total_multimaps << " " << mem_read_ratio1 << " " << fraction_filtered1 << " " << max_possible_mq << " " << total_multimaps << endl;
     if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << " " << total_multimaps << " " << mem_read_ratio2 << " " << fraction_filtered2 << " " << max_possible_mq << " " << total_multimaps << endl;
@@ -2199,6 +2427,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             int max_length = max(read1.sequence().size(), read2.sequence().size());
             pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
             int64_t approx_dist = d.first; // take the "same orientation" distance
+            double overlap_length = mems_overlap_length(m1, m2);
             /*if (approx_dist < 32) {
                 approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
                 }*/
@@ -2210,9 +2439,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 int64_t distance = approx_dist;
                 double jump = abs((m2.begin - m1.begin) - distance);
                 if (jump) {
-                    return (double) -(gap_open + jump * gap_extension);
+                    return (double) -(gap_open + jump * gap_extension) -overlap_length;
                 } else {
-                    return 0.0;
+                    return -overlap_length;
                 }
             }
         }
@@ -2348,23 +2577,23 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             cerr << endl;
         }
     };
-        
+
     if (debug) {
         cerr << "### clusters after filtering:" << endl;
         show_paired_clusters();
     }
-    
+
     set<pair<string, string> > seen_alignments;
     int filled1 = 0, filled2 = 0;
-
     for (auto& cluster_ptr : cluster_ptrs) {
         // break the cluster into two pieces
         auto& cluster1 = *cluster_ptr.first;
         auto& cluster2 = *cluster_ptr.second;
         alns.emplace_back();
         auto& p = alns.back();
-        if (cluster1.size() && (!to_drop1.count(&cluster1)
-                                || filled1 < min_multimaps)) {
+        if (cluster1.size()
+            && (filled1 < min_multimaps
+                || !to_drop1.count(&cluster1))) {
             p.first = align_cluster(read1, cluster1, true);
             ++filled1;
         } else {
@@ -2373,8 +2602,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_identity();
             p.first.clear_path();
         }
-        if (cluster2.size() && (!to_drop2.count(&cluster2)
-                                || filled2 < min_multimaps)) {
+
+        if (cluster2.size()
+            && (filled2 < min_multimaps
+                || !to_drop2.count(&cluster2))) {
             p.second = align_cluster(read2, cluster2, true);
             ++filled2;
         } else {
@@ -2563,7 +2794,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         ++k;
     }
     update_aln_ptrs();
-    
+
     // Apply haplotype consistency scores if possible
     vector<Alignment*> flat_alns;
     flat_alns.reserve(aln_ptrs.size() * 2);
@@ -2572,9 +2803,21 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         flat_alns.push_back(&aln_pair->second);
     }
     apply_haplotype_consistency_scores(flat_alns);
-    
+
     sort_and_dedup();
     show_alignments("mixed");
+
+    // apply pair consistency penalty
+    if (frag_stats.fragment_size) {
+        for (auto& p : aln_ptrs) {
+            auto& aln1 = p->first;
+            auto& aln2 = p->second;
+            if (!pair_consistent(aln1, aln2, 0)) {
+                aln1.set_score(max(0, aln1.score()-unpaired_penalty));
+                aln2.set_score(max(0, aln2.score()-unpaired_penalty));
+            }
+        }
+    }
 
     // calculate cluster mapping quality
 
@@ -2678,7 +2921,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         imperfect_pairs_to_retry.push_back(make_pair(read1, read2));
         results.first.clear();
         results.second.clear();
-        // we signal the fact that this isn't a perfect pair, so we don't write it out externally?
+        // we signal the fact that this isn't a perfect pair, so we don't write it out externally
         queued_resolve_later = true;
     }
 
@@ -2830,10 +3073,6 @@ set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vec
             // are we overlapping?
             auto& other_cluster = clusters[j];
             if (to_drop.count(&other_cluster)) continue;
-            if (clusters_overlap_in_graph(this_cluster, other_cluster)) {
-                to_drop.insert(&this_cluster);
-                break;
-            }
             // if the overlap length is more than our drop_chain fraction
             if (drop_chain > 0
                 && clusters_overlap_in_read(this_cluster, other_cluster)) {
@@ -2885,9 +3124,11 @@ Mapper::align_mem_multi(const Alignment& aln,
     }
 
     // scale difficulty using the estimated mapping quality
+    /*
     if (maybe_mq > max_mapping_quality) {
         total_multimaps = max(max(min_multimaps*4, max_multimaps), min(total_multimaps, (int)round(maybe_mq)));
     }
+    */
 
     if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_mq << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << " " << total_multimaps << " " << mem_read_ratio << " " << fraction_filtered << " " << max_possible_mq << " " << total_multimaps << endl;
 
@@ -2901,6 +3142,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         int64_t max_length = aln.sequence().size();
         pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
         int64_t approx_dist = d.first;// same orientation
+        double overlap_length = mems_overlap_length(m1, m2);
         /*if (approx_dist < 32 && same_orientation) {
             approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
             }*/
@@ -2918,9 +3160,9 @@ Mapper::align_mem_multi(const Alignment& aln,
             int64_t distance = approx_dist;
             double jump = abs((m2.begin - m1.begin) - distance);
             if (jump) {
-                return (double) -(gap_open + jump * gap_extension);
+                return (double) -(gap_open + jump * gap_extension) -overlap_length;
             } else {
-                return 0.0;
+                return -overlap_length;
             }
         }
     };
@@ -3006,7 +3248,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     for (auto& cluster : clusters) {
         if (alns.size() >= total_multimaps) { break; }
         // skip if we've filtered the cluster
-        if (to_drop.count(&cluster) && filled >= min_multimaps*4) {
+        if (to_drop.count(&cluster) && filled >= min_multimaps) {
             alns.push_back(aln);
             used_clusters.push_back(&cluster);
             continue;
@@ -3105,7 +3347,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     return alns;
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool banded_global) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool certainly_acyclic, bool banded_global) {
     Alignment aln = base;
     map<id_t, int64_t> node_length;
     if (flip) {
@@ -3131,6 +3373,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool fli
                          graph,
                          max_query_graph_ratio,
                          traceback,
+                         certainly_acyclic,
                          pinned_alignment,
                          pinned_reverse,
                          banded_global,
@@ -3181,14 +3424,16 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     }
     // get the graph with cluster.hpp's cluster_subgraph
     Graph graph = cluster_subgraph(*xindex, aln, mems);
+    bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
     // and test each direction for which we have MEM hits
     Alignment aln_fwd;
     Alignment aln_rev;
-    if (count_fwd) {
-        aln_fwd = align_maybe_flip(aln, graph, false, traceback);
+    // try both ways if we're not sure if we are acyclic
+    if (count_fwd || !certainly_acyclic) {
+        aln_fwd = align_maybe_flip(aln, graph, false, traceback, certainly_acyclic);
     }
-    if (count_rev) {
-        aln_rev = align_maybe_flip(aln, graph, true, traceback);
+    if (count_rev || !certainly_acyclic) {
+        aln_rev = align_maybe_flip(aln, graph, true, traceback, certainly_acyclic);
     }
     // TODO check if we have soft clipping on the end of the graph and if so try to expand the context
     if (aln_fwd.score() + aln_rev.score() == 0) {
@@ -3675,6 +3920,7 @@ vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, vect
         }
         //cerr << "position: " << p << " strip " << to_strip[i].first << " " << to_strip[i].second << endl;
         auto& aln = bands[i];
+        aln.set_name(read.name());
         aln.set_sequence(read.sequence().substr(p, segment_size));
         if (!read.quality().empty()) aln.set_quality(read.quality().substr(p, segment_size));
         ++i;
@@ -3732,14 +3978,15 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         malns.push_back(bands[i]);
         for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
             Alignment& aln = *a;
-            aln = simplify(aln);
+            int mapqual = aln.mapping_quality();
+            //aln = simplify(aln);
             bool above_threshold = false;
             if (aln.score() > 0) {
                 // strip overlaps and re-score the part of the alignment we keep
                 aln = strip_from_start(aln, to_strip[i].first);
                 aln = strip_from_end(aln, to_strip[i].second);
                 aln.set_identity(identity(aln.path()));
-                above_threshold = aln.identity() >= min_identity && aln.mapping_quality() >= min_banded_mq;
+                above_threshold = aln.identity() >= min_identity && mapqual >= min_banded_mq;
             }
             if (!above_threshold) {
                 // treat as unmapped
@@ -4013,7 +4260,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         max_mem_length,
                                                         min_mem_length,
                                                         mem_reseed_length,
-                                                        true, false, false, true, 2);
+                                                        false, true, true, false);
         // query mem hits
         alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }
@@ -4293,7 +4540,7 @@ Position Mapper::alignment_end_position(const Alignment& aln) {
                    get_node_length(b.path().mapping(0).position().node_id()));
 }
 
-Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
+Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bool trim_internal_deletions) {
     //cerr << "top of patch_alignment" << endl;
     Alignment patched;
     // walk along the alignment and find the portions that are unaligned
@@ -4354,7 +4601,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                             Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size()*4);
                             graph.MergeFrom(xindex->graph_context_id(pos, band.sequence().size()*2));
                             sort_by_id_dedup_and_clean(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
+                            bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, certainly_acyclic);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                         // TODO
@@ -4372,7 +4620,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                             graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*2));
                             sort_by_id_dedup_and_clean(graph);
                             //cerr << "on graph " << pb2json(graph) << endl;
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
+                            bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, certainly_acyclic);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                     } else {
@@ -4385,7 +4634,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                             graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*2));
                             sort_by_id_dedup_and_clean(graph);
                             //cerr << "on graph " << pb2json(graph) << endl;
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
+                            bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, certainly_acyclic);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                     }
@@ -4469,7 +4719,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                     cerr << "band: " << pb2json(band) << endl;
                 }
                 */
-                patch = merge_alignments(bands);
+                patch = simplify(merge_alignments(bands));
                 if (patch.sequence() != edit.sequence()) {
                     cerr << "sequence mismatch" << endl;
                     cerr << "seq_expect: " << edit.sequence() << endl;
@@ -4499,6 +4749,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
         }
     }
     // finally, fix up the alignment score
+    patched.set_name(aln.name());
     patched.set_sequence(aln.sequence());
     if (!aln.quality().empty()) {
         patched.set_quality(aln.quality());
@@ -4510,7 +4761,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
     }
 #endif
     // simplify the mapping representation
-    patched = simplify(patched);
+    patched = simplify(patched, trim_internal_deletions);
     // set the identity
     patched.set_identity(identity(patched.path()));
     // recompute the score
@@ -4550,7 +4801,7 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
 
 // make a perfect-match alignment out of a vector of MEMs which each have only one recorded hit
 // use the base alignment sequence (which the SMEMs relate to) to fill in the gaps
-Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems) {
+Alignment Mapper::mems_to_alignment(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
     // base case--- empty alignment
     if (mems.empty()) {
         Alignment aln; return aln;
@@ -4592,13 +4843,13 @@ Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMat
     alns.emplace_back();
     alns.back().set_sequence(aln.sequence().substr(start, length));
 
-    auto alnm = merge_alignments(alns);
+    auto alnm = simplify(merge_alignments(alns));
     *alnm.mutable_quality() = aln.quality();
     return alnm;
 }
 
 // convert one mem into an alignment; validates that only one node is given
-Alignment Mapper::mem_to_alignment(MaximalExactMatch& mem) {
+Alignment Mapper::mem_to_alignment(const MaximalExactMatch& mem) {
     const string seq = mem.sequence();
     if (mem.nodes.size() > 1) {
         cerr << "[vg::Mapper] warning: generating first alignment from MEM with multiple recorded hits" << endl;
@@ -4608,22 +4859,12 @@ Alignment Mapper::mem_to_alignment(MaximalExactMatch& mem) {
     return walk_match(seq, pos);
 }
 
-// transform the path into a path relative to another path (defined by path_name)
-// source -> surjection (in path_name coordinate space)
-// the product is equivalent to a pairwise alignment between this path and the other
-
-// new approach
-// get path sequence
-// get graph component overlapping path
-// removing elements which aren't in the path of interest
-// realign to this graph
-// cross fingers
-
 Alignment Mapper::surject_alignment(const Alignment& source,
                                     const set<string>& path_names,
                                     string& path_name,
                                     int64_t& path_pos,
                                     bool& path_reverse) {
+
 
     Alignment surjection = source;
     // Leave the original mapping quality in place (because that's the quality
@@ -4631,12 +4872,6 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     surjection.clear_score();
     surjection.clear_identity();
     surjection.clear_path();
-
-    // Clear out the output variables to the unmapped state.
-    // We will fill them in later.
-    path_name.clear();
-    path_pos = -1;
-    path_reverse = false;
 
     int count_forward=0, count_reverse=0;
     for (auto& mapping : source.path().mapping()) {
@@ -4659,7 +4894,6 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         cerr << "Alignment " << source.name() << " is unmapped and cannot be surjected" << endl;
 
 #endif
-
         return surjection;
     }
 
@@ -4683,7 +4917,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // 3) detach the nodes on the other sides of the aln path start and end from all other nodes
     // 4) remove the non-path component
 
-    Alignment trimmed_source = strip_from_end(strip_from_start(source, non_match_start(source)), non_match_end(source));
+    Alignment trimmed_source = strip_from_end(strip_from_start(source, softclip_start(source)), softclip_end(source));
     // check if we'd fail
     if (trimmed_source.sequence().size() == 0) {
         return surjection;
@@ -4835,23 +5069,38 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #endif
 
     // Flip the string and its quality around
-    Alignment surjection_rc = surjection;
-    surjection_rc.set_sequence(reverse_complement(surjection.sequence()));
-    string quality = surjection_rc.quality();
+    Alignment surjection_fwd = surjection;
+    Alignment surjection_rev = surjection;
+    surjection_rev.set_sequence(reverse_complement(surjection.sequence()));
+    string quality = surjection_rev.quality();
     std::reverse(quality.begin(), quality.end());
-    surjection_rc.set_quality(quality);
+    surjection_rev.set_quality(quality);
+    int start_softclip_length = softclip_start(source);
+    int end_softclip_length = softclip_end(source);
+    Alignment start_softclip_fwd, end_softclip_fwd;
+    Alignment start_softclip_rev, end_softclip_rev;
+    if (start_softclip_length) {
+        start_softclip_fwd = strip_from_end(surjection_fwd, surjection_fwd.sequence().size() - start_softclip_length);
+        start_softclip_rev = strip_from_start(surjection_rev, surjection_rev.sequence().size() - start_softclip_length);
+    }
+    if (end_softclip_length) {
+        end_softclip_fwd = strip_from_start(surjection_fwd, surjection_fwd.sequence().size() - end_softclip_length);
+        end_softclip_rev = strip_from_end(surjection_rev, surjection_rev.sequence().size() - end_softclip_length);
+    }
+    
+    surjection_fwd = strip_from_end(strip_from_start(surjection_fwd, start_softclip_length), end_softclip_length);
+    surjection_rev = strip_from_start(strip_from_end(surjection_rev, start_softclip_length), end_softclip_length);
 
+    // align to the graph with a big full len, and simplify without removal of internal deletions, as we'll need these for BAM reconstruction
     Alignment surjection_forward, surjection_reverse;
-    // global align to the trimmed graph, and simplify without removal of internal deletions, as we'll need these for BAM reconstruction
-    try {
-        if (count_forward) {
-            surjection_forward = simplify(align_to_graph(surjection, subgraph, max_query_graph_ratio, true, false, false, true), false);
-        }
-        if (count_reverse) {
-            surjection_reverse = simplify(align_to_graph(surjection_rc, subgraph, max_query_graph_ratio, true, false, false, true), false);
-        }
-    } catch (vg::NoAlignmentInBandException) {
-        return surjection; // null result, we couldn't align banded global
+    int fwd_score = 0, rev_score = 0;
+    if (count_forward) {
+        surjection_forward = simplify(align_to_graph(surjection_fwd, graph.graph, max_query_graph_ratio, true, false, false, false, true, true), false);
+        fwd_score = surjection_forward.score();
+    }
+    if (count_reverse) {
+        surjection_reverse = simplify(align_to_graph(surjection_rev, graph.graph, max_query_graph_ratio, true, false, false, false, true, true), false);
+        rev_score = surjection_reverse.score();
     }
 
 #ifdef debug_mapper
@@ -4870,17 +5119,36 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     cerr << surjection.name() << " " << surjection_forward.score() << " forward score, " << surjection_reverse.score() << " reverse score" << endl;
 #endif
 
+    // translate
+    if (count_forward) surjection_forward = translator.translate(surjection_forward);
+    if (count_reverse) surjection_reverse = translator.translate(surjection_reverse);
+
+    // patch
+    if (count_forward) patch_alignment(surjection_forward, surjection_forward.sequence().size(), false);
+    if (count_reverse) patch_alignment(surjection_reverse, surjection_reverse.sequence().size(), false);
+    
+    // reattach soft clips and set original score (score isn't really used through...)
+    if (count_forward) {
+        surjection_forward = merge_alignments({start_softclip_fwd, surjection_forward, end_softclip_fwd});
+        surjection_forward.set_score(fwd_score);
+    }
+    if (count_reverse) {
+        surjection_reverse = merge_alignments({start_softclip_rev, surjection_reverse, end_softclip_rev});
+        surjection_reverse.set_score(rev_score);
+    }
+
+    // choose
     if (count_reverse && count_forward) {
         if (surjection_reverse.score() > surjection_forward.score()) {
-             surjection = reverse_complement_alignment(translator.translate(surjection_reverse), node_length);
+            surjection = reverse_complement_alignment(surjection_reverse, node_length);
         } else {
-            surjection = translator.translate(surjection_forward);
+            surjection = surjection_forward;
         }
     } else {
         if (count_reverse) {
-            surjection = reverse_complement_alignment(translator.translate(surjection_reverse), node_length);
+            surjection = reverse_complement_alignment(surjection_reverse, node_length);
         } else {
-            surjection = translator.translate(surjection_forward);
+            surjection = surjection_forward;
         }
     }
     //cerr << "surj " << pb2json(surjection) << endl;
@@ -4939,24 +5207,10 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #ifdef debug_mapper
         cerr << "path position " << path_name << ":" << path_pos << endl;
 #endif
-
-        // We surjected to somewhere!
-        assert(!path_name.empty());
-        assert(path_pos != -1);
         
     } else {
 
-        // Failed to align. Replace whatever (possibly reversed?) thing we have now with an unmapped alignment.
         surjection = source;
-        surjection.clear_score();
-        surjection.clear_identity();
-        surjection.clear_path();
-        surjection.clear_mapping_quality();
-        
-        path_name.clear();
-        path_pos = -1;
-        path_reverse = false;
-        
 #ifdef debug_mapper
 
 #pragma omp critical (cerr)
@@ -4965,7 +5219,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #endif
 
     }
-    
+
 #ifdef debug_mapper
     
 #pragma omp critical (cerr)
@@ -4974,7 +5228,10 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     
 #endif
     //cerr << "final " << pb2json(surjection) << endl;
-    return surjection;
+    Alignment final = source;
+    *final.mutable_path() = surjection.path();
+    final.set_score(surjection.score());
+    return final;
 }
 
 const int balanced_stride(int read_length, int kmer_size, int stride) {
@@ -5152,7 +5409,7 @@ vector<Alignment> AlignmentChainModel::traceback(const Alignment& read, int alt_
     for (auto& trace : traces) {
         alns.emplace_back();
         Alignment& merged = alns.back();
-        merged = merge_alignments(trace);
+        merged = simplify(merge_alignments(trace));
         merged.set_identity(identity(merged.path()));
         merged.set_quality(read.quality());
         merged.set_name(read.name());

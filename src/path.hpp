@@ -7,6 +7,7 @@
 #include <set>
 #include <list>
 #include <sstream>
+#include <regex>
 #include "json2pb.h"
 #include "vg.pb.h"
 #include "edit.hpp"
@@ -24,6 +25,9 @@ using namespace std;
 
 class Paths {
 public:
+
+    // This regex matches the names of alt paths.
+    const static std::regex is_alt;
 
     Paths(void);
 
@@ -289,6 +293,10 @@ pos_t final_position(const Path& path);
     
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);
+
+// Remove the paths with names matching the regex from the graph.
+// Store them in the list unless it is nullptr.
+void remove_paths(Graph& graph, const std::regex& paths_to_take, std::list<Path>* matching);
 
 }
 

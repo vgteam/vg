@@ -349,7 +349,7 @@ int main_sim(int argc, char** argv) {
                     }
                     else {
                         function<Alignment(uint64_t)> lambda = [&read_pair](uint64_t n) {
-                            return n % 2 == 1 ? read_pair.first : read_pair.second;
+                            return n % 2 == 0 ? read_pair.first : read_pair.second;
                         };
                         stream::write(cout, 2, lambda);
                     }

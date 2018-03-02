@@ -32,7 +32,7 @@ is "$(vg genotype tiny.vg tiny.gam.index -Sp --ref notARealPath 2>&1 | grep 'Fou
 
 is "$(vg genotype tiny.vg tiny.gam.index -vSp 2>&1 | grep 'Found 9 ultrabubbles' | wc -l)" "1" "vg genotype finds few ultrabubbles for a subset of just the reference"
 
-rm -Rf tiny.vg tiny.vg.xg tiny.vg.gcsa tiny.gam.index tiny.gam reads.txt
+rm -Rf tiny.vg tiny.vg.xg tiny.vg.gcsa tiny.vg.gcsa.lcp tiny.gam.index tiny.gam reads.txt
 
 vg construct -r tiny/tiny.fa >flat.vg
 vg index -x flat.xg -g flat.gcsa -k 8 flat.vg

@@ -2686,7 +2686,7 @@ void VG::from_gfa(istream& in, bool showp) {
     gg.parse_gfa_file(in);
 
     map<string, sequence_elem, custom_key> name_to_seq = gg.get_name_to_seq();
-    map<std::string, vector<link_elem> > seq_to_link = gg.get_seq_to_link();
+    map<std::string, vector<edge_elem> > seq_to_edges = gg.get_seq_to_edges();
     map<string, sequence_elem>::iterator it;
     id_t curr_id = 1;
     map<string, id_t> id_names;
@@ -2714,7 +2714,7 @@ void VG::from_gfa(istream& in, bool showp) {
         // Now some edges. Since they're placed in this map
         // by their from_node, it's no big deal to just iterate
         // over them.
-        for (link_elem l : seq_to_link[(it->second).name]){
+        for (edge_elem l : seq_to_edges[(it->second).name]){
             auto sink_id = get_add_id(l.sink_name);
             Edge e;
             e.set_from(source_id);
@@ -2722,7 +2722,7 @@ void VG::from_gfa(istream& in, bool showp) {
             e.set_from_start(!l.source_orientation_forward);
             e.set_to_end(!l.sink_orientation_forward);
             // get the cigar
-            auto cigar_elems = vcflib::splitCigar(l.cigar);
+            auto cigar_elems = vcflib::splitCigar(l.alignment);
             if (cigar_elems.size() == 1
                 && cigar_elems.front().first > 0
                 && cigar_elems.front().second == "M") {
@@ -6229,13 +6229,21 @@ void VG::to_gfa(ostream& out) {
 
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        link_elem l;
-        l.source_name = to_string(e->from());
-        l.sink_name = to_string(e->to());
-        l.source_orientation_forward = ! e->from_start();
-        l.sink_orientation_forward =  ! e->to_end();
-        l.cigar = std::to_string(e->overlap()) + "M";
-        gg.add_link(l.source_name, l);
+        edge_elem ee;
+        ee.type = 1;
+        ee.source_name = to_string(e->from());
+        ee.sink_name = to_string(e->to());
+        ee.source_orientation_forward = ! e->from_start();
+        ee.sink_orientation_forward =  ! e->to_end();
+        ee.alignment = std::to_string(e->overlap()) + "M";
+        gg.add_edge(ee.source_name, ee);
+        //link_elem l;
+        //l.source_name = to_string(e->from());
+        //l.sink_name = to_string(e->to());
+        //l.source_orientation_forward = ! e->from_start();
+        //l.sink_orientation_forward =  ! e->to_end();
+        //l.cigar = std::to_string(e->overlap()) + "M";
+        //gg.add_link(l.source_name, l);
     }
     out << gg;
 }
@@ -6949,32 +6957,21 @@ double VG::path_identity(const Path& path1, const Path& path2) {
     return best_score == 0 ? 0 : (double)aln.score() / (double)best_score;
 }
 
-void VG::prune_complex_with_head_tail(int path_length, int edge_max, bool preserve_paths) {
+void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
     Node* head_node = NULL;
     Node* tail_node = NULL;
     id_t head_id = 0, tail_id = 0;
     add_start_end_markers(path_length, '#', '$', head_node, tail_node, head_id, tail_id);
-    prune_complex(path_length, edge_max, head_node, tail_node, preserve_paths);
+    prune_complex(path_length, edge_max, head_node, tail_node);
     destroy_node(head_node);
     destroy_node(tail_node);
 }
 
-void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node, bool preserve_paths) {
-
-    // Determine the edges that are on embedded paths and should not be destroyed.
-    std::unordered_set<edge_t> to_preserve;
-    if (preserve_paths) {
-        std::set<Edge*> path_edges = get_path_edges();
-        for (Edge* edge : path_edges) {
-            to_preserve.insert(edge_handle(get_handle(edge->from(), edge->from_start()), get_handle(edge->to(), edge->to_end())));
-        }
-    }
+void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
 
     vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
     for (auto& e : to_destroy) {
-        if (to_preserve.find(e) == to_preserve.end()) {
-            destroy_edge(e.first, e.second);
-        }
+        destroy_edge(e.first, e.second);
     }
 
     for (auto* n : head_nodes()) {

@@ -26,6 +26,7 @@
 #include "translator.hpp"
 // TODO: pull out ScoreProvider into its own file
 #include "haplotypes.hpp"
+#include "algorithms/topological_sort.hpp"
 
 namespace vg {
 
@@ -214,21 +215,30 @@ public:
     void rescue_high_count_order_length_mems(vector<MaximalExactMatch>& mems,
                                              size_t max_rescue_hit_count);
     
+    /// identifies hits for order-length MEMs that are actually part of longer MEMs above the GCSA's limit and
+    /// merges them. for speed's sake, can have false negatives but no false positives
+    void precollapse_order_length_runs(string::const_iterator seq_begin,
+                                       vector<MaximalExactMatch>& mems);
+    
     /// identifies hits for sub-MEMs that are redundant hits to the parent MEMs and removes them
     /// from the hit lists. for speed's sake, can have false negatives but no false positives
-    void prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems);
+    void prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
+                                      vector<pair<int, vector<size_t>>>& sub_mem_containment_graph);
     
-    int sub_mem_thinning_burn_in = 0; // start counting at this many bases to verify sub-MEM count
-    int sub_mem_count_thinning = 1; // count every this many bases to verify sub-MEM count
+    int sub_mem_thinning_burn_in = 16; // start counting at this many bases to verify sub-MEM count
+    int sub_mem_count_thinning = 4; // count every this many bases to verify sub-MEM count
     int min_mem_length; // a mem must be >= this length
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
-    bool fast_reseed; // use the fast reseed algorithm
-    double fast_reseed_length_diff; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
-    bool adaptive_reseed_diff; // use an adaptive length difference algorithm in reseed algorithm
-    double adaptive_diff_exponent; // exponent that describes limiting behavior of adaptive diff algorithm
+    bool fast_reseed = true; // use the fast reseed algorithm
+    double fast_reseed_length_diff = 0.45; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
+    bool adaptive_reseed_diff = true; // use an adaptive length difference algorithm in reseed algorithm
+    double adaptive_diff_exponent = 0.065; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
-    bool use_approx_sub_mem_count = true;
-    bool prefilter_redundant_hits = false;
+    bool use_approx_sub_mem_count = false;
+    bool prefilter_redundant_hits = true;
+    int max_sub_mem_recursion_depth = 1;
+    int unpaired_penalty = 17;
+    bool precollapse_order_length_hits = true;
     
     // Remove any bonuses used by the aligners from the final reported scores.
     // Does NOT (yet) remove the haplotype consistency bonus.
@@ -247,6 +257,8 @@ protected:
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
     /// that contain it
     void find_sub_mems(const vector<MaximalExactMatch>& mems,
+                       int parent_layer_begin,
+                       int parent_layer_end,
                        int mem_idx,
                        string::const_iterator next_mem_end,
                        int min_mem_length,
@@ -256,8 +268,11 @@ protected:
     /// min_mem_length as a pruning tool instead of the LCP index. It can be expected to be faster when both
     /// the min_mem_length reasonably large relative to the reseed_length (e.g. 1/2 of SMEM size or similar).
     void find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
+                            int parent_layer_begin,
+                            int parent_layer_end,
                             int mem_idx,
-                            string::const_iterator next_mem_end,
+                            string::const_iterator leftmost_guaranteed_disjoint_bound,
+                            string::const_iterator leftmost_seeding_bound,
                             int min_sub_mem_length,
                             vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
     
@@ -406,6 +421,7 @@ private:
                              Graph& graph,
                              size_t max_query_graph_ratio,
                              bool traceback,
+                             bool certainly_acyclic,
                              bool pinned_alignment = false,
                              bool pin_left = false,
                              bool global = false,
@@ -490,8 +506,8 @@ public:
 
     // takes the input alignment (with seq, etc) so we have reference to the base sequence
     // for reconstruction the alignments from the SMEMs
-    Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
-    Alignment mem_to_alignment(MaximalExactMatch& mem);
+    Alignment mems_to_alignment(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    Alignment mem_to_alignment(const MaximalExactMatch& mem);
     
     /// Use the scoring provided by the internal aligner to re-score the
     /// alignment, scoring gaps between nodes using graph distance from the XG
@@ -505,7 +521,7 @@ public:
     void remove_full_length_bonuses(Alignment& aln);
     
     // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
-    Alignment patch_alignment(const Alignment& aln, int max_patch_length);
+    Alignment patch_alignment(const Alignment& aln, int max_patch_length, bool trim_internal_deletions = true);
     // Get the graph context of a particular cluster, not expanding beyond the middles of MEMs.
     VG cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // for aligning to a particular MEM cluster
@@ -513,7 +529,7 @@ public:
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool banded_global = false);
+    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool certainly_acyclic, bool banded_global = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
