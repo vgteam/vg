@@ -4869,6 +4869,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     Alignment surjection = source;
     // Leave the original mapping quality in place (because that's the quality
     // on the placement of this read in this region at all)
+    surjection.clear_mapping_quality();
     surjection.clear_score();
     surjection.clear_identity();
     surjection.clear_path();
@@ -5120,8 +5121,13 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 #endif
 
     // translate
-    if (count_forward) surjection_forward = translator.translate(surjection_forward);
-    if (count_reverse) surjection_reverse = translator.translate(surjection_reverse);
+    try {
+        if (count_forward) surjection_forward = translator.translate(surjection_forward);
+        if (count_reverse) surjection_reverse = translator.translate(surjection_reverse);
+    } catch (...) {
+        cerr << "[vg Mapper::surject_alignment] warning: surjection failure with read " << source.name() << endl;
+        return surjection;
+    }
 
     // patch
     if (count_forward) patch_alignment(surjection_forward, surjection_forward.sequence().size(), false);
