@@ -79,6 +79,7 @@ vector<int> Vectorizer::alignment_to_a_hot(Alignment a){
         }
         Position pos = mapping.position();
         int64_t node_id = pos.node_id();
+        if (!node_id) continue;
         int64_t key = my_xg->id_to_rank(node_id);
         vector<size_t> node_paths = my_xg->paths_of_node(node_id);
         if (node_paths.size() > 0){
@@ -102,6 +103,7 @@ vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
         }
         Position pos = mapping.position();
         int64_t node_id = pos.node_id();
+        if (!node_id) continue;
         int64_t key = my_xg->id_to_rank(node_id);
 
         //Calculate % identity by walking the edits and counting matches.
@@ -141,6 +143,7 @@ bit_vector Vectorizer::alignment_to_onehot(Alignment a){
         }
         Position pos = mapping.position();
         int64_t node_id = pos.node_id();
+        if (!node_id) continue;
         int64_t key = my_xg->id_to_rank(node_id);
         //Find entity rank of edge
         ret[key - 1] = 1;

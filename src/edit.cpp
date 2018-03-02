@@ -19,6 +19,10 @@ bool edit_is_deletion(const Edit& e) {
     return e.from_length() > 0 && e.to_length() == 0;
 }
 
+bool edit_is_empty(const Edit& e) {
+    return e.to_length() == 0 && e.from_length() == 0 && e.sequence().empty();
+}
+
 pair<Edit, Edit> cut_edit_at_to(const Edit& e, size_t to_off) {
     Edit left, right;
     if (to_off > e.to_length()) {

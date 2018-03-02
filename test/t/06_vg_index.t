@@ -86,7 +86,7 @@ vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg
 vg index -x x.xg -v small/x.vcf.gz -H haps.bin x.vg
 is $(du -b haps.bin | cut -f 1) 329 "threads may be exported to binary for use in GBWT construction"
 
-rm -f x.vg x.xg part.vg x.gcsa haps.bin
+rm -f x.vg x.xg part.vg x.gcsa haps.bin x.gbwt
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >y.vg
