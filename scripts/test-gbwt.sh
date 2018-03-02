@@ -32,7 +32,7 @@ TRAINING_FASTQ="ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12
 # And a read simulation seed
 READ_SEED="90"
 # And a read count
-READ_COUNT="200"
+READ_COUNT="10000000"
 # Chunks to simulate in (which affects results)
 READ_CHUNKS="32"
 
@@ -258,7 +258,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-            --gam-names snp1kg-gbwt-traceback 2>&1 &
+            --gam-names snp1kg-gbwt-traceback-snarlcut 2>&1 &
         JOB_ARRAY+=("$!")
     fi
     
@@ -345,17 +345,19 @@ fi
 
 if [[ ! -e "${OUTPUT_PATH}/table.tsv" ]]; then
 
-    # Generate a table of wrong read counts
-    printf "Condition\tWrong reads total\tAt MAPQ 60\tAt MAPQ 0\tAt MAPQ >0\tNew vs. mpmap\tFixed vs. mpmap\n" > "${OUTPUT_PATH}/table.tsv"
+    # First we need a baseline for comparing against
+    BASELINE_CONDITION="snp1kg-mp"
 
-    # First we need a baseline of snp1kg-mp for comparing against
+    # Make header for table of wrong read counts
+    printf "Condition\tWrong reads total\tAt MAPQ 60\tAt MAPQ 0\tAt MAPQ >0\tNew vs. ${BASELINE_CONDITION}\tFixed vs. ${BASELINE_CONDITION}\n" > "${OUTPUT_PATH}/table.tsv"
 
-    cat "${OUTPUT_PATH}/snp1kg-mp/position.results.tsv" | sed 1d | grep -- "-pe" | grep -v "^1" | cut -f4 | sort > "${OUTPUT_PATH}/baseline-wrong-names.tsv"
+    # Pull out the baseline wrong reads
+    cat "${OUTPUT_PATH}/${BASELINE_CONDITION}/position.results.tsv" | sed 1d | grep -- "-pe" | grep -v "^1" | cut -f4 | sort > "${OUTPUT_PATH}/baseline-wrong-names.tsv"
 
     for CONDITION in snp1kg-mp snp1kg-mp-gbwt snp1kg-mp-gbwt-traceback snp1kg-mp-gbwt-traceback-snarlcut snp1kg-mp-minaf snp1kg-mp-positive primary-mp; do
         
         # We want a table like
-        # Condition 	Wrong reads total 	At MAPQ 60 	At MAPQ 0 	At MAPQ >0 	New vs. mpmap 	Fixed vs. mpmap
+        # Condition 	Wrong reads total 	At MAPQ 60 	At MAPQ 0 	At MAPQ >0 	New vs. baseline 	Fixed vs. baseline
         printf "${CONDITION}\t" >> "${OUTPUT_PATH}/table.tsv"
         
         
