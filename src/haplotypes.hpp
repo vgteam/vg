@@ -27,26 +27,33 @@ using namespace std;
 //        i.   xg::XG index
 //        ii.  gbwt::GBWT
 //        iii. gbwt::DynamicGBWT
-//    2. a memo for shared values used in calculations; a
+//    2. An appropriate ScoreProvider implementation that will use the index.
+//    3. a memo for shared values used in calculations; a
 //             haplo::haploMath::RRMemo, which takes the parameters
 //                    i.    double -log(recombination probability)
 //                    ii.   size_t population size
 //
-// B. Then, on a per-query-path basis (ie a vg::Path), receive score from a
-//    haplo::haplo_DP::score(const vg::Path&, indexType& index, haploMath::RRMemo memo)
-//    which takes in inputs
-//        i.   const vg::Path& Path
-//        ii.  indexType& index (where indexType is one of
-//             a. xg::XG
-//             b. gbwt::GBWT
-//             c. gbwt::DynamicGBWT
-//        iii. haploMath::RRMemo
-//    and returns an output
+// B. Then, on a per-query-path basis (ie a vg::Path), call
+//      provider->score(const vg::Path&, haploMath::RRMemo& memo)
+//    
+//      this will and return an output
 //        pair<double, bool> where
 //             arg 1  double  log(calculate probability)
 //             arg 2  bool    whether the path is valid with respect to the index
 //                            in terms of whether all edges in the path exist in
 //                            the index
+//
+//
+// Internally, these will generally call a template specialization of
+//    haplo::haplo_DP::score(const vg::Path&, indexType& index, haploMath::RRMemo& memo)
+//    which takes in inputs
+//        i.   const vg::Path& Path
+//        ii.  indexType& index where indexType is one of
+//             a. xg::XG
+//             b. gbwt::GBWT
+//             c. gbwt::DynamicGBWT
+//        iii. haploMath::RRMemo
+
 //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -358,6 +365,45 @@ public:
 };
 
 
+/// Interface abstracting over the various ways of generating haplotype scores.
+/// You probably want the implementations: XGScoreProvider, GBWTScoreProvider, LinearScoreProvider
+/// TODO: Const-ify the indexes used
+class ScoreProvider {
+public:
+  virtual pair<double, bool> score(const vg::Path&, haploMath::RRMemo& memo) = 0;
+  virtual ~ScoreProvider() = default;
+};
+
+/// Score haplotypes using the gPBWT haplotype data stored in an XG index
+class XGScoreProvider : public ScoreProvider {
+public:
+  XGScoreProvider(xg::XG& index);
+  pair<double, bool> score(const vg::Path&, haploMath::RRMemo& memo);
+private:
+  xg::XG& index;
+};
+
+/// Score haplotypes using a GBWT haplotype database (normal or dynamic)
+template<class GBWTType>
+class GBWTScoreProvider : public ScoreProvider {
+public:
+  GBWTScoreProvider(GBWTType& index);
+  pair<double, bool> score(const vg::Path&, haploMath::RRMemo& memo);
+private:
+  GBWTType& index;
+};
+
+/// Score haplotypes using a linear_haplo_structure
+class LinearScoreProvider : public ScoreProvider {
+public:
+  LinearScoreProvider(const linear_haplo_structure& index);
+  pair<double, bool> score(const vg::Path&, haploMath::RRMemo& memo);
+private:
+  const linear_haplo_structure& index;
+};
+
+
+
 //------------------------------------------------------------------------------
 // template implementations
 //------------------------------------------------------------------------------
@@ -559,6 +605,20 @@ haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, h
   }
   return pair<double, bool>(hdp.DP_column.current_sum(), true);
 }
+
+
+//------------------------------------------------------------------------------
+
+template<class GBWTType>
+GBWTScoreProvider<GBWTType>::GBWTScoreProvider(GBWTType& index) : index(index) {
+  // Nothing to do!
+}
+
+template<class GBWTType>
+pair<double, bool> GBWTScoreProvider<GBWTType>::score(const vg::Path& path, haploMath::RRMemo& memo) {
+  return haplo_DP::score(path, index, memo);
+}
+
 
 } // namespace haplo
 

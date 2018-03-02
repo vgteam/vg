@@ -755,6 +755,31 @@ haplo_score_type linear_haplo_structure::score(const vg::Path& path) const {
 }
 
 /*******************************************************************************
+XGScoreProvider
+*******************************************************************************/
+
+XGScoreProvider::XGScoreProvider(xg::XG& index) : index(index) {
+  // Nothing to do!
+}
+
+pair<double, bool> XGScoreProvider::score(const vg::Path& path, haploMath::RRMemo& memo) {
+  return haplo_DP::score(path, index, memo);
+}
+
+/*******************************************************************************
+LinearScoreProvider
+*******************************************************************************/
+
+LinearScoreProvider::LinearScoreProvider(const linear_haplo_structure& index) : index(index) {
+  // Nothing to do!
+}
+
+pair<double, bool> LinearScoreProvider::score(const vg::Path& path, haploMath::RRMemo& memo) {
+  // Memo is ignored; all penalties come from the index itself.
+  return index.score(path);
+}
+
+/*******************************************************************************
 path conversion
 *******************************************************************************/
 
