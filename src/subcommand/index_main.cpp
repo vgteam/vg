@@ -33,11 +33,13 @@ void help_index(char** argv) {
          << "    -p, --progress         show progress" << endl
          << "xg options:" << endl
          << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s)" << endl
+         << "    -F, --thread-db FILE   read thread database from FILE (may repeat)" << endl
          << "gbwt options:" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
          << "    -T, --store-threads    generate threads from the embedded paths" << endl
          << "    -G, --gbwt-name FILE   store the threads as GBWT in FILE" << endl
          << "    -H, --write-haps FILE  store the threads as sequences in FILE" << endl
+         << "    -F, --thread-db FILE   write thread database to FILE" << endl
          << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
@@ -87,6 +89,11 @@ gbwt::node_type node_side_to_gbwt(const NodeSide& side) {
     return gbwt::Node::encode(side.node, side.is_end);
 };
 
+// Thread database files written by vg index -G and read by vg index -x.
+// These should probably be in thread_database.cpp or something like that.
+void write_thread_db(const std::string& filename, const std::vector<std::string>& thread_names, size_t haplotype_count);
+void read_thread_db(const std::vector<std::string>& filenames, std::vector<std::string>& thread_names, size_t& haplotype_count);
+
 // Buffer recent node lengths for faster access.
 struct NodeLengthBuffer
 {
@@ -121,6 +128,7 @@ int main_index(int argc, char** argv) {
 
     // Files we should read.
     string vcf_name, mapping_name;
+    vector<string> thread_db_names;
     vector<string> dbg_names;
 
     // Files we should write.
@@ -171,6 +179,7 @@ int main_index(int argc, char** argv) {
 
             // XG
             {"xg-name", required_argument, 0, 'x'},
+            {"thread-db", required_argument, 0, 'F'},
 
             // GBWT
             {"vcf-phasing", required_argument, 0, 'v'},
@@ -213,7 +222,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "t:px:v:TG:H:B:R:r:E:g:i:f:k:X:Z:b:Vd:j:DshMe:SP:LmaCnANo",
+        c = getopt_long (argc, argv, "t:px:F:v:TG:H:B:R:r:E:g:i:f:k:X:Z:b:Vd:j:DshMe:SP:LmaCnANo",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -234,6 +243,9 @@ int main_index(int argc, char** argv) {
         case 'x':
             build_xg = true;
             xg_name = optarg;
+            break;
+        case 'F':
+            thread_db_names.push_back(optarg);
             break;
 
         // GBWT
@@ -416,6 +428,11 @@ int main_index(int argc, char** argv) {
              << " Use vg prune to prune the graph instead." << endl;
         exit(1);
     }
+
+    if ((build_gbwt || write_threads) && thread_db_names.size() > 1) {
+        cerr << "error: [vg index] Cannot use multiple thread database files with -G or -H" << endl;
+        return 1;
+    }
     
     // An edge_max of 0 really just means an edge_max of one edge every base
     if (edge_max == 0) edge_max = kmer_size + 1;
@@ -441,7 +458,7 @@ int main_index(int argc, char** argv) {
     if (index_haplotypes || index_paths) {
 
         if (!build_gbwt && !write_threads && !build_gpbwt) {
-            cerr << "error: [vg index] no output format specified for the threads" << endl;
+            cerr << "error: [vg index] No output format specified for the threads" << endl;
             return 1;
         }
 
@@ -994,23 +1011,28 @@ int main_index(int argc, char** argv) {
             }
         }
 
-        // Store the threads and their names.
+        // Store the thread database. Write it to disk if a filename is given,
+        // or store it in the XG index if building gPBWT or if the XG index
+        // will be written to disk.
         alt_paths.clear();
         if (build_gbwt) {
             gbwt_builder->finish();
             if (show_progress) { cerr << "Saving GBWT to disk..." << endl; }
             sdsl::store_to_file(gbwt_builder->index, gbwt_name);
             delete gbwt_builder; gbwt_builder = nullptr;
-            if (!xg_name.empty()) {
-                xg_index->set_thread_names(thread_names);
-                xg_index->set_haplotype_count(haplotype_count);            
-            }
         }
         if (write_threads) {
             binary_file.close();
-            if (!xg_name.empty()) {
+        }
+        if (build_gbwt || write_threads) {
+            if (!thread_db_names.empty()) {
+                write_thread_db(thread_db_names.front(), thread_names, haplotype_count);
+            } else if (!xg_name.empty()) {
+                if (show_progress) {
+                    cerr << "Storing thread database in the XG index..." << endl;
+                }
                 xg_index->set_thread_names(thread_names);
-                xg_index->set_haplotype_count(haplotype_count);            
+                xg_index->set_haplotype_count(haplotype_count);
             }
         }
         if (build_gpbwt) {
@@ -1024,6 +1046,19 @@ int main_index(int argc, char** argv) {
 
     // Save XG
     if (!xg_name.empty()) {
+        if (!thread_db_names.empty()) {
+            vector<string> thread_names;
+            size_t haplotype_count = 0;
+            read_thread_db(thread_db_names, thread_names, haplotype_count);
+            if (show_progress) {
+                cerr << thread_names.size() << " threads for "
+                     << haplotype_count << " haplotypes in "
+                     << thread_db_names.size() << " file(s)" << endl;
+            }
+            xg_index->set_thread_names(thread_names);
+            xg_index->set_haplotype_count(haplotype_count);
+        }
+
         if (show_progress) {
             cerr << "Saving XG index to disk..." << endl;
         }
@@ -1203,6 +1238,51 @@ int main_index(int argc, char** argv) {
 
     return 0;
 
+}
+
+void write_thread_db(const std::string& filename, const std::vector<std::string>& thread_names, size_t haplotype_count) {
+    std::ofstream out(filename, std::ios_base::binary);
+    if (!out) {
+        std::cerr << "error: [vg index] cannot write thread database to " << filename << std::endl;
+    }
+
+    out.write(reinterpret_cast<const char*>(&haplotype_count), sizeof(haplotype_count));
+    size_t thread_count = thread_names.size();
+    out.write(reinterpret_cast<const char*>(&thread_count), sizeof(thread_count));
+    for (const std::string& name : thread_names) {
+        size_t name_length = name.length();
+        out.write(reinterpret_cast<const char*>(&name_length), sizeof(name_length));
+        out.write(name.data(), name_length);
+    }
+    out.close();
+}
+
+void read_thread_db(const std::vector<std::string>& filenames, std::vector<std::string>& thread_names, size_t& haplotype_count) {
+    thread_names.clear();
+    haplotype_count = 0;
+
+    for (const std::string& filename : filenames) {
+        std::ifstream in(filename, std::ios_base::binary);
+        if (!in) {
+            std::cerr << "error: [vg index] cannot read thread database from " << filename << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+
+        size_t new_haplotype_count = 0;
+        in.read(reinterpret_cast<char*>(&new_haplotype_count), sizeof(new_haplotype_count));
+        haplotype_count = std::max(haplotype_count, new_haplotype_count);
+        size_t threads_remaining = 0;
+        in.read(reinterpret_cast<char*>(&threads_remaining), sizeof(threads_remaining));
+        while (threads_remaining > 0) {
+            size_t name_length = 0;
+            in.read(reinterpret_cast<char*>(&name_length), sizeof(name_length));
+            std::vector<char> buffer(name_length);
+            in.read(buffer.data(), name_length);
+            thread_names.emplace_back(buffer.begin(), buffer.end());
+            threads_remaining--;
+        }
+        in.close();
+    }
 }
 
 // Register subcommand
