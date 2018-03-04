@@ -4934,6 +4934,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     if (trimmed_source.sequence().size() == 0) {
         return surjection;
     }
+
     vector<Path> source_path;
     source_path.push_back(trimmed_source.path());
     source_path.back().set_name(source.name());
@@ -4945,7 +4946,10 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     Position end_pos = make_position(final_position(source_in_graph));
     //cerr << "start and end pos " << pb2json(start_pos) << " " << pb2json(end_pos) << endl;
 
-    // find then unlink the next and previous path nodes from the rest of the graph to isolate the graph-specific component
+    //Position start_pos = make_position(initial_position(trimmed_source.path()));
+    //Position end_pos = make_position(final_position(trimmed_source.path()));
+
+    // find then unlink the next and previous path nodes from the rest of the graph to isolate the path-specific component
     handle_t start = graph.get_handle(start_pos.node_id(), start_pos.is_reverse());
     handle_t end = graph.get_handle(end_pos.node_id(), end_pos.is_reverse());
     handle_t cut;
@@ -5007,6 +5011,8 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         }
     }
     handle_t cut_after = cut;
+    //cerr << "cut before " << graph.get_id(cut_before) << endl;
+    //cerr << "cut after " << graph.get_id(cut_after) << endl;
     bool found_reverse = found;
     //graph.serialize_to_file("before-" + source.name() + ".vg");
     //graph.serialize_to_file("before-" + graph.hash() + ".vg");
@@ -5016,7 +5022,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     graph.remove_non_path();
     // by definition we have found path
     if (found_forward && found_reverse && cut_before == cut_after) {
-         graph.destroy_handle(cut_before);
+        graph.destroy_handle(cut_before);
     } else {
         if (found_forward) graph.destroy_handle(cut_before);
         if (found_reverse) graph.destroy_handle(cut_after);
@@ -5024,7 +5030,6 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     //graph.serialize_to_file("after-" + source.name() + ".vg");
     //graph.serialize_to_file("after-" + graph.hash() + ".vg");
 
-//#define debug_mapper
 #ifdef debug_mapper
     cerr << "src " << pb2json(source) << endl;
     cerr << "start " << pb2json(start_pos) << endl;
@@ -5083,37 +5088,38 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // Flip the string and its quality around
     Alignment surjection_fwd = surjection;
     Alignment surjection_rev = surjection;
-    surjection_rev.set_sequence(reverse_complement(surjection.sequence()));
-    string quality = surjection_rev.quality();
-    std::reverse(quality.begin(), quality.end());
-    surjection_rev.set_quality(quality);
     int start_softclip_length = softclip_start(source);
     int end_softclip_length = softclip_end(source);
     Alignment start_softclip_fwd, end_softclip_fwd;
     Alignment start_softclip_rev, end_softclip_rev;
     if (start_softclip_length) {
         start_softclip_fwd = strip_from_end(surjection_fwd, surjection_fwd.sequence().size() - start_softclip_length);
-        start_softclip_rev = strip_from_start(surjection_rev, surjection_rev.sequence().size() - start_softclip_length);
+        end_softclip_rev = reverse_complement_alignment(start_softclip_fwd, [&](id_t id) { return get_node_length(id); });
     }
     if (end_softclip_length) {
         end_softclip_fwd = strip_from_start(surjection_fwd, surjection_fwd.sequence().size() - end_softclip_length);
-        end_softclip_rev = strip_from_end(surjection_rev, surjection_rev.sequence().size() - end_softclip_length);
+        start_softclip_rev = reverse_complement_alignment(end_softclip_fwd, [&](id_t id) { return get_node_length(id); });
     }
-    
     surjection_fwd = strip_from_end(strip_from_start(surjection_fwd, start_softclip_length), end_softclip_length);
-    surjection_rev = strip_from_start(strip_from_end(surjection_rev, start_softclip_length), end_softclip_length);
+    surjection_rev = reverse_complement_alignment(surjection_fwd, [&](id_t id) { return get_node_length(id); });
 
     // align to the graph with a big full len, and simplify without removal of internal deletions, as we'll need these for BAM reconstruction
     Alignment surjection_forward, surjection_reverse;
     int fwd_score = 0, rev_score = 0;
+    // override the full length bonus
+    int8_t full_length_bonus_override = 30;
+    int8_t saved_bonus = get_aligner(!surjection.quality().empty())->full_length_bonus;
+    get_aligner(!surjection.quality().empty())->full_length_bonus = full_length_bonus_override;
     if (count_forward) {
-        surjection_forward = simplify(align_to_graph(surjection_fwd, graph.graph, max_query_graph_ratio, true, false, false, false, true, true), false);
+        surjection_forward = simplify(align_to_graph(surjection_fwd, graph.graph, max_query_graph_ratio, true, false, false, false, false, false), false);
         fwd_score = surjection_forward.score();
     }
     if (count_reverse) {
-        surjection_reverse = simplify(align_to_graph(surjection_rev, graph.graph, max_query_graph_ratio, true, false, false, false, true, true), false);
+        surjection_reverse = simplify(align_to_graph(surjection_rev, graph.graph, max_query_graph_ratio, true, false, false, false, false, false), false);
         rev_score = surjection_reverse.score();
     }
+    // reset bonus because hacks
+    get_aligner(!surjection.quality().empty())->full_length_bonus = saved_bonus;
 
 #ifdef debug_mapper
     cerr << "fwd " << pb2json(surjection_forward) << endl;
@@ -5157,13 +5163,13 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // choose
     if (count_reverse && count_forward) {
         if (surjection_reverse.score() > surjection_forward.score()) {
-            surjection = reverse_complement_alignment(surjection_reverse, node_length);
+            surjection = reverse_complement_alignment(surjection_reverse, [&](id_t id) { return get_node_length(id); });
         } else {
             surjection = surjection_forward;
         }
     } else {
         if (count_reverse) {
-            surjection = reverse_complement_alignment(surjection_reverse, node_length);
+            surjection = reverse_complement_alignment(surjection_reverse, [&](id_t id) { return get_node_length(id); });
         } else {
             surjection = surjection_forward;
         }
