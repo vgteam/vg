@@ -159,10 +159,13 @@ size_t unpaired_for_each_parallel(function<bool(Alignment&)> get_read_if_availab
 #pragma omp parallel default(none) shared(batches_outstanding, batch, nLines, get_read_if_available, lambda)
 #pragma omp single
     {
-        // max # of such batches to be holding in memory
-        const uint64_t max_batches_outstanding = 1 << 9; // 512
-        // number of pairs in each batch
+        
+        // number of reads in each batch
         const uint64_t batch_size = 1 << 9; // 512
+        // max # of such batches to be holding in memory
+        uint64_t max_batches_outstanding = 1 << 9; // 512
+        // max # we will ever increase the batch buffer to
+        const uint64_t max_max_batches_outstanding = 1 << 13; // 8192
         
         // alignments to hold the incoming data
         Alignment aln;
@@ -203,8 +206,17 @@ size_t unpaired_for_each_parallel(function<bool(Alignment&)> get_read_if_availab
                         lambda(aln);
                     }
                     delete batch;
-#pragma omp atomic update
-                    batches_outstanding--;
+#pragma omp atomic capture
+                    current_batches_outstanding = --batches_outstanding;
+                    
+                    if (4 * current_batches_outstanding / 3 < max_batches_outstanding
+                        && max_batches_outstanding < max_max_batches_outstanding) {
+                        // we went through at least 1/4 of the batch buffer while we were doing this thread's batch
+                        // this looks risky, since we want the batch buffer to stay populated the entire time we're
+                        // occupying this thread on compute, so let's increase the batch buffer size
+                        
+                        max_batches_outstanding *= 2;
+                    }
                 }
                 else {
                     // spawn a new task to take care of this batch
@@ -238,10 +250,12 @@ size_t paired_for_each_parallel_after_wait(function<bool(Alignment&, Alignment&)
 #pragma omp single
     {
         
-        // max # of such batches to be holding in memory
-        const uint64_t max_batches_outstanding = 1 << 9; // 512
         // number of pairs in each batch
         const uint64_t batch_size = 1 << 9; // 512
+        // max # of such batches to be holding in memory
+        uint64_t max_batches_outstanding = 1 << 9; // 512
+        // max # we will ever increase the batch buffer to
+        const uint64_t max_max_batches_outstanding = 1 << 13; // 8192
         
         // alignments to hold the incoming data
         Alignment mate1, mate2;
@@ -274,15 +288,28 @@ size_t paired_for_each_parallel_after_wait(function<bool(Alignment&, Alignment&)
 #pragma omp atomic capture
                 current_batches_outstanding = ++batches_outstanding;
                 
-                if (current_batches_outstanding >= max_batches_outstanding || !single_threaded_until_true()) {
+                bool do_single_threaded = !single_threaded_until_true();
+                if (current_batches_outstanding >= max_batches_outstanding || do_single_threaded) {
                     // do this batch in the current thread because we've spawned the maximum number of
                     // concurrent batch tasks or because we are directed to work in a single thread
                     for (auto& p : *batch) {
                         lambda(p.first, p.second);
                     }
                     delete batch;
-#pragma omp atomic update
-                    batches_outstanding--;
+#pragma omp atomic capture
+                    current_batches_outstanding = --batches_outstanding;
+                    
+                    if (4 * current_batches_outstanding / 3 < max_batches_outstanding
+                        && max_batches_outstanding < max_max_batches_outstanding
+                        && !do_single_threaded) {
+                        // we went through at least 1/4 of the batch buffer while we were doing this thread's batch
+                        // this looks risky, since we want the batch buffer to stay populated the entire time we're
+                        // occupying this thread on compute, so let's increase the batch buffer size
+                        // (skip this adjustment if you're in single-threaded mode and thus expect the buffer to be
+                        // empty)
+                        
+                        max_batches_outstanding *= 2;
+                    }
                 }
                 else {
                     // spawn a new task to take care of this batch
