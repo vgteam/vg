@@ -270,7 +270,7 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
     // Make a multipath mapper to map against the graph.
     Mapper mapper(&xg_index, gcsaidx, lcpidx);
     mapper.set_alignment_scores(1, 4, 6, 1, 5);
-    //mapper.debug = true;
+    mapper.mem_reseed_length = 8;
     
     SECTION( "Mapper can map a read starting with a node-border MEM" ) {
     

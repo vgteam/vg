@@ -29,15 +29,15 @@ void help_msga(char** argv) {
          << "    -g, --graph FILE        include this graph" << endl
          << "    -a, --fasta-order       build the graph in the order the sequences are seen in the FASTA (default: bigger first)" << endl
          << "alignment:" << endl
-         << "    -k, --min-seed INT      minimum seed (MEM) length [estimated given -e]" << endl
-         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [1024]" << endl
-         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
-         << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
-         << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
-         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [64]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
+         << "    -k, --min-mem INT       minimum MEM length (if 0 estimate via -e) [0]" << endl
+         << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [5e-4]" << endl
+         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index (0 for no limit) [8192]" << endl
+         << "    -Y, --max-mem INT       ignore mems longer than this length (unset if 0) [0]" << endl
+         << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-W} * FLOAT [1.5]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [1]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [128]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.45]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
@@ -45,7 +45,7 @@ void help_msga(char** argv) {
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [10*{-w}]" << endl
          << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [1]" << endl
          << "    -M, --max-multimaps INT consider this many alternate alignments for the entire sequence [1]" << endl
-         << "    --patch-aln             patch banded alignments by attempting to align unaligned regions" << endl 
+         << "    --no-patch-aln          do not patch banded alignments by locally aligning unaligned regions" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -55,7 +55,7 @@ void help_msga(char** argv) {
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes [16]" << endl
          << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
-         << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max [2]" << endl
+         << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max [3]" << endl
          << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
          << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes [2]" << endl
@@ -87,7 +87,7 @@ int main_msga(int argc, char** argv) {
     vector<string> graph_files;
     string base_seq_name;
     int idx_kmer_size = 16;
-    int hit_max = 1024;
+    int hit_max = 8192;
     // if we set this above 1, we use a dynamic programming process to determine the
     // optimal alignment through a series of bands based on a proximity metric
     int max_multimaps = 1;
@@ -100,7 +100,7 @@ int main_msga(int argc, char** argv) {
     bool debug_align = false;
     size_t node_max = 0;
     int alignment_threads = get_thread_count();
-    int edge_max = 2;
+    int edge_max = 3;
     int subgraph_prune = 0;
     bool normalize = false;
     int iter_max = 1;
@@ -114,14 +114,13 @@ int main_msga(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool circularize = false;
-    float chance_match = 0.05;
+    float chance_match = 5e-4;
     int mem_reseed_length = -1;
     int min_cluster_length = 0;
     float mem_reseed_factor = 1.5;
-    float random_match_chance = 0.05;
-    int extra_multimaps = 512;
-    int min_multimaps = 64;
-    float drop_chain = 0.5;
+    int extra_multimaps = 128;
+    int min_multimaps = 1;
+    float drop_chain = 0.45;
     int max_mapping_quality = 60;
     int method_code = 1;
     int maybe_mq_threshold = 0;
@@ -129,7 +128,7 @@ int main_msga(int argc, char** argv) {
     bool use_fast_reseed = true;
     bool show_align_progress = false;
     bool bigger_first = true;
-    bool patch_alignments = false;
+    bool patch_alignments = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -157,10 +156,10 @@ int main_msga(int argc, char** argv) {
                 {"idx-edge-max", required_argument, 0, 'E'},
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
-                {"min-seed", required_argument, 0, 'k'},
-                {"max-seed", required_argument, 0, 'Y'},
+                {"min-mem", required_argument, 0, 'k'},
+                {"max-mem", required_argument, 0, 'Y'},
                 {"hit-max", required_argument, 0, 'c'},
-                {"seed-chance", required_argument, 0, 'e'},
+                {"mem-chance", required_argument, 0, 'e'},
                 {"reseed-x", required_argument, 0, 'r'},
                 {"threads", required_argument, 0, 't'},
                 {"node-max", required_argument, 0, 'm'},
@@ -178,7 +177,7 @@ int main_msga(int argc, char** argv) {
                 {"drop-chain", required_argument, 0, 'C'},
                 {"align-progress", no_argument, 0, 'S'},
                 {"bigger-first", no_argument, 0, 'a'},
-                {"patch-alns", no_argument, 0, '8'},
+                {"no-patch-aln", no_argument, 0, '8'},
                 {0, 0, 0, 0}
             };
 
@@ -357,7 +356,7 @@ int main_msga(int argc, char** argv) {
             break;
 
         case '8':
-            patch_alignments = true;
+            patch_alignments = false;
             break;
 
         case 'h':
@@ -409,6 +408,7 @@ int main_msga(int argc, char** argv) {
 
     // open the fasta files, read in the sequences
     vector<string> names_in_order;
+    set<string> seen_seq_names;
 
     for (auto& fasta_file_name : fasta_files) {
         FastaReference ref;
@@ -418,8 +418,13 @@ int main_msga(int argc, char** argv) {
             if (!seq_names.empty() && seq_names.count(name) == 0) continue;
             // only use the sequence if we have whitelisted it
             // and also sanitize the input so we have only ATGCN
+            if (seen_seq_names.count(name)) {
+                cerr << "[vg msga] Warning: sequence " << name << " is seen multiple times in input, ignoring all but the first instance" << endl;
+                continue;
+            }
             strings[name] = nonATGCNtoN(ref.getSequence(name));
             names_in_order.push_back(name);
+            seen_seq_names.insert(name);
         }
     }
 
@@ -560,6 +565,7 @@ int main_msga(int argc, char** argv) {
         mapper = new Mapper(xgidx, gcsaidx, lcpidx);
         { // set mapper variables
             mapper->hit_max = hit_max;
+            mapper->hit_limit = max(max_multimaps, extra_multimaps);
             mapper->max_multimaps = max_multimaps;
             mapper->min_multimaps = min_multimaps;
             mapper->maybe_mq_threshold = maybe_mq_threshold;
@@ -571,8 +577,8 @@ int main_msga(int argc, char** argv) {
             mapper->drop_chain = drop_chain;
             mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length
                                  : mapper->random_match_length(chance_match));
-            mapper->mem_reseed_length = round(mem_reseed_factor * mapper->min_mem_length);
             mapper->min_cluster_length = min_cluster_length;
+            mapper->mem_reseed_length = round(mem_reseed_factor * mapper->min_mem_length);
             if (debug) {
                 cerr << "[vg msga] : min_mem_length = " << mapper->min_mem_length
                      << ", mem_reseed_length = " << mapper->mem_reseed_length

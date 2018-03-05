@@ -104,33 +104,9 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
 
                 // We'll move all the paths into one of these.
                 std::list<Path> paths_taken;
-                std::list<Path> paths_kept;
 
-                // Filter out matching paths
-                for(size_t i = 0; i < graph.path_size(); i++) {
-                    if(regex_match(graph.path(i).name(), paths_to_take)) {
-                        // We need to take this path
-#ifdef debug
-                        cerr << "Path " << graph.path(i).name() << " matches regex. Removing." << endl;
-#endif
-                        paths_taken.emplace_back(move(*graph.mutable_path(i)));
-                    } else {
-                        // We need to keep this path
-                        paths_kept.emplace_back(move(*graph.mutable_path(i)));
-#ifdef debug
-                        cerr << "Path " << graph.path(i).name() << " does not match regex. Keeping." << endl;
-#endif
-                    }
-                }
-                
-                // Clear the graph's paths and copy back only the ones that were
-                // kept. I don't think there's a good way to leave an entry and
-                // mark it not real somehow.
-                graph.clear_path();
-                for(Path& path : paths_kept) {
-                    // Move all the paths we keep back.
-                    *(graph.add_path()) = move(path);
-                }
+                // Remove the matching paths.
+                remove_paths(graph, paths_to_take, &paths_taken);
 
                 // Sort out all the mappings from the paths we pulled out
                 for(Path& path : paths_taken) {

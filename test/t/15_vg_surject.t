@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 22
+plan tests 23
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -43,7 +43,9 @@ is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg --surject-t
     100 "vg map may surject reads to produce valid BAM output"
 
 is $(vg view -aj j.gam | jq '.name = "Alignment"' | vg view -JGa - | vg surject -p x -x x.xg - | vg view -aj - | jq -c 'select(.name)' | wc -l) \
-    100 "vg surject retains read names"
+   100 "vg surject retains read names"
+
+is $(vg map -s GTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCTCCTTGAGTCTCCTATGTCCAGGAATGAACCGCTGCT -d x | vg surject -x x.xg -s - | grep 29S | wc -l) 1 "we respect the original mapping's softclips"
 
 # These sequences have edits in them, so we can test CIGAR reversal as well
 SEQ="ACCGTCATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAGCTCTCCTTTGTGTCCAGAGTG"
@@ -72,20 +74,22 @@ is "$(cat surjected.sam | grep -v '^@' | cut -f 2 | sort -n)" "$(printf '83\n131
 
 rm -rf j.vg x.vg j.gam x.gam x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam
 
-vg index -k 11 -g f.gcsa -x f.xg graphs/fail.vg
+vg mod -c graphs/fail.vg >f.vg
+vg index -k 11 -g f.gcsa -x f.xg f.vg
 
 read=TTCCTGTGTTTATTAGCCATGCCTAGAGTGGGATGCGCCATTGGTCATCTTCTGGCCCCTGTTGTCGGCATGTAACTTAATACCACAACCAGGCATAGGTGAAAGATTGGAGGAAAGATGAGTGACAGCATCAACTTCTCTCACAACCTAG
 revcompread=CTAGGTTGTGAGAGAAGTTGATGCTGTCACTCATCTTTCCTCCAATCTTTCACCTATGCCTGGTTGTGGTATTAAGTTACATGCCGACAACAGGGGCCAGAAGATGACCAATGGCGCATCCCACTCTAGGCATGGCTAATAAACACAGGAA
 is $(vg map -s $read -g f.gcsa -x f.xg | vg surject -p 6646393ec651ec49 -x f.xg -s - | grep $revcompread | wc -l) 1 "surjection works for a longer (151bp) read"
 
-rm -rf f.xg f.gcsa
+rm -rf f.xg f.gcsa f.vg
 
-vg index -k 11 -g f.gcsa -x f.xg graphs/fail2.vg
+vg mod -c graphs/fail2.vg >f.vg
+vg index -k 11 -g f.gcsa -x f.xg f.vg
 
 read=TATTTACGGCGGGGGCCCACCTTTGACCCTTTTTTTTTTTCAAGCAGAAGACGGCATACGAGATCACTTCGAGAGATCGGTCTCGGCATTCCTGCTGAACCGCTCTTCCGATCTACCCTAACCCTAACCCCAACCCCTAACCCTAACCCCA
 is $(vg map -s $read -g f.gcsa -x f.xg | vg surject -p ad93c27f548fc1ae -x f.xg -s - | grep $read | wc -l) 1 "surjection works for another difficult read"
 
-rm -rf f.xg f.gcsa
+rm -rf f.xg f.gcsa f.vg
 
 vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz >minigiab.vg
 vg index -k 11 -g m.gcsa -x m.xg minigiab.vg

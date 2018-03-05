@@ -1,6 +1,26 @@
 {
   "node_pileups": [
     {
+      "node_id": 7,
+      "base_pileup": [
+        {
+          "ref_base": 71,
+          "num_bases": 1,
+          "bases": ","
+        }
+      ]
+    },
+    {
+      "node_id": 8,
+      "base_pileup": [
+        {
+          "ref_base": 65,
+          "num_bases": 1,
+          "bases": "."
+        }
+      ]
+    },
+    {
       "node_id": 1,
       "base_pileup": [
         {
@@ -38,26 +58,6 @@
       ]
     },
     {
-      "node_id": 2,
-      "base_pileup": [
-        {
-          "ref_base": 71,
-          "num_bases": 1,
-          "bases": ","
-        }
-      ]
-    },
-    {
-      "node_id": 3,
-      "base_pileup": [
-        {
-          "ref_base": 65,
-          "num_bases": 1,
-          "bases": "."
-        }
-      ]
-    },
-    {
       "node_id": 4,
       "base_pileup": [
         {
@@ -91,63 +91,53 @@
   "edge_pileups": [
     {
       "edge": {
-        "to": 8,
-        "from": 6
-      },
-      "num_reads": 1,
-      "num_forward_reads": 1
-    },
-    {
-      "edge": {
-        "to": 2,
-        "from": 1
+        "from": 2,
+        "to": 4
       },
       "num_reads": 1
     },
     {
       "edge": {
-        "to": 4,
-        "from": 3
+        "from": 8,
+        "to": 9
       },
       "num_reads": 1,
       "num_forward_reads": 1
     },
     {
       "edge": {
-        "to": 9,
-        "from": 8
-      },
-      "num_reads": 1,
-      "num_forward_reads": 1
-    },
-    {
-      "edge": {
-        "to": 7,
-        "from": 6
+        "from": 4,
+        "to": 6
       },
       "num_reads": 1
+    },
+    {
+      "edge": {
+        "from": 3,
+        "to": 4
+      },
+      "num_reads": 1,
+      "num_forward_reads": 1
+    },
+    {
+      "edge": {
+        "from": 6,
+        "to": 8
+      },
+      "num_reads": 1,
+      "num_forward_reads": 1
     }
   ]
 }
 {
   "node_pileups": [
     {
-      "node_id": 7,
+      "node_id": 2,
       "base_pileup": [
         {
           "ref_base": 71,
           "num_bases": 1,
           "bases": ","
-        }
-      ]
-    },
-    {
-      "node_id": 8,
-      "base_pileup": [
-        {
-          "ref_base": 65,
-          "num_bases": 1,
-          "bases": "."
         }
       ]
     },
@@ -216,20 +206,30 @@
           "ref_base": 84
         }
       ]
+    },
+    {
+      "node_id": 3,
+      "base_pileup": [
+        {
+          "ref_base": 65,
+          "num_bases": 1,
+          "bases": "."
+        }
+      ]
     }
   ],
   "edge_pileups": [
     {
       "edge": {
-        "to": 6,
-        "from": 4
+        "from": 6,
+        "to": 7
       },
       "num_reads": 1
     },
     {
       "edge": {
-        "to": 4,
-        "from": 2
+        "from": 1,
+        "to": 2
       },
       "num_reads": 1
     }

@@ -48,6 +48,8 @@ public:
     int length(void) const;
     // tells if the MEM contains an N
     size_t count_Ns(void) const;
+    // filter out every ceil(nodes.size()/n) hits
+    size_t filter_hits_to(int limit);
 
     friend bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
     friend bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
@@ -56,7 +58,7 @@ public:
     MaximalExactMatch(void) = default;                                      // Copy constructor
     MaximalExactMatch(const MaximalExactMatch&) = default;               // Copy constructor
     MaximalExactMatch(MaximalExactMatch&&) = default;                    // Move constructor
-    MaximalExactMatch& operator=(const MaximalExactMatch&) & = default;  // MaximalExactMatchopy assignment operator
+    MaximalExactMatch& operator=(const MaximalExactMatch&) & = default;  // Copy assignment operator
     MaximalExactMatch& operator=(MaximalExactMatch&&) & = default;       // Move assignment operator
     //virtual ~MaximalExactMatch() { }                     // Destructor
 };

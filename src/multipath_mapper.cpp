@@ -3641,8 +3641,7 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
             cerr << trans_record.second.first << "->" << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
 #endif
-            injection_trans.insert(make_pair(trans_record.second.first,
-                                             make_pair(trans_record.first, trans_record.second.second)));
+            injection_trans.emplace(trans_record.second.first, make_pair(trans_record.first, trans_record.second.second));
         }
         
         // initialize the match nodes
@@ -3672,8 +3671,6 @@ namespace vg {
         
         // compute reachability and add edges
         add_reachability_edges(vg, hits, projection_trans, injection_trans);
-        
-        
         
 #ifdef debug_multipath_mapper_alignment
         cerr << "final mem graph:" << endl;
@@ -3940,15 +3937,30 @@ namespace vg {
             
             ExactMatchNode& match_node = match_nodes[i];
             
-            if (match_node.end - match_node.begin != gcsa->order()) {
+            if (match_node.end - match_node.begin < gcsa->order()) {
                 // we have passed all of the order length MEMs, bail out of loop
 #ifdef debug_multipath_mapper_alignment
-                cerr << "finished iterating through " << i << " order length MEMs" << endl;
+                cerr << "found " << i << " order length MEMs" << endl;
 #endif
                 
                 num_order_length_mems = i;
                 break;
             }
+        }
+        
+        // find the order of the order-length MEMs lexicographically along the read
+        vector<size_t> order(num_order_length_mems, 0);
+        for (size_t i = 1; i < order.size(); i++) {
+            order[i] = i;
+        }
+        sort(order.begin(), order.end(), [&](size_t i, size_t j) {
+            return match_nodes[i].begin < match_nodes[j].begin || (match_nodes[i].begin == match_nodes[j].begin &&
+                                                                   match_nodes[i].end < match_nodes[j].end);
+        });
+        
+        for (size_t i : order) {
+            
+            ExactMatchNode& match_node = match_nodes[i];
             
 #ifdef debug_multipath_mapper_alignment
             cerr << "## checking if MEM " << i << " can be an extension: " << endl;
@@ -3980,9 +3992,9 @@ namespace vg {
                 cerr << "\t" << pb2json(last_run_node.path) << endl;
 #endif
                 
-                // do they overhang an amount on the read that indicates they could be merged?
+                // do they overhang an amount on the read that indicates they overlap and could be merged?
                 int64_t overhang = last_run_node.end - match_node.begin;
-                if (overhang >= 0) {
+                if (last_run_node.begin < match_node.begin && match_node.end > last_run_node.end && overhang >= 0) {
                     
 #ifdef debug_multipath_mapper_alignment
                     cerr << "MEMs overlap on the read, checking for consistency with overhang on the path" << endl;
