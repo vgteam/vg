@@ -177,26 +177,31 @@ string tmpfilename(const string& base) {
     return tmpname;
 }
 
-string find_temp_dir() {
-    // We need to find the system temp directory.
-    const char* system_temp_dir = nullptr;
-    
-    for(const char* var_name : {"TMPDIR", "TMP", "TEMP", "TEMPDIR", "USERPROFILE"}) {
-        // Try all these env vars in order
-        if (system_temp_dir == nullptr) {
-            system_temp_dir = getenv(var_name);
-        }
-    }
-    if (system_temp_dir == nullptr) {
-        // Then if none were set default to /tmp
-        system_temp_dir = "/tmp";
-    }
-    
-    return std::string(system_temp_dir);
-}
-
 string tmpfilename() {
     return tmpfilename("vg-");
+}
+
+namespace {
+    string current_temp_dir;
+}
+
+string find_temp_dir() {
+    // Get the default temp dir from environment variables.
+    if (current_temp_dir.empty()) {
+        const char* system_temp_dir = nullptr;
+        for(const char* var_name : {"TMPDIR", "TMP", "TEMP", "TEMPDIR", "USERPROFILE"}) {
+            if (system_temp_dir == nullptr) {
+                system_temp_dir = getenv(var_name);
+            }
+        }
+        current_temp_dir = (system_temp_dir == nullptr ? "/tmp" : system_temp_dir);
+    }
+
+    return current_temp_dir;
+}
+
+void set_temp_dir(const string& new_temp_dir) {
+    current_temp_dir = new_temp_dir;
 }
 
 string get_or_make_variant_id(const vcflib::Variant& variant) {

@@ -29,6 +29,7 @@ void help_index(char** argv) {
          << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
          << "already be in a joint ID space." << endl
          << "general options:" << endl
+         << "    -b, --temp-dir DIR     use DIR for temporary files" << endl
          << "    -t, --threads N        number of threads to use" << endl
          << "    -p, --progress         show progress" << endl
          << "xg options:" << endl
@@ -51,7 +52,6 @@ void help_index(char** argv) {
          << "    -k, --kmer-size N      index kmers of size N in the graph (default " << gcsa::Key::MAX_LENGTH << ")" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction (default " << gcsa::ConstructionParameters::DOUBLING_STEPS << ")" << endl
          << "    -Z, --size-limit N     limit the size of temporary graphs to N gigabytes" << endl
-         << "    -b, --tmp-db-base DIR  store temporary graphs in directory DIR" << endl    // FIXME does not affect kmers
          << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
          << "rocksdb options:" << endl
          << "    -d, --db-name  <X>     store the RocksDB index in <X>" << endl
@@ -149,7 +149,6 @@ int main_index(int argc, char** argv) {
     gcsa::size_type doubling_steps = gcsa::ConstructionParameters::DOUBLING_STEPS;
     gcsa::size_type size_limit = 200; // gigabytes
     bool delete_kmer_files = true;
-    string temp_directory;
     bool verify_gcsa = false;
 
     // RocksDB
@@ -174,6 +173,7 @@ int main_index(int argc, char** argv) {
         static struct option long_options[] =
         {
             // General
+            {"temp-dir", required_argument, 0, 'b'},
             {"threads", required_argument, 0, 't'},
             {"progress",  no_argument, 0, 'p'},
 
@@ -198,7 +198,6 @@ int main_index(int argc, char** argv) {
             {"kmer-size", required_argument, 0, 'k'},
             {"doubling-steps", required_argument, 0, 'X'},
             {"size-limit", required_argument, 0, 'Z'},
-            {"tmp-db-base", required_argument, 0, 'b'},
             {"verify-index", no_argument, 0, 'V'},
 
             // RocksDB
@@ -222,7 +221,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "t:px:F:v:TG:H:B:R:r:E:g:i:f:k:X:Z:b:Vd:j:DshMe:SP:LmaCnANo",
+        c = getopt_long (argc, argv, "b:t:px:F:v:TG:H:B:R:r:E:g:i:f:k:X:Z:Vd:j:DshMe:SP:LmaCnANo",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -232,6 +231,9 @@ int main_index(int argc, char** argv) {
         switch (c)
         {
         // General
+        case 'b':
+            set_temp_dir(optarg);
+            break;
         case 't':
             omp_set_num_threads(atoi(optarg));
             break;
@@ -322,9 +324,6 @@ int main_index(int argc, char** argv) {
             break;
         case 'Z':
             size_limit = std::stoul(optarg);
-            break;
-        case 'b':
-            temp_directory = optarg;
             break;
         case 'V':
             verify_gcsa = true;
@@ -1076,12 +1075,8 @@ int main_index(int argc, char** argv) {
             gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         }
 
-        // Configure its temp directory to the system temp directory
-        if (temp_directory.empty()) {   // FIXME we should set VG temp directory here
-            gcsa::TempFile::setDirectory(find_temp_dir());
-        } else { // or the user-specified directory
-            gcsa::TempFile::setDirectory(temp_directory);
-        }
+        // Use the same temp directory as VG.
+        gcsa::TempFile::setDirectory(find_temp_dir());
 
         // Generate temporary kmer files
         if (dbg_names.empty()) {
