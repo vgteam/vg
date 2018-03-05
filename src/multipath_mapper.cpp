@@ -3182,7 +3182,15 @@ namespace vg {
 #ifdef debug_multipath_mapper_mapping
         cerr << "scores and distances obtained of multi-mappings:" << endl;
         for (int i = 0; i < multipath_aln_pairs.size(); i++) {
-            cerr << "\talign:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second) << ", length: " << cluster_pairs[i].second << ", combined: " << scores[i] << endl;
+            Alignment aln1, aln2;
+            optimal_alignment(multipath_aln_pairs[i].first, aln1);
+            optimal_alignment(multipath_aln_pairs[i].second, aln2);
+            auto start1 = aln1.path().mapping(0).position().node_id();
+            auto start2 = aln2.path().mapping(0).position().node_id();
+        
+            cerr << "\tpos:" << start1 << "(" << aln1.score() << ")-" << start2 << "(" << aln2.score() << ")"
+                << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
+                << ", length: " << cluster_pairs[i].second << ", combined: " << scores[i] << endl;
         }
 #endif
         
