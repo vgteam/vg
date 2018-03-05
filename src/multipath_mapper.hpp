@@ -39,7 +39,7 @@ namespace vg {
         ////////////////////////////////////////////////////////////////////////
     
         MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
-                        gbwt::GBWT* gbwt = nullptr, SnarlManager* snarl_manager = nullptr);
+                        haplo::ScoreProvider* haplo_score_provider = nullptr, SnarlManager* snarl_manager = nullptr);
         ~MultipathMapper();
         
         /// Map read in alignment to graph and make multipath alignments.
@@ -88,6 +88,7 @@ namespace vg {
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
         double mapq_scaling_factor = 1.0 / 4.0;
+        // There must be a ScoreProvider provided if this is true
         bool use_population_mapqs = false;
         size_t population_max_paths = 1;
         // Note that, like the haplotype scoring code, we work with recombiantion penalties in exponent form.

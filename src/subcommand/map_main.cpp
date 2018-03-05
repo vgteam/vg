@@ -565,6 +565,9 @@ int main_map(int argc, char** argv) {
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
     gbwt::GBWT* gbwt = nullptr;
+    
+    // One of them may be used to provide haplotype scores
+    haplo::ScoreProvider* haplo_score_provider = nullptr;
 
     // We try opening the file, and then see if it worked
     ifstream xg_stream(xg_name);
@@ -578,6 +581,8 @@ int main_map(int argc, char** argv) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
         xgidx = new xg::XG(xg_stream);
+        
+        // TODO: Support haplo::XGScoreProvider?
     }
 
     ifstream gcsa_stream(gcsa_name);
@@ -608,6 +613,9 @@ int main_map(int argc, char** argv) {
         }
         gbwt = new gbwt::GBWT();
         gbwt->load(gbwt_stream);
+        
+        // We want to use this for haplotype scoring
+        haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
     }
 
     thread_count = get_thread_count();
@@ -870,7 +878,7 @@ int main_map(int argc, char** argv) {
         Mapper* m = nullptr;
         if(xgidx && gcsa && lcp) {
             // We have the xg and GCSA indexes, so use them
-            m = new Mapper(xgidx, gcsa, lcp, gbwt);
+            m = new Mapper(xgidx, gcsa, lcp, haplo_score_provider);
         } else {
             // Can't continue with null
             throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
@@ -1310,7 +1318,11 @@ int main_map(int argc, char** argv) {
         sam_close(sam_out);
         cout.flush();
     }
-
+    
+    if (haplo_score_provider) {
+        delete haplo_score_provider;
+        haplo_score_provider = nullptr;
+    }
     if (gbwt) {
         delete gbwt;
         gbwt = nullptr;
