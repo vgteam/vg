@@ -22,6 +22,7 @@ class ReadFilter{
 public:
     
     // Filtering parameters
+    string name_prefix;
     double min_secondary = 0.;
     double min_primary = 0.;
     // Should we rescore each alignment with default parameters and no e.g.
@@ -49,6 +50,7 @@ public:
     struct Counts {
         vector<size_t> read;
         vector<size_t> filtered;
+        vector<size_t> wrong_name;
         vector<size_t> min_score;
         vector<size_t> max_overhang;
         vector<size_t> min_end_matches;
@@ -56,13 +58,14 @@ public:
         vector<size_t> split;
         vector<size_t> repeat;
         vector<size_t> defray;
-        Counts() : read(2, 0), filtered(2, 0), min_score(2, 0),
+        Counts() : read(2, 0), filtered(2, 0), wrong_name(2, 0), min_score(2, 0),
                    max_overhang(2, 0), min_end_matches(2, 0), min_mapq(2, 0),
                    split(2, 0), repeat(2, 0), defray(2, 0) {}
         Counts& operator+=(const Counts& other) {
             for (int i = 0; i < 2; ++i) {
                 read[i] += other.read[i];
                 filtered[i] += other.filtered[i];
+                wrong_name[i] += other.wrong_name[i];
                 min_score[i] += other.min_score[i];
                 max_overhang[i] += other.max_overhang[i];
                 min_end_matches[i] += other.min_end_matches[i];
