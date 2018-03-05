@@ -32,7 +32,7 @@ TRAINING_FASTQ="ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12
 # And a read simulation seed
 READ_SEED="90"
 # And a read count
-READ_COUNT="10000000"
+READ_COUNT="200"
 # Chunks to simulate in (which affects results)
 READ_CHUNKS="32"
 
@@ -156,6 +156,7 @@ if [[ ! -e "${READS_DIR}" ]]; then
         --config "${TREE_PATH}/toil-vg.conf" \
         --annotate_xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
         --gam \
+        --fastq_out \
         --seed "${READ_SEED}" \
         --sim_chunks "${READ_CHUNKS}" \
         --fastq "${TRAINING_FASTQ}"
@@ -197,28 +198,6 @@ function wait_on_jobs() {
 if [[ "${RUN_JOBS}" == "1" ]]; then
     # We actually want to run the toil-vg jobs
 
-    #if [[ ! -e "${OUTPUT_PATH}/snp1kg" ]]; then
-    #    # Do the full snp1kg graph without the GBWT
-    #    toil-vg mapeval "${TREE_PATH}/snp1kg" "${OUTPUT_PATH}/snp1kg" \
-    #        --gam_input_reads "${READS_DIR}/sim.gam" \
-    #        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-    #        --gam-names snp1kg 2>&1 &
-    #    JOB_ARRAY+=("$!")
-    #fi
-    
-    #if [[ ! -e "${OUTPUT_PATH}/snp1kg-gbwt" ]]; then
-    #    # Do the full snp1kg graph with smaller GBWT
-    #    toil-vg mapeval "${TREE_PATH}/snp1kg-gbwt" "${OUTPUT_PATH}/snp1kg-gbwt" \
-    #        --use-gbwt \
-    #        --map_opts "--hap-exp 1" \
-    #        --gam_input_reads "${READS_DIR}/sim.gam" \
-    #        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-    #        --gam-names snp1kg-gbwt 2>&1 &
-    #    JOB_ARRAY+=("$!")
-    #fi
-
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp" ]]; then
         # Do the full snp1kg graph multipath
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp" "${OUTPUT_PATH}/snp1kg-mp" \
@@ -226,8 +205,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --config "${TREE_PATH}/toil-vg.conf" \
             --maxDisk 100G \
             --multipath-only \
-            --gam_input_reads "${READS_DIR}/sim.gam" \
-            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
             --gam-names snp1kg 2>&1 & 
         JOB_ARRAY+=("$!")
@@ -241,8 +220,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --maxDisk 100G \
             --multipath-only \
             --use-gbwt \
-            --gam_input_reads "${READS_DIR}/sim.gam" \
-            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
             --gam-names snp1kg-gbwt 2>&1 &
         JOB_ARRAY+=("$!")
@@ -259,8 +238,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --multipath-only \
             --use-gbwt \
             --mpmap_opts "--max-paths 10" \
-            --gam_input_reads "${READS_DIR}/sim.gam" \
-            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
             --gam-names snp1kg-gbwt-traceback 2>&1 &
         JOB_ARRAY+=("$!")
@@ -276,8 +255,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --use-gbwt \
             --use-snarls \
             --mpmap_opts "--max-paths 10" \
-            --gam_input_reads "${READS_DIR}/sim.gam" \
-            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
             --gam-names snp1kg-gbwt-traceback 2>&1 &
         JOB_ARRAY+=("$!")
@@ -285,30 +264,6 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     
     wait_on_jobs
     
-    #if [[ ! -e "${OUTPUT_PATH}/snp1kg-fullgbwt" ]]; then
-    #   # Do the full snp1kg graph with GBWT
-    #   toil-vg mapeval "${TREE_PATH}/snp1kg-fullgbwt" "${OUTPUT_PATH}/snp1kg-fullgbwt" \
-    #       --use-gbwt \
-    #       --map_opts "--hap-exp 1" \
-    #       --gam_input_reads "${READS_DIR}/sim.gam" \
-    #       --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    #       --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_fullgbwt" \
-    #       --gam-names snp1kg-fullgbwt 2>&1 &
-    #   JOB_ARRAY+=("$!")
-    #fi
-    
-    #if [[ ! -e "${OUTPUT_PATH}/snp1kg-gbwt-slight" ]]; then
-    #    # Do the full snp1kg graph with GBWT
-    #    toil-vg mapeval "${TREE_PATH}/snp1kg-gbwt" "${OUTPUT_PATH}/snp1kg-gbwt-slight" \
-    #        --use-gbwt \
-    #        --map_opts "--hap-exp 0.5" \
-    #        --gam_input_reads "${READS_DIR}/sim.gam" \
-    #        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
-    #        --gam-names snp1kg-gbwt-slight 2>&1 &
-    #    JOB_ARRAY+=("$!")
-    #fi
-        
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-minaf" ]]; then
         # And with the min allele frequency
         toil-vg mapeval "${TREE_PATH}/snp1kg-mp-minaf" "${OUTPUT_PATH}/snp1kg-mp-minaf" \
@@ -316,22 +271,12 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --config "${TREE_PATH}/toil-vg.conf" \
             --maxDisk 100G \
             --multipath-only \
-            --gam_input_reads "${READS_DIR}/sim.gam" \
-            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minaf_${MIN_AF}" \
             --gam-names snp1kg-minaf 2>&1 &
         JOB_ARRAY+=("$!")
     fi
-    
-    #if [[ ! -e "${OUTPUT_PATH}/snp1kg-negative" ]]; then    
-    #    # And the negative control with correct variants removed
-    #    toil-vg mapeval "${TREE_PATH}/snp1kg-negative" "${OUTPUT_PATH}/snp1kg-negative" \
-    #        --gam_input_reads "${READS_DIR}/sim.gam" \
-    #        --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minus_${SAMPLE_NAME}" \
-    #        --gam-names snp1kg-negative 2>&1 &
-    #    JOB_ARRAY+=("$!")
-    #fi
     
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-positive" ]]; then    
         # And the positive control with only real variants
@@ -340,8 +285,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --config "${TREE_PATH}/toil-vg.conf" \
             --maxDisk 100G \
             --multipath-only \
-            --gam_input_reads "${READS_DIR}/sim.gam" \
-            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}" \
             --gam-names snp1kg-positive 2>&1 &
         JOB_ARRAY+=("$!")
@@ -356,8 +301,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --config "${TREE_PATH}/toil-vg.conf" \
             --maxDisk 100G \
             --multipath-only \
-            --gam_input_reads "${READS_DIR}/sim.gam" \
-            --gam-input-xg "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}_haplo.xg" \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/primary" \
             --gam-names primary 2>&1 &
         JOB_ARRAY+=("$!")

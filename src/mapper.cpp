@@ -13,11 +13,11 @@ thread_local vector<size_t> BaseMapper::adaptive_reseed_length_memo;
 BaseMapper::BaseMapper(xg::XG* xidex,
                        gcsa::GCSA* g,
                        gcsa::LCPArray* a,
-                       gbwt::GBWT* gbwt) :
+                       haplo::ScoreProvider* haplo_score_provider) :
       xindex(xidex)
       , gcsa(g)
       , lcp(a)
-      , gbwt(gbwt)
+      , haplo_score_provider(haplo_score_provider)
       , min_mem_length(1)
       , mem_reseed_length(0)
       , fast_reseed(true)
@@ -1635,7 +1635,7 @@ void BaseMapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, in
 }
 
 void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& alns) {
-    if (gbwt == nullptr) {
+    if (haplo_score_provider == nullptr) {
         // There's no haplotype data available, so we can't add consistency scores.
         return;
     }
@@ -1689,7 +1689,7 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         // This is a logprob (so, negative), and expresses the probability of the haplotype path being followed
         double haplotype_logprob;
         bool path_valid;
-        std::tie(haplotype_logprob, path_valid) = haplo::haplo_DP::score(aln->path(), *gbwt, haplo_memo);
+        std::tie(haplotype_logprob, path_valid) = haplo_score_provider->score(aln->path(), haplo_memo);
         
         if (!path_valid) {
             // Our path does something the scorer doesn't like.
@@ -1788,8 +1788,8 @@ void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, si
 Mapper::Mapper(xg::XG* xidex,
                gcsa::GCSA* g,
                gcsa::LCPArray* a,
-               gbwt::GBWT* gbwt) :
-    BaseMapper(xidex, g, a, gbwt)
+               haplo::ScoreProvider* haplo_score_provider) :
+    BaseMapper(xidex, g, a, haplo_score_provider)
     , thread_extension(10)
     , context_depth(1)
     , max_multimaps(1)

@@ -669,6 +669,7 @@ int main_mpmap(int argc, char** argv) {
     lcp_array.load(lcp_stream);
     
     gbwt::GBWT* gbwt = nullptr;
+    haplo::ScoreProvider* haplo_score_provider = nullptr;
     if (!gbwt_name.empty()) {
         ifstream gbwt_stream(gbwt_name);
         if (!gbwt_stream) {
@@ -677,7 +678,11 @@ int main_mpmap(int argc, char** argv) {
         }
         gbwt = new gbwt::GBWT();
         gbwt->load(gbwt_stream);
+        
+        // We have the GBWT available for scoring haplotypes
+        haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
     }
+    // TODO: Allow using haplo::XGScoreProvider?
     
     SnarlManager* snarl_manager = nullptr;
     if (!snarls_name.empty()) {
@@ -689,7 +694,7 @@ int main_mpmap(int argc, char** argv) {
         snarl_manager = new SnarlManager(snarl_stream);
     }
         
-    MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, gbwt, snarl_manager);
+    MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, haplo_score_provider, snarl_manager);
     
     // set alignment parameters
     multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
@@ -723,7 +728,7 @@ int main_mpmap(int argc, char** argv) {
     // set mapping quality parameters
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
-    multipath_mapper.use_population_mapqs = (gbwt != nullptr);
+    multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr);
     multipath_mapper.population_max_paths = population_max_paths;
     
     // set pruning and clustering parameters
@@ -1056,7 +1061,11 @@ int main_mpmap(int argc, char** argv) {
     if (snarl_manager != nullptr) {
         delete snarl_manager;
     }
-    
+   
+    if (haplo_score_provider != nullptr) {
+        delete haplo_score_provider;
+    }
+   
     if (gbwt != nullptr) {
         delete gbwt;
     }
