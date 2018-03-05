@@ -53,85 +53,6 @@ const char* var = "VG_FULL_TRACEBACK";
 // fullTrace = false means env var was not set
 bool fullTrace = false;
 
-void stacktrace_manually(ostream& out, int signalNumber, void* ip, void** bp) {
-    // Now we compute our own stack trace, because backtrace() isn't so good on OS X.
-    // We operate on the same principles as <https://stackoverflow.com/a/5426269>
-
-    // Unfortunately this *only* seems to work even a little well on OS X; on Linux we get ip
-    // wandering off relatively quickly.
-    
-    // Allocate a place to keep the dynamic library info for the address the stack is executing at
-    Dl_info address_library;
-    
-    out << endl;
-    out << "Next ip: " << ip << " Next bp: " << bp << endl;
-    while (true) {
-        // Work out where the ip is.
-        if (!dladdr(ip, &address_library)) {
-            // This address doesn't belong to anything!
-            out << "Stack leaves code at ip=" << ip << endl;
-            break;
-        }
-
-        if (address_library.dli_sname != nullptr) {
-            // Make a place for the demangling function to save its status
-            int status;
-            
-            // Do the demangling
-            char* demangledName = abi::__cxa_demangle(address_library.dli_sname, NULL, NULL, &status);
-            
-            if(status == 0) {
-                // Successfully demangled
-                out << "Address " << ip << " in demangled symbol " << demangledName
-                    << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_saddr))
-                    << ", in library " << address_library.dli_fname
-                    << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_fbase)) << endl;
-                free(demangledName);
-            } else {
-                // Leave mangled
-                out << "Address " << ip << " in mangled symbol " << address_library.dli_sname
-                    << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_saddr))
-                    << ", in library " << address_library.dli_fname
-                    << " at offset " << (void*)((size_t)ip - ((size_t)address_library.dli_fbase)) << endl;
-            }
-            
-            #ifdef __APPLE__
-                #ifdef VG_DO_ATOS
-                    // Try running atos to print a line number. This can be slow so we don't do it by default.
-                    stringstream command;
-                    
-                    command << "atos -o " << address_library.dli_fname << " -l " << address_library.dli_fbase << " " << ip;
-                    out << "Running " << command.str() << "..." << endl;
-                    system(command.str().c_str());
-                #endif
-            #endif
-            
-        } else {
-            out << "Address " << ip << " out of symbol in library " << address_library.dli_fname << endl;
-        }
-
-        if(address_library.dli_sname != nullptr && !strcmp(address_library.dli_sname, "main")) {
-            out << "Stack hit main" << endl;
-            break;
-        }
-
-        if (bp != nullptr) {
-            // Simulate a return
-            ip = bp[1];
-            bp = (void**) bp[0];
-        } else {
-            break;
-        }
-        
-        out << endl;
-        out << "Next ip: " << ip << " Next bp: " << bp << endl;
-    }
-    
-    out << "Stack trace complete" << endl;
-    out << endl;
-    
-}
-
 /// Emit a stack trace when something bad happens. Add as a signal handler with sigaction.
 void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContext) {
     ofstream tempStream;
@@ -147,31 +68,15 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
         tempStream.open(dirName+ "/stacktrace.txt");
         out = &tempStream;
     }
-    // This holds the context that the signal came from, including registers and stuff
-    ucontext_t* context = (ucontext_t*) signalContext;
-    
-    // TODO: This assumes x86
-    // Fetch out the registers
-    // We model IP as a pointer to void (i.e. into code)
-    void* ip;
-    // We model BP as an array of two things: previous BP, and previous IP.
-    void** bp;
-    
-    #ifdef __APPLE__
-        // OS X 64 bit does it this way
-        ip = (void*)context->uc_mcontext->__ss.__rip;
-        bp = (void**)context->uc_mcontext->__ss.__rbp;
-    #else
-        // Linux 64 bit does it this way
-        ip = (void*)context->uc_mcontext.gregs[REG_RIP];
-        bp = (void**)context->uc_mcontext.gregs[REG_RBP];
-    #endif
 
-    *out << "Caught signal " << signalNumber << " raised at address " << ip << endl;
-    
-    
-    // Do our own tracing because backtrace doesn't really work on all platforms.
-    stacktrace_manually(*out,signalNumber, ip, bp);
+    static backward::StackTrace stack_trace;
+    stack_trace.load_here(32);
+    static backward::Printer p;
+    p.color_mode = backward::ColorMode::automatic;
+    p.address = true;
+    p.object = true;
+    p.print(stack_trace, *out);
+
     if (fullTrace == false) {
         cerr << "ERROR: Signal "<< signalNumber << " occurred. VG has crashed. Run 'vg bugs --new' to report a bug." << endl;
         // Print path for stack trace file
@@ -183,8 +88,6 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
 
 void enable_crash_handling() {
     // Set up stack trace support
-
-    #ifdef __APPLE__
         if (getenv(var) != nullptr) {
             if (strcmp(getenv(var), "1") == 0) {
                 // if VG_FULL_TRACEBACK env var is set
@@ -208,13 +111,6 @@ void enable_crash_handling() {
         sigaction(SIGSEGV, &sig_config, nullptr);
         sigaction(SIGBUS, &sig_config, nullptr);
         sigaction(SIGILL, &sig_config, nullptr);
-
-    #else
-        // Use backward-cpp
-        static backward::SignalHandling signal_handling_manager;
-    #endif
-    
-    
     
     // We don't set_terminate for aborts because we still want the standard
     // library's message about what the exception was.
