@@ -5254,6 +5254,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     Alignment final = source;
     *final.mutable_path() = surjection.path();
     final.set_score(surjection.score());
+    final.set_identity(identity(surjection.path()));
     return final;
 }
 
