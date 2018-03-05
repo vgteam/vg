@@ -10,11 +10,11 @@
 
 #include <gbwt/gbwt.h>
 #include <gbwt/dynamic_gbwt.h>
-
 #include <sublinearLS/reference.hpp>
 #include <sublinearLS/penalty_set.hpp>
 #include <sublinearLS/input_haplotype.hpp>
 #include <sublinearLS/probability.hpp>
+
 
 using namespace std;
 
@@ -403,7 +403,6 @@ private:
 };
 
 
-
 //------------------------------------------------------------------------------
 // template implementations
 //------------------------------------------------------------------------------
@@ -416,7 +415,9 @@ hDP_gbwt_graph_accessor<GBWTType>::hDP_gbwt_graph_accessor(GBWTType& graph,
   graph(graph), length(new_length),
   old_node(gbwt::invalid_node()), new_node(new_node), memo(memo) {
   
+  // Nothing will work well if we have a node that has no record at all in the GBWT.
   assert(graph.contains(new_node));
+    
 }
 
 template<class GBWTType>

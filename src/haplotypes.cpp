@@ -2,8 +2,6 @@
 #include "path.hpp"
 #include "position.hpp"
 
-#include <sublinearLS/allele.hpp>
-
 namespace haplo {
 
 // By default, should we warn when haplotype scoring fails?

@@ -264,6 +264,7 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
     REQUIRE(!passed);
   }
 }
+//TODO test paths that aren't in the index
 
 TEST_CASE("We can score haplotypes using gPBWT", "[haplo-score][xg]") {
   //     / [3] \   / [6] \         ###################
