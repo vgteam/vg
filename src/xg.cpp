@@ -159,6 +159,13 @@ void XG::load(istream& in) {
         ////////////////////////////////////////////////////////////////////////
         switch (file_version) {
         
+        case 5: // Fall through
+        case 6:
+        case 7:
+            cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. "
+                 << "For better performance over repeated loads, consider recreating this XG with 'vg index' "
+                 << "or upgrading it with 'vg xg'." << endl;
+            // Fall through
         case 8:
             {
                 sdsl::read_member(seq_length, in);
@@ -209,7 +216,12 @@ void XG::load(istream& in) {
                 sdsl::read_member(path_count, in);
                 for (size_t i = 0; i < path_count; ++i) {
                     auto path = new XGPath;
-                    path->load(in);
+                    // Load the path, giving it the file version and a
+                    // rank-to-ID comversion function for format upgrade
+                    // purposes.
+                    path->load(in, file_version, [&](size_t rank) {
+                        return rank_to_id(rank);
+                    });
                     paths.push_back(path);
                 }
                 np_iv.load(in);
@@ -259,15 +271,88 @@ void XG::load(istream& in) {
 
 }
 
-void XGPath::load(istream& in) {
-    sdsl::read_member(min_node_id, in);
-    ids.load(in);
+void XGPath::load(istream& in, uint32_t file_version, const function<int64_t(size_t)>& rank_to_id) {
+    // We used to store a bunch of members we don't use now
+    rrr_vector<> nodes;
+    rrr_vector<>::rank_1_type nodes_rank;
+    rrr_vector<>::select_1_type nodes_select;
+    
+    if (file_version >= 8) {
+        // Min node ID readily available
+        sdsl::read_member(min_node_id, in);
+        
+        // IDs are in local space
+        ids.load(in);
+    } else {
+        // Load up the old members, even though we discard them.
+        nodes.load(in);
+        nodes_rank.load(in);
+        nodes_select.load(in);
+        
+        // IDs are in global space; need converting to local.
+        wt_gmr<> old_ids;
+        old_ids.load(in);
+        
+        // Find the min node ID, which replaces nodes, nodes_rank, and nodes_select.
+        min_node_id =  numeric_limits<int64_t>::max();
+        for (size_t i = 0; i < old_ids.size(); i++) {
+            min_node_id = min(min_node_id, (int64_t) old_ids[i]);
+        }
+        
+        // Now min_node_id is set so local_id() can work.
+        
+        // Make a new vector for the local-space IDs
+        int_vector<> new_ids;
+        util::assign(new_ids, int_vector<>(old_ids.size()));
+        
+        for (size_t i = 0; i < old_ids.size(); i++) {
+            // Convert each global ID to a local ID
+            auto new_id = local_id(old_ids[i]);
+            assert(new_id != 0);
+            new_ids[i] = new_id;
+        }
+        
+        // Compress the converted vector
+        util::bit_compress(new_ids);
+        // Create the real ids vector 
+        construct_im(ids, new_ids);
+    }
+    
+    cerr << "Path min node ID: " << min_node_id << endl;
+    cerr << "Path node ids start: ";
+    for (size_t i = 0; i < 10 && i < ids.size(); i++) {
+        cerr << ids[i] << " ";
+    }
+    cerr << endl;
+    cerr << "Path node ids end: ";
+    for (size_t i = max((int64_t) ids.size() - 10, (int64_t) 0); i + 1 < ids.size(); i++) {
+        cerr << ids[i] << " ";
+    }
+    cerr << endl;
+    
+    
     directions.load(in);
     ranks.load(in);
     positions.load(in);
     offsets.load(in);
     offsets_rank.load(in, &offsets);
     offsets_select.load(in, &offsets);
+    
+    if (file_version < 8) {
+        // We had to upgrade node membership data. Check it.
+        for (size_t i = 0; i < nodes.size(); i++) {
+            // Check node occurrences in path for all the nodes
+            auto count_in_path = ids.rank(ids.size(), local_id(rank_to_id(i+1)));
+            
+            if ((count_in_path > 0) != nodes[i]) {
+                // New and old path membership info disagree with each other
+                cerr << "error [xg]: Node " << rank_to_id(i+1) << " seems to occur " << count_in_path
+                    << " times in path but old format flag is " << nodes[i] << endl;
+                exit(1);
+            }
+        }
+    }
+        
 }
 
 size_t XGPath::serialize(std::ostream& out,

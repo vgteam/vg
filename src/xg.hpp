@@ -806,7 +806,7 @@ public:
     bit_vector offsets;
     rank_support_v<1> offsets_rank;
     bit_vector::select_1_type offsets_select;
-    void load(istream& in);
+    void load(istream& in, uint32_t file_version, const function<int64_t(size_t)>& rank_to_id);
     size_t serialize(std::ostream& out,
                      sdsl::structure_tree_node* v = NULL,
                      std::string name = "") const;
