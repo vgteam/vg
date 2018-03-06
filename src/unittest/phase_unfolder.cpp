@@ -35,11 +35,11 @@ gbwt::GBWT get_gbwt(const std::vector<std::vector<gbwt::node_type>>& paths) {
     }
     builder.finish();
 
-    std::string temp_file = gbwt::TempFile::getName("gbwt");
-    sdsl::store_to_file(builder.index, temp_file);
+    std::string filename = temp_file::create("gbwt");
+    sdsl::store_to_file(builder.index, filename);
     gbwt::GBWT gbwt_index;
-    sdsl::load_from_file(gbwt_index, temp_file);
-    gbwt::TempFile::remove(temp_file);
+    sdsl::load_from_file(gbwt_index, filename);
+    temp_file::remove(filename);
 
     return gbwt_index;
 }

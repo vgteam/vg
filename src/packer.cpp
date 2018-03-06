@@ -188,8 +188,8 @@ bool Packer::is_dynamic(void) {
 void Packer::ensure_edit_tmpfiles_open(void) {
     if (tmpfstreams.empty()) {
         string base = "vg-pack_";
-        string edit_tmpfile_name = tmpfilename(base);
-        std::remove(edit_tmpfile_name.c_str()); // remove this; we'll use it as a base name
+        string edit_tmpfile_name = temp_file::create(base);
+        temp_file::remove(edit_tmpfile_name); // remove this; we'll use it as a base name
         // for as many bins as we have, make a temp file
         tmpfstreams.resize(n_bins);
         edit_tmpfile_names.resize(n_bins);

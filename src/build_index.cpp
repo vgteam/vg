@@ -31,7 +31,7 @@ void build_gcsa_lcp(VG& graph,
     // and the LCP array construction
     lcp = new gcsa::LCPArray(input_graph, params);
     // delete the temporary debruijn graph file
-    remove(tmpfile.c_str());
+    temp_file::remove(tmpfile);
     // results returned by reference
 }
 

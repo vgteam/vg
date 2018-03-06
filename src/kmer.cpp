@@ -261,7 +261,7 @@ void write_gcsa_kmers(const HandleGraph& graph, int kmer_size, ostream& out, id_
 string write_gcsa_kmers_to_tmpfile(const HandleGraph& graph, int kmer_size, id_t head_id, id_t tail_id,
                                    const string& base_file_name) {
     // open a temporary file for the kmers
-    string tmpfile = tmpfilename(base_file_name);
+    string tmpfile = temp_file::create(base_file_name);
     ofstream out(tmpfile);
     // write the kmers to the temporary file
     write_gcsa_kmers(graph, kmer_size, out, head_id, tail_id);

@@ -148,7 +148,6 @@ int main_index(int argc, char** argv) {
     gcsa::size_type kmer_size = gcsa::Key::MAX_LENGTH;
     gcsa::size_type doubling_steps = gcsa::ConstructionParameters::DOUBLING_STEPS;
     gcsa::size_type size_limit = 200; // gigabytes
-    bool delete_kmer_files = true;
     bool verify_gcsa = false;
 
     // RocksDB
@@ -232,7 +231,7 @@ int main_index(int argc, char** argv) {
         {
         // General
         case 'b':
-            set_temp_dir(optarg);
+            temp_file::set_dir(optarg);
             break;
         case 't':
             omp_set_num_threads(atoi(optarg));
@@ -310,7 +309,6 @@ int main_index(int argc, char** argv) {
             gcsa_name = optarg;
             break;
         case 'i':
-            delete_kmer_files = false;
             dbg_names.push_back(optarg);
             break;
         case 'f':
@@ -1076,16 +1074,24 @@ int main_index(int argc, char** argv) {
         }
 
         // Use the same temp directory as VG.
-        gcsa::TempFile::setDirectory(find_temp_dir());
+        gcsa::TempFile::setDirectory(temp_file::get_dir());
 
         // Generate temporary kmer files
+        bool delete_kmer_files = false;
         if (dbg_names.empty()) {
+            if (show_progress) {
+                cerr << "Generating kmer files..." << endl;
+            }
             VGset graphs(file_names);
             graphs.show_progress = show_progress;
             dbg_names = graphs.write_gcsa_kmers_binary(kmer_size);
+            delete_kmer_files = true;
         }
 
         // Build the index
+        if (show_progress) {
+            cerr << "Building the GCSA2 index..." << endl;
+        }
         gcsa::InputGraph input_graph(dbg_names, true, gcsa::Alphabet(), mapping_name);
         gcsa::ConstructionParameters params;
         params.setSteps(doubling_steps);
@@ -1095,6 +1101,9 @@ int main_index(int argc, char** argv) {
 
         // Verify the index
         if (verify_gcsa) {
+            if (show_progress) {
+                cerr << "Verifying the index..." << endl;
+            }
             if (!gcsa::verifyIndex(gcsa_index, &lcp_array, input_graph)) {
                 cerr << "warning: [vg index] GCSA2 index verification failed" << endl;
             }
@@ -1103,11 +1112,14 @@ int main_index(int argc, char** argv) {
         // Delete the temporary kmer files
         if (delete_kmer_files) {
             for (auto& filename : dbg_names) {
-                remove(filename.c_str());
+                temp_file::remove(filename);
             }
         }
 
         // Save the indexes
+        if (show_progress) {
+            cerr << "Saving the index to disk..." << endl;
+        }
         sdsl::store_to_file(gcsa_index, gcsa_name);
         sdsl::store_to_file(lcp_array, gcsa_name + ".lcp");
     }
