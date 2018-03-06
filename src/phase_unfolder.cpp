@@ -1,6 +1,7 @@
 #include "phase_unfolder.hpp"
 #include "progress_bar.hpp"
 
+#include <cassert>
 #include <iostream>
 #include <map>
 
@@ -8,6 +9,7 @@ namespace vg {
 
 PhaseUnfolder::PhaseUnfolder(const xg::XG& xg_index, const gbwt::GBWT& gbwt_index, vg::id_t next_node) :
     xg_index(xg_index), gbwt_index(gbwt_index), mapping(next_node) {
+    assert(this->mapping.begin() > this->xg_index.get_max_id());
 }
 
 void PhaseUnfolder::unfold(VG& graph, bool show_progress) {
@@ -222,6 +224,7 @@ void PhaseUnfolder::read_mapping(const std::string& filename) {
     }
     this->mapping.load(in);
     in.close();
+    assert(this->mapping.begin() > this->xg_index.get_max_id());
 }
 
 vg::id_t PhaseUnfolder::get_mapping(vg::id_t node) const {
