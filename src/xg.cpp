@@ -71,33 +71,15 @@ char revdna3bit(int i) {
 const XG::destination_t XG::BS_SEPARATOR = 1;
 const XG::destination_t XG::BS_NULL = 0;
 
-XG::XG(istream& in)
-    : start_marker('#'),
-      end_marker('$'),
-      seq_length(0),
-      node_count(0),
-      edge_count(0),
-      path_count(0) {
+XG::XG(istream& in) {
     load(in);
 }
 
-XG::XG(Graph& graph)
-    : start_marker('#'),
-      end_marker('$'),
-      seq_length(0),
-      node_count(0),
-      edge_count(0),
-      path_count(0) {
+XG::XG(Graph& graph) {
     from_graph(graph);
 }
 
-XG::XG(function<void(function<void(Graph&)>)> get_chunks)
-    : start_marker('#'),
-      end_marker('$'),
-      seq_length(0),
-      node_count(0),
-      edge_count(0),
-      path_count(0) {
+XG::XG(function<void(function<void(Graph&)>)> get_chunks) {
     from_callback(get_chunks);
 }
 
@@ -294,7 +276,7 @@ void XGPath::load(istream& in, uint32_t file_version, const function<int64_t(siz
         old_ids.load(in);
         
         // Find the min node ID, which replaces nodes, nodes_rank, and nodes_select.
-        min_node_id =  numeric_limits<int64_t>::max();
+        min_node_id = numeric_limits<int64_t>::max();
         for (size_t i = 0; i < old_ids.size(); i++) {
             min_node_id = min(min_node_id, (int64_t) old_ids[i]);
         }
@@ -518,6 +500,8 @@ size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string nam
     paths_written += pn_bv_rank.serialize(out, paths_child, "path_names_starts_rank");
     paths_written += pn_bv_select.serialize(out, paths_child, "path_names_starts_select");
     paths_written += pi_iv.serialize(out, paths_child, "path_ids");
+    // TODO: Path count is written twice (once from paths.size() and once earlier from path_count)
+    // We should remove one and cut a new xg version
     paths_written += sdsl::write_member(paths.size(), out, paths_child, "path_count");    
     for (size_t i = 0; i < paths.size(); i++) {
         XGPath* path = paths[i];
@@ -1332,6 +1316,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
 
         cerr << "graph ok" << endl;
     }
+    
 }
     
 void XG::index_component_path_sets() {
