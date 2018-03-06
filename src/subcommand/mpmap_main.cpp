@@ -33,6 +33,8 @@ void help_mpmap(char** argv) {
     << "  -x, --xg-name FILE        use this xg index (required)" << endl
     << "  -g, --gcsa-name FILE      use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
     << "  -H, --gbwt-name FILE      use this GBWT haplotype index for population-based MAPQs" << endl
+    << "      --linear-index FILE   use this sublinear Li and Stephens index file for population-based MAPQs" << endl
+    << "      --linear-path PATH    use the given path name as the path that the linear index is against" << endl
     << "input:" << endl
     << "  -f, --fastq FILE          input FASTQ (possibly compressed), can be given twice for paired ends (for stdin use -)" << endl
     << "  -G, --gam-input FILE      input GAM (for stdin, use -)" << endl
@@ -95,6 +97,8 @@ int main_mpmap(int argc, char** argv) {
     string xg_name;
     string gcsa_name;
     string gbwt_name;
+    string sublinearLS_name;
+    string sublinearLS_ref_path;
     string snarls_name;
     string fastq_name_1;
     string fastq_name_2;
@@ -160,6 +164,8 @@ int main_mpmap(int argc, char** argv) {
             {"xg-name", required_argument, 0, 'x'},
             {"gcsa-name", required_argument, 0, 'g'},
             {"gbwt-name", required_argument, 0, 'H'},
+            {"linear-index", required_argument, 0, 1},
+            {"linear-path", required_argument, 0, 2},
             {"fastq", required_argument, 0, 'f'},
             {"gam-input", required_argument, 0, 'G'},
             {"sample", required_argument, 0, 'N'},
@@ -232,6 +238,14 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'H':
                 gbwt_name = optarg;
+                break;
+                
+            case 1: // --linear-index
+                sublinearLS_name = optarg;
+                break;
+            
+            case 2: // --linear-path
+                sublinearLS_ref_path = optarg;
                 break;
                 
             case 'f':
@@ -532,8 +546,23 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (population_max_paths != 1 && gbwt_name.empty()) {
-        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set when population database (-H) not provided." << endl;
+    if (population_max_paths != 1 && gbwt_name.empty() && sublinearLS_name.empty()) {
+        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set when population database (-H or --linear-index) not provided." << endl;
+        exit(1);
+    }
+    
+    if (!sublinearLS_name.empty() && !gbwt_name.empty()) {
+        cerr << "error:[vg mpmap] GBWT index (-H) and linear haplotype index (--linear-index) both specified. Only one can be used." << endl;
+        exit(1);
+    }
+    
+    if (!sublinearLS_name.empty() && sublinearLS_ref_path.empty()) {
+        cerr << "error:[vg mpmap] Linear haplotype index (--linear-index) cannot be used without a single reference path (--linear-path)." << endl;
+        exit(1);
+    }
+    
+    if (sublinearLS_name.empty() && !sublinearLS_ref_path.empty()) {
+        cerr << "error:[vg mpmap] Linear haplotype ref path (--linear-path) cannot be used without an index (--linear-index)." << endl;
         exit(1);
     }
     
@@ -645,14 +674,14 @@ int main_mpmap(int argc, char** argv) {
     }
     
     ifstream gcsa_stream(gcsa_name);
-    if (!xg_stream) {
+    if (!gcsa_stream) {
         cerr << "error:[vg mpmap] Cannot open GCSA2 file " << gcsa_name << endl;
         exit(1);
     }
     
     string lcp_name = gcsa_name + ".lcp";
     ifstream lcp_stream(lcp_name);
-    if (!xg_stream) {
+    if (!lcp_stream) {
         cerr << "error:[vg mpmap] Cannot open LCP file " << lcp_name << endl;
         exit(1);
     }
@@ -670,6 +699,7 @@ int main_mpmap(int argc, char** argv) {
     lcp_array.load(lcp_stream);
     
     gbwt::GBWT* gbwt = nullptr;
+    haplo::linear_haplo_structure* sublinearLS = nullptr;
     haplo::ScoreProvider* haplo_score_provider = nullptr;
     if (!gbwt_name.empty()) {
         ifstream gbwt_stream(gbwt_name);
@@ -682,7 +712,20 @@ int main_mpmap(int argc, char** argv) {
         
         // We have the GBWT available for scoring haplotypes
         haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
+    } else if (!sublinearLS_name.empty()) {
+        // We want to use sublinear Li and Stephens as our haplotype scoring approach
+        ifstream ls_stream(sublinearLS_name);
+        
+        // TODO: we only support a single ref contig, and we use these
+        // hardcoded mutation and recombination likelihoods
+        
+        // What is the rank of our one and only reference path
+        auto xg_ref_rank = xg_index.path_rank(sublinearLS_ref_path);
+        
+        sublinearLS = new linear_haplo_structure(ls_stream, 9 * 2.3, 9 * 2.3, xg_index, xg_ref_rank);
+        haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
     }
+    
     // TODO: Allow using haplo::XGScoreProvider?
     
     SnarlManager* snarl_manager = nullptr;
@@ -1065,6 +1108,10 @@ int main_mpmap(int argc, char** argv) {
    
     if (haplo_score_provider != nullptr) {
         delete haplo_score_provider;
+    }
+    
+    if (sublinearLS != nullptr) {
+        delete sublinearLS;
     }
    
     if (gbwt != nullptr) {
