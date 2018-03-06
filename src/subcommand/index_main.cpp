@@ -464,7 +464,7 @@ int main_index(int argc, char** argv) {
             cerr << "Node id width: " << id_width << endl;
         }
 
-        NodeLengthBuffer node_length(*xg_index);     // Buffer recent node lengths for faster access
+        NodeLengthBuffer node_length(*xg_index);    // Buffer recent node lengths for faster access
         vector<string> thread_names;                // Store thread names in insertion order.
         vector<xg::XG::thread_t> all_phase_threads; // Store all threads if building gPBWT.
         size_t haplotype_count = 0;
@@ -504,8 +504,21 @@ int main_index(int argc, char** argv) {
 
         // Convert paths to threads
         if (index_paths & !build_gpbwt) {
-            // FIXME implement
-            haplotype_count++;
+            if (show_progress) {
+                cerr << "Converting paths to threads..." << endl;
+            }
+            for (size_t path_rank = 1; path_rank <= xg_index->max_path_rank(); path_rank++) {
+                const xg::XGPath& path = xg_index->get_path(xg_index->path_name(path_rank));
+                if (path.ids.size() == 0) {
+                    continue;
+                }
+                std::vector<gbwt::node_type> buffer(path.ids.size());
+                for (size_t i = 0; i < path.ids.size(); i++) {
+                    buffer[i] = gbwt::Node::encode(path.node(i), path.is_reverse(i));
+                }
+                store_thread(buffer, xg_index->path_name(path_rank));
+            }
+            haplotype_count++; // We assume that the XG index contains the reference paths.
         }
 
         // Generate haplotypes
