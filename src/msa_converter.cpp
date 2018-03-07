@@ -270,6 +270,7 @@ using namespace std;
                             at_node->id() != path->mapping(path->mapping_size() - 1).position().node_id()) {
                             Mapping* mapping = path->add_mapping();
                             mapping->mutable_position()->set_node_id(at_node->id());
+                            mapping->set_rank(path->mapping_size());
                         }
                     }
                 }
