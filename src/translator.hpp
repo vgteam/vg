@@ -10,6 +10,8 @@
 #include <set>
 #include <vector>
 #include <list>
+#include <sstream>
+#include <exception>
 #include "vg.pb.h"
 #include "vg.hpp"
 #include "hash_map.hpp"

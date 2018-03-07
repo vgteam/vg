@@ -48,6 +48,8 @@ public:
     int length(void) const;
     // tells if the MEM contains an N
     size_t count_Ns(void) const;
+    // filter out every ceil(nodes.size()/n) hits
+    size_t filter_hits_to(int limit);
 
     friend bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
     friend bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2);

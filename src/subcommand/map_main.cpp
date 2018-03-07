@@ -23,7 +23,7 @@ void help_map(char** argv) {
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-mem INT       minimum MEM length (if 0 estimate via -e) [0]" << endl
          << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [5e-4]" << endl
-         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index (0 for no limit) [0]" << endl
+         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index (0 for no limit) [8192]" << endl
          << "    -Y, --max-mem INT       ignore mems longer than this length (unset if 0) [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than FLOAT*--min-seed [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds (1/2 for paired) [128]" << endl
@@ -100,7 +100,7 @@ int main_map(int argc, char** argv) {
     string hts_file;
     string fasta_file;
     bool keep_secondary = false;
-    int hit_max = 0;
+    int hit_max = 8192;
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
@@ -565,6 +565,9 @@ int main_map(int argc, char** argv) {
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
     gbwt::GBWT* gbwt = nullptr;
+    
+    // One of them may be used to provide haplotype scores
+    haplo::ScoreProvider* haplo_score_provider = nullptr;
 
     // We try opening the file, and then see if it worked
     ifstream xg_stream(xg_name);
@@ -578,6 +581,8 @@ int main_map(int argc, char** argv) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
         xgidx = new xg::XG(xg_stream);
+        
+        // TODO: Support haplo::XGScoreProvider?
     }
 
     ifstream gcsa_stream(gcsa_name);
@@ -608,6 +613,9 @@ int main_map(int argc, char** argv) {
         }
         gbwt = new gbwt::GBWT();
         gbwt->load(gbwt_stream);
+        
+        // We want to use this for haplotype scoring
+        haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
     }
 
     thread_count = get_thread_count();
@@ -870,12 +878,13 @@ int main_map(int argc, char** argv) {
         Mapper* m = nullptr;
         if(xgidx && gcsa && lcp) {
             // We have the xg and GCSA indexes, so use them
-            m = new Mapper(xgidx, gcsa, lcp, gbwt);
+            m = new Mapper(xgidx, gcsa, lcp, haplo_score_provider);
         } else {
             // Can't continue with null
             throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
         }
         m->hit_max = hit_max;
+        m->hit_limit = max(max_multimaps, extra_multimaps);
         m->max_multimaps = max_multimaps;
         m->min_multimaps = max(min_multimaps, max_multimaps);
         m->band_multimaps = band_multimaps;
@@ -1309,7 +1318,11 @@ int main_map(int argc, char** argv) {
         sam_close(sam_out);
         cout.flush();
     }
-
+    
+    if (haplo_score_provider) {
+        delete haplo_score_provider;
+        haplo_score_provider = nullptr;
+    }
     if (gbwt) {
         delete gbwt;
         gbwt = nullptr;

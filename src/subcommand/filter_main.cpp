@@ -22,9 +22,10 @@ using namespace vg::subcommand;
 
 void help_filter(char** argv) {
     cerr << "usage: " << argv[0] << " filter [options] <alignment.gam> > out.gam" << endl
-         << "Filter low-scoring alignments using different heuristics." << endl
+         << "Filter alignments by properties." << endl
          << endl
          << "options:" << endl
+         << "    -n, --name-prefix NAME  keep only reads with this prefix in their names [default='']" << endl
          << "    -s, --min-secondary N   minimum score to keep secondary alignment [default=0]" << endl
          << "    -r, --min-primary N     minimum score to keep primary alignment [default=0]" << endl
          << "    -O, --rescore           re-score reads using default parameters and only alignment information" << endl
@@ -67,6 +68,7 @@ int main_filter(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
+                {"name-prefix", required_argument, 0, 'n'},
                 {"min-secondary", required_argument, 0, 's'},
                 {"min-primary", required_argument, 0, 'r'},
                 {"rescore", no_argument, 0, 'O'},
@@ -90,7 +92,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:Od:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:t:",
+        c = getopt_long (argc, argv, "n:s:r:Od:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -99,6 +101,9 @@ int main_filter(int argc, char** argv) {
 
         switch (c)
         {
+        case 'n':
+            filter.name_prefix = optarg;
+            break;
         case 's':
             filter.min_secondary = atof(optarg);
             break;

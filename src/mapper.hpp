@@ -24,6 +24,8 @@
 #include "cluster.hpp"
 #include "graph.hpp"
 #include "translator.hpp"
+// TODO: pull out ScoreProvider into its own file
+#include "haplotypes.hpp"
 #include "algorithms/topological_sort.hpp"
 
 namespace vg {
@@ -146,8 +148,10 @@ private:
 class BaseMapper : public Progressive {
     
 public:
-    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
-    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, gbwt::GBWT* gbwt = nullptr);
+    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer
+    // index + LCP array, and which can score reads against haplotypes using
+    // the given ScoreProvider.
+    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
     BaseMapper(void);
     ~BaseMapper(void);
     
@@ -229,7 +233,8 @@ public:
     double fast_reseed_length_diff = 0.45; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
     bool adaptive_reseed_diff = true; // use an adaptive length difference algorithm in reseed algorithm
     double adaptive_diff_exponent = 0.065; // exponent that describes limiting behavior of adaptive diff algorithm
-    int hit_max;       // ignore or MEMs with more than this many hits
+    int hit_limit = 0;     // keep no more than this many MEMs
+    int hit_max = 0;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = false;
     bool prefilter_redundant_hits = true;
     int max_sub_mem_recursion_depth = 1;
@@ -328,8 +333,8 @@ protected:
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
     
-    // GBWT index, if any, for determining haplotype concordance
-    gbwt::GBWT* gbwt = nullptr;
+    // Haplotype score provider, if any, for determining haplotype concordance
+    haplo::ScoreProvider* haplo_score_provider = nullptr;
     
     // The exponent for the haplotype consistency score.
     // 0 = no haplotype consistency scoring done.
@@ -458,8 +463,8 @@ private:
     
 public:
     // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
-    // LCP array, and an optional GBWT haplotype index.
-    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, gbwt::GBWT* gbwt = nullptr);
+    // LCP array, and an optional haplotype score provider.
+    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
     Mapper(void);
     ~Mapper(void);
 
