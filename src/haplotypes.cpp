@@ -435,6 +435,12 @@ int64_t linear_haplo_structure::path_mapping_node_id(const vg::Path& path, size_
   return last_pos.node_id();
 }
 
+size_t linear_haplo_structure::path_mapping_offset(const vg::Path& path, size_t i) const {
+  vg::Mapping this_mapping = path.mapping(i);
+  auto last_pos = this_mapping.position();
+  return last_pos.offset();
+}
+
 int64_t linear_haplo_structure::get_SNP_ref_position(size_t node_id) const {
   vector<vg::Edge> lnbr_edges = xg_index.edges_on_start(node_id);
   int64_t lnbr = lnbr_edges[0].from();
@@ -470,7 +476,7 @@ alleleValue linear_haplo_structure::SNVvector::allele(size_t i) const {
 }
 
 size_t linear_haplo_structure::SNVvector::size() const {
-  return nodes.size();
+  return alleles.size();
 }
 
 bool linear_haplo_structure::sn_deletion_between_ref(int64_t left, int64_t right) const {
@@ -498,8 +504,9 @@ int64_t linear_haplo_structure::get_ref_following(int64_t node_id) const {
   size_t smallest = SIZE_MAX;
   int64_t node = refs[0];
   for(size_t i = 0; i < refs.size(); i++) {
-    if(position_assuming_acyclic(refs[i]) < smallest) {
-      smallest = position_assuming_acyclic(refs[i]);
+    auto pos = position_assuming_acyclic(refs[i]);
+    if(pos < smallest) {
+      smallest = pos;
       node = refs[i];
     }
   }
@@ -516,6 +523,7 @@ linear_haplo_structure::SNVvector linear_haplo_structure::SNVs(const vg::Path& p
   nodeType last_type = get_type(last_node);
   size_t last_pos;
   if(last_type == ref_span) {
+    // Find where the last_node (and not the path) starts in the reference
     last_pos = position_assuming_acyclic(last_node);
   } else if(last_type == snv) {
     last_pos = get_SNP_ref_position(last_node);
@@ -526,6 +534,8 @@ linear_haplo_structure::SNVvector linear_haplo_structure::SNVs(const vg::Path& p
 
   for(size_t i = 1; i < path.mapping_size(); i++) {
     int64_t this_node = path_mapping_node_id(path, i);
+    // Only the first mapping can have an offset.
+    assert(path_mapping_offset(path, i) == 0);
     nodeType this_type = get_type(this_node);
     size_t this_pos;
 
@@ -560,8 +570,16 @@ linear_haplo_structure::SNVvector linear_haplo_structure::SNVs(const vg::Path& p
 
 size_t linear_haplo_structure::position_assuming_acyclic(int64_t node_id) const {
   if(!xg_index.path_contains_node(xg_index.path_name(xg_ref_rank), node_id)) {
-    throw runtime_error("requested position-in-path of node not in path");
+    throw runtime_error("requested position-in-path of node " + to_string(node_id) + " not in path " + xg_index.path_name(xg_ref_rank));
   }
+  
+  // First vet the orientation.
+  // TODO: This is an extra query.
+  auto oriented_rank = xg_index.oriented_occurrences_on_path(node_id, xg_ref_rank).at(0);
+  // The whole system we use for the linear index assumes the graph nodes are all forward
+  assert(!oriented_rank.second);
+  
+  // Get the actual position
   return xg_index.position_in_path(node_id, xg_ref_rank).at(0);
 }
 
@@ -683,7 +701,23 @@ inputHaplotype* linear_haplo_structure::path_to_input_haplotype(const vg::Path& 
     return new inputHaplotype();
   }
   
-  size_t start = position_assuming_acyclic(path_mapping_node_id(path, 0));
+  // Determine the start position of the path in the reference.
+  size_t start;
+  // This is complicated by the fact that the path may start on an SNV alt
+  // allele node which does not occur on the reference path.
+  int64_t start_node = path_mapping_node_id(path, 0);
+  nodeType start_type = get_type(start_node);
+  if(start_type == ref_span) {
+    // We start on a reference node.
+    start = position_assuming_acyclic(start_node) + path_mapping_offset(path, 0);
+  } else if(start_type == snv) {
+    // We start on an alt
+    start = get_SNP_ref_position(start_node) + path_mapping_offset(path, 0);
+  } else {
+    // We start at some other weird place.
+    return new inputHaplotype();
+  }
+ 
   size_t length = 0;
   for(size_t i = 0; i < path.mapping_size(); i++) {
     vg::Mapping mapping = path.mapping(i);
@@ -691,7 +725,9 @@ inputHaplotype* linear_haplo_structure::path_to_input_haplotype(const vg::Path& 
   }  
   
   if(SNV_candidates.size() == 0) {
-    return new inputHaplotype(vector<alleleValue>(0), vector<size_t>(0), index, start, length);
+    // We need no sites, but one before-first site, after-last-site novel SNP
+    // count entry. TODO: actually count novel SNPs?
+    return new inputHaplotype(vector<alleleValue>(0), vector<size_t>(1, 0), index, start, length);
   }
   
   vector<size_t> positions;
@@ -720,7 +756,9 @@ inputHaplotype* linear_haplo_structure::path_to_input_haplotype(const vg::Path& 
     }
   }
   
-  inputHaplotype* to_return = new inputHaplotype(alleles, vector<size_t>(positions.size(), 0), index, start, length);
+  // With actual alleles, we need one novel SNP count between each pair of
+  // alleles, plus one before the first and one after the last. 
+  inputHaplotype* to_return = new inputHaplotype(alleles, vector<size_t>(alleles.size() + 1, 0), index, start, length);
   return to_return;
 }
 
