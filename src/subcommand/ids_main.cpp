@@ -31,7 +31,7 @@ void help_ids(char** argv) {
         << "    -j, --join           make a joint id space for all the graphs that are supplied" << endl
         << "                         by iterating through the supplied graphs and incrementing" << endl
         << "                         their ids to be non-conflicting (modifies original files)" << endl
-        << "    -m, --mapping FILE   create an empty node mapping for vg prune (use with -j)" << endl
+        << "    -m, --mapping FILE   create an empty node mapping for vg prune" << endl
         << "    -s, --sort           assign new node IDs in (generalized) topological sort order" << endl;
 }
 
@@ -109,7 +109,7 @@ int main_ids(int argc, char** argv) {
         }
     }
 
-    if (!join) {
+    if (!join && mapping_name.empty()) {
         VG* graph;
         get_input_file(optind, argc, argv, [&](istream& in) {
             graph = new VG(in);
@@ -144,7 +144,7 @@ int main_ids(int argc, char** argv) {
         }
 
         VGset graphs(graph_file_names);
-        vg::id_t max_node_id = graphs.merge_id_space();
+        vg::id_t max_node_id = (join ? graphs.merge_id_space() : graphs.get_max_id());
         if (!mapping_name.empty()) {
             gcsa::NodeMapping mapping(max_node_id + 1);
             std::ofstream out(mapping_name, std::ios_base::binary);
