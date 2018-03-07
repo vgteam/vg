@@ -536,8 +536,9 @@ int main_msga(int argc, char** argv) {
                     VG path_graph = *graph;
                     if (edge_max) path_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
                     path_graph.keep_path(name);
+                    size_t limit = ~(size_t)0;
                     tmpfiles.push_back(
-                        write_gcsa_kmers_to_tmpfile(path_graph, idx_kmer_size, head_id, tail_id));
+                        write_gcsa_kmers_to_tmpfile(path_graph, idx_kmer_size, limit, head_id, tail_id));
                 });
             // Make the index with the kmers
             gcsa::InputGraph input_graph(tmpfiles, true);

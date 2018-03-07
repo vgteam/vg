@@ -53,7 +53,7 @@ void help_index(char** argv) {
          << "    -f, --mapping FILE     use this node mapping in GCSA2 construction" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph (default " << gcsa::Key::MAX_LENGTH << ")" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction (default " << gcsa::ConstructionParameters::DOUBLING_STEPS << ")" << endl
-         << "    -Z, --size-limit N     limit the size of temporary graphs to N gigabytes" << endl
+         << "    -Z, --size-limit N     limit temporary disk space usage to N gigabytes (default " << gcsa::ConstructionParameters::SIZE_LIMIT << ")" << endl
          << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
          << "rocksdb options:" << endl
          << "    -d, --db-name  <X>     store the RocksDB index in <X>" << endl
@@ -145,8 +145,7 @@ int main_index(int argc, char** argv) {
 
     // GCSA
     gcsa::size_type kmer_size = gcsa::Key::MAX_LENGTH;
-    gcsa::size_type doubling_steps = gcsa::ConstructionParameters::DOUBLING_STEPS;
-    gcsa::size_type size_limit = 200; // gigabytes
+    gcsa::ConstructionParameters params;
     bool verify_gcsa = false;
 
     // RocksDB
@@ -316,10 +315,10 @@ int main_index(int argc, char** argv) {
             kmer_size = std::stoul(optarg);
             break;
         case 'X':
-            doubling_steps = std::stoul(optarg);
+            params.setSteps(std::stoul(optarg));
             break;
         case 'Z':
-            size_limit = std::stoul(optarg);
+            params.setLimit(std::stoul(optarg));
             break;
         case 'V':
             verify_gcsa = true;
@@ -1067,7 +1066,9 @@ int main_index(int argc, char** argv) {
             }
             VGset graphs(file_names);
             graphs.show_progress = show_progress;
-            dbg_names = graphs.write_gcsa_kmers_binary(kmer_size);
+            size_t kmer_bytes = params.getLimitBytes();
+            dbg_names = graphs.write_gcsa_kmers_binary(kmer_size, kmer_bytes);
+            params.reduceLimit(kmer_bytes);
             delete_kmer_files = true;
         }
 
@@ -1076,9 +1077,6 @@ int main_index(int argc, char** argv) {
             cerr << "Building the GCSA2 index..." << endl;
         }
         gcsa::InputGraph input_graph(dbg_names, true, gcsa::Alphabet(), mapping_name);
-        gcsa::ConstructionParameters params;
-        params.setSteps(doubling_steps);
-        params.setLimit(size_limit);
         gcsa::GCSA gcsa_index(input_graph, params);
         gcsa::LCPArray lcp_array(input_graph, params);
 
