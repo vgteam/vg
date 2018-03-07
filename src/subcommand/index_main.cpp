@@ -45,6 +45,8 @@ void help_index(char** argv) {
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -E, --exclude SAMPLE   exclude any samples with the given name from haplotype indexing" << endl
+         << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants," << endl
+         << "                           call all but the first one as ref" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
          << "    -i, --dbg-in FILE      use kmers from FILE instead of input VG (may repeat)" << endl
@@ -60,17 +62,13 @@ void help_index(char** argv) {
          << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
          << "    -N, --node-alignments  input is (ideally, sorted) .gam format," << endl
          << "                           cross reference nodes by alignment traversals" << endl
-         << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
-         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
-         << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
-         << "    -n, --allow-negs       don't filter out relative negative positions of kmers" << endl
          << "    -D, --dump             print the contents of the db to stdout" << endl
+         << "these are probably unused:" << endl
+         << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
          << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
          << "    -L, --path-layout      describes the path layout of the graph" << endl
          << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
-         << "    -C, --compact          compact the index into a single level (improves performance)" << endl
-         << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants," << endl
-         << "                           call all but the first one as ref" << endl;
+         << "    -C, --compact          compact the index into a single level (improves performance)" << endl;
 }
 
 // Convert gbwt::node_type to ThreadMapping.
@@ -143,6 +141,7 @@ int main_index(int argc, char** argv) {
     std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
     map<string, string> path_to_vcf; // Path name conversion from --rename.
     unordered_set<string> excluded_samples; // Excluded sample names from --exclude.
+    bool discard_overlaps = false;
 
     // GCSA
     gcsa::size_type kmer_size = gcsa::Key::MAX_LENGTH;
@@ -151,20 +150,18 @@ int main_index(int argc, char** argv) {
     bool verify_gcsa = false;
 
     // RocksDB
-    int edge_max = 0;
-    int kmer_stride = 1;
-    int prune_kb = -1;
     bool dump_index = false;
-    bool describe_index = false;
-    bool set_kmer_size = false;
-    bool path_layout = false;
     bool store_alignments = false;
     bool store_node_alignments = false;
     bool store_mappings = false;
-    bool allow_negs = false;
-    bool compact = false;
     bool dump_alignments = false;
-    bool discard_overlaps = false;
+
+    // Unused?
+    int prune_kb = -1;
+    bool describe_index = false;
+    bool set_kmer_size = false;
+    bool path_layout = false;
+    bool compact = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -189,6 +186,7 @@ int main_index(int argc, char** argv) {
             {"range", required_argument, 0, 'R'},
             {"rename", required_argument, 0, 'r'},
             {"exclude", required_argument, 0, 'E'},
+            {"discard-overlaps", no_argument, 0, 'o'},
 
             // GCSA
             {"gcsa-name", required_argument, 0, 'g'},
@@ -201,26 +199,23 @@ int main_index(int argc, char** argv) {
 
             // RocksDB
             {"db-name", required_argument, 0, 'd'},
-            {"edge-max", required_argument, 0, 'e'},
-            {"kmer-stride", required_argument, 0, 'j'},
-            {"store-graph", no_argument, 0, 's'},
+            {"store-mappings", no_argument, 0, 'm'},
             {"store-alignments", no_argument, 0, 'a'},
             {"dump-alignments", no_argument, 0, 'A'},
-            {"store-mappings", no_argument, 0, 'm'},
-            {"dump", no_argument, 0, 'D'},
-            {"metadata", no_argument, 0, 'M'},
-            {"set-kmer", no_argument, 0, 'S'},
-            {"prune",  required_argument, 0, 'P'},
-            {"path-layout", no_argument, 0, 'L'},
-            {"compact", no_argument, 0, 'C'},
-            {"allow-negs", no_argument, 0, 'n'},
             {"node-alignments", no_argument, 0, 'N'},
-            {"discard-overlaps", no_argument, 0, 'o'},
+            {"dump", no_argument, 0, 'D'},
+
+            // Unused?
+            {"prune",  required_argument, 0, 'P'},
+            {"metadata", no_argument, 0, 'M'},
+            {"path-layout", no_argument, 0, 'L'},
+            {"set-kmer", no_argument, 0, 'S'},
+            {"compact", no_argument, 0, 'C'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:TG:H:B:R:r:E:g:i:f:k:X:Z:Vd:j:DshMe:SP:LmaCnANo",
+        c = getopt_long (argc, argv, "b:t:px:F:v:TG:H:B:R:r:Eo:g:i:f:k:X:Z:Vd:maANDP:MLSCh",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -302,6 +297,9 @@ int main_index(int argc, char** argv) {
         case 'E':
             excluded_samples.insert(optarg);
             break;
+        case 'o':
+            discard_overlaps = true;
+            break;
 
         // GCSA
         case 'g':
@@ -332,17 +330,25 @@ int main_index(int argc, char** argv) {
             build_rocksdb = true;
             rocksdb_name = optarg;
             break;
-        case 'P':
-            prune_kb = atoi(optarg);
+        case 'm':
+            store_mappings = true;
             break;
-        case 'e':
-            edge_max = atoi(optarg);
+        case 'a':
+            store_alignments = true;
             break;
-        case 'j':
-            kmer_stride = atoi(optarg);
+        case 'A':
+            dump_alignments = true;
+            break;
+        case 'N':
+            store_node_alignments = true;
             break;
         case 'D':
             dump_index = true;
+            break;
+
+        // Unused?
+        case 'P':
+            prune_kb = atoi(optarg);
             break;
         case 'M':
             describe_index = true;
@@ -353,26 +359,8 @@ int main_index(int argc, char** argv) {
         case 'S':
             set_kmer_size = true;
             break;
-        case 'a':
-            store_alignments = true;
-            break;
-        case 'A':
-            dump_alignments = true;
-            break;
-        case 'm':
-            store_mappings = true;
-            break;
-        case 'n':
-            allow_negs = true;
-            break;
         case 'C':
             compact = true;
-            break;
-        case 'o':
-            discard_overlaps = true;
-            break;
-        case 'N':
-            store_node_alignments = true;
             break;
 
         case 'h':
@@ -406,33 +394,15 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    if (kmer_stride <= 0) {
-        // kmer strides of 0 (or negative) are silly.
-        cerr << "error: [vg index] kmer stride must be positive and nonzero" << endl;
-        return 1;
-    }
-
     if (index_haplotypes && samples_in_batch < 1) {
         cerr << "error: [vg index] Batch size must be positive and nonzero" << endl;
         return 1;
-    }
-
-    if (build_gcsa && edge_max != 0) {
-        // I have been passing this option to vg index -g for months
-        // thinking it worked. But it can't work. So we should tell the user
-        // they're wrong.
-        cerr << "error: [vg index] Cannot limit edge crossing (-e) when generating GCSA index (-g)."
-             << " Use vg prune to prune the graph instead." << endl;
-        exit(1);
     }
 
     if ((build_gbwt || write_threads) && thread_db_names.size() > 1) {
         cerr << "error: [vg index] Cannot use multiple thread database files with -G or -H" << endl;
         return 1;
     }
-    
-    // An edge_max of 0 really just means an edge_max of one edge every base
-    if (edge_max == 0) edge_max = kmer_size + 1;
 
     // Build XG
     xg::XG* xg_index = new xg::XG();
