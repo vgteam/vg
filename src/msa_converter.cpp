@@ -88,8 +88,8 @@ using namespace std;
                     conservation_line = is_conservation_line(next);
                     
                 }
-                if (conservation_line) {
-                    // hack for edge case that the final line is a conservation line
+                if (conservation_line || !got_data || all_of(next.begin(), next.end(), [](char c){return isspace(c);})) {
+                    // hack for edge case that the final line is a conservation line or whitespace
                     next.clear();
                 }
                 return next;
@@ -113,7 +113,6 @@ using namespace std;
                 else {
                     alignments[tokens[0]] = tokens[1];
                 }
-                
                 
                 line = get_next_sequence_line(in);
             }

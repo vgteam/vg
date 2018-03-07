@@ -332,7 +332,7 @@ int main_construct(int argc, char** argv) {
         }
         
         MSAConverter msa_converter(msa_file, msa_format, max_node_size);
-        
+
         VG msa_graph = msa_converter.make_graph(keep_paths);
         
         callback(msa_graph.graph);
