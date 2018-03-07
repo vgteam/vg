@@ -9,6 +9,7 @@
 
 #include "../stream.hpp"
 #include "../constructor.hpp"
+#include "../msa_converter.hpp"
 #include "../region.hpp"
 
 using namespace std;
@@ -20,6 +21,9 @@ void help_construct(char** argv) {
          << "options:" << endl
          << "    -v, --vcf FILE        input VCF (may repeat)" << endl
          << "    -r, --reference FILE  input FASTA reference (may repeat)" << endl
+         << "    -M, --msa FILE        input multiple sequence alignment" << endl
+         << "    -F, --msa-format      format of the MSA file (options: maf, clustal; default maf)" << endl
+         << "    -d, --drop-msa-paths  don't add paths for the MSA sequences into the graph" << endl
          << "    -n, --rename V=F      rename contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
          << "    -R, --region REGION   specify a particular chromosome or 1-based inclusive region" << endl
@@ -54,6 +58,10 @@ int main_construct(int argc, char** argv) {
     vector<string> insertion_filenames;
     string region;
     bool region_is_chrom = false;
+    string msa_filename;
+    int max_node_size = 1000;
+    bool keep_paths = true;
+    string msa_format = "maf";
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -64,6 +72,9 @@ int main_construct(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"vcf", required_argument, 0, 'v'},
                 {"reference", required_argument, 0, 'r'},
+                {"msa", required_argument, 0, 'M'},
+                {"msa-format", required_argument, 0, 'F'},
+                {"drop-msa-paths", no_argument, 0, 'd'},
                 {"rename", required_argument, 0, 'n'},
                 {"alt-paths", no_argument, 0, 'a'},
                 {"handle-sv", no_argument, 0, 'S'},
@@ -79,7 +90,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:CfSI:",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:CfSI:M:dF:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -90,6 +101,18 @@ int main_construct(int argc, char** argv) {
         {
         case 'v':
             vcf_filenames.push_back(optarg);
+            break;
+
+        case 'M':
+            msa_filename = optarg;
+            break;
+            
+        case 'F':
+            msa_format = optarg;
+            break;
+            
+        case 'd':
+            keep_paths = false;
             break;
 
         case 'r':
@@ -147,7 +170,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'm':
-            constructor.max_node_size = atoi(optarg);
+            max_node_size = atoi(optarg);
             break;
 
         case 'f':
@@ -167,128 +190,157 @@ int main_construct(int argc, char** argv) {
         }
     }
     
-    if (constructor.max_node_size == 0) {
-        // Make sure we can actually make nodes
-        cerr << "error:[vg construct] max node size cannot be 0" << endl;
-        exit(1);
-    }
-    
-    if (!region.empty()) {
-        // We want to limit to a certain region
-        if (!region_is_chrom) {
-            // We are allowed to parse the region.
-            // Break out sequence name and region bounds
-            string seq_name;
-            int64_t start_pos = -1, stop_pos = -1;
-            xg::parse_region(region,
-                             seq_name,
-                             start_pos,
-                             stop_pos);
-                         
-            if (start_pos > 0 && stop_pos > 0) {
-                // These are 0-based, so if both are nonzero we got a real set of coordinates
-                if (constructor.show_progress) {
-                    cerr << "Restricting to " << seq_name << " from " << start_pos << " to " << stop_pos << endl;
-                }
-                constructor.allowed_vcf_names.insert(seq_name);
-                // Make sure to correct the coordinates to 0-based exclusive-end, from 1-based inclusive-end
-                constructor.allowed_vcf_regions[seq_name] = make_pair(start_pos - 1, stop_pos);
-            } else if (start_pos < 0 && stop_pos < 0) {
-                // We just got a name
-                cerr << "Restricting to " << seq_name << " from 1 to end" << endl;
-                constructor.allowed_vcf_names.insert(seq_name);
-            } else {
-                // This doesn't make sense. Does it have like one coordinate?
-                cerr << "error:[vg construct] could not parse " << region << endl;
-                exit(1);
-            }
-         } else {
-            // We have been told not to parse the region
-            cerr << "Restricting to " << region << " from 1 to end" << endl;
-            constructor.allowed_vcf_names.insert(region);
-         }
-    }
-
-    // This will own all the VCF files
-    vector<unique_ptr<vcflib::VariantCallFile>> variant_files;
-    for (auto& vcf_filename : vcf_filenames) {
-        // Make sure each VCF file exists. Otherwise Tabix++ may exit with a non-
-        // helpful message.
-
-        // We can't invoke stat woithout a place for it to write. But all we
-        // really want is its return value.
-        struct stat temp;
-        if(stat(vcf_filename.c_str(), &temp)) {
-            cerr << "error:[vg construct] file \"" << vcf_filename << "\" not found" << endl;
-            return 1;
-        }
-        vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
-        variant_files.emplace_back(variant_file);
-        variant_file->open(vcf_filename);
-        if (!variant_file->is_open()) {
-            cerr << "error:[vg construct] could not open" << vcf_filename << endl;
-            return 1;
-        }
-    }
-
-    if (fasta_filenames.empty()) {
-        cerr << "error:[vg construct] a reference is required for graph construction" << endl;
-        return 1;
-    }
-    vector<unique_ptr<FastaReference>> references;
-    for (auto& fasta_filename : fasta_filenames) {
-        // Open each FASTA file
-        FastaReference* reference = new FastaReference();
-        references.emplace_back(reference);
-        reference->open(fasta_filename);
-    }
-
-    vector<unique_ptr<FastaReference> > insertions;
-    for (auto& insertion_filename : insertion_filenames){
-        // Open up those insertion files
-        FastaReference* insertion = new FastaReference();
-        insertions.emplace_back(insertion);
-        insertion->open(insertion_filename);
-    }
-
     // We need a callback to handle pieces of graph as they are produced.
     auto callback = [&](Graph& big_chunk) {
         // TODO: these chunks may be too big to (de)serialize directly. For now,
         // just serialize them directly anyway.
-        #pragma omp critical (cout)
+#pragma omp critical (cout)
         stream::write(cout, 1, std::function<Graph(uint64_t)>([&](uint64_t chunk_number) -> Graph {
             assert(chunk_number == 0);
             // Just spit out our one chunk
             return big_chunk;
         }));
     };
-
-    // Make vectors of just bare pointers
-    vector<vcflib::VariantCallFile*> vcf_pointers;
-    for(auto& vcf : variant_files) {
-        vcf_pointers.push_back(vcf.get());
-    }
-    vector<FastaReference*> fasta_pointers;
-    for(auto& fasta : references) {
-        fasta_pointers.push_back(fasta.get());
-    }
-    vector<FastaReference*> ins_pointers;
-    for (auto& ins : insertions){
-        ins_pointers.push_back(ins.get());
-    }
-
-    if (ins_pointers.size() > 1){
-        cerr << "Error: only one insertion file may be provided." << endl;
+    
+    constructor.max_node_size = max_node_size;
+    
+    if (constructor.max_node_size == 0) {
+        // Make sure we can actually make nodes
+        cerr << "error:[vg construct] max node size cannot be 0" << endl;
         exit(1);
     }
+    
+    if (!msa_filename.empty() && !fasta_filenames.empty()) {
+        cerr << "error:[vg construct] cannot construct from a reference/VCF and an MSA simultaneously" << endl;
+        exit(1);
+    }
+    
+    if (!fasta_filenames.empty()) {
+        
+        
+        if (!region.empty()) {
+            // We want to limit to a certain region
+            if (!region_is_chrom) {
+                // We are allowed to parse the region.
+                // Break out sequence name and region bounds
+                string seq_name;
+                int64_t start_pos = -1, stop_pos = -1;
+                xg::parse_region(region,
+                                 seq_name,
+                                 start_pos,
+                                 stop_pos);
+                
+                if (start_pos > 0 && stop_pos > 0) {
+                    // These are 0-based, so if both are nonzero we got a real set of coordinates
+                    if (constructor.show_progress) {
+                        cerr << "Restricting to " << seq_name << " from " << start_pos << " to " << stop_pos << endl;
+                    }
+                    constructor.allowed_vcf_names.insert(seq_name);
+                    // Make sure to correct the coordinates to 0-based exclusive-end, from 1-based inclusive-end
+                    constructor.allowed_vcf_regions[seq_name] = make_pair(start_pos - 1, stop_pos);
+                } else if (start_pos < 0 && stop_pos < 0) {
+                    // We just got a name
+                    cerr << "Restricting to " << seq_name << " from 1 to end" << endl;
+                    constructor.allowed_vcf_names.insert(seq_name);
+                } else {
+                    // This doesn't make sense. Does it have like one coordinate?
+                    cerr << "error:[vg construct] could not parse " << region << endl;
+                    exit(1);
+                }
+            } else {
+                // We have been told not to parse the region
+                cerr << "Restricting to " << region << " from 1 to end" << endl;
+                constructor.allowed_vcf_names.insert(region);
+            }
+        }
+        
+        // This will own all the VCF files
+        vector<unique_ptr<vcflib::VariantCallFile>> variant_files;
+        for (auto& vcf_filename : vcf_filenames) {
+            // Make sure each VCF file exists. Otherwise Tabix++ may exit with a non-
+            // helpful message.
+            
+            // We can't invoke stat woithout a place for it to write. But all we
+            // really want is its return value.
+            struct stat temp;
+            if(stat(vcf_filename.c_str(), &temp)) {
+                cerr << "error:[vg construct] file \"" << vcf_filename << "\" not found" << endl;
+                return 1;
+            }
+            vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
+            variant_files.emplace_back(variant_file);
+            variant_file->open(vcf_filename);
+            if (!variant_file->is_open()) {
+                cerr << "error:[vg construct] could not open" << vcf_filename << endl;
+                return 1;
+            }
+        }
+        
+        if (fasta_filenames.empty()) {
+            cerr << "error:[vg construct] a reference is required for graph construction" << endl;
+            return 1;
+        }
+        vector<unique_ptr<FastaReference>> references;
+        for (auto& fasta_filename : fasta_filenames) {
+            // Open each FASTA file
+            FastaReference* reference = new FastaReference();
+            references.emplace_back(reference);
+            reference->open(fasta_filename);
+        }
+        
+        vector<unique_ptr<FastaReference> > insertions;
+        for (auto& insertion_filename : insertion_filenames){
+            // Open up those insertion files
+            FastaReference* insertion = new FastaReference();
+            insertions.emplace_back(insertion);
+            insertion->open(insertion_filename);
+        }
+        
+        // Make vectors of just bare pointers
+        vector<vcflib::VariantCallFile*> vcf_pointers;
+        for(auto& vcf : variant_files) {
+            vcf_pointers.push_back(vcf.get());
+        }
+        vector<FastaReference*> fasta_pointers;
+        for(auto& fasta : references) {
+            fasta_pointers.push_back(fasta.get());
+        }
+        vector<FastaReference*> ins_pointers;
+        for (auto& ins : insertions){
+            ins_pointers.push_back(ins.get());
+        }
+        
+        if (ins_pointers.size() > 1){
+            cerr << "Error: only one insertion file may be provided." << endl;
+            exit(1);
+        }
+        
+        // Construct the graph.
+        constructor.construct_graph(fasta_pointers, vcf_pointers,
+                                    ins_pointers, callback);
+        
+        // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
+        // this would free all the memory used by protobuf:
+        //ShutdownProtobufLibrary();
+    }
+    else if (!msa_filename.empty()) {
+        
+        ifstream msa_file(msa_filename);
+        if (!msa_file) {
+            cerr << "error:[vg construct] could not open MSA file " << msa_filename << endl;
+            exit(1);
+        }
+        
+        MSAConverter msa_converter(msa_file, msa_format, max_node_size);
 
-    // Construct the graph.
-    constructor.construct_graph(fasta_pointers, vcf_pointers,
-                                ins_pointers, callback);
-
-    // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
-    // this would free all the memory used by protobuf:
-    //ShutdownProtobufLibrary();
+        VG msa_graph = msa_converter.make_graph(keep_paths);
+        
+        callback(msa_graph.graph);
+    }
+    else {
+        cerr << "error:[vg construct] a reference or an MSA is required for construct" << endl;
+        exit(1);
+    }
 
     return 0;
 }
