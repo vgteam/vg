@@ -14,17 +14,8 @@ namespace vg {
 
 using namespace std;
 
-    MSAConverter::MSAConverter(istream& in, size_t max_node_length) : max_node_length(max_node_length) {
+    MSAConverter::MSAConverter(istream& in, string format, size_t max_node_length) : max_node_length(max_node_length) {
         
-        auto get_next_sequence_line = [](istream& in) {
-            string next;
-            
-            bool got_data = getline(in, next).good();
-            while (got_data && (next.empty() ? true : next[0] != 's')) {
-                got_data = getline(in, next).good();
-            }
-            return next;
-        };
         
         auto tokenize = [](string str) {
             string buf;
@@ -35,35 +26,115 @@ using namespace std;
             }
             return tokens;
         };
-
-        string line = get_next_sequence_line(in);
         
-        while (!line.empty()) {
-            vector<string> tokens = tokenize(line);
+        if (format == "maf") {
+            auto get_next_sequence_line = [](istream& in) {
+                string next;
+                
+                bool got_data = getline(in, next).good();
+                while (got_data && (next.empty() ? true : next[0] != 's')) {
+                    got_data = getline(in, next).good();
+                }
+                return next;
+            };
             
-            assert(tokens.size() >= 7);
+            string line = get_next_sequence_line(in);
             
-            auto iter = alignments.find(tokens[1]);
-            if (iter != alignments.end()) {
-                iter->second.append(tokens[6]);
+            while (!line.empty()) {
+                vector<string> tokens = tokenize(line);
+                
+                assert(tokens.size() >= 7);
+                
+                auto iter = alignments.find(tokens[1]);
+                if (iter != alignments.end()) {
+                    iter->second.append(tokens[6]);
+                }
+                else {
+                    alignments[tokens[1]] = tokens[6];
+                }
+                
+                line = get_next_sequence_line(in);
             }
-            else {
-                alignments[tokens[1]] = tokens[6];
-            }
-            
-            line = get_next_sequence_line(in);
         }
+        else if (format == "clustal") {
+            
+            unordered_set<char> conservation_chars{'.', ':', '*'};
+            
+            auto is_conservation_line = [&](string& line) {
+                bool conservation_line = false;
+                for (char c : line) {
+                    if (!isspace(c)) {
+                        if (conservation_chars.count(c)) {
+                            conservation_line = true;
+                        }
+                        else {
+                            conservation_line = false;
+                        }
+                        break;
+                    }
+                }
+                return conservation_line;
+            };
+            
+            auto get_next_sequence_line = [&](istream& in) {
+                string next;
+                
+                bool got_data = getline(in, next).good();
+                bool conservation_line = is_conservation_line(next);
+                
+                while (got_data && (next.empty() || conservation_line)) {
+                    
+                    got_data = getline(in, next).good();
+                    conservation_line = is_conservation_line(next);
+                    
+                }
+                if (conservation_line) {
+                    // hack for edge case that the final line is a conservation line
+                    next.clear();
+                }
+                return next;
+            };
+            
+            // skip the header line
+            get_next_sequence_line(in);
+            
+            string line = get_next_sequence_line(in);
+            while (!line.empty()) {
+                vector<string> tokens = tokenize(line);
+                
+                if (tokens.size() != 2) {
+                    continue;
+                }
+                
+                auto iter = alignments.find(tokens[0]);
+                if (iter != alignments.end()) {
+                    iter->second.append(tokens[1]);
+                }
+                else {
+                    alignments[tokens[0]] = tokens[1];
+                }
+                
+                
+                line = get_next_sequence_line(in);
+            }
+        }
+        else {
+            cerr << "error:[MSAConverter] unsupported MSA format" << endl;
+            exit(1);
+        }
+        
+        
+#ifdef debug_msa_converter
+        cerr << "alignments:" << endl;
+        for (const auto& aln : alignments) {
+            cerr << aln.first << "\t" << aln.second << endl;
+        }
+#endif
         
         size_t aln_len = alignments.begin()->second.size();
         for (const auto& aln : alignments) {
             assert(aln.second.size() == aln_len);
         }
-        
-#ifdef debug_msa_converter
-        for (const auto& aln : alignments) {
-            cerr << aln.first << "\t" << aln.second << endl;
-        }
-#endif
     }
     
     MSAConverter::~MSAConverter() {
@@ -107,7 +178,13 @@ using namespace std;
             unordered_map<char, pair<unordered_set<Node*>, vector<string>>> transitions;
             for (const auto& aln : alignments) {
                 char aln_char = toupper(aln.second[i]);
-                assert(alphabet.count(aln_char));
+                
+                if (!alphabet.count(aln_char)) {
+                    cerr << "error:[MSAConverter] MSA contains non-nucleotide characters" << endl;
+                    exit(1);
+                    
+                }
+                
                 Node* node_here = current_node[aln.first];
                 
                 if (aln_char != '-') {

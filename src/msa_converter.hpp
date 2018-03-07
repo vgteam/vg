@@ -23,7 +23,7 @@ using namespace std;
     class MSAConverter {
     public:
         // TODO: currently only MAF format, should write other sockets too
-        MSAConverter(istream& in, size_t max_node_length = numeric_limits<size_t>::max());
+        MSAConverter(istream& in, string format = "maf", size_t max_node_length = numeric_limits<size_t>::max());
         ~MSAConverter();
         
         VG make_graph(bool keep_paths = true);

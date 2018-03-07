@@ -21,8 +21,9 @@ void help_construct(char** argv) {
          << "options:" << endl
          << "    -v, --vcf FILE        input VCF (may repeat)" << endl
          << "    -r, --reference FILE  input FASTA reference (may repeat)" << endl
-         << "    -M, --msa FILE        input multiple sequence alignment in MAF format" << endl
-         << "    -d, --drop-msa-paths  don't add paths for the MSA sequences into the graph"
+         << "    -M, --msa FILE        input multiple sequence alignment" << endl
+         << "    -F, --msa-format      format of the MSA file (options: maf, clustal; default maf)" << endl
+         << "    -d, --drop-msa-paths  don't add paths for the MSA sequences into the graph" << endl
          << "    -n, --rename V=F      rename contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
          << "    -R, --region REGION   specify a particular chromosome or 1-based inclusive region" << endl
@@ -60,6 +61,7 @@ int main_construct(int argc, char** argv) {
     string msa_filename;
     int max_node_size = 1000;
     bool keep_paths = true;
+    string msa_format = "maf";
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -71,6 +73,7 @@ int main_construct(int argc, char** argv) {
                 {"vcf", required_argument, 0, 'v'},
                 {"reference", required_argument, 0, 'r'},
                 {"msa", required_argument, 0, 'M'},
+                {"msa-format", required_argument, 0, 'F'},
                 {"drop-msa-paths", no_argument, 0, 'd'},
                 {"rename", required_argument, 0, 'n'},
                 {"alt-paths", no_argument, 0, 'a'},
@@ -87,7 +90,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:CfSI:M:d",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:CfSI:M:dF:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -102,6 +105,10 @@ int main_construct(int argc, char** argv) {
 
         case 'M':
             msa_filename = optarg;
+            break;
+            
+        case 'F':
+            msa_format = optarg;
             break;
             
         case 'd':
@@ -324,7 +331,7 @@ int main_construct(int argc, char** argv) {
             exit(1);
         }
         
-        MSAConverter msa_converter(msa_file, max_node_size);
+        MSAConverter msa_converter(msa_file, msa_format, max_node_size);
         
         VG msa_graph = msa_converter.make_graph(keep_paths);
         
