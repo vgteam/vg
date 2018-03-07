@@ -95,7 +95,7 @@ using namespace std;
         }
         
         // nodes that we don't want to extend any more
-        // we don't want to extend the dummy node
+        // (we never want to extend the dummy node)
         unordered_set<Node*> completed_nodes{dummy_node};
         
         size_t aln_len = alignments.begin()->second.size();
@@ -137,11 +137,11 @@ using namespace std;
             for (const auto& transition : transitions) {
 #ifdef debug_msa_converter
                 cerr << "transition to " << transition.first << endl;
-                cerr << "nodes:" << endl;
+                cerr << "from nodes:" << endl;
                 for (const Node* n : transition.second.first) {
                     cerr << "\t" << n->id() << ": " << n->sequence() << endl;
                 }
-                cerr << "sequences:" << endl;
+                cerr << "on sequences:" << endl;
                 for (const string& s : transition.second.second) {
                     cerr << "\t" << s << endl;
                 }
