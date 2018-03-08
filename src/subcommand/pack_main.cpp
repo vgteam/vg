@@ -18,7 +18,7 @@ void help_pack(char** argv) {
          << "    -i, --packs-in FILE    begin by summing coverage packs from each provided FILE" << endl
          << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
          << "    -d, --as-table         write table on stdout representing packs" << endl
-         << "    -n, --no-edits         don't record or write edits, just graph-matching coverage" << endl
+         << "    -e, --with-edits       record and write edits rather than only recording graph-matching coverage" << endl
          << "    -b, --bin-size N       number of sequence bases per CSA bin [default: inf]" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
@@ -31,7 +31,7 @@ int main_pack(int argc, char** argv) {
     string gam_in;
     bool write_table = false;
     int thread_count = 1;
-    bool record_edits = true;
+    bool record_edits = false;
     size_t bin_size = 0;
 
     if (argc == 2) {
@@ -51,13 +51,13 @@ int main_pack(int argc, char** argv) {
             {"gam", required_argument, 0, 'g'},
             {"as-table", no_argument, 0, 'd'},
             {"threads", required_argument, 0, 't'},
-            {"no-edits", no_argument, 0, 'n'},
+            {"with-edits", no_argument, 0, 'e'},
             {"bin-size", required_argument, 0, 'b'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:dt:nb:",
+        c = getopt_long (argc, argv, "hx:o:i:g:dt:eb:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -86,8 +86,8 @@ int main_pack(int argc, char** argv) {
         case 'd':
             write_table = true;
             break;
-        case 'n':
-            record_edits = false;
+        case 'e':
+            record_edits = true;
             break;
         case 'b':
             bin_size = atoll(optarg);
