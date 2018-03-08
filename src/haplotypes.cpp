@@ -746,12 +746,22 @@ inputHaplotype* linear_haplo_structure::path_to_input_haplotype(const vg::Path& 
     }
   }
   
-  size_t last_i = index->get_site_index(SNV_candidates.ref_position(0));
-  for(size_t i = 1; i < SNV_candidates.size(); i++) {
-    size_t this_i = index->get_site_index(SNV_candidates.ref_position(i)); 
-    if(this_i != last_i + 1) {
+  size_t last_i = std::numeric_limits<size_t>::max();
+  for(size_t i = 0; i < SNV_candidates.size(); i++) {
+    if(!index->is_site(SNV_candidates.ref_position(i))) {
+      // This is a single-base indel or something else that looks like a SNP but isn't.
+      // We can skip it like we do with all non-SNP variation.
+      continue;
+    }
+    
+    // If we know it's int he index, get its index in the index
+    size_t this_i = index->get_site_index(SNV_candidates.ref_position(i));
+    if(last_i != std::numeric_limits<size_t>::max() && this_i != last_i + 1) {
+      // The last SNP existed and this SNP does not come after it.
+      // All the SNPs have to be consecutive in the index.
       return new inputHaplotype();
     } else {
+      // Either this was the first SNP or it followed right after the previous one in the sites list.
       last_i = this_i;
     }
   }
