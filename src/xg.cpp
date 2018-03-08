@@ -71,33 +71,15 @@ char revdna3bit(int i) {
 const XG::destination_t XG::BS_SEPARATOR = 1;
 const XG::destination_t XG::BS_NULL = 0;
 
-XG::XG(istream& in)
-    : start_marker('#'),
-      end_marker('$'),
-      seq_length(0),
-      node_count(0),
-      edge_count(0),
-      path_count(0) {
+XG::XG(istream& in) {
     load(in);
 }
 
-XG::XG(Graph& graph)
-    : start_marker('#'),
-      end_marker('$'),
-      seq_length(0),
-      node_count(0),
-      edge_count(0),
-      path_count(0) {
+XG::XG(Graph& graph) {
     from_graph(graph);
 }
 
-XG::XG(function<void(function<void(Graph&)>)> get_chunks)
-    : start_marker('#'),
-      end_marker('$'),
-      seq_length(0),
-      node_count(0),
-      edge_count(0),
-      path_count(0) {
+XG::XG(function<void(function<void(Graph&)>)> get_chunks) {
     from_callback(get_chunks);
 }
 
@@ -159,6 +141,13 @@ void XG::load(istream& in) {
         ////////////////////////////////////////////////////////////////////////
         switch (file_version) {
         
+        case 5: // Fall through
+        case 6:
+        case 7:
+            cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. "
+                 << "For better performance over repeated loads, consider recreating this XG with 'vg index' "
+                 << "or upgrading it with 'vg xg'." << endl;
+            // Fall through
         case 8:
             {
                 sdsl::read_member(seq_length, in);
@@ -209,7 +198,12 @@ void XG::load(istream& in) {
                 sdsl::read_member(path_count, in);
                 for (size_t i = 0; i < path_count; ++i) {
                     auto path = new XGPath;
-                    path->load(in);
+                    // Load the path, giving it the file version and a
+                    // rank-to-ID comversion function for format upgrade
+                    // purposes.
+                    path->load(in, file_version, [&](size_t rank) {
+                        return rank_to_id(rank);
+                    });
                     paths.push_back(path);
                 }
                 np_iv.load(in);
@@ -259,9 +253,53 @@ void XG::load(istream& in) {
 
 }
 
-void XGPath::load(istream& in) {
-    sdsl::read_member(min_node_id, in);
-    ids.load(in);
+void XGPath::load(istream& in, uint32_t file_version, const function<int64_t(size_t)>& rank_to_id) {
+    if (file_version >= 8) {
+        // Min node ID readily available
+        sdsl::read_member(min_node_id, in);
+        
+        // IDs are in local space
+        ids.load(in);
+    } else {
+        // We used to store a bunch of members we don't use now
+        rrr_vector<> nodes;
+        rrr_vector<>::rank_1_type nodes_rank;
+        rrr_vector<>::select_1_type nodes_select;
+    
+        // Load up the old members, even though we discard them.
+        nodes.load(in);
+        nodes_rank.load(in);
+        nodes_select.load(in);
+        
+        // IDs are in global space; need converting to local.
+        wt_gmr<> old_ids;
+        old_ids.load(in);
+        
+        // Find the min node ID, which replaces nodes, nodes_rank, and nodes_select.
+        min_node_id = numeric_limits<int64_t>::max();
+        for (size_t i = 0; i < old_ids.size(); i++) {
+            min_node_id = min(min_node_id, (int64_t) old_ids[i]);
+        }
+        
+        // Now min_node_id is set so local_id() can work.
+        
+        // Make a new vector for the local-space IDs
+        int_vector<> new_ids;
+        util::assign(new_ids, int_vector<>(old_ids.size()));
+        
+        for (size_t i = 0; i < old_ids.size(); i++) {
+            // Convert each global ID to a local ID
+            auto new_id = local_id(old_ids[i]);
+            assert(new_id != 0);
+            new_ids[i] = new_id;
+        }
+        
+        // Compress the converted vector
+        util::bit_compress(new_ids);
+        // Create the real ids vector 
+        construct_im(ids, new_ids);
+    }
+    
     directions.load(in);
     ranks.load(in);
     positions.load(in);
@@ -462,6 +500,8 @@ size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string nam
     paths_written += pn_bv_rank.serialize(out, paths_child, "path_names_starts_rank");
     paths_written += pn_bv_select.serialize(out, paths_child, "path_names_starts_select");
     paths_written += pi_iv.serialize(out, paths_child, "path_ids");
+    // TODO: Path count is written twice (once from paths.size() and once earlier from path_count)
+    // We should remove one and cut a new xg version
     paths_written += sdsl::write_member(paths.size(), out, paths_child, "path_count");    
     for (size_t i = 0; i < paths.size(); i++) {
         XGPath* path = paths[i];
@@ -1275,6 +1315,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
 
         cerr << "graph ok" << endl;
     }
+    
 }
     
 void XG::index_component_path_sets() {
