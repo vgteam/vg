@@ -233,6 +233,10 @@ void Packer::add(const Alignment& aln, bool record_edits) {
 #endif
             continue;
         }
+        // skip nodes outside of our graph, assuming this may be a subgraph
+        if (!xgidx->has_node(mapping.position().node_id())) {
+            continue;
+        }
         size_t i = position_in_basis(mapping.position());
         for (auto& edit : mapping.edit()) {
             if (edit_is_match(edit)) {
