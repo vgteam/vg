@@ -147,27 +147,31 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
         tempStream.open(dirName+ "/stacktrace.txt");
         out = &tempStream;
     }
-    
+   
+    // This holds the context that the signal came from, including registers and stuff
+    ucontext_t* context = (ucontext_t*) signalContext;
+   
+    // TODO: This assumes x86_64
+    // Fetch out the registers
+    // We model IP as a pointer to void (i.e. into code)
+    void* ip;
+    // We model BP as an array of two things: previous BP, and previous IP.
+    void** bp;
+   
     #ifdef __APPLE__
         // OS X 64 bit does it this way
-        // This holds the context that the signal came from, including registers and stuff
-        ucontext_t* context = (ucontext_t*) signalContext;
-        
-        // TODO: This assumes x86
-        // Fetch out the registers
-        // We model IP as a pointer to void (i.e. into code)
-        void* ip;
-        // We model BP as an array of two things: previous BP, and previous IP.
-        void** bp;
         ip = (void*)context->uc_mcontext->__ss.__rip;
         bp = (void**)context->uc_mcontext->__ss.__rbp;
         *out << "Caught signal " << signalNumber << " raised at address " << ip << endl;
         // Do our own tracing because backtrace doesn't really work on all platforms.
-        stacktrace_manually(*out,signalNumber, ip, bp);
+        stacktrace_manually(*out, signalNumber, ip, bp);
     #else
         // Linux 64 bit does it this way
+        ip = (void*)context->uc_mcontext.gregs[REG_RIP];
+        bp = (void**)context->uc_mcontext.gregs[REG_RBP];
+        
         static backward::StackTrace stack_trace;
-        stack_trace.load_here(32);
+        stack_trace.load_from(ip, 32);
         static backward::Printer p;
         p.color_mode = backward::ColorMode::automatic;
         p.address = true;
@@ -187,29 +191,29 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
 
 void enable_crash_handling() {
     // Set up stack trace support
-        if (getenv(var) != nullptr) {
-            if (strcmp(getenv(var), "1") == 0) {
-                // if VG_FULL_TRACEBACK env var is set
-                fullTrace = true;
-            }
+    if (getenv(var) != nullptr) {
+        if (strcmp(getenv(var), "1") == 0) {
+            // if VG_FULL_TRACEBACK env var is set
+            fullTrace = true;
         }
-        else {
-            // if VG_FULL_TRACEBACK env var is not set
-            fullTrace = false;
-        }
-        // backtrace() doesn't work in our Mac builds, and backward-cpp uses backtrace().
-        // Do this the old-fashioned way.
-        
-        // We do it the cleverer sigaction way to try and make OS X backtrace not just tell us that the signal handler is being called.
-        struct sigaction sig_config;
-        sig_config.sa_flags = SA_SIGINFO; // Use the new API and not the old signal() API for the handler.
-        sig_config.sa_sigaction = emit_stacktrace;
-        sigemptyset(&sig_config.sa_mask);
-     
-        sigaction(SIGABRT, &sig_config, nullptr);
-        sigaction(SIGSEGV, &sig_config, nullptr);
-        sigaction(SIGBUS, &sig_config, nullptr);
-        sigaction(SIGILL, &sig_config, nullptr);
+    }
+    else {
+        // if VG_FULL_TRACEBACK env var is not set
+        fullTrace = false;
+    }
+    // backtrace() doesn't work in our Mac builds, and backward-cpp uses backtrace().
+    // Do this the old-fashioned way.
+    
+    // We do it the cleverer sigaction way to try and make OS X backtrace not just tell us that the signal handler is being called.
+    struct sigaction sig_config;
+    sig_config.sa_flags = SA_SIGINFO; // Use the new API and not the old signal() API for the handler.
+    sig_config.sa_sigaction = emit_stacktrace;
+    sigemptyset(&sig_config.sa_mask);
+ 
+    sigaction(SIGABRT, &sig_config, nullptr);
+    sigaction(SIGSEGV, &sig_config, nullptr);
+    sigaction(SIGBUS, &sig_config, nullptr);
+    sigaction(SIGILL, &sig_config, nullptr);
     
     // We don't set_terminate for aborts because we still want the standard
     // library's message about what the exception was.
