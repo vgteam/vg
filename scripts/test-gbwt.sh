@@ -413,6 +413,10 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
 
 fi
 
+# Make all the jobs finish
+MAX_JOBS=0
+wait_on_jobs
+
 if [[ ! -e "${OUTPUT_PATH}/position.results.tsv" ]]; then
     # Concatenate all the conditions' position results files
     
@@ -423,7 +427,7 @@ if [[ ! -e "${OUTPUT_PATH}/position.results.tsv" ]]; then
             cat "${OUTPUT_PATH}/${CONDITION}/position.results.tsv" > "${OUTPUT_PATH}/position.results.tsv"
         else
             # Drop the header
-            cat "${OUTPUT_PATH}/${CONDITION}/position.results.tsv" | sed 1d > "${OUTPUT_PATH}/position.results.tsv"
+            cat "${OUTPUT_PATH}/${CONDITION}/position.results.tsv" | sed 1d >> "${OUTPUT_PATH}/position.results.tsv"
         fi
         FIRST_CONDITION=0
     done
