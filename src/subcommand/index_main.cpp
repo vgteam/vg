@@ -122,7 +122,7 @@ int main_index(int argc, char** argv) {
     }
 
     // Which indexes to build.
-    bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt, build_gcsa = false, build_rocksdb = false;
+    bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt = false, build_gcsa = false, build_rocksdb = false;
 
     // Files we should read.
     string vcf_name, mapping_name;
@@ -262,7 +262,7 @@ int main_index(int argc, char** argv) {
             threads_name = optarg;
             break;
         case 'B':
-            samples_in_batch = std::stoul(optarg);
+            samples_in_batch = std::max(std::stoul(optarg), 1ul);
             break;
         case 'R':
             {
@@ -312,7 +312,7 @@ int main_index(int argc, char** argv) {
             mapping_name = optarg;
             break;
         case 'k':
-            kmer_size = std::stoul(optarg);
+            kmer_size = std::max(std::stoul(optarg), 1ul);
             break;
         case 'X':
             params.setSteps(std::stoul(optarg));
@@ -377,15 +377,26 @@ int main_index(int argc, char** argv) {
         string file_name = get_input_file_name(optind, argc, argv);
         file_names.push_back(file_name);
     }
-    
+
+    if (xg_name.empty() && gbwt_name.empty() && threads_name.empty() && gcsa_name.empty() && rocksdb_name.empty()) {
+        cerr << "error: [vg index] index type not specified" << endl;
+        return 1;
+    }
+
+    if ((build_gbwt || write_threads) && !(index_haplotypes || index_paths)) {
+        cerr << "error: [vg index] cannot build GBWT without threads" << endl;
+        return 1;
+    }
+
+    // Something weird happens with the current haplotype generation logic if there are multiple graphs.
+    if (index_haplotypes && file_names.size() != 1) {
+        cerr << "error: [vg index] haplotype index can only be built for a single graph" << endl;
+        return 1;
+    }
+
     if (file_names.size() <= 0 && dbg_names.empty()){
         //cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
-    }
-    
-    if (kmer_size <= 0) {
-        cerr << "error: [vg index] kmer size must be positive" << endl;
-        return 1;
     }
     
     if (build_gcsa && kmer_size > gcsa::Key::MAX_LENGTH) {
@@ -393,13 +404,8 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    if (index_haplotypes && samples_in_batch < 1) {
-        cerr << "error: [vg index] Batch size must be positive and nonzero" << endl;
-        return 1;
-    }
-
     if ((build_gbwt || write_threads) && thread_db_names.size() > 1) {
-        cerr << "error: [vg index] Cannot use multiple thread database files with -G or -H" << endl;
+        cerr << "error: [vg index] cannot use multiple thread database files with -G or -H" << endl;
         return 1;
     }
 
@@ -539,7 +545,7 @@ int main_index(int argc, char** argv) {
 
                 // How many bases is it?
                 size_t path_length = xg_index->path_length(path_name);
-                
+
                 // We're going to extract it and index it, so we don't keep
                 // making queries against it for every sample.
                 PathIndex path_index(xg_index->path(path_name));
@@ -1008,7 +1014,8 @@ int main_index(int argc, char** argv) {
                 write_thread_db(thread_db_names.front(), thread_names, haplotype_count);
             } else if (!xg_name.empty()) {
                 if (show_progress) {
-                    cerr << "Storing thread database in the XG index..." << endl;
+                    cerr << "Storing " << thread_names.size() << " thread names from "
+                         << haplotype_count << " haplotypes in the XG index..." << endl;
                 }
                 xg_index->set_thread_names(thread_names);
                 xg_index->set_haplotype_count(haplotype_count);
