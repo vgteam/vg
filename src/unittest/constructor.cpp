@@ -246,7 +246,7 @@ Graph construct_test_graph(string fasta_data, string vcf_data) {
     vector<vcflib::VariantCallFile*> vcf_pointers {&vcf};
     
     // We have to write the FASTA to a file
-    string fasta_filename = tmpfilename();
+    string fasta_filename = temp_file::create();
     ofstream fasta_stream(fasta_filename);
     fasta_stream << fasta_data;
     fasta_stream.close(); 
@@ -277,7 +277,7 @@ Graph construct_test_graph(string fasta_data, string vcf_data) {
     constructor.construct_graph(fasta_pointers, vcf_pointers, ins_pointers, callback);
     
     // Delete our temporary file
-    remove(fasta_filename.c_str());
+    temp_file::remove(fasta_filename);
     
     // Return the aggregated result
     return built;

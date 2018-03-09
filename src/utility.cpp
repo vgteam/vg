@@ -1,5 +1,8 @@
 #include "utility.hpp"
 
+#include <cstdio>
+#include <set>
+
 namespace vg {
 
 static const char complement[256] = {'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', // 8
@@ -162,8 +165,23 @@ string toUppercase(const string& s) {
     return n;
 }
 
-string tmpfilename(const string& base) {
-    string tmpname = find_temp_dir() + "/" + base + "XXXXXXXX";
+namespace temp_file {
+
+string temp_dir;
+
+/// Because the names are in a static object, we can delete them when
+/// std::exit() is called.
+struct Handler {
+    set<string> filenames;
+    ~Handler() {
+        for (auto& filename : filenames) {
+            std::remove(filename.c_str());
+        }
+    }
+} handler;
+
+string create(const string& base) {
+    string tmpname = get_dir() + "/" + base + "XXXXXXXX";
     // hack to use mkstemp to get us a safe temporary file name
     int fd = mkstemp(&tmpname[0]);
     if(fd != -1) {
@@ -174,35 +192,39 @@ string tmpfilename(const string& base) {
              << base << " : " << tmpname << endl;
         exit(1);
     }
+    handler.filenames.insert(tmpname);
     return tmpname;
 }
 
-string tmpfilename() {
-    return tmpfilename("vg-");
+string create() {
+    return create("vg-");
 }
 
-namespace {
-    string current_temp_dir;
+void remove(const string& filename) {
+    std::remove(filename.c_str());
+    handler.filenames.erase(filename);
 }
 
-string find_temp_dir() {
+void set_dir(const string& new_temp_dir) {
+    temp_dir = new_temp_dir;
+}
+
+string get_dir() {
     // Get the default temp dir from environment variables.
-    if (current_temp_dir.empty()) {
+    if (temp_dir.empty()) {
         const char* system_temp_dir = nullptr;
         for(const char* var_name : {"TMPDIR", "TMP", "TEMP", "TEMPDIR", "USERPROFILE"}) {
             if (system_temp_dir == nullptr) {
                 system_temp_dir = getenv(var_name);
             }
         }
-        current_temp_dir = (system_temp_dir == nullptr ? "/tmp" : system_temp_dir);
+        temp_dir = (system_temp_dir == nullptr ? "/tmp" : system_temp_dir);
     }
 
-    return current_temp_dir;
+    return temp_dir;
 }
 
-void set_temp_dir(const string& new_temp_dir) {
-    current_temp_dir = new_temp_dir;
-}
+} // namespace temp_file
 
 string get_or_make_variant_id(const vcflib::Variant& variant) {
 

@@ -192,7 +192,7 @@ int main_vectorize(int argc, char** argv){
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Configure its temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(find_temp_dir());
+    gcsa::TempFile::setDirectory(temp_file::get_dir());
 
     gcsa::GCSA gcsa_index;
     gcsa::LCPArray lcp_index;

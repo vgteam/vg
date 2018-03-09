@@ -558,7 +558,7 @@ int main_map(int argc, char** argv) {
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Configure its temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(find_temp_dir());
+    gcsa::TempFile::setDirectory(temp_file::get_dir());
 
     // Load up our indexes.
     xg::XG* xgidx = nullptr;

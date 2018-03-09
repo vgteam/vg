@@ -185,7 +185,8 @@ int main_kmers(int argc, char** argv) {
         if (!gcsa_binary) {
             graphs.write_gcsa_kmers_ascii(cout, kmer_size, head_id, tail_id);
         } else {
-            graphs.write_gcsa_kmers_binary(cout, kmer_size, head_id, tail_id);
+            size_t limit = ~(size_t)0;
+            graphs.write_gcsa_kmers_binary(cout, kmer_size, limit, head_id, tail_id);
         }
     } else {
         //function<void(const kmer_t& kmer)>

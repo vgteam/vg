@@ -32,7 +32,7 @@ TEST_CASE( "Mapper can map to a one-node graph", "[mapping][mapper]" ) {
     graph.extend(proto_graph);
     
     // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(find_temp_dir());
+    gcsa::TempFile::setDirectory(temp_file::get_dir());
     // And make it quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
@@ -253,7 +253,7 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
     graph.extend(proto_graph);
     
     // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(find_temp_dir());
+    gcsa::TempFile::setDirectory(temp_file::get_dir());
     // And make it quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     

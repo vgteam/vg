@@ -16,22 +16,29 @@ void build_gcsa_lcp(VG& graph,
     Node* head_node = nullptr; Node* tail_node = nullptr;
     // TODO add this for MutableHandleGraphs
     graph.add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
+
+    gcsa::ConstructionParameters params;
+    params.setSteps(doubling_steps);
+    params.setLimit(size_limit);
+
+    // Generate the kmers and reduce the size limit by their size.
+    size_t kmer_bytes = params.getLimitBytes();
     string tmpfile = write_gcsa_kmers_to_tmpfile(graph, kmer_size,
+                                                 kmer_bytes,
                                                  head_id, tail_id,
                                                  base_file_name);
+    params.reduceLimit(kmer_bytes);
+
     graph.destroy_node(head_node);
     graph.destroy_node(tail_node);
     // set up the input graph using the kmers
     gcsa::InputGraph input_graph({ tmpfile }, true);
-    gcsa::ConstructionParameters params;
-    params.setSteps(doubling_steps);
-    params.setLimit(size_limit);
     // run the GCSA construction
     gcsa = new gcsa::GCSA(input_graph, params);
     // and the LCP array construction
     lcp = new gcsa::LCPArray(input_graph, params);
     // delete the temporary debruijn graph file
-    remove(tmpfile.c_str());
+    temp_file::remove(tmpfile);
     // results returned by reference
 }
 

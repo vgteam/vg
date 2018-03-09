@@ -501,7 +501,7 @@ int main_msga(int argc, char** argv) {
     size_t iter = 0;
     
     // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(find_temp_dir());
+    gcsa::TempFile::setDirectory(temp_file::get_dir());
 
     auto rebuild = [&](VG* graph) {
         if (mapper) delete mapper;
@@ -524,7 +524,7 @@ int main_msga(int argc, char** argv) {
         if(!debug) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         
         // Configure its temp directory to the system temp directory
-        gcsa::TempFile::setDirectory(find_temp_dir());
+        gcsa::TempFile::setDirectory(temp_file::get_dir());
 
         if (idx_path_only) {
             // make the index from only the kmers in the embedded paths
@@ -536,8 +536,9 @@ int main_msga(int argc, char** argv) {
                     VG path_graph = *graph;
                     if (edge_max) path_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
                     path_graph.keep_path(name);
+                    size_t limit = ~(size_t)0;
                     tmpfiles.push_back(
-                        write_gcsa_kmers_to_tmpfile(path_graph, idx_kmer_size, head_id, tail_id));
+                        write_gcsa_kmers_to_tmpfile(path_graph, idx_kmer_size, limit, head_id, tail_id));
                 });
             // Make the index with the kmers
             gcsa::InputGraph input_graph(tmpfiles, true);
@@ -549,7 +550,7 @@ int main_msga(int argc, char** argv) {
             lcpidx = new gcsa::LCPArray(input_graph, params);
             // clean up the tmp files for the path kmers
             for (auto& tfn : tmpfiles) {
-                remove(tfn.c_str());
+                temp_file::remove(tfn);
             }
         } else if (edge_max) {
             VG gcsa_graph = *graph; // copy the graph
