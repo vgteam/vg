@@ -252,17 +252,31 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
     return pulled_out + prob_to_logprob(total);
 }
 
-/// Set a temp dir, overriding system defaults and environment variables.
-void set_temp_dir(const string& new_temp_dir);
+/**
+ * Temporary files. Create with create() and remove with remove(). All
+ * temporary files will be deleted when the program exits normally or with
+ * std::exit(). The files will be created in a directory determined from
+ * environment variables, though this can be overridden with set_dir(). Note
+ * that the interface is not thread-safe.
+ */
+namespace temp_file {
 
-/// Get the current temp dir
-string find_temp_dir();
+    /// Create a temporary file starting with the given base name
+    string create(const string& base);
 
-/// Create a temporary file starting with the given base name in the appropriate system temporary directory
-string tmpfilename(const string& base);
+    /// Create a temporary file
+    string create();
 
-/// Create a temporary file in the appropriate system temporary directory
-string tmpfilename();
+    /// Remove a temporary file
+    void remove(const string& filename);
+
+    /// Set a temp dir, overriding system defaults and environment variables.
+    void set_dir(const string& new_temp_dir);
+
+    /// Get the current temp dir
+    string get_dir();
+
+} // namespace temp_file
 
 // Code to detect if a variant lacks an ID and give it a unique but repeatable
 // one.

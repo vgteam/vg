@@ -139,7 +139,7 @@ int main_add(int argc, char** argv) {
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Configure its temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(find_temp_dir());
+    gcsa::TempFile::setDirectory(temp_file::get_dir());
     
     // Turn on nested parallelism, so we can parallelize over VCFs and over alignment bands
     omp_set_nested(1);

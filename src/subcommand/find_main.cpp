@@ -778,7 +778,7 @@ int main_find(int argc, char** argv) {
             gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
             
             // Configure its temp directory to the system temp directory
-            gcsa::TempFile::setDirectory(find_temp_dir());
+            gcsa::TempFile::setDirectory(temp_file::get_dir());
 
             // Open it
             ifstream in_gcsa(gcsa_in.c_str());

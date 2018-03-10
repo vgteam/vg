@@ -441,6 +441,7 @@ public:
       const vector<Edge>& edges_into_new, const vector<Edge>& edges_out_of_old) const;
     
     // We define a thread visit that's much smaller than a Protobuf Mapping.
+    // Note that the fields are not initialized, so the default-constructed ThreadMapping will be garbage.
     struct ThreadMapping {
         int64_t node_id;
         bool is_reverse;
@@ -627,8 +628,8 @@ private:
 
     // maintain old ids from input, ranked as in s_iv and s_bv
     int_vector<> i_iv;
-    int64_t min_id; // id ranges don't have to start at 0
-    int64_t max_id;
+    int64_t min_id = 0; // id ranges don't have to start at 0
+    int64_t max_id = 0;
     int_vector<> r_iv; // ids-id_min is the rank
 
     ////////////////////////////////////////////////////////////////////////////
@@ -669,7 +670,7 @@ private:
     sd_vector<>::select_1_type tn_cbv_select;
     
     // Stores the number of haplotypes per contig that gave rise to the threads in the database
-    size_t haplotype_count;
+    size_t haplotype_count = 0;
     
     /// Back-calculate haplotype_count from the thread names for upgrading old XGs.
     void count_haplotypes();
@@ -782,8 +783,8 @@ private:
 
 class XGPath {
 public:
-    XGPath(void) { }
-    ~XGPath(void) { }
+    XGPath(void) = default;
+    ~XGPath(void) = default;
     // Path name is required here only for complaining intelligently when
     // something goes wrong. We can also spit out the total unique members,
     // because in here is the most efficient place to count them.
@@ -801,7 +802,7 @@ public:
     XGPath(XGPath&& other) = delete;
     XGPath& operator=(const XGPath& other) = delete;
     XGPath& operator=(XGPath&& other) = delete;
-    int64_t min_node_id;
+    int64_t min_node_id = 0;
     wt_gmr<> ids;
     sd_vector<> directions; // forward or backward through nodes
     int_vector<> positions;
@@ -809,7 +810,7 @@ public:
     bit_vector offsets;
     rank_support_v<1> offsets_rank;
     bit_vector::select_1_type offsets_select;
-    void load(istream& in);
+    void load(istream& in, uint32_t file_version, const function<int64_t(size_t)>& rank_to_id);
     size_t serialize(std::ostream& out,
                      sdsl::structure_tree_node* v = NULL,
                      std::string name = "") const;
