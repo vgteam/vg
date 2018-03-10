@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 46
+plan tests 48
 
 
 # Single graph without haplotypes
@@ -100,6 +100,19 @@ rm -f x.vg y.vg
 rm -f x.gbwt y.gbwt x.threads y.threads
 rm -f xy.xg xy.gbwt xy.gcsa xy.gcsa.lcp
 rm -f xy2.xg xy2.gbwt xy2.gcsa xy2.gcsa.lcp
+
+
+# GBWT construction options
+vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
+
+vg index -G x_ref.gbwt -T x.vg
+is $? 0 "GBWT can be built for paths"
+
+vg index -G x_both.gbwt -T -v small/xy2.vcf.gz x.vg
+is $? 0 "GBWT can be built for both paths and haplotypes"
+
+rm -f x.vg
+rm -f x_ref.gbwt x_both.gbwt
 
 
 # Other tests
