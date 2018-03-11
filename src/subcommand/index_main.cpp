@@ -1065,6 +1065,8 @@ int main_index(int argc, char** argv) {
         // Use the same temp directory as VG.
         gcsa::TempFile::setDirectory(temp_file::get_dir());
 
+        double start = gcsa::readTimer();
+
         // Generate temporary kmer files
         bool delete_kmer_files = false;
         if (dbg_names.empty()) {
@@ -1086,6 +1088,20 @@ int main_index(int argc, char** argv) {
         gcsa::InputGraph input_graph(dbg_names, true, gcsa::Alphabet(), mapping_name);
         gcsa::GCSA gcsa_index(input_graph, params);
         gcsa::LCPArray lcp_array(input_graph, params);
+        if (show_progress) {
+            double seconds = gcsa::readTimer() - start;
+            cerr << "GCSA2 index built in " << seconds << " seconds, "
+                 << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+            cerr << "I/O volume: " << gcsa::inGigabytes(gcsa::readVolume()) << " GB read, "
+                 << gcsa::inGigabytes(gcsa::writeVolume()) << " GB write" << endl;
+        }
+
+        // Save the indexes
+        if (show_progress) {
+            cerr << "Saving the index to disk..." << endl;
+        }
+        sdsl::store_to_file(gcsa_index, gcsa_name);
+        sdsl::store_to_file(lcp_array, gcsa_name + ".lcp");
 
         // Verify the index
         if (verify_gcsa) {
@@ -1103,13 +1119,6 @@ int main_index(int argc, char** argv) {
                 temp_file::remove(filename);
             }
         }
-
-        // Save the indexes
-        if (show_progress) {
-            cerr << "Saving the index to disk..." << endl;
-        }
-        sdsl::store_to_file(gcsa_index, gcsa_name);
-        sdsl::store_to_file(lcp_array, gcsa_name + ".lcp");
     }
 
     if (build_rocksdb) {
