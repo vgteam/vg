@@ -648,7 +648,6 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
         vector<trav_t>& path = path_nodes[p.first];
         if (!std::is_sorted(path.begin(), path.end(),
                             [](const trav_t& m1, const trav_t& m2) { return trav_rank(m1) < trav_rank(m2); })) {
-            cerr << "[xg] warning: path " << p.first << " is not in sorted order by rank" << endl;
             std::sort(path.begin(), path.end(),
                       [](const trav_t& m1, const trav_t& m2) { return trav_rank(m1) < trav_rank(m2); });
         }

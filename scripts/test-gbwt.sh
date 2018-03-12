@@ -24,8 +24,11 @@ VCF_BASENAME="1kg_hg19-CHR21.vcf.gz"
 FASTA_BASENAME="CHR21.fa"
 # Define where to get them
 SOURCE_BASE_URL="s3://cgl-pipeline-inputs/vg_cgl/bakeoff"
+# Define the contig we are using
+GRAPH_CONTIG="21"
 # Define the region to build the graph on, as contig[:start-end]
-GRAPH_REGION="21"
+GRAPH_REGION="${GRAPH_CONTIG}"
+
 
 # Set a FASTQ to model reads after
 TRAINING_FASTQ="ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/NA12878/NIST_NA12878_HG001_HiSeq_300x/131219_D00360_005_BH814YADXX/Project_RM8398/Sample_U5a/U5a_AGTCAA_L002_R1_007.fastq.gz"
@@ -41,14 +44,16 @@ if [[ "${MODE}" == "mhc" ]]; then
     # Actually do a smaller test
     READ_COUNT="100000"
     REGION_NAME="MHC"
-    GRAPH_REGION="6:28510119-33480577"
+    GRAPH_CONTIG="6"
+    GRAPH_REGION="${GRAPH_CONTIG}:28510119-33480577"
     FASTA_BASENAME="chr6.fa.gz"
     VCF_BASENAME="1kg_hg38-MHC.vcf.gz"
 elif [[ "${MODE}" == "tiny" ]]; then
     # Do just 20 kb of MHC and a very few reads
     READ_COUNT="1000"
     REGION_NAME="MHC"
-    GRAPH_REGION="6:28510119-28520119"
+    GRAPH_CONTIG="6"
+    GRAPH_REGION="${GRAPH_CONTIG}:28510119-28520119"
     FASTA_BASENAME="chr6.fa.gz"
     VCF_BASENAME="1kg_hg38-MHC.vcf.gz"
 fi
@@ -162,6 +167,16 @@ if [[ ! -e "${READS_DIR}" ]]; then
         --fastq "${TRAINING_FASTQ}"
 fi
 
+# Make sure we have the SLLS linear index file
+SLLS_INDEX="${GRAPHS_PATH}/slls/${VCF_BASENAME}.slls"
+if [[ ! -e "${SLLS_INDEX}" ]]; then
+    # We need to make the SLLS index
+    mkdir "${GRAPHS_PATH}/slls"
+    aws s3 cp "${SOURCE_BASE_URL}/${VCF_BASENAME}" "${GRAPHS_PATH}/slls/"
+    cd deps/sublinear-Li-Stephens && make && cd ../..
+    LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`/deps/sublinear-Li-Stephens/deps/htslib/ ./deps/sublinear-Li-Stephens/bin/serializer "${GRAPHS_PATH}/slls/${VCF_BASENAME}"
+fi
+
  # Now we do a bunch of stuff in parallel
 JOB_ARRAY=()
 
@@ -171,8 +186,23 @@ JOB_RETURNS=()
 # What condition names have we run
 CONDITIONS=()
 
-# We have a function to wait for the parallel jobs to finish
+# How many jobs should we let run at once
+MAX_JOBS=2
+
+# We have a function to wait for the parallel jobs to finish, if MAX_JOBS or
+# more are running
 function wait_on_jobs() {
+    # How many jobs are running?
+    CURRENT_JOBS="${#JOB_ARRAY[@]}"
+
+    if [[ "${CURRENT_JOBS}" -lt "${MAX_JOBS}" ]]; then
+        # If we haven't hit the cap, don't do anything.
+        return
+    fi
+
+    # Otherwise we have to collect some jobs
+    COLLECTED_JOBS=0
+
     # Now wait for all the jobs and fail if any failed
     for JOB in "${JOB_ARRAY[@]}"; do
         if [[ -z "${JOB}" ]]; then
@@ -181,20 +211,37 @@ function wait_on_jobs() {
             continue
         fi
         wait "${JOB}"
-        JOB_RETURNS+=("$?")
+        RETURN_CODE="$?"
+        
+        if [[ "${RETURN_CODE}" != "0" ]]; then
+            # A job has failed.
+            # Collect up all the jobs now, actually.
+            echo "Job PID ${JOB} failed with return code ${RETURN_CODE}; flushing queue" 1>&2
+            MAX_JOBS=0
+        fi
+        
+        JOB_RETURNS+=("${RETURN_CODE}")
+        ((COLLECTED_JOBS+=1))
+        
+        if [[ "$((CURRENT_JOBS-COLLECTED_JOBS))" -lt "${MAX_JOBS}" ]]; then
+            # No need to clean up any more jobs
+            break
+        fi
     done
 
     JOB_NUMBER=1
     for JOB_RETURN in "${JOB_RETURNS[@]}"; do
         echo "Job ${JOB_NUMBER} exit status: ${JOB_RETURN}"
-        ((JOB_NUMBER=JOB_NUMBER+1))
+        ((JOB_NUMBER+=1))
         if [[ "${JOB_RETURN}" != "0" ]]; then
             echo "Job failed!" 1>&2
             exit 1
         fi
     done
     
-    JOB_ARRAY=()
+    # Pop off the finished jobs
+    JOB_ARRAY=("${JOB_ARRAY[@]:${COLLECTED_JOBS}}")
+    # Delete all the return codes
     JOB_RETURNS=()
 }
 
@@ -215,6 +262,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam-names snp1kg 2>&1 & 
         JOB_ARRAY+=("$!")
     fi
+    wait_on_jobs
     
     CONDITIONS+=("snp1kg-mp-gbwt")
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-gbwt" ]]; then
@@ -231,7 +279,6 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam-names snp1kg-gbwt 2>&1 &
         JOB_ARRAY+=("$!")
     fi
-    
     wait_on_jobs
     
     CONDITIONS+=("snp1kg-mp-gbwt-traceback")
@@ -250,6 +297,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam-names snp1kg-gbwt-traceback 2>&1 &
         JOB_ARRAY+=("$!")
     fi
+    wait_on_jobs
     
     CONDITIONS+=("snp1kg-mp-gbwt-traceback-snarlcut")
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback-snarlcut" ]]; then
@@ -268,7 +316,6 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam-names snp1kg-gbwt-traceback-snarlcut 2>&1 &
         JOB_ARRAY+=("$!")
     fi
-    
     wait_on_jobs
     
     CONDITIONS+=("snp1kg-mp-gbwt-snarlcut")
@@ -287,6 +334,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam-names snp1kg-gbwt-snarlcut 2>&1 &
         JOB_ARRAY+=("$!")
     fi
+    wait_on_jobs
     
     CONDITIONS+=("snp1kg-mp-minaf")
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-minaf" ]]; then
@@ -302,7 +350,33 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam-names snp1kg-minaf 2>&1 &
         JOB_ARRAY+=("$!")
     fi
+    wait_on_jobs
     
+    CONDITIONS+=("snp1kg-mp-slls")
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-slls/position.results.tsv" ]]; then
+        # This one's a bit different since we need to manually do the mapping
+        if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-slls/aligned-snp1kg-slls-pe_default.gam" ]]; then
+            mkdir -p "${OUTPUT_PATH}/snp1kg-mp-slls"
+            vg mpmap --linear-index "${SLLS_INDEX}" \
+                --linear-path "${GRAPH_CONTIG}" \
+                -x "${GRAPHS_PATH}/snp1kg-${REGION_NAME}.xg" \
+                -g "${GRAPHS_PATH}/snp1kg-${REGION_NAME}.gcsa" \
+                --fastq "${READS_DIR}/sim.fq.gz" \
+                -i \
+                -S \
+                -t 32 \
+                >"${OUTPUT_PATH}/snp1kg-mp-slls/aligned-snp1kg-slls-pe_default.gam"
+        fi
+        # Then do the mapeval
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp-slls" "${OUTPUT_PATH}/snp1kg-mp-slls" \
+            --gams "${OUTPUT_PATH}/snp1kg-mp-slls/aligned-snp1kg-slls-pe_default.gam" \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
+            --truth "${READS_DIR}/true.pos" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+            --gam-names snp1kg-slls-mp-pe 2>&1 &
+        JOB_ARRAY+=("$!")
+    fi
     wait_on_jobs
     
     CONDITIONS+=("snp1kg-mp-positive")
@@ -319,6 +393,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam-names snp1kg-positive 2>&1 &
         JOB_ARRAY+=("$!")
     fi
+    wait_on_jobs
     
     CONDITIONS+=("primary-mp")
     if [[ ! -e "${OUTPUT_PATH}/primary-mp" ]]; then
@@ -334,7 +409,6 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --gam-names primary 2>&1 &
         JOB_ARRAY+=("$!")
     fi
-
     wait_on_jobs
 
 fi
