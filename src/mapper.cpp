@@ -200,7 +200,7 @@ BaseMapper::find_mems_simple(string::const_iterator seq_begin,
     for (auto& mem : mems) {
         if (mem.length() >= min_mem_length) {
             mem.match_count = gcsa->count(mem.range);
-            if (mem.match_count > 0) {
+            if (mem.match_count > 0 && mem.match_count <= absolute_locate_maximum) {
                 gcsa->locate(mem.range, mem.nodes);
                 if (hit_max > 0 && mem.nodes.size() > hit_max) {
                     if (hit_limit) {
@@ -370,7 +370,9 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
 #pragma omp critical
                 {
                     vector<gcsa::node_type> locations;
-                    gcsa->locate(match.range, locations);
+                    if (match.match_count <= absolute_locate_maximum) {
+                        gcsa->locate(match.range, locations);
+                    }
                     cerr << "adding MEM " << match.sequence() << " at positions ";
                     for (auto nt : locations) {
                         cerr << make_pos_t(nt) << " ";
@@ -440,7 +442,9 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
 #pragma omp critical
                     {
                         vector<gcsa::node_type> locations;
-                        gcsa->locate(match.range, locations);
+                        if (match.match_count <= absolute_locate_maximum {
+                            gcsa->locate(match.range, locations);
+                        }
                         cerr << "adding MEM " << match.sequence() << " at positions ";
                         for (auto nt : locations) {
                             cerr << make_pos_t(nt) << " ";
@@ -484,7 +488,9 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
 #pragma omp critical
         {
             vector<gcsa::node_type> locations;
-            gcsa->locate(match.range, locations);
+            if (match.match_count <= absolute_locate_maximum) {
+                gcsa->locate(match.range, locations);
+            }
             cerr << "adding MEM " << match.sequence() << " at positions ";
             for (auto nt : locations) {
                 cerr << make_pos_t(nt) << " ";
@@ -600,7 +606,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             }
         }
         
-        if (mem.match_count > 0) {
+        if (mem.match_count > 0 && mem.match_count <= absolute_locate_maximum) {
             gcsa->locate(mem.range, mem.nodes);
             if (hit_max > 0 && mem.nodes.size() > hit_max) {
                 filtered_mems += mem.nodes.size();
@@ -718,7 +724,9 @@ void BaseMapper::find_sub_mems(const vector<MaximalExactMatch>& mems,
 #pragma omp critical
                 {
                     vector<gcsa::node_type> locations;
-                    gcsa->locate(last_range, locations);
+                    if (gcsa->count(range) <= absolute_locate_maximum) {
+                        gcsa->locate(last_range, locations);
+                    }
                     cerr << "adding sub-MEM ";
                     for (auto iter = sub_mem_begin; iter != sub_mem_end; iter++) {
                         cerr << *iter;
@@ -1321,7 +1329,9 @@ void BaseMapper::rescue_high_count_order_length_mems(vector<MaximalExactMatch>& 
             cerr << "found unfilled order length tract from MEM indexes " << mem_range.first << ":" << mem_range.second << ", filling with representative " << mems[min_hit_mem] << " with " << min_hit_count << " hits" << endl;
 #endif
             
-            gcsa->locate(mems[min_hit_mem].range, mems[min_hit_mem].nodes);
+            if (min_hit_count <= absolute_locate_maximum) {
+                gcsa->locate(mems[min_hit_mem].range, mems[min_hit_mem].nodes);
+            }
           
         }
     }
@@ -1401,6 +1411,8 @@ void BaseMapper::fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& pare
         }
         
         for (gcsa::size_type i = sub_mem.range.first; i <= sub_mem.range.second; i++) {
+            // TODO: what if this range is too big?
+            
             
             // add the locations of the hits, but do not remove duplicates yet
             vector<gcsa::node_type> hits;
@@ -1581,7 +1593,9 @@ map<pos_t, char> BaseMapper::next_pos_chars(pos_t pos) {
 set<pos_t> BaseMapper::sequence_positions(const string& seq) {
     gcsa::range_type gcsa_range = gcsa->find(seq);
     std::vector<gcsa::node_type> gcsa_nodes;
-    gcsa->locate(gcsa_range, gcsa_nodes);
+    if (gcsa->count(gcsa_range) <= absolute_locate_maximum) {
+        gcsa->locate(gcsa_range, gcsa_nodes);
+    }
     return gcsa_nodes_to_positions(gcsa_nodes);
 }
     

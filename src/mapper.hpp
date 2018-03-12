@@ -235,6 +235,7 @@ public:
     double adaptive_diff_exponent = 0.065; // exponent that describes limiting behavior of adaptive diff algorithm
     int hit_limit = 0;     // keep no more than this many MEMs
     int hit_max = 0;       // ignore or MEMs with more than this many hits
+    int absolute_locate_maximum = 16384; // Don't locate() a MEM if it would return more than this many results, to avoid memory exhaustion
     bool use_approx_sub_mem_count = false;
     bool prefilter_redundant_hits = true;
     int max_sub_mem_recursion_depth = 1;
