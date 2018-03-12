@@ -117,8 +117,24 @@ using namespace std;
                 line = get_next_sequence_line(in);
             }
         }
+        else if (format == "fasta") {
+            
+            string curr_seq_name;
+            string line;
+            
+            bool got_data = getline(in, line).good();
+            while (got_data && !line.empty()) {
+                if (line[0] == '>') {
+                    curr_seq_name = tokenize(line)[0].substr(1, line.size() - 1);
+                }
+                else {
+                    alignments[curr_seq_name].append(line);
+                }
+                got_data = getline(in, line).good();
+            }
+        }
         else {
-            cerr << "error:[MSAConverter] unsupported MSA format" << endl;
+            cerr << "error:[MSAConverter] unsupported MSA format '" << format << "'" << endl;
             exit(1);
         }
         
