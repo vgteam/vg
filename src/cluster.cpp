@@ -12,8 +12,7 @@ namespace vg {
 using namespace std;
 
 MEMChainModel::MEMChainModel(
-    const vector<size_t>& aln_lengths,
-    const vector<vector<MaximalExactMatch> >& matches,
+    const vector<MaximalExactMatch>& matches,
     const function<int64_t(pos_t)>& approx_position,
     const function<map<string, vector<pair<size_t, bool> > >(pos_t)>& path_position,
     const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
@@ -21,29 +20,24 @@ MEMChainModel::MEMChainModel(
     int position_depth,
     int max_connections) {
     // store the MEMs in the model
-    int frag_n = 0;
-    for (auto& fragment : matches) {
-        ++frag_n;
-        for (auto& mem : fragment) {
-            // copy the MEM for each specific hit in the base graph
-            // and add it in as a vertex
-            for (auto& node : mem.nodes) {
-                //model.emplace_back();
-                //auto m = model.back();
-                auto pos = make_pos_t(node);
-                MEMChainModelVertex m;
-                m.mem = mem;
-                m.weight = mem.length();
-                m.prev = nullptr;
-                m.score = 0;
-                m.mem.positions = path_position(pos);
-                m.mem.positions[""].push_back(make_pair(approx_position(pos), is_rev(pos)));
-                m.mem.nodes.clear();
-                m.mem.nodes.push_back(node);
-                m.mem.fragment = frag_n;
-                m.mem.match_count = mem.match_count;
-                model.push_back(m);
-            }
+    for (auto& mem : matches) {
+        // copy the MEM for each specific hit in the base graph
+        // and add it in as a vertex
+        for (auto& node : mem.nodes) {
+            //model.emplace_back();
+            //auto m = model.back();
+            auto pos = make_pos_t(node);
+            MEMChainModelVertex m;
+            m.mem = mem;
+            m.weight = mem.length();
+            m.prev = nullptr;
+            m.score = 0;
+            m.mem.positions = path_position(pos);
+            m.mem.positions[""].push_back(make_pair(approx_position(pos), is_rev(pos)));
+            m.mem.nodes.clear();
+            m.mem.nodes.push_back(node);
+            m.mem.match_count = mem.match_count;
+            model.push_back(m);
         }
     }
     // index the model with the positions

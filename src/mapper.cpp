@@ -2476,9 +2476,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             }
         }
 #endif
-    
-        MEMChainModel chainer({ read1.sequence().size(), read2.sequence().size() },
-                              { mems1, mems2 },
+        vector<MaximalExactMatch> mems;
+        for (auto& mem : mems1) {
+            mem.fragment = 1;
+            mems.push_back(mem);
+        }
+        for (auto& mem : mems2) {
+            mem.fragment = 2;
+            mems.push_back(mem);
+        }
+        MEMChainModel chainer(mems,
                               [&](pos_t n) -> int64_t {
                                   return approx_position(n);
                               },
@@ -3181,7 +3188,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     // establish the chains
     vector<vector<MaximalExactMatch> > clusters;
     if (total_multimaps) {
-        MEMChainModel chainer({ aln.sequence().size() }, { mems },
+        MEMChainModel chainer(mems,
                               [&](pos_t n) {
                                   return approx_position(n);
                               },

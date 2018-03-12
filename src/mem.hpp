@@ -40,7 +40,7 @@ public:
                       string::const_iterator e,
                       gcsa::range_type r,
                       size_t m = 0)
-        : begin(b), end(e), range(r), match_count(m) { }
+        : begin(b), end(e), range(r), match_count(m), fragment(0) { }
 
     // construct the sequence of the MEM; useful in debugging
     string sequence(void) const;

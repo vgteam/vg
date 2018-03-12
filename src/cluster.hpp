@@ -132,8 +132,7 @@ public:
     map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > > positions;
     set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     MEMChainModel(
-        const vector<size_t>& aln_lengths,
-        const vector<vector<MaximalExactMatch> >& matches,
+        const vector<MaximalExactMatch>& matches,
         const function<int64_t(pos_t)>& approx_position,
         const function<map<string, vector<pair<size_t, bool> > >(pos_t)>& path_position,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
