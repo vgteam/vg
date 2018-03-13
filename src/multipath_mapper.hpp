@@ -24,8 +24,10 @@
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
+#include "algorithms/topological_sort.hpp"
+#include "algorithms/weakly_connected_components.hpp"
 
-#include <structures/suffix_tree.hpp>
+#include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>
 
 using namespace std;
