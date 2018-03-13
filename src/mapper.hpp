@@ -419,15 +419,6 @@ class Mapper : public BaseMapper {
 
 private:
     
-    Alignment align_to_graph(const Alignment& aln,
-                             Graph& graph,
-                             size_t max_query_graph_ratio,
-                             bool traceback,
-                             bool certainly_acyclic,
-                             bool pinned_alignment = false,
-                             bool pin_left = false,
-                             bool global = false,
-                             bool keep_bonuses = true);
     vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
                                            const Alignment& aln,
                                            int kmer_size,
@@ -442,8 +433,6 @@ private:
     void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double mq_estmate1, double mq_estimate2, double mq_cap1, double mq_cap2);
     vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
     void filter_and_process_multimaps(vector<Alignment>& all_alns, int total_multimaps);
-    // make the bands used in banded alignment
-    vector<Alignment> make_bands(const Alignment& read, int band_width, vector<pair<int, int>>& to_strip);
     // Return the one best banded alignment.
     vector<Alignment> align_banded(const Alignment& read,
                                    int kmer_size = 0,
@@ -461,6 +450,21 @@ private:
                                       int max_mem_length,
                                       int keep_multimaps,
                                       int additional_multimaps);
+    
+protected:
+    
+    Alignment align_to_graph(const Alignment& aln,
+                             Graph& graph,
+                             size_t max_query_graph_ratio,
+                             bool traceback,
+                             bool certainly_acyclic,
+                             bool pinned_alignment = false,
+                             bool pin_left = false,
+                             bool global = false,
+                             bool keep_bonuses = true);
+    
+    // make the bands used in banded alignment
+    vector<Alignment> make_bands(const Alignment& read, int band_width, vector<pair<int, int>>& to_strip);
     
 public:
     // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
@@ -579,14 +583,6 @@ public:
                            int max_mem_length = 0,
                            bool only_top_scoring_pair = false,
                            bool retrying = false);
-
-    // lossily project an alignment into a particular path space of a graph
-    // the resulting alignment is equivalent to a SAM record against the chosen path
-    Alignment surject_alignment(const Alignment& source,
-                                const set<string>& path_names,
-                                string& path_name,
-                                int64_t& path_pos,
-                                bool& path_reverse);
     
     // compute a mapping quality component based only on the MEMs we've obtained
     double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);
