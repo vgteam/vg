@@ -9,7 +9,24 @@
 using namespace std;
 namespace vg {
     
-    
+    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans) {
+        // create the injection translator, which maps a node in the original graph to every one of its occurrences
+        // in the dagified graph
+        unordered_multimap<id_t, pair<id_t, bool> > injection_trans;
+        for (const auto& trans_record : projection_trans) {
+#ifdef debug_multipath_alignment
+            cerr << trans_record.second.first << "->" << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
+#endif
+            injection_trans.emplace(trans_record.second.first, make_pair(trans_record.first, trans_record.second.second));
+        }
+        
+        create_path_chunk_nodes(vg, path_chunks, projection_trans, injection_trans);
+        
+        // compute reachability and add edges
+        add_reachability_edges(vg, hits, projection_trans, injection_trans);
+        
+    }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
@@ -69,6 +86,87 @@ namespace vg {
             cerr << endl;
         }
 #endif
+    }
+    
+    void MultipathAlignmentGraph::create_path_chunk_nodes(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+                                                          const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                          const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
+        
+        for (const auto& path_chunk : path_chunks) {
+            const Path& path = path_chunks.second;
+            auto range = injection_trans.equal_range(path.mapping(0).position().node_id());
+            for (auto iter = range.first; iter != range.second; iter++) {
+                
+#ifdef debug_multipath_alignment
+                cerr << "performing DFS to walk out path" << endl;
+#endif
+                
+                id_t injected_id = iter->second.first;
+                bool injected_rev = iter->second.second;
+                
+                // stack for DFS, each record contains records of (path index, next trav index, next traversals)
+                vector<tuple<size_t, size_t, vector<NodeTraversal>>> stack;
+                stack.emplace_back(0, 0, vector<NodeTraversal>{NodeTraversal(vg.get_node(injected_id), injected_rev)});
+                
+                while (!stack.empty()) {
+                    auto& back = stack.back();
+                    if (get<1>(back) == get<2>(back).size()) {
+#ifdef debug_multipath_alignment
+                        cerr << "traversed all edges out of current traversal" << endl;
+#endif
+                        stack.pop_back();
+                        continue;
+                    }
+                    NodeTraversal trav = get<2>(back)[get<1>(back)];
+                    get<1>(back)++;
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "checking node " << trav.node->id() << endl;
+#endif
+                    
+                    pair<id_t, bool> projected_trav = projection_trans[trav.node->id()];
+                    
+                    const Position& pos = path.mapping(get<0>(back)).position();
+                    if (projected_trav.first == pos.node_id() &&
+                        projected_trav.second == (projected_trav.second != trav.backward)) {
+                        // position matched the path
+                        if (stack.size() == path.mapping_size()) {
+                            // finished walking path
+                            break;
+                        }
+                        stack.emplace_back(get<0>(back) + 1, 0, vector<NodeTraversal>());
+                        vg.nodes_next(trav, get<3>(stack.back()));
+                    }
+                }
+                
+                if (stack.empty()) {
+                    continue;
+                }
+                
+                path_nodes.emplace_back();
+                
+                PathNode& path_node = path_nodes.back();
+                path_node.begin = path_chunks.first.first;
+                path_node.end = path_chunks.first.second;
+                
+                for (size_t i = 0; i < path.mapping_size(); i++) {
+                    Mapping* mapping = path_node.path.add_mapping();
+                    NodeTraversal trav = get<2>(stack[i])[get<1>(stack[i]) - 1];
+                    
+                    Position* position = mapping->mutable_position();
+                    position->set_node_id(trav.node->id());
+                    position->set_is_reverse(trav.backward);
+                    
+                    const Mapping& projected_mapping = path.mapping(i);
+                    
+                    position->set_offset(projected_mapping.position().offset());
+                    
+                    for (size_t j = 0; j < projected_mapping.edit_size(); j++) {
+                        *mapping->add_edit() = projected_mapping.edit(j);
+                    }
+                }
+            }
+        }
     }
     
     void MultipathAlignmentGraph::create_match_nodes(VG& vg, const MultipathMapper::memcluster_t& hits,

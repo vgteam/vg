@@ -41,6 +41,10 @@ namespace vg {
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans, gcsa::GCSA* gcsa = nullptr,
                                 SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
         
+        /// Construct a graph of the reachability between MEMs in a linearized path graph.
+        MultipathAlignmentGraph(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans)
+        
         ~MultipathAlignmentGraph();
         
         /// Fills input vector with node indices of a topological sort
