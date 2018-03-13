@@ -43,7 +43,7 @@ namespace vg {
         
         /// Construct a graph of the reachability between MEMs in a linearized path graph.
         MultipathAlignmentGraph(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans)
+                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
         
         ~MultipathAlignmentGraph();
         
