@@ -150,7 +150,10 @@ public:
     // these provide a way to get an index for each node and edge in the g_iv structure and are used by gPBWT
     size_t node_graph_idx(int64_t id) const;
     size_t edge_graph_idx(const Edge& edge) const;
-    
+
+    int64_t get_min_id() const { return min_id; }
+    int64_t get_max_id() const { return max_id; }
+
     ////////////////////////////////////////////////////////////////////////////
     // Here is the old low-level API that needs to be restated in terms of the 
     // locally traversable graph API and then removed.
@@ -282,6 +285,8 @@ public:
     size_t node_occs_in_path(int64_t id, size_t rank) const;
     vector<size_t> node_ranks_in_path(int64_t id, const string& name) const;
     vector<size_t> node_ranks_in_path(int64_t id, size_t rank) const;
+    // Get the positions (but not the orientations) of the given node on the given path.
+    // See also: oriented_occurrences_on_path, which gives rank and orientation
     vector<size_t> position_in_path(int64_t id, const string& name) const;
     vector<size_t> position_in_path(int64_t id, size_t rank) const;
     map<string, vector<size_t> > position_in_paths(int64_t id, bool is_rev = false, size_t offset = 0) const;
@@ -311,10 +316,10 @@ public:
     /// returns true if the paths are on the same connected component of the graph (constant time)
     bool paths_on_same_component(size_t path_rank_1, size_t path_rank_2) const;
     
-    /// returns the offsets and orientations of a given node on a path
+    /// returns the ranks (NOT base positions) and orientations of a given node on a path
     vector<pair<size_t, bool>> oriented_occurrences_on_path(int64_t id, size_t path) const;
     
-    /// returns the offsets and orientations of a given node on a set of paths
+    /// returns the ranks (NOT base positions) and orientations of a given node on a set of paths
     vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_occurrences_on_paths(int64_t id, vector<size_t>& paths) const;
     
     /// returns all of the paths that a node traversal occurs on, the rank of these occurrences on the path
@@ -438,6 +443,7 @@ public:
       const vector<Edge>& edges_into_new, const vector<Edge>& edges_out_of_old) const;
     
     // We define a thread visit that's much smaller than a Protobuf Mapping.
+    // Note that the fields are not initialized, so the default-constructed ThreadMapping will be garbage.
     struct ThreadMapping {
         int64_t node_id;
         bool is_reverse;
@@ -624,8 +630,8 @@ private:
 
     // maintain old ids from input, ranked as in s_iv and s_bv
     // int_vector<> i_iv;
-    int64_t min_id; // id ranges don't have to start at 0
-    int64_t max_id;
+    int64_t min_id = 0; // id ranges don't have to start at 0
+    int64_t max_id = 0;
     int_vector<> r_iv; // ids-id_min is the rank
 
     ////////////////////////////////////////////////////////////////////////////
@@ -666,7 +672,7 @@ private:
     sd_vector<>::select_1_type tn_cbv_select;
     
     // Stores the number of haplotypes per contig that gave rise to the threads in the database
-    size_t haplotype_count;
+    size_t haplotype_count = 0;
     
     /// Back-calculate haplotype_count from the thread names for upgrading old XGs.
     void count_haplotypes();
@@ -779,8 +785,8 @@ private:
 
 class XGPath {
 public:
-    XGPath(void) { }
-    ~XGPath(void) { }
+    XGPath(void) = default;
+    ~XGPath(void) = default;
     // Path name is required here only for complaining intelligently when
     // something goes wrong. We can also spit out the total unique members,
     // because in here is the most efficient place to count them.
@@ -798,10 +804,7 @@ public:
     XGPath(XGPath&& other) = delete;
     XGPath& operator=(const XGPath& other) = delete;
     XGPath& operator=(XGPath&& other) = delete;
-    
-    rrr_vector<> nodes;
-    rrr_vector<>::rank_1_type nodes_rank;
-    rrr_vector<>::select_1_type nodes_select;
+    int64_t min_node_id = 0;
     wt_gmr<> ids;
     sd_vector<> directions; // forward or backward through nodes
     int_vector<> positions;
@@ -809,7 +812,7 @@ public:
     bit_vector offsets;
     rank_support_v<1> offsets_rank;
     bit_vector::select_1_type offsets_select;
-    void load(istream& in);
+    void load(istream& in, uint32_t file_version, const function<int64_t(size_t)>& rank_to_id);
     size_t serialize(std::ostream& out,
                      sdsl::structure_tree_node* v = NULL,
                      std::string name = "") const;
@@ -819,6 +822,8 @@ public:
     // Get the node orientation at a 0-based offset.
     id_t node(size_t offset) const;
     bool is_reverse(size_t offset) const;
+    id_t local_id(id_t id) const;
+    id_t external_id(id_t id) const;
 };
 
 

@@ -34,6 +34,14 @@ size_t MaximalExactMatch::count_Ns(void) const {
     return std::count(begin, end, 'N');
 }
 
+size_t MaximalExactMatch::filter_hits_to(int limit) {
+    int keep_every = ceil((double)nodes.size()/(double)limit);
+    int i = 0;
+    nodes.erase(std::remove_if(nodes.begin(), nodes.end(), [&i,&keep_every](const gcsa::node_type& n) { return i++%keep_every==0; }),
+                nodes.end());
+    return nodes.size();
+}
+
 pair<int64_t, int64_t> mem_min_oriented_distances(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
     return min_oriented_distances(m1.positions, m2.positions);
 }

@@ -4,6 +4,8 @@
 
 namespace vg {
 
+const std::regex Paths::is_alt("_alt_.+_[0-9]+");
+
 Paths::Paths(void) {
     // noop
 }
@@ -1012,6 +1014,11 @@ Path& extend_path(Path& path1, const Path& path2) {
         exit(1);
     }
     */
+    // set path ranks
+    for (size_t i = 0; i < path1.mapping_size(); ++i) {
+        auto* m = path1.mutable_mapping(i);
+        m->set_rank(i+1);
+    }
     // and return a reference to the first path where we added the mappings of the second
     return path1;
 }
@@ -1072,7 +1079,7 @@ Path concat_paths(const Path& path1, const Path& path2) {
     //cerr << ">>>>" << endl;
     //cerr << pb2json(res) << endl;
     //cerr << "<<<<<<<<<<<<<<<<<<<<<<<<<<<< end " << endl;
-    return res;
+    return simplify(res);
 }
 
 Path simplify(const Path& p, bool trim_internal_deletions) {
@@ -1146,6 +1153,11 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
         auto& m = s.mapping(i);
         if (!m.edit_size()) continue; // skips empty mappings
         *r.add_mapping() = m;
+        // remove position if it's empty
+        auto& l = *r.mutable_mapping(r.mapping_size()-1);
+        if (l.has_position() && l.position().node_id()==0) {
+            l.clear_position();
+        }
     }
     Path q;
     // remove leading and trailing deletions (these might result from global alignment)
@@ -1202,12 +1214,16 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
     q.set_name(r.name());
     assert(path_to_length(q) == path_to_length(r));
 
-    // now set ranks
+    // now set ranks and clear empty positions
     for (size_t i = 0; i < q.mapping_size(); ++i) {
         auto* m = q.mutable_mapping(i);
         m->set_rank(i+1);
+        if (m->position().node_id() == 0) {
+            // this is an empty position, so let's remove it
+            m->clear_position();
+        }
     }
-    //cerr << "simplified " << pb2json(s) << endl;
+
     return q;
 }
 
@@ -1259,7 +1275,9 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
         for ( ; j < m.edit_size(); ++j) {
             auto& f = m.edit(j);
             // if the edit types are the same, merge them
-            if ((edit_is_match(e) && edit_is_match(f))
+            if (edit_is_empty(f)) {
+                continue;
+            } else if ((edit_is_match(e) && edit_is_match(f))
                 || (edit_is_sub(e) && edit_is_sub(f))
                 || (edit_is_deletion(e) && edit_is_deletion(f))
                 || (edit_is_insertion(e) && edit_is_insertion(f))) {
@@ -1281,7 +1299,6 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
             *n.add_edit() = e;
         }
     }
-    //cerr << "post simplify " << pb2json(n) << endl;
     return n;
 }
 
@@ -2018,6 +2035,25 @@ Path path_from_node_traversals(const list<NodeTraversal>& traversals) {
     
     // We're done making the path
     return toReturn;
+}
+
+void remove_paths(Graph& graph, const std::regex& paths_to_take, std::list<Path>* matching) {
+
+    std::list<Path> non_matching;
+    for (size_t i = 0; i < graph.path_size(); i++) {
+        if (std::regex_match(graph.path(i).name(), paths_to_take)) {
+            if (matching != nullptr) {
+                matching->push_back(graph.path(i));
+            }
+        } else {
+            non_matching.push_back(graph.path(i));
+        }
+    }
+    graph.clear_path();
+
+    for (Path& path : non_matching) {
+        *(graph.add_path()) = path;
+    }
 }
 
 }

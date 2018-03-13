@@ -1417,12 +1417,9 @@ namespace vg {
                 variant_source.get()->position + variant_source.get()->ref.size() <= reference_end) {
 
             // While we have variants we want to include
-
-            bool variant_acceptable = true;
-
-
             auto vvar = variant_source.get();
 
+            bool variant_acceptable = !vvar->is_sv();
             if (do_svs) {
                 variant_acceptable = vvar->canonicalize_sv(reference, insertions, true, -1);
                // now called implicitly in canonicalize: vvar->set_insertion_sequences(insertions);

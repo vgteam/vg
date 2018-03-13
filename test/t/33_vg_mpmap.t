@@ -55,7 +55,7 @@ independent_range=$(jq -r ".path.mapping[0].position.node_id" <  temp_independen
 is $(printf "%s\t%s\n" $paired_range $independent_range | awk '{if ($1 < $2) print 1; else print 0}') 1 "paired read alignments forced to be consistent are closer together in node id space than unrestricted alignments"
 is $(printf "%s\t%s\n" $paired_range $distant_range | awk '{if ($1 < $2) print 1; else print 0}') 1 "paired read alignments forced to be near each other are closer together in node id space than those forced to be far apart"
 
-rm temp_paired_alignment.json temp_independent_alignment.json
+rm -f temp_paired_alignment.json temp_distant_alignment.json temp_independent_alignment.json
 
 rm -f graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp
 

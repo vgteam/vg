@@ -25,8 +25,8 @@ namespace vg {
     //size_t MultipathMapper::SUBGRAPH_TOTAL = 0;
     
     MultipathMapper::MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
-                                     gbwt::GBWT* gbwt_index, SnarlManager* snarl_manager) :
-        BaseMapper(xg_index, gcsa_index, lcp_array, gbwt_index),
+                                     haplo::ScoreProvider* haplo_score_provider, SnarlManager* snarl_manager) :
+        BaseMapper(xg_index, gcsa_index, lcp_array, haplo_score_provider),
         snarl_manager(snarl_manager)
     {
         // nothing to do
@@ -2924,16 +2924,8 @@ namespace vg {
                 vector<double> alignment_pop_scores(alignments.size(), 0.0);
                 for (size_t j = 0; j < alignments.size(); j++) {
                     // Score each alignment if possible
+                    auto pop_score = haplo_score_provider->score(alignments[j].path(), memo);
                     
-                    pair<double, bool> pop_score;
-                    if (gbwt != nullptr) {
-                        // Score form the GBWT
-                        pop_score = haplo_DP::score(alignments[j].path(), *gbwt, memo);
-                    } else {
-                        // Score from the XG
-                        pop_score = haplo_DP::score(alignments[j].path(), *xindex, memo);
-                    }
-                   
 #ifdef debug_multipath_mapper_mapping
                     cerr << "Got pop score " << pop_score.first << ", " << pop_score.second << " for alignment " << j
                         << " score " << alignments[j].score() << " of multipath " << i << endl;
@@ -3103,24 +3095,14 @@ namespace vg {
                 
                 for (size_t j = 0; j < alignments1.size(); j++) {
                     // Pop score the first alignments
-                    pair<double, bool> pop_score;
-                    if (gbwt != nullptr) {
-                        pop_score = haplo_DP::score(alignments1[j].path(), *gbwt, memo);
-                    } else {
-                        pop_score = haplo_DP::score(alignments1[j].path(), *xindex, memo);
-                    }
+                    auto pop_score = haplo_score_provider->score(alignments1[j].path(), memo);
                     pop_scores1[j] = pop_score.first;
                     all_paths_pop_consistent &= pop_score.second;
                 }
                 
                 for (size_t j = 0; j < alignments2.size(); j++) {
                     // Pop score the second alignments
-                    pair<double, bool> pop_score;
-                    if (gbwt != nullptr) {
-                        pop_score = haplo_DP::score(alignments2[j].path(), *gbwt, memo);
-                    } else {
-                        pop_score = haplo_DP::score(alignments2[j].path(), *xindex, memo);
-                    }
+                    auto pop_score = haplo_score_provider->score(alignments2[j].path(), memo);
                     pop_scores2[j] = pop_score.first;
                     all_paths_pop_consistent &= pop_score.second;
                 }
@@ -3182,7 +3164,15 @@ namespace vg {
 #ifdef debug_multipath_mapper_mapping
         cerr << "scores and distances obtained of multi-mappings:" << endl;
         for (int i = 0; i < multipath_aln_pairs.size(); i++) {
-            cerr << "\talign:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second) << ", length: " << cluster_pairs[i].second << ", combined: " << scores[i] << endl;
+            Alignment aln1, aln2;
+            optimal_alignment(multipath_aln_pairs[i].first, aln1);
+            optimal_alignment(multipath_aln_pairs[i].second, aln2);
+            auto start1 = aln1.path().mapping(0).position().node_id();
+            auto start2 = aln2.path().mapping(0).position().node_id();
+        
+            cerr << "\tpos:" << start1 << "(" << aln1.score() << ")-" << start2 << "(" << aln2.score() << ")"
+                << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
+                << ", length: " << cluster_pairs[i].second << ", combined: " << scores[i] << endl;
         }
 #endif
         

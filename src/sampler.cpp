@@ -608,7 +608,8 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
     }
     
     if (insert_length_mean < 5.0 * insert_length_stdev) {
-        cerr << "warning:[NGSSimulator] Recommended that insert length mean > 5 * insert length standard deviation" << endl;
+        cerr << "warning:[NGSSimulator] Recommended that insert length mean (" << insert_length_mean
+            << ") > 5 * insert length standard deviation (" << insert_length_stdev << ")" << endl;
     }
     
     // memoize phred conversions
@@ -771,8 +772,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
                 // we hit the end of the graph trying to walk
                 continue;
             }
-        }
-        else {
+        } else {
             // we need to walk backwards from the end of the first read
             pos = walk_backwards(aln_pair.first.path(), -remaining_length);
             // Make sure to update the offset along the path as well. If offset
@@ -781,9 +781,9 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             offset += is_reverse ? -remaining_length : remaining_length;
         }
         
-        
         // align the second end starting at the walked position
-        sample_read_internal(aln_pair.second, offset, is_reverse, pos, source_path);
+        sample_read_internal(aln_pair.second, offset, is_reverse, pos, source_path); 
+        
         
         if (retry_on_Ns) {
             if (aln_pair.second.sequence().find('N') != string::npos) {
@@ -807,7 +807,11 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
 
 void NGSSimulator::sample_read_internal(Alignment& aln, size_t& offset, bool& is_reverse, pos_t& curr_pos,
                                         const string& source_path) {
-    
+   
+    // Make sure we are starting inside the node
+    auto first_node_length = xg_cached_node_length(id(curr_pos), &xg_index, node_cache);
+    assert(vg::offset(curr_pos) < first_node_length);
+   
     aln.clear_path();
     aln.clear_sequence();
     
@@ -1034,6 +1038,14 @@ bool NGSSimulator::advance_on_path_by_distance(size_t& offset, bool& is_reverse,
 }
 
 pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
+    // Starting at the past-the-end of the path, walk back to the given nonzero distance.
+    // Walking back the whole path length puts you at the start of the path.
+    
+    if (distance > path_to_length(path)) {
+        throw runtime_error("Cannot walk back " + to_string(distance) + " on path of length " + to_string(path_to_length(path)));
+    }
+    assert(distance > 0);
+
     // walk backwards until we find the mapping it's on
     int64_t remaining = distance;
     int64_t mapping_idx = path.mapping_size() - 1;
@@ -1043,9 +1055,10 @@ pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
         mapping_idx--;
         mapping_length = mapping_to_length(path.mapping(mapping_idx));
     }
+    // Now we know the position we want is inside this mapping.
     const Mapping& mapping = path.mapping(mapping_idx);
     const Position& mapping_pos = mapping.position();
-    // walk forward from the beginning of the mapping until we've passed where it is on the read
+    // walk forward from the beginning of the mapping, edit by edit, until we've passed where it is on the read
     int64_t remaining_flipped = mapping_length - remaining;
     int64_t edit_idx = 0;
     int64_t prefix_from_length = 0;
@@ -1055,15 +1068,51 @@ pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
         prefix_to_length += mapping.edit(edit_idx).to_length();
         edit_idx++;
     }
-    // walk back onto mapping
+    // Go back one edit to the edit that covers the position we want to be at
     --edit_idx;
     // use the mapping's position and the distance we traveled on the graph to get the offset of
     // the beginning of this edit
     int64_t offset = mapping_pos.offset() + prefix_from_length - mapping.edit(edit_idx).from_length();
-    if (mapping.edit(edit_idx).from_length() > 0) {
-        // if the edit is a match/mismatch, add in the remainder of the edit
-        offset += (remaining_flipped - prefix_to_length + mapping.edit(edit_idx).to_length());
+    if (mapping.edit(edit_idx).from_length() == mapping.edit(edit_idx).to_length()) {
+        // if the edit is a match/mismatch, we can walk part of it
+        
+        // How many extra bases did this mapping have when we got past where we wanted to be?
+        auto extra_bases = prefix_to_length - remaining_flipped;
+        
+        // Take all the non-extra bases of the mapping.
+        offset += mapping.edit(edit_idx).to_length() - extra_bases;
+    } else {
+        // Otherwise it's an insert, so just land at the spot it is inserted at.
+        
+        // But we will have a problem if the insert is the last thing in its mapping
+        if (prefix_from_length == mapping_from_length(mapping)) {
+            // We are trying to put our starting position past the end of this
+            // mapping, because we are landing inside an insert that is the
+            // last thing in its mapping.
+            
+            // Note that this can happen at the end of the path, if the whole
+            // path ends in an insert. So we can't just go to the next
+            // position.
+            
+            // There's not really a quite correct thing to do here, but since
+            // we can't go right we have to go left.
+            assert(offset > 0);
+            offset--;
+        }
     }
+    
+    // Get the length of the node we landed on
+    auto node_length = xg_cached_node_length(mapping_pos.node_id(), &xg_index, node_cache);
+    // The position we pick should not be past the end of the node.
+    if (offset >= node_length) {
+        cerr << pb2json(path) << endl;
+        cerr << "Covering mapping: " << pb2json(mapping) << endl;
+        cerr << "Covering edit: " << pb2json(mapping.edit(edit_idx)) << endl;
+        throw runtime_error("Could not go back " + to_string(distance) + " in path of length " +
+            to_string(path_to_length(path)) + "; hit node " + to_string(mapping_pos.node_id()) + " length " +
+            to_string(node_length) + " end at offset " + to_string(offset));
+    }
+
     return make_pos_t(mapping_pos.node_id(), mapping_pos.is_reverse(), offset);
 }
 

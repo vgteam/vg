@@ -54,12 +54,17 @@ void kmer_to_gcsa_kmers(const kmer_t& kmer, const gcsa::Alphabet& alpha, const f
 /// Encode the chars into the gcsa2 byte
 gcsa::byte_type encode_chars(const vector<char>& chars, const gcsa::Alphabet& alpha);
 
-/// Write GCSA2 formatted binary KMers to the given ostream
-void write_gcsa_kmers(const HandleGraph& graph, int kmer_size, ostream& out, id_t head_id, id_t tail_id);
+/**
+ * Write GCSA2 formatted binary KMers to the given ostream.
+ * size_limit is the maximum size of the kmer file in bytes. When the function
+ * returns, size_limit is the size of the kmer file in bytes.
+ */
+void write_gcsa_kmers(const HandleGraph& graph, int kmer_size, ostream& out, size_t& size_limit, id_t head_id, id_t tail_id);
 
-/// Open a tempfile and write the kmers to it. The calling context should remove it.
-string write_gcsa_kmers_to_tmpfile(const HandleGraph& graph, int kmer_size, id_t head_id, id_t tail_id,
-                                   const string& base_file_name = ".vg-kmers-tmp-");
+/// Open a tempfile and write the kmers to it. The calling context should remove it
+/// with temp_file::remove().
+string write_gcsa_kmers_to_tmpfile(const HandleGraph& graph, int kmer_size, size_t& size_limit, id_t head_id, id_t tail_id,
+                                   const string& base_file_name = "vg-kmers-tmp-");
 
 }
 

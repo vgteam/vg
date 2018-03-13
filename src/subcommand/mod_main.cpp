@@ -421,7 +421,7 @@ int main_mod(int argc, char** argv) {
 
         // This is matched against the entire path name string to detect alt
         // paths.
-        regex is_alt("_alt_.+_[0-9]+");
+        const regex& is_alt = Paths::is_alt;
 
         // This holds the VCF file we read the variants from. It needs to be the
         // same one used to construct the graph.

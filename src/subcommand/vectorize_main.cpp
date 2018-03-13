@@ -192,7 +192,7 @@ int main_vectorize(int argc, char** argv){
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Configure its temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(find_temp_dir());
+    gcsa::TempFile::setDirectory(temp_file::get_dir());
 
     gcsa::GCSA gcsa_index;
     gcsa::LCPArray lcp_index;
@@ -219,6 +219,15 @@ int main_vectorize(int argc, char** argv){
     }
 
     Vectorizer vz(xg_index);
+
+    // write the header if needed
+    if (format) {
+        cout << "aln.name";
+        for (size_t i = 1; i <= xg_index->max_node_rank(); ++i) {
+            cout << "\tnode." << xg_index->rank_to_id(i);
+        }
+        cout << endl;
+    }
 
     //Generate a 1-hot coverage vector for graph entities.
     function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, mem_positions, format, a_hot, max_mem_length](Alignment& a){

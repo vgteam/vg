@@ -1,5 +1,8 @@
 #include "utility.hpp"
 
+#include <cstdio>
+#include <set>
+
 namespace vg {
 
 static const char complement[256] = {'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', // 8
@@ -162,8 +165,23 @@ string toUppercase(const string& s) {
     return n;
 }
 
-string tmpfilename(const string& base) {
-    string tmpname = base + "XXXXXXXX";
+namespace temp_file {
+
+string temp_dir;
+
+/// Because the names are in a static object, we can delete them when
+/// std::exit() is called.
+struct Handler {
+    set<string> filenames;
+    ~Handler() {
+        for (auto& filename : filenames) {
+            std::remove(filename.c_str());
+        }
+    }
+} handler;
+
+string create(const string& base) {
+    string tmpname = get_dir() + "/" + base + "XXXXXXXX";
     // hack to use mkstemp to get us a safe temporary file name
     int fd = mkstemp(&tmpname[0]);
     if(fd != -1) {
@@ -174,31 +192,39 @@ string tmpfilename(const string& base) {
              << base << " : " << tmpname << endl;
         exit(1);
     }
+    handler.filenames.insert(tmpname);
     return tmpname;
 }
 
-string find_temp_dir() {
-    // We need to find the system temp directory.
-    const char* system_temp_dir = nullptr;
-    
-    for(const char* var_name : {"TMPDIR", "TMP", "TEMP", "TEMPDIR", "USERPROFILE"}) {
-        // Try all these env vars in order
-        if (system_temp_dir == nullptr) {
-            system_temp_dir = getenv(var_name);
-        }
-    }
-    if (system_temp_dir == nullptr) {
-        // Then if none were set default to /tmp
-        system_temp_dir = "/tmp";
-    }
-    
-    return std::string(system_temp_dir);
+string create() {
+    return create("vg-");
 }
 
-string tmpfilename() {
-    // Make a temp file in the system temp directory.
-    return tmpfilename(find_temp_dir() + "/vg");
+void remove(const string& filename) {
+    std::remove(filename.c_str());
+    handler.filenames.erase(filename);
 }
+
+void set_dir(const string& new_temp_dir) {
+    temp_dir = new_temp_dir;
+}
+
+string get_dir() {
+    // Get the default temp dir from environment variables.
+    if (temp_dir.empty()) {
+        const char* system_temp_dir = nullptr;
+        for(const char* var_name : {"TMPDIR", "TMP", "TEMP", "TEMPDIR", "USERPROFILE"}) {
+            if (system_temp_dir == nullptr) {
+                system_temp_dir = getenv(var_name);
+            }
+        }
+        temp_dir = (system_temp_dir == nullptr ? "/tmp" : system_temp_dir);
+    }
+
+    return temp_dir;
+}
+
+} // namespace temp_file
 
 string get_or_make_variant_id(const vcflib::Variant& variant) {
 

@@ -28,6 +28,8 @@ is $subgraph_count 1 "vg stats reports the correct number of subgraphs"
 subgraph_length=$(vg stats -s z.vg | head -1 | cut -f 2)
 is $subgraph_length $graph_length  "vg stats reports the correct subgraph length"
 
+rm -f z.vg
+
 is $(vg view -Fv msgas/q_redundant.gfa | vg stats -S - | md5sum | cut -f 1 -d\ ) 01fadb6a004ddb87e5fc5d056b565218 "perfect to and from siblings are determined"
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
@@ -41,4 +43,4 @@ vg map -x x.xg -g x.gcsa -T x.reads >x.gam
 is "$(vg stats -a x.gam x.vg | md5sum | cut -f 1 -d\ )" "$(md5sum correct/10_vg_stats/15.txt | cut -f 1 -d\ )" "aligned read stats are computed correctly"
 rm -f x.vg x.xg x.gcsa x.gam x.reads
 
-is $(vg msga -f msgas/cycle.fa -b s1 -w 64 -N --patch-aln -t 1 | vg mod -U 10 - | vg stats -O - | wc -l) 77 "a path overlap description of a cyclic graph built by msga has the expected length"
+is $(vg msga -f msgas/cycle.fa -b s1 -w 64 -k 8 -N -t 1 | vg mod -U 10 - | vg stats -O - | wc -l) 77 "a path overlap description of a cyclic graph built by msga has the expected length"

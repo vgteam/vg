@@ -1,6 +1,7 @@
 #include "phase_unfolder.hpp"
 #include "progress_bar.hpp"
 
+#include <cassert>
 #include <iostream>
 #include <map>
 
@@ -8,6 +9,7 @@ namespace vg {
 
 PhaseUnfolder::PhaseUnfolder(const xg::XG& xg_index, const gbwt::GBWT& gbwt_index, vg::id_t next_node) :
     xg_index(xg_index), gbwt_index(gbwt_index), mapping(next_node) {
+    assert(this->mapping.begin() > this->xg_index.get_max_id());
 }
 
 void PhaseUnfolder::unfold(VG& graph, bool show_progress) {
@@ -156,9 +158,8 @@ bool verify_path(const PathType& path, VG& unfolded, const hash_map<vg::id_t, st
 size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
 
     // Create a mapping from original -> duplicates.
-    // TODO Interface for the duplicate range in NodeMapping.
     hash_map<vg::id_t, std::vector<vg::id_t>> reverse_mapping;
-    for (gcsa::size_type duplicate = this->mapping.first_node; duplicate < this->mapping.next_node; duplicate++) {
+    for (gcsa::size_type duplicate = this->mapping.begin(); duplicate < this->mapping.end(); duplicate++) {
         vg::id_t original_id = this->mapping(duplicate);
         reverse_mapping[original_id].push_back(duplicate);
         if (unfolded.has_node(original_id)) {
@@ -223,6 +224,7 @@ void PhaseUnfolder::read_mapping(const std::string& filename) {
     }
     this->mapping.load(in);
     in.close();
+    assert(this->mapping.begin() > this->xg_index.get_max_id());
 }
 
 vg::id_t PhaseUnfolder::get_mapping(vg::id_t node) const {

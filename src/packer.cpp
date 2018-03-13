@@ -187,9 +187,9 @@ bool Packer::is_dynamic(void) {
 
 void Packer::ensure_edit_tmpfiles_open(void) {
     if (tmpfstreams.empty()) {
-        string base = ".vg-pack_";
-        string edit_tmpfile_name = tmpfilename(base);
-        std::remove(edit_tmpfile_name.c_str()); // remove this; we'll use it as a base name
+        string base = "vg-pack_";
+        string edit_tmpfile_name = temp_file::create(base);
+        temp_file::remove(edit_tmpfile_name); // remove this; we'll use it as a base name
         // for as many bins as we have, make a temp file
         tmpfstreams.resize(n_bins);
         edit_tmpfile_names.resize(n_bins);
@@ -231,6 +231,10 @@ void Packer::add(const Alignment& aln, bool record_edits) {
 #ifdef debug
             cerr << "Mapping has no position" << endl;
 #endif
+            continue;
+        }
+        // skip nodes outside of our graph, assuming this may be a subgraph
+        if (!xgidx->has_node(mapping.position().node_id())) {
             continue;
         }
         size_t i = position_in_basis(mapping.position());
@@ -384,9 +388,17 @@ ostream& Packer::as_table(ostream& out, bool show_edits) {
     cerr << "Packer table of " << coverage_civ.size() << " rows:" << endl;
 #endif
 
+    out << "seq.pos" << "\t"
+        << "node.id" << "\t"
+        << "node.offset" << "\t"
+        << "coverage";
+    if (show_edits) out << "\t" << "edits";
+    out << endl;
     // write the coverage as a vector
     for (size_t i = 0; i < coverage_civ.size(); ++i) {
-        out << i << "\t" << coverage_civ[i];
+        id_t node_id = xgidx->node_at_seq_pos(i+1);
+        size_t offset = i - xgidx->node_start(node_id);
+        out << i << "\t" << node_id << "\t" << offset << "\t" << coverage_civ[i];
         if (show_edits) {
             out << "\t" << count(edit_csas[bin_for_position(i)], pos_key(i));
             for (auto& edit : edits_at_position(i)) out << " " << pb2json(edit);

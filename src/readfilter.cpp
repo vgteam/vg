@@ -684,8 +684,13 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         ++counts.read[co];
         bool keep = true;
         // filter (current) alignment
-        if ((aln.is_secondary() && score < min_secondary) ||
-            (!aln.is_secondary() && score < min_primary)) {
+        if (!name_prefix.empty() && !std::equal(name_prefix.begin(), name_prefix.end(), aln.name().begin())) {
+            // There's a prefix and a mismatch against it
+            ++counts.wrong_name[co];
+            keep = false;    
+        }
+        if ((keep || verbose) && ((aln.is_secondary() && score < min_secondary) ||
+            (!aln.is_secondary() && score < min_primary))) {
             ++counts.min_score[co];
             keep = false;
         }
@@ -755,6 +760,8 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
              << counts.read[0] << endl
              << "Total Filtered (secondary):        " << counts.filtered[1] << " / "
              << counts.read[1] << endl
+             << "Read Name Filter (primary):        " << counts.wrong_name[0] << endl
+             << "Read Name Filter (secondary):      " << counts.wrong_name[1] << endl
              << "Min Identity Filter (primary):     " << counts.min_score[0] << endl
              << "Min Identity Filter (secondary):   " << counts.min_score[1] << endl
              << "Max Overhang Filter (primary):     " << counts.max_overhang[0] << endl

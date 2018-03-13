@@ -219,7 +219,7 @@ gcsa::byte_type encode_chars(const vector<char>& chars, const gcsa::Alphabet& al
     return val;
 }
 
-void write_gcsa_kmers(const HandleGraph& graph, int kmer_size, ostream& out, id_t head_id, id_t tail_id) {
+void write_gcsa_kmers(const HandleGraph& graph, int kmer_size, ostream& out, size_t& size_limit, id_t head_id, id_t tail_id) {
 
     // We need an alphabet to parse the internal string format
     const gcsa::Alphabet alpha;
@@ -235,10 +235,19 @@ void write_gcsa_kmers(const HandleGraph& graph, int kmer_size, ostream& out, id_
     }
     // This handles the buffered writing for each thread
     size_t buffer_limit = 1e5; // max 100k kmers per buffer
+    size_t total_bytes = 0;
     auto handle_kmers = [&](vector<gcsa::KMer>& kmers, bool more) {
         if (!more || kmers.size() > buffer_limit) {
+            size_t bytes_required = kmers.size() * sizeof(gcsa::KMer) + sizeof(gcsa::GraphFileHeader);
 #pragma omp critical (gcsa_kmer_out)
-            gcsa::writeBinary(out, kmers, kmer_size);
+            {
+                if (total_bytes + bytes_required > size_limit) {
+                    cerr << "error: [write_gcsa_kmers()] size limit exceeded" << endl;
+                    exit(EXIT_FAILURE);
+                }
+                gcsa::writeBinary(out, kmers, kmer_size);
+                total_bytes += bytes_required;
+            }
             kmers.clear();
         }
     };
@@ -256,15 +265,16 @@ void write_gcsa_kmers(const HandleGraph& graph, int kmer_size, ostream& out, id_
         // Flush our buffers
         handle_kmers(thread_output, false);
     }
+    size_limit = total_bytes;
 }
 
-string write_gcsa_kmers_to_tmpfile(const HandleGraph& graph, int kmer_size, id_t head_id, id_t tail_id,
+string write_gcsa_kmers_to_tmpfile(const HandleGraph& graph, int kmer_size, size_t& size_limit, id_t head_id, id_t tail_id,
                                    const string& base_file_name) {
     // open a temporary file for the kmers
-    string tmpfile = tmpfilename(base_file_name);
+    string tmpfile = temp_file::create(base_file_name);
     ofstream out(tmpfile);
     // write the kmers to the temporary file
-    write_gcsa_kmers(graph, kmer_size, out, head_id, tail_id);
+    write_gcsa_kmers(graph, kmer_size, out, size_limit, head_id, tail_id);
     out.close();
     return tmpfile;
 }

@@ -16,6 +16,7 @@ vg view -J -v call/tiny.json > tiny.vg
 true > empty.gam
 vg augment tiny.vg empty.gam -Z empty.aug.trans -S empty.aug.support > empty.aug.vg
 vg call empty.aug.vg -z empty.aug.trans -s empty.aug.support -b tiny.vg --no-vcf > calls.loci
+rm -f empty.gam
 
 LOCUS_COUNT="$(vg view --locus-in -j calls.loci | wc -l)"
 REF_LOCUS_COUNT="$(vg view --locus-in -j calls.loci | jq -c 'select(.genotype[0].allele == [0, 0])' | wc -l)"
@@ -49,7 +50,7 @@ N_COUNT=$(vg view -j test.aug.vg | grep "N" | wc -l)
 
 is "${N_COUNT}" "0" "N bases are not augmented into the graph"
 
-rm -r reads.txt test.vg test.xg test.gcsa test.gcsa.lcp test.gam  test.aug.vg test.trans test.support
+rm -rf reads.txt test.vg test.xg test.gcsa test.gcsa.lcp test.gam  test.aug.vg test.trans test.support empty.gam
 
 
 

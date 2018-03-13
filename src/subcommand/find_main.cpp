@@ -25,6 +25,7 @@ void help_find(char** argv) {
          << "    -p, --path TARGET      find the node(s) in the specified path range(s) TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -R, --rank-in PATH     find the rank of the node (specified by -n) in the given path" << endl
+         << "    -I, --list-paths       write out the path names in the index" << endl
          << "    -X, --approx-pos ID    get the approximate position of this node" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
          << "    -G, --gam GAM          accumulate the graph touched by the alignments in the GAM" << endl
@@ -98,6 +99,7 @@ int main_find(int argc, char** argv) {
     bool extract_threads = false;
     vector<string> extract_patterns;
     vg::id_t approx_id = 0;
+    bool list_path_names = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -140,11 +142,12 @@ int main_find(int argc, char** argv) {
                 {"extract-threads", no_argument, 0, 't'},
                 {"threads-named", required_argument, 0, 'q'},
                 {"approx-pos", required_argument, 0, 'X'},
+                {"list-paths", no_argument, 0, 'I'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:B:fi:DH:G:N:A:Y:Z:tq:X:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:B:fi:DH:G:N:A:Y:Z:tq:X:I",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -258,6 +261,10 @@ int main_find(int argc, char** argv) {
 
         case 'i':
             node_id_range = optarg;
+            break;
+
+        case 'I':
+            list_path_names = true;
             break;
 
         case 'm':
@@ -470,7 +477,6 @@ int main_find(int argc, char** argv) {
         }
         if (!node_ids.empty() && !path_name.empty() && !pairwise_distance && (position_in || rank_in)) {
             // Go get the positions of these nodes in this path
-            
             if (xindex.path_rank(path_name) == 0) {
                 // This path doesn't exist, and we'll get a segfault or worse if
                 // we go look for positions in it.
@@ -500,6 +506,12 @@ int main_find(int argc, char** argv) {
         if (approx_id != 0) {
             cout << xindex.node_start(approx_id) << endl;
             return 0;
+        }
+        if (list_path_names) {
+            size_t m = xindex.max_path_rank();
+            for (size_t i = 1; i <= m; ++i) {
+                cout << xindex.path_name(i) << endl;
+            }
         }
         if (!targets.empty()) {
             Graph graph;
@@ -766,7 +778,7 @@ int main_find(int argc, char** argv) {
             gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
             
             // Configure its temp directory to the system temp directory
-            gcsa::TempFile::setDirectory(find_temp_dir());
+            gcsa::TempFile::setDirectory(temp_file::get_dir());
 
             // Open it
             ifstream in_gcsa(gcsa_in.c_str());
