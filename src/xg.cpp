@@ -174,14 +174,14 @@ void XG::load(istream& in) {
                 //cerr << sequence_length << ", " << node_count << ", " << edge_count << endl;
                 sdsl::read_member(min_id, in);
                 sdsl::read_member(max_id, in);
-
+                
                 if (file_version <= 7) {
                     // Load the old id int vector to skip
                     int_vector<> i_iv;
                     i_iv.load(in);
                 }
                 r_iv.load(in);
-
+                
                 g_iv.load(in);
                 g_bv.load(in);
                 g_bv_rank.load(in, &g_bv);
@@ -426,13 +426,13 @@ size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string nam
     ////////////////////////////////////////////////////////////////////////
 
     written += sdsl::write_member(s_iv.size(), out, child, "sequence_length");
-    //written += sdsl::write_member(i_iv.size(), out, child, "node_count");
+    written += sdsl::write_member(node_count, out, child, "node_count");
     written += sdsl::write_member(edge_count, out, child, "edge_count");
     written += sdsl::write_member(path_count, out, child, "path_count");
     written += sdsl::write_member(min_id, out, child, "min_id");
     written += sdsl::write_member(max_id, out, child, "max_id");
 
-    //written += i_iv.serialize(out, child, "id_rank_vector");
+    // written += i_iv.serialize(out, child, "id_rank_vector");
     written += r_iv.serialize(out, child, "rank_id_vector");
 
     written += g_iv.serialize(out, child, "graph_vector");
