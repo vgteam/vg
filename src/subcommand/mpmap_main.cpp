@@ -639,6 +639,7 @@ int main_mpmap(int argc, char** argv) {
         // TODO: I don't like having these constants floating around in two different places, but it's not very risky, just a warning
         if (!snarls_name.empty()) {
             cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
+            // TODO: Not true!
         }
         
         if (snarl_cut_size != 5) {
@@ -728,7 +729,7 @@ int main_mpmap(int argc, char** argv) {
     // TODO: Allow using haplo::XGScoreProvider?
     
     SnarlManager* snarl_manager = nullptr;
-    if (!snarls_name.empty() && !single_path_alignment_mode) {
+    if (!snarls_name.empty()) {
         ifstream snarl_stream(snarls_name);
         if (!snarl_stream) {
             cerr << "error:[vg mpmap] Cannot open Snarls file " << snarls_name << endl;

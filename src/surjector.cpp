@@ -10,7 +10,7 @@ namespace vg {
 
 using namespace std;
     
-    Surjector::Surjector(xg::XG* xg_index) : xindex(xg_index) {
+    Surjector::Surjector(xg::XG* xg_index) : Mapper(xg_index, nullptr, nullptr) {
         
     }
     
@@ -23,7 +23,6 @@ using namespace std;
                                          string& path_name,
                                          int64_t& path_pos,
                                          bool& path_reverse) {
-        
         
         Alignment surjection = source;
         // Leave the original mapping quality in place (because that's the quality

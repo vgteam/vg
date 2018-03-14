@@ -52,7 +52,6 @@ using namespace std;
         VG extract_linearized_path_graph(size_t begin, size_t end, const xg::XGPath& xpath,
                                          unordered_map<id_t, pair<id_t, bool>>& node_trans);
         
-        const xg::XG* xindex;
     };
 }
  
