@@ -637,6 +637,14 @@ int main_map(int argc, char** argv) {
     int compress_level = 9; // hard coded
     map<string, string> rg_sample;
     string sam_header;
+    
+    vector<Surjector*> surjectors;
+    if (!surject_type.empty()) {
+        surjectors.resize(thread_count);
+        for (int i = 0; i < surjectors.size(); i++) {
+            surjectors[i] = new Surjector(xgidx);
+        }
+    }
 
     // if no paths were given take all of those in the index
     set<string> path_names;
@@ -683,7 +691,7 @@ int main_map(int argc, char** argv) {
 
     // TODO: Refactor the surjection code out of surject_main and intto somewhere where we can just use it here!
 
-    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out, &xgidx, &surjector] (const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
+    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out, &xgidx, &surjectors] (const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
         
         if (alns1.empty()) return;
         setup_sam_header();
@@ -695,7 +703,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = surjector.surject_classic(aln, path_names, path_name, path_pos, path_reverse);
+            auto surj = surjectors[omp_get_thread_num()]->surject_classic(aln, path_names, path_name, path_pos, path_reverse);
             surjects1.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // hack: if we haven't established the header, we look at the reads to guess which read groups to put in it
@@ -711,7 +719,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = surjector.surject_classic(aln, path_names, path_name, path_pos, path_reverse);
+            auto surj = surjectors[omp_get_thread_num()]->surject_classic(aln, path_names, path_name, path_pos, path_reverse);
             surjects2.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // Don't try and populate the header; it should have happened already
@@ -1341,6 +1349,10 @@ int main_map(int argc, char** argv) {
     if(xgidx) {
         delete xgidx;
         xgidx = nullptr;
+    }
+    
+    for (Surjector* surjector : surjectors) {
+        delete surjector;
     }
 
     cout.flush();

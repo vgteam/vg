@@ -407,31 +407,42 @@ using namespace std;
     
     Alignment Surjector::path_anchored_surject(const Alignment& source, const string& path_name) {
         
+        // the path we're surecting onto
         size_t path_rank = xindex->path_rank(path_name);
         const xg::XGPath& xpath = xindex->get_path(path_name);
         
+        // memos for expensive succinct operations that may be repeated
         unordered_map<int64_t, vector<size_t>> paths_of_node_memo;
         unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>> oriented_occurrences_memo;
         
+        // get the chunks of the aligned path that overlap the ref path
         auto path_overlapping_anchors = extract_overlapping_paths(source, path_rank, &paths_of_node_memo);
         
+        // find the interval of the ref path we need to cnsider
         pair<size_t, size_t> ref_path_interval = compute_path_interval(source, path_rank, xpath, path_overlapping_anchors,
                                                                        &oriented_occurrences_memo);
         
+        // get the path graph corresponding to this interval
         unordered_map<id_t, pair<id_t, bool>> node_trans;
         VG path_graph = extract_linearized_path_graph(ref_path_interval.first, ref_path_interval.second, xpath, node_trans);
         
+        // compute the connectivity between the path chunks
         MultipathAlignmentGraph mp_aln_graph(path_graph, path_overlapping_anchors, node_trans);
         
+        // TODO: is this necessary?
         vector<size_t> topological_order;
         mp_aln_graph.topological_sort(topological_order);
         mp_aln_graph.remove_transitive_edges(topological_order);
         
+        // align the intervening segments and store the result in a multipath alignment
         MultipathAlignment mp_aln;
         mp_aln_graph.align(source, path_graph, get_aligner(), false, 1, 1, mp_aln);
         
+        // concatenate the subpaths
         Alignment surjected;
         optimal_alignment(mp_aln, surjected);
+        
+        // translate back into the original ID space and return
         translate_oriented_node_ids(*surjected.mutable_path(), node_trans);
         return surjected;
     }
