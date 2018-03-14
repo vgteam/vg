@@ -306,7 +306,7 @@ using namespace std;
             surjection_reverse = merge_alignments({start_softclip_rev, surjection_reverse, end_softclip_rev});
             surjection_reverse.set_score(rev_score);
         }
-        
+
         // choose
         if (count_reverse && count_forward) {
             if (surjection_reverse.score() > surjection_forward.score()) {
@@ -321,7 +321,18 @@ using namespace std;
                 surjection = surjection_forward;
             }
         }
-        //cerr << "surj " << pb2json(surjection) << endl;
+        surjection = simplify(surjection, false);
+        /*
+        cerr << "surj " << pb2json(surjection) << endl;
+        for (size_t j = 0; j < surjection.path().mapping_size(); ++j) {
+            Mapping* m = surjection.mutable_path()->mutable_mapping(j);
+            for (size_t i = 0; i < m->edit_size(); ++i) {
+                cerr << pb2json(m->edit(i)) << endl;
+                assert(!edit_is_empty(m->edit(i)));
+            }
+        }
+        */
+
 #ifdef debug_mapper
         
 #pragma omp critical (cerr)
