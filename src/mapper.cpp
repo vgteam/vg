@@ -1805,7 +1805,6 @@ Mapper::Mapper(xg::XG* xidex,
                haplo::ScoreProvider* haplo_score_provider) :
     BaseMapper(xidex, g, a, haplo_score_provider)
     , thread_extension(10)
-    , context_depth(1)
     , max_multimaps(1)
     , min_multimaps(4)
     , max_attempts(0)

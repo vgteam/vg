@@ -465,7 +465,6 @@ protected:
     
     // make the bands used in banded alignment
     vector<Alignment> make_bands(const Alignment& read, int band_width, vector<pair<int, int>>& to_strip);
-    
 public:
     // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
     // LCP array, and an optional haplotype score provider.
@@ -629,7 +628,6 @@ public:
     //
     //int max_mem_length; // a mem must be <= this length
     int min_cluster_length; // a cluster needs this much sequence in it for us to consider it
-    int context_depth; // how deeply the mapper will extend out the subgraph prior to alignment
     int max_attempts;  // maximum number of times to try to increase sensitivity or use a lower-hit subgraph
     int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
     int max_target_factor; // the maximum multiple of the read length we'll try to align to

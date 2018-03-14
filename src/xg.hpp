@@ -824,7 +824,8 @@ public:
     bool is_reverse(size_t offset) const;
     id_t local_id(id_t id) const;
     id_t external_id(id_t id) const;
-    id_t node_as_position(size_t pos) const;
+    id_t node_at_position(size_t pos) const;
+    size_t offset_at_position(size_t pos) const;
 };
 
 

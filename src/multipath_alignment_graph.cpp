@@ -105,20 +105,20 @@ namespace vg {
                 bool injected_rev = iter->second.second;
                 
                 // stack for DFS, each record contains records of (path index, next trav index, next traversals)
-                vector<tuple<size_t, size_t, vector<NodeTraversal>>> stack;
-                stack.emplace_back(0, 0, vector<NodeTraversal>{NodeTraversal(vg.get_node(injected_id), injected_rev)});
+                vector<pair<size_t, vector<NodeTraversal>>> stack;
+                stack.emplace_back(0, vector<NodeTraversal>{NodeTraversal(vg.get_node(injected_id), injected_rev)});
                 
                 while (!stack.empty()) {
                     auto& back = stack.back();
-                    if (get<1>(back) == get<2>(back).size()) {
+                    if (back.first == back.second.size()) {
 #ifdef debug_multipath_alignment
                         cerr << "traversed all edges out of current traversal" << endl;
 #endif
                         stack.pop_back();
                         continue;
                     }
-                    NodeTraversal trav = get<2>(back)[get<1>(back)];
-                    get<1>(back)++;
+                    NodeTraversal trav = back.second[back.first];
+                    back.first++;
                     
 #ifdef debug_multipath_alignment
                     cerr << "checking node " << trav.node->id() << endl;
@@ -128,7 +128,7 @@ namespace vg {
                     if (f != projection_trans.end()) {
                         pair<id_t, bool> projected_trav = f->second;
                     
-                        const Position& pos = path.mapping(get<0>(back)).position();
+                        const Position& pos = path.mapping(stack.size() - 1).position();
                         if (projected_trav.first == pos.node_id() &&
                             projected_trav.second == (projected_trav.second != trav.backward)) {
                             // position matched the path
@@ -136,8 +136,8 @@ namespace vg {
                                 // finished walking path
                                 break;
                             }
-                            stack.emplace_back(get<0>(back) + 1, 0, vector<NodeTraversal>());
-                            vg.nodes_next(trav, get<3>(stack.back()));
+                            stack.emplace_back(0, vector<NodeTraversal>());
+                            vg.nodes_next(trav, stack.back().second);
                         }
                     }
                 }
@@ -149,12 +149,12 @@ namespace vg {
                 path_nodes.emplace_back();
                 
                 PathNode& path_node = path_nodes.back();
-                path_node.begin = path_chunks.first.first;
-                path_node.end = path_chunks.first.second;
+                path_node.begin = path_chunk.first.first;
+                path_node.end = path_chunk.first.second;
                 
                 for (size_t i = 0; i < path.mapping_size(); i++) {
                     Mapping* mapping = path_node.path.add_mapping();
-                    NodeTraversal trav = get<2>(stack[i])[get<1>(stack[i]) - 1];
+                    NodeTraversal trav = stack[i].second[stack[i].first - 1];
                     
                     Position* position = mapping->mutable_position();
                     position->set_node_id(trav.node->id());

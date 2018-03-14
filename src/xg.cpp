@@ -424,7 +424,7 @@ id_t XGPath::node_at_position(size_t pos) const {
     return node(offset_at_position(pos));
 }
 
-size_t XGPath::offset_at_position(size_t off) {
+size_t XGPath::offset_at_position(size_t pos) const {
     return offsets_rank(pos+1)-1;
 }
 
