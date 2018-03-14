@@ -5,6 +5,7 @@
 //
 
 //#define debug_multipath_mapper
+//#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
 
@@ -2432,8 +2433,8 @@ namespace vg {
         
 #ifdef debug_multipath_mapper
         cerr << "scores obtained of multi-mappings:" << endl;
-        for (auto score : scores) {
-            cerr << "\t" << score << endl;
+        for (size_t i = 0; i < scores.size(); i++) {
+            cerr << "\t" << scores[i] << endl;
         }
 #endif
         
@@ -2601,7 +2602,11 @@ namespace vg {
         
             cerr << "\tpos:" << start1 << "(" << aln1.score() << ")-" << start2 << "(" << aln2.score() << ")"
                 << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
-                << ", length: " << cluster_pairs[i].second << ", combined: " << scores[i] << endl;
+            << ", length: " << cluster_pairs[i].second;
+            if (include_population_component && all_paths_pop_consistent) {
+                cerr << ", pop: " << scores[i] - base_scores[i];
+            }
+            cerr << ", combined: " << scores[i] << endl;
         }
 #endif
         
