@@ -24,7 +24,7 @@ namespace vg {
         create_path_chunk_nodes(vg, path_chunks, projection_trans, injection_trans);
         
         // compute reachability and add edges
-        add_reachability_edges(vg, hits, projection_trans, injection_trans);
+        add_reachability_edges(vg, projection_trans, injection_trans);
         
     }
     
@@ -68,7 +68,7 @@ namespace vg {
         }
         
         // compute reachability and add edges
-        add_reachability_edges(vg, hits, projection_trans, injection_trans);
+        add_reachability_edges(vg, projection_trans, injection_trans);
         
 #ifdef debug_multipath_alignment
         cerr << "final mem graph:" << endl;
@@ -93,7 +93,7 @@ namespace vg {
                                                           const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
         for (const auto& path_chunk : path_chunks) {
-            const Path& path = path_chunks.second;
+            const Path& path = path_chunk.second;
             auto range = injection_trans.equal_range(path.mapping(0).position().node_id());
             for (auto iter = range.first; iter != range.second; iter++) {
                 
@@ -123,19 +123,22 @@ namespace vg {
 #ifdef debug_multipath_alignment
                     cerr << "checking node " << trav.node->id() << endl;
 #endif
+
+                    auto f = projection_trans.find(trav.node->id());
+                    if (f != projection_trans.end()) {
+                        pair<id_t, bool> projected_trav = f->second;
                     
-                    pair<id_t, bool> projected_trav = projection_trans[trav.node->id()];
-                    
-                    const Position& pos = path.mapping(get<0>(back)).position();
-                    if (projected_trav.first == pos.node_id() &&
-                        projected_trav.second == (projected_trav.second != trav.backward)) {
-                        // position matched the path
-                        if (stack.size() == path.mapping_size()) {
-                            // finished walking path
-                            break;
+                        const Position& pos = path.mapping(get<0>(back)).position();
+                        if (projected_trav.first == pos.node_id() &&
+                            projected_trav.second == (projected_trav.second != trav.backward)) {
+                            // position matched the path
+                            if (stack.size() == path.mapping_size()) {
+                                // finished walking path
+                                break;
+                            }
+                            stack.emplace_back(get<0>(back) + 1, 0, vector<NodeTraversal>());
+                            vg.nodes_next(trav, get<3>(stack.back()));
                         }
-                        stack.emplace_back(get<0>(back) + 1, 0, vector<NodeTraversal>());
-                        vg.nodes_next(trav, get<3>(stack.back()));
                     }
                 }
                 
@@ -875,7 +878,7 @@ namespace vg {
         }
     }
     
-    void MultipathAlignmentGraph::add_reachability_edges(VG& vg, const MultipathMapper::memcluster_t& hits,
+    void MultipathAlignmentGraph::add_reachability_edges(VG& vg,
                                                          const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                          const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         

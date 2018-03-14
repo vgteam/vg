@@ -68,6 +68,11 @@ namespace vg {
         
         /// Nodes representing walked MEMs in the graph
         vector<PathNode> path_nodes;
+
+        /// Add the path chunks as nodes to the connectivity graph
+        void create_path_chunk_nodes(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
         
         /// Walk out MEMs into match nodes and filter out redundant sub-MEMs
         void create_match_nodes(VG& vg, const MultipathMapper::memcluster_t& hits,
@@ -85,7 +90,7 @@ namespace vg {
                                       int64_t max_snarl_cut_size);
         
         /// Add edges between reachable nodes and split nodes at overlaps
-        void add_reachability_edges(VG& vg, const MultipathMapper::memcluster_t& hits,
+        void add_reachability_edges(VG& vg,
                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
         
