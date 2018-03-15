@@ -5151,6 +5151,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
             surjection = surjection_forward;
         }
     }
+    surjection = simplify(surjection, false);
     //cerr << "surj " << pb2json(surjection) << endl;
 #ifdef debug_mapper
 
