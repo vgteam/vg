@@ -414,8 +414,8 @@ class VGCITest(TestCase):
         # Make the xg with gpbwt of the input graph
         index_name = 'index-gpbwt'
         chrom, offset = self._bakeoff_coords(region)
-        self._toil_vg_index(chrom, vg_file, None, None,
-                            '--vcf_phasing {} --skip_gcsa --xg_index_cores {}'.format(
+        self._toil_vg_index(chrom, vg_file, None, "SKIP",
+                            '--vcf_phasing {} --xg_index_cores {}'.format(
                                 os.path.abspath(f_vcf_file), self.cores), tag, index_name)
         index_path = os.path.join(out_store, index_name + '.xg')
         
@@ -459,8 +459,8 @@ class VGCITest(TestCase):
                                          out_path = tmp_thread_path + '.drop'))
 
             # Index the thread graphs so we can simulate from them
-            self._toil_vg_index(chrom, tmp_thread_path + '.drop', None, None,
-                                '--skip_gcsa', tag, 'thread_{}'.format(hap))
+            self._toil_vg_index(chrom, tmp_thread_path + '.drop', None, "SKIP",
+                                None, tag, 'thread_{}'.format(hap))
 
             # They're in a tmp work dir so this is probably overkill
             os.remove(tmp_thread_path)
@@ -1183,8 +1183,8 @@ class VGCITest(TestCase):
         if True:
             # compute the xg index from scratch
             chrom, offset = self._bakeoff_coords(region)        
-            self._toil_vg_index(str(chrom), vg_path, None, None,
-                                '--skip_gcsa', tag, '{}-{}'.format(baseline_graph, region))
+            self._toil_vg_index(str(chrom), vg_path, None, "SKIP",
+                                None, tag, '{}-{}'.format(baseline_graph, region))
             xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')        
 
             test_index_bases = []
