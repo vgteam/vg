@@ -209,7 +209,13 @@ class VGCITest(TestCase):
         print '</VGCI>\n'
                 
     def _toil_vg_index(self, chrom, graph_path, xg_path, gcsa_path, misc_opts, dir_tag, file_tag):
-        """ Wrap toil-vg index.  Files passed are copied from store instead of computed """
+        """
+        
+        Wrap toil-vg index. Files passed are copied from store instead of
+        computed. If "SKIP" is used as a filename, don't create or copy that
+        index. Otherwise, pass None as a filename to compute that index.
+        
+        """
         job_store = self._jobstore(dir_tag)
         out_store = self._outstore(dir_tag)
         opts = ' '.join(self._toil_vg_io_opts()) + ' '
@@ -222,12 +228,16 @@ class VGCITest(TestCase):
         if graph_path:
             opts += '--graphs {} '.format(graph_path)
         if xg_path:
-            opts += '--skip_xg '
-            self._get_remote_file(xg_path, os.path.join(out_store, os.path.basename(xg_path)))
-        if gcsa_path and (not misc_opts or '--skip_gcsa' not in misc_opts):
-            opts += '--skip_gcsa '
-            self._get_remote_file(gcsa_path, os.path.join(out_store, os.path.basename(gcsa_path)))
-            self._get_remote_file(gcsa_path + '.lcp', os.path.join(out_store, os.path.basename(gcsa_path) + '.lcp'))
+            if xg_path != "SKIP":
+                self._get_remote_file(xg_path, os.path.join(out_store, os.path.basename(xg_path)))
+        else:
+            opts += '--xg_index '
+        if gcsa_path:
+            if gcsa_path != "SKIP":
+                self._get_remote_file(gcsa_path, os.path.join(out_store, os.path.basename(gcsa_path)))
+                self._get_remote_file(gcsa_path + '.lcp', os.path.join(out_store, os.path.basename(gcsa_path) + '.lcp'))
+        else:
+            opts += '--gcsa_index '
         opts += '--index_name {}'.format(file_tag)
         if misc_opts:
             opts += ' {} '.format(misc_opts)
@@ -332,11 +342,12 @@ class VGCITest(TestCase):
                                      work_dir = os.path.abspath(self.workdir)))
         os.remove(uf_vcf_file)
         
-        # Make the xg with gpbwt of the input graph
+        # Make the gbwt of the input graph
+        # Don't bother with the GCSA
         index_name = 'index-gbwt'
         chrom, offset = self._bakeoff_coords(region)
-        self._toil_vg_index(chrom, vg_file, None, None,
-                            '--vcf_phasing {} --skip_gcsa --xg_index_cores {} --make_gbwt'.format(
+        self._toil_vg_index(chrom, vg_file, None, "SKIP",
+                            '--vcf_phasing {} --xg_index_cores {} --gbwt_index'.format(
                                 os.path.abspath(f_vcf_file), self.cores), tag, index_name)
         gbwt_path = os.path.join(out_store, index_name + '.gbwt')
         # Drop the extra xg
