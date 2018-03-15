@@ -104,6 +104,9 @@ namespace vg {
         /// Reachability edges must be in the graph.
         void align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                    size_t num_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out);
+                   
+        /// Converts a MultipathAlignmentGraph to a GraphViz Dot representation, output to the given ostream.
+        void to_dot(ostream& out) const;
         
     private:
         

@@ -2217,8 +2217,10 @@ namespace vg {
             // But then we need to reconstruct the reachability edges afterwards
             multi_aln_graph.add_reachability_edges(*vg, node_trans, node_inj);
             
+#ifdef debug_multipath_mapper_alignment
             cerr << "with edges:" << endl;
-            cerr << multi_aln_graph.to_dot() << endl;
+            multi_aln_graph.to_dot(cerr);
+#endif
         }
         
         // do the connecting alignments and fill out the MultipathAlignment object
