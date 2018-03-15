@@ -24,7 +24,7 @@ void help_map(char** argv) {
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-mem INT       minimum MEM length (if 0 estimate via -e) [0]" << endl
          << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [5e-4]" << endl
-         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index (0 for no limit) [8192]" << endl
+         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index (0 for no limit) [2048]" << endl
          << "    -Y, --max-mem INT       ignore mems longer than this length (unset if 0) [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than FLOAT*--min-seed [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds (1/2 for paired) [128]" << endl
@@ -101,7 +101,7 @@ int main_map(int argc, char** argv) {
     string hts_file;
     string fasta_file;
     bool keep_secondary = false;
-    int hit_max = 8192;
+    int hit_max = 2048;
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
@@ -896,7 +896,6 @@ int main_map(int argc, char** argv) {
             throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
         }
         m->hit_max = hit_max;
-        m->hit_limit = max(max_multimaps, extra_multimaps);
         m->max_multimaps = max_multimaps;
         m->min_multimaps = max(min_multimaps, max_multimaps);
         m->band_multimaps = band_multimaps;
