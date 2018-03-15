@@ -293,10 +293,6 @@ using namespace std;
             return surjection;
         }
         
-        // patch
-        if (count_forward) patch_alignment(surjection_forward, surjection_forward.sequence().size(), false);
-        if (count_reverse) patch_alignment(surjection_reverse, surjection_reverse.sequence().size(), false);
-        
         // reattach soft clips and set original score (score isn't really used through...)
         if (count_forward) {
             surjection_forward = merge_alignments({start_softclip_fwd, surjection_forward, end_softclip_fwd});
@@ -322,16 +318,6 @@ using namespace std;
             }
         }
         surjection = simplify(surjection, false);
-        /*
-        cerr << "surj " << pb2json(surjection) << endl;
-        for (size_t j = 0; j < surjection.path().mapping_size(); ++j) {
-            Mapping* m = surjection.mutable_path()->mutable_mapping(j);
-            for (size_t i = 0; i < m->edit_size(); ++i) {
-                cerr << pb2json(m->edit(i)) << endl;
-                assert(!edit_is_empty(m->edit(i)));
-            }
-        }
-        */
 
 #ifdef debug_mapper
         
