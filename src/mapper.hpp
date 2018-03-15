@@ -233,7 +233,6 @@ public:
     double fast_reseed_length_diff = 0.45; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
     bool adaptive_reseed_diff = true; // use an adaptive length difference algorithm in reseed algorithm
     double adaptive_diff_exponent = 0.065; // exponent that describes limiting behavior of adaptive diff algorithm
-    int hit_limit = 0;     // keep no more than this many MEMs
     int hit_max = 0;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = false;
     bool prefilter_redundant_hits = true;
@@ -307,9 +306,6 @@ protected:
     
     // Algorithm for choosing an adaptive reseed length based on the length of the parent MEM
     size_t get_adaptive_min_reseed_length(size_t parent_mem_length);
-    
-    // debugging, checking of mems using find interface to gcsa
-    void check_mems(const vector<MaximalExactMatch>& mems);
     
     int alignment_threads; // how many threads will *this* mapper use. Should not be set directly.
     
