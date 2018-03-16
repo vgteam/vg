@@ -30,6 +30,7 @@ void help_align(char** argv) {
          << "    -g, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "    -T, --full-l-bonus N  provide this bonus for alignments that are full length (default: 5)" << endl
+         << "    --score-matrix FILE   read a 5x5 integer substitution scoring matrix from a file" << endl
          << "    -b, --banded-global   use the banded global alignment algorithm" << endl
          << "    -p, --pinned          pin the (local) alignment traceback to the optimal edge of the graph" << endl
          << "    -L, --pin-left        pin the first rather than last bases of the graph and sequence" << endl
@@ -47,6 +48,8 @@ int main_align(int argc, char** argv) {
         return 1;
     }
 
+    #define OPT_SCORE_MATRIX 1000
+    string matrix_file_name;
     bool print_cigar = false;
     bool output_json = false;
     int match = 1;
@@ -74,6 +77,7 @@ int main_align(int argc, char** argv) {
             {"mismatch", required_argument, 0, 'M'},
             {"gap-open", required_argument, 0, 'g'},
             {"gap-extend", required_argument, 0, 'e'},
+            {"score-matrix", required_argument, 0, OPT_SCORE_MATRIX},
             {"reference", required_argument, 0, 'r'},
             {"debug", no_argument, 0, 'D'},
             {"banded-global", no_argument, 0, 'b'},
@@ -124,7 +128,15 @@ int main_align(int argc, char** argv) {
         case 'T':
             full_length_bonus = atoi(optarg);
             break;
-            
+
+        case OPT_SCORE_MATRIX:
+            matrix_file_name = optarg;
+            if (matrix_file_name.empty()) {
+                cerr << "error:[vg align] Must provide matrix file with --matrix-file." << endl;
+                exit(1);
+            }
+            break;
+
         case 'r':
             ref_seq = optarg;
             break;
@@ -165,17 +177,31 @@ int main_align(int argc, char** argv) {
             graph = new VG(in);
         });
     }
-    
+
+    ifstream matrix_stream;
+    if (!matrix_file_name.empty()) {
+      matrix_stream.open(matrix_file_name);
+      if (!matrix_stream) {
+          cerr << "error:[vg align] Cannot open scoring matrix file " << matrix_file_name << endl;
+          exit(1);
+      }
+    }
+
     Alignment alignment;
     if (!ref_seq.empty()) {
+        if (!matrix_file_name.empty()) {
+            cerr << "error:[vg align] Custom scoring matrix not supported in reference sequence mode " << endl;
+            exit(1);
+        }
         SSWAligner ssw = SSWAligner(match, mismatch, gap_open, gap_extend);
         alignment = ssw.align(seq, ref_seq);
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
+        if(matrix_stream.is_open()) aligner.load_scoring_matrix(matrix_stream);
         alignment = graph->align(seq, &aligner, true, false, 0, pinned_alignment, pin_left,
             banded_global, 0, max(seq.size(), graph->length()), debug);
     }
-    
+
     if (!seq_name.empty()) {
         alignment.set_name(seq_name);
     }
@@ -200,4 +226,3 @@ int main_align(int argc, char** argv) {
 
 // Register subcommand
 static Subcommand vg_align("align", "local alignment", main_align);
-

@@ -1611,6 +1611,15 @@ void BaseMapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, in
     regular_aligner = new Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
 }
 
+void BaseMapper::load_scoring_matrix(std::ifstream& matrix_stream){
+    matrix_stream.clear();
+    matrix_stream.seekg(0);
+    if(regular_aligner) regular_aligner->load_scoring_matrix(matrix_stream);
+    matrix_stream.clear();
+    matrix_stream.seekg(0);
+    if(qual_adj_aligner) qual_adj_aligner->load_scoring_matrix(matrix_stream);
+}
+
 void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& alns) {
     if (haplo_score_provider == nullptr) {
         // There's no haplotype data available, so we can't add consistency scores.

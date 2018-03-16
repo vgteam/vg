@@ -52,6 +52,7 @@ void help_map(char** argv) {
          << "    --no-patch-aln          do not patch banded alignments by locally aligning unaligned regions" << endl
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
+         << "    --score-matrix FILE     read a 5x5 integer substitution scoring matrix from a file" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
@@ -89,7 +90,9 @@ int main_map(int argc, char** argv) {
         help_map(argv);
         return 1;
     }
-    
+
+    #define OPT_SCORE_MATRIX 1000
+    string matrix_file_name;
     string seq;
     string qual;
     string seq_name;
@@ -204,6 +207,7 @@ int main_map(int argc, char** argv) {
                 {"buffer-size", required_argument, 0, '9'},
                 {"match", required_argument, 0, 'q'},
                 {"mismatch", required_argument, 0, 'z'},
+                {"score-matrix", required_argument, 0, OPT_SCORE_MATRIX},
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
                 {"qual-adjust", no_argument, 0, 'A'},
@@ -422,6 +426,14 @@ int main_map(int argc, char** argv) {
             mismatch = atoi(optarg);
             break;
 
+        case OPT_SCORE_MATRIX:
+            matrix_file_name = optarg;
+            if (matrix_file_name.empty()) {
+                cerr << "error:[vg map] Must provide matrix file with --matrix-file." << endl;
+                exit(1);
+            }
+            break;
+
         case 'o':
             gap_open = atoi(optarg);
             break;
@@ -617,6 +629,15 @@ int main_map(int argc, char** argv) {
         
         // We want to use this for haplotype scoring
         haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
+    }
+
+    ifstream matrix_stream;
+    if (!matrix_file_name.empty()) {
+      matrix_stream.open(matrix_file_name);
+      if (!matrix_stream) {
+          cerr << "error:[vg map] Cannot open scoring matrix file " << matrix_file_name << endl;
+          exit(1);
+      }
     }
 
     thread_count = get_thread_count();
@@ -917,6 +938,7 @@ int main_map(int argc, char** argv) {
         m->fast_reseed = use_fast_reseed;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent);
+        if(matrix_stream.is_open()) m->load_scoring_matrix(matrix_stream);
         m->strip_bonuses = strip_bonuses;
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
         m->extra_multimaps = extra_multimaps;
