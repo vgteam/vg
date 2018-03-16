@@ -243,6 +243,7 @@ class VGCITest(TestCase):
             opts += ' {} '.format(misc_opts)
         
         cmd = 'toil-vg index {} {} {}'.format(job_store, out_store, opts)
+        sys.stderr.write("Running toil-vg indexing: {}".format(cmd))
         
         subprocess.check_call(cmd, shell=True)        
         
@@ -430,42 +431,57 @@ class VGCITest(TestCase):
             # This is straght from Erik.  We mush together the original graph
             # (without paths) and the thread path from the xg index
             with context.get_toil(job_store) as toil:
+                # Make sure the base graph isn't trivially small
+                assert(os.stat(os.path.join(out_store, os.path.basename(vg_file))).st_size >= 1000)
+            
+                # Drop path info
                 cmd = ['vg', 'mod', '-D', os.path.join(out_store_name, os.path.basename(vg_file))]
                 toil.start(Job.wrapJobFn(toil_call, context, cmd,
                                          work_dir = os.path.abspath(self.workdir),
-                                         out_path = tmp_thread_path))
+                                         out_path = tmp_thread_path + '.graph'))
+                                         
+                assert(os.stat(tmp_thread_path + '.graph').st_size >= 1000)
 
                 # TODO: nothing is supposed to be depending on the particular
                 # syntax of the thread names. Stop doing that or formalize a way to get
                 
                 # TODO: Use the GBWT instead of the GPBWT to extract the threads we want.
 
-                # TODO: This will only get the first unbroken chunk (part 0) of
-                # a haplotype. This needs to be modified to get threads _0
-                # through _n for however many unbroken threads actually make up
-                # the haplotype we want to extract.
-                
                 cmd = ['vg', 'find', '-q', '_thread_{}_{}_{}'.format(sample, chrom, hap),
                        '-x', os.path.join(out_store_name, os.path.basename(index_path))]
                 toil.start(Job.wrapJobFn(toil_call, context, cmd,
                                          work_dir = os.path.abspath(self.workdir),
-                                         out_path = tmp_thread_path,
-                                         out_append = True))
+                                         out_path = tmp_thread_path + '.paths'))
+                                         
+                assert(os.stat(tmp_thread_path + '.paths').st_size >= 1000)
+                
+                with open(tmp_thread_path, 'w') as dest:
+                    # Concatenate the graph and the path for the part we care about
+                    with open(tmp_thread_path + '.graph') as src:
+                        shutil.copyfileobj(src, dest)
+                    with open(tmp_thread_path + '.paths') as src:
+                        shutil.copyfileobj(src, dest)
+                        
+                assert(os.stat(tmp_thread_path).st_size >= 1000)
 
                 # Then we trim out anything other than our thread path
                 cmd = ['vg', 'mod', '-N', os.path.basename(tmp_thread_path)]
                 toil.start(Job.wrapJobFn(toil_call, context, cmd,
                                          work_dir = os.path.abspath(self.workdir),
                                          out_path = tmp_thread_path + '.drop'))
+                                         
+                assert(os.stat(tmp_thread_path + '.drop').st_size >= 1000)
 
             # Index the thread graphs so we can simulate from them
             self._toil_vg_index(chrom, tmp_thread_path + '.drop', None, "SKIP",
                                 None, tag, 'thread_{}'.format(hap))
 
             # They're in a tmp work dir so this is probably overkill
+            os.remove(tmp_thread_path + '.graph')
+            os.remove(tmp_thread_path + '.paths')
             os.remove(tmp_thread_path)
             os.remove(tmp_thread_path + '.drop')
-
+            
         return index_path, os.path.join(out_store, 'thread_0.xg'), os.path.join(out_store, 'thread_1.xg')
 
     def _print_vcfeval_summary_table(self, summary_path, baseline_f1, threshold, header=True, name=None):
