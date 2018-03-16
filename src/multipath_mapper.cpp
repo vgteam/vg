@@ -2952,7 +2952,9 @@ namespace vg {
                 for (size_t j = 0; j < alignments.size(); j++) {
                     // Compute the adjusted score for each alignment
                     auto adjusted_score = alignments[j].score() + alignment_pop_scores[j] / log_base;
-                    
+                   
+                    assert(!std::isnan(adjusted_score));
+                   
                     if (adjusted_score > pop_adjusted_scores[i]) {
                         // It is the best, so use it.
                         // TODO: somehow know we want this Alignment when collapsing the MultipathAlignment later.
@@ -3123,6 +3125,11 @@ namespace vg {
                 
                 // Compute the total pop adjusted score for this MultipathAlignment
                 pop_adjusted_scores[i] = alignment_score + frag_score + pop_score;
+                
+                assert(!std::isnan(alignment_score));
+                assert(!std::isnan(frag_score));
+                assert(!std::isnan(pop_score));
+                assert(!std::isnan(pop_adjusted_scores[i]));
                 
                 // Record our extra score if it was a new minimum
                 min_extra_score = min(frag_score + pop_score, min_extra_score);

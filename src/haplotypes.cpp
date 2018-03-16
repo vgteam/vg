@@ -822,7 +822,13 @@ LinearScoreProvider::LinearScoreProvider(const linear_haplo_structure& index) : 
 
 pair<double, bool> LinearScoreProvider::score(const vg::Path& path, haploMath::RRMemo& memo) {
   // Memo is ignored; all penalties come from the index itself.
-  return index.score(path);
+  auto scored = index.score(path);
+  
+  // If we got a NAN, we can't very well say scoring succeeded.
+  // We can delete this when <https://github.com/vgteam/vg/issues/1534> is fixed.
+  scored.second &= !std::isnan(scored.first);
+  
+  return scored;
 }
 
 /*******************************************************************************
