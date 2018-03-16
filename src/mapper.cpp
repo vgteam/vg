@@ -4021,13 +4021,13 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         return -((double)gap_open + (double)dist * (double)gap_extension);
     };
 
-    AlignmentChainModel chainer(multi_alns, this, transition_weight, 4, 64, 128);
+    AlignmentChainModel chainer(multi_alns, this, transition_weight, 128, 64, 256);
     if (debug) chainer.display(cerr);
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps, false, debug);
     if (patch_alignments) {
         for (auto& aln : alignments) {
             // patch the alignment to deal with short unaligned regions
-            aln = patch_alignment(aln, band_width);
+            aln = patch_alignment(aln, band_width/2);
         }
     }
     // sort the alignments by score
@@ -4585,8 +4585,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         for (auto& pos : band_ref_pos) {
                             //cerr << "trying position " << pos << endl;
                             pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
-                            Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size()*4);
-                            graph.MergeFrom(xindex->graph_context_id(pos, band.sequence().size()*2));
+                            Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size()*1.61803);
+                            graph.MergeFrom(xindex->graph_context_id(pos, band.sequence().size()/1.61803));
                             sort_by_id_dedup_and_clean(graph);
                             bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, certainly_acyclic);
@@ -4602,9 +4602,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             //cerr << "trying position " << pos << endl;
-                            Graph graph = xindex->graph_context_id(pos, band.sequence().size()*4);
+                            Graph graph = xindex->graph_context_id(pos, band.sequence().size()*1.61803);
                             pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
-                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*2));
+                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()/1.61803));
                             sort_by_id_dedup_and_clean(graph);
                             //cerr << "on graph " << pb2json(graph) << endl;
                             bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
@@ -4616,9 +4616,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             //cerr << "trying position " << pos << endl;
-                            Graph graph = xindex->graph_context_id(pos, band.sequence().size()*4);
+                            Graph graph = xindex->graph_context_id(pos, band.sequence().size()*1.61803);
                             pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
-                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*2));
+                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()/1.61803));
                             sort_by_id_dedup_and_clean(graph);
                             //cerr << "on graph " << pb2json(graph) << endl;
                             bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
