@@ -639,7 +639,7 @@ int main_mpmap(int argc, char** argv) {
         // TODO: I don't like having these constants floating around in two different places, but it's not very risky, just a warning
         if (!snarls_name.empty()) {
             cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
-            // TODO: This isn't true!
+            // TODO: Not true!
         }
         
         if (snarl_cut_size != 5) {
