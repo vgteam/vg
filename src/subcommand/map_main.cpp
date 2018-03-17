@@ -38,8 +38,8 @@ void help_map(char** argv) {
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -m, --acyclic-graph     improves runtime when the graph is acyclic" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
-         << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [{-w}]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [1]" << endl
+         << "    -J, --band-jump INT     the maximum number of bands of insertion we consider in the alignment chain model [128]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [16]" << endl
          << "    -Z, --band-min-mq INT   treat bands with less than this MQ as unaligned [0]" << endl
          << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [5000:0:0:0:1]" << endl
          << "                            max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
@@ -113,8 +113,8 @@ int main_map(int argc, char** argv) {
     string fastq1, fastq2;
     bool interleaved_input = false;
     int band_width = 256;
-    int band_multimaps = 1;
-    int max_band_jump = -1;
+    int band_multimaps = 16;
+    int max_band_jump = 128;
     bool always_rescue = false;
     bool top_pairs_only = false;
     int max_mem_length = 0;
@@ -936,7 +936,7 @@ int main_map(int argc, char** argv) {
         m->frag_stats.fragment_model_update_interval = fragment_model_update;
         m->max_mapping_quality = max_mapping_quality;
         m->mate_rescues = mate_rescues;
-        m->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
+        m->max_band_jump = max_band_jump;
         m->identity_weight = identity_weight;
         m->assume_acyclic = acyclic_graph;
         m->patch_alignments = patch_alignments;

@@ -69,7 +69,7 @@ public:
     AlignmentChainModel(
         vector<vector<Alignment> >& bands,
         Mapper* mapper,
-        const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&)>& transition_weight,
+        const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&, int64_t)>& transition_weight,
         int vertex_band_width = 10,
         int position_depth = 1,
         int max_connections = 30);
