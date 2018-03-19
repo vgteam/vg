@@ -445,20 +445,8 @@ if [[ ! -e "${OUTPUT_PATH}/qq" ]]; then
 
 fi
 
-# Determine our source directory, where the ROC plotting script also lives
-# See <https://stackoverflow.com/a/246128>
-SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Do the R plots
-
-if [[ ! -e "${OUTPUT_PATH}/roc.svg" ]]; then
-    Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
-fi
-if [[ ! -e "${OUTPUT_PATH}/pr.svg" ]]; then
-    Rscript "${SCRIPT_DIRECTORY}/plot-pr.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/pr.svg"
-fi
-
 if [[ ! -e "${OUTPUT_PATH}/table.tsv" ]]; then
+    # Make a table of wrong reads
 
     # First we need a baseline for comparing against
     BASELINE_CONDITION="snp1kg-mp"
@@ -509,6 +497,19 @@ if [[ ! -e "${OUTPUT_PATH}/table.tsv" ]]; then
     
     rm "${OUTPUT_PATH}/baseline-wrong-names.tsv"
 
+fi
+
+# Determine our source directory, where the ROC plotting script also lives
+# See <https://stackoverflow.com/a/246128>
+SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Do the R plots
+
+if [[ ! -e "${OUTPUT_PATH}/roc.svg" ]]; then
+    Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
+fi
+if [[ ! -e "${OUTPUT_PATH}/pr.svg" ]]; then
+    Rscript "${SCRIPT_DIRECTORY}/plot-pr.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/pr.svg"
 fi
 
 rm "${TREE_PATH}/toil-vg.conf"
