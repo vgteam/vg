@@ -347,7 +347,7 @@ size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Al
     
     size_t nLines = unpaired_for_each_parallel(get_read, lambda);
     
-    delete buf;
+    delete[] buf;
     gzclose(fp);
     return nLines;
     
@@ -379,7 +379,7 @@ size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filen
     
     size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true);
     
-    delete buf;
+    delete[] buf;
     gzclose(fp);
     return nLines;
 }
@@ -406,7 +406,7 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
     
     size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true);
     
-    delete buf;
+    delete[] buf;
     gzclose(fp1);
     gzclose(fp2);
     return nLines;
@@ -426,7 +426,7 @@ size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)
         nLines++;
     }
     gzclose(fp);
-    delete buffer;
+    delete[] buffer;
     return nLines;
 }
 
@@ -444,7 +444,7 @@ size_t fastq_paired_interleaved_for_each(const string& filename, function<void(A
         nLines++;
     }
     gzclose(fp);
-    delete buffer;
+    delete[] buffer;
     return nLines;
 }
 
@@ -467,7 +467,7 @@ size_t fastq_paired_two_files_for_each(const string& file1, const string& file2,
     }
     gzclose(fp1);
     gzclose(fp2);
-    delete buffer;
+    delete[] buffer;
     return nLines;
 
 }
