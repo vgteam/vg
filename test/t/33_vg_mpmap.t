@@ -34,7 +34,7 @@ vg snarls xy2.vg > xy2.snarls
 is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 1 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.path.mapping[0].position.node_id')" "50" "Single traceback places read on the wrong contig"
 is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 1 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.mapping_quality')" "null" "Single traceback places read with MAPQ 0"
 is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 20 -f reads/xy2.discordant.fq -t 1 -S | vg view -aj - | jq '.path.mapping[0].position.node_id')" "1" "Multiple tracebacks place read on the right contig"
-is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 10 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.mapping_quality')" "13" "Multiple tracebacks place read with nonzero MAPQ"
+is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls --max-paths 10 -f reads/xy2.discordant.fq -S | vg view -aj - | jq '.mapping_quality')" "1" "Multiple tracebacks place read with nonzero MAPQ"
 
 rm -f xy2.vg xy2.xg xy2.gcsa xy2.gcsa.lcp xy2.gbwt xy2.snarls
 

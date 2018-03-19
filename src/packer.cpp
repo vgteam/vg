@@ -233,6 +233,10 @@ void Packer::add(const Alignment& aln, bool record_edits) {
 #endif
             continue;
         }
+        // skip nodes outside of our graph, assuming this may be a subgraph
+        if (!xgidx->has_node(mapping.position().node_id())) {
+            continue;
+        }
         size_t i = position_in_basis(mapping.position());
         for (auto& edit : mapping.edit()) {
             if (edit_is_match(edit)) {
@@ -384,9 +388,17 @@ ostream& Packer::as_table(ostream& out, bool show_edits) {
     cerr << "Packer table of " << coverage_civ.size() << " rows:" << endl;
 #endif
 
+    out << "seq.pos" << "\t"
+        << "node.id" << "\t"
+        << "node.offset" << "\t"
+        << "coverage";
+    if (show_edits) out << "\t" << "edits";
+    out << endl;
     // write the coverage as a vector
     for (size_t i = 0; i < coverage_civ.size(); ++i) {
-        out << i << "\t" << coverage_civ[i];
+        id_t node_id = xgidx->node_at_seq_pos(i+1);
+        size_t offset = i - xgidx->node_start(node_id);
+        out << i << "\t" << node_id << "\t" << offset << "\t" << coverage_civ[i];
         if (show_edits) {
             out << "\t" << count(edit_csas[bin_for_position(i)], pos_key(i));
             for (auto& edit : edits_at_position(i)) out << " " << pb2json(edit);

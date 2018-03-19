@@ -285,6 +285,8 @@ public:
     size_t node_occs_in_path(int64_t id, size_t rank) const;
     vector<size_t> node_ranks_in_path(int64_t id, const string& name) const;
     vector<size_t> node_ranks_in_path(int64_t id, size_t rank) const;
+    // Get the positions (but not the orientations) of the given node on the given path.
+    // See also: oriented_occurrences_on_path, which gives rank and orientation
     vector<size_t> position_in_path(int64_t id, const string& name) const;
     vector<size_t> position_in_path(int64_t id, size_t rank) const;
     map<string, vector<size_t> > position_in_paths(int64_t id, bool is_rev = false, size_t offset = 0) const;
@@ -314,10 +316,10 @@ public:
     /// returns true if the paths are on the same connected component of the graph (constant time)
     bool paths_on_same_component(size_t path_rank_1, size_t path_rank_2) const;
     
-    /// returns the offsets and orientations of a given node on a path
+    /// returns the ranks (NOT base positions) and orientations of a given node on a path
     vector<pair<size_t, bool>> oriented_occurrences_on_path(int64_t id, size_t path) const;
     
-    /// returns the offsets and orientations of a given node on a set of paths
+    /// returns the ranks (NOT base positions) and orientations of a given node on a set of paths
     vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_occurrences_on_paths(int64_t id, vector<size_t>& paths) const;
     
     /// returns all of the paths that a node traversal occurs on, the rank of these occurrences on the path
@@ -822,6 +824,8 @@ public:
     bool is_reverse(size_t offset) const;
     id_t local_id(id_t id) const;
     id_t external_id(id_t id) const;
+    id_t node_at_position(size_t pos) const;
+    size_t offset_at_position(size_t pos) const;
 };
 
 

@@ -192,7 +192,7 @@ namespace vg {
                 }
             }
             v.updateAlleleIndexes();
-            cerr << v << endl;
+            cout << v << endl;
 
         }
         
