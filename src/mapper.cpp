@@ -1614,10 +1614,10 @@ void BaseMapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, in
 void BaseMapper::load_scoring_matrix(std::ifstream& matrix_stream){
     matrix_stream.clear();
     matrix_stream.seekg(0);
-    if(regular_aligner) regular_aligner->load_scoring_matrix(matrix_stream);
+    if(regular_aligner) get_regular_aligner()->load_scoring_matrix(matrix_stream);
     matrix_stream.clear();
     matrix_stream.seekg(0);
-    if(qual_adj_aligner) qual_adj_aligner->load_scoring_matrix(matrix_stream);
+    if(qual_adj_aligner) get_qual_adj_aligner()->load_scoring_matrix(matrix_stream);
 }
 
 void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& alns) {

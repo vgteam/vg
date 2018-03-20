@@ -5,12 +5,16 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 48
+plan tests 51
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 
 is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq '.path.mapping[0].position.offset')" "3" "offset counts unused bases from the start of the node on the forward strand"
+
+is  "$(vg map --score-matrix default.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq '.path.mapping[0].position.offset')" "3" "testing score-matrix: with matrixoffset counts unused bases from the start of the node on the forward strand"
+
+isnt  "$(vg map --score-matrix negative.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq '.path.mapping[0].position.offset')" "3" "testing score-matrix: with matrixoffset counts unused bases from the start of the node on the forward strand"
 
 is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa -j - | jq '.path.mapping[0].position.offset')" "5" "offset counts unused bases from the start of the node on the reverse strand"
 
@@ -19,6 +23,8 @@ is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcs
 is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 58 "alignment score is as expected"
 
 is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 106 "scoring parameters are respected"
+
+is $(vg map --score-matrix 2_2.mat -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 106 "testing score-matrix: scoring parameters are respected"
 
 is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }')" 58 "full length bonus always be included"
 

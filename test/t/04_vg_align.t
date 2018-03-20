@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 17
+plan tests 20
 
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 
@@ -19,11 +19,17 @@ is $(vg align  x.vg -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTA --full-l-bonus 5 --pinne
 
 is $(vg align  x.vg --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 --full-l-bonus 0 -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | jq '.score') 96 "scoring parameters are respected"
 
+is $(vg align  x.vg --score-matrix 2_2.mat --gap-open 3 --gap-extend 1 --full-l-bonus 0 -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | jq '.score') 96 "testing score-matrix: scoring parameters are respected"
+
 rm -f x.vg
 
 is $(vg align -js $(cat mapsoftclip/70211809-70211845.seq) --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 --full-l-bonus 0 mapsoftclip/70211809-70211845.vg | jq -c '.path .mapping[0] .position .node_id') 70211814 "alignment does not contain excessive soft clips under lenient scoring"
 
+is $(vg align --score-matrix 2_2.mat -js $(cat mapsoftclip/70211809-70211845.seq) --gap-open 3 --gap-extend 1 --full-l-bonus 0 mapsoftclip/70211809-70211845.vg | jq -c '.path .mapping[0] .position .node_id') 70211814 "testing score-matrix: alignment does not contain excessive soft clips under lenient scoring"
+
 is $(vg align -js $(cat mapsoftclip/113968116:113968146.seq ) --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 --full-l-bonus 0 mapsoftclip/113968116:113968146.vg | jq -c ".score") 274 "alignment score does not overflow at 255 when using 8x16bit vectors"
+
+is $(vg align --score-matrix 2_2.mat -js $(cat mapsoftclip/113968116:113968146.seq ) --gap-open 3 --gap-extend 1 --full-l-bonus 0 mapsoftclip/113968116:113968146.vg | jq -c ".score") 274 "testing score-matrix: alignment score does not overflow at 255 when using 8x16bit vectors"
 
 is $(vg align -js $(cat mapsoftclip/280136066-280136088.seq) mapsoftclip/280136066-280136088.vg | jq -c '.path .mapping[0] .position .node_id') 280136076 "Ns do not cause excessive soft clipping"
 
