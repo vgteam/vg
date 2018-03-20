@@ -6211,7 +6211,7 @@ void VG::to_gfa(ostream& out) {
         gg.add_sequence(s_elem);
     }
     
-    map<string, list<Mapping> > pathmap = this->paths._paths;
+    auto& pathmap = this->paths._paths;
     for (auto p : pathmap){
         path_elem p_elem;
         p_elem.name = p.first;
