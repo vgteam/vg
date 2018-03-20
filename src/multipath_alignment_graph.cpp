@@ -9,8 +9,9 @@
 using namespace std;
 namespace vg {
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans) {
+    unordered_multimap<id_t, pair<id_t, bool>> MultipathAlignmentGraph::create_injection_trans(
+        const unordered_map<id_t, pair<id_t, bool>>& projection_trans) {
+    
         // create the injection translator, which maps a node in the original graph to every one of its occurrences
         // in the dagified graph
         unordered_multimap<id_t, pair<id_t, bool> > injection_trans;
@@ -21,6 +22,16 @@ namespace vg {
             injection_trans.emplace(trans_record.second.first, make_pair(trans_record.first, trans_record.second.second));
         }
         
+        return injection_trans;
+    
+    }
+    
+    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, 
+                                                     const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
+        
+        // Set up the initial multipath graph from the given path chunks.
         create_path_chunk_nodes(vg, path_chunks, projection_trans, injection_trans);
         
         // compute reachability and add edges
@@ -28,19 +39,19 @@ namespace vg {
         
     }
     
+    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, 
+                                                     const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans) : 
+                                                     MultipathAlignmentGraph(vg, path_chunks, projection_trans, 
+                                                                             create_injection_trans(projection_trans)) {
+        // Nothing to do
+        
+    }
+    
     MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
-                                                     gcsa::GCSA* gcsa, SnarlManager* cutting_snarls, int64_t max_snarl_cut_size) {
-        
-        // create the injection translator, which maps a node in the original graph to every one of its occurrences
-        // in the dagified graph
-        unordered_multimap<id_t, pair<id_t, bool> > injection_trans;
-        for (const auto& trans_record : projection_trans) {
-#ifdef debug_multipath_alignment
-            cerr << trans_record.second.first << "->" << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
-#endif
-            injection_trans.emplace(trans_record.second.first, make_pair(trans_record.first, trans_record.second.second));
-        }
+                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                     gcsa::GCSA* gcsa) {
         
         // initialize the match nodes
         create_match_nodes(vg, hits, projection_trans, injection_trans);
@@ -62,11 +73,6 @@ namespace vg {
         }
 #endif
         
-        if (cutting_snarls) {
-            // we indicated a snarl manager that owns the snarls we want to cut out of exact matches
-            resect_snarls_from_paths(cutting_snarls, projection_trans, max_snarl_cut_size);
-        }
-        
         // compute reachability and add edges
         add_reachability_edges(vg, projection_trans, injection_trans);
         
@@ -86,6 +92,15 @@ namespace vg {
             cerr << endl;
         }
 #endif
+    }
+    
+    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
+                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                     gcsa::GCSA* gcsa) : 
+                                                     MultipathAlignmentGraph(vg, hits, projection_trans, 
+                                                                             create_injection_trans(projection_trans), gcsa) {
+        // Nothing to do
+        
     }
     
     void MultipathAlignmentGraph::create_path_chunk_nodes(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
@@ -693,6 +708,10 @@ namespace vg {
         cerr << "cutting with snarls" << endl;
 #endif
         
+        // Can only cut out snarls while reachability edges are not present.
+        // Because we are going to have to rebuild them after the nodes change.
+        assert(!has_reachability_edges);
+        
         size_t num_original_path_nodes = path_nodes.size();
         for (size_t i = 0; i < num_original_path_nodes; i++) {
             
@@ -886,6 +905,9 @@ namespace vg {
 #ifdef debug_multipath_alignment
         cerr << "computing reachability" << endl;
 #endif
+
+        // Don't let pewople do this twice.
+        assert(!has_reachability_edges);
         
         // now we calculate reachability between the walked paths so we know which ones
         // to connect with intervening alignments
@@ -2080,12 +2102,34 @@ namespace vg {
                 }
             }
         }
+        
+        // Go to the state where we know the reachability edges exist.
+        has_reachability_edges = true;
+    }
+    
+    void MultipathAlignmentGraph::clear_reachability_edges() {
+        // Don't let people clear the edges if they are clear already.
+        // That suggests that someone has gotten confused over whether they should exist or not.
+        assert(has_reachability_edges);
+    
+        for (auto& node : path_nodes) {
+            // Just clear all the edges from each node.
+            // add_reachability_edges can rebuild them all.
+            node.edges.clear();
+        }
+        
+        // Go to the state where reachability edges don't exist
+        has_reachability_edges = false;
+        
     }
     
     // Kahn's algorithm
     void MultipathAlignmentGraph::topological_sort(vector<size_t>& order_out) {
-        order_out.resize(path_nodes.size());
+        // Can only sort if edges are present.
+        assert(has_reachability_edges);
         
+        order_out.resize(path_nodes.size());
+       
         vector<size_t> in_degree(path_nodes.size());
         
         for (const PathNode& path_node : path_nodes) {
@@ -2138,6 +2182,9 @@ namespace vg {
     }
     
     void MultipathAlignmentGraph::remove_transitive_edges(const vector<size_t>& topological_order) {
+        // We can only remove edges when the edges are present
+        assert(has_reachability_edges);
+        
         // algorithm assumes edges are also sorted in topological order, which guarantees that we will
         // traverse a path that reveals an edge as transitive before actually traversing the transitive edge
         reorder_adjacency_lists(topological_order);
@@ -2213,6 +2260,9 @@ namespace vg {
     
     void MultipathAlignmentGraph::prune_to_high_scoring_paths(const Alignment& alignment, const BaseAligner* aligner,
                                                               double max_suboptimal_score_ratio, const vector<size_t>& topological_order) {
+        
+        // Can only prune when edges exist.
+        assert(has_reachability_edges);
         
         if (path_nodes.empty()) {
             return;
@@ -2348,6 +2398,9 @@ namespace vg {
     
     void MultipathAlignmentGraph::align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                                         size_t num_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out) {
+        
+        // Can only align if edges are present.
+        assert(has_reachability_edges);
         
         // transfer over data from alignment
         transfer_read_metadata(alignment, multipath_aln_out);
