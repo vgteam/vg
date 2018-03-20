@@ -1981,6 +1981,51 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     return to_return;
 }
 
+// collect node starts to build out graph
+vector<pair<pos_t, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem) {
+    // walk the match, getting all the nodes that it touches
+    string mem_seq = mem.sequence();
+    vector<pair<pos_t, size_t> > positions;
+    unordered_set<pair<pos_t, size_t> > seen_pos;
+    //unordered_set<handle_t> handles;
+    unordered_set<pair<pos_t, size_t> > next; // handles and offsets of the exact match set we need to extend
+    pos_t start_pos = make_pos_t(mem.nodes.front());
+    next.insert(make_pair(start_pos, 0));
+    while (!next.empty()) {
+        unordered_set<pair<pos_t, size_t> > todo;
+        for (auto& h : next) {
+            auto& pos = h.first;
+            size_t query_offset = h.second;
+            // check if we match each node in next
+            auto handle = xg.get_handle(id(pos), is_rev(pos));
+            string h_seq = xg.get_sequence(handle);
+            size_t mem_todo = mem_seq.size() - query_offset;
+            size_t overlap = min(mem_todo, h_seq.size()-offset(pos));
+            // if we do, insert into nodes
+            if (mem_seq.substr(query_offset, overlap) == h_seq.substr(offset(pos), overlap)) {
+                if (!seen_pos.count(h)) {
+                    seen_pos.insert(h);
+                    auto q = h;
+                    q.second = mem_todo - overlap;
+                    positions.push_back(q);
+                }
+            }
+            // if we continue past this node, insert our next nodes into nexts
+            if (mem_todo > h_seq.size()) {
+                size_t new_off = query_offset + overlap;
+                xg.follow_edges(handle, false, [&](const handle_t& next) { todo.insert(make_pair(make_pos_t(xg.get_id(next), xg.get_is_reverse(next), 0), new_off)); return true; });
+            }
+        }
+        next = todo;
+    }
+    // ensure positions are sorted by remainder
+    std::sort(positions.begin(), positions.end(),
+              [](const pair<pos_t, size_t>& a, const pair<pos_t, size_t>& b) {
+                  return a.second > b.second;
+              });
+    return positions;
+}
+
 Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
     assert(mems.size());
     auto& start_mem = mems.front();
@@ -1990,18 +2035,29 @@ Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
     Graph graph;
-    int padding = 1;
+    int padding = 64;
     int get_before = padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     if (get_before) {
         graph.MergeFrom(xg.graph_context_id(rev_start_pos, get_before));
     }
     for (int i = 0; i < mems.size(); ++i) {
         auto& mem = mems[i];
-        auto pos = make_pos_t(mem.nodes.front());
-        int get_after = padding + (i+1 == mems.size() ?
-                                   expansion * (int)(aln.sequence().end() - mem.begin)
-                                   : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
-        graph.MergeFrom(xg.graph_context_id(pos, get_after));
+        vector<pair<pos_t, size_t> > match_positions = mem_node_start_positions(xg, mem);
+        for (auto& p : match_positions) {
+            graph.MergeFrom(xg.node_subgraph_id(id(p.first)));
+        }
+        // extend after the last match node with the expansion
+        auto& p = match_positions.back();
+        auto& pos = p.first;
+        int mem_remainder = p.second;
+        int get_after = xg.node_length(id(pos))
+            + (i+1 == mems.size() ?
+               padding +
+               expansion * ((int)(aln.sequence().end() - mem.end) + mem_remainder)
+               : expansion * ((int)(mems[i+1].begin - mem.end) + mem_remainder));
+        if (get_after > 0) {
+            graph.MergeFrom(xg.graph_context_id(pos, get_after));
+        }
     }
     sort_by_id_dedup_and_clean(graph);
     return graph;

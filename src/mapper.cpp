@@ -1837,7 +1837,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                pin_left,
                                banded_global,
                                0, // band padding override
-                               aln.sequence().size());
+                               aln.sequence().size()*1.61803);
         } else {
             aligned = vg.align_qual_adjusted(aln,
                                              get_qual_adj_aligner(),
@@ -1848,7 +1848,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                              pin_left,
                                              banded_global,
                                              0, // band padding override
-                                             aln.sequence().size());
+                                             aln.sequence().size()*1.61803);
         }
     } else {
         // we've got an id-sortable graph and we can directly align with gssw
@@ -3399,6 +3399,14 @@ double Mapper::compute_uniqueness(const Alignment& aln, const vector<MaximalExac
 }
 
 Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback) {
+    // check if we can just fill out the alignment with exact matches
+    /*
+    if (cluster_coverage(mems) == aln.sequence().size()) {
+        Alignment walked = mems_to_alignment(aln, mems);
+        assert(walked.identity() == 1);
+        return walked;
+    }
+    */
     // poll the mems to see if we should flip
     int count_fwd = 0, count_rev = 0;
     for (auto& mem : mems) {
@@ -3410,7 +3418,7 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
         }
     }
     // get the graph with cluster.hpp's cluster_subgraph
-    Graph graph = cluster_subgraph(*xindex, aln, mems);
+    Graph graph = cluster_subgraph(*xindex, aln, mems, 1.61803);
     bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
     // and test each direction for which we have MEM hits
     Alignment aln_fwd;
@@ -4841,6 +4849,9 @@ Alignment Mapper::mems_to_alignment(const Alignment& aln, const vector<MaximalEx
 
     auto alnm = simplify(merge_alignments(alns));
     *alnm.mutable_quality() = aln.quality();
+    alnm.set_name(aln.name());
+    alnm.set_score(score_alignment(alnm));
+    alnm.set_identity(identity(alnm.path()));
     return alnm;
 }
 
