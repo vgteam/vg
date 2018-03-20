@@ -2001,6 +2001,11 @@ vector<pair<pos_t, size_t> > mem_node_start_positions(const xg::XG& xg, const vg
             string h_seq = xg.get_sequence(handle);
             size_t mem_todo = mem_seq.size() - query_offset;
             size_t overlap = min(mem_todo, h_seq.size()-offset(pos));
+            /*
+            cerr << pos << endl
+                 << mem_seq.substr(query_offset, overlap) << endl
+                 << h_seq.substr(offset(pos), overlap) << endl;
+            */
             // if we do, insert into nodes
             if (mem_seq.substr(query_offset, overlap) == h_seq.substr(offset(pos), overlap)) {
                 if (!seen_pos.count(h)) {
@@ -2042,7 +2047,12 @@ Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::
     }
     for (int i = 0; i < mems.size(); ++i) {
         auto& mem = mems[i];
+        //cerr << mem << endl;
         vector<pair<pos_t, size_t> > match_positions = mem_node_start_positions(xg, mem);
+        if (!match_positions.size()) {
+            // TODO XXX is MEM merging causing this to occur?
+            match_positions.push_back(make_pair(make_pos_t(mem.nodes.front()), mem.length()));
+        }
         for (auto& p : match_positions) {
             graph.MergeFrom(xg.node_subgraph_id(id(p.first)));
         }
