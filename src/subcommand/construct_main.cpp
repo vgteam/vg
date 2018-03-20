@@ -22,7 +22,7 @@ void help_construct(char** argv) {
          << "    -v, --vcf FILE        input VCF (may repeat)" << endl
          << "    -r, --reference FILE  input FASTA reference (may repeat)" << endl
          << "    -M, --msa FILE        input multiple sequence alignment" << endl
-         << "    -F, --msa-format      format of the MSA file (options: maf, clustal; default maf)" << endl
+         << "    -F, --msa-format      format of the MSA file (options: fasta, maf, clustal; default fasta)" << endl
          << "    -d, --drop-msa-paths  don't add paths for the MSA sequences into the graph" << endl
          << "    -n, --rename V=F      rename contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
@@ -61,7 +61,7 @@ int main_construct(int argc, char** argv) {
     string msa_filename;
     int max_node_size = 1000;
     bool keep_paths = true;
-    string msa_format = "maf";
+    string msa_format = "fasta";
 
     int c;
     optind = 2; // force optind past command positional argument
