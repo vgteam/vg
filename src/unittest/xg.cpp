@@ -323,6 +323,15 @@ TEST_CASE("Target to alignment extraction", "[xg-target-to-aln]") {
         REQUIRE(alignment_from_length(target) == 21);
     }
 
+    SECTION("Subpath getting gives us the expected inverted 7bp alignment") {
+        Alignment target = xg_index.target_alignment("path", 0, 7, "feature", true);
+        REQUIRE(alignment_from_length(target) == 7);
+        REQUIRE(target.path().mapping(0).position().node_id() == n2->id());
+        REQUIRE(target.path().mapping(1).position().node_id() == n0->id());
+        REQUIRE(target.path().mapping(0).position().is_reverse() == true);
+        REQUIRE(target.path().mapping(1).position().is_reverse() == true);
+    }
+
 }
 
 TEST_CASE("Path-based distance approximation in XG produces expected results", "[xg][mapping]") {

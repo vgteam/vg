@@ -1365,6 +1365,9 @@ void parse_bed_regions(istream& bedstream,
     size_t sbuf;
     size_t ebuf;
     string name;
+    size_t score;
+    string strand;
+    bool is_reverse = false;
 
     for (int line = 1; getline(bedstream, row); ++line) {
         if (row.size() < 2 || row[0] == '#') {
@@ -1380,13 +1383,19 @@ void parse_bed_regions(istream& bedstream,
         } else {
             ss >> name;
             assert(sbuf < ebuf);
+            ss >> score;
+            ss >> strand;
+
+            if(!ss.fail() && strand.compare("-") == 0) {
+                is_reverse = true;
+            }
 
             if (xgindex->path_rank(seq) == 0) {
                 // This path doesn't exist, and we'll get a segfault or worse if
                 // we go look for positions in it.
                 cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
             } else {
-                Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name);
+                Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name, is_reverse);
 
                 out_alignments->push_back(alignment);
             }
