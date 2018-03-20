@@ -773,6 +773,15 @@ inputHaplotype* linear_haplo_structure::path_to_input_haplotype(const vg::Path& 
 }
 
 linear_haplo_structure::linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, xg::XG& xg_index, size_t xg_ref_rank) : xg_index(xg_index), xg_ref_rank(xg_ref_rank) {
+  
+  if (log_mut_penalty > 0) {
+    throw runtime_error("log mutation penalty must be negative");
+  }
+  
+  if (log_recomb_penalty > 0) {
+    throw runtime_error("log recombination penalty must be negative");
+  }
+  
   if(xg_ref_rank > xg_index.max_path_rank()) {
     throw runtime_error("reference path rank out of bounds");
   }
@@ -824,9 +833,10 @@ pair<double, bool> LinearScoreProvider::score(const vg::Path& path, haploMath::R
   // Memo is ignored; all penalties come from the index itself.
   auto scored = index.score(path);
   
-  // If we got a NAN, we can't very well say scoring succeeded.
-  // We can delete this when <https://github.com/vgteam/vg/issues/1534> is fixed.
-  scored.second &= !std::isnan(scored.first);
+  if (scored.second) {
+      // Yohei says there should never be NANs when it worked
+      assert(!std::isnan(scored.first));
+  }
   
   return scored;
 }
