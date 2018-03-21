@@ -2913,15 +2913,15 @@ namespace vg {
     
         out << "digraph graphname {" << endl;
         out << "rankdir=\"LR\";" << endl;
-        for (size_t i = 0; i < match_nodes.size(); i++) {
+        for (size_t i = 0; i < path_nodes.size(); i++) {
             // For each node, say the node itself as a mapping node, annotated with match length
             out << "m" << i << " [label=\"" << i << "\" shape=circle tooltip=\""
-                << (match_nodes[i].end - match_nodes[i].begin) << " bp\"];" << endl;
-            for (pair<size_t, size_t> edge : match_nodes[i].edges) {
+                << (path_nodes[i].end - path_nodes[i].begin) << " bp\"];" << endl;
+            for (pair<size_t, size_t> edge : path_nodes[i].edges) {
                 // For each edge from it, say where it goes and how far it skips
                 out << "m" << i << " -> m" << edge.first << " [label=" << edge.second << "];" << endl;
             }
-            auto& path = match_nodes[i].path;
+            auto& path = path_nodes[i].path;
             for (size_t j = 0; j < path.mapping_size(); j++) {
                 // For each mapping in the path, show the vg node in the graph too
                 auto node_id = path.mapping(j).position().node_id();
