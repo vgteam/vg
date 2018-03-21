@@ -2046,9 +2046,6 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     double min_threshold = 0.5;
     double perfect_score = mate1.sequence().size() * match_score + full_length_bonus * 2;
     double accept_pval = 1e-6;
-    double attempt_pval = 1e-6;
-    //bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, attempt_pval));
-    //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     // based on our statistics about the alignments
     // get the subgraph overlapping the likely candidate position of the second alignment
     bool rescue_off_first = false;
@@ -2288,7 +2285,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int8_t gap_open = aligner->gap_open;
     int8_t full_length_bonus = aligner->full_length_bonus;
 
-    int total_multimaps = max(max_multimaps, extra_multimaps/2);
+    int total_multimaps = max(max_multimaps, extra_multimaps);
     double cluster_mq = 0;
 
     if(debug) {
@@ -2693,7 +2690,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         auto& aln1 = p->first;
         auto& aln2 = p->second;
         auto cluster_ptr = cluster_ptrs[aln_index[p]];
-        bool consistent = aln1.score() && aln2.score() && pair_consistent(aln1, aln2, 1e-6);
+        bool consistent = aln1.score() && aln2.score() && pair_consistent(aln1, aln2, 1e-3);
         // if both mates are aligned, add each single end into the mix
         if (aln1.score() > hang_threshold && (aln2.score() <= retry_threshold || !consistent)) {
             se_alns.emplace_back();
