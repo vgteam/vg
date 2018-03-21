@@ -5,12 +5,14 @@
 //
 
 #define debug_multipath_mapper
-//#define debug_multipath_mapper_alignment
+#define debug_multipath_mapper_alignment
 #define debug_validate_multipath_alignments
 //#define debug_report_startup_training
 
 #include "multipath_mapper.hpp"
 #include "multipath_alignment_graph.hpp"
+
+#include "algorithms/topological_sort.hpp"
 
 namespace vg {
     
@@ -2214,14 +2216,18 @@ namespace vg {
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
             multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
             
+            // Sort the graph
+            algorithms::sort(vg);
+            
             // But then we need to reconstruct the reachability edges afterwards
             multi_aln_graph.add_reachability_edges(*vg, node_trans, node_inj);
-            
-#ifdef debug_multipath_mapper_alignment
-            cerr << "with edges:" << endl;
-            multi_aln_graph.to_dot(cerr);
-#endif
+
         }
+
+#ifdef debug_multipath_mapper_alignment
+        cerr << "MultipathAlignmentGraph going into alignment:" << endl;
+        multi_aln_graph.to_dot(cerr);
+#endif
         
         // do the connecting alignments and fill out the MultipathAlignment object
         multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, band_padding, multipath_aln_out);
