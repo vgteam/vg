@@ -722,7 +722,7 @@ int main_mpmap(int argc, char** argv) {
         // What is the rank of our one and only reference path
         auto xg_ref_rank = xg_index.path_rank(sublinearLS_ref_path);
         
-        sublinearLS = new linear_haplo_structure(ls_stream, 9 * 2.3, 9 * 2.3, xg_index, xg_ref_rank);
+        sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, xg_index, xg_ref_rank);
         haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
     }
     

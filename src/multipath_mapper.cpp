@@ -2188,17 +2188,35 @@ namespace vg {
 #endif
         
         // construct a graph that summarizes reachability between MEMs
-        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, gcsa, snarl_manager, max_snarl_cut_size);
+        // First we need to reverse node_trans
+        auto node_inj = MultipathAlignmentGraph::create_injection_trans(node_trans);
+        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, node_inj, gcsa);
         
-        vector<size_t> topological_order;
-        multi_aln_graph.topological_sort(topological_order);
+        {
+            // Compute a topological order over the graph
+            vector<size_t> topological_order;
+            multi_aln_graph.topological_sort(topological_order);
+            
+            // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
+            multi_aln_graph.remove_transitive_edges(topological_order);
+            
+            // prune this graph down the paths that have reasonably high likelihood
+            multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
+                                                        max_suboptimal_path_score_ratio, topological_order);
+        }
+                      
+        if (snarl_manager) {
+            // We want to do snarl cutting
+            
+            // We need to have no reachability edges to do it
+            multi_aln_graph.clear_reachability_edges();
         
-        // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
-        multi_aln_graph.remove_transitive_edges(topological_order);
-        
-        // prune this graph down the paths that have reasonably high likelihood
-        multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
-                                                    max_suboptimal_path_score_ratio, topological_order);
+            // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
+            multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
+            
+            // But then we need to reconstruct the reachability edges afterwards
+            multi_aln_graph.add_reachability_edges(*vg, node_trans, node_inj);
+        }
         
         // do the connecting alignments and fill out the MultipathAlignment object
         multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, band_padding, multipath_aln_out);
