@@ -2126,6 +2126,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
                 if (debug) cerr << "rescued aln2 " << pb2json(aln2) << endl;
 #endif
                 mate2 = aln2;
+                mate2.clear_refpos();
                 max_mate2_score = mate2.score();
                 rescued2 = true;
             }
@@ -2144,6 +2145,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
                 if (debug) cerr << "rescued aln1 " << pb2json(aln1) << endl;
 #endif
                 mate1 = aln1;
+                mate1.clear_refpos();
                 max_mate1_score = mate1.score();
                 rescued1 = true;
             }
@@ -2957,14 +2959,15 @@ void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) {
 }
 
 void Mapper::annotate_with_initial_path_positions(Alignment& aln) {
-    aln.clear_refpos();
-    auto init_path_positions = alignment_path_offsets(aln);
-    for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
-        for (auto& pos : pos_record.second) {
-            Position* refpos = aln.add_refpos();
-            refpos->set_name(pos_record.first);
-            refpos->set_offset(pos.first);
-            refpos->set_is_reverse(pos.second);
+    if (!aln.refpos_size()) {
+        auto init_path_positions = alignment_path_offsets(aln);
+        for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
+            for (auto& pos : pos_record.second) {
+                Position* refpos = aln.add_refpos();
+                refpos->set_name(pos_record.first);
+                refpos->set_offset(pos.first);
+                refpos->set_is_reverse(pos.second);
+            }
         }
     }
 }
