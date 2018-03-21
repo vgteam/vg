@@ -27,10 +27,10 @@ void help_align(char** argv) {
          << "    -j, --json            output alignments in JSON format (default GAM)" << endl
          << "    -m, --match N         use this match score (default: 1)" << endl
          << "    -M, --mismatch N      use this mismatch penalty (default: 4)" << endl
+         << "    --score-matrix FILE   read a 5x5 integer substitution scoring matrix from a file" << endl
          << "    -g, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "    -T, --full-l-bonus N  provide this bonus for alignments that are full length (default: 5)" << endl
-         << "    --score-matrix FILE   read a 5x5 integer substitution scoring matrix from a file" << endl
          << "    -b, --banded-global   use the banded global alignment algorithm" << endl
          << "    -p, --pinned          pin the (local) alignment traceback to the optimal edge of the graph" << endl
          << "    -L, --pin-left        pin the first rather than last bases of the graph and sequence" << endl
