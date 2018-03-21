@@ -2002,7 +2002,7 @@ vector<pair<pos_t, size_t> > mem_node_start_positions(const xg::XG& xg, const vg
             size_t mem_todo = mem_seq.size() - query_offset;
             size_t overlap = min(mem_todo, h_seq.size()-offset(pos));
             /*
-            cerr << pos << endl
+            cerr << pos << " " << mem_todo << " " << overlap << endl
                  << mem_seq.substr(query_offset, overlap) << endl
                  << h_seq.substr(offset(pos), overlap) << endl;
             */
@@ -2016,7 +2016,7 @@ vector<pair<pos_t, size_t> > mem_node_start_positions(const xg::XG& xg, const vg
                 }
             }
             // if we continue past this node, insert our next nodes into nexts
-            if (mem_todo > h_seq.size()) {
+            if (mem_todo - overlap > 0) {
                 size_t new_off = query_offset + overlap;
                 xg.follow_edges(handle, false, [&](const handle_t& next) { todo.insert(make_pair(make_pos_t(xg.get_id(next), xg.get_is_reverse(next), 0), new_off)); return true; });
             }
@@ -2040,11 +2040,13 @@ Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
     Graph graph;
-    int padding = 64;
-    int get_before = padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
+    int inside_padding = 8;
+    int end_padding = 32;
+    int get_before = end_padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     if (get_before) {
         graph.MergeFrom(xg.graph_context_id(rev_start_pos, get_before));
     }
+    //cerr << "======================================================" << endl;
     for (int i = 0; i < mems.size(); ++i) {
         auto& mem = mems[i];
         //cerr << mem << endl;
@@ -2060,14 +2062,15 @@ Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::
         auto& p = match_positions.back();
         auto& pos = p.first;
         int mem_remainder = p.second;
+        //cerr << p.first << " " << p.second << endl;
         int get_after = xg.node_length(id(pos))
             + (i+1 == mems.size() ?
-               padding +
+               end_padding +
                expansion * ((int)(aln.sequence().end() - mem.end) + mem_remainder)
-               : expansion * ((int)(mems[i+1].begin - mem.end) + mem_remainder));
-        if (get_after > 0) {
-            graph.MergeFrom(xg.graph_context_id(pos, get_after));
-        }
+               :
+               inside_padding +
+               expansion * ((int)(mems[i+1].begin - mem.end) + mem_remainder));
+        if (get_after > 0) graph.MergeFrom(xg.graph_context_id(pos, get_after));
     }
     sort_by_id_dedup_and_clean(graph);
     return graph;
