@@ -1367,7 +1367,6 @@ void parse_bed_regions(istream& bedstream,
     string name;
     size_t score;
     string strand;
-    bool is_reverse = false;
 
     for (int line = 1; getline(bedstream, row); ++line) {
         if (row.size() < 2 || row[0] == '#') {
@@ -1386,6 +1385,7 @@ void parse_bed_regions(istream& bedstream,
             ss >> score;
             ss >> strand;
 
+            bool is_reverse = false;
             if(!ss.fail() && strand.compare("-") == 0) {
                 is_reverse = true;
             }
