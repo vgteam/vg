@@ -1417,10 +1417,9 @@ void parse_gff_regions(istream& gffstream,
     string type;
     size_t sbuf;
     size_t ebuf;
-    string name;
-    size_t score;
+    string name = "";
+    string score;
     string strand;
-    bool is_reverse = false;
 
     for (int line = 1; getline(gffstream, row); ++line) {
         if (row.size() < 2 || row[0] == '#') {
@@ -1434,13 +1433,13 @@ void parse_gff_regions(istream& gffstream,
         ss >> ebuf;
 
         if (ss.fail()) {
-            cerr << "Error parsing bed line " << line << ": " << row << endl;
+            cerr << "Error parsing gtf/gff line " << line << ": " << row << endl;
         } else {
-            ss >> name;
             assert(sbuf < ebuf);
             ss >> score;
             ss >> strand;
 
+            bool is_reverse = false;
             if(!ss.fail() && strand.compare("-") == 0) {
                 is_reverse = true;
             }
