@@ -304,22 +304,22 @@ TEST_CASE("Target to alignment extraction", "[xg-target-to-aln]") {
     xg::XG xg_index(graph);
 
     SECTION("Subpath getting gives us the expected 1bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 1, 2, "feature");
+        Alignment target = xg_index.target_alignment("path", 1, 2, "feature", false);
         REQUIRE(alignment_from_length(target) == 2 - 1);
     }
 
     SECTION("Subpath getting gives us the expected 10bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 10, 20, "feature");
+        Alignment target = xg_index.target_alignment("path", 10, 20, "feature", false);
         REQUIRE(alignment_from_length(target) == 20 - 10);
     }
 
     SECTION("Subpath getting gives us the expected 14bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 0, 14, "feature");
+        Alignment target = xg_index.target_alignment("path", 0, 14, "feature", false);
         REQUIRE(alignment_from_length(target) == 14);
     }
 
     SECTION("Subpath getting gives us the expected 21bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 0, 21, "feature");
+        Alignment target = xg_index.target_alignment("path", 0, 21, "feature", false);
         REQUIRE(alignment_from_length(target) == 21);
     }
 
