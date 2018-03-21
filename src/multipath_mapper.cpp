@@ -4,9 +4,9 @@
 //
 //
 
-//#define debug_multipath_mapper
+#define debug_multipath_mapper
 //#define debug_multipath_mapper_alignment
-//#define debug_validate_multipath_alignments
+#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
 
 #include "multipath_mapper.hpp"
@@ -2216,6 +2216,9 @@ namespace vg {
             
             // But then we need to reconstruct the reachability edges afterwards
             multi_aln_graph.add_reachability_edges(*vg, node_trans, node_inj);
+            
+            cerr << "with edges:" << endl;
+            cerr << multi_aln_graph.to_dot() << endl;
         }
         
         // do the connecting alignments and fill out the MultipathAlignment object
