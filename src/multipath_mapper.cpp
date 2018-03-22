@@ -2330,10 +2330,9 @@ namespace vg {
             pop_adjusted_scores.resize(multipath_alns.size());
         }
         
-        // We need to track the min population score by itself (not converted
-        // to the alignment score log base) so we can adjust the
-        // pop_adjusted_scores up, turning the largest penalty into a 0 bonus.
-        double min_pop_score = numeric_limits<double>::max();
+        // We need to track the score adjustments so we can compensate for
+        // negative values, turning the largest penalty into a 0 bonus.
+        double min_adjustment = numeric_limits<double>::max();
 
         
         for (size_t i = 0; i < multipath_alns.size(); i++) {
@@ -2382,7 +2381,7 @@ namespace vg {
                     cerr << pb2json(alignments[j]) << endl;
 #endif
                    
-                    alignment_pop_scores[j] = pop_score.first;
+                    alignment_pop_scores[j] = pop_score.first / log_base;
                     
                     all_paths_pop_consistent &= pop_score.second;
                 }
@@ -2394,12 +2393,12 @@ namespace vg {
                     continue;
                 }
                 
-                // Otherwise, pick the best adjusted score and its pop score
+                // Otherwise, pick the best adjusted score and its difference from the best unadjusted score
                 pop_adjusted_scores[i] = numeric_limits<double>::min();
-                double best_alignment_pop_score;
+                double adjustment;
                 for (size_t j = 0; j < alignments.size(); j++) {
                     // Compute the adjusted score for each alignment
-                    auto adjusted_score = alignments[j].score() + alignment_pop_scores[j] / log_base;
+                    auto adjusted_score = alignments[j].score() + alignment_pop_scores[j];
                    
                     assert(!std::isnan(adjusted_score));
                    
@@ -2407,19 +2406,19 @@ namespace vg {
                         // It is the best, so use it.
                         // TODO: somehow know we want this Alignment when collapsing the MultipathAlignment later.
                         pop_adjusted_scores[i] = adjusted_score;
-                        best_alignment_pop_score = alignment_pop_scores[j];
+                        adjustment = pop_adjusted_scores[i] - base_scores[i];
                     }
                 }
                 
-                // Save the actual population score for it in the min pop score, if it is lower.
-                min_pop_score = min(min_pop_score, best_alignment_pop_score);
+                // See if we have a new minimum adjustment value, for the adjustment applicable to the chosen traceback.
+                min_adjustment = min(min_adjustment, adjustment);
             }
         }
         
         if (include_population_component && all_paths_pop_consistent) {
             for (auto& score : pop_adjusted_scores) {
-                // Adjust the adjusted scores up/down by the contributoon of the min pop score to ensure no scores are negative
-                score -= min_pop_score / log_base;
+                // Adjust the adjusted scores up/down by the minimum adjustment to ensure no scores are negative
+                score -= min_adjustment;
             }
         }
         
@@ -2539,21 +2538,22 @@ namespace vg {
                 // Make sure to grab the memo
                 auto& memo = get_rr_memo(recombination_penalty, xindex->get_haplotype_count());
                 
-                // What's the population score for each alignment?
-                vector<double> pop_scores1(alignments1.size());
-                vector<double> pop_scores2(alignments2.size());
+                // What's the base + population score for each alignment?
+                // We need to consider them together because there's a trade off between recombinations and mismatches.
+                vector<double> base_pop_scores1(alignments1.size());
+                vector<double> base_pop_scores2(alignments2.size());
                 
                 for (size_t j = 0; j < alignments1.size(); j++) {
                     // Pop score the first alignments
                     auto pop_score = haplo_score_provider->score(alignments1[j].path(), memo);
-                    pop_scores1[j] = pop_score.first;
+                    base_pop_scores1[j] = alignments1[j].score() + pop_score.first / log_base;
                     all_paths_pop_consistent &= pop_score.second;
                 }
                 
                 for (size_t j = 0; j < alignments2.size(); j++) {
                     // Pop score the second alignments
                     auto pop_score = haplo_score_provider->score(alignments2[j].path(), memo);
-                    pop_scores2[j] = pop_score.first;
+                    base_pop_scores2[j] = alignments2[j].score() + pop_score.first / log_base;
                     all_paths_pop_consistent &= pop_score.second;
                 }
                 
@@ -2563,24 +2563,23 @@ namespace vg {
                 }
                 
                 // Pick the best alignment on each side
-                auto best_index1 = max_element(pop_scores1.begin(), pop_scores1.end()) - pop_scores1.begin();
-                auto best_index2 = max_element(pop_scores2.begin(), pop_scores2.end()) - pop_scores2.begin();
-                
-                // And compute base score for those alignments and pop adjustment.
-                // TODO: Synchronize with single-end case about whether we store things base-adjusted or not!
-                alignment_score = alignments1[0].score() + alignments2[0].score();
-                double pop_score = (pop_scores1[best_index1] + pop_scores2[best_index2]) / log_base;
+                auto best_index1 = max_element(base_pop_scores1.begin(), base_pop_scores1.end()) - base_pop_scores1.begin();
+                auto best_index2 = max_element(base_pop_scores2.begin(), base_pop_scores2.end()) - base_pop_scores2.begin();
                 
                 // Compute the total pop adjusted score for this MultipathAlignment
-                pop_adjusted_scores[i] = alignment_score + frag_score + pop_score;
+                pop_adjusted_scores[i] = base_pop_scores1[best_index1] + base_pop_scores2[best_index2] + frag_score;
                 
-                assert(!std::isnan(alignment_score));
+                assert(!std::isnan(base_pop_scores1[best_index1]));
+                assert(!std::isnan(base_pop_scores2[best_index2]));
                 assert(!std::isnan(frag_score));
-                assert(!std::isnan(pop_score));
                 assert(!std::isnan(pop_adjusted_scores[i]));
                 
+                // How much was extra over the score of the top-base-score alignment on each side?
+                // This might be negative if e.g. that alignment looks terrible population-wise but we take it anyway.
+                auto extra = pop_adjusted_scores[i] - alignment_score;
+                
                 // Record our extra score if it was a new minimum
-                min_extra_score = min(frag_score + pop_score, min_extra_score);
+                min_extra_score = min(extra, min_extra_score);
             }
         }
         
