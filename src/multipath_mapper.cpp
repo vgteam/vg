@@ -12,6 +12,8 @@
 #include "multipath_mapper.hpp"
 #include "multipath_alignment_graph.hpp"
 
+#include "algorithms/topological_sort.hpp"
+
 namespace vg {
     
     //size_t MultipathMapper::PRUNE_COUNTER = 0;
@@ -2215,8 +2217,14 @@ namespace vg {
             multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
             
             // But then we need to reconstruct the reachability edges afterwards
-            multi_aln_graph.add_reachability_edges(*vg, node_trans, node_inj);
+            multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
+
         }
+
+#ifdef debug_multipath_mapper_alignment
+        cerr << "MultipathAlignmentGraph going into alignment:" << endl;
+        multi_aln_graph.to_dot(cerr);
+#endif
         
         // do the connecting alignments and fill out the MultipathAlignment object
         multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, band_padding, multipath_aln_out);
