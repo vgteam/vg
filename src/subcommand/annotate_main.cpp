@@ -15,6 +15,7 @@ void help_annotate(char** argv) {
     cerr << "usage: " << argv[0] << " annotate [options] >output.{gam,vg}" << endl
          << "    -x, --xg-name FILE     an xg index describing a graph" << endl
          << "    -b, --bed-name FILE    a bed file describing a subpath" << endl
+         << "    -f, --gff-name FILE    a gff3/gtf file describing a subpath" << endl
          << "    -d, --db-name DIR      a rocksdb index of a GAM" << endl
          << "    -v, --vg FILE          annotate this graph" << endl
          << "    -g, --gcsa FILE        a GCSA2 index file base name" << endl
@@ -35,6 +36,7 @@ int main_annotate(int argc, char** argv) {
     string gcsa_name;
     string vg_name;
     string bed_name;
+    string gff_name;
     string gam_name;
     bool add_positions = false;
     bool novelty = false;
@@ -50,13 +52,14 @@ int main_annotate(int argc, char** argv) {
             {"vg", required_argument, 0, 'v'},
             {"xg-name", required_argument, 0, 'x'},
             {"bed-name", required_argument, 0, 'b'},
+            {"gff-name", required_argument, 0, 'f'},
             {"db-name", required_argument, 0, 'd'},
             {"novelty", no_argument, 0, 'n'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:d:v:g:a:pb:n",
+        c = getopt_long (argc, argv, "hx:d:v:g:a:pb:f:n",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -87,6 +90,10 @@ int main_annotate(int argc, char** argv) {
 
         case 'b':
             bed_name = optarg;
+            break;
+
+        case 'f':
+            gff_name = optarg;
             break;
 
         case 'p':
@@ -175,8 +182,16 @@ int main_annotate(int argc, char** argv) {
             parse_bed_regions(bed_stream, xg_index, &buffer);
             stream::write_buffered(cout, buffer, 0); // flush
         }
+    } else if (!gff_name.empty()) {
+        vector<Alignment> buffer;
+        if (add_positions) {
+            ifstream gff_stream(gff_name.c_str());
+
+            parse_gff_regions(gff_stream, xg_index, &buffer);
+            stream::write_buffered(cout, buffer, 0); // flush
+        }
     } else {
-        cerr << "only GAM or BED annotation is implemented" << endl;
+        cerr << "only GAM, BED, GFF3, or GTF annotation is implemented" << endl;
         return 1;
     }
 

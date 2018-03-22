@@ -1403,6 +1403,60 @@ void parse_bed_regions(istream& bedstream,
     }
 }
 
+void parse_gff_regions(istream& gffstream,
+                       xg::XG* xgindex,
+                       vector<Alignment>* out_alignments) {
+    out_alignments->clear();
+    if (!gffstream) {
+        cerr << "Unable to open gff3/gtf file." << endl;
+        return;
+    }
+    string row;
+    string seq;
+    string source;
+    string type;
+    size_t sbuf;
+    size_t ebuf;
+    string name = "";
+    string score;
+    string strand;
+
+    for (int line = 1; getline(gffstream, row); ++line) {
+        if (row.size() < 2 || row[0] == '#') {
+            continue;
+        }
+        istringstream ss(row);
+        ss >> seq;
+        ss >> source;
+        ss >> type;
+        ss >> sbuf;
+        ss >> ebuf;
+
+        if (ss.fail()) {
+            cerr << "Error parsing gtf/gff line " << line << ": " << row << endl;
+        } else {
+            assert(sbuf < ebuf);
+            ss >> score;
+            ss >> strand;
+
+            bool is_reverse = false;
+            if(!ss.fail() && strand.compare("-") == 0) {
+                is_reverse = true;
+            }
+
+            if (xgindex->path_rank(seq) == 0) {
+                // This path doesn't exist, and we'll get a segfault or worse if
+                // we go look for positions in it.
+                cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
+            } else {
+                Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name, is_reverse);
+
+                out_alignments->push_back(alignment);
+            }
+        }
+    }
+}
+
 Position alignment_start(const Alignment& aln) {
     Position pos;
     if (aln.path().mapping_size()) {
