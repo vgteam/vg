@@ -48,4 +48,7 @@ me:example:some_gene rdfs:seeAlso ENSEMBL:ESG00000XXXX . #and then pick up the a
 
 [2 ecoli genomes, with ensembl and uniprot annotation](/vgteam/vg/wiki/VG-RDF,-the-Ensembl-bacteria-E.-coli-genome-hack-attack)
 
+## VG RDF limitations
+
+At this moment VG RDF wants a fully embedded variation graph. e.g. all positions in vg json have a single edit which covers a whole node. This is to enable easy SPARQL queries where substring operations are rarely used.
 
