@@ -452,7 +452,7 @@ if [[ ! -e "${OUTPUT_PATH}/table.tsv" ]]; then
     BASELINE_CONDITION="snp1kg-mp"
 
     # Make header for table of wrong read counts
-    printf "Condition\tWrong reads total\tAt MAPQ 60\tAt MAPQ 0\tAt MAPQ >0\tNew vs. ${BASELINE_CONDITION}\tFixed vs. ${BASELINE_CONDITION}\n" > "${OUTPUT_PATH}/table.tsv"
+    printf "Condition\tWrong reads total\tAt MAPQ 60\tAt MAPQ 0\tAt MAPQ >0\tNew vs. ${BASELINE_CONDITION}\tFixed vs. ${BASELINE_CONDITION}\tAvg. Correct MAPQ\tCorrect MAPQ 0\n" > "${OUTPUT_PATH}/table.tsv"
 
     # Pull out the baseline wrong reads
     cat "${OUTPUT_PATH}/${BASELINE_CONDITION}/position.results.tsv" | sed 1d | grep -- "-pe" | grep -v "^1" | cut -f4 | sort > "${OUTPUT_PATH}/baseline-wrong-names.tsv"
@@ -492,6 +492,17 @@ if [[ ! -e "${OUTPUT_PATH}/table.tsv" ]]; then
         
         # Count newly right names (not in file 2 or both)
         comm -2 -3 "${OUTPUT_PATH}/baseline-wrong-names.tsv" "${OUTPUT_PATH}/${CONDITION}/wrong-names.tsv" | wc -l | tr -d '\n' >> "${OUTPUT_PATH}/table.tsv"
+        printf "\t" >> "${OUTPUT_PATH}/table.tsv"
+        
+        # Get the right reads
+        cat "${OUTPUT_PATH}/${CONDITION}/position.results.tsv" | sed 1d | grep -- "-pe" | grep "^1" > "${OUTPUT_PATH}/${CONDITION}/right.tsv"
+        
+        # Compute average MAPQ for correct reads
+        cat "${OUTPUT_PATH}/${CONDITION}/right.tsv" | cut -f2 | awk '{total += $1} END {if (NR > 0) {print total / NR} else {print "N/A"}}' | tr -d '\n' >> "${OUTPUT_PATH}/table.tsv"
+        printf "\t" >> "${OUTPUT_PATH}/table.tsv"
+        
+        # Count correct reads at MAPQ 0
+        cat "${OUTPUT_PATH}/${CONDITION}/right.tsv" | grep -P "\t0\t" | wc -l | tr -d '\n' >> "${OUTPUT_PATH}/table.tsv"
         printf "\n" >> "${OUTPUT_PATH}/table.tsv"
     done
     
