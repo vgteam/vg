@@ -2055,7 +2055,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     //cerr << "---------------------------" << pb2json(mate1) << endl << pb2json(mate2) << endl;
     //cerr << "---------------------------" << endl;
 #ifdef debug_rescue
-    //if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
+    if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << endl;
     if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
     if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
 #endif
@@ -2410,25 +2410,22 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // don't allow going backwards in the threads
             return -std::numeric_limits<double>::max();
         } else {
+            pos_t m1_pos = make_pos_t(m1.nodes.front());
+            pos_t m2_pos = make_pos_t(m2.nodes.front());
             int max_length = max(read1.sequence().size(), read2.sequence().size());
-            pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
-            int64_t approx_dist = d.first; // take the "same orientation" distance
             double overlap_length = mems_overlap_length(m1, m2);
-            /*if (approx_dist < 32) {
-                approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
-                }*/
-            if (approx_dist > max_length) {
+            pair<int64_t, int64_t> distances = mem_min_oriented_distances(m1, m2);
+            int64_t dist_fwd = distances.first; // use only the forward orientation
+            //int64_t dist_inv = distances.second;
+            if (dist_fwd > max_length) {
                 // too far
                 return -std::numeric_limits<double>::max();
             } else {
                 // accepted transition
-                int64_t distance = approx_dist;
-                double jump = abs((m2.begin - m1.begin) - distance);
-                if (jump) {
-                    return (double) -(gap_open + jump * gap_extension) -overlap_length;
-                } else {
-                    return -overlap_length;
-                }
+                int read_dist = m2.begin - m1.begin;
+                double jump_fwd = abs(read_dist - dist_fwd);
+                //double jump_inv = abs(read_dist - dist_inv);
+                return (double) -(gap_open*(jump_fwd>0) + jump_fwd*gap_extension) -overlap_length;
             }
         }
     };
@@ -2821,7 +2818,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     
     int read1_max_score = 0;
     int read2_max_score = 0;
-    // we must be considering more than one pair to do the paired-end mq calculation
     int possible_pairs = 0;
 
     // build up the results
@@ -2835,7 +2831,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
     bool max_first = results.first.size() && (read1_max_score == results.first.front().score() && read2_max_score == results.second.front().score());
 
-    // compute mapping qulaity
+    // compute mapping quality
     compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2);
 
     // remove the extra pair used to compute mapping quality if necessary
@@ -3127,30 +3123,19 @@ Mapper::align_mem_multi(const Alignment& aln,
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
         int64_t max_length = aln.sequence().size();
-        pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
-        int64_t approx_dist = d.first;// same orientation
         double overlap_length = mems_overlap_length(m1, m2);
-        /*if (approx_dist < 32 && same_orientation) {
-            approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
-            }*/
-#ifdef debug_mapper
-#pragma omp critical
-        {
-            if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << " approx_dist " << approx_dist << endl;
-        }
-#endif
-        if (approx_dist > max_length) {
+        pair<int64_t, int64_t> distances = mem_min_oriented_distances(m1, m2);
+        int64_t dist_fwd = distances.first; // use only the forward orientation
+        //int64_t dist_inv = distances.second;
+        if (dist_fwd > max_length) {
             // too far
             return -std::numeric_limits<double>::max();
         } else {
             // accepted transition
-            int64_t distance = approx_dist;
-            double jump = abs((m2.begin - m1.begin) - distance);
-            if (jump) {
-                return (double) -(gap_open + jump * gap_extension) -overlap_length;
-            } else {
-                return -overlap_length;
-            }
+            int read_dist = m2.begin - m1.begin;
+            double jump_fwd = abs(read_dist - dist_fwd);
+            //double jump_inv = abs(read_dist - dist_inv);
+            return (double) -(gap_open*(jump_fwd>0) + jump_fwd*gap_extension) -overlap_length;
         }
     };
 

@@ -2077,14 +2077,3 @@ Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::
 }
 
 }
-
-
-
-
-
-
-
-
-
-
-
