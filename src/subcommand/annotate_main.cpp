@@ -59,7 +59,7 @@ int main_annotate(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:d:v:g:a:pb:f:t:n",
+        c = getopt_long (argc, argv, "hx:d:v:g:a:pb:f:n",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -191,7 +191,7 @@ int main_annotate(int argc, char** argv) {
             stream::write_buffered(cout, buffer, 0); // flush
         }
     } else {
-        cerr << "only GAM, BED, GFF, or GTF3 annotation is implemented" << endl;
+        cerr << "only GAM, BED, GFF3, or GTF annotation is implemented" << endl;
         return 1;
     }
 
