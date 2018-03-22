@@ -2216,11 +2216,8 @@ namespace vg {
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
             multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
             
-            // Sort the graph
-            algorithms::sort(vg);
-            
             // But then we need to reconstruct the reachability edges afterwards
-            multi_aln_graph.add_reachability_edges(*vg, node_trans, node_inj);
+            multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
 
         }
 
