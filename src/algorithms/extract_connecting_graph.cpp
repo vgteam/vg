@@ -1000,8 +1000,11 @@ namespace algorithms {
         };
         
         // Define new queue
-        unordered_set<pair<id_t, bool>> local_queued_traversals;
-        priority_queue<LocalTraversal> local_queue;
+        std::function<pair<id_t, bool>(LocalTraversal)> get_identity = [](const LocalTraversal& item) {
+            return make_pair(item.id, item.rev);
+        };
+        FilteredPriorityQueue<LocalTraversal, std::vector<LocalTraversal>, std::less<LocalTraversal>, pair<id_t, bool>> local_queue(
+            get_identity);
         
         if (strict_max_len) {
             // OPTION 1: PRUNE TO PATHS UNDER MAX LENGTH
@@ -1012,16 +1015,14 @@ namespace algorithms {
             unordered_map<pair<id_t, bool>, int64_t> reverse_trav_dist;
             
             // re-initialize the queue in the forward direction
+            local_queue.clear();
             local_queue.emplace(id(pos_1), is_rev(pos_1), graph[id(pos_1)].sequence.size());
             
             // reset the queued traversal list and the first traversal
-            local_queued_traversals.clear();
-            local_queued_traversals.emplace(id(pos_1), is_rev(pos_1));
             
             // if we duplicated the start node, add that too
             if (duplicate_node_1) {
                 local_queue.emplace(duplicate_node_1, is_rev(pos_1), graph[duplicate_node_1].sequence.size());
-                local_queued_traversals.emplace(duplicate_node_1, is_rev(pos_1));
             }
             
             while (!local_queue.empty()) {
@@ -1041,26 +1042,19 @@ namespace algorithms {
                     // the distance to the opposite side of this next node
                     int64_t dist_thru = trav.dist + graph[edge.first].sequence.size();
                     
-                    // queue up the node traversal if it hasn't been seen before
+                    // queue up the node traversal
                     pair<id_t, bool> next_trav = make_pair(edge.first, edge.second != trav.rev);
-                    if (!local_queued_traversals.count(next_trav)) {
-                        local_queue.emplace(next_trav.first, next_trav.second, dist_thru);
-                        local_queued_traversals.insert(next_trav);
-                    }
+                    local_queue.emplace(next_trav.first, next_trav.second, dist_thru);
                 }
             }
             
             // re-initialize the queue
+            local_queue.clear();
             local_queue.emplace(id(pos_2), !is_rev(pos_2), 0);
-            
-            // reset the queued traversal list and add the reverse traversal
-            local_queued_traversals.clear();
-            local_queued_traversals.insert(make_pair(id(pos_2), !is_rev(pos_2)));
             
             // if we duplicated the end node, add that too
             if (duplicate_node_2) {
                 local_queue.emplace(duplicate_node_2, !is_rev(pos_2), 0);
-                local_queued_traversals.insert(make_pair(duplicate_node_2, !is_rev(pos_2)));
             }
             
             while (!local_queue.empty()) {
@@ -1082,18 +1076,12 @@ namespace algorithms {
                 for (const pair<id_t, bool>& edge : edges_out) {
                     // queue up the node traversal if it hasn't been seen before
                     pair<id_t, bool> next_trav = make_pair(edge.first, edge.second != trav.rev);
+                    
 #ifdef debug_vg_algorithms
-                        cerr << "\tCan reach " << next_trav.first << " in " << (next_trav.second ? "reverse" : "forward") << " orientation at distance " << dist_thru << endl;
+                    cerr << "\tCan reach " << next_trav.first << " in " << (next_trav.second ? "reverse" : "forward") << " orientation at distance " << dist_thru << endl;
 #endif
                     
-                    if (!local_queued_traversals.count(next_trav)) {
-                        local_queue.emplace(next_trav.first, next_trav.second, dist_thru);
-                        local_queued_traversals.insert(next_trav);
-                    } else {
-#ifdef debug_vg_algorithms
-                        cerr << "\t\tBut that is already queued" << endl;
-#endif
-                    }
+                    local_queue.emplace(next_trav.first, next_trav.second, dist_thru);
                 }
             }
             

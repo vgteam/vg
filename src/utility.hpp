@@ -12,6 +12,7 @@
 #include <cmath>
 #include <unordered_set>
 #include <random>
+#include <type_traits>
 #include <signal.h>
 #include <unistd.h>
 #include "vg.pb.h"
@@ -405,6 +406,111 @@ private:
 };
     
 size_t integer_power(size_t x, size_t power);
+
+/**
+ * A priority queue where priorities can be updated by inserting the same
+ * element again with a different priority. Since std::priority_queue just uses
+ * element comparison for priority, we have another template for an identity
+ * type, and a function to extract it from an element, so we can see if the
+ * same element (with a different priority) has come out yet.
+ */
+template<
+    class T,
+    class Container = std::vector<T>,
+    class Compare = std::less<typename Container::value_type>,
+    class Identity = T 
+>
+class FilteredPriorityQueue {
+public:
+    /// Make a FilteredPriorityQueue that uses the inserted objects as their own identities.
+    /// This requires that hash values and equality checks for the item ignore priority.
+    FilteredPriorityQueue();
+    /// Make a FilteredPriorityQueue that uses the given function to determine element identity.
+    FilteredPriorityQueue(std::function<Identity(T)>& get_identity);
+    
+    // We can support all the priority queue functions except size because we don't know how many things are redundant.
+    const T& top() const;
+    void pop();
+    bool empty() const;
+    void push(const T& item);
+    
+    template<class... Args>
+    void emplace(Args&&... args);
+    
+    /// Clear the heap and all its memories of past elements.
+    void clear();
+    
+private:
+    /// The actual underlying priority queue
+    priority_queue<T, Container, Compare> queue;
+    /// The set to deduplicate results.
+    unordered_set<Identity> seen;
+    /// The element extractor
+    std::function<Identity(T)> get_identity;
+};
+
+template<class T, class Container, class Compare, class Identity>
+FilteredPriorityQueue<T, Container, Compare, Identity>::FilteredPriorityQueue() :
+    FilteredPriorityQueue((std::function<Identity(T)>)([](T item) -> Identity { return item; })) {
+    
+    static_assert(std::is_same<T, Identity>::value, "can only use the identity identity function if items are their own Identitiies");
+}
+
+template<class T, class Container, class Compare, class Identity>
+FilteredPriorityQueue<T, Container, Compare, Identity>::FilteredPriorityQueue(
+    std::function<Identity(T)>& get_identity) : get_identity(get_identity) {
+    
+    // Nothing to do!
+    
+}
+
+template<class T, class Container, class Compare, class Identity>
+auto FilteredPriorityQueue<T, Container, Compare, Identity>::top() const -> const T& {
+    return queue.top();
+}
+
+template<class T, class Container, class Compare, class Identity>
+void FilteredPriorityQueue<T, Container, Compare, Identity>::pop() {
+    // We need to pop off the top thing, mark it as seen, and remove any other
+    // copies of it so we maintain the invariant that the thing at the top is
+    // new.
+    seen.insert(get_identity(top()));
+    queue.pop();
+    while (!empty() && seen.count(get_identity(top()))) {
+        queue.pop();
+    }
+}
+
+template<class T, class Container, class Compare, class Identity>
+bool FilteredPriorityQueue<T, Container, Compare, Identity>::empty() const {
+    return queue.empty();
+}
+
+template<class T, class Container, class Compare, class Identity>
+void FilteredPriorityQueue<T, Container, Compare, Identity>::push(const T& item) {
+    queue.push(item);
+    if (queue.size() == 1 && seen.count(get_identity(top()))) {
+        // The item we just added has already been emitted.
+        // Maintain the top-is-new invariant
+        queue.pop();
+    }
+}
+
+template<class T, class Container, class Compare, class Identity>
+template<class... Args>
+void FilteredPriorityQueue<T, Container, Compare, Identity>::emplace(Args&&... args) {
+    queue.emplace(std::forward<Args>(args)...);
+}
+
+template<class T, class Container, class Compare, class Identity>
+void FilteredPriorityQueue<T, Container, Compare, Identity>::clear() {
+    queue = priority_queue<T, Container, Compare>();
+    seen.clear();
+}
+
+
+
+
 
 // Get a callback with an istream& to an open file if a file name argument is
 // present after the parsed options, or print an error message and exit if one
