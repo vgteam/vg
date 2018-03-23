@@ -17,14 +17,14 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-void help_inject(char* argv) {
-    cerr << "usage: " << argv[0] << " inject []" << endl
+void help_inject(char** argv) {
+    cerr << "usage: " << argv[0] << " inject [options] input.bam >output.gam" << endl
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE       use the graph in this xg index" << endl
-         << "    -c, --cram-name FILE     input CRAM file" << endl
-         << "    -b, --bam-name FILE      input BAM file" << endl
-         << "    -s, --sam-name FILE      input SAM file" << endl
+         //<< "    -c, --cram-name FILE     input CRAM file" << endl
+         //<< "    -b, --bam-name FILE      input BAM file" << endl
+         //<< "    -s, --sam-name FILE      input SAM file" << endl
          << "    -t, --threads N          number of threads to use" << endl
          << "    -p, --into-path NAME     inject from this path (many allowed, default: all in bam)" << endl
          << "    -F, --into-paths FILE    inject from nonoverlapping path names listed in FILE (one per line)" << endl;
@@ -43,6 +43,8 @@ int main_inject(int argc, char** argv) {
     string output_type = "gam";
     string input_type = "bam";
     int threads = 1;
+
+    int c;
     optind = 2;
     while (true) {
         static struct option long_options[] =
@@ -56,12 +58,11 @@ int main_inject(int argc, char** argv) {
           {"cram-name", no_argument, 0, 'c'},
           {"bam-name", no_argument, 0, 'b'},
           {"sam-name", no_argument, 0, 's'},
-          {"compress", required_argument, 0, 'C'},
           {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (atgc, argv, "hx:p:F:P:cbst:",
+        c = getopt_long (argc, argv, "hx:p:F:P:cbst:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -75,7 +76,7 @@ int main_inject(int argc, char** argv) {
             break;
 
         case 'p':
-            paths_names.insert(optarg);
+            path_names.insert(optarg);
             break;
 
         case 'F':
@@ -91,7 +92,6 @@ int main_inject(int argc, char** argv) {
           break;
 
         case 's':
-          compress_level = -1;
           output_type = "sam";
           break;
 
@@ -111,7 +111,7 @@ int main_inject(int argc, char** argv) {
         }
     }
 
-    string file_name = get_input_file_bame(optind, argc, argv);
+    string file_name = get_input_file_name(optind, argc, argv);
 
     if (!path_file.empty()){
       // open the file
@@ -159,3 +159,6 @@ int main_inject(int argc, char** argv) {
     cout.flush();
     return 0;
 }
+
+// Register subcommand
+static Subcommand vg_inject("inject", "lift over alignments for the graph", main_inject);
