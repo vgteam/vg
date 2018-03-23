@@ -2035,7 +2035,9 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
     return likely;
 }
 
-pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, int full_length_bonus, bool traceback) {
+pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
+                                     bool& tried1, bool& tried2,
+                                     int match_score, int full_length_bonus, bool traceback) {
     auto pair_sig = signature(mate1, mate2);
     // bail out if we can't figure out how far to go
     bool rescued1 = false;
@@ -2110,6 +2112,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     for (auto& orientation : orientations) {
         if (rescue_off_first) {
             Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, certainly_acyclic);
+            tried2 = true;
             //write_alignment_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
@@ -2129,6 +2132,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
             }
         } else if (rescue_off_second) {
             Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, certainly_acyclic);
+            tried1 = true;
             //write_alignment_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
@@ -2285,7 +2289,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int8_t gap_open = aligner->gap_open;
     int8_t full_length_bonus = aligner->full_length_bonus;
 
-    int total_multimaps = max(max_multimaps, extra_multimaps);
+    int total_multimaps = max(max_multimaps, extra_multimaps/2);
     double cluster_mq = 0;
 
     if(debug) {
@@ -2687,7 +2691,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         auto& aln1 = p->first;
         auto& aln2 = p->second;
         auto cluster_ptr = cluster_ptrs[aln_index[p]];
-        bool consistent = aln1.score() && aln2.score() && pair_consistent(aln1, aln2, 1e-3);
+        bool consistent = aln1.score() && aln2.score() && pair_consistent(aln1, aln2, 1e-6);
         // if both mates are aligned, add each single end into the mix
         if (aln1.score() > hang_threshold && (aln2.score() <= retry_threshold || !consistent)) {
             se_alns.emplace_back();
@@ -2720,12 +2724,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         bool rescued = false;
         int j = 0;
         for (auto& p : aln_ptrs) {
-            if (++j > mate_rescues) break;
+            if (j > mate_rescues) break;
             auto& aln1 = p->first;
             auto& aln2 = p->second;
             int score1 = aln1.score();
             int score2 = aln2.score();
-            pair<bool, bool> rescues = pair_rescue(aln1, aln2, match, full_length_bonus, true);
+            bool tried1 = false; bool tried2 = false;
+            pair<bool, bool> rescues = pair_rescue(aln1, aln2, tried1, tried2, match, full_length_bonus, true);
+            if (tried1) ++j;
+            if (tried2) ++j;
             rescued_aln[&aln1] = rescues.first;
             rescued_aln[&aln2] = rescues.second;
             rescued |= rescues.first || rescues.second;
