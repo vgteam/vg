@@ -238,7 +238,7 @@ public:
     bool prefilter_redundant_hits = true;
     int max_sub_mem_recursion_depth = 1;
     int unpaired_penalty = 17;
-    bool precollapse_order_length_hits = true;
+    bool precollapse_order_length_hits = false;
     
     // Remove any bonuses used by the aligners from the final reported scores.
     // Does NOT (yet) remove the haplotype consistency bonus.
