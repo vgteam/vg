@@ -6,7 +6,7 @@
  
 #include "extract_connecting_graph.hpp"
 
-#define debug_vg_algorithms
+//#define debug_vg_algorithms
 
 namespace vg {
 namespace algorithms {
@@ -111,14 +111,16 @@ namespace algorithms {
         // keep track of whether we find a path or not
         bool found_target = false;
         
-        unordered_set<handle_t> queued_traversals{source->get_handle(id(pos_1), is_rev(pos_1))};
-        // mark final position as "queued" so that we won't look for additional traversals unless that's
+        unordered_set<handle_t> skip_handles{source->get_handle(id(pos_1), is_rev(pos_1))};
+        // mark final position for skipping so that we won't look for additional traversals unless that's
         // the only way to find terminal cycles
         if (!(colocation == SharedNodeReverse && detect_terminal_cycles)) {
-            queued_traversals.insert(source->get_handle(id(pos_2), is_rev(pos_2)));
+            skip_handles.insert(source->get_handle(id(pos_2), is_rev(pos_2)));
         }
         // initialize the queue
-        priority_queue<Traversal> queue;
+        FilteredPriorityQueue<Traversal, handle_t> queue([](const Traversal& item) {
+            return item.handle;
+        });
         
         // the distance to the ends of the starting nodes
         int64_t first_traversal_length = graph[id(pos_1)].sequence.size() - offset(pos_1);
@@ -190,11 +192,10 @@ namespace algorithms {
                     
                     // distance to the end of this node
                     int64_t dist_thru = trav.dist + graph[next_id].sequence.size();
-                    if (!queued_traversals.count(next) && dist_thru <= forward_max_len) {
+                    if (!skip_handles.count(next) && dist_thru <= forward_max_len) {
                         // we can add more nodes along same path without going over the max length
-                        // and we have not reached the target node yet
+                        // and we do not want to skip the target node
                         queue.emplace(next, dist_thru);
-                        queued_traversals.insert(next);
 #ifdef debug_vg_algorithms
                         cerr << "FORWARD SEARCH: distance " << dist_thru << " is under maximum, adding to queue" << endl;
 #endif
@@ -239,14 +240,15 @@ namespace algorithms {
 #endif
             
             // initialize the queue going backward from the last position if it's reachable
+            queue.clear();
             if (last_traversal_length <= backward_max_len) {
                 queue.emplace(source->get_handle(id(pos_2), !is_rev(pos_2)), last_traversal_length);
             }
             
-            // reset the queued traversal list and add the two reverse traversals
-            queued_traversals.clear();
-            queued_traversals.insert(source->get_handle(id(pos_2), !is_rev(pos_2)));
-            queued_traversals.insert(source->get_handle(id(pos_1), !is_rev(pos_1)));
+            // reset the traversal list to skip and add the two reverse traversals
+            skip_handles.clear();
+            skip_handles.insert(source->get_handle(id(pos_2), !is_rev(pos_2)));
+            skip_handles.insert(source->get_handle(id(pos_1), !is_rev(pos_1)));
             
             // search along a Dijkstra tree
             while (!queue.empty()) {
@@ -282,11 +284,10 @@ namespace algorithms {
                     
                     // distance to the end of this node
                     int64_t dist_thru = trav.dist + graph[next_id].sequence.size();
-                    if (!queued_traversals.count(next) && dist_thru <= forward_max_len) {
+                    if (!skip_handles.count(next) && dist_thru <= forward_max_len) {
                         // we can add more nodes along same path without going over the max length
                         // and we have not reached the target node yet
                         queue.emplace(next, dist_thru);
-                        queued_traversals.insert(next);
 #ifdef debug_vg_algorithms
                         cerr << "BACKWARD SEARCH: distance " << dist_thru << " is under maximum, adding to queue" << endl;
 #endif
@@ -1000,10 +1001,9 @@ namespace algorithms {
         };
         
         // Define new queue
-        FilteredPriorityQueue<LocalTraversal, pair<id_t, bool>> local_queue(
-            [](const LocalTraversal& item) {
-                return make_pair(item.id, item.rev);
-            });
+        FilteredPriorityQueue<LocalTraversal, pair<id_t, bool>> local_queue([](const LocalTraversal& item) {
+            return make_pair(item.id, item.rev);
+        });
         
         if (strict_max_len) {
             // OPTION 1: PRUNE TO PATHS UNDER MAX LENGTH
