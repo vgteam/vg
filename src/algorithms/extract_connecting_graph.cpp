@@ -6,7 +6,7 @@
  
 #include "extract_connecting_graph.hpp"
 
-//#define debug_vg_algorithms
+#define debug_vg_algorithms
 
 namespace vg {
 namespace algorithms {
@@ -256,19 +256,20 @@ namespace algorithms {
                 
 #ifdef debug_vg_algorithms
                 cerr << "BACKWARD SEARCH: traversing node " << source->get_id(trav.handle)
-                    << " in " << (source->get_is_rev(trav.handle) ? "reverse" : "forward") 
+                    << " in " << (source->get_is_reverse(trav.handle) ? "reverse" : "forward") 
                     << " orientation at distance " << trav.dist << endl;
 #endif
                 
                 source->follow_edges(trav.handle, false, [&](const handle_t& next) {
                     // get the orientation and id of the other side of the edge
+                    id_t next_id = source->get_id(next);
+                    bool next_rev = source->get_is_reverse(next);
+                    
 #ifdef debug_vg_algorithms
                     cerr << "BACKWARD SEARCH: got edge "
                         << source->get_id(trav.handle) << " " << source->get_is_reverse(trav.handle)
                         << " -> " << next_id << " " << next_rev << endl;
 #endif
-                    id_t next_id = source->get_id(next);
-                    bool next_rev = source->get_is_reverse(next);
 
                     max_id = max(max_id, next_id);
                     
@@ -1081,9 +1082,17 @@ namespace algorithms {
                 for (const pair<id_t, bool>& edge : edges_out) {
                     // queue up the node traversal if it hasn't been seen before
                     pair<id_t, bool> next_trav = make_pair(edge.first, edge.second != trav.rev);
+#ifdef debug_vg_algorithms
+                        cerr << "\tCan reach " << next_trav.first << " in " << (next_trav.second ? "reverse" : "forward") << " orientation at distance " << dist_thru << endl;
+#endif
+                    
                     if (!local_queued_traversals.count(next_trav)) {
                         local_queue.emplace(next_trav.first, next_trav.second, dist_thru);
                         local_queued_traversals.insert(next_trav);
+                    } else {
+#ifdef debug_vg_algorithms
+                        cerr << "\t\tBut that is already queued" << endl;
+#endif
                     }
                 }
             }
@@ -1428,19 +1437,6 @@ namespace algorithms {
                 }
             }
         }
-        
-        
-        /*{
-            // Ensure that the protobuf we created doesn't have any dangling edges.
-            unordered_set<id_t> node_set;
-            for (size_t i = 0; i < g.node_size(); i++) {
-                node_set.insert(g.node(i).id());
-            }
-            for (size_t i = 0; i < g.edge_size(); i++) {
-                assert(node_set.count(g.edge(i).from()));
-                assert(node_set.count(g.edge(i).to()));
-            }
-        }*/
         
         // TODO: it's not enough to return the translator because there's also the issue of the positions
         // on the first node being offset (however this information is fully contained in the arguments of
