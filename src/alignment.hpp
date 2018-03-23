@@ -58,6 +58,8 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
 string cigar_string(vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
 
+void cigar_mapping(const bam1_t *b, Mapping& mapping, xg::XG* xgindex);
+
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
 
 /**
@@ -125,6 +127,7 @@ string alignment_to_sam(const Alignment& alignment,
 
 
 string cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
+  void mapping_against_path(Alignment& alignment, const bam1_t *b, xg::XG* xgindex, bool on_reverse_strand);
 
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired);
 short quality_char_to_short(char c);
