@@ -416,9 +416,9 @@ size_t integer_power(size_t x, size_t power);
  */
 template<
     class T,
+    class Identity,
     class Container = std::vector<T>,
-    class Compare = std::less<typename Container::value_type>,
-    class Identity = T 
+    class Compare = std::less<typename Container::value_type>
 >
 class FilteredPriorityQueue {
 public:
@@ -426,7 +426,7 @@ public:
     /// This requires that hash values and equality checks for the item ignore priority.
     FilteredPriorityQueue();
     /// Make a FilteredPriorityQueue that uses the given function to determine element identity.
-    FilteredPriorityQueue(std::function<Identity(T)>& get_identity);
+    FilteredPriorityQueue(const std::function<Identity(T)>& get_identity);
     
     // We can support all the priority queue functions except size because we don't know how many things are redundant.
     const T& top() const;
@@ -449,28 +449,28 @@ private:
     std::function<Identity(T)> get_identity;
 };
 
-template<class T, class Container, class Compare, class Identity>
-FilteredPriorityQueue<T, Container, Compare, Identity>::FilteredPriorityQueue() :
+template<class T, class Identity, class Container, class Compare>
+FilteredPriorityQueue<T, Identity, Container, Compare>::FilteredPriorityQueue() :
     FilteredPriorityQueue((std::function<Identity(T)>)([](T item) -> Identity { return item; })) {
     
     static_assert(std::is_same<T, Identity>::value, "can only use the identity identity function if items are their own Identitiies");
 }
 
-template<class T, class Container, class Compare, class Identity>
-FilteredPriorityQueue<T, Container, Compare, Identity>::FilteredPriorityQueue(
-    std::function<Identity(T)>& get_identity) : get_identity(get_identity) {
+template<class T, class Identity, class Container, class Compare>
+FilteredPriorityQueue<T, Identity, Container, Compare>::FilteredPriorityQueue(
+    const std::function<Identity(T)>& get_identity) : get_identity(get_identity) {
     
     // Nothing to do!
     
 }
 
-template<class T, class Container, class Compare, class Identity>
-auto FilteredPriorityQueue<T, Container, Compare, Identity>::top() const -> const T& {
+template<class T, class Identity, class Container, class Compare>
+auto FilteredPriorityQueue<T, Identity, Container, Compare>::top() const -> const T& {
     return queue.top();
 }
 
-template<class T, class Container, class Compare, class Identity>
-void FilteredPriorityQueue<T, Container, Compare, Identity>::pop() {
+template<class T, class Identity, class Container, class Compare>
+void FilteredPriorityQueue<T, Identity, Container, Compare>::pop() {
     // We need to pop off the top thing, mark it as seen, and remove any other
     // copies of it so we maintain the invariant that the thing at the top is
     // new.
@@ -481,13 +481,13 @@ void FilteredPriorityQueue<T, Container, Compare, Identity>::pop() {
     }
 }
 
-template<class T, class Container, class Compare, class Identity>
-bool FilteredPriorityQueue<T, Container, Compare, Identity>::empty() const {
+template<class T, class Identity, class Container, class Compare>
+bool FilteredPriorityQueue<T, Identity, Container, Compare>::empty() const {
     return queue.empty();
 }
 
-template<class T, class Container, class Compare, class Identity>
-void FilteredPriorityQueue<T, Container, Compare, Identity>::push(const T& item) {
+template<class T, class Identity, class Container, class Compare>
+void FilteredPriorityQueue<T, Identity, Container, Compare>::push(const T& item) {
     queue.push(item);
     if (queue.size() == 1 && seen.count(get_identity(top()))) {
         // The item we just added has already been emitted.
@@ -496,14 +496,14 @@ void FilteredPriorityQueue<T, Container, Compare, Identity>::push(const T& item)
     }
 }
 
-template<class T, class Container, class Compare, class Identity>
+template<class T, class Identity, class Container, class Compare>
 template<class... Args>
-void FilteredPriorityQueue<T, Container, Compare, Identity>::emplace(Args&&... args) {
+void FilteredPriorityQueue<T, Identity, Container, Compare>::emplace(Args&&... args) {
     queue.emplace(std::forward<Args>(args)...);
 }
 
-template<class T, class Container, class Compare, class Identity>
-void FilteredPriorityQueue<T, Container, Compare, Identity>::clear() {
+template<class T, class Identity, class Container, class Compare>
+void FilteredPriorityQueue<T, Identity, Container, Compare>::clear() {
     queue = priority_queue<T, Container, Compare>();
     seen.clear();
 }

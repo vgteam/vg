@@ -1000,11 +1000,10 @@ namespace algorithms {
         };
         
         // Define new queue
-        std::function<pair<id_t, bool>(LocalTraversal)> get_identity = [](const LocalTraversal& item) {
-            return make_pair(item.id, item.rev);
-        };
-        FilteredPriorityQueue<LocalTraversal, std::vector<LocalTraversal>, std::less<LocalTraversal>, pair<id_t, bool>> local_queue(
-            get_identity);
+        FilteredPriorityQueue<LocalTraversal, pair<id_t, bool>> local_queue(
+            [](const LocalTraversal& item) {
+                return make_pair(item.id, item.rev);
+            });
         
         if (strict_max_len) {
             // OPTION 1: PRUNE TO PATHS UNDER MAX LENGTH
