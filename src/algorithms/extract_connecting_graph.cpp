@@ -1429,6 +1429,19 @@ namespace algorithms {
             }
         }
         
+        
+        /*{
+            // Ensure that the protobuf we created doesn't have any dangling edges.
+            unordered_set<id_t> node_set;
+            for (size_t i = 0; i < g.node_size(); i++) {
+                node_set.insert(g.node(i).id());
+            }
+            for (size_t i = 0; i < g.edge_size(); i++) {
+                assert(node_set.count(g.edge(i).from()));
+                assert(node_set.count(g.edge(i).to()));
+            }
+        }*/
+        
         // TODO: it's not enough to return the translator because there's also the issue of the positions
         // on the first node being offset (however this information is fully contained in the arguments of
         // the function, which are obviously available in the environment that calls it)
