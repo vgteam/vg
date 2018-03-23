@@ -139,6 +139,7 @@ if [[ ! -d "${GRAPHS_PATH}" ]]; then
         --realTimeLogging \
         --control_sample "${SAMPLE_NAME}" \
         --haplo_sample "${SAMPLE_NAME}" \
+        --filter_samples "${SAMPLE_NAME}" \
         --regions "${GRAPH_REGION}" \
         --min_af "${MIN_AF}" \
         --primary \
@@ -168,13 +169,15 @@ if [[ ! -e "${READS_DIR}" ]]; then
 fi
 
 # Make sure we have the SLLS linear index file
-SLLS_INDEX="${GRAPHS_PATH}/slls/${VCF_BASENAME}.slls"
+# We will work on the filtered VCF
+FILTERED_VCF_BASENAME="${VCF_BASENAME%.vcf.gz}_filter.vcf.gz"
+SLLS_INDEX="${GRAPHS_PATH}/slls/${FILTERED_VCF_BASENAME}.slls"
 if [[ ! -e "${SLLS_INDEX}" ]]; then
     # We need to make the SLLS index
     mkdir "${GRAPHS_PATH}/slls"
-    aws s3 cp "${SOURCE_BASE_URL}/${VCF_BASENAME}" "${GRAPHS_PATH}/slls/"
+    cp "${GRAPHS_PATH}/${FILTERED_VCF_BASENAME}" "${GRAPHS_PATH}/slls/${FILTERED_VCF_BASENAME}"
     cd deps/sublinear-Li-Stephens && make && cd ../..
-    LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`/deps/sublinear-Li-Stephens/deps/htslib/ ./deps/sublinear-Li-Stephens/bin/serializer "${GRAPHS_PATH}/slls/${VCF_BASENAME}"
+    LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`/deps/sublinear-Li-Stephens/deps/htslib/ ./deps/sublinear-Li-Stephens/bin/serializer "${GRAPHS_PATH}/slls/${FILTERED_VCF_BASENAME}"
 fi
 
  # Now we do a bunch of stuff in parallel
@@ -258,7 +261,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #        --multipath-only \
     #        --fastq "${READS_DIR}/sim.fq.gz" \
     #        --truth "${READS_DIR}/true.pos" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
     #        --gam-names snp1kg 2>&1 & 
     #    JOB_ARRAY+=("$!")
     #fi
@@ -275,7 +278,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --use-snarls \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
             --gam-names snp1kg-snarlcut 2>&1 & 
         JOB_ARRAY+=("$!")
     fi
@@ -292,7 +295,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #        --use-gbwt \
     #        --fastq "${READS_DIR}/sim.fq.gz" \
     #        --truth "${READS_DIR}/true.pos" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
     #        --gam-names snp1kg-gbwt 2>&1 &
     #    JOB_ARRAY+=("$!")
     #fi
@@ -310,7 +313,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #        --mpmap_opts "--max-paths 10" \
     #        --fastq "${READS_DIR}/sim.fq.gz" \
     #        --truth "${READS_DIR}/true.pos" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
     #        --gam-names snp1kg-gbwt-traceback 2>&1 &
     #    JOB_ARRAY+=("$!")
     #fi
@@ -328,7 +331,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --use-snarls \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
             --gam-names snp1kg-gbwt-snarlcut 2>&1 &
         JOB_ARRAY+=("$!")
     fi
@@ -347,7 +350,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --mpmap_opts "--max-paths 10" \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
             --gam-names snp1kg-gbwt-traceback-snarlcut 2>&1 &
         JOB_ARRAY+=("$!")
     fi
@@ -377,8 +380,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #        mkdir -p "${OUTPUT_PATH}/snp1kg-mp-slls"
     #        vg mpmap --linear-index "${SLLS_INDEX}" \
     #            --linear-path "${GRAPH_CONTIG}" \
-    #            -x "${GRAPHS_PATH}/snp1kg-${REGION_NAME}.xg" \
-    #            -g "${GRAPHS_PATH}/snp1kg-${REGION_NAME}.gcsa" \
+    #            -x "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered.xg" \
+    #            -g "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered.gcsa" \
     #            --fastq "${READS_DIR}/sim.fq.gz" \
     #            -i \
     #            -S \
@@ -391,7 +394,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #        --config "${TREE_PATH}/toil-vg.conf" \
     #        --maxDisk 100G \
     #        --truth "${READS_DIR}/true.pos" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
     #        --gam-names snp1kg-slls-mp-pe 2>&1 &
     #    JOB_ARRAY+=("$!")
     #fi
@@ -404,9 +407,9 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             mkdir -p "${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut"
             vg mpmap --linear-index "${SLLS_INDEX}" \
                 --linear-path "${GRAPH_CONTIG}" \
-                -x "${GRAPHS_PATH}/snp1kg-${REGION_NAME}.xg" \
-                -g "${GRAPHS_PATH}/snp1kg-${REGION_NAME}.gcsa" \
-                --snarls "${GRAPHS_PATH}/snp1kg-${REGION_NAME}.snarls" \
+                -x "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered.xg" \
+                -g "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered.gcsa" \
+                --snarls "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered.snarls" \
                 --fastq "${READS_DIR}/sim.fq.gz" \
                 -i \
                 -S \
@@ -419,7 +422,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --config "${TREE_PATH}/toil-vg.conf" \
             --maxDisk 100G \
             --truth "${READS_DIR}/true.pos" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
             --gam-names snp1kg-slls-snarlcut-mp-pe 2>&1 &
         JOB_ARRAY+=("$!")
     fi
