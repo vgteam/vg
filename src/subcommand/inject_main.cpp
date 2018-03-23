@@ -1,8 +1,17 @@
 // inject_main.cpp: define the "vg inject" subcommand, which lifts over alignments from the linear space
 
 #include <omp.h>
+#include <unistd.h>
+#include <getopt.h>
+
+#include <string>
+#include <vector>
+#include <set>
+
 #include <subcommand.hpp>
 
+#include "../alignment.hpp"
+#include "../vg.hpp"
 
 using namespace std;
 using namespace vg;
@@ -12,14 +21,12 @@ void help_inject(char* argv) {
     cerr << "usage: " << argv[0] << " inject []" << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE       use the graph in this xg index
-" << endl
+         << "    -x, --xg-name FILE       use the graph in this xg index" << endl
          << "    -c, --cram-name FILE     input CRAM file" << endl
          << "    -b, --bam-name FILE      input BAM file" << endl
          << "    -s, --sam-name FILE      input SAM file" << endl
          << "    -t, --threads N          number of threads to use" << endl
-         << "    -p, --into-path NAME     inject from this path (many allowed, default: all in bam)
-" << endl
+         << "    -p, --into-path NAME     inject from this path (many allowed, default: all in bam)" << endl
          << "    -F, --into-paths FILE    inject from nonoverlapping path names listed in FILE (one per line)" << endl;
 }
 
@@ -35,6 +42,7 @@ int main_inject(int argc, char** argv) {
     string path_file;
     string output_type = "gam";
     string input_type = "bam";
+    int threads = 1;
     optind = 2;
     while (true) {
         static struct option long_options[] =
@@ -87,6 +95,10 @@ int main_inject(int argc, char** argv) {
           output_type = "sam";
           break;
 
+        case 't':
+          threads = atoi(optarg);
+          omp_set_num_threads(threads);
+          break;
 
         case 'h':
         case '?':
@@ -137,7 +149,11 @@ int main_inject(int argc, char** argv) {
         buf.clear();
       }
     };
-    hts_for_each(file_name, lambda);
+    if (threads > 1) {
+        hts_for_each_parallel(file_name, lambda);
+    } else {
+        hts_for_each(file_name, lambda);
+    }
     write_alignments(std::cout, buf);
     buf.clear();
     cout.flush();
