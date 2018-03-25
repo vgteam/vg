@@ -2014,11 +2014,20 @@ vector<pair<pos_t, size_t> > mem_node_start_positions(const xg::XG& xg, const vg
                     q.second = mem_todo - overlap;
                     positions.push_back(q);
                 }
-            }
-            // if we continue past this node, insert our next nodes into nexts
-            if (mem_todo - overlap > 0) {
-                size_t new_off = query_offset + overlap;
-                xg.follow_edges(handle, false, [&](const handle_t& next) { todo.insert(make_pair(make_pos_t(xg.get_id(next), xg.get_is_reverse(next), 0), new_off)); return true; });
+                // if we continue past this node, insert our next nodes into nexts
+                if (mem_todo - overlap > 0) {
+                    size_t new_off = query_offset + overlap;
+                    xg.follow_edges(handle, false, [&](const handle_t& next) { todo.insert(make_pair(make_pos_t(xg.get_id(next), xg.get_is_reverse(next), 0), new_off)); return true; });
+                }
+            } else {
+                // still store at least this node and the remainder
+                // but record that we have more left
+                if (!seen_pos.count(h)) {
+                    seen_pos.insert(h);
+                    auto q = h;
+                    q.second = mem_todo;
+                    positions.push_back(q);
+                }
             }
         }
         next = todo;
