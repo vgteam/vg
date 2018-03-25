@@ -45,7 +45,7 @@ PathIndex::PathIndex(const Path& path) {
     
 }
 
-PathIndex::PathIndex(const list<Mapping>& mappings, VG& vg) {
+PathIndex::PathIndex(const deque<Mapping>& mappings, VG& vg) {
     // Trace the given path in the given VG graph, collecting sequence
     
     // We're going to build the sequence string

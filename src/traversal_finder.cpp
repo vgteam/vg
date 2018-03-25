@@ -98,7 +98,7 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
                 // Add the start node to the traversal
                 *fresh_trav.add_visit() = site.start();
                 // Fill in our traversal
-                list<Mapping> ms = gpaths[a];
+                auto& ms = gpaths[a];
                 for (auto m : ms){
                     int64_t n_id = m.position().node_id();
                     bool backward = m.position().is_reverse();

@@ -181,11 +181,11 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         
         // We start at the start node. Copy out all the mapping pointers on that
         // node, so we can go through them while tampering with them.
-        map<string, set<Mapping*> > mappings_by_path = graph.paths.get_node_mapping(graph.get_node(leaf->start().node_id()));
+        auto mappings_by_path = graph.paths.get_node_mapping(graph.get_node(leaf->start().node_id()));
         
         // It's possible a path can enter the site through the end node and
         // never hit the start. So we're going to trim those back before we delete nodes and edges.
-        map<string, set<Mapping*> > end_mappings_by_path = graph.paths.get_node_mapping(graph.get_node(leaf->end().node_id()));
+        auto end_mappings_by_path = graph.paths.get_node_mapping(graph.get_node(leaf->end().node_id()));
         
         if (!drop_hairpin_paths) {
             // We shouldn't drop paths if they hairpin and can't be represented
@@ -493,7 +493,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 features.on_path_edit(path_name, variable_start, old_site_length, new_site_length);
                 
                 // Where will we insert the new site traversal into the path?
-                list<Mapping>::iterator insert_position;
+                deque<Mapping>::iterator insert_position;
                 
                 if (!existing_mappings.empty()) {
                     // If there are existing internal mappings, we'll insert right where they were

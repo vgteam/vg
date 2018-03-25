@@ -60,14 +60,14 @@ public:
     }
 
     // This maps from path name to the list of Mappings for that path.
-    map<string, list<Mapping> > _paths;
+    map<string, deque<Mapping> > _paths;
     // This maps from Mapping* pointer to its iterator in its list of Mappings
     // for its path. The list in question is stored above in _paths. Recall that
     // std::list iterators are bidirectional.
-    map<Mapping*, list<Mapping>::iterator > mapping_itr;
+    hash_map<Mapping*, deque<Mapping>::iterator > mapping_itr;
     // This maps from Mapping* pointer to the name of the path it belongs to
     // (which can then be used to get the list its iterator belongs to).
-    map<Mapping*, string> mapping_path;
+    hash_map<Mapping*, string> mapping_path;
     void sort_by_mapping_rank(void);
     /// Reassign ranks and rebuild indexes, treating the mapping lists in _paths as the truth.
     void rebuild_mapping_aux(void);
@@ -77,7 +77,7 @@ public:
     map<string, map<size_t, Mapping*>> mappings_by_rank;
     // This maps from node ID, then path name, then rank and orientation, to
     // Mapping pointers for the mappings on that path to that node.
-    map<id_t, map<string, set<Mapping*>>> node_mapping;
+    hash_map<id_t, map<string, set<Mapping*>>> node_mapping;
     // record which head nodes we have
     // we'll use this when determining path edge crossings--- all paths implicitly cross these nodes
     set<id_t> head_tail_nodes;
@@ -92,15 +92,15 @@ public:
     
     // Find the given mapping in its path, so mappings can be inserted before
     // it.
-    list<Mapping>::iterator find_mapping(Mapping* m);
+    deque<Mapping>::iterator find_mapping(Mapping* m);
     // remove the given Mapping from its path. Returns an iterator to the
     // mapping that came after it, or the end of the list if no mapping came
     // after it.
-    list<Mapping>::iterator remove_mapping(Mapping* m);
+    deque<Mapping>::iterator remove_mapping(Mapping* m);
     // insert the given mapping into the given path, before the mapping pointed
     // to by the given iterator. Returns an iterator to the newly-inserted
     // mapping.
-    list<Mapping>::iterator insert_mapping(list<Mapping>::iterator w,
+    deque<Mapping>::iterator insert_mapping(deque<Mapping>::iterator w,
                                            const string& path_name, const Mapping& m);
     pair<Mapping*, Mapping*> divide_mapping(Mapping* m, const Position& pos);
     pair<Mapping*, Mapping*> divide_mapping(Mapping* m, size_t offset);
@@ -116,9 +116,9 @@ public:
     void remove_node(id_t id);
     bool has_path(const string& name);
     void to_json(ostream& out);
-    list<Mapping>& get_path(const string& name);
-    list<Mapping>& get_create_path(const string& name);
-    list<Mapping>& create_path(const string& name);
+    deque<Mapping>& get_path(const string& name);
+    deque<Mapping>& get_create_path(const string& name);
+    deque<Mapping>& create_path(const string& name);
     // Does the given path have a mapping meeting the given criteria?
     // Is there a mapping in the given path with the given assigned rank? Note
     // that the rank passed may not be 0.
