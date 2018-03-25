@@ -2081,6 +2081,7 @@ Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::
                expansion * ((int)(mems[i+1].begin - mem.end) + mem_remainder));
         if (get_after > 0) graph.MergeFrom(xg.graph_context_id(pos, get_after));
     }
+    xg.expand_context(graph, 1, false);
     sort_by_id_dedup_and_clean(graph);
     return graph;
 }
