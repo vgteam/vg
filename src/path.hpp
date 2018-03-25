@@ -64,20 +64,20 @@ public:
     // This maps from Mapping* pointer to its iterator in its list of Mappings
     // for its path. The list in question is stored above in _paths. Recall that
     // std::list iterators are bidirectional.
-    map<Mapping*, list<Mapping>::iterator > mapping_itr;
+    hash_map<Mapping*, list<Mapping>::iterator > mapping_itr;
     // This maps from Mapping* pointer to the name of the path it belongs to
     // (which can then be used to get the list its iterator belongs to).
-    map<Mapping*, string> mapping_path;
+    hash_map<Mapping*, string> mapping_path;
     void sort_by_mapping_rank(void);
     /// Reassign ranks and rebuild indexes, treating the mapping lists in _paths as the truth.
     void rebuild_mapping_aux(void);
     // We need this in order to make sure we aren't adding duplicate mappings
     // with the same rank in the same path. Maps from path name and rank to
     // Mapping pointer.
-    map<string, map<size_t, Mapping*>> mappings_by_rank;
+    map<string, hash_map<size_t, Mapping*>> mappings_by_rank;
     // This maps from node ID, then path name, then rank and orientation, to
     // Mapping pointers for the mappings on that path to that node.
-    map<id_t, map<string, set<Mapping*>>> node_mapping;
+    hash_map<id_t, map<string, set<Mapping*>>> node_mapping;
     // record which head nodes we have
     // we'll use this when determining path edge crossings--- all paths implicitly cross these nodes
     set<id_t> head_tail_nodes;
