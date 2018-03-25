@@ -400,7 +400,7 @@ int main_augment(int argc, char** argv) {
             get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
                     vector<Alignment> gam_buffer;
                     function<void(Alignment&)> lambda = [&gam_out_file, &gam_buffer, &augmenter](Alignment& alignment) {
-                        deque<Mapping> aug_path;
+                        list<Mapping> aug_path;
                         augmenter.map_path(alignment.path(), aug_path, true);
                         alignment.mutable_path()->clear_mapping();
                         for (auto& aug_mapping : aug_path) {

@@ -139,7 +139,7 @@ struct NodeDivider {
     Entry break_end(const Node* orig_node, VG* graph, int offset, bool left_side);
     // assuming input node is fully covered, list of nodes that correspond to it in call graph
     // if node not in structure at all, just return input (assumption uncalled nodes kept as is)
-    deque<Mapping> map_node(int64_t node_id, int64_t start_offset, int64_t length, bool reverse);
+    list<Mapping> map_node(int64_t node_id, int64_t start_offset, int64_t length, bool reverse);
     // erase everything (but don't free any Node pointers, they belong to the graph)
     void clear();
 };
@@ -242,11 +242,11 @@ public:
 
     // map a path (can have edits, ie from Alignment) from base graph to augmented graph
     // aug_path parameter is empty path that will be written to
-    void map_path(const Path& base_path, deque<Mapping>& aug_path, bool expect_edits);
+    void map_path(const Path& base_path, list<Mapping>& aug_path, bool expect_edits);
 
     // Apply edits from base_mapping to corresponding augmented mappings that share same
     // from interval, but don't yet have edits (called by map_path);
-    void apply_mapping_edits(const Mapping& base_mapping, deque<Mapping>& aug_mappings);
+    void apply_mapping_edits(const Mapping& base_mapping, list<Mapping>& aug_mappings);
 
     // TODO:
     // method to normalize mapped paths back onto the augmented graph.  ie check each
@@ -255,7 +255,7 @@ public:
     // map paths from input graph into called (augmented) graph
     void map_paths();
     // make sure mapped paths generate same strings as input paths
-    void verify_path(const Path& in_path, const deque<Mapping>& call_path);
+    void verify_path(const Path& in_path, const list<Mapping>& call_path);
     
     // call position at given base
     // if insertion flag set to true, call insertion between base and next base

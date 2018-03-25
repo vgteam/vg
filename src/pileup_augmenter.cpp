@@ -216,7 +216,7 @@ void PileupAugmenter::update_augmented_graph() {
     annotate_non_augmented_nodes();
 }
 
-void PileupAugmenter::map_path(const Path& path, deque<Mapping>& aug_path, bool expect_edits) {
+void PileupAugmenter::map_path(const Path& path, list<Mapping>& aug_path, bool expect_edits) {
     int64_t last_rank = -1;
     int64_t last_call_rank = 0;
     size_t running_len = 0;
@@ -243,8 +243,8 @@ void PileupAugmenter::map_path(const Path& path, deque<Mapping>& aug_path, bool 
 
         // this is a projection onto the augmented graph for the entire "from length"
         // of the mapping
-        deque<Mapping> aug_mappings = _node_divider.map_node(node_id, start, len,
-                                                             mapping.position().is_reverse());
+        list<Mapping> aug_mappings = _node_divider.map_node(node_id, start, len,
+                                                            mapping.position().is_reverse());
 
         // undo insertion length hack above
         if (len == 1 && mapping_from_length(mapping) == 0) {
@@ -274,7 +274,7 @@ void PileupAugmenter::map_path(const Path& path, deque<Mapping>& aug_path, bool 
     verify_path(path, aug_path);
 }
 
-void PileupAugmenter::apply_mapping_edits(const Mapping& base_mapping, deque<Mapping>& aug_mappings) {
+void PileupAugmenter::apply_mapping_edits(const Mapping& base_mapping, list<Mapping>& aug_mappings) {
     // current place in aug_mappings list
     auto aug_mapping_it = aug_mappings.begin();
     // from length of current mapping
@@ -355,7 +355,7 @@ void PileupAugmenter::map_paths() {
     
     // We don't remove any nodes, so paths always stay connected
     function<void(const Path&)> lambda = [&](const Path& path) {
-        auto& call_path = _augmented_graph.graph.paths.create_path(path.name());
+        list<Mapping>& call_path = _augmented_graph.graph.paths.create_path(path.name());
         map_path(path, call_path, false);
     };
     _graph->paths.for_each(lambda);
@@ -366,7 +366,7 @@ void PileupAugmenter::map_paths() {
     _augmented_graph.graph.paths.to_graph(_augmented_graph.graph.graph);    
 }
 
-void PileupAugmenter::verify_path(const Path& in_path, const deque<Mapping>& call_path) {
+void PileupAugmenter::verify_path(const Path& in_path, const list<Mapping>& call_path) {
     function<string(VG*, const Mapping&)> lambda = [](VG* graph, const Mapping& mapping) {
         const Position& pos = mapping.position();
         const Node* node = graph->get_node(pos.node_id());
@@ -1080,12 +1080,12 @@ NodeDivider::Entry NodeDivider::break_end(const Node* orig_node, VG* graph, int 
 }
 
 // this function only works if node is completely covered in divider structure,
-deque<Mapping> NodeDivider::map_node(int64_t node_id, int64_t start_offset, int64_t length, bool reverse){
+list<Mapping> NodeDivider::map_node(int64_t node_id, int64_t start_offset, int64_t length, bool reverse){
     NodeHash::iterator i = index.find(node_id);
     assert(i != index.end());
     NodeMap& node_map = i->second;
     assert(!node_map.empty());
-    deque<Mapping> out_mappings;
+    list<Mapping> out_mappings;
     int cur_len = 0;
     if (!reverse) {
         for (auto i : node_map) {

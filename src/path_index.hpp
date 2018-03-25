@@ -47,11 +47,11 @@ struct PathIndex {
     PathIndex(const Path& path);
     
     /// Index just a list of mappings
-    PathIndex(const deque<Mapping>& mappings);
+    PathIndex(const list<Mapping>& mappings);
     
     /// Index a list of mappings embedded in the given vg's Paths object, and
     /// pull sequence from the given vg.
-    PathIndex(const deque<Mapping>& mappings, VG& vg);
+    PathIndex(const list<Mapping>& mappings, VG& vg);
     
     /// Index a path and pull sequence from an XG index.
     PathIndex(const Path& path, const xg::XG& vg);

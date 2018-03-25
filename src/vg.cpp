@@ -4116,7 +4116,8 @@ void VG::remove_node_forwarding_edges(Node* node) {
     if (paths.has_node_mapping(node)) {
         // We need to copy the set here because we're going to be throwing
         // things out of it while iterating over it.
-        for (auto& p : paths.get_node_mapping(node)) {
+        map<string, set<Mapping*>> node_mappings(paths.get_node_mapping(node));
+        for (auto& p : node_mappings) {
             for (auto& m : p.second) {
                 paths.remove_mapping(m);
             }

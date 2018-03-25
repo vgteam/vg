@@ -27,7 +27,7 @@ void Paths::write(ostream& out) {
     }
     function<Path(uint64_t)> lambda =
         [this, &path_names](uint64_t i) -> Path {
-        deque<Mapping>& mappings = _paths[path_names.at(i)];
+        list<Mapping>& mappings = _paths[path_names.at(i)];
         Path path;
         for (auto& m : mappings) {
             Mapping* nm = path.add_mapping();
@@ -45,7 +45,7 @@ void Paths::write(ostream& out) {
 void Paths::to_graph(Graph& g) {
     for (auto& p : _paths) {
         const string& name = p.first;
-        deque<Mapping>& mappings = p.second;
+        list<Mapping>& mappings = p.second;
         Path* path = g.add_path();
         path->set_name(name);
         if (circular.count(name)) {
@@ -64,7 +64,7 @@ Path Paths::path(const string& name) {
     if (p == _paths.end()) {
         return path;
     }
-    deque<Mapping>& mappings = p->second;
+    list<Mapping>& mappings = p->second;
     path.set_name(name);
     for (auto& m : mappings) {
         Mapping* nm = path.add_mapping();
@@ -92,7 +92,7 @@ void Paths::for_each_name(const function<void(const string&)>& lambda) {
 
 void Paths::for_each_mapping(const function<void(Mapping*)>& lambda) {
     for (auto& p : _paths) {
-        deque<Mapping>& path = p.second;
+        list<Mapping>& path = p.second;
         for (auto& m : path) {
             lambda(&m);
         }
@@ -115,7 +115,7 @@ void Paths::make_linear(const string& name) {
 
 void Paths::extend(const Path& p) {
     const string& name = p.name();
-    deque<Mapping>& path = get_create_path(name);
+    list<Mapping>& path = get_create_path(name);
     for (int i = 0; i < p.mapping_size(); ++i) {
         const Mapping& m = p.mapping(i);
         append_mapping(name, m);
@@ -132,7 +132,7 @@ void Paths::extend(const Path& p) {
 void Paths::extend(Paths& p) {
     for (auto& l : p._paths) {
         const string& name = l.first;
-        deque<Mapping>& path = l.second;
+        list<Mapping>& path = l.second;
         // Make sure we preserve empty paths
         get_create_path(name);
         for (auto& m : path) {
@@ -149,7 +149,7 @@ void Paths::extend(Paths& p) {
 void Paths::append(Paths& paths) {
     for (auto& p : paths._paths) {
         const string& name = p.first;
-        const deque<Mapping>& path = p.second;
+        const list<Mapping>& path = p.second;
         // Make sure we preserve empty paths
         get_create_path(name);
         for (auto& m : path) {
@@ -190,7 +190,7 @@ bool Paths::has_mapping(const string& name, size_t rank) {
 
 void Paths::append_mapping(const string& name, const Mapping& m) {
     // get or create the path with this name
-    deque<Mapping>& pt = get_create_path(name);
+    list<Mapping>& pt = get_create_path(name);
     // now if we haven't already supplied a mapping
     // add it
     
@@ -242,7 +242,7 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
         auto& ms = get_node_mapping(mp->position().node_id());
         ms[name].insert(mp);
         // and record its position in this list
-        deque<Mapping>::iterator mi = pt.end(); --mi;
+        list<Mapping>::iterator mi = pt.end(); --mi;
         mapping_itr[mp] = mi;
         mapping_path[mp] = name;
         if(mp->rank()) {
@@ -265,7 +265,7 @@ void Paths::append_mapping(const string& name, id_t id, size_t rank, bool is_rev
 
 void Paths::prepend_mapping(const string& name, const Mapping& m) {
     // get or create the path with this name
-    deque<Mapping>& pt = get_create_path(name);
+    list<Mapping>& pt = get_create_path(name);
     
     // We can't prepend a mapping that doesn't have a rank set. We would like to
     // generate ranks, but we can't keep decrementing the first rank
@@ -285,7 +285,7 @@ void Paths::prepend_mapping(const string& name, const Mapping& m) {
         auto& ms = get_node_mapping(m.position().node_id());
         ms[name].insert(mp);
         // and record its position in this list
-        deque<Mapping>::iterator mi = pt.begin();
+        list<Mapping>::iterator mi = pt.begin();
         mapping_itr[mp] = mi;
         mapping_path[mp] = name;
         mappings_by_rank[name][mp->rank()] = mp;
@@ -366,7 +366,7 @@ bool Paths::has_path(const string& name) {
 void Paths::increment_node_ids(id_t inc) {
     for (auto& p : _paths) {
         const string& name = p.first;
-        deque<Mapping>& path = p.second;
+        list<Mapping>& path = p.second;
         for (auto& m : path) {
             m.mutable_position()->set_node_id(m.position().node_id()+inc);
         }
@@ -377,7 +377,7 @@ void Paths::increment_node_ids(id_t inc) {
 void Paths::swap_node_ids(hash_map<id_t, id_t>& id_mapping) {
     for (auto& p : _paths) {
         const string& name = p.first;
-        deque<Mapping>& path = p.second;
+        list<Mapping>& path = p.second;
         for (auto& m : path) {
             // Look up the replacement ID
             auto replacement = id_mapping.find(m.position().node_id());
@@ -404,7 +404,7 @@ void Paths::rebuild_node_mapping(void) {
     node_mapping.clear();
     for (auto& p : _paths) {
         const string& path_name = p.first;
-        deque<Mapping>& path = p.second;
+        list<Mapping>& path = p.second;
         for (auto& m : path) {
             get_node_mapping(m.position().node_id())[path_name].insert(&m);
         }
@@ -414,8 +414,8 @@ void Paths::rebuild_node_mapping(void) {
 // attempt to sort the paths based on the recorded ranks of the mappings
 void Paths::sort_by_mapping_rank(void) {
     for (auto p = _paths.begin(); p != _paths.end(); ++p) {
-        deque<Mapping>& path = p->second;
-        sort(path.begin(), path.end(), [](const Mapping& m1, const Mapping& m2) {
+        list<Mapping>& path = p->second;
+        path.sort([](const Mapping& m1, const Mapping& m2) {
                 return m1.rank() < m2.rank();
             });
     }
@@ -438,9 +438,9 @@ void Paths::rebuild_mapping_aux(void) {
     mappings_by_rank.clear();
     for (auto& p : _paths) {
         const string& path_name = p.first;
-        deque<Mapping>& path = p.second;
+        list<Mapping>& path = p.second;
         size_t order_in_path = 0;
-        for (deque<Mapping>::iterator i = path.begin(); i != path.end(); ++i) {
+        for (list<Mapping>::iterator i = path.begin(); i != path.end(); ++i) {
             mapping_itr[&*i] = i;
             mapping_path[&*i] = path_name;
             
@@ -472,11 +472,11 @@ void Paths::remove_node(id_t id) {
     node_mapping.erase(id);
 }
 
-deque<Mapping>::iterator Paths::find_mapping(Mapping* m) {
+list<Mapping>::iterator Paths::find_mapping(Mapping* m) {
     return mapping_itr[m];
 }
 
-deque<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
+list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
     // The mapping has to exist
     assert(mapping_path.find(m) != mapping_path.end());
     const string& path_name = mapping_path[m];
@@ -492,7 +492,7 @@ deque<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
     }
     
     // Actually deallocate the mapping
-    deque<Mapping>::iterator p = _paths[path_name].erase(mapping_itr[m]);
+    list<Mapping>::iterator p = _paths[path_name].erase(mapping_itr[m]);
     if (has_node_mapping(id)) {
         auto& node_path_mapping = get_node_mapping(id);
         node_path_mapping[path_name].erase(m);
@@ -504,11 +504,11 @@ deque<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
     return p;
 }
 
-deque<Mapping>::iterator Paths::insert_mapping(deque<Mapping>::iterator w, const string& path_name, const Mapping& m) {
+list<Mapping>::iterator Paths::insert_mapping(list<Mapping>::iterator w, const string& path_name, const Mapping& m) {
     auto px = _paths.find(path_name);
     assert(px != _paths.end());
-    deque<Mapping>& path = px->second;
-    deque<Mapping>::iterator p;
+    list<Mapping>& path = px->second;
+    list<Mapping>::iterator p;
     if (path.empty()) {
         path.push_front(m);
         p = path.begin();
@@ -545,7 +545,7 @@ void Paths::clear(void) {
 
 void Paths::clear_mapping_ranks(void) {
     for (auto p = _paths.begin(); p != _paths.end(); ++p) {
-        deque<Mapping>& path = p->second;
+        list<Mapping>& path = p->second;
         for (auto m = path.begin(); m != path.end(); ++m) {
             Mapping& mapping = *m;
             mapping.set_rank(0);
@@ -554,7 +554,7 @@ void Paths::clear_mapping_ranks(void) {
     mappings_by_rank.clear();
 }
 
-deque<Mapping>& Paths::get_path(const string& name) {
+list<Mapping>& Paths::get_path(const string& name) {
     return _paths[name];
 }
 
@@ -597,11 +597,11 @@ void Paths::keep_paths(const set<string>& names) {
     remove_paths(to_remove);
 }
 
-deque<Mapping>& Paths::create_path(const string& name) {
+list<Mapping>& Paths::create_path(const string& name) {
     return _paths[name];
 }
 
-deque<Mapping>& Paths::get_create_path(const string& name) {
+list<Mapping>& Paths::get_create_path(const string& name) {
     if (!has_path(name)) {
         return create_path(name);
     } else {
@@ -647,13 +647,13 @@ map<string, map<int, Mapping>> Paths::get_node_mapping_copies_by_rank(id_t id) {
 
 Mapping* Paths::traverse_left(Mapping* mapping) {
     // Get the iterator for this Mapping*
-    deque<Mapping>::iterator place = mapping_itr.at(mapping);
+    list<Mapping>::iterator place = mapping_itr.at(mapping);
 
     // Get the path name for this Mapping*
     string path_name = mapping_path_name(mapping);
 
     // Get the list that the iterator is in
-    deque<Mapping>& path_list = _paths.at(path_name);
+    list<Mapping>& path_list = _paths.at(path_name);
 
     // If we're already the beginning, return null.
     if(place == path_list.begin()) {
@@ -668,13 +668,13 @@ Mapping* Paths::traverse_left(Mapping* mapping) {
 
 Mapping* Paths::traverse_right(Mapping* mapping) {
     // Get the iterator for this Mapping*
-    deque<Mapping>::iterator place = mapping_itr.at(mapping);
+    list<Mapping>::iterator place = mapping_itr.at(mapping);
 
     // Get the path name for this Mapping*
     string path_name = mapping_path_name(mapping);
 
     // Get the list that the iterator is in
-    deque<Mapping>& path_list = _paths.at(path_name);
+    list<Mapping>& path_list = _paths.at(path_name);
 
     // Advance the iterator right.
     place++;
@@ -750,7 +750,7 @@ bool Paths::are_consecutive_nodes_in_path(id_t id1, id_t id2, const string& path
         auto& p1 = get_node_mapping(id1);
         auto& p2 = get_node_mapping(id2);
         // is p1 directly before p2?
-        vector<deque<Mapping>::iterator> i1s, i2s;
+        vector<list<Mapping>::iterator> i1s, i2s;
         // note that this will get the first mapping in each path, not an arbitrary one
         // (we can have looping paths, so there could be several mappings per path)
         for (auto& mp : p1[path_name]) {

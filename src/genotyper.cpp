@@ -2346,10 +2346,10 @@ VG Genotyper::make_subset_graph(VG& graph, const string& ref_path_name,
     // TODO: once Cactus can root without hints, we can discard this
     if(graph.paths.has_path(ref_path_name)) {
         // We actually have a reference path, so get it for traversing.
-        auto& ref_mappings = graph.paths.get_path(ref_path_name);
+        list<Mapping>& ref_mappings = graph.paths.get_path(ref_path_name);
         // We need to remember the previous mapping for finding edges
-        auto last_mapping = ref_mappings.end();
-        for(auto mapping = ref_mappings.begin(); mapping != ref_mappings.end(); ++mapping) {
+        list<Mapping>::iterator last_mapping = ref_mappings.end();
+        for(list<Mapping>::iterator mapping = ref_mappings.begin(); mapping != ref_mappings.end(); ++mapping) {
             // For each mapping along the reference path
 
             // What node is it on?
