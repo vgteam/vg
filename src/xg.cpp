@@ -3734,6 +3734,64 @@ pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const 
     return make_pos_t(node_id, is_rev, offset);
 }
 
+Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse, list<Edit> edits_queue) const {
+    Alignment aln;
+    const XGPath& path = *paths[path_rank(name)-1];
+    size_t first_node_start = path.offsets_select(path.offsets_rank(pos1+1));
+    int64_t trim_start = pos1 - first_node_start;
+    {
+        Mapping* first_mapping = aln.mutable_path()->add_mapping();
+        *first_mapping = mapping_at_path_position(name, pos1);
+        add_edits_with_consuming(first_mapping, edits_queue, node_length(first_mapping->position().node_id()));
+//        Edit* e = first_mapping->add_edit();
+//        e->set_to_length(node_length(first_mapping->position().node_id()));
+//        e->set_from_length(e->to_length());
+    }
+    // get p to point to the next step (or past it, if we're a feature on a single node)
+    int64_t p = (int64_t)pos1 + node_length(aln.path().mapping(0).position().node_id()) - trim_start;
+    while (p < pos2) {
+        Mapping m = mapping_at_path_position(name, p);
+        add_edits_with_consuming(first_mapping, edits_queue, node_length(m.position().node_id()));
+//        Edit* e = m.add_edit();
+//        e->set_to_length(node_length(m.position().node_id()));
+//        e->set_from_length(e->to_length());
+        *aln.mutable_path()->add_mapping() = m;
+        p += mapping_from_length(aln.path().mapping(aln.path().mapping_size()-1));
+    }
+    // trim to the target
+    int64_t trim_end = p - pos2;
+    if (trim_start) {
+        *aln.mutable_path() = cut_path(aln.path(), trim_start).second;
+    }
+    if (trim_end) {
+        *aln.mutable_path() = cut_path(aln.path(), path_from_length(aln.path()) - trim_end).first;
+    }
+    aln.set_name(feature);
+    return aln;
+}
+
+void add_edits_with_consuming(&Mapping first_mapping, list<Edit> edits_queue, size_t length) {
+    // Pop edits from the queue until reference_length of edits reaches at length.
+    std::list<Edit>::iterator front;
+    while(length > 0) {
+        front = edits_queue.begin();
+        Edit* e = first_mapping->add_edit();
+        e->set_to_length(front->from_length());
+        e->set_from_length(front->to_length());
+        if (front->sequence()) {
+            e->set_sequence(front->sequence());
+        }
+
+        length -= front->to_length()
+        if (length < 0) {
+            front->set_to_length(front->to_length() + length);
+            front->set_from_length(front->from_length() + length);
+        } else {
+            edits_queue.pop_front();
+        }
+    }
+}
+
 Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse) const {
     Alignment aln;
     const XGPath& path = *paths[path_rank(name)-1];

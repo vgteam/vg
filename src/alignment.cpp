@@ -809,10 +809,12 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
 }
 
 int64_t cigar_mapping(const bam1_t *b, Mapping& mapping, xg::XG* xgindex) {
-    int64_t length = 0;
+    int64_t ref_length = 0;
+    int64_t query_length = 0;
+    
     const auto cigar = bam_get_cigar(b);
 
-    Edit* e = pseudo_mapping->add_edit();
+    Edit* e = mapping->add_edit();
 
     for (int k = 0; k < b->core.n_cigar; k++) {
         const int op = bam_cigar_op(cigar[k]);
@@ -820,29 +822,35 @@ int64_t cigar_mapping(const bam1_t *b, Mapping& mapping, xg::XG* xgindex) {
         if (bam_cigar_type(cigar[k])&1) {
             // Consume query
             e->set_to_length(ol);
+            string sequence; sequence.resize(ol);
+            for (int i = 0; i < ol; i++ ) {
+               sequence[i] = "=ACMGRSVTWYHKDBN"[bam_seqi(bam_get_seq(b), query_length + i)];
+            }
+            e->set_sequence(sequence);
+            query_length += ol;
         } else {
             e->set_to_length(0);
         }
         if (bam_cigar_type(cigar[k])&2) {
             // Consume ref
             e->set_from_length(ol);
-            length += ol;
+            ref_length += ol;
         } else {
             e->set_from_length(0);
         }
         e = m->add_edit();
     }
-    return length;
+    return ref_length;
 }
 
 void mapping_against_path(Alignment& alignment, const bam1_t *b, xg::XG* xgindex, bool on_reverse_strand) {
-    Path& path = alignment.path()
+    Path& path = alignment.path();
     Mapping pseudo_mapping;
 
     // if cigar is existed
     int64_t length = cigar_mapping(b, pseudo_mapping, xg);
 
-    Alignment aln = target_alignment(bam_get_rname(b), bam->core.pos, bam->core.pos + length, nullptr, mapping)
+    Alignment aln = target_alignment(bam_get_rname(b), bam->core.pos, bam->core.pos + length, "", mapping);
 
     if(on_reverse_strand) {
       // Flip CIGAR ops into forward strand ordering
@@ -937,7 +945,7 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
 }
 
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
-    bam_to_alignment(b, rg_sample, nullptr)
+    bam_to_alignment(b, rg_sample, nullptr);
 }
 
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, xg::XG* xgindex) {
