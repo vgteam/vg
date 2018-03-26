@@ -1092,19 +1092,45 @@ namespace algorithms {
             for (auto iter = graph.begin(); iter != graph.end(); iter++) {
                 bool erase_node = true;
                 id_t node_id = (*iter).first;
+                
+#ifdef debug_vg_algorithms
+                cerr << "Want to erase node " << node_id << endl;
+                cerr << "Forward trav reverse: " << forward_trav_dist.count(make_pair(node_id, true)) << endl;
+                cerr << "Forward trav forward: " << forward_trav_dist.count(make_pair(node_id, false)) << endl;
+                cerr << "Reverse trav reverse: " << reverse_trav_dist.count(make_pair(node_id, true)) << endl;
+                cerr << "Reverse trav forward: " << reverse_trav_dist.count(make_pair(node_id, false)) << endl;
+                
+#endif
+                
                 // did a short enough path use one or the other traversal directions?
                 if (forward_trav_dist.count(make_pair(node_id, true)) &&
                     reverse_trav_dist.count(make_pair(node_id, false))) {
                     if (forward_trav_dist[make_pair(node_id, true)]
                         + reverse_trav_dist[make_pair(node_id, false)] <= max_len) {
+#ifdef debug_vg_algorithms
+                        cerr << "Got short enough reverse path" << endl;
+#endif
                         erase_node = false;
+                    } else {
+#ifdef debug_vg_algorithms
+                        cerr << "Length " << (forward_trav_dist[make_pair(node_id, true)]
+                            + reverse_trav_dist[make_pair(node_id, false)]) << " too big vs. " << max_len << endl;
+#endif
                     }
                 }
                 if (forward_trav_dist.count(make_pair(node_id, false)) &&
                     reverse_trav_dist.count(make_pair(node_id, true))) {
                     if (forward_trav_dist[make_pair(node_id, false)]
                         + reverse_trav_dist[make_pair(node_id, true)] <= max_len) {
+#ifdef debug_vg_algorithms
+                        cerr << "Got short enough forward path" << endl;
+#endif
                         erase_node = false;
+                    } else {
+#ifdef debug_vg_algorithms
+                        cerr << "Length " << (forward_trav_dist[make_pair(node_id, false)]
+                            + reverse_trav_dist[make_pair(node_id, true)]) << " too big vs. " << max_len << endl;
+#endif
                     }
                 }
                 

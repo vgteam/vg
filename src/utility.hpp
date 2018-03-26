@@ -426,7 +426,7 @@ public:
     /// This requires that hash values and equality checks for the item ignore priority.
     FilteredPriorityQueue();
     /// Make a FilteredPriorityQueue that uses the given function to determine element identity.
-    FilteredPriorityQueue(const std::function<Identity(T)>& get_identity);
+    FilteredPriorityQueue(const std::function<Identity(const T&)>& get_identity);
     
     // We can support all the priority queue functions except size because we don't know how many things are redundant.
     const T& top() const;
@@ -446,19 +446,19 @@ private:
     /// The set to deduplicate results.
     unordered_set<Identity> seen;
     /// The element extractor
-    std::function<Identity(T)> get_identity;
+    std::function<Identity(const T&)> get_identity;
 };
 
 template<class T, class Identity, class Container, class Compare>
 FilteredPriorityQueue<T, Identity, Container, Compare>::FilteredPriorityQueue() :
-    FilteredPriorityQueue((std::function<Identity(T)>)([](T item) -> Identity { return item; })) {
+    FilteredPriorityQueue((std::function<Identity(const T&)>)([](const T& item) -> Identity { return item; })) {
     
     static_assert(std::is_same<T, Identity>::value, "can only use the identity identity function if items are their own Identitiies");
 }
 
 template<class T, class Identity, class Container, class Compare>
 FilteredPriorityQueue<T, Identity, Container, Compare>::FilteredPriorityQueue(
-    const std::function<Identity(T)>& get_identity) : get_identity(get_identity) {
+    const std::function<Identity(const T&)>& get_identity) : get_identity(get_identity) {
     
     // Nothing to do!
     
@@ -466,6 +466,7 @@ FilteredPriorityQueue<T, Identity, Container, Compare>::FilteredPriorityQueue(
 
 template<class T, class Identity, class Container, class Compare>
 auto FilteredPriorityQueue<T, Identity, Container, Compare>::top() const -> const T& {
+    assert(!seen.count(get_identity(queue.top())));
     return queue.top();
 }
 
@@ -476,7 +477,7 @@ void FilteredPriorityQueue<T, Identity, Container, Compare>::pop() {
     // new.
     seen.insert(get_identity(top()));
     queue.pop();
-    while (!empty() && seen.count(get_identity(top()))) {
+    while (!empty() && seen.count(get_identity(queue.top()))) {
         queue.pop();
     }
 }
@@ -488,18 +489,22 @@ bool FilteredPriorityQueue<T, Identity, Container, Compare>::empty() const {
 
 template<class T, class Identity, class Container, class Compare>
 void FilteredPriorityQueue<T, Identity, Container, Compare>::push(const T& item) {
-    queue.push(item);
-    if (queue.size() == 1 && seen.count(get_identity(top()))) {
-        // The item we just added has already been emitted.
-        // Maintain the top-is-new invariant
-        queue.pop();
+    if (!seen.count(get_identity(item))) {
+        // This is new, so queue it
+        queue.push(item);
     }
 }
 
 template<class T, class Identity, class Container, class Compare>
 template<class... Args>
 void FilteredPriorityQueue<T, Identity, Container, Compare>::emplace(Args&&... args) {
+    // To get the benefit of emplace we always add the thing to the queue
     queue.emplace(std::forward<Args>(args)...);
+    
+    while (!empty() && seen.count(get_identity(queue.top()))) {
+        // And then we clean up any invariant-violating repeats on top of the queue
+        queue.pop();
+    }
 }
 
 template<class T, class Identity, class Container, class Compare>
