@@ -181,11 +181,11 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         
         // We start at the start node. Copy out all the mapping pointers on that
         // node, so we can go through them while tampering with them.
-        map<string, set<Mapping*> > mappings_by_path = graph.paths.get_node_mapping(graph.get_node(leaf->start().node_id()));
+        auto mappings_by_path = graph.paths.get_node_mapping_by_path_name(graph.get_node(leaf->start().node_id()));
         
         // It's possible a path can enter the site through the end node and
         // never hit the start. So we're going to trim those back before we delete nodes and edges.
-        map<string, set<Mapping*> > end_mappings_by_path = graph.paths.get_node_mapping(graph.get_node(leaf->end().node_id()));
+        auto end_mappings_by_path = graph.paths.get_node_mapping_by_path_name(graph.get_node(leaf->end().node_id()));
         
         if (!drop_hairpin_paths) {
             // We shouldn't drop paths if they hairpin and can't be represented
@@ -715,7 +715,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 // managed to get into the site without touching the start
                 // node. We'll delete those paths.
                 set<string> paths_to_kill;
-                for (auto& kv : graph.paths.get_node_mapping(node)) {
+                for (auto& kv : graph.paths.get_node_mapping_by_path_name(node)) {
                 
                     if (mappings_by_path.count(kv.first)) {
                         // We've already actually updated this path; the

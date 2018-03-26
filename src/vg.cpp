@@ -368,7 +368,7 @@ void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
             auto& mappings = paths.get_node_mapping(node);
             //cerr << "getting node mappings for " << node->id() << endl;
             for (auto m : mappings) {
-                auto& name = m.first;
+                auto& name = paths.get_path_name(m.first);
                 auto& mappings = m.second;
                 for (auto& mapping : mappings) {
                     //cerr << "mapping " << name << pb2json(*mapping) << endl;
@@ -1260,8 +1260,9 @@ void VG::expand_context_by_steps(VG& g, size_t steps, bool add_paths) {
     if (add_paths) {
         g.for_each_node([&](Node* n) {
                 for (auto& path : paths.get_node_mapping(n)) {
+                    auto& pname = paths.get_path_name(path.first);
                     for (auto& m : path.second) {
-                        g.paths.append_mapping(path.first, *m);
+                        g.paths.append_mapping(pname, *m);
                     }
                 }
             });
@@ -1446,8 +1447,9 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool ref
     if (add_paths) {
         g.for_each_node([&](Node* n) {
                 for (auto& path : paths.get_node_mapping(n)) {
+                    auto& pname = paths.get_path_name(path.first);
                     for (auto& m : path.second) {
-                        g.paths.append_mapping(path.first, *m);
+                        g.paths.append_mapping(pname, *m);
                     }
                 }
             });
@@ -1654,8 +1656,8 @@ bool VG::nodes_are_perfect_path_neighbors(NodeTraversal left, NodeTraversal righ
     // now we know that the paths are identical in count and name between the two nodes
 
     // get the mappings for each node
-    auto& m1 = paths.get_node_mapping(left.node->id());
-    auto& m2 = paths.get_node_mapping(right.node->id());
+    auto m1 = paths.get_node_mapping_by_path_name(left.node->id());
+    auto m2 = paths.get_node_mapping_by_path_name(right.node->id());
 
     // verify that they are all perfect matches that take up their entire nodes
     for (auto& p : m1) {
@@ -4118,7 +4120,7 @@ void VG::remove_node_forwarding_edges(Node* node) {
     if (paths.has_node_mapping(node)) {
         // We need to copy the set here because we're going to be throwing
         // things out of it while iterating over it.
-        map<string, set<Mapping*>> node_mappings(paths.get_node_mapping(node));
+        auto node_mappings = paths.get_node_mapping_by_path_name(node);
         for (auto& p : node_mappings) {
             for (auto& m : p.second) {
                 paths.remove_mapping(m);
@@ -4301,7 +4303,7 @@ void VG::divide_node(Node* node, vector<int>& positions, vector<Node*>& parts) {
     // divide paths
     // note that we can't do this (yet) for non-exact matching paths
     if (paths.has_node_mapping(node)) {
-        auto& node_path_mapping = paths.get_node_mapping(node);
+        auto node_path_mapping = paths.get_node_mapping_by_path_name(node);
         // apply to left and right
         vector<Mapping*> to_divide;
         for (auto& pm : node_path_mapping) {

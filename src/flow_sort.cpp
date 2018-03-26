@@ -267,7 +267,7 @@ FlowSort::WeightedGraph::construct(FlowSort& fs, const string& ref_name, bool is
         nodes.insert(edge.first->to());
 
         //assign weight to the minimum number of paths of the adjacent nodes
-        auto from_node_mapping = fs.vg.paths.get_node_mapping(from);
+        auto from_node_mapping = fs.vg.paths.get_node_mapping_by_path_name(from);
 //        NodeMapping to_node_mapping = paths.get_node_mapping(to);
         int weight = 1;
 

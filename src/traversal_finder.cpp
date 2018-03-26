@@ -429,9 +429,9 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
         // If we have some paths that visit both ends (in some orientation)
 
         // Get all the mappings to the end node, by path name
-        auto& endmappings_by_name = graph.paths.get_node_mapping(graph.get_node(site.end().node_id()));
+        auto endmappings_by_name = graph.paths.get_node_mapping_by_path_name(graph.get_node(site.end().node_id()));
 
-        for(auto& name_and_mappings : graph.paths.get_node_mapping(graph.get_node(site.start().node_id()))) {
+        for(auto name_and_mappings : graph.paths.get_node_mapping_by_path_name(graph.get_node(site.start().node_id()))) {
             // Go through the paths that visit the start node
 
             // Grab their names

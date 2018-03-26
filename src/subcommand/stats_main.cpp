@@ -440,7 +440,7 @@ int main_stats(int argc, char** argv) {
 
             // We want an allele path on it
             string allele_path;
-            for(auto& name_and_mappings : graph->paths.get_node_mapping(node)) {
+            for(auto& name_and_mappings : graph->paths.get_node_mapping_by_path_name(node)) {
                 // For each path on it
                 if(path_name_is_allele(name_and_mappings.first)) {
                     // If it's an allele path

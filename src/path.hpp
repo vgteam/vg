@@ -61,13 +61,19 @@ public:
 
     // This maps from path name to the list of Mappings for that path.
     map<string, list<Mapping> > _paths;
+    int64_t max_path_id;
+    map<string, int64_t> name_to_id;
+    int64_t get_path_id(const string& name);
+    map<int64_t, string> id_to_name;
+    const string& get_path_name(int64_t id);
     // This maps from Mapping* pointer to its iterator in its list of Mappings
-    // for its path. The list in question is stored above in _paths. Recall that
-    // std::list iterators are bidirectional.
-    hash_map<Mapping*, list<Mapping>::iterator > mapping_itr;
+    // for its path and the id of the path.
+    // The list in question is stored above in _paths.
+    // Recall that std::list iterators are bidirectional.
+    hash_map<Mapping*, pair<list<Mapping>::iterator, int64_t> > mapping_itr;
     // This maps from Mapping* pointer to the name of the path it belongs to
     // (which can then be used to get the list its iterator belongs to).
-    hash_map<Mapping*, string> mapping_path;
+    //hash_map<Mapping*, int64_t> mapping_path;
     void sort_by_mapping_rank(void);
     /// Reassign ranks and rebuild indexes, treating the mapping lists in _paths as the truth.
     void rebuild_mapping_aux(void);
@@ -77,7 +83,7 @@ public:
     map<string, hash_map<size_t, Mapping*>> mappings_by_rank;
     // This maps from node ID, then path name, then rank and orientation, to
     // Mapping pointers for the mappings on that path to that node.
-    hash_map<id_t, map<string, set<Mapping*>>> node_mapping;
+    hash_map<id_t, map<int64_t, set<Mapping*>>> node_mapping;
     // record which head nodes we have
     // we'll use this when determining path edge crossings--- all paths implicitly cross these nodes
     set<id_t> head_tail_nodes;
@@ -87,7 +93,7 @@ public:
     set<string> circular;
     void make_circular(const string& name);
     void make_linear(const string& name);
-    
+
     void rebuild_node_mapping(void);
     
     // Find the given mapping in its path, so mappings can be inserted before
@@ -128,8 +134,10 @@ public:
     // edits for equality anyway.
     bool has_node_mapping(id_t id);
     bool has_node_mapping(Node* n);
-    map<string, set<Mapping*> >& get_node_mapping(Node* n);
-    map<string, set<Mapping*> >& get_node_mapping(id_t id);
+    map<int64_t, set<Mapping*> >& get_node_mapping(Node* n);
+    map<int64_t, set<Mapping*> >& get_node_mapping(id_t id);
+    map<string, set<Mapping*> > get_node_mapping_by_path_name(Node* n);
+    map<string, set<Mapping*> > get_node_mapping_by_path_name(id_t id);
     map<string, map<int, Mapping*> > get_node_mappings_by_rank(id_t id);
     // Copy all the mappings for the node with the given ID, and return them in
     // a map by path name and then by rank.
@@ -142,6 +150,7 @@ public:
     Mapping* traverse_right(Mapping* mapping);
     // TODO: should this be a reference?
     const string mapping_path_name(Mapping* m);
+    int64_t mapping_path_id(Mapping* m);
     // the patsh of the node
     set<string> of_node(id_t id);
     // get the paths on this node and the number of mappings from each one
