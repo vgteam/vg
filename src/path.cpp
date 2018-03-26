@@ -1214,12 +1214,24 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
     q.set_name(r.name());
     assert(path_to_length(q) == path_to_length(r));
 
-    // now set ranks
+    // now set ranks and clear empty positions and edits
     for (size_t i = 0; i < q.mapping_size(); ++i) {
-        auto* m = q.mutable_mapping(i);
-        m->set_rank(i+1);
+        auto& m = q.mapping(i);
+        Mapping n;
+        //auto* m = q.mutable_mapping(i);
+        n.set_rank(i+1);
+        if (m.position().node_id() != 0) {
+            // this is an empty position, so let's remove it
+            *n.mutable_position() = m.position();
+        }
+        for (auto& e : m.edit()) {
+            if (!edit_is_empty(e)) {
+                *n.add_edit() = e;
+            }
+        }
+        *q.mutable_mapping(i) = n;
     }
-    //cerr << "simplified " << pb2json(s) << endl;
+
     return q;
 }
 
@@ -1295,7 +1307,6 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
             *n.add_edit() = e;
         }
     }
-    //cerr << "post simplify " << pb2json(n) << endl;
     return n;
 }
 

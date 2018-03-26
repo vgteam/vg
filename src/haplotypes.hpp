@@ -336,8 +336,9 @@ public:
   
   struct SNVvector{
   private:
-    vector<int64_t> nodes;
+    // Positions of SNVs
     vector<size_t> ref_positions;
+    // Allele values at those positions
     vector<alleleValue> alleles;
   public:
     void push_back(alleleValue allele, size_t ref_pos, bool deletion);
@@ -346,15 +347,23 @@ public:
     size_t size() const;
   };
   
+  /// Make a new linear_haplo_structure with the given indexes, mutation and recombination scoring parameters, and reference path in the XG.
+  /// Penalties *must* be negative, and ought to be something like -9*2.3 mutation and -6*2.3 recombination.
   linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, xg::XG& xg_index, size_t xg_ref_rank);
   ~linear_haplo_structure();
   haplo_score_type score(const vg::Path& path) const;
   
   inputHaplotype* path_to_input_haplotype(const vg::Path& path) const;
   
+  // Get the position of a node in the reference path, assuming the reference
+  // path is acyclic. Enforces the constraint that all the nodes in the path
+  // are locally forward.
   size_t position_assuming_acyclic(int64_t node_id) const;
   nodeType get_type(int64_t node_id) const;
+  // Get the node ID of the node at the given mapping index in the path.
   int64_t path_mapping_node_id(const vg::Path& path, size_t i) const;
+  // Get the offset of the path in the node at the given mapping index in the path.
+  size_t path_mapping_offset(const vg::Path& path, size_t i) const;
   int64_t get_SNP_ref_position(size_t node_id) const;
   SNVvector SNVs(const vg::Path& path) const;
   bool is_snv(int64_t node_id) const;

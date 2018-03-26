@@ -158,7 +158,9 @@ public:
     double estimate_gc_content(void);
     
     int random_match_length(double chance_random);
-    
+   
+    void load_scoring_matrix(std::ifstream& matrix_stream);
+
     void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
         double haplotype_consistency_exponent = 1);
     
@@ -233,7 +235,6 @@ public:
     double fast_reseed_length_diff = 0.45; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
     bool adaptive_reseed_diff = true; // use an adaptive length difference algorithm in reseed algorithm
     double adaptive_diff_exponent = 0.065; // exponent that describes limiting behavior of adaptive diff algorithm
-    int hit_limit = 0;     // keep no more than this many MEMs
     int hit_max = 0;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = false;
     bool prefilter_redundant_hits = true;
@@ -307,9 +308,6 @@ protected:
     
     // Algorithm for choosing an adaptive reseed length based on the length of the parent MEM
     size_t get_adaptive_min_reseed_length(size_t parent_mem_length);
-    
-    // debugging, checking of mems using find interface to gcsa
-    void check_mems(const vector<MaximalExactMatch>& mems);
     
     int alignment_threads; // how many threads will *this* mapper use. Should not be set directly.
     
@@ -418,15 +416,6 @@ class Mapper : public BaseMapper {
 
 private:
     
-    Alignment align_to_graph(const Alignment& aln,
-                             Graph& graph,
-                             size_t max_query_graph_ratio,
-                             bool traceback,
-                             bool certainly_acyclic,
-                             bool pinned_alignment = false,
-                             bool pin_left = false,
-                             bool global = false,
-                             bool keep_bonuses = true);
     vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
                                            const Alignment& aln,
                                            int kmer_size,
@@ -441,8 +430,6 @@ private:
     void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double mq_estmate1, double mq_estimate2, double mq_cap1, double mq_cap2);
     vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
     void filter_and_process_multimaps(vector<Alignment>& all_alns, int total_multimaps);
-    // make the bands used in banded alignment
-    vector<Alignment> make_bands(const Alignment& read, int band_width, vector<pair<int, int>>& to_strip);
     // Return the one best banded alignment.
     vector<Alignment> align_banded(const Alignment& read,
                                    int kmer_size = 0,
@@ -461,6 +448,20 @@ private:
                                       int keep_multimaps,
                                       int additional_multimaps);
     
+protected:
+    
+    Alignment align_to_graph(const Alignment& aln,
+                             Graph& graph,
+                             size_t max_query_graph_ratio,
+                             bool traceback,
+                             bool certainly_acyclic,
+                             bool pinned_alignment = false,
+                             bool pin_left = false,
+                             bool global = false,
+                             bool keep_bonuses = true);
+    
+    // make the bands used in banded alignment
+    vector<Alignment> make_bands(const Alignment& read, int band_width, vector<pair<int, int>>& to_strip);
 public:
     // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
     // LCP array, and an optional haplotype score provider.
@@ -578,14 +579,6 @@ public:
                            int max_mem_length = 0,
                            bool only_top_scoring_pair = false,
                            bool retrying = false);
-
-    // lossily project an alignment into a particular path space of a graph
-    // the resulting alignment is equivalent to a SAM record against the chosen path
-    Alignment surject_alignment(const Alignment& source,
-                                const set<string>& path_names,
-                                string& path_name,
-                                int64_t& path_pos,
-                                bool& path_reverse);
     
     // compute a mapping quality component based only on the MEMs we've obtained
     double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);
@@ -632,7 +625,6 @@ public:
     //
     //int max_mem_length; // a mem must be <= this length
     int min_cluster_length; // a cluster needs this much sequence in it for us to consider it
-    int context_depth; // how deeply the mapper will extend out the subgraph prior to alignment
     int max_attempts;  // maximum number of times to try to increase sensitivity or use a lower-hit subgraph
     int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
     int max_target_factor; // the maximum multiple of the read length we'll try to align to

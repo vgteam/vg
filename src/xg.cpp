@@ -1,5 +1,6 @@
 #include "xg.hpp"
 #include "stream.hpp"
+#include "alignment.hpp"
 
 #include <bitset>
 #include <arpa/inet.h>
@@ -419,6 +420,14 @@ Mapping XGPath::mapping(size_t offset) const {
 id_t XGPath::node(size_t offset) const {
     return external_id(ids[offset]);
 }
+    
+id_t XGPath::node_at_position(size_t pos) const {
+    return node(offset_at_position(pos));
+}
+
+size_t XGPath::offset_at_position(size_t pos) const {
+    return offsets_rank(pos+1)-1;
+}
 
 bool XGPath::is_reverse(size_t offset) const {
     return directions[offset];
@@ -648,7 +657,6 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
         vector<trav_t>& path = path_nodes[p.first];
         if (!std::is_sorted(path.begin(), path.end(),
                             [](const trav_t& m1, const trav_t& m2) { return trav_rank(m1) < trav_rank(m2); })) {
-            cerr << "[xg] warning: path " << p.first << " is not in sorted order by rank" << endl;
             std::sort(path.begin(), path.end(),
                       [](const trav_t& m1, const trav_t& m2) { return trav_rank(m1) < trav_rank(m2); });
         }
@@ -3699,7 +3707,7 @@ int64_t XG::min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
 
 int64_t XG::node_at_path_position(const string& name, size_t pos) const {
     size_t p = path_rank(name)-1;
-    return paths[p]->node(paths[p]->offsets_rank(pos+1)-1);
+    return paths[p]->node_at_position(pos);
 }
 
 Mapping XG::mapping_at_path_position(const string& name, size_t pos) const {
@@ -3723,7 +3731,7 @@ pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const 
     return make_pos_t(node_id, is_rev, offset);
 }
 
-Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature) const {
+Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse) const {
     Alignment aln;
     const XGPath& path = *paths[path_rank(name)-1];
     size_t first_node_start = path.offsets_select(path.offsets_rank(pos1+1));
@@ -3754,6 +3762,9 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
         *aln.mutable_path() = cut_path(aln.path(), path_from_length(aln.path()) - trim_end).first;
     }
     aln.set_name(feature);
+    if (is_reverse) {
+       reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return this->node_length(node_id); });
+    }
     return aln;
 }
 
