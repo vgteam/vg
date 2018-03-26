@@ -261,7 +261,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #        --multipath-only \
     #        --fastq "${READS_DIR}/sim.fq.gz" \
     #        --truth "${READS_DIR}/true.pos" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
     #        --gam-names snp1kg 2>&1 & 
     #    JOB_ARRAY+=("$!")
     #fi
@@ -278,7 +278,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --use-snarls \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
             --gam-names snp1kg-snarlcut 2>&1 & 
         JOB_ARRAY+=("$!")
     fi
@@ -295,7 +295,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #        --use-gbwt \
     #        --fastq "${READS_DIR}/sim.fq.gz" \
     #        --truth "${READS_DIR}/true.pos" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
     #        --gam-names snp1kg-gbwt 2>&1 &
     #    JOB_ARRAY+=("$!")
     #fi
@@ -313,7 +313,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #        --mpmap_opts "--max-paths 10" \
     #        --fastq "${READS_DIR}/sim.fq.gz" \
     #        --truth "${READS_DIR}/true.pos" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
     #        --gam-names snp1kg-gbwt-traceback 2>&1 &
     #    JOB_ARRAY+=("$!")
     #fi
@@ -331,7 +331,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --use-snarls \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
             --gam-names snp1kg-gbwt-snarlcut 2>&1 &
         JOB_ARRAY+=("$!")
     fi
@@ -350,7 +350,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --mpmap_opts "--max-paths 10" \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
             --gam-names snp1kg-gbwt-traceback-snarlcut 2>&1 &
         JOB_ARRAY+=("$!")
     fi
@@ -380,8 +380,8 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #        mkdir -p "${OUTPUT_PATH}/snp1kg-mp-slls"
     #        vg mpmap --linear-index "${SLLS_INDEX}" \
     #            --linear-path "${GRAPH_CONTIG}" \
-    #            -x "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered.xg" \
-    #            -g "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered.gcsa" \
+    #            -x "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter.xg" \
+    #            -g "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter.gcsa" \
     #            --fastq "${READS_DIR}/sim.fq.gz" \
     #            -i \
     #            -S \
@@ -394,7 +394,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #        --config "${TREE_PATH}/toil-vg.conf" \
     #        --maxDisk 100G \
     #        --truth "${READS_DIR}/true.pos" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
     #        --gam-names snp1kg-slls-mp-pe 2>&1 &
     #    JOB_ARRAY+=("$!")
     #fi
@@ -407,9 +407,9 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             mkdir -p "${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut"
             vg mpmap --linear-index "${SLLS_INDEX}" \
                 --linear-path "${GRAPH_CONTIG}" \
-                -x "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered.xg" \
-                -g "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered.gcsa" \
-                --snarls "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered.snarls" \
+                -x "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter.xg" \
+                -g "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter.gcsa" \
+                --snarls "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter.snarls" \
                 --fastq "${READS_DIR}/sim.fq.gz" \
                 -i \
                 -S \
@@ -422,7 +422,7 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --config "${TREE_PATH}/toil-vg.conf" \
             --maxDisk 100G \
             --truth "${READS_DIR}/true.pos" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filtered" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
             --gam-names snp1kg-slls-snarlcut-mp-pe 2>&1 &
         JOB_ARRAY+=("$!")
     fi
