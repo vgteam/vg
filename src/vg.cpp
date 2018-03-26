@@ -1071,7 +1071,8 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
 
             // and then switch the node assignment for the cut nodes
             // for each mapping of the node
-            for (auto& p : paths.get_node_mapping(sib.node)) {
+            auto node_mapping = paths.get_node_mapping(sib.node);
+            for (auto& p : node_mapping) {
                 vector<Mapping*> v;
                 for (auto& m : p.second) {
                     v.push_back(m);
@@ -1169,7 +1170,8 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
 
             // and then switch the node assignment for the cut nodes
             // for each mapping of the node
-            for (auto& p : paths.get_node_mapping(sib.node)) {
+            auto node_mapping = paths.get_node_mapping(sib.node);
+            for (auto& p : node_mapping) {
                 vector<Mapping*> v;
                 for (auto& m : p.second) {
                     v.push_back(m);
