@@ -406,13 +406,17 @@ XGPath::XGPath(const string& path_name,
     util::assign(offsets_select, bit_vector::select_1_type(&offsets));
 }
 
-Mapping XGPath::mapping(size_t offset) const {
+Mapping XGPath::mapping(size_t offset, const function<int64_t(id_t)>& node_length) const {
     // TODO actually store the "real" mapping
     Mapping m;
     // store the starting position and series of edits
     m.mutable_position()->set_node_id(node(offset));
     m.mutable_position()->set_is_reverse(directions[offset]);
     m.set_rank(ranks[offset]);
+    int64_t l = node_length(m.position().node_id());
+    Edit* e = m.add_edit();
+    e->set_from_length(l);
+    e->set_to_length(l);
     return m;
 }
 
@@ -2111,11 +2115,11 @@ Path XG::path(const string& name) const {
     
     // There's one ID entry per node visit    
     size_t total_nodes = xgpath.ids.size();
-    
+    auto get_node_length = [&](id_t id){ return get_length(get_handle(id, false)); };
     for(size_t i = 0; i < total_nodes; i++) {
         // For everything on the XGPath, put a Mapping on the real path.
         Mapping* m = to_return.add_mapping();
-        *m = xgpath.mapping(i);
+        *m = xgpath.mapping(i, get_node_length);
         // Add one full length match edit, because the XGPath doesn't know how
         // to make it.
         Edit* e = m->add_edit();
@@ -2196,6 +2200,7 @@ vector<pair<size_t, vector<pair<size_t, bool>>>> XG::oriented_occurrences_on_pat
     
 map<string, vector<Mapping>> XG::node_mappings(int64_t id) const {
     map<string, vector<Mapping>> mappings;
+    auto get_node_length = [&](id_t id){ return get_length(get_handle(id, false)); };
     // for each time the node crosses the path
     for (auto i : paths_of_node(id)) {
         // get the path name
@@ -2204,7 +2209,7 @@ map<string, vector<Mapping>> XG::node_mappings(int64_t id) const {
         // to get the direction and (stored) rank
         for (auto j : node_ranks_in_path(id, name)) {
             // nb: path rank is 1-based, path index is 0-based
-            mappings[name].push_back(paths[i-1]->mapping(j));
+            mappings[name].push_back(paths[i-1]->mapping(j, get_node_length));
         }
     }
     return mappings;
@@ -3711,7 +3716,8 @@ int64_t XG::node_at_path_position(const string& name, size_t pos) const {
 
 Mapping XG::mapping_at_path_position(const string& name, size_t pos) const {
     size_t p = path_rank(name)-1;
-    return paths[p]->mapping(paths[p]->offsets_rank(pos+1)-1);
+    return paths[p]->mapping(paths[p]->offsets_rank(pos+1)-1,
+                             [&](id_t id){ return get_length(get_handle(id, false)); });
 }
 
 size_t XG::node_start_at_path_position(const string& name, size_t pos) const {
