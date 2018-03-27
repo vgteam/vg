@@ -2120,11 +2120,6 @@ Path XG::path(const string& name) const {
         // For everything on the XGPath, put a Mapping on the real path.
         Mapping* m = to_return.add_mapping();
         *m = xgpath.mapping(i, get_node_length);
-        // Add one full length match edit, because the XGPath doesn't know how
-        // to make it.
-        Edit* e = m->add_edit();
-        e->set_from_length(node_length(m->position().node_id()));
-        e->set_to_length(e->from_length());
     }
     
     return to_return;
@@ -3744,18 +3739,11 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
     {
         Mapping* first_mapping = aln.mutable_path()->add_mapping();
         *first_mapping = mapping_at_path_position(name, pos1);
-        Edit* e = first_mapping->add_edit();
-        e->set_to_length(node_length(first_mapping->position().node_id()));
-        e->set_from_length(e->to_length());
     }
     // get p to point to the next step (or past it, if we're a feature on a single node)
     int64_t p = (int64_t)pos1 + node_length(aln.path().mapping(0).position().node_id()) - trim_start;
     while (p < pos2) {
-        Mapping m = mapping_at_path_position(name, p);
-        Edit* e = m.add_edit();
-        e->set_to_length(node_length(m.position().node_id()));
-        e->set_from_length(e->to_length());
-        *aln.mutable_path()->add_mapping() = m;
+        *aln.mutable_path()->add_mapping() = mapping_at_path_position(name, p);
         p += mapping_from_length(aln.path().mapping(aln.path().mapping_size()-1));
     }
     // trim to the target

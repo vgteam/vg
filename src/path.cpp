@@ -6,7 +6,7 @@ namespace vg {
 
 const std::regex Paths::is_alt("_alt_.+_[0-9]+");
 
-mapping_t::mapping_t(void) { }
+mapping_t::mapping_t(void) : traversal(0), length(0), rank(1) { }
 
 mapping_t::mapping_t(const Mapping& m) {
     traversal = m.position().node_id();
