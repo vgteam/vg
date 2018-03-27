@@ -248,6 +248,7 @@ public:
 
     /// Construct from protobufs.
     VG(istream& in, bool showp = false, bool warn_on_duplicates = true);
+    void from_istream(istream& in, bool showp = false, bool warn_on_duplicates = true);
 
     /// Construct from an arbitrary source of Graph protobuf messages (which
     /// populates the given Graph and returns a flag for whether it's valid).

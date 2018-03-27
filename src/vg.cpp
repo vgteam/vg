@@ -19,7 +19,10 @@ using namespace gfak;
 
 // construct from a stream of protobufs
 VG::VG(istream& in, bool showp, bool warn_on_duplicates) {
+    from_istream(in, showp, warn_on_duplicates);
+}
 
+void VG::from_istream(istream& in, bool showp, bool warn_on_duplicates) {
     // set up uninitialized values
     init();
     show_progress = showp;
@@ -48,7 +51,6 @@ VG::VG(istream& in, bool showp, bool warn_on_duplicates) {
     paths.to_graph(graph);
 
     destroy_progress();
-
 }
 
 // construct from an arbitrary source of Graph protobuf messages

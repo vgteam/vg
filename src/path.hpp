@@ -120,7 +120,7 @@ public:
     // to by the given iterator. Returns an iterator to the newly-inserted
     // mapping.
     list<mapping_t>::iterator insert_mapping(list<mapping_t>::iterator w,
-                                           const string& path_name, const mapping_t& m);
+                                             const string& path_name, const mapping_t& m);
     pair<mapping_t*, mapping_t*> divide_mapping(mapping_t* m, const Position& pos);
     pair<mapping_t*, mapping_t*> divide_mapping(mapping_t* m, size_t offset);
     // replace the mapping with two others in the order provided
