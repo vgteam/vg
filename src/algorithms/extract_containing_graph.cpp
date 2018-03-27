@@ -53,7 +53,9 @@ namespace algorithms {
         
         
         // initialize the queue
-        priority_queue<Traversal> queue;
+        FilteredPriorityQueue<Traversal, handle_t> queue([](const Traversal& item) {
+            return item.handle;
+        });
         for (size_t i = 0; i < positions.size(); i++) {
             const pos_t& pos = positions[i];
             // add all of the initial nodes to the graph
@@ -80,20 +82,12 @@ namespace algorithms {
             }
         }
         
-        unordered_set<handle_t> traversed;
         unordered_set<pair<handle_t, handle_t>> observed_edges;
         
         while (!queue.empty()) {
             // get the next shortest distance traversal from either the init
             Traversal trav = queue.top();
             queue.pop();
-            
-            // make sure we haven't traversed this node already
-            if (traversed.count(trav.handle)) {
-                continue;
-            }
-            // mark the node as traversed
-            traversed.emplace(trav.handle);
             
             source->follow_edges(trav.handle, false, [&](const handle_t& next) {
                 // Look locally right from this position
@@ -114,7 +108,7 @@ namespace algorithms {
                 
                 // distance to the end of this node
                 int64_t dist_thru = trav.dist + graph[next_id]->sequence().size();
-                if (!traversed.count(next) && dist_thru < max_search_length) {
+                if (dist_thru < max_search_length) {
                     // we can add more nodes along same path without going over the max length
                     queue.emplace(next, dist_thru);
                 }

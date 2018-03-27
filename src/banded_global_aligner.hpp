@@ -47,7 +47,7 @@ namespace vg {
         ///
         /// Args:
         ///  alignment                   empty alignment with a sequence (and possibly base qualities)
-        ///  g                           graph to align to
+        ///  g                           graph to align to; no dangling edges are permitted
         ///  band_padding                width to expand band by
         ///  permissive_banding          expand band, not necessarily symmetrically, to allow all node paths
         ///  adjust_for_base_quality     perform base quality adjusted alignment (see QualAdjAligner)
@@ -62,7 +62,7 @@ namespace vg {
         ///
         /// Args:
         ///  alignment                   empty alignment with a sequence (and possibly base qualities)
-        ///  g                           graph to align to
+        ///  g                           graph to align to; no dangling edges are permitted
         ///  alt_alignments              an empty vector to store alternate alignments in, the first element
         ///                              will be a copy of the primary alignment
         ///  max_multi_alns              the maximum number of alternate alignments (including the primary)

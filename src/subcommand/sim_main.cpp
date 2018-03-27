@@ -89,7 +89,7 @@ int main_sim(int argc, char** argv) {
             {"align-out", no_argument, 0, 'a'},
             {"json-out", no_argument, 0, 'J'},
             {"allow-Ns", no_argument, 0, 'N'},
-            {"base-rate", required_argument, 0, 'e'},
+            {"sub-rate", required_argument, 0, 'e'},
             {"indel-rate", required_argument, 0, 'i'},
             {"indel-err-prop", required_argument, 0, 'd'},
             {"scale-err", required_argument, 0, 'S'},

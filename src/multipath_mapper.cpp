@@ -1923,7 +1923,7 @@ namespace vg {
             // extract the protobuf Graph in place in the VG
             algorithms::extract_containing_graph(xindex, graph, positions, forward_max_dist,
                                                  backward_max_dist);
-            
+                                                 
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
             unordered_set<size_t> overlapping_graphs;
