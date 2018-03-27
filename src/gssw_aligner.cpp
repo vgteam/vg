@@ -67,7 +67,23 @@ gssw_graph* BaseAligner::create_gssw_graph(Graph& g) {
     
 }
 
-
+void BaseAligner::load_scoring_matrix(istream& matrix_stream) {
+    if(score_matrix) free(score_matrix);
+    score_matrix = (int8_t*)calloc(25, sizeof(int8_t));
+    for(size_t i=0; i<25; i++){
+      if(!matrix_stream.good()){
+        std::cerr << "error: vg BaseAligner::load_scoring_matrix requires a 5x5 whitespace separated integer matrix\n";
+        throw "";
+      }
+      int score;
+      matrix_stream >> score;
+      if(score > 127 || score < -127){
+        std::cerr << "error: vg BaseAligner::load_scoring_matrix requires values in the range [-127,127]\n";
+        throw "";
+      }
+      score_matrix[i] = score;
+    }
+}
 
 void BaseAligner::gssw_mapping_to_alignment(gssw_graph* graph,
                                             gssw_graph_mapping* gm,

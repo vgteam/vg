@@ -24,7 +24,7 @@ void help_map(char** argv) {
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-mem INT       minimum MEM length (if 0 estimate via -e) [0]" << endl
          << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [5e-4]" << endl
-         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index (0 for no limit) [8192]" << endl
+         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index (0 for no limit) [2048]" << endl
          << "    -Y, --max-mem INT       ignore mems longer than this length (unset if 0) [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than FLOAT*--min-seed [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds (1/2 for paired) [128]" << endl
@@ -53,6 +53,7 @@ void help_map(char** argv) {
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
+         << "    --score-matrix FILE     read a 5x5 integer substitution scoring matrix from a file" << endl
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
@@ -89,7 +90,9 @@ int main_map(int argc, char** argv) {
         help_map(argv);
         return 1;
     }
-    
+
+    #define OPT_SCORE_MATRIX 1000
+    string matrix_file_name;
     string seq;
     string qual;
     string seq_name;
@@ -101,7 +104,7 @@ int main_map(int argc, char** argv) {
     string hts_file;
     string fasta_file;
     bool keep_secondary = false;
-    int hit_max = 8192;
+    int hit_max = 2048;
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
@@ -204,6 +207,7 @@ int main_map(int argc, char** argv) {
                 {"buffer-size", required_argument, 0, '9'},
                 {"match", required_argument, 0, 'q'},
                 {"mismatch", required_argument, 0, 'z'},
+                {"score-matrix", required_argument, 0, OPT_SCORE_MATRIX},
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
                 {"qual-adjust", no_argument, 0, 'A'},
@@ -422,6 +426,14 @@ int main_map(int argc, char** argv) {
             mismatch = atoi(optarg);
             break;
 
+        case OPT_SCORE_MATRIX:
+            matrix_file_name = optarg;
+            if (matrix_file_name.empty()) {
+                cerr << "error:[vg map] Must provide matrix file with --matrix-file." << endl;
+                exit(1);
+            }
+            break;
+
         case 'o':
             gap_open = atoi(optarg);
             break;
@@ -617,6 +629,15 @@ int main_map(int argc, char** argv) {
         
         // We want to use this for haplotype scoring
         haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
+    }
+
+    ifstream matrix_stream;
+    if (!matrix_file_name.empty()) {
+      matrix_stream.open(matrix_file_name);
+      if (!matrix_stream) {
+          cerr << "error:[vg map] Cannot open scoring matrix file " << matrix_file_name << endl;
+          exit(1);
+      }
     }
 
     thread_count = get_thread_count();
@@ -896,7 +917,6 @@ int main_map(int argc, char** argv) {
             throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
         }
         m->hit_max = hit_max;
-        m->hit_limit = max(max_multimaps, extra_multimaps);
         m->max_multimaps = max_multimaps;
         m->min_multimaps = max(min_multimaps, max_multimaps);
         m->band_multimaps = band_multimaps;
@@ -918,6 +938,7 @@ int main_map(int argc, char** argv) {
         m->fast_reseed = use_fast_reseed;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent);
+        if(matrix_stream.is_open()) m->load_scoring_matrix(matrix_stream);
         m->strip_bonuses = strip_bonuses;
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
         m->extra_multimaps = extra_multimaps;

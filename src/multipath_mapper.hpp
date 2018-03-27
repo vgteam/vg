@@ -283,6 +283,7 @@ namespace vg {
         // a memo for the transcendental p-value function (thread local to maintain threadsafety)
         static thread_local unordered_map<pair<size_t, size_t>, double> p_value_memo;
     };
+        
 }
 
 

@@ -296,10 +296,6 @@ using namespace std;
             return surjection;
         }
         
-        // patch
-        if (count_forward) patch_alignment(surjection_forward, surjection_forward.sequence().size(), false);
-        if (count_reverse) patch_alignment(surjection_reverse, surjection_reverse.sequence().size(), false);
-        
         // reattach soft clips and set original score (score isn't really used through...)
         if (count_forward) {
             surjection_forward = merge_alignments({start_softclip_fwd, surjection_forward, end_softclip_fwd});
@@ -309,7 +305,7 @@ using namespace std;
             surjection_reverse = merge_alignments({start_softclip_rev, surjection_reverse, end_softclip_rev});
             surjection_reverse.set_score(rev_score);
         }
-        
+
         // choose
         if (count_reverse && count_forward) {
             if (surjection_reverse.score() > surjection_forward.score()) {
@@ -324,7 +320,9 @@ using namespace std;
                 surjection = surjection_forward;
             }
         }
-        //cerr << "surj " << pb2json(surjection) << endl;
+        
+        surjection = simplify(surjection, false);
+
 #ifdef debug_surject
         
 #pragma omp critical (cerr)

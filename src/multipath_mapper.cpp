@@ -12,6 +12,8 @@
 #include "multipath_mapper.hpp"
 #include "multipath_alignment_graph.hpp"
 
+#include "algorithms/topological_sort.hpp"
+
 namespace vg {
     
     //size_t MultipathMapper::PRUNE_COUNTER = 0;
@@ -2188,17 +2190,41 @@ namespace vg {
 #endif
         
         // construct a graph that summarizes reachability between MEMs
-        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, gcsa, snarl_manager, max_snarl_cut_size);
+        // First we need to reverse node_trans
+        auto node_inj = MultipathAlignmentGraph::create_injection_trans(node_trans);
+        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, node_inj, gcsa);
         
-        vector<size_t> topological_order;
-        multi_aln_graph.topological_sort(topological_order);
+        {
+            // Compute a topological order over the graph
+            vector<size_t> topological_order;
+            multi_aln_graph.topological_sort(topological_order);
+            
+            // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
+            multi_aln_graph.remove_transitive_edges(topological_order);
+            
+            // prune this graph down the paths that have reasonably high likelihood
+            multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
+                                                        max_suboptimal_path_score_ratio, topological_order);
+        }
+                      
+        if (snarl_manager) {
+            // We want to do snarl cutting
+            
+            // We need to have no reachability edges to do it
+            multi_aln_graph.clear_reachability_edges();
         
-        // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
-        multi_aln_graph.remove_transitive_edges(topological_order);
-        
-        // prune this graph down the paths that have reasonably high likelihood
-        multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
-                                                    max_suboptimal_path_score_ratio, topological_order);
+            // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
+            multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
+            
+            // But then we need to reconstruct the reachability edges afterwards
+            multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
+
+        }
+
+#ifdef debug_multipath_mapper_alignment
+        cerr << "MultipathAlignmentGraph going into alignment:" << endl;
+        multi_aln_graph.to_dot(cerr);
+#endif
         
         // do the connecting alignments and fill out the MultipathAlignment object
         multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, band_padding, multipath_aln_out);
@@ -2312,10 +2338,9 @@ namespace vg {
             pop_adjusted_scores.resize(multipath_alns.size());
         }
         
-        // We need to track the min population score by itself (not converted
-        // to the alignment score log base) so we can adjust the
-        // pop_adjusted_scores up, turning the largest penalty into a 0 bonus.
-        double min_pop_score = numeric_limits<double>::max();
+        // We need to track the score adjustments so we can compensate for
+        // negative values, turning the largest penalty into a 0 bonus.
+        double min_adjustment = numeric_limits<double>::max();
 
         
         for (size_t i = 0; i < multipath_alns.size(); i++) {
@@ -2364,7 +2389,7 @@ namespace vg {
                     cerr << pb2json(alignments[j]) << endl;
 #endif
                    
-                    alignment_pop_scores[j] = pop_score.first;
+                    alignment_pop_scores[j] = pop_score.first / log_base;
                     
                     all_paths_pop_consistent &= pop_score.second;
                 }
@@ -2376,30 +2401,32 @@ namespace vg {
                     continue;
                 }
                 
-                // Otherwise, pick the best adjusted score and its pop score
+                // Otherwise, pick the best adjusted score and its difference from the best unadjusted score
                 pop_adjusted_scores[i] = numeric_limits<double>::min();
-                double best_alignment_pop_score;
+                double adjustment;
                 for (size_t j = 0; j < alignments.size(); j++) {
                     // Compute the adjusted score for each alignment
-                    auto adjusted_score = alignments[j].score() + alignment_pop_scores[j] / log_base;
-                    
+                    auto adjusted_score = alignments[j].score() + alignment_pop_scores[j];
+                   
+                    assert(!std::isnan(adjusted_score));
+                   
                     if (adjusted_score > pop_adjusted_scores[i]) {
                         // It is the best, so use it.
                         // TODO: somehow know we want this Alignment when collapsing the MultipathAlignment later.
                         pop_adjusted_scores[i] = adjusted_score;
-                        best_alignment_pop_score = alignment_pop_scores[j];
+                        adjustment = pop_adjusted_scores[i] - base_scores[i];
                     }
                 }
                 
-                // Save the actual population score for it in the min pop score, if it is lower.
-                min_pop_score = min(min_pop_score, best_alignment_pop_score);
+                // See if we have a new minimum adjustment value, for the adjustment applicable to the chosen traceback.
+                min_adjustment = min(min_adjustment, adjustment);
             }
         }
         
         if (include_population_component && all_paths_pop_consistent) {
             for (auto& score : pop_adjusted_scores) {
-                // Adjust the adjusted scores up/down by the contributoon of the min pop score to ensure no scores are negative
-                score -= min_pop_score / log_base;
+                // Adjust the adjusted scores up/down by the minimum adjustment to ensure no scores are negative
+                score -= min_adjustment;
             }
         }
         
@@ -2519,21 +2546,22 @@ namespace vg {
                 // Make sure to grab the memo
                 auto& memo = get_rr_memo(recombination_penalty, xindex->get_haplotype_count());
                 
-                // What's the population score for each alignment?
-                vector<double> pop_scores1(alignments1.size());
-                vector<double> pop_scores2(alignments2.size());
+                // What's the base + population score for each alignment?
+                // We need to consider them together because there's a trade off between recombinations and mismatches.
+                vector<double> base_pop_scores1(alignments1.size());
+                vector<double> base_pop_scores2(alignments2.size());
                 
                 for (size_t j = 0; j < alignments1.size(); j++) {
                     // Pop score the first alignments
                     auto pop_score = haplo_score_provider->score(alignments1[j].path(), memo);
-                    pop_scores1[j] = pop_score.first;
+                    base_pop_scores1[j] = alignments1[j].score() + pop_score.first / log_base;
                     all_paths_pop_consistent &= pop_score.second;
                 }
                 
                 for (size_t j = 0; j < alignments2.size(); j++) {
                     // Pop score the second alignments
                     auto pop_score = haplo_score_provider->score(alignments2[j].path(), memo);
-                    pop_scores2[j] = pop_score.first;
+                    base_pop_scores2[j] = alignments2[j].score() + pop_score.first / log_base;
                     all_paths_pop_consistent &= pop_score.second;
                 }
                 
@@ -2543,19 +2571,23 @@ namespace vg {
                 }
                 
                 // Pick the best alignment on each side
-                auto best_index1 = max_element(pop_scores1.begin(), pop_scores1.end()) - pop_scores1.begin();
-                auto best_index2 = max_element(pop_scores2.begin(), pop_scores2.end()) - pop_scores2.begin();
-                
-                // And compute base score for those alignments and pop adjustment.
-                // TODO: Synchronize with single-end case about whether we store things base-adjusted or not!
-                alignment_score = alignments1[0].score() + alignments2[0].score();
-                double pop_score = (pop_scores1[best_index1] + pop_scores2[best_index2]) / log_base;
+                auto best_index1 = max_element(base_pop_scores1.begin(), base_pop_scores1.end()) - base_pop_scores1.begin();
+                auto best_index2 = max_element(base_pop_scores2.begin(), base_pop_scores2.end()) - base_pop_scores2.begin();
                 
                 // Compute the total pop adjusted score for this MultipathAlignment
-                pop_adjusted_scores[i] = alignment_score + frag_score + pop_score;
+                pop_adjusted_scores[i] = base_pop_scores1[best_index1] + base_pop_scores2[best_index2] + frag_score;
+                
+                assert(!std::isnan(base_pop_scores1[best_index1]));
+                assert(!std::isnan(base_pop_scores2[best_index2]));
+                assert(!std::isnan(frag_score));
+                assert(!std::isnan(pop_adjusted_scores[i]));
+                
+                // How much was extra over the score of the top-base-score alignment on each side?
+                // This might be negative if e.g. that alignment looks terrible population-wise but we take it anyway.
+                auto extra = pop_adjusted_scores[i] - alignment_score;
                 
                 // Record our extra score if it was a new minimum
-                min_extra_score = min(frag_score + pop_score, min_extra_score);
+                min_extra_score = min(extra, min_extra_score);
             }
         }
         

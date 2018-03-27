@@ -158,7 +158,9 @@ public:
     double estimate_gc_content(void);
     
     int random_match_length(double chance_random);
-    
+   
+    void load_scoring_matrix(std::ifstream& matrix_stream);
+
     void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
         double haplotype_consistency_exponent = 1);
     
@@ -233,9 +235,7 @@ public:
     double fast_reseed_length_diff = 0.45; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
     bool adaptive_reseed_diff = true; // use an adaptive length difference algorithm in reseed algorithm
     double adaptive_diff_exponent = 0.065; // exponent that describes limiting behavior of adaptive diff algorithm
-    int hit_limit = 0;     // keep no more than this many MEMs
     int hit_max = 0;       // ignore or MEMs with more than this many hits
-    int absolute_locate_maximum = 16384; // Don't locate() a MEM if it would return more than this many results, to avoid memory exhaustion
     bool use_approx_sub_mem_count = false;
     bool prefilter_redundant_hits = true;
     int max_sub_mem_recursion_depth = 1;
@@ -308,9 +308,6 @@ protected:
     
     // Algorithm for choosing an adaptive reseed length based on the length of the parent MEM
     size_t get_adaptive_min_reseed_length(size_t parent_mem_length);
-    
-    // debugging, checking of mems using find interface to gcsa
-    void check_mems(const vector<MaximalExactMatch>& mems);
     
     int alignment_threads; // how many threads will *this* mapper use. Should not be set directly.
     

@@ -199,7 +199,11 @@ namespace vg {
         /// that there are no gaps between Mappings in the Path
         virtual int32_t score_ungapped_alignment(const Alignment& aln,
                                                  bool strip_bonuses = false) const;
-            
+
+        /// Reads a 5x5 substitution scoring matrix from an input stream (can be an ifstream)
+        /// expecting 5 whitespace-separated 8-bit integers per line
+        virtual void load_scoring_matrix(std::istream& matrix_stream);
+
         /// Without necessarily rescoring the entire alignment, return the score
         /// of the given alignment with bonuses removed. Assumes that bonuses
         /// are actually included in the score.

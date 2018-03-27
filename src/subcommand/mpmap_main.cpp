@@ -76,6 +76,7 @@ void help_mpmap(char** argv) {
     << "scoring:" << endl
     << "  -q, --match INT           use this match score [1]" << endl
     << "  -z, --mismatch INT        use this mismatch penalty [4]" << endl
+    << "  --score-matrix FILE       read a 5x5 integer substitution scoring matrix from a file" << endl
     << "  -o, --gap-open INT        use this gap open penalty [6]" << endl
     << "  -y, --gap-extend INT      use this gap extension penalty [1]" << endl
     << "  -L, --full-l-bonus INT    add this score to alignments that use the full length of the read [5]" << endl
@@ -94,6 +95,8 @@ int main_mpmap(int argc, char** argv) {
     }
 
     // initialize parameters with their default options
+    #define OPT_SCORE_MATRIX 1000
+    string matrix_file_name;
     string xg_name;
     string gcsa_name;
     string gbwt_name;
@@ -199,6 +202,7 @@ int main_mpmap(int argc, char** argv) {
             {"prune-exp", required_argument, 0, 'U'},
             {"match", required_argument, 0, 'q'},
             {"mismatch", required_argument, 0, 'z'},
+            {"score-matrix", required_argument, 0, OPT_SCORE_MATRIX},
             {"gap-open", required_argument, 0, 'o'},
             {"gap-extend", required_argument, 0, 'y'},
             {"full-l-bonus", required_argument, 0, 'L'},
@@ -429,6 +433,14 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'z':
                 mismatch_score = atoi(optarg);
+                break;
+                
+            case OPT_SCORE_MATRIX:
+                matrix_file_name = optarg;
+                if (matrix_file_name.empty()) {
+                    cerr << "error:[vg mpmap] Must provide matrix file with --matrix-file." << endl;
+                    exit(1);
+                }
                 break;
                 
             case 'o':
@@ -685,7 +697,16 @@ int main_mpmap(int argc, char** argv) {
         cerr << "error:[vg mpmap] Cannot open LCP file " << lcp_name << endl;
         exit(1);
     }
-    
+
+    ifstream matrix_stream;
+    if (!matrix_file_name.empty()) {
+      matrix_stream.open(matrix_file_name);
+      if (!matrix_stream) {
+          cerr << "error:[vg mpmap] Cannot open scoring matrix file " << matrix_file_name << endl;
+          exit(1);
+      }
+    }
+
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
@@ -722,7 +743,7 @@ int main_mpmap(int argc, char** argv) {
         // What is the rank of our one and only reference path
         auto xg_ref_rank = xg_index.path_rank(sublinearLS_ref_path);
         
-        sublinearLS = new linear_haplo_structure(ls_stream, 9 * 2.3, 9 * 2.3, xg_index, xg_ref_rank);
+        sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, xg_index, xg_ref_rank);
         haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
     }
     
@@ -742,6 +763,7 @@ int main_mpmap(int argc, char** argv) {
     
     // set alignment parameters
     multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
+    if(matrix_stream.is_open()) multipath_mapper.load_scoring_matrix(matrix_stream);
     multipath_mapper.adjust_alignments_for_base_quality = qual_adjusted;
     multipath_mapper.strip_bonuses = strip_full_length_bonus;
     multipath_mapper.band_padding = band_padding;
