@@ -26,6 +26,10 @@ namespace vg {
     static const int8_t default_max_scaled_score = 32;
     static const uint8_t default_max_qual_score = 255;
     static const double default_gc_content = 0.5;
+    
+    
+    
+    class VG; // forward declaration
 
     /**
      * The interface that any Aligner should implement, with some default implementations.
@@ -125,6 +129,9 @@ namespace vg {
         /// Qualities may be ignored by some implementations.
         virtual int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                           string::const_iterator base_qual_begin) const = 0;
+        /// Compute the score of a path against the given range of subsequence with the given qualities.
+        virtual int32_t score_partial_alignment(const Alignment& alignment, VG& graph, const Path& path,
+                                                string::const_iterator seq_begin) const = 0;
         
         /// Returns the score of an insert or deletion of the given length
         int32_t score_gap(size_t gap_length);
@@ -192,7 +199,11 @@ namespace vg {
         /// that there are no gaps between Mappings in the Path
         virtual int32_t score_ungapped_alignment(const Alignment& aln,
                                                  bool strip_bonuses = false) const;
-            
+
+        /// Reads a 5x5 substitution scoring matrix from an input stream (can be an ifstream)
+        /// expecting 5 whitespace-separated 8-bit integers per line
+        virtual void load_scoring_matrix(std::istream& matrix_stream);
+
         /// Without necessarily rescoring the entire alignment, return the score
         /// of the given alignment with bonuses removed. Assumes that bonuses
         /// are actually included in the score.
@@ -281,6 +292,8 @@ namespace vg {
         int32_t score_exact_match(const string& sequence) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) const;
 
+        int32_t score_partial_alignment(const Alignment& alignment, VG& graph, const Path& path,
+                                        string::const_iterator seq_begin) const;
     };
 
     /**
@@ -317,6 +330,9 @@ namespace vg {
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                   string::const_iterator base_qual_begin) const;
+        
+        int32_t score_partial_alignment(const Alignment& alignment, VG& graph, const Path& path,
+                                        string::const_iterator seq_begin) const;
         
         uint8_t max_qual_score;
         int8_t scale_factor;

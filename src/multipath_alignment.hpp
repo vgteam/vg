@@ -16,6 +16,7 @@
 #include "path.hpp"
 #include "alignment.hpp"
 #include "utility.hpp"
+#include "handle.hpp"
 
 namespace vg {
     
@@ -122,6 +123,11 @@ namespace vg {
     void extract_sub_multipath_alignment(const MultipathAlignment& multipath_aln,
                                          const vector<int64_t>& subpath_indexes,
                                          MultipathAlignment& sub_multipath_aln);
+    
+    /// Debugging function to check that multipath alignment meets the formalism's basic
+    /// invariants. Returns true if multipath alignment is valid, else false. Does not
+    /// validate alignment score.
+    bool validate_multipath_alignment(const MultipathAlignment& multipath_aln, HandleGraph& xg_index);
     
     // TODO: function for adding a graph augmentation to an existing multipath alignment
 }

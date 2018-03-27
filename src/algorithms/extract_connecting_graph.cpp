@@ -111,14 +111,16 @@ namespace algorithms {
         // keep track of whether we find a path or not
         bool found_target = false;
         
-        unordered_set<handle_t> queued_traversals{source->get_handle(id(pos_1), is_rev(pos_1))};
-        // mark final position as "queued" so that we won't look for additional traversals unless that's
+        unordered_set<handle_t> skip_handles{source->get_handle(id(pos_1), is_rev(pos_1))};
+        // mark final position for skipping so that we won't look for additional traversals unless that's
         // the only way to find terminal cycles
         if (!(colocation == SharedNodeReverse && detect_terminal_cycles)) {
-            queued_traversals.insert(source->get_handle(id(pos_2), is_rev(pos_2)));
+            skip_handles.insert(source->get_handle(id(pos_2), is_rev(pos_2)));
         }
         // initialize the queue
-        priority_queue<Traversal> queue;
+        FilteredPriorityQueue<Traversal, handle_t> queue([](const Traversal& item) {
+            return item.handle;
+        });
         
         // the distance to the ends of the starting nodes
         int64_t first_traversal_length = graph[id(pos_1)].sequence.size() - offset(pos_1);
@@ -190,11 +192,10 @@ namespace algorithms {
                     
                     // distance to the end of this node
                     int64_t dist_thru = trav.dist + graph[next_id].sequence.size();
-                    if (!queued_traversals.count(next) && dist_thru <= forward_max_len) {
+                    if (!skip_handles.count(next) && dist_thru <= forward_max_len) {
                         // we can add more nodes along same path without going over the max length
-                        // and we have not reached the target node yet
+                        // and we do not want to skip the target node
                         queue.emplace(next, dist_thru);
-                        queued_traversals.insert(next);
 #ifdef debug_vg_algorithms
                         cerr << "FORWARD SEARCH: distance " << dist_thru << " is under maximum, adding to queue" << endl;
 #endif
@@ -239,14 +240,15 @@ namespace algorithms {
 #endif
             
             // initialize the queue going backward from the last position if it's reachable
+            queue.clear();
             if (last_traversal_length <= backward_max_len) {
                 queue.emplace(source->get_handle(id(pos_2), !is_rev(pos_2)), last_traversal_length);
             }
             
-            // reset the queued traversal list and add the two reverse traversals
-            queued_traversals.clear();
-            queued_traversals.insert(source->get_handle(id(pos_2), !is_rev(pos_2)));
-            queued_traversals.insert(source->get_handle(id(pos_1), !is_rev(pos_1)));
+            // reset the traversal list to skip and add the two reverse traversals
+            skip_handles.clear();
+            skip_handles.insert(source->get_handle(id(pos_2), !is_rev(pos_2)));
+            skip_handles.insert(source->get_handle(id(pos_1), !is_rev(pos_1)));
             
             // search along a Dijkstra tree
             while (!queue.empty()) {
@@ -256,19 +258,20 @@ namespace algorithms {
                 
 #ifdef debug_vg_algorithms
                 cerr << "BACKWARD SEARCH: traversing node " << source->get_id(trav.handle)
-                    << " in " << (source->get_is_rev(trav.handle) ? "reverse" : "forward") 
+                    << " in " << (source->get_is_reverse(trav.handle) ? "reverse" : "forward") 
                     << " orientation at distance " << trav.dist << endl;
 #endif
                 
                 source->follow_edges(trav.handle, false, [&](const handle_t& next) {
                     // get the orientation and id of the other side of the edge
+                    id_t next_id = source->get_id(next);
+                    bool next_rev = source->get_is_reverse(next);
+                    
 #ifdef debug_vg_algorithms
                     cerr << "BACKWARD SEARCH: got edge "
                         << source->get_id(trav.handle) << " " << source->get_is_reverse(trav.handle)
                         << " -> " << next_id << " " << next_rev << endl;
 #endif
-                    id_t next_id = source->get_id(next);
-                    bool next_rev = source->get_is_reverse(next);
 
                     max_id = max(max_id, next_id);
                     
@@ -281,11 +284,10 @@ namespace algorithms {
                     
                     // distance to the end of this node
                     int64_t dist_thru = trav.dist + graph[next_id].sequence.size();
-                    if (!queued_traversals.count(next) && dist_thru <= forward_max_len) {
+                    if (!skip_handles.count(next) && dist_thru <= forward_max_len) {
                         // we can add more nodes along same path without going over the max length
                         // and we have not reached the target node yet
                         queue.emplace(next, dist_thru);
-                        queued_traversals.insert(next);
 #ifdef debug_vg_algorithms
                         cerr << "BACKWARD SEARCH: distance " << dist_thru << " is under maximum, adding to queue" << endl;
 #endif
@@ -999,8 +1001,9 @@ namespace algorithms {
         };
         
         // Define new queue
-        unordered_set<pair<id_t, bool>> local_queued_traversals;
-        priority_queue<LocalTraversal> local_queue;
+        FilteredPriorityQueue<LocalTraversal, pair<id_t, bool>> local_queue([](const LocalTraversal& item) {
+            return make_pair(item.id, item.rev);
+        });
         
         if (strict_max_len) {
             // OPTION 1: PRUNE TO PATHS UNDER MAX LENGTH
@@ -1011,16 +1014,14 @@ namespace algorithms {
             unordered_map<pair<id_t, bool>, int64_t> reverse_trav_dist;
             
             // re-initialize the queue in the forward direction
+            local_queue.clear();
             local_queue.emplace(id(pos_1), is_rev(pos_1), graph[id(pos_1)].sequence.size());
             
             // reset the queued traversal list and the first traversal
-            local_queued_traversals.clear();
-            local_queued_traversals.emplace(id(pos_1), is_rev(pos_1));
             
             // if we duplicated the start node, add that too
             if (duplicate_node_1) {
                 local_queue.emplace(duplicate_node_1, is_rev(pos_1), graph[duplicate_node_1].sequence.size());
-                local_queued_traversals.emplace(duplicate_node_1, is_rev(pos_1));
             }
             
             while (!local_queue.empty()) {
@@ -1040,26 +1041,19 @@ namespace algorithms {
                     // the distance to the opposite side of this next node
                     int64_t dist_thru = trav.dist + graph[edge.first].sequence.size();
                     
-                    // queue up the node traversal if it hasn't been seen before
+                    // queue up the node traversal
                     pair<id_t, bool> next_trav = make_pair(edge.first, edge.second != trav.rev);
-                    if (!local_queued_traversals.count(next_trav)) {
-                        local_queue.emplace(next_trav.first, next_trav.second, dist_thru);
-                        local_queued_traversals.insert(next_trav);
-                    }
+                    local_queue.emplace(next_trav.first, next_trav.second, dist_thru);
                 }
             }
             
             // re-initialize the queue
+            local_queue.clear();
             local_queue.emplace(id(pos_2), !is_rev(pos_2), 0);
-            
-            // reset the queued traversal list and add the reverse traversal
-            local_queued_traversals.clear();
-            local_queued_traversals.insert(make_pair(id(pos_2), !is_rev(pos_2)));
             
             // if we duplicated the end node, add that too
             if (duplicate_node_2) {
                 local_queue.emplace(duplicate_node_2, !is_rev(pos_2), 0);
-                local_queued_traversals.insert(make_pair(duplicate_node_2, !is_rev(pos_2)));
             }
             
             while (!local_queue.empty()) {
@@ -1081,10 +1075,12 @@ namespace algorithms {
                 for (const pair<id_t, bool>& edge : edges_out) {
                     // queue up the node traversal if it hasn't been seen before
                     pair<id_t, bool> next_trav = make_pair(edge.first, edge.second != trav.rev);
-                    if (!local_queued_traversals.count(next_trav)) {
-                        local_queue.emplace(next_trav.first, next_trav.second, dist_thru);
-                        local_queued_traversals.insert(next_trav);
-                    }
+                    
+#ifdef debug_vg_algorithms
+                    cerr << "\tCan reach " << next_trav.first << " in " << (next_trav.second ? "reverse" : "forward") << " orientation at distance " << dist_thru << endl;
+#endif
+                    
+                    local_queue.emplace(next_trav.first, next_trav.second, dist_thru);
                 }
             }
             
@@ -1096,19 +1092,36 @@ namespace algorithms {
             for (auto iter = graph.begin(); iter != graph.end(); iter++) {
                 bool erase_node = true;
                 id_t node_id = (*iter).first;
+                
                 // did a short enough path use one or the other traversal directions?
                 if (forward_trav_dist.count(make_pair(node_id, true)) &&
                     reverse_trav_dist.count(make_pair(node_id, false))) {
                     if (forward_trav_dist[make_pair(node_id, true)]
                         + reverse_trav_dist[make_pair(node_id, false)] <= max_len) {
+#ifdef debug_vg_algorithms
+                        cerr << "Got short enough reverse path for node " << node_id << endl;
+#endif
                         erase_node = false;
+                    } else {
+#ifdef debug_vg_algorithms
+                        cerr << "Length " << (forward_trav_dist[make_pair(node_id, true)] + reverse_trav_dist[make_pair(node_id, false)])
+                        << " for node " << node_id << " too big vs. " << max_len << endl;
+#endif
                     }
                 }
                 if (forward_trav_dist.count(make_pair(node_id, false)) &&
                     reverse_trav_dist.count(make_pair(node_id, true))) {
                     if (forward_trav_dist[make_pair(node_id, false)]
                         + reverse_trav_dist[make_pair(node_id, true)] <= max_len) {
+#ifdef debug_vg_algorithms
+                        cerr << "Got short enough forward path for node " << node_id << endl;
+#endif
                         erase_node = false;
+                    } else {
+#ifdef debug_vg_algorithms
+                        cerr << "Length " << (forward_trav_dist[make_pair(node_id, false)]  + reverse_trav_dist[make_pair(node_id, true)])
+                            << " for node " << node_id << " too big vs. " << max_len << endl;
+#endif
                     }
                 }
                 

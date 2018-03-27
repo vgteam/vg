@@ -1,5 +1,6 @@
 #include "xg.hpp"
 #include "stream.hpp"
+#include "alignment.hpp"
 
 #include <bitset>
 #include <arpa/inet.h>
@@ -2763,6 +2764,7 @@ int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1,
         // distance is measure at the end of the node, so it's actually the distance
         // to the next nodes we will traverse to
         // there is a separate queue for each of the positions
+        // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a FilteredPriorityQueue.
         priority_queue<Traversal> queue_1, queue_2;
         unordered_set<handle_t> queued_1, queued_2;
         
@@ -2997,6 +2999,7 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
         // distance is measure at the end of the node, so it's actually the distance
         // to the next nodes we will traverse to
         // there is a separate queue for each of the positions
+        // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a FilteredPriorityQueue.
         priority_queue<Traversal> queue_1, queue_2;
         unordered_set<handle_t> queued_1, queued_2;
         
@@ -3275,6 +3278,7 @@ vector<tuple<int64_t, bool, size_t>> XG::jump_along_closest_path(int64_t id, boo
         return found_jumpable_path;
     };
     
+    // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a FilteredPriorityQueue.
     priority_queue<Traversal> queue;
     unordered_set<handle_t> traversed;
     
@@ -3389,6 +3393,7 @@ pair<bool, bool> XG::validate_strand_consistency(int64_t id1, size_t offset1, bo
         // distance is measure at the end of the node, so it's actually the distance
         // to the next nodes we will traverse to
         // there is a separate queue for each of the positions
+        // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a FilteredPriorityQueue.
         priority_queue<Traversal> queue_1, queue_2;
         unordered_set<handle_t> queued_1, queued_2;
         
@@ -3731,7 +3736,7 @@ pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const 
     return make_pos_t(node_id, is_rev, offset);
 }
 
-Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature) const {
+Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse) const {
     Alignment aln;
     const XGPath& path = *paths[path_rank(name)-1];
     size_t first_node_start = path.offsets_select(path.offsets_rank(pos1+1));
@@ -3755,6 +3760,9 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
         *aln.mutable_path() = cut_path(aln.path(), path_from_length(aln.path()) - trim_end).first;
     }
     aln.set_name(feature);
+    if (is_reverse) {
+       reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return this->node_length(node_id); });
+    }
     return aln;
 }
 

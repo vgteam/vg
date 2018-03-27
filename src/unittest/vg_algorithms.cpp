@@ -1943,6 +1943,616 @@ namespace vg {
             }
         }
         
+        TEST_CASE( "Connecting graph extraction works on a particular case without leaving dangling edges",
+                  "[algorithms]" ) {
+                  
+            string graph_json = R"(
+{
+  "node": [
+    {
+      "sequence": "GTTATAGCCTC",
+      "id": 1393985
+    },
+    {
+      "sequence": "TTTATAGTTGCTTATGTACTTGACATTGATTT",
+      "id": 1393984
+    },
+    {
+      "sequence": "A",
+      "id": 1393982
+    },
+    {
+      "sequence": "G",
+      "id": 1393983
+    },
+    {
+      "sequence": "AGTGTGTGTGTGTATATCTCATCTATCTATCT",
+      "id": 1393981
+    },
+    {
+      "sequence": "A",
+      "id": 1393980
+    },
+    {
+      "sequence": "G",
+      "id": 1393979
+    },
+    {
+      "sequence": "TCTATCTAT",
+      "id": 1393978
+    },
+    {
+      "sequence": "AT",
+      "id": 1393977
+    },
+    {
+      "sequence": "C",
+      "id": 1393976
+    },
+    {
+      "sequence": "TATC",
+      "id": 1393975
+    },
+    {
+      "sequence": "TATC",
+      "id": 1393974
+    },
+    {
+      "sequence": "TATC",
+      "id": 1393973
+    },
+    {
+      "sequence": "TATC",
+      "id": 1393966
+    },
+    {
+      "sequence": "TA",
+      "id": 1393972
+    },
+    {
+      "sequence": "CCTATCTA",
+      "id": 1393971
+    },
+    {
+      "sequence": "T",
+      "id": 1393970
+    },
+    {
+      "sequence": "TC",
+      "id": 1393962
+    },
+    {
+      "sequence": "C",
+      "id": 1393969
+    },
+    {
+      "sequence": "TATCTATC",
+      "id": 1393967
+    },
+    {
+      "sequence": "CTATCTATCTATCTAT",
+      "id": 1393968
+    },
+    {
+      "sequence": "TATC",
+      "id": 1393964
+    },
+    {
+      "sequence": "TATCTATC",
+      "id": 1393965
+    },
+    {
+      "sequence": "A",
+      "id": 1393963
+    },
+    {
+      "sequence": "TTGATCTACCTATGA",
+      "id": 1393961
+    },
+    {
+      "sequence": "T",
+      "id": 1393960
+    },
+    {
+      "sequence": "C",
+      "id": 1393959
+    },
+    {
+      "sequence": "ATTCTCATC",
+      "id": 1393958
+    },
+    {
+      "sequence": "TTCACTCTTAAATAGAGAAATTGAAGCTGTTG",
+      "id": 1393957
+    },
+    {
+      "sequence": "T",
+      "id": 1393955
+    },
+    {
+      "sequence": "G",
+      "id": 1393956
+    },
+    {
+      "sequence": "GGAGTTTGA",
+      "id": 1393954
+    },
+    {
+      "sequence": "C",
+      "id": 1393953
+    },
+    {
+      "sequence": "T",
+      "id": 1393952
+    },
+    {
+      "sequence": "TCAAAATGGTTGATCTCCAATCATAT",
+      "id": 1393951
+    },
+    {
+      "sequence": "CACAATTCTTCTCATAATATTGACATATTGAC",
+      "id": 1393950
+    },
+    {
+      "sequence": "T",
+      "id": 1393948
+    },
+    {
+      "sequence": "C",
+      "id": 1393949
+    },
+    {
+      "sequence": "TCCTCATGT",
+      "id": 1393947
+    },
+    {
+      "sequence": "AGAAGCTACACATTTCAAAAAATCTGAGTAAA",
+      "id": 1393946
+    }
+  ],
+  "edge": [
+    {
+      "to_end": true,
+      "to": 1393947,
+      "from": 1393946,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393985,
+      "from": 1393984,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393950,
+      "from": 1393949,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393983,
+      "from": 1393981,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393950,
+      "from": 1393948,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393982,
+      "from": 1393981,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393976,
+      "from": 1393968,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393981,
+      "from": 1393979,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393980,
+      "from": 1393978,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393974,
+      "from": 1393967,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393967,
+      "from": 1393965,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393969,
+      "from": 1393963,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393956,
+      "from": 1393954,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393961,
+      "from": 1393959,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393978,
+      "from": 1393976,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393949,
+      "from": 1393947,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393978,
+      "from": 1393962,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393968,
+      "from": 1393965,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393964,
+      "from": 1393963,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393977,
+      "from": 1393969,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393957,
+      "from": 1393956,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393965,
+      "from": 1393963,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393970,
+      "from": 1393969,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393963,
+      "from": 1393961,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393955,
+      "from": 1393954,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393958,
+      "from": 1393957,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393974,
+      "from": 1393963,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393975,
+      "from": 1393974,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393954,
+      "from": 1393952,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393976,
+      "from": 1393975,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393961,
+      "from": 1393960,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393951,
+      "from": 1393950,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393953,
+      "from": 1393951,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393960,
+      "from": 1393958,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393984,
+      "from": 1393983,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393952,
+      "from": 1393951,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393977,
+      "from": 1393976,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393972,
+      "from": 1393971,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393966,
+      "from": 1393963,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393967,
+      "from": 1393963,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393973,
+      "from": 1393972,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393979,
+      "from": 1393978,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393969,
+      "from": 1393965,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393957,
+      "from": 1393955,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393959,
+      "from": 1393958,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393962,
+      "from": 1393961,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393968,
+      "from": 1393964,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393978,
+      "from": 1393977,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393973,
+      "from": 1393963,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393975,
+      "from": 1393963,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393970,
+      "from": 1393962,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393968,
+      "from": 1393963,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393954,
+      "from": 1393953,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393977,
+      "from": 1393962,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393984,
+      "from": 1393982,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393978,
+      "from": 1393969,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393969,
+      "from": 1393964,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393948,
+      "from": 1393947,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393971,
+      "from": 1393970,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393972,
+      "from": 1393970,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393974,
+      "from": 1393973,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393973,
+      "from": 1393966,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393981,
+      "from": 1393980,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393966,
+      "from": 1393964,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393966,
+      "from": 1393965,
+      "from_start": true
+    },
+    {
+      "to_end": true,
+      "to": 1393967,
+      "from": 1393964,
+      "from_start": true
+    }
+  ]
+}
+        
+            )";
+            
+            Graph source;
+            json2pb(source, graph_json.c_str(), graph_json.size());
+            
+            VG vg;
+            vg.extend(source);
+            
+            Graph dest;
+            
+            auto max_dist = 38;
+            pos_t src_pos = make_pos_t(1393981, false, 31);
+            pos_t dest_pos = make_pos_t(1393958, false, 0);
+            
+            unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&vg,              // DAG with split strands
+                                                                                           dest,             // graph to extract into
+                                                                                           max_dist,         // longest distance necessary
+                                                                                           src_pos,          // end of earlier match
+                                                                                           dest_pos,         // beginning of later match
+                                                                                           false,            // do not extract the end positions in the matches
+                                                                                           false,            // do not bother finding all cycles (it's a DAG)
+                                                                                           true,             // remove tips
+                                                                                           true,             // only include nodes on connecting paths
+                                                                                           true);            // enforce max distance strictly
+            
+            
+            
+            
+            // Make sure there are no dangling edges
+            unordered_set<id_t> dest_nodes;
+            for (const auto& node : dest.node()) {
+                // Find all the nodes
+                dest_nodes.insert(node.id());
+            }
+            for (const auto& edge : dest.edge()) {
+                // Complain if an edge goes somewhere else
+                REQUIRE(dest_nodes.count(edge.from()));
+                REQUIRE(dest_nodes.count(edge.to()));
+            }
+        
+        
+        }
+        
         TEST_CASE( "Containing graph extraction algorithm produces expected results", "[algorithms]" ) {
             
             VG vg;

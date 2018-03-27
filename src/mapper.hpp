@@ -158,7 +158,9 @@ public:
     double estimate_gc_content(void);
     
     int random_match_length(double chance_random);
-    
+   
+    void load_scoring_matrix(std::ifstream& matrix_stream);
+
     void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
         double haplotype_consistency_exponent = 1);
     

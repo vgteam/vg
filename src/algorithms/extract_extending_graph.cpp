@@ -51,8 +51,11 @@ namespace algorithms {
         // uninitialized.
         handle_t start_handle;
         
-        // initialize the queue
-        priority_queue<Traversal> queue;
+        // initialize the queue for Dijkstra traversal.
+        FilteredPriorityQueue<Traversal, handle_t> queue([](const Traversal& item) {
+            return item.handle;
+        });
+        
         if (backward) {
             int64_t dist = offset(pos);
             if (dist < max_dist) {
@@ -72,7 +75,6 @@ namespace algorithms {
         
         id_t max_id = id(pos);
         bool cycled_to_source = false;
-        unordered_set<handle_t> traversed;
         unordered_set<pair<handle_t, handle_t>> observed_edges;
         
         while (!queue.empty()) {
@@ -84,13 +86,6 @@ namespace algorithms {
             cerr << "[extract_extending_graph] traversing " << source->get_id(trav.handle)
                 << (source->get_is_reverse(trav.handle) ? "-" : "+") << " at dist " << trav.dist << endl;
 #endif
-            
-            // make sure we haven't traversed this node already
-            if (traversed.count(trav.handle)) {
-                continue;
-            }
-            // mark the node as traversed
-            traversed.emplace(trav.handle);
             
             // Now go out the right local side
             source->follow_edges(trav.handle, false, [&](const handle_t& next) {
@@ -124,7 +119,7 @@ namespace algorithms {
                 
                 // distance to the end of this node
                 int64_t dist_thru = trav.dist + graph[next_id]->sequence().size();
-                if (!traversed.count(next) && dist_thru < max_dist) {
+                if (dist_thru < max_dist) {
                     // we can add more nodes along same path without going over the max length
                     queue.emplace(next, dist_thru);
 #ifdef debug_vg_algorithms
@@ -174,6 +169,10 @@ namespace algorithms {
         }
         
         if (cycled_to_source && preserve_cycles_on_src) {
+#ifdef debug_vg_algorithms
+            cerr << "[extract_extending_graph] we cycled to the source and we want to preserve cycles, duplicating source node" << endl;
+#endif
+            
             // we need to duplicate the source node to ensure that cycles on it will be preserved
             // after we cut it
             

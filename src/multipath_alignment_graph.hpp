@@ -61,12 +61,12 @@ namespace vg {
         /// Construct a graph of the reachability between MEMs in a linearized
         /// path graph. Produces a graph with reachability edges.
         MultipathAlignmentGraph(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
        
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         MultipathAlignmentGraph(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
+                                const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
         
         ~MultipathAlignmentGraph();
         
@@ -104,6 +104,12 @@ namespace vg {
         /// Reachability edges must be in the graph.
         void align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                    size_t num_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out);
+                   
+        /// Converts a MultipathAlignmentGraph to a GraphViz Dot representation, output to the given ostream.
+        void to_dot(ostream& out) const;
+        
+        /// Does the multipath alignment xgraph have any nodes?
+        bool empty();
         
     private:
         
@@ -121,7 +127,7 @@ namespace vg {
         
         /// Add the path chunks as nodes to the connectivity graph
         void create_path_chunk_nodes(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
-                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                     const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
         
         /// Walk out MEMs into match nodes and filter out redundant sub-MEMs

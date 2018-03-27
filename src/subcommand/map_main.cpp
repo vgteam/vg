@@ -53,6 +53,7 @@ void help_map(char** argv) {
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
+         << "    --score-matrix FILE     read a 5x5 integer substitution scoring matrix from a file" << endl
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
@@ -89,7 +90,9 @@ int main_map(int argc, char** argv) {
         help_map(argv);
         return 1;
     }
-    
+
+    #define OPT_SCORE_MATRIX 1000
+    string matrix_file_name;
     string seq;
     string qual;
     string seq_name;
@@ -123,11 +126,11 @@ int main_map(int argc, char** argv) {
     float mem_reseed_factor = 1.5;
     int max_target_factor = 100;
     int buffer_size = 512;
-    int8_t match = 1;
-    int8_t mismatch = 4;
-    int8_t gap_open = 6;
-    int8_t gap_extend = 1;
-    int8_t full_length_bonus = 5;
+    int8_t match = default_match;
+    int8_t mismatch = default_mismatch;
+    int8_t gap_open = default_gap_open;
+    int8_t gap_extend = default_gap_extension;
+    int8_t full_length_bonus = default_full_length_bonus;
     int unpaired_penalty = 17;
     double haplotype_consistency_exponent = 1;
     bool strip_bonuses = false;
@@ -204,6 +207,7 @@ int main_map(int argc, char** argv) {
                 {"buffer-size", required_argument, 0, '9'},
                 {"match", required_argument, 0, 'q'},
                 {"mismatch", required_argument, 0, 'z'},
+                {"score-matrix", required_argument, 0, OPT_SCORE_MATRIX},
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
                 {"qual-adjust", no_argument, 0, 'A'},
@@ -422,6 +426,14 @@ int main_map(int argc, char** argv) {
             mismatch = atoi(optarg);
             break;
 
+        case OPT_SCORE_MATRIX:
+            matrix_file_name = optarg;
+            if (matrix_file_name.empty()) {
+                cerr << "error:[vg map] Must provide matrix file with --matrix-file." << endl;
+                exit(1);
+            }
+            break;
+
         case 'o':
             gap_open = atoi(optarg);
             break;
@@ -619,6 +631,15 @@ int main_map(int argc, char** argv) {
         haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
     }
 
+    ifstream matrix_stream;
+    if (!matrix_file_name.empty()) {
+      matrix_stream.open(matrix_file_name);
+      if (!matrix_stream) {
+          cerr << "error:[vg map] Cannot open scoring matrix file " << matrix_file_name << endl;
+          exit(1);
+      }
+    }
+
     thread_count = get_thread_count();
 
     vector<Mapper*> mapper;
@@ -703,7 +724,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = surjectors[omp_get_thread_num()]->surject_classic(aln, path_names, path_name, path_pos, path_reverse);
+            auto surj = surjectors[omp_get_thread_num()]->path_anchored_surject(aln, path_names, path_name, path_pos, path_reverse);
             surjects1.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // hack: if we haven't established the header, we look at the reads to guess which read groups to put in it
@@ -719,7 +740,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = surjectors[omp_get_thread_num()]->surject_classic(aln, path_names, path_name, path_pos, path_reverse);
+            auto surj = surjectors[omp_get_thread_num()]->path_anchored_surject(aln, path_names, path_name, path_pos, path_reverse);
             surjects2.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // Don't try and populate the header; it should have happened already
@@ -917,6 +938,7 @@ int main_map(int argc, char** argv) {
         m->fast_reseed = use_fast_reseed;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent);
+        if(matrix_stream.is_open()) m->load_scoring_matrix(matrix_stream);
         m->strip_bonuses = strip_bonuses;
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
         m->extra_multimaps = extra_multimaps;
