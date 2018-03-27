@@ -297,7 +297,7 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
                     *base_pileup->mutable_bases() += base;
                     // add quality if there
                     if (!alignment.quality().empty()) {
-                        *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
+                        *base_pileup->mutable_qualities() += min((int32_t)alignment.quality()[read_offset], (int32_t)alignment.mapping_quality());
                     }
                     // pileup size increases by 1
                     base_pileup->set_num_bases(base_pileup->num_bases() + 1);
