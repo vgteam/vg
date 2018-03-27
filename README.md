@@ -73,7 +73,6 @@ Our team has also successfully built vg on Mac with GCC versions 4.9, 5.3, 6, an
 [Homebrew](http://brew.sh/) provides another package management solution for OSX, and may be preferable to some users over MacPorts.
 
 ```
-brew tap homebrew/versions  # for gcc49
 brew install automake libtool jq jansson coreutils gcc49 samtools pkg-config cmake raptor bison lz4 xz
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 
