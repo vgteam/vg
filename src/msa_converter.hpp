@@ -20,18 +20,19 @@ namespace vg {
 
 using namespace std;
 
-    class MSAConverter {
+    class MSAConverter : public Progressive  {
     public:
         
-        MSAConverter(istream& in, string format = "fasta", size_t max_node_length = numeric_limits<size_t>::max());
+        MSAConverter();
         ~MSAConverter();
         
-        VG make_graph(bool keep_paths = true);
+        void load_alignments(istream& in, string format = "fasta");
+        
+        VG make_graph(bool keep_paths = true, size_t max_node_length = numeric_limits<size_t>::max());
         
     private:
         
-        unordered_map<string, string> alignments;
-        size_t max_node_length;
+        vector<unordered_map<string, string>> alignments;
         
     };
 
