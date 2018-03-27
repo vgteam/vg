@@ -107,7 +107,7 @@ int main_mpmap(int argc, char** argv) {
     int mismatch_score = default_mismatch;
     int gap_open_score = default_gap_open;
     int gap_extension_score = default_gap_extension;
-    int full_length_bonus = 5;
+    int full_length_bonus = default_full_length_bonus;
     bool interleaved_input = false;
     int snarl_cut_size = 5;
     int max_map_attempts = 48;

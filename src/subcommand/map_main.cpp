@@ -123,11 +123,11 @@ int main_map(int argc, char** argv) {
     float mem_reseed_factor = 1.5;
     int max_target_factor = 100;
     int buffer_size = 512;
-    int8_t match = 1;
-    int8_t mismatch = 4;
-    int8_t gap_open = 6;
-    int8_t gap_extend = 1;
-    int8_t full_length_bonus = 5;
+    int8_t match = default_match;
+    int8_t mismatch = default_mismatch;
+    int8_t gap_open = default_gap_open;
+    int8_t gap_extend = default_gap_extension;
+    int8_t full_length_bonus = default_full_length_bonus;
     int unpaired_penalty = 17;
     double haplotype_consistency_exponent = 1;
     bool strip_bonuses = false;
@@ -703,7 +703,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = surjectors[omp_get_thread_num()]->surject_classic(aln, path_names, path_name, path_pos, path_reverse);
+            auto surj = surjectors[omp_get_thread_num()]->path_anchored_surject(aln, path_names, path_name, path_pos, path_reverse);
             surjects1.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // hack: if we haven't established the header, we look at the reads to guess which read groups to put in it
@@ -719,7 +719,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = surjectors[omp_get_thread_num()]->surject_classic(aln, path_names, path_name, path_pos, path_reverse);
+            auto surj = surjectors[omp_get_thread_num()]->path_anchored_surject(aln, path_names, path_name, path_pos, path_reverse);
             surjects2.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // Don't try and populate the header; it should have happened already

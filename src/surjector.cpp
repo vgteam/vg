@@ -520,6 +520,12 @@ using namespace std;
             
             // transfer applicable metadata
             surjected.set_mapping_quality(source.mapping_quality());
+            if (source.has_fragment_next()) {
+                *surjected.mutable_fragment_next() = source.fragment_next();
+            }
+            if (source.has_fragment_prev()) {
+                *surjected.mutable_fragment_prev() = source.fragment_prev();
+            }
             
 #ifdef debug_anchored_surject
             cerr << "concatenated and translated alignment " << pb2json(surjected) << endl;
@@ -861,8 +867,12 @@ using namespace std;
         null.set_read_group(source.read_group());
         null.set_sample_name(source.sample_name());
         null.set_is_secondary(source.is_secondary());
-        *null.mutable_fragment_next() = source.fragment_next();
-        *null.mutable_fragment_prev() = source.fragment_prev();
+        if (source.has_fragment_next()) {
+            *null.mutable_fragment_next() = source.fragment_next();
+        }
+        if (source.has_fragment_prev()) {
+            *null.mutable_fragment_prev() = source.fragment_prev();
+        }
         return null;
     }
 }
