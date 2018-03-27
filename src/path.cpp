@@ -6,6 +6,46 @@ namespace vg {
 
 const std::regex Paths::is_alt("_alt_.+_[0-9]+");
 
+mapping_t::mapping_t(void) { }
+
+mapping_t::mapping_t(const Mapping& m) {
+    traversal = m.position().node_id();
+    set_is_reverse(m.position().is_reverse());
+    length = mapping_from_length(m);
+    // only import fully embedded mappings
+    assert(length == mapping_to_length(m));
+    rank = m.rank();
+}
+
+Mapping mapping_t::to_mapping(void) const {
+    Mapping m;
+    Position* p = m.mutable_position();
+    p->set_node_id(node_id());
+    p->set_is_reverse(is_reverse());
+    Edit* e = m.add_edit();
+    e->set_to_length(length);
+    e->set_from_length(length);
+    m.set_rank(rank);
+    return m;
+}
+
+id_t mapping_t::node_id(void) const {
+    return abs(traversal);
+}
+
+void mapping_t::set_node_id(id_t id) {
+    bool is_rev = is_reverse();
+    traversal = id * (is_rev ? -1 : 1);
+}
+
+bool mapping_t::is_reverse(void) const {
+    return traversal < 0;
+}
+
+void mapping_t::set_is_reverse(bool is_rev) {
+    traversal = abs(traversal) * (is_rev ? -1 : 1);
+}
+
 Paths::Paths(void) {
     max_path_id = 0;
     // noop
@@ -28,11 +68,10 @@ void Paths::write(ostream& out) {
     }
     function<Path(uint64_t)> lambda =
         [this, &path_names](uint64_t i) -> Path {
-        list<Mapping>& mappings = _paths[path_names.at(i)];
+        auto& mappings = _paths[path_names.at(i)];
         Path path;
         for (auto& m : mappings) {
-            Mapping* nm = path.add_mapping();
-            *nm = m;
+            *path.add_mapping() = m.to_mapping();
         }
         path.set_name(path_names.at(i));
         if (circular.count(path_names.at(i))) {
@@ -46,15 +85,14 @@ void Paths::write(ostream& out) {
 void Paths::to_graph(Graph& g) {
     for (auto& p : _paths) {
         const string& name = p.first;
-        list<Mapping>& mappings = p.second;
+        auto& mappings = p.second;
         Path* path = g.add_path();
         path->set_name(name);
         if (circular.count(name)) {
             path->set_is_circular(true);
         }
         for (auto& m : mappings) {
-            Mapping* nm = path->add_mapping();
-            *nm = m;
+            *path->add_mapping() = m.to_mapping();
         }
     }
 }
@@ -65,11 +103,10 @@ Path Paths::path(const string& name) {
     if (p == _paths.end()) {
         return path;
     }
-    list<Mapping>& mappings = p->second;
+    auto& mappings = p->second;
     path.set_name(name);
     for (auto& m : mappings) {
-        Mapping* nm = path.add_mapping();
-        *nm = m;
+        *path.add_mapping() = m.to_mapping();
     }
     if (circular.count(name)) {
         path.set_is_circular(true);
@@ -91,11 +128,11 @@ void Paths::for_each_name(const function<void(const string&)>& lambda) {
     }
 }
 
-void Paths::for_each_mapping(const function<void(Mapping*)>& lambda) {
+void Paths::for_each_mapping(const function<void(mapping_t&)>& lambda) {
     for (auto& p : _paths) {
-        list<Mapping>& path = p.second;
+        auto& path = p.second;
         for (auto& m : path) {
-            lambda(&m);
+            lambda(m);
         }
     }
 }
@@ -116,7 +153,7 @@ void Paths::make_linear(const string& name) {
 
 void Paths::extend(const Path& p) {
     const string& name = p.name();
-    list<Mapping>& path = get_create_path(name);
+    auto& path = get_create_path(name);
     for (int i = 0; i < p.mapping_size(); ++i) {
         const Mapping& m = p.mapping(i);
         append_mapping(name, m);
@@ -133,11 +170,11 @@ void Paths::extend(const Path& p) {
 void Paths::extend(Paths& p) {
     for (auto& l : p._paths) {
         const string& name = l.first;
-        list<Mapping>& path = l.second;
+        auto& path = l.second;
         // Make sure we preserve empty paths
         get_create_path(name);
         for (auto& m : path) {
-            append_mapping(name, m);
+            append_mapping(name, m.to_mapping());
         }
         if (p.circular.count(name)) {
             make_circular(name);
@@ -150,11 +187,11 @@ void Paths::extend(Paths& p) {
 void Paths::append(Paths& paths) {
     for (auto& p : paths._paths) {
         const string& name = p.first;
-        const list<Mapping>& path = p.second;
+        auto& path = p.second;
         // Make sure we preserve empty paths
         get_create_path(name);
         for (auto& m : path) {
-            append_mapping(name, m);
+            append_mapping(name, m.to_mapping());
         }
         if (paths.circular.count(name)) {
             make_circular(name);
@@ -184,25 +221,24 @@ Path& append_path(Path& a, const Path& b) {
     return a;
 }
 
-
 bool Paths::has_mapping(const string& name, size_t rank) {
     return mappings_by_rank.count(name) && mappings_by_rank[name].count(rank);
 }
 
-void Paths::append_mapping(const string& name, const Mapping& m) {
+void Paths::append_mapping(const string& name, const mapping_t& m) {
     // get or create the path with this name
-    list<Mapping>& pt = get_create_path(name);
+    list<mapping_t>& pt = get_create_path(name);
     // now if we haven't already supplied a mapping
     // add it
     
-    if (!m.rank() || !has_mapping(name, m.rank())) {
+    if (!m.rank || !has_mapping(name, m.rank)) {
         // If we don't have a rank set or we don't have a mapping in this path
         // with that rank, we need to add the mapping.
         
         // First figure out what the previous rank on the path is.
         size_t last_rank = 0;
         if(!pt.empty()) {
-            last_rank = (*pt.rbegin()).rank();
+            last_rank = (*pt.rbegin()).rank;
         }
 
         // Add this mapping at the end of the path. Note that this may not
@@ -211,9 +247,9 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
         // called, after all the mappings are loaded, in order to put them in
         // order by rank.
         pt.push_back(m);
-        Mapping* mp = &pt.back();
+        mapping_t* mp = &pt.back();
         
-        if(mp->rank() == 0) {
+        if(mp->rank == 0) {
             // 0 rank defaults to being ranked at the end of what's already
             // there. After all, that's where we just added it.
             if(&pt.front() != mp) {
@@ -221,7 +257,7 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
                 if(last_rank && !mappings_by_rank[name].count(last_rank + 1)) {
                     // We can go right after the thing that we're physically
                     // after.
-                    mp->set_rank(last_rank + 1);
+                    mp->rank = last_rank + 1;
                 } else {
                     // We're putting it after something which itself has no
                     // rank, or the next rank is already occupied. Leave rank
@@ -235,22 +271,22 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
                 // This is the first mapping, so give it minimal rank. Ordering
                 // is undefined with respect to any pre-ranked mappings that may
                 // be added to the path later.
-                mp->set_rank(1);
+                mp->rank = 1;
             }
         }
         
         // add it to the node mappings
-        auto& ms = get_node_mapping(mp->position().node_id());
+        auto& ms = get_node_mapping(mp->node_id());
         ms[get_path_id(name)].insert(mp);
         // and record its position in this list
-        list<Mapping>::iterator mi = pt.end(); --mi;
+        list<mapping_t>::iterator mi = pt.end(); --mi;
         auto& mitr = mapping_itr[mp];
         mitr.first = mi;
         mitr.second = get_path_id(name);
-        if(mp->rank()) {
+        if(mp->rank) {
             // Only if we actually end up with a rank (i.e. all the existing
             // ranks weren't cleared) do we really index by rank.
-            mappings_by_rank[name][mp->rank()] = mp;
+            mappings_by_rank[name][mp->rank] = mp;
         }
     }
 }
@@ -281,7 +317,7 @@ void Paths::append_mapping(const string& name, id_t id, size_t rank, bool is_rev
 
 void Paths::prepend_mapping(const string& name, const Mapping& m) {
     // get or create the path with this name
-    list<Mapping>& pt = get_create_path(name);
+    list<mapping_t>& pt = get_create_path(name);
     
     // We can't prepend a mapping that doesn't have a rank set. We would like to
     // generate ranks, but we can't keep decrementing the first rank
@@ -295,17 +331,17 @@ void Paths::prepend_mapping(const string& name, const Mapping& m) {
         // If we don't have a rank set or we don't have a mapping in this path
         // with that rank, we need to add the mapping.
         
-        pt.push_front(m);
-        Mapping* mp = &pt.front();
+        pt.push_front(mapping_t(m));
+        mapping_t* mp = &pt.front();
         // add it to the node mappings
         auto& ms = get_node_mapping(m.position().node_id());
         ms[get_path_id(name)].insert(mp);
         // and record its position in this list
-        list<Mapping>::iterator mi = pt.begin();
+        list<mapping_t>::iterator mi = pt.begin();
         auto& mitr = mapping_itr[mp];
         mitr.first = mi;
         mitr.second = get_path_id(name);
-        mappings_by_rank[name][mp->rank()] = mp;
+        mappings_by_rank[name][mp->rank] = mp;
     }
 }
 
@@ -324,14 +360,14 @@ void Paths::prepend_mapping(const string& name, id_t id, size_t rank, bool is_re
 size_t Paths::get_next_rank(const string& name) {
     auto& p = get_path(name);
     //cerr << "next rank be " << p.size()+1 << " or " << (size_t) p.rend()->rank()+1 << endl;
-    return max(p.size()+1, (size_t) (p.size() ? p.rend()->rank()+1 : 0));
+    return max(p.size()+1, (size_t) (p.size() ? p.rend()->rank+1 : 0));
 }
 
 // these will split a mapping into two
 // NB: each submapping ends up with the same rank as the parent
 // however, they will be ordered correctly in the path
 // we will need to normalize path ranks to make this right
-pair<Mapping*, Mapping*> Paths::divide_mapping(Mapping* m, const Position& pos) {
+pair<mapping_t*, mapping_t*> Paths::divide_mapping(mapping_t* m, const Position& pos) {
     // this is needed to split mappinsg during e.g. normalization
     // but still ensure that the mappings are out there
     // what do we do?
@@ -340,12 +376,12 @@ pair<Mapping*, Mapping*> Paths::divide_mapping(Mapping* m, const Position& pos) 
     return replace_mapping(m, n);
 }
 
-pair<Mapping*, Mapping*> Paths::divide_mapping(Mapping* m, size_t offset) {
+pair<mapping_t*, mapping_t*> Paths::divide_mapping(mapping_t* m, size_t offset) {
     auto n = cut_mapping(*m, offset);
     return replace_mapping(m, n);
 }
 
-pair<Mapping*, Mapping*> Paths::replace_mapping(Mapping* m, pair<Mapping, Mapping> n) {
+pair<mapping_t*, mapping_t*> Paths::replace_mapping(mapping_t* m, pair<mapping_t, mapping_t> n) {
     // then we remove it from the node it's pointing to
     // and replace it with the other two mappings
     // we'll give them the same rank, but record them in the right order
@@ -353,10 +389,10 @@ pair<Mapping*, Mapping*> Paths::replace_mapping(Mapping* m, pair<Mapping, Mappin
     // there are a few ways to fix this--- they involve changing the way we record ranks
     // but for now it's going to be simplest if the calling context manages this
     auto& path_name = mapping_path_name(m);
-    n.first.set_rank(m->rank());
-    n.second.set_rank(m->rank());
+    n.first.rank = m->rank;
+    n.second.rank = m->rank;
     // remove the mapping, getting an iterator pointing to the element that was after it
-    if (!m->position().is_reverse()) {
+    if (!m->is_reverse()) {
         auto i = remove_mapping(m);
         // the insertion will happen in reverse order
         // because insert puts the position before the iterator it's given
@@ -383,9 +419,9 @@ bool Paths::has_path(const string& name) {
 void Paths::increment_node_ids(id_t inc) {
     for (auto& p : _paths) {
         const string& name = p.first;
-        list<Mapping>& path = p.second;
+        list<mapping_t>& path = p.second;
         for (auto& m : path) {
-            m.mutable_position()->set_node_id(m.position().node_id()+inc);
+            m.set_node_id(m.node_id()+inc);
         }
     }
     rebuild_node_mapping();
@@ -394,26 +430,26 @@ void Paths::increment_node_ids(id_t inc) {
 void Paths::swap_node_ids(hash_map<id_t, id_t>& id_mapping) {
     for (auto& p : _paths) {
         const string& name = p.first;
-        list<Mapping>& path = p.second;
+        list<mapping_t>& path = p.second;
         for (auto& m : path) {
             // Look up the replacement ID
-            auto replacement = id_mapping.find(m.position().node_id());
+            auto replacement = id_mapping.find(m.node_id());
             if(replacement != id_mapping.end()) {
                 // If there is a replacement, use it.
-                m.mutable_position()->set_node_id((*replacement).second);
+                m.set_node_id((*replacement).second);
             }
         }
     }
     rebuild_node_mapping();
 }
 
-void Paths::reassign_node(id_t new_id, Mapping* m) {
+void Paths::reassign_node(id_t new_id, mapping_t* m) {
     // erase the old node id
-    node_mapping[m->position().node_id()][mapping_path_id(m)].erase(m);
+    node_mapping[m->node_id()][mapping_path_id(m)].erase(m);
     // set the new node id
-    m->mutable_position()->set_node_id(new_id);
+    m->set_node_id(new_id);
     // and record it in the new node record
-    node_mapping[m->position().node_id()][mapping_path_id(m)].insert(m);
+    node_mapping[m->node_id()][mapping_path_id(m)].insert(m);
 }
 
 void Paths::rebuild_node_mapping(void) {
@@ -421,9 +457,9 @@ void Paths::rebuild_node_mapping(void) {
     node_mapping.clear();
     for (auto& p : _paths) {
         const string& path_name = p.first;
-        list<Mapping>& path = p.second;
+        list<mapping_t>& path = p.second;
         for (auto& m : path) {
-            get_node_mapping(m.position().node_id())[get_path_id(path_name)].insert(&m);
+            get_node_mapping(m.node_id())[get_path_id(path_name)].insert(&m);
         }
     }
 }
@@ -431,9 +467,9 @@ void Paths::rebuild_node_mapping(void) {
 // attempt to sort the paths based on the recorded ranks of the mappings
 void Paths::sort_by_mapping_rank(void) {
     for (auto p = _paths.begin(); p != _paths.end(); ++p) {
-        list<Mapping>& path = p->second;
-        path.sort([](const Mapping& m1, const Mapping& m2) {
-                return m1.rank() < m2.rank();
+        list<mapping_t>& path = p->second;
+        path.sort([](const mapping_t& m1, const mapping_t& m2) {
+                return m1.rank < m2.rank;
             });
     }
 }
@@ -454,31 +490,31 @@ void Paths::rebuild_mapping_aux(void) {
     mappings_by_rank.clear();
     for (auto& p : _paths) {
         const string& path_name = p.first;
-        list<Mapping>& path = p.second;
+        list<mapping_t>& path = p.second;
         size_t order_in_path = 0;
-        for (list<Mapping>::iterator i = path.begin(); i != path.end(); ++i) {
+        for (list<mapping_t>::iterator i = path.begin(); i != path.end(); ++i) {
             auto& mitr = mapping_itr[&*i];
             mitr.first = i;
             mitr.second = get_path_id(path_name);
             
-            if(i->rank() > order_in_path + 1) {
+            if(i->rank > order_in_path + 1) {
                 // Make sure that if we have to assign a rank to a node after
                 // this one, it is greater than this node's rank. TODO: should
                 // we just uniformly re-rank all the nodes starting at 0? Or
                 // will we ever want to cut and paste things back together using
                 // the old preserved ranks?
-                order_in_path = i->rank() - 1;
+                order_in_path = i->rank - 1;
             }
             
-            if (i->rank() == 0 || i->rank() < order_in_path + 1) {
+            if (i->rank == 0 || i->rank < order_in_path + 1) {
                 // If we don't already have a rank, or if we see a rank that
                 // can't be correct given the ranks we have already seen, we set
                 // the rank based on what we've built
-                i->set_rank(order_in_path+1);
+                i->rank = order_in_path+1;
             }
             
             // Save the mapping as being at the given rank in its path.
-            mappings_by_rank[path_name][i->rank()] = &*i;
+            mappings_by_rank[path_name][i->rank] = &*i;
             
             ++order_in_path;
         }
@@ -489,28 +525,28 @@ void Paths::remove_node(id_t id) {
     node_mapping.erase(id);
 }
 
-list<Mapping>::iterator Paths::find_mapping(Mapping* m) {
+list<mapping_t>::iterator Paths::find_mapping(mapping_t* m) {
     return mapping_itr[m].first;
 }
 
-list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
+list<mapping_t>::iterator Paths::remove_mapping(mapping_t* m) {
     // The mapping has to exist
     assert(mapping_itr.find(m) != mapping_itr.end());
     auto& mitr = mapping_itr[m];
     const string& path_name = get_path_name(mitr.second);
-    id_t id = m->position().node_id();
+    id_t id = m->node_id();
     auto& x = _paths[path_name];
     
     // This gets tricky because we're going to deallocate the storage pointed to
     // by m. We need to remove it from other things first.
-    if(m->rank() && mappings_by_rank[path_name].count(m->rank()) && 
-        mappings_by_rank[path_name][m->rank()] == m) {
+    if(m->rank && mappings_by_rank[path_name].count(m->rank) && 
+        mappings_by_rank[path_name][m->rank] == m) {
         // If we have this node stored for its path and rank, kick it out.
-        mappings_by_rank[path_name].erase(m->rank());
+        mappings_by_rank[path_name].erase(m->rank);
     }
     
     // Actually deallocate the mapping
-    list<Mapping>::iterator p = _paths[path_name].erase(mitr.first);
+    list<mapping_t>::iterator p = _paths[path_name].erase(mitr.first);
     if (has_node_mapping(id)) {
         auto& node_path_mapping = get_node_mapping(id);
         node_path_mapping[mitr.second].erase(m);
@@ -521,18 +557,18 @@ list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
     return p;
 }
 
-list<Mapping>::iterator Paths::insert_mapping(list<Mapping>::iterator w, const string& path_name, const Mapping& m) {
+list<mapping_t>::iterator Paths::insert_mapping(list<mapping_t>::iterator w, const string& path_name, const mapping_t& m) {
     auto px = _paths.find(path_name);
     assert(px != _paths.end());
-    list<Mapping>& path = px->second;
-    list<Mapping>::iterator p;
+    list<mapping_t>& path = px->second;
+    list<mapping_t>::iterator p;
     if (path.empty()) {
         path.push_front(m);
         p = path.begin();
     } else {
         p = path.insert(w, m);
     }
-    get_node_mapping(m.position().node_id())[get_path_id(path_name)].insert(&*p);
+    get_node_mapping(m.node_id())[get_path_id(path_name)].insert(&*p);
     auto& mitr = mapping_itr[&*p];
     mitr.first = p;
     mitr.second = get_path_id(path_name);
@@ -562,16 +598,16 @@ void Paths::clear(void) {
 
 void Paths::clear_mapping_ranks(void) {
     for (auto p = _paths.begin(); p != _paths.end(); ++p) {
-        list<Mapping>& path = p->second;
+        list<mapping_t>& path = p->second;
         for (auto m = path.begin(); m != path.end(); ++m) {
-            Mapping& mapping = *m;
-            mapping.set_rank(0);
+            mapping_t& mapping = *m;
+            mapping.rank = 0;
         }
     }
     mappings_by_rank.clear();
 }
 
-list<Mapping>& Paths::get_path(const string& name) {
+list<mapping_t>& Paths::get_path(const string& name) {
     return _paths[name];
 }
 
@@ -589,9 +625,9 @@ void Paths::remove_path(const string& name) {
     for(auto& mapping : path) {
         // Unindex all the mappings
         mapping_itr.erase(&mapping);
-        if(node_mapping.count(mapping.position().node_id())) {
+        if(node_mapping.count(mapping.node_id())) {
             // Throw out all the mappings for this path on this node
-            node_mapping[mapping.position().node_id()].erase(get_path_id(name));
+            node_mapping[mapping.node_id()].erase(get_path_id(name));
         }
     }
 
@@ -613,11 +649,11 @@ void Paths::keep_paths(const set<string>& names) {
     remove_paths(to_remove);
 }
 
-list<Mapping>& Paths::create_path(const string& name) {
+list<mapping_t>& Paths::create_path(const string& name) {
     return _paths[name];
 }
 
-list<Mapping>& Paths::get_create_path(const string& name) {
+list<mapping_t>& Paths::get_create_path(const string& name) {
     if (!has_path(name)) {
         return create_path(name);
     } else {
@@ -633,57 +669,57 @@ bool Paths::has_node_mapping(Node* n) {
     return node_mapping.find(n->id()) != node_mapping.end();
 }
 
-map<int64_t, set<Mapping*>>& Paths::get_node_mapping(id_t id) {
+map<int64_t, set<mapping_t*>>& Paths::get_node_mapping(id_t id) {
     return node_mapping[id];
 }
 
-map<int64_t, set<Mapping*>>& Paths::get_node_mapping(Node* n) {
+map<int64_t, set<mapping_t*>>& Paths::get_node_mapping(Node* n) {
     return node_mapping[n->id()];
 }
 
-map<string, set<Mapping*>> Paths::get_node_mapping_by_path_name(id_t id) {
+map<string, set<mapping_t*>> Paths::get_node_mapping_by_path_name(id_t id) {
     auto& nm = node_mapping[id];
-    map<string, set<Mapping*>> mm;
+    map<string, set<mapping_t*>> mm;
     for (auto& p : nm) {
         mm[get_path_name(p.first)] = p.second;
     }
     return mm;
 }
 
-map<string, set<Mapping*>> Paths::get_node_mapping_by_path_name(Node* n) {
+map<string, set<mapping_t*>> Paths::get_node_mapping_by_path_name(Node* n) {
     return get_node_mapping_by_path_name(n->id());
 }
 
-map<string, map<int, Mapping*>> Paths::get_node_mappings_by_rank(id_t id) {
-    map<string, map<int, Mapping*>> by_ranks;
+map<string, map<int, mapping_t*>> Paths::get_node_mappings_by_rank(id_t id) {
+    map<string, map<int, mapping_t*>> by_ranks;
     for (auto& p : get_node_mapping(id)) {
         auto& name = get_path_name(p.first);
         auto& mp = p.second;
-        for (auto* m : mp) by_ranks[name][m->rank()] = m;
+        for (auto* m : mp) by_ranks[name][m->rank] = m;
     }
     return by_ranks;
 }
 
-map<string, map<int, Mapping>> Paths::get_node_mapping_copies_by_rank(id_t id) {
-    map<string, map<int, Mapping>> by_ranks;
+map<string, map<int, mapping_t>> Paths::get_node_mapping_copies_by_rank(id_t id) {
+    map<string, map<int, mapping_t>> by_ranks;
     for (auto& p : get_node_mapping(id)) {
         auto& name = get_path_name(p.first);
         auto& mp = p.second;
-        for (auto* m : mp) by_ranks[name][m->rank()] = *m;
+        for (auto* m : mp) by_ranks[name][m->rank] = *m;
     }
     return by_ranks;
 }
 
-Mapping* Paths::traverse_left(Mapping* mapping) {
+mapping_t* Paths::traverse_left(mapping_t* mapping) {
     // Get the iterator for this Mapping*
     auto& mitr = mapping_itr.at(mapping);
-    list<Mapping>::iterator place = mitr.first;
+    list<mapping_t>::iterator place = mitr.first;
 
     // Get the path name for this Mapping*
     const string& path_name = get_path_name(mitr.second);
 
     // Get the list that the iterator is in
-    list<Mapping>& path_list = _paths.at(path_name);
+    list<mapping_t>& path_list = _paths.at(path_name);
 
     // If we're already the beginning, return null.
     if(place == path_list.begin()) {
@@ -696,16 +732,16 @@ Mapping* Paths::traverse_left(Mapping* mapping) {
     return &(*place);
 }
 
-Mapping* Paths::traverse_right(Mapping* mapping) {
+mapping_t* Paths::traverse_right(mapping_t* mapping) {
     // Get the iterator for this Mapping*
     auto& mitr = mapping_itr.at(mapping);
-    list<Mapping>::iterator place = mitr.first;
+    list<mapping_t>::iterator place = mitr.first;
 
     // Get the path name for this Mapping*
     const string& path_name = get_path_name(mitr.second);
 
     // Get the list that the iterator is in
-    list<Mapping>& path_list = _paths.at(path_name);
+    list<mapping_t>& path_list = _paths.at(path_name);
 
     // Advance the iterator right.
     place++;
@@ -731,7 +767,7 @@ bool Paths::is_head_or_tail_node(id_t id) {
     return head_tail_nodes.count(id);
 }
 
-const string Paths::mapping_path_name(Mapping* m) {
+const string Paths::mapping_path_name(mapping_t* m) {
     int64_t id = mapping_path_id(m);
     if (id == 0) {
         return "";
@@ -740,7 +776,7 @@ const string Paths::mapping_path_name(Mapping* m) {
     }
 }
 
-int64_t Paths::mapping_path_id(Mapping* m) {
+int64_t Paths::mapping_path_id(mapping_t* m) {
     auto n = mapping_itr.find(m);
     if (n == mapping_itr.end()) {
         return 0;
@@ -790,7 +826,7 @@ bool Paths::are_consecutive_nodes_in_path(id_t id1, id_t id2, const string& path
         auto& p1 = get_node_mapping(id1);
         auto& p2 = get_node_mapping(id2);
         // is p1 directly before p2?
-        vector<list<Mapping>::iterator> i1s, i2s;
+        vector<list<mapping_t>::iterator> i1s, i2s;
         // note that this will get the first mapping in each path, not an arbitrary one
         // (we can have looping paths, so there could be several mappings per path)
         for (auto& mp : p1[get_path_id(path_name)]) {
@@ -869,12 +905,12 @@ vector<string> Paths::over_directed_edge(id_t id1, bool rev1, id_t id2, bool rev
         for (auto i1 : r1) {
             auto& m1 = i1.second;
             // only consider mappings that touch these traversals
-            if (m1->position().is_reverse() != rev1) continue;
+            if (m1->is_reverse() != rev1) continue;
             auto rank1 = i1.first;
             // do we have something at the successive mapping in r2
             auto i2 = r2.find(rank1+1);
             if (i2 == r2.end()) continue;
-            if (i2->second->position().is_reverse() != rev2) continue;
+            if (i2->second->is_reverse() != rev2) continue;
             consecutive.push_back(name);
         }
     }
@@ -1636,7 +1672,7 @@ void reverse_complement_path_in_place(Path* path,
         reverse_complement_mapping_in_place(path->mutable_mapping(swap_size), node_length);
     }
 }
-    
+
 // ref-relative
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
     Mapping left, right;
@@ -1701,6 +1737,11 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
                && right.has_position()
                && right.position().node_id()));
     return make_pair(left, right);
+}
+
+pair<mapping_t, mapping_t> cut_mapping(const mapping_t& m, const Position& pos) {
+    auto r = cut_mapping(m.to_mapping(), pos);
+    return make_pair(mapping_t(r.first), mapping_t(r.second));
 }
 
 // mapping-relative
@@ -1779,6 +1820,11 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
     //cerr << "cut mappings " << endl
     //<< "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
     return make_pair(left, right);
+}
+
+pair<mapping_t, mapping_t> cut_mapping(const mapping_t& m, size_t offset) {
+    auto r = cut_mapping(m.to_mapping(), offset);
+    return make_pair(mapping_t(r.first), mapping_t(r.second));
 }
 
 // divide path at reference-relative position
