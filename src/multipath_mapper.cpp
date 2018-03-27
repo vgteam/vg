@@ -212,7 +212,7 @@ namespace vg {
             cerr << "validating multipath alignment:" << endl;
             cerr << pb2json(multipath_aln) << endl;
 #endif
-            if (!validate_multipath_alignment(multipath_aln)) {
+            if (!validate_multipath_alignment(multipath_aln, *xindex)) {
                 cerr << "### WARNING ###" << endl;
                 cerr << "multipath alignment of read " << multipath_aln.name() << " failed to validate" << endl;
             }
@@ -892,11 +892,11 @@ namespace vg {
             cerr << pb2json(multipath_aln_pair.first) << endl;
             cerr << pb2json(multipath_aln_pair.second) << endl;
 #endif
-            if (!validate_multipath_alignment(multipath_aln_pair.first)) {
+            if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
                 cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
             }
-            if (!validate_multipath_alignment(multipath_aln_pair.second)) {
+            if (!validate_multipath_alignment(multipath_aln_pair.second, *xindex)) {
                 cerr << "### WARNING ###" << endl;
                 cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
             }
@@ -1852,11 +1852,11 @@ namespace vg {
             cerr << pb2json(multipath_aln_pair.first) << endl;
             cerr << pb2json(multipath_aln_pair.second) << endl;
 #endif
-            if (!validate_multipath_alignment(multipath_aln_pair.first)) {
+            if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
                 cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
             }
-            if (!validate_multipath_alignment(multipath_aln_pair.second)) {
+            if (!validate_multipath_alignment(multipath_aln_pair.second, *xindex)) {
                 cerr << "### WARNING ###" << endl;
                 cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
             }
@@ -2758,296 +2758,6 @@ namespace vg {
     
     void MultipathMapper::set_automatic_min_clustering_length(double random_mem_probability) {
         min_clustering_mem_length = max<int>(log(1.0 - pow(random_mem_probability, 1.0 / xindex->seq_length)) / log(0.25), 1);
-    }
-    
-    bool MultipathMapper::validate_multipath_alignment(const MultipathAlignment& multipath_aln) const {
-        
-        // are the subpaths in topological order?
-        
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            const Subpath& subpath = multipath_aln.subpath(i);
-            for (size_t j = 0; j < subpath.next_size(); j++) {
-                if (subpath.next(j) <= i) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on topological order" << endl;
-#endif
-                    return false;
-                }
-            }
-        }
-        
-        // are the start subpaths properly labeled (if they are included)?
-        
-        if (multipath_aln.start_size()) {
-            vector<bool> is_source(multipath_aln.subpath_size(), true);
-            for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-                const Subpath& subpath = multipath_aln.subpath(i);
-                for (size_t j = 0; j < subpath.next_size(); j++) {
-                    is_source[subpath.next(j)] = false;
-                }
-            }
-            
-            size_t num_starts = 0;
-            for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-                num_starts += is_source[i];
-            }
-            
-            if (num_starts != multipath_aln.start_size()) {
-#ifdef debug_multipath_mapper
-                cerr << "validation failure on correct number of starts" << endl;
-                for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-                    if (is_source[i]) {
-                        cerr << i << " ";
-                    }
-                }
-                cerr << endl;
-#endif
-                return false;
-            }
-            
-            for (size_t i = 0; i < multipath_aln.start_size(); i++) {
-                if (!is_source[multipath_aln.start(i)]) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on correctly identified starts" << endl;
-                    for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-                        if (is_source[i]) {
-                            cerr << i << " ";
-                        }
-                        cerr << endl;
-                    }
-#endif
-                    return false;
-                }
-            }
-        }
-        
-        // are the subpaths contiguous along the read?
-        
-        vector<pair<int64_t, int64_t>> subpath_read_interval(multipath_aln.subpath_size(), make_pair<int64_t, int64_t>(-1, -1));
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            
-            if (subpath_read_interval[i].first < 0) {
-                subpath_read_interval[i].first = 0;
-            }
-            
-            const Subpath& subpath = multipath_aln.subpath(i);
-            int64_t subsequence_length = path_to_length(subpath.path());
-            subpath_read_interval[i].second = subpath_read_interval[i].first + subsequence_length;
-            
-            if (!subpath.next_size()) {
-                if (subpath_read_interval[i].second != multipath_aln.sequence().size()) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on using complete read" << endl;
-                    cerr << "subpath " <<  i << " ends on sequence index " << subpath_read_interval[i].second << " of " << multipath_aln.sequence().size() << endl;
-                    cerr << pb2json(subpath) << endl;
-                    for (size_t j = 0; j < multipath_aln.subpath_size(); j++) {
-                        cerr << j << " (" << subpath_read_interval[j].first << ", " << subpath_read_interval[j].second << "): ";
-                        for (size_t k = 0; k < multipath_aln.subpath(j).next_size(); k++) {
-                            cerr << multipath_aln.subpath(j).next(k) << " ";
-                        }
-                        cerr << endl;
-                    }
-#endif
-                    return false;
-                }
-            }
-            else {
-                for (size_t j = 0; j < subpath.next_size(); j++) {
-                    if (subpath_read_interval[subpath.next(j)].first >= 0) {
-                        if (subpath_read_interval[subpath.next(j)].first != subpath_read_interval[i].second) {
-#ifdef debug_multipath_mapper
-                            cerr << "validation failure on read contiguity" << endl;
-#endif
-                            return false;
-                        }
-                    }
-                    else {
-                        subpath_read_interval[subpath.next(j)].first = subpath_read_interval[i].second;
-                    }
-                }
-            }
-        }
-        
-        // are all of the subpaths nonempty?
-        
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            if (multipath_aln.subpath(i).path().mapping_size() == 0) {
-#ifdef debug_multipath_mapper
-                cerr << "validation failure on containing only nonempty paths" << endl;
-                cerr << "subpath " << i << ": " << pb2json(multipath_aln.subpath(i)) << endl;
-#endif
-                return false;
-            }
-            for (size_t j = 0; j < multipath_aln.subpath(i).path().mapping_size(); j++) {
-                if (multipath_aln.subpath(i).path().mapping(j).edit_size() == 0) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on containing only nonempty mappings" << endl;
-                    cerr << "subpath " << i << ": " << pb2json(multipath_aln.subpath(i)) << endl;
-#endif
-                    return false;
-                }
-            }
-        }
-        
-        
-        // are the subpaths contiguous within the graph?
-        
-        auto validate_adjacent_mappings = [&](const Mapping& mapping_from, const Mapping& mapping_to) {
-            size_t mapping_from_end_offset = mapping_from.position().offset() + mapping_from_length(mapping_from);
-            if (mapping_from.position().node_id() == mapping_to.position().node_id() &&
-                mapping_from.position().is_reverse() == mapping_to.position().is_reverse()) {
-                if (mapping_to.position().offset() != mapping_from_end_offset) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on within-node adjacency" << endl;
-                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
-#endif
-                    return false;
-                }
-            }
-            else {
-                if (mapping_from_end_offset != xindex->node_length(mapping_from.position().node_id())) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on using edge at middle of node" << endl;
-                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
-#endif
-                    return false;
-                }
-                
-                vector<Edge> edges = xindex->edges_of(mapping_from.position().node_id());
-                bool found_edge = false;
-                for (Edge& edge : edges) {
-                    if (edge.from() == mapping_from.position().node_id() &&
-                        edge.from_start() == mapping_from.position().is_reverse()) {
-                        if (edge.to() == mapping_to.position().node_id() &&
-                            edge.to_end() == mapping_to.position().is_reverse()) {
-                            found_edge = true;
-                            break;
-                        }
-                    }
-                    if (edge.to() == mapping_from.position().node_id() &&
-                        edge.to_end() != mapping_from.position().is_reverse()) {
-                        if (edge.from() == mapping_to.position().node_id() &&
-                            edge.from_start() != mapping_to.position().is_reverse()) {
-                            found_edge = true;
-                            break;
-                        }
-                    }
-                }
-                
-                if (!found_edge) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on nodes not connected by an edge" << endl;
-                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
-#endif
-                    return false;
-                }
-            }
-            return true;
-        };
-        
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            const Subpath& subpath = multipath_aln.subpath(i);
-            const Path& path = subpath.path();
-            for (size_t j = 1; j < path.mapping_size(); j++) {
-                if (!validate_adjacent_mappings(path.mapping(j - 1), path.mapping(j))) {
-                    return false;
-                }
-            }
-            const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
-            for (size_t j = 0; j < subpath.next_size(); j++) {
-                if (!validate_adjacent_mappings(final_mapping, multipath_aln.subpath(subpath.next(j)).path().mapping(0))) {
-                    return false;
-                }
-            }
-        }
-        
-        
-        // do the paths represent valid alignments of the associated read string and graph path?
-        
-        auto validate_mapping_edits = [&](const Mapping& mapping, const string& subseq) {
-            string node_seq = xindex->node_sequence(mapping.position().node_id());
-            string rev_node_seq = reverse_complement(node_seq);
-            size_t node_idx = mapping.position().offset();
-            size_t seq_idx = 0;
-            for (size_t i = 0; i < mapping.edit_size(); i++) {
-                const Edit& edit = mapping.edit(i);
-                if (edit_is_match(edit)) {
-                    for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
-                        if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) != subseq[seq_idx]) {
-#ifdef debug_multipath_mapper
-                            cerr << "validation failure on match that does not match" << endl;
-                            cerr << pb2json(mapping) << ", " << subseq << endl;
-#endif
-                            return false;
-                        }
-                    }
-                }
-                else if (edit_is_sub(edit)) {
-                    for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
-                        if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) == subseq[seq_idx]) {
-#ifdef debug_multipath_mapper
-                            cerr << "validation failure on mismatch that matches" << endl;
-                            cerr << pb2json(mapping) << ", " << subseq << endl;
-#endif
-                            return false;
-                        }
-                        if (edit.sequence()[j] != subseq[seq_idx]) {
-#ifdef debug_multipath_mapper
-                            cerr << "validation failure on substitution sequence that does not match read" << endl;
-                            cerr << pb2json(mapping) << ", " << subseq << endl;
-#endif
-                            return false;
-                        }
-                    }
-                }
-                else if (edit_is_insertion(edit)) {
-                    for (size_t j = 0; j < edit.to_length(); j++, seq_idx++) {
-                        if (edit.sequence()[j] != subseq[seq_idx]) {
-#ifdef debug_multipath_mapper
-                            cerr << "validation failure on insertion sequence that does not match read" << endl;
-                            cerr << pb2json(mapping) << ", " << subseq << endl;
-#endif
-                            return false;
-                        }
-                    }
-                }
-                else if (edit_is_deletion(edit)) {
-                    node_idx += edit.from_length();
-                }
-            }
-            return true;
-        };
-        
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            const Subpath& subpath = multipath_aln.subpath(i);
-            const Path& path = subpath.path();
-            size_t read_start = subpath_read_interval[i].first;
-            for (size_t j = 0; j < path.mapping_size(); j++) {
-                size_t read_mapping_len = mapping_to_length(path.mapping(j));
-                if (!validate_mapping_edits(path.mapping(j), multipath_aln.sequence().substr(read_start, read_mapping_len))) {
-                    return false;
-                }
-                read_start += read_mapping_len;
-            }
-        }
-        
-        // do the scores match the alignments?
-        
-        // TODO: this really deserves a test, but there's a factoring problem because the qual adj aligner needs to know
-        // the node sequence to score mismatches but the node sequence is not stored in the Alignment object
-        
-//        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-//            const Subpath& subpath = multipath_aln.subpath(i);
-//            Alignment& alignment;
-//            *alignment.mutable_sequence() = multipath_aln.sequence().substr(subpath_read_interval[i].first,
-//                                                                            subpath_read_interval[i].second - subpath_read_interval[i].first);
-//            *alignment.mutable_quality() = multipath_aln.quality().substr(subpath_read_interval[i].first,
-//                                                                          subpath_read_interval[i].second - subpath_read_interval[i].first);
-//            *alignment.mutable_path() = subpath.path();
-//        }
-        
-        
-        return true;
     }
             
     // make the memos live in this .o file

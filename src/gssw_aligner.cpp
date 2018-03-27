@@ -1154,6 +1154,56 @@ int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::con
     return score_exact_match(seq_begin, seq_end);
 }
 
+int32_t Aligner::score_partial_alignment(const Alignment& alignment, VG& graph, const Path& path,
+                                         string::const_iterator seq_begin) const{
+    
+    int32_t score = 0;
+    string::const_iterator read_pos = seq_begin;
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        const Mapping& mapping = path.mapping(i);
+        
+        for (size_t j = 0; j < mapping.edit_size(); j++) {
+            const Edit& edit = mapping.edit(j);
+            
+            if (edit.from_length() > 0) {
+                if (edit.to_length() > 0) {
+                    if (edit.sequence().empty()) {
+                        // match
+                        score += match * edit.from_length();
+                    }
+                    else {
+                        // mismatch
+                        score -= mismatch * edit.from_length();
+                    }
+                    
+                    // apply full length bonus
+                    if (read_pos == alignment.sequence().begin()) {
+                        score += full_length_bonus;
+                    }
+                    if (read_pos + edit.from_length() == alignment.sequence().end()) {
+                        score += full_length_bonus;
+                    }
+                }
+                else {
+                    // deletion
+                    score -= gap_open + (edit.from_length() - 1) * gap_extension;
+                }
+            }
+            else if (edit.to_length() > 0) {
+                // don't score soft clips
+                if (read_pos != alignment.sequence().begin() &&
+                    read_pos + edit.to_length() != alignment.sequence().end()) {
+                    // insert
+                    score -= gap_open + (edit.to_length() - 1) * gap_extension;
+                }
+            }
+            
+            read_pos += edit.to_length();
+        }
+    }
+    return score;
+}
+
 QualAdjAligner::QualAdjAligner(int8_t _match,
                                int8_t _mismatch,
                                int8_t _gap_open,
@@ -1436,6 +1486,67 @@ int32_t QualAdjAligner::score_exact_match(string::const_iterator seq_begin, stri
         // always have match so that row and column index are same and can combine algebraically
         score += score_matrix[25 * (*qual_iter) + 6 * nt_table[*seq_iter]];
         qual_iter++;
+    }
+    return score;
+}
+
+int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, VG& graph, const Path& path,
+                                                string::const_iterator seq_begin) const{
+    
+    int32_t score = 0;
+    string::const_iterator read_pos = seq_begin;
+    string::const_iterator qual_pos = alignment.quality().begin() + (seq_begin - alignment.sequence().begin());
+    
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        const Mapping& mapping = path.mapping(i);
+        
+        // get the sequence of this node on the proper strand
+        string rc_seq;
+        const string* node_seq = &(graph.get_node(mapping.position().node_id())->sequence());
+        if (mapping.position().is_reverse()) {
+            rc_seq = reverse_complement(*node_seq);
+            node_seq = &rc_seq;
+        }
+        
+        auto ref_pos = node_seq->begin() + mapping.position().offset();
+        
+        for (size_t j = 0; j < mapping.edit_size(); j++) {
+            const Edit& edit = mapping.edit(j);
+            
+            if (edit.from_length() > 0) {
+                if (edit.to_length() > 0) {
+                    
+                    for (auto siter = read_pos, riter = ref_pos, qiter = qual_pos;
+                         siter != read_pos + edit.from_length(); siter++, qiter++, riter++) {
+                        score += score_matrix[25 * (*qiter) + 5 * nt_table[*riter] + nt_table[*siter]];
+                    }
+                    
+                    // apply full length bonus
+                    if (read_pos == alignment.sequence().begin()) {
+                        score += full_length_bonus;
+                    }
+                    if (read_pos + edit.from_length() == alignment.sequence().end()) {
+                        score += full_length_bonus;
+                    }
+                }
+                else {
+                    // deletion
+                    score -= gap_open + (edit.from_length() - 1) * gap_extension;
+                }
+            }
+            else if (edit.to_length() > 0) {
+                // don't score soft clips
+                if (read_pos != alignment.sequence().begin() &&
+                    read_pos + edit.to_length() != alignment.sequence().end()) {
+                    // insert
+                    score -= gap_open + (edit.to_length() - 1) * gap_extension;
+                }
+            }
+            
+            read_pos += edit.to_length();
+            qual_pos += edit.to_length();
+            ref_pos += edit.from_length();
+        }
     }
     return score;
 }

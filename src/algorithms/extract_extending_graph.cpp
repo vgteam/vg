@@ -174,6 +174,10 @@ namespace algorithms {
         }
         
         if (cycled_to_source && preserve_cycles_on_src) {
+#ifdef debug_vg_algorithms
+            cerr << "[extract_extending_graph] we cycled to the source and we want to preserve cycles, duplicating source node" << endl;
+#endif
+            
             // we need to duplicate the source node to ensure that cycles on it will be preserved
             // after we cut it
             

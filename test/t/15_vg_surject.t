@@ -21,7 +21,7 @@ vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg > x.gam
 is $(vg view -aj j.gam | wc -l) \
     100 "reads are generated"
 
-is $(vg surject -p x -x x.xg -t 1 j.gam | vg view -a - | jq .score | grep 100 | wc -l) \
+is $(vg surject -p x -x x.xg -t 1 j.gam | vg view -a - | jq .score | grep 110 | wc -l) \
     100 "vg surject works perfectly for perfect reads derived from the reference"
     
 is $(vg surject -p x -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) \
