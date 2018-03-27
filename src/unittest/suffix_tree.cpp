@@ -16,6 +16,7 @@
 #include "catch.hpp"
 
 using namespace std;
+using namespace structures;
 
 namespace vg {
     namespace unittest {

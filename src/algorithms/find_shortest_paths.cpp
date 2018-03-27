@@ -5,9 +5,12 @@
  */
  
 #include "find_shortest_paths.hpp"
+#include <structures/updateable_priority_queue.hpp>
 
 namespace vg {
 namespace algorithms {
+
+using namespace structures;
 
 unordered_map<handle_t, size_t>  find_shortest_paths(const HandleGraph* g, handle_t start) {
 
@@ -28,7 +31,7 @@ unordered_map<handle_t, size_t>  find_shortest_paths(const HandleGraph* g, handl
     };
     
     // We use a filtered priority queue for auto-Dijkstra
-    FilteredPriorityQueue<Record, handle_t, vector<Record>, IsFirstGreater> queue([](const Record& item) {
+    UpdateablePriorityQueue<Record, handle_t, vector<Record>, IsFirstGreater> queue([](const Record& item) {
         return item.second;
     });
     

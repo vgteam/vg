@@ -32,6 +32,7 @@
 
 using namespace std;
 using namespace haplo;
+using namespace structures;
 
 namespace vg {
 
