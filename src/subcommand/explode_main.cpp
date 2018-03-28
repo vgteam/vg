@@ -112,7 +112,7 @@ int main_explode(int argc, char** argv) {
                 }
                 
                 // Copy paths over
-                for (auto& path : graph->paths.get_node_mapping(n)) {
+                for (auto& path : graph->paths.get_node_mapping_by_path_name(n)) {
                     // Some paths might not actually touch this node at all.
                     bool nonempty = false;
                     for (auto& m : path.second) {

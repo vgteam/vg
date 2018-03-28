@@ -9,6 +9,7 @@
 #include "utility.hpp"
 #include "mem.hpp"
 #include "xg.hpp"
+#include "handle.hpp"
 
 #include <functional>
 #include <string>
@@ -412,8 +413,12 @@ public:
     }
 };
 
+/// get the handles that a mem covers
+vector<pair<pos_t, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem);
+/// use walking to get the hits
+Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
 /// return a subgraph form an xg for a cluster of MEMs from the given alignment
-Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion = 1.61803);
+Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion);
 
 }
 

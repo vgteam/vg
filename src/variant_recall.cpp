@@ -146,7 +146,7 @@ void variant_recall(VG* graph,
     node_id_to_depth.reserve(10000);
 
     //Cache graph paths
-    unordered_map<string, list<Mapping> > gpaths( (graph->paths)._paths.begin(), (graph->paths)._paths.end()  );
+    unordered_map<string, list<mapping_t> > gpaths( (graph->paths)._paths.begin(), (graph->paths)._paths.end()  );
 
     // To allow non-flat alleles, we want to use SnarlTraversals rather than
     // paths.
@@ -194,11 +194,11 @@ void variant_recall(VG* graph,
         // mappings to nodes later.
         for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
             string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
-            list<Mapping> x_path = gpaths[ alt_id ];
-            for (Mapping x_m : x_path){
-                allele_name_to_node_id[ alt_id ].insert(x_m.position().node_id());
-                node_to_variant[x_m.position().node_id()] = alt_id;
-                variant_nodes.insert(x_m.position().node_id());
+            list<mapping_t> x_path = gpaths[ alt_id ];
+            for (mapping_t x_m : x_path){
+                allele_name_to_node_id[ alt_id ].insert(x_m.node_id());
+                node_to_variant[x_m.node_id()] = alt_id;
+                variant_nodes.insert(x_m.node_id());
             }
         }
 

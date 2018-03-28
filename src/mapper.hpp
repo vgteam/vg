@@ -69,7 +69,7 @@ public:
     AlignmentChainModel(
         vector<vector<Alignment> >& bands,
         Mapper* mapper,
-        const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&)>& transition_weight,
+        const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&, int64_t)>& transition_weight,
         int vertex_band_width = 10,
         int position_depth = 1,
         int max_connections = 30);
@@ -492,7 +492,7 @@ public:
                          double pval);
 
     /// use the fragment configuration statistics to rescue more precisely
-    pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, int full_length_bonus, bool traceback);
+    pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, bool& tried1, bool& tried2, int match_score, int full_length_bonus, bool traceback);
 
     /// assuming the read has only been score-aligned, realign from the end position backwards
     Alignment realign_from_start_position(const Alignment& aln, int extra, int iteration);

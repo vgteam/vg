@@ -6,14 +6,13 @@
 
 // Comment out to use sparse_hash_map and sparse_hash_set instead of
 // dense_hash_map and dense_hash_set.
-#define USE_DENSE_HASH
+//#define USE_DENSE_HASH
 
 #ifdef USE_DENSE_HASH
 #include <sparsehash/dense_hash_map>
 #include <sparsehash/dense_hash_set>
 #else
-#include <sparsehash/sparse_hash_map>
-#include <sparsehash/sparse_hash_set>
+#include <sparsepp/spp.h>
 #endif
 
 
@@ -149,7 +148,7 @@ template<typename K, typename V>
 #ifdef USE_DENSE_HASH
 class hash_map : public google::dense_hash_map<K, V, wang_hash<K>>
 #else
-class hash_map : public google::sparse_hash_map<K, V, wang_hash<K>>
+class hash_map : public spp::sparse_hash_map<K, V, wang_hash<K>>
 #endif
     {
 public:
@@ -165,7 +164,7 @@ template<typename K, typename V>
 #ifdef USE_DENSE_HASH
 class string_hash_map : public google::dense_hash_map<K, V>
 #else
-class string_hash_map : public google::sparse_hash_map<K, V>
+class string_hash_map : public spp::sparse_hash_map<K, V>
 #endif
 {
 public:
@@ -181,7 +180,7 @@ template<typename K, typename V>
 #ifdef USE_DENSE_HASH
 class pair_hash_map : public google::dense_hash_map<K, V, wang_hash<K>>
 #else
-class pair_hash_map : public google::sparse_hash_map<K, V, wang_hash<K>>
+class pair_hash_map : public spp::sparse_hash_map<K, V, wang_hash<K>>
 #endif
 {
 public:
@@ -197,7 +196,7 @@ template<typename K, typename V>
 #ifdef USE_DENSE_HASH
 class hash_map<K*, V> : public google::dense_hash_map<K*, V, wang_hash<K*>>
 #else
-class hash_map<K*, V> : public google::sparse_hash_map<K*, V, wang_hash<K*>>
+class hash_map<K*, V> : public spp::sparse_hash_map<K*, V, wang_hash<K*>>
 #endif
 {
 public:
@@ -216,7 +215,7 @@ template<typename K>
 #ifdef USE_DENSE_HASH
 class hash_set : public google::dense_hash_set<K, wang_hash<K>>
 #else
-class hash_set : public google::sparse_hash_set<K, wang_hash<K>>
+class hash_set : public spp::sparse_hash_set<K, wang_hash<K>>
 #endif
     {
 public:
@@ -232,7 +231,7 @@ template<typename K>
 #ifdef USE_DENSE_HASH
 class string_hash_set : public google::dense_hash_set<K>
 #else
-class string_hash_set : public google::sparse_hash_set<K>
+class string_hash_set : public spp::sparse_hash_set<K>
 #endif
 {
 public:
@@ -248,7 +247,7 @@ template<typename K>
 #ifdef USE_DENSE_HASH
 class pair_hash_set : public google::dense_hash_set<K, wang_hash<K>>
 #else
-class pair_hash_set : public google::sparse_hash_set<K, wang_hash<K>>
+class pair_hash_set : public spp::sparse_hash_set<K, wang_hash<K>>
 #endif
 {
 public:
@@ -264,7 +263,7 @@ template<typename K>
 #ifdef USE_DENSE_HASH
 class hash_set<K*> : public google::dense_hash_set<K*, wang_hash<K*>>
 #else
-class hash_set<K*> : public google::sparse_hash_set<K*, wang_hash<K*>>
+class hash_set<K*> : public spp::sparse_hash_set<K*, wang_hash<K*>>
 #endif
 {
 public:

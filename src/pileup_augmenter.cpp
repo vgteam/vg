@@ -216,7 +216,7 @@ void PileupAugmenter::update_augmented_graph() {
     annotate_non_augmented_nodes();
 }
 
-void PileupAugmenter::map_path(const Path& path, list<Mapping>& aug_path, bool expect_edits) {
+void PileupAugmenter::map_path(const Path& path, list<mapping_t>& aug_path, bool expect_edits) {
     int64_t last_rank = -1;
     int64_t last_call_rank = 0;
     size_t running_len = 0;
@@ -265,7 +265,7 @@ void PileupAugmenter::map_path(const Path& path, list<Mapping>& aug_path, bool e
         for (auto& cm : aug_mappings) {
             running_len += mapping_from_length(cm);
             cm.set_rank(++last_call_rank);
-            aug_path.push_back(cm);
+            aug_path.push_back(mapping_t(cm));
         }
         path_len += len;
         last_rank = rank; 
@@ -355,7 +355,7 @@ void PileupAugmenter::map_paths() {
     
     // We don't remove any nodes, so paths always stay connected
     function<void(const Path&)> lambda = [&](const Path& path) {
-        list<Mapping>& call_path = _augmented_graph.graph.paths.create_path(path.name());
+        list<mapping_t>& call_path = _augmented_graph.graph.paths.create_path(path.name());
         map_path(path, call_path, false);
     };
     _graph->paths.for_each(lambda);
@@ -366,11 +366,10 @@ void PileupAugmenter::map_paths() {
     _augmented_graph.graph.paths.to_graph(_augmented_graph.graph.graph);    
 }
 
-void PileupAugmenter::verify_path(const Path& in_path, const list<Mapping>& call_path) {
-    function<string(VG*, const Mapping&)> lambda = [](VG* graph, const Mapping& mapping) {
-        const Position& pos = mapping.position();
-        const Node* node = graph->get_node(pos.node_id());
-        return mapping_sequence(mapping, *node);
+void PileupAugmenter::verify_path(const Path& in_path, const list<mapping_t>& call_path) {
+    function<string(VG*, const mapping_t&)> lambda = [](VG* graph, const mapping_t& mapping) {
+        const Node* node = graph->get_node(mapping.node_id());
+        return mapping_sequence(mapping.to_mapping(), *node);
     };
 
     string in_string;
