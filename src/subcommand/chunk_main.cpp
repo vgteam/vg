@@ -467,7 +467,7 @@ int main_chunk(int argc, char** argv) {
         } else {
             if (chunk_graph || context_steps > 0) {
                 subgraph = new VG();
-                output_regions[i].seq = region.seq;                
+                output_regions[i].seq = region.seq;
                 chunker.extract_id_range(region.start, region.end,
                                          context_steps, context_length, trace,
                                          *subgraph, output_regions[i]);
