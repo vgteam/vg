@@ -7,10 +7,11 @@
 
 //#define debug_od_clusterer
 
+using namespace std;
+using namespace structures;
+
 namespace vg {
     
-using namespace std;
-
 MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
     const vector<vector<MaximalExactMatch> >& matches,

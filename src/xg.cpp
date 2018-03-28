@@ -2764,7 +2764,7 @@ int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1,
         // distance is measure at the end of the node, so it's actually the distance
         // to the next nodes we will traverse to
         // there is a separate queue for each of the positions
-        // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a FilteredPriorityQueue.
+        // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a UpdateablePriorityQueue.
         priority_queue<Traversal> queue_1, queue_2;
         unordered_set<handle_t> queued_1, queued_2;
         
@@ -2999,7 +2999,7 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
         // distance is measure at the end of the node, so it's actually the distance
         // to the next nodes we will traverse to
         // there is a separate queue for each of the positions
-        // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a FilteredPriorityQueue.
+        // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a UpdateablePriorityQueue.
         priority_queue<Traversal> queue_1, queue_2;
         unordered_set<handle_t> queued_1, queued_2;
         
@@ -3278,7 +3278,7 @@ vector<tuple<int64_t, bool, size_t>> XG::jump_along_closest_path(int64_t id, boo
         return found_jumpable_path;
     };
     
-    // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a FilteredPriorityQueue.
+    // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a UpdateablePriorityQueue.
     priority_queue<Traversal> queue;
     unordered_set<handle_t> traversed;
     
@@ -3393,7 +3393,7 @@ pair<bool, bool> XG::validate_strand_consistency(int64_t id1, size_t offset1, bo
         // distance is measure at the end of the node, so it's actually the distance
         // to the next nodes we will traverse to
         // there is a separate queue for each of the positions
-        // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a FilteredPriorityQueue.
+        // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a UpdateablePriorityQueue.
         priority_queue<Traversal> queue_1, queue_2;
         unordered_set<handle_t> queued_1, queued_2;
         
