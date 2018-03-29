@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <tuple>
+#include <type_traits>
 
 // Comment out to use sparse_hash_map and sparse_hash_set instead of
 // dense_hash_map and dense_hash_set.
@@ -101,37 +102,31 @@ inline size_t wang_hash_64(size_t key) {
     return key;
 }
 
-template<typename T>
+// We need this second type for enable_if-based specialization
+template<typename T, typename ImplementationMatched = void>
 struct wang_hash;
 
+// We can hash pointers
 template<typename T>
 struct wang_hash<T*> {
-    size_t operator()(T* pointer) const {
+    size_t operator()(const T* pointer) const {
         return wang_hash_64(reinterpret_cast<size_t>(pointer));
     }
 };
 
-template<>
-struct wang_hash<std::int64_t> {
-    size_t operator()(std::int64_t x) const {
+// We can hash any integer that can be implicitly widened to size_t.
+// This covers 32 bit ints (which we need to be able to hash on Mac) and 64 bit ints
+// This also coveres bools.
+// See <https://stackoverflow.com/a/42679086>
+template<typename T>
+struct wang_hash<T, typename std::enable_if<std::is_integral<T>::value>::type> {
+    size_t operator()(const T& x) const {
+        static_assert(sizeof(T) <= sizeof(size_t), "widest hashable type is size_t");
         return wang_hash_64(static_cast<size_t>(x));
     }
 };
 
-template<>
-struct wang_hash<std::uint64_t> {
-    size_t operator()(std::uint64_t x) const {
-        return wang_hash_64(static_cast<size_t>(x));
-    }
-};
-
-template<>
-struct wang_hash<bool> {
-    size_t operator()(bool x) const {
-        return wang_hash_64(static_cast<size_t>(x));
-    }
-};
-
+// We can hash pairs
 template<typename A, typename B>
 struct wang_hash<std::pair<A, B>> {
     size_t operator()(const std::pair<A, B>& x) const {
