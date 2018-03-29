@@ -356,6 +356,45 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     fi
     wait_on_jobs
     
+    # This should replicate our best known performance...
+    CONDITIONS+=("snp1kg-mp-gbwt-traceback-snarlcut-unfiltered")
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback-snarlcut-unfiltered" ]]; then
+        # Do the full snp1kg graph multipath with gbwt
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp-gbwt-traceback-snarlcut-unfiltered" "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback-snarlcut-unfiltered" \
+            --single_reads_chunk \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
+            --multipath-only \
+            --use-gbwt \
+            --use-snarls \
+            --mpmap_opts "--max-paths 10" \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}" \
+            --gam-names snp1kg-gbwt-traceback-snarlcut-unfiltered 2>&1 &
+        JOB_ARRAY+=("$!")
+    fi
+    wait_on_jobs
+    
+    CONDITIONS+=("snp1kg-mp-gbwt-traceback")
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback" ]]; then
+        # Do the full snp1kg graph multipath with gbwt
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp-gbwt-traceback" "${OUTPUT_PATH}/snp1kg-mp-gbwt-traceback" \
+            --single_reads_chunk \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
+            --multipath-only \
+            --use-gbwt \
+            --use-snarls \
+            --mpmap_opts "--max-paths 10" \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
+            --gam-names snp1kg-gbwt-traceback 2>&1 &
+        JOB_ARRAY+=("$!")
+    fi
+    wait_on_jobs
+    
     CONDITIONS+=("snp1kg-mp-minaf-snarlcut")
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-minaf-snarlcut" ]]; then
         # And with the min allele frequency
@@ -369,6 +408,91 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minaf_${MIN_AF}" \
             --gam-names snp1kg-minaf-snarlcut 2>&1 &
+        JOB_ARRAY+=("$!")
+    fi
+    wait_on_jobs
+    
+    CONDITIONS+=("snp1kg-mp-minaf")
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-minaf" ]]; then
+        # And with the min allele frequency
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp-minaf" "${OUTPUT_PATH}/snp1kg-mp-minaf" \
+            --single_reads_chunk \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
+            --multipath-only \
+            --use-snarls \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minaf_${MIN_AF}" \
+            --gam-names snp1kg-minaf 2>&1 &
+        JOB_ARRAY+=("$!")
+    fi
+    wait_on_jobs
+    
+    CONDITIONS+=("snp1kg-mp-positive-snarlcut")
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-positive-snarlcut" ]]; then    
+        # And the positive control with only real variants
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp-positive-snarlcut" "${OUTPUT_PATH}/snp1kg-mp-positive-snarlcut" \
+            --single_reads_chunk \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
+            --multipath-only \
+            --use-snarls \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}" \
+            --gam-names snp1kg-positive-snarlcut 2>&1 &
+        JOB_ARRAY+=("$!")
+    fi
+    wait_on_jobs
+    
+    CONDITIONS+=("snp1kg-mp-positive")
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-positive" ]]; then    
+        # And the positive control with only real variants
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp-positive" "${OUTPUT_PATH}/snp1kg-mp-positive" \
+            --single_reads_chunk \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
+            --multipath-only \
+            --use-snarls \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}" \
+            --gam-names snp1kg-positive 2>&1 &
+        JOB_ARRAY+=("$!")
+    fi
+    wait_on_jobs
+    
+    CONDITIONS+=("primary-mp-snarlcut")
+    if [[ ! -e "${OUTPUT_PATH}/primary-mp-snarlcut" ]]; then
+        # And the primary path only
+        toil-vg mapeval "${TREE_PATH}/primary-mp-snarlcut" "${OUTPUT_PATH}/primary-mp-snarlcut" \
+            --single_reads_chunk \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
+            --multipath-only \
+            --use-snarls \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
+            --index-bases "${GRAPHS_PATH}/primary" \
+            --gam-names primary-snarlcut 2>&1 &
+        JOB_ARRAY+=("$!")
+    fi
+    wait_on_jobs
+    
+    CONDITIONS+=("primary-mp")
+    if [[ ! -e "${OUTPUT_PATH}/primary-mp" ]]; then
+        # And the primary path only
+        toil-vg mapeval "${TREE_PATH}/primary-mp" "${OUTPUT_PATH}/primary-mp" \
+            --single_reads_chunk \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
+            --multipath-only \
+            --use-snarls \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
+            --index-bases "${GRAPHS_PATH}/primary" \
+            --gam-names primary 2>&1 &
         JOB_ARRAY+=("$!")
     fi
     wait_on_jobs
@@ -400,67 +524,33 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
     #fi
     #wait_on_jobs
     
-    CONDITIONS+=("snp1kg-mp-slls-snarlcut")
-    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut/position.results.tsv" ]]; then
-        # This one's a bit different since we need to manually do the mapping
-        if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut/aligned-snp1kg-slls-snarlcut-pe_default.gam" ]]; then
-            mkdir -p "${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut"
-            vg mpmap --linear-index "${SLLS_INDEX}" \
-                --linear-path "${GRAPH_CONTIG}" \
-                -x "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter.xg" \
-                -g "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter.gcsa" \
-                --snarls "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter.snarls" \
-                --fastq "${READS_DIR}/sim.fq.gz" \
-                -i \
-                -S \
-                -t 32 \
-                >"${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut/aligned-snp1kg-slls-snarlcut-pe_default.gam"
-        fi
-        # Then do the mapeval
-        toil-vg mapeval "${TREE_PATH}/snp1kg-mp-slls-snarlcut" "${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut" \
-            --gams "${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut/aligned-snp1kg-slls-snarlcut-pe_default.gam" \
-            --config "${TREE_PATH}/toil-vg.conf" \
-            --maxDisk 100G \
-            --truth "${READS_DIR}/true.pos" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
-            --gam-names snp1kg-slls-snarlcut-mp-pe 2>&1 &
-        JOB_ARRAY+=("$!")
-    fi
-    wait_on_jobs
-    
-    CONDITIONS+=("snp1kg-mp-positive-snarlcut")
-    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-positive-snarlcut" ]]; then    
-        # And the positive control with only real variants
-        toil-vg mapeval "${TREE_PATH}/snp1kg-mp-positive-snarlcut" "${OUTPUT_PATH}/snp1kg-mp-positive-snarlcut" \
-            --single_reads_chunk \
-            --config "${TREE_PATH}/toil-vg.conf" \
-            --maxDisk 100G \
-            --multipath-only \
-            --use-snarls \
-            --fastq "${READS_DIR}/sim.fq.gz" \
-            --truth "${READS_DIR}/true.pos" \
-            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}" \
-            --gam-names snp1kg-positive-snarlcut 2>&1 &
-        JOB_ARRAY+=("$!")
-    fi
-    wait_on_jobs
-    
-    CONDITIONS+=("primary-mp-snarlcut")
-    if [[ ! -e "${OUTPUT_PATH}/primary-mp-snarlcut" ]]; then
-        # And the primary path only
-        toil-vg mapeval "${TREE_PATH}/primary-mp-snarlcut" "${OUTPUT_PATH}/primary-mp-snarlcut" \
-            --single_reads_chunk \
-            --config "${TREE_PATH}/toil-vg.conf" \
-            --maxDisk 100G \
-            --multipath-only \
-            --use-snarls \
-            --fastq "${READS_DIR}/sim.fq.gz" \
-            --truth "${READS_DIR}/true.pos" \
-            --index-bases "${GRAPHS_PATH}/primary" \
-            --gam-names primary-snarlcut 2>&1 &
-        JOB_ARRAY+=("$!")
-    fi
-    wait_on_jobs
+    #CONDITIONS+=("snp1kg-mp-slls-snarlcut")
+    #if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut/position.results.tsv" ]]; then
+    #    # This one's a bit different since we need to manually do the mapping
+    #    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut/aligned-snp1kg-slls-snarlcut-pe_default.gam" ]]; then
+    #        mkdir -p "${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut"
+    #        vg mpmap --linear-index "${SLLS_INDEX}" \
+    #            --linear-path "${GRAPH_CONTIG}" \
+    #            -x "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter.xg" \
+    #            -g "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter.gcsa" \
+    #            --snarls "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter.snarls" \
+    #            --fastq "${READS_DIR}/sim.fq.gz" \
+    #            -i \
+    #            -S \
+    #            -t 32 \
+    #            >"${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut/aligned-snp1kg-slls-snarlcut-pe_default.gam"
+    #    fi
+    #    # Then do the mapeval
+    #    toil-vg mapeval "${TREE_PATH}/snp1kg-mp-slls-snarlcut" "${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut" \
+    #        --gams "${OUTPUT_PATH}/snp1kg-mp-slls-snarlcut/aligned-snp1kg-slls-snarlcut-pe_default.gam" \
+    #        --config "${TREE_PATH}/toil-vg.conf" \
+    #        --maxDisk 100G \
+    #        --truth "${READS_DIR}/true.pos" \
+    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
+    #        --gam-names snp1kg-slls-snarlcut-mp-pe 2>&1 &
+    #    JOB_ARRAY+=("$!")
+    #fi
+    #wait_on_jobs
 
 fi
 
