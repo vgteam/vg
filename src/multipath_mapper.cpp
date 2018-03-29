@@ -1615,7 +1615,8 @@ namespace vg {
     void MultipathMapper::split_multicomponent_alignments(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const {
         
-        for (size_t i = 0; i < multipath_aln_pairs_out.size(); i++) {
+        size_t original_num_pairs = multipath_aln_pairs_out.size();
+        for (size_t i = 0; i < original_num_pairs; i++) {
             vector<vector<int64_t>> connected_components_1 = connected_components(multipath_aln_pairs_out[i].first);
             vector<vector<int64_t>> connected_components_2 = connected_components(multipath_aln_pairs_out[i].second);
             
@@ -1640,7 +1641,8 @@ namespace vg {
                 cerr << endl;
             }
 #endif
-            
+            // we will put pairs of split up components in here
+            vector<pair<MultipathAlignment, MultipathAlignment>> split_multipath_alns;
             
             if (connected_components_1.size() > 1 && connected_components_2.size() > 1) {
 #ifdef debug_multipath_mapper
@@ -1649,106 +1651,68 @@ namespace vg {
                 // need to split both ends
                 for (size_t j = 0; j < connected_components_1.size(); j++) {
                     for (size_t k = 0; k < connected_components_2.size(); k++) {
-                        if (j == 0 && k == 0) {
-                            // save the first component to go back into the original index in the return vector
-                            continue;
-                        }
-                        multipath_aln_pairs_out.emplace_back();
+                        split_multipath_alns.emplace_back();
                         extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[j],
-                                                        multipath_aln_pairs_out.back().first);
+                                                        split_multipath_alns.back().first);
                         extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[k],
-                                                        multipath_aln_pairs_out.back().second);
-                        // add a distance for scoring purposes (possibly unstranded since this comes before enforcing strand consistency)
-                        cluster_pairs.emplace_back(cluster_pairs[i].first,
-                                                   distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second,
-                                                                    true, unstranded_clustering));
-#ifdef debug_multipath_mapper
-                        cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
-                        cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
-                        cerr  << pb2json(multipath_aln_pairs_out.back().second) << endl;
-#endif                    
+                                                        split_multipath_alns.back().second);
                     }
                 }
-                // put the first component pair into the original location
-                MultipathAlignment last_component;
-                extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[0], last_component);
-                multipath_aln_pairs_out[i].first = last_component;
-                last_component.Clear();
-                extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[0], last_component);
-                multipath_aln_pairs_out[i].second = last_component;
-                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second,
-                                                           true, unstranded_clustering);
-                
-#ifdef debug_multipath_mapper
-                cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
-                cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
-                cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
-#endif
-                
             }
             else if (connected_components_1.size() > 1) {
 #ifdef debug_multipath_mapper
                 cerr << "splitting read 1 multicomponent alignments" << endl;
 #endif
                 // only need to split first end
-                for (size_t j = 1; j < connected_components_1.size(); j++) {
-                    multipath_aln_pairs_out.emplace_back(MultipathAlignment(), multipath_aln_pairs_out[i].second);
+                for (size_t j = 0; j < connected_components_1.size(); j++) {
+                    split_multipath_alns.emplace_back(MultipathAlignment(), multipath_aln_pairs_out[i].second);
                     extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[j],
-                                                    multipath_aln_pairs_out.back().first);
-                    // add a distance for scoring purposes (possibly unstranded since this comes before enforcing strand consistency)
-                    cluster_pairs.emplace_back(cluster_pairs[i].first,
-                                               distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second,
-                                                                true, unstranded_clustering));
-#ifdef debug_multipath_mapper
-                    cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
-                    cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
-                    cerr  << pb2json(multipath_aln_pairs_out.back().second) << endl;
-#endif
+                                                    split_multipath_alns.back().first);
                 }
-                // put the first component into the original location
-                MultipathAlignment last_component;
-                extract_sub_multipath_alignment(multipath_aln_pairs_out[i].first, connected_components_1[0], last_component);
-                multipath_aln_pairs_out[i].first = last_component;
-                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second,
-                                                           true, unstranded_clustering);
-                
-#ifdef debug_multipath_mapper
-                cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
-                cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
-                cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
-#endif
             }
             else if (connected_components_2.size() > 1) {
 #ifdef debug_multipath_mapper
                 cerr << "splitting read 2 multicomponent alignments" << endl;
 #endif
                 // only need to split second end
-                for (size_t j = 1; j < connected_components_2.size(); j++) {
-                    multipath_aln_pairs_out.emplace_back(multipath_aln_pairs_out[i].first, MultipathAlignment());
+                for (size_t j = 0; j < connected_components_2.size(); j++) {
+                    split_multipath_alns.emplace_back(multipath_aln_pairs_out[i].first, MultipathAlignment());
                     extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[j],
                                                     multipath_aln_pairs_out.back().second);
-                    // add a distance for scoring purposes (possibly unstranded since this comes before enforcing strand consistency)
-                    cluster_pairs.emplace_back(cluster_pairs[i].first,
-                                               distance_between(multipath_aln_pairs_out.back().first, multipath_aln_pairs_out.back().second,
-                                                                true, unstranded_clustering));
-#ifdef debug_multipath_mapper
-                    cerr << "added component pair at distance " << cluster_pairs.back().second << ":" << endl;
-                    cerr  << pb2json(multipath_aln_pairs_out.back().first) << endl;
-                    cerr  << pb2json(multipath_aln_pairs_out.back().second) << endl;
-#endif
                 }
-                // put the first component into the original location
-                MultipathAlignment last_component;
-                extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[0], last_component);
-                multipath_aln_pairs_out[i].second = last_component;
-                cluster_pairs[i].second = distance_between(multipath_aln_pairs_out[i].first, multipath_aln_pairs_out[i].second,
-                                                           true, unstranded_clustering);
+            }
+            
+            // are there split up pairs to add to the output vector?
+            if (!split_multipath_alns.empty()) {
                 
+                bool replaced_original = false;
+                for (pair<MultipathAlignment, MultipathAlignment>& split_multipath_aln_pair : split_multipath_alns) {
+                    // we also need to measure the disance for scoring
+                    int64_t dist = distance_between(split_multipath_aln_pair.first, split_multipath_aln_pair.second,
+                                                    true, unstranded_clustering);
+                    
+                    // if we can't measure a distance, then don't add the pair
+                    if (dist != numeric_limits<int64_t>::max()) {
+                        
 #ifdef debug_multipath_mapper
-                cerr << "added component pair at distance " << cluster_pairs[i].second << ":" << endl;
-                cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
-                cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
+                        cerr << "adding component pair at distance " << dist << ":" << endl;
+                        cerr  << pb2json(split_multipath_aln_pair.first) << endl;
+                        cerr  << pb2json(split_multipath_aln_pair.second) << endl;
 #endif
+                        
+                        if (!replaced_original) {
+                            // put the first one back into the original position in the output vector
+                            multipath_aln_pairs_out[i] = move(split_multipath_aln_pair);
+                            cluster_pairs[i].second = dist;
+                            replaced_original = true;
+                        }
+                        else {
+                            // append the rest of them to the end
+                            multipath_aln_pairs_out.emplace_back(move(split_multipath_aln_pair));
+                            cluster_pairs.emplace_back(cluster_pairs[i].first, dist);
+                        }
+                    }
+                }
             }
         }
     }
