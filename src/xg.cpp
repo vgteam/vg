@@ -3563,8 +3563,6 @@ void XG::get_path_range(const string& name, int64_t start, int64_t stop, Graph& 
                 p->set_name(m.first);
             }
             Path* new_path = local_paths[m.first];
-            // TODO output mapping direction
-            //if () { m.second.is_reverse(true); }
             for (auto& n : m.second) {
                 *new_path->add_mapping() = n;
             }
