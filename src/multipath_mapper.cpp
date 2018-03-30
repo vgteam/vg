@@ -1678,7 +1678,7 @@ namespace vg {
                 for (size_t j = 0; j < connected_components_2.size(); j++) {
                     split_multipath_alns.emplace_back(multipath_aln_pairs_out[i].first, MultipathAlignment());
                     extract_sub_multipath_alignment(multipath_aln_pairs_out[i].second, connected_components_2[j],
-                                                    multipath_aln_pairs_out.back().second);
+                                                    split_multipath_alns.back().second);
                 }
             }
             
