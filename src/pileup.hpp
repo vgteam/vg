@@ -97,8 +97,9 @@ public:
     }
     void clear();
 
-    typedef hash_map<int64_t, NodePileup*> NodePileupHash;
-    typedef pair_hash_map<pair<NodeSide, NodeSide>, EdgePileup*> EdgePileupHash;
+    // XXXX these should be hash_map but it won't compile unless they're explicitly defined
+    typedef spp::sparse_hash_map<int64_t, NodePileup*, wang_hash<int64_t> > NodePileupHash;
+    typedef spp::sparse_hash_map<pair<NodeSide, NodeSide>, EdgePileup*, wang_hash<pair<NodeSide, NodeSide> > > EdgePileupHash;
 
     VG* _graph;
     

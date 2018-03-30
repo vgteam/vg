@@ -69,7 +69,7 @@ public:
     AlignmentChainModel(
         vector<vector<Alignment> >& bands,
         Mapper* mapper,
-        const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&)>& transition_weight,
+        const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&, int64_t)>& transition_weight,
         int vertex_band_width = 10,
         int position_depth = 1,
         int max_connections = 30);
@@ -158,7 +158,9 @@ public:
     double estimate_gc_content(void);
     
     int random_match_length(double chance_random);
-    
+   
+    void load_scoring_matrix(std::ifstream& matrix_stream);
+
     void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
         double haplotype_consistency_exponent = 1);
     
@@ -490,7 +492,7 @@ public:
                          double pval);
 
     /// use the fragment configuration statistics to rescue more precisely
-    pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, int full_length_bonus, bool traceback);
+    pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, bool& tried1, bool& tried2, int match_score, int full_length_bonus, bool traceback);
 
     /// assuming the read has only been score-aligned, realign from the end position backwards
     Alignment realign_from_start_position(const Alignment& aln, int extra, int iteration);

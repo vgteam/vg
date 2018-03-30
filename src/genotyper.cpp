@@ -2346,22 +2346,22 @@ VG Genotyper::make_subset_graph(VG& graph, const string& ref_path_name,
     // TODO: once Cactus can root without hints, we can discard this
     if(graph.paths.has_path(ref_path_name)) {
         // We actually have a reference path, so get it for traversing.
-        list<Mapping>& ref_mappings = graph.paths.get_path(ref_path_name);
+        list<mapping_t>& ref_mappings = graph.paths.get_path(ref_path_name);
         // We need to remember the previous mapping for finding edges
-        list<Mapping>::iterator last_mapping = ref_mappings.end();
-        for(list<Mapping>::iterator mapping = ref_mappings.begin(); mapping != ref_mappings.end(); ++mapping) {
+        list<mapping_t>::iterator last_mapping = ref_mappings.end();
+        for(list<mapping_t>::iterator mapping = ref_mappings.begin(); mapping != ref_mappings.end(); ++mapping) {
             // For each mapping along the reference path
 
             // What node is it on?
-            id_t node_id = mapping->position().node_id();
+            id_t node_id = mapping->node_id();
             // Make sure it is supported
             supported_nodes.insert(graph.get_node(node_id));
 
             if(last_mapping != ref_mappings.end()) {
                 // We're coming from another mapping and need to support the edge
 
-                NodeSide last(last_mapping->position().node_id(), !last_mapping->position().is_reverse());
-                NodeSide here(node_id, mapping->position().is_reverse());
+                NodeSide last(last_mapping->node_id(), !last_mapping->is_reverse());
+                NodeSide here(node_id, mapping->is_reverse());
 
                 Edge* edge = graph.get_edge(last, here);
 

@@ -12,6 +12,8 @@
 #include "multipath_mapper.hpp"
 #include "multipath_alignment_graph.hpp"
 
+#include "algorithms/topological_sort.hpp"
+
 namespace vg {
     
     //size_t MultipathMapper::PRUNE_COUNTER = 0;
@@ -210,7 +212,7 @@ namespace vg {
             cerr << "validating multipath alignment:" << endl;
             cerr << pb2json(multipath_aln) << endl;
 #endif
-            if (!validate_multipath_alignment(multipath_aln)) {
+            if (!validate_multipath_alignment(multipath_aln, *xindex)) {
                 cerr << "### WARNING ###" << endl;
                 cerr << "multipath alignment of read " << multipath_aln.name() << " failed to validate" << endl;
             }
@@ -890,11 +892,11 @@ namespace vg {
             cerr << pb2json(multipath_aln_pair.first) << endl;
             cerr << pb2json(multipath_aln_pair.second) << endl;
 #endif
-            if (!validate_multipath_alignment(multipath_aln_pair.first)) {
+            if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
                 cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
             }
-            if (!validate_multipath_alignment(multipath_aln_pair.second)) {
+            if (!validate_multipath_alignment(multipath_aln_pair.second, *xindex)) {
                 cerr << "### WARNING ###" << endl;
                 cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
             }
@@ -1850,11 +1852,11 @@ namespace vg {
             cerr << pb2json(multipath_aln_pair.first) << endl;
             cerr << pb2json(multipath_aln_pair.second) << endl;
 #endif
-            if (!validate_multipath_alignment(multipath_aln_pair.first)) {
+            if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
                 cerr << "### WARNING ###" << endl;
                 cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
             }
-            if (!validate_multipath_alignment(multipath_aln_pair.second)) {
+            if (!validate_multipath_alignment(multipath_aln_pair.second, *xindex)) {
                 cerr << "### WARNING ###" << endl;
                 cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
             }
@@ -1921,7 +1923,7 @@ namespace vg {
             // extract the protobuf Graph in place in the VG
             algorithms::extract_containing_graph(xindex, graph, positions, forward_max_dist,
                                                  backward_max_dist);
-            
+                                                 
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
             unordered_set<size_t> overlapping_graphs;
@@ -2188,17 +2190,41 @@ namespace vg {
 #endif
         
         // construct a graph that summarizes reachability between MEMs
-        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, gcsa, snarl_manager, max_snarl_cut_size);
+        // First we need to reverse node_trans
+        auto node_inj = MultipathAlignmentGraph::create_injection_trans(node_trans);
+        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, node_inj, gcsa);
         
-        vector<size_t> topological_order;
-        multi_aln_graph.topological_sort(topological_order);
+        {
+            // Compute a topological order over the graph
+            vector<size_t> topological_order;
+            multi_aln_graph.topological_sort(topological_order);
+            
+            // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
+            multi_aln_graph.remove_transitive_edges(topological_order);
+            
+            // prune this graph down the paths that have reasonably high likelihood
+            multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
+                                                        max_suboptimal_path_score_ratio, topological_order);
+        }
+                      
+        if (snarl_manager) {
+            // We want to do snarl cutting
+            
+            // We need to have no reachability edges to do it
+            multi_aln_graph.clear_reachability_edges();
         
-        // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
-        multi_aln_graph.remove_transitive_edges(topological_order);
-        
-        // prune this graph down the paths that have reasonably high likelihood
-        multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
-                                                    max_suboptimal_path_score_ratio, topological_order);
+            // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
+            multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
+            
+            // But then we need to reconstruct the reachability edges afterwards
+            multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
+
+        }
+
+#ifdef debug_multipath_mapper_alignment
+        cerr << "MultipathAlignmentGraph going into alignment:" << endl;
+        multi_aln_graph.to_dot(cerr);
+#endif
         
         // do the connecting alignments and fill out the MultipathAlignment object
         multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, band_padding, multipath_aln_out);
@@ -2312,10 +2338,9 @@ namespace vg {
             pop_adjusted_scores.resize(multipath_alns.size());
         }
         
-        // We need to track the min population score by itself (not converted
-        // to the alignment score log base) so we can adjust the
-        // pop_adjusted_scores up, turning the largest penalty into a 0 bonus.
-        double min_pop_score = numeric_limits<double>::max();
+        // We need to track the score adjustments so we can compensate for
+        // negative values, turning the largest penalty into a 0 bonus.
+        double min_adjustment = numeric_limits<double>::max();
 
         
         for (size_t i = 0; i < multipath_alns.size(); i++) {
@@ -2364,7 +2389,7 @@ namespace vg {
                     cerr << pb2json(alignments[j]) << endl;
 #endif
                    
-                    alignment_pop_scores[j] = pop_score.first;
+                    alignment_pop_scores[j] = pop_score.first / log_base;
                     
                     all_paths_pop_consistent &= pop_score.second;
                 }
@@ -2376,12 +2401,12 @@ namespace vg {
                     continue;
                 }
                 
-                // Otherwise, pick the best adjusted score and its pop score
+                // Otherwise, pick the best adjusted score and its difference from the best unadjusted score
                 pop_adjusted_scores[i] = numeric_limits<double>::min();
-                double best_alignment_pop_score;
+                double adjustment;
                 for (size_t j = 0; j < alignments.size(); j++) {
                     // Compute the adjusted score for each alignment
-                    auto adjusted_score = alignments[j].score() + alignment_pop_scores[j] / log_base;
+                    auto adjusted_score = alignments[j].score() + alignment_pop_scores[j];
                    
                     assert(!std::isnan(adjusted_score));
                    
@@ -2389,19 +2414,19 @@ namespace vg {
                         // It is the best, so use it.
                         // TODO: somehow know we want this Alignment when collapsing the MultipathAlignment later.
                         pop_adjusted_scores[i] = adjusted_score;
-                        best_alignment_pop_score = alignment_pop_scores[j];
+                        adjustment = pop_adjusted_scores[i] - base_scores[i];
                     }
                 }
                 
-                // Save the actual population score for it in the min pop score, if it is lower.
-                min_pop_score = min(min_pop_score, best_alignment_pop_score);
+                // See if we have a new minimum adjustment value, for the adjustment applicable to the chosen traceback.
+                min_adjustment = min(min_adjustment, adjustment);
             }
         }
         
         if (include_population_component && all_paths_pop_consistent) {
             for (auto& score : pop_adjusted_scores) {
-                // Adjust the adjusted scores up/down by the contributoon of the min pop score to ensure no scores are negative
-                score -= min_pop_score / log_base;
+                // Adjust the adjusted scores up/down by the minimum adjustment to ensure no scores are negative
+                score -= min_adjustment;
             }
         }
         
@@ -2521,21 +2546,22 @@ namespace vg {
                 // Make sure to grab the memo
                 auto& memo = get_rr_memo(recombination_penalty, xindex->get_haplotype_count());
                 
-                // What's the population score for each alignment?
-                vector<double> pop_scores1(alignments1.size());
-                vector<double> pop_scores2(alignments2.size());
+                // What's the base + population score for each alignment?
+                // We need to consider them together because there's a trade off between recombinations and mismatches.
+                vector<double> base_pop_scores1(alignments1.size());
+                vector<double> base_pop_scores2(alignments2.size());
                 
                 for (size_t j = 0; j < alignments1.size(); j++) {
                     // Pop score the first alignments
                     auto pop_score = haplo_score_provider->score(alignments1[j].path(), memo);
-                    pop_scores1[j] = pop_score.first;
+                    base_pop_scores1[j] = alignments1[j].score() + pop_score.first / log_base;
                     all_paths_pop_consistent &= pop_score.second;
                 }
                 
                 for (size_t j = 0; j < alignments2.size(); j++) {
                     // Pop score the second alignments
                     auto pop_score = haplo_score_provider->score(alignments2[j].path(), memo);
-                    pop_scores2[j] = pop_score.first;
+                    base_pop_scores2[j] = alignments2[j].score() + pop_score.first / log_base;
                     all_paths_pop_consistent &= pop_score.second;
                 }
                 
@@ -2545,24 +2571,23 @@ namespace vg {
                 }
                 
                 // Pick the best alignment on each side
-                auto best_index1 = max_element(pop_scores1.begin(), pop_scores1.end()) - pop_scores1.begin();
-                auto best_index2 = max_element(pop_scores2.begin(), pop_scores2.end()) - pop_scores2.begin();
-                
-                // And compute base score for those alignments and pop adjustment.
-                // TODO: Synchronize with single-end case about whether we store things base-adjusted or not!
-                alignment_score = alignments1[0].score() + alignments2[0].score();
-                double pop_score = (pop_scores1[best_index1] + pop_scores2[best_index2]) / log_base;
+                auto best_index1 = max_element(base_pop_scores1.begin(), base_pop_scores1.end()) - base_pop_scores1.begin();
+                auto best_index2 = max_element(base_pop_scores2.begin(), base_pop_scores2.end()) - base_pop_scores2.begin();
                 
                 // Compute the total pop adjusted score for this MultipathAlignment
-                pop_adjusted_scores[i] = alignment_score + frag_score + pop_score;
+                pop_adjusted_scores[i] = base_pop_scores1[best_index1] + base_pop_scores2[best_index2] + frag_score;
                 
-                assert(!std::isnan(alignment_score));
+                assert(!std::isnan(base_pop_scores1[best_index1]));
+                assert(!std::isnan(base_pop_scores2[best_index2]));
                 assert(!std::isnan(frag_score));
-                assert(!std::isnan(pop_score));
                 assert(!std::isnan(pop_adjusted_scores[i]));
                 
+                // How much was extra over the score of the top-base-score alignment on each side?
+                // This might be negative if e.g. that alignment looks terrible population-wise but we take it anyway.
+                auto extra = pop_adjusted_scores[i] - alignment_score;
+                
                 // Record our extra score if it was a new minimum
-                min_extra_score = min(frag_score + pop_score, min_extra_score);
+                min_extra_score = min(extra, min_extra_score);
             }
         }
         
@@ -2733,296 +2758,6 @@ namespace vg {
     
     void MultipathMapper::set_automatic_min_clustering_length(double random_mem_probability) {
         min_clustering_mem_length = max<int>(log(1.0 - pow(random_mem_probability, 1.0 / xindex->seq_length)) / log(0.25), 1);
-    }
-    
-    bool MultipathMapper::validate_multipath_alignment(const MultipathAlignment& multipath_aln) const {
-        
-        // are the subpaths in topological order?
-        
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            const Subpath& subpath = multipath_aln.subpath(i);
-            for (size_t j = 0; j < subpath.next_size(); j++) {
-                if (subpath.next(j) <= i) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on topological order" << endl;
-#endif
-                    return false;
-                }
-            }
-        }
-        
-        // are the start subpaths properly labeled (if they are included)?
-        
-        if (multipath_aln.start_size()) {
-            vector<bool> is_source(multipath_aln.subpath_size(), true);
-            for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-                const Subpath& subpath = multipath_aln.subpath(i);
-                for (size_t j = 0; j < subpath.next_size(); j++) {
-                    is_source[subpath.next(j)] = false;
-                }
-            }
-            
-            size_t num_starts = 0;
-            for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-                num_starts += is_source[i];
-            }
-            
-            if (num_starts != multipath_aln.start_size()) {
-#ifdef debug_multipath_mapper
-                cerr << "validation failure on correct number of starts" << endl;
-                for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-                    if (is_source[i]) {
-                        cerr << i << " ";
-                    }
-                }
-                cerr << endl;
-#endif
-                return false;
-            }
-            
-            for (size_t i = 0; i < multipath_aln.start_size(); i++) {
-                if (!is_source[multipath_aln.start(i)]) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on correctly identified starts" << endl;
-                    for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-                        if (is_source[i]) {
-                            cerr << i << " ";
-                        }
-                        cerr << endl;
-                    }
-#endif
-                    return false;
-                }
-            }
-        }
-        
-        // are the subpaths contiguous along the read?
-        
-        vector<pair<int64_t, int64_t>> subpath_read_interval(multipath_aln.subpath_size(), make_pair<int64_t, int64_t>(-1, -1));
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            
-            if (subpath_read_interval[i].first < 0) {
-                subpath_read_interval[i].first = 0;
-            }
-            
-            const Subpath& subpath = multipath_aln.subpath(i);
-            int64_t subsequence_length = path_to_length(subpath.path());
-            subpath_read_interval[i].second = subpath_read_interval[i].first + subsequence_length;
-            
-            if (!subpath.next_size()) {
-                if (subpath_read_interval[i].second != multipath_aln.sequence().size()) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on using complete read" << endl;
-                    cerr << "subpath " <<  i << " ends on sequence index " << subpath_read_interval[i].second << " of " << multipath_aln.sequence().size() << endl;
-                    cerr << pb2json(subpath) << endl;
-                    for (size_t j = 0; j < multipath_aln.subpath_size(); j++) {
-                        cerr << j << " (" << subpath_read_interval[j].first << ", " << subpath_read_interval[j].second << "): ";
-                        for (size_t k = 0; k < multipath_aln.subpath(j).next_size(); k++) {
-                            cerr << multipath_aln.subpath(j).next(k) << " ";
-                        }
-                        cerr << endl;
-                    }
-#endif
-                    return false;
-                }
-            }
-            else {
-                for (size_t j = 0; j < subpath.next_size(); j++) {
-                    if (subpath_read_interval[subpath.next(j)].first >= 0) {
-                        if (subpath_read_interval[subpath.next(j)].first != subpath_read_interval[i].second) {
-#ifdef debug_multipath_mapper
-                            cerr << "validation failure on read contiguity" << endl;
-#endif
-                            return false;
-                        }
-                    }
-                    else {
-                        subpath_read_interval[subpath.next(j)].first = subpath_read_interval[i].second;
-                    }
-                }
-            }
-        }
-        
-        // are all of the subpaths nonempty?
-        
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            if (multipath_aln.subpath(i).path().mapping_size() == 0) {
-#ifdef debug_multipath_mapper
-                cerr << "validation failure on containing only nonempty paths" << endl;
-                cerr << "subpath " << i << ": " << pb2json(multipath_aln.subpath(i)) << endl;
-#endif
-                return false;
-            }
-            for (size_t j = 0; j < multipath_aln.subpath(i).path().mapping_size(); j++) {
-                if (multipath_aln.subpath(i).path().mapping(j).edit_size() == 0) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on containing only nonempty mappings" << endl;
-                    cerr << "subpath " << i << ": " << pb2json(multipath_aln.subpath(i)) << endl;
-#endif
-                    return false;
-                }
-            }
-        }
-        
-        
-        // are the subpaths contiguous within the graph?
-        
-        auto validate_adjacent_mappings = [&](const Mapping& mapping_from, const Mapping& mapping_to) {
-            size_t mapping_from_end_offset = mapping_from.position().offset() + mapping_from_length(mapping_from);
-            if (mapping_from.position().node_id() == mapping_to.position().node_id() &&
-                mapping_from.position().is_reverse() == mapping_to.position().is_reverse()) {
-                if (mapping_to.position().offset() != mapping_from_end_offset) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on within-node adjacency" << endl;
-                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
-#endif
-                    return false;
-                }
-            }
-            else {
-                if (mapping_from_end_offset != xindex->node_length(mapping_from.position().node_id())) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on using edge at middle of node" << endl;
-                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
-#endif
-                    return false;
-                }
-                
-                vector<Edge> edges = xindex->edges_of(mapping_from.position().node_id());
-                bool found_edge = false;
-                for (Edge& edge : edges) {
-                    if (edge.from() == mapping_from.position().node_id() &&
-                        edge.from_start() == mapping_from.position().is_reverse()) {
-                        if (edge.to() == mapping_to.position().node_id() &&
-                            edge.to_end() == mapping_to.position().is_reverse()) {
-                            found_edge = true;
-                            break;
-                        }
-                    }
-                    if (edge.to() == mapping_from.position().node_id() &&
-                        edge.to_end() != mapping_from.position().is_reverse()) {
-                        if (edge.from() == mapping_to.position().node_id() &&
-                            edge.from_start() != mapping_to.position().is_reverse()) {
-                            found_edge = true;
-                            break;
-                        }
-                    }
-                }
-                
-                if (!found_edge) {
-#ifdef debug_multipath_mapper
-                    cerr << "validation failure on nodes not connected by an edge" << endl;
-                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
-#endif
-                    return false;
-                }
-            }
-            return true;
-        };
-        
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            const Subpath& subpath = multipath_aln.subpath(i);
-            const Path& path = subpath.path();
-            for (size_t j = 1; j < path.mapping_size(); j++) {
-                if (!validate_adjacent_mappings(path.mapping(j - 1), path.mapping(j))) {
-                    return false;
-                }
-            }
-            const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
-            for (size_t j = 0; j < subpath.next_size(); j++) {
-                if (!validate_adjacent_mappings(final_mapping, multipath_aln.subpath(subpath.next(j)).path().mapping(0))) {
-                    return false;
-                }
-            }
-        }
-        
-        
-        // do the paths represent valid alignments of the associated read string and graph path?
-        
-        auto validate_mapping_edits = [&](const Mapping& mapping, const string& subseq) {
-            string node_seq = xindex->node_sequence(mapping.position().node_id());
-            string rev_node_seq = reverse_complement(node_seq);
-            size_t node_idx = mapping.position().offset();
-            size_t seq_idx = 0;
-            for (size_t i = 0; i < mapping.edit_size(); i++) {
-                const Edit& edit = mapping.edit(i);
-                if (edit_is_match(edit)) {
-                    for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
-                        if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) != subseq[seq_idx]) {
-#ifdef debug_multipath_mapper
-                            cerr << "validation failure on match that does not match" << endl;
-                            cerr << pb2json(mapping) << ", " << subseq << endl;
-#endif
-                            return false;
-                        }
-                    }
-                }
-                else if (edit_is_sub(edit)) {
-                    for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
-                        if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) == subseq[seq_idx]) {
-#ifdef debug_multipath_mapper
-                            cerr << "validation failure on mismatch that matches" << endl;
-                            cerr << pb2json(mapping) << ", " << subseq << endl;
-#endif
-                            return false;
-                        }
-                        if (edit.sequence()[j] != subseq[seq_idx]) {
-#ifdef debug_multipath_mapper
-                            cerr << "validation failure on substitution sequence that does not match read" << endl;
-                            cerr << pb2json(mapping) << ", " << subseq << endl;
-#endif
-                            return false;
-                        }
-                    }
-                }
-                else if (edit_is_insertion(edit)) {
-                    for (size_t j = 0; j < edit.to_length(); j++, seq_idx++) {
-                        if (edit.sequence()[j] != subseq[seq_idx]) {
-#ifdef debug_multipath_mapper
-                            cerr << "validation failure on insertion sequence that does not match read" << endl;
-                            cerr << pb2json(mapping) << ", " << subseq << endl;
-#endif
-                            return false;
-                        }
-                    }
-                }
-                else if (edit_is_deletion(edit)) {
-                    node_idx += edit.from_length();
-                }
-            }
-            return true;
-        };
-        
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            const Subpath& subpath = multipath_aln.subpath(i);
-            const Path& path = subpath.path();
-            size_t read_start = subpath_read_interval[i].first;
-            for (size_t j = 0; j < path.mapping_size(); j++) {
-                size_t read_mapping_len = mapping_to_length(path.mapping(j));
-                if (!validate_mapping_edits(path.mapping(j), multipath_aln.sequence().substr(read_start, read_mapping_len))) {
-                    return false;
-                }
-                read_start += read_mapping_len;
-            }
-        }
-        
-        // do the scores match the alignments?
-        
-        // TODO: this really deserves a test, but there's a factoring problem because the qual adj aligner needs to know
-        // the node sequence to score mismatches but the node sequence is not stored in the Alignment object
-        
-//        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-//            const Subpath& subpath = multipath_aln.subpath(i);
-//            Alignment& alignment;
-//            *alignment.mutable_sequence() = multipath_aln.sequence().substr(subpath_read_interval[i].first,
-//                                                                            subpath_read_interval[i].second - subpath_read_interval[i].first);
-//            *alignment.mutable_quality() = multipath_aln.quality().substr(subpath_read_interval[i].first,
-//                                                                          subpath_read_interval[i].second - subpath_read_interval[i].first);
-//            *alignment.mutable_path() = subpath.path();
-//        }
-        
-        
-        return true;
     }
             
     // make the memos live in this .o file

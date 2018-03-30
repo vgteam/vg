@@ -2,11 +2,10 @@
 
 ## Conceptual model
 
-Nodes, Paths and Steps, are the three core parts of any VG graph in RDF.
-Node in the VG RDF corersponds directly to the Node concept in the VG protobuf serialization.
-Paths are a series of steps that represent a sequence of Node visits that are conceptually a 
-biological sequence.
-Steps are a way to easily find out the 
+`Node`s, `Path`s and `Step`s, are the three core parts of any VG graph in RDF.
+A `Node` in the VG RDF corersponds directly to the Node concept in the VG protobuf serialization.
+`Paths` are a number of `Step`s that represent a sequence of Node visits that generate a linear biological sequence.
+Each `Step` connects a `Node` into a `Path`
 
 
 
@@ -43,11 +42,13 @@ my_example:some_gene_step_3 a vg:Step ; vg:rank 3;vg:node node:103 .
 my_example:some_gene_step_4 a vg:Step ; vg:rank 4;vg:node node:104 .
 
 me:example:some_gene rdfs:seeAlso ENSEMBL:ESG00000XXXX . #and then pick up the annotation from the ENSEMBL gene build.
-
-
 ```
 
+## Examples of using VG RDF
 
-## Linking a Genomic VG to a Protein VG
+[2 ecoli genomes, with ensembl and uniprot annotation](/vgteam/vg/wiki/VG-RDF,-the-Ensembl-bacteria-E.-coli-genome-hack-attack)
 
+## VG RDF limitations
+
+At this moment VG RDF wants a fully embedded variation graph. e.g. all positions in vg json have a single edit which covers a whole node. This is to enable easy SPARQL queries where substring operations are rarely used.
 

@@ -304,7 +304,7 @@ public:
     size_t node_start_at_path_position(const string& name, size_t pos) const;
     /// Get the graph position at the given 0-based path position
     pos_t graph_pos_at_path_position(const string& name, size_t pos) const;
-    Alignment target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature) const;
+    Alignment target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse) const;
     size_t path_length(const string& name) const;
     size_t path_length(size_t rank) const;
     // nearest node (in steps) that is in a path, and the paths
@@ -817,7 +817,7 @@ public:
                      sdsl::structure_tree_node* v = NULL,
                      std::string name = "") const;
     // Get a mapping. Note that the mapping will not have its lengths filled in.
-    Mapping mapping(size_t offset) const; // 0-based
+    Mapping mapping(size_t offset, const function<int64_t(id_t)>& node_length) const;
 
     // Get the node orientation at a 0-based offset.
     id_t node(size_t offset) const;

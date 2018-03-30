@@ -262,11 +262,11 @@ namespace vg{
             exit(1);
         }
         if (my_vg->paths._paths.count(pathname)){
-            list<Mapping> maps = my_vg->paths._paths[pathname];
+            auto& maps = my_vg->paths._paths[pathname];
             int64_t dist_from_start = 0;
             for (auto m : maps){
-                node_to_position[m.position().node_id()] = dist_from_start;
-                dist_from_start += my_vg->get_node(m.position().node_id())->sequence().size();
+                node_to_position[m.node_id()] = dist_from_start;
+                dist_from_start += my_vg->get_node(m.node_id())->sequence().size();
             }
         }
     }

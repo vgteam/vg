@@ -1,5 +1,6 @@
 #include "xg.hpp"
 #include "stream.hpp"
+#include "alignment.hpp"
 
 #include <bitset>
 #include <arpa/inet.h>
@@ -406,13 +407,17 @@ XGPath::XGPath(const string& path_name,
     util::assign(offsets_select, bit_vector::select_1_type(&offsets));
 }
 
-Mapping XGPath::mapping(size_t offset) const {
+Mapping XGPath::mapping(size_t offset, const function<int64_t(id_t)>& node_length) const {
     // TODO actually store the "real" mapping
     Mapping m;
     // store the starting position and series of edits
     m.mutable_position()->set_node_id(node(offset));
     m.mutable_position()->set_is_reverse(directions[offset]);
     m.set_rank(ranks[offset]);
+    int64_t l = node_length(m.position().node_id());
+    Edit* e = m.add_edit();
+    e->set_from_length(l);
+    e->set_to_length(l);
     return m;
 }
 
@@ -2111,16 +2116,11 @@ Path XG::path(const string& name) const {
     
     // There's one ID entry per node visit    
     size_t total_nodes = xgpath.ids.size();
-    
+    auto get_node_length = [&](id_t id){ return get_length(get_handle(id, false)); };
     for(size_t i = 0; i < total_nodes; i++) {
         // For everything on the XGPath, put a Mapping on the real path.
         Mapping* m = to_return.add_mapping();
-        *m = xgpath.mapping(i);
-        // Add one full length match edit, because the XGPath doesn't know how
-        // to make it.
-        Edit* e = m->add_edit();
-        e->set_from_length(node_length(m->position().node_id()));
-        e->set_to_length(e->from_length());
+        *m = xgpath.mapping(i, get_node_length);
     }
     
     return to_return;
@@ -2196,6 +2196,7 @@ vector<pair<size_t, vector<pair<size_t, bool>>>> XG::oriented_occurrences_on_pat
     
 map<string, vector<Mapping>> XG::node_mappings(int64_t id) const {
     map<string, vector<Mapping>> mappings;
+    auto get_node_length = [&](id_t id){ return get_length(get_handle(id, false)); };
     // for each time the node crosses the path
     for (auto i : paths_of_node(id)) {
         // get the path name
@@ -2204,7 +2205,7 @@ map<string, vector<Mapping>> XG::node_mappings(int64_t id) const {
         // to get the direction and (stored) rank
         for (auto j : node_ranks_in_path(id, name)) {
             // nb: path rank is 1-based, path index is 0-based
-            mappings[name].push_back(paths[i-1]->mapping(j));
+            mappings[name].push_back(paths[i-1]->mapping(j, get_node_length));
         }
     }
     return mappings;
@@ -2763,6 +2764,7 @@ int64_t XG::closest_shared_path_unstranded_distance(int64_t id1, size_t offset1,
         // distance is measure at the end of the node, so it's actually the distance
         // to the next nodes we will traverse to
         // there is a separate queue for each of the positions
+        // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a UpdateablePriorityQueue.
         priority_queue<Traversal> queue_1, queue_2;
         unordered_set<handle_t> queued_1, queued_2;
         
@@ -2997,6 +2999,7 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
         // distance is measure at the end of the node, so it's actually the distance
         // to the next nodes we will traverse to
         // there is a separate queue for each of the positions
+        // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a UpdateablePriorityQueue.
         priority_queue<Traversal> queue_1, queue_2;
         unordered_set<handle_t> queued_1, queued_2;
         
@@ -3275,6 +3278,7 @@ vector<tuple<int64_t, bool, size_t>> XG::jump_along_closest_path(int64_t id, boo
         return found_jumpable_path;
     };
     
+    // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a UpdateablePriorityQueue.
     priority_queue<Traversal> queue;
     unordered_set<handle_t> traversed;
     
@@ -3389,6 +3393,7 @@ pair<bool, bool> XG::validate_strand_consistency(int64_t id1, size_t offset1, bo
         // distance is measure at the end of the node, so it's actually the distance
         // to the next nodes we will traverse to
         // there is a separate queue for each of the positions
+        // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a UpdateablePriorityQueue.
         priority_queue<Traversal> queue_1, queue_2;
         unordered_set<handle_t> queued_1, queued_2;
         
@@ -3711,7 +3716,8 @@ int64_t XG::node_at_path_position(const string& name, size_t pos) const {
 
 Mapping XG::mapping_at_path_position(const string& name, size_t pos) const {
     size_t p = path_rank(name)-1;
-    return paths[p]->mapping(paths[p]->offsets_rank(pos+1)-1);
+    return paths[p]->mapping(paths[p]->offsets_rank(pos+1)-1,
+                             [&](id_t id){ return get_length(get_handle(id, false)); });
 }
 
 size_t XG::node_start_at_path_position(const string& name, size_t pos) const {
@@ -3730,7 +3736,7 @@ pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const 
     return make_pos_t(node_id, is_rev, offset);
 }
 
-Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature) const {
+Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse) const {
     Alignment aln;
     const XGPath& path = *paths[path_rank(name)-1];
     size_t first_node_start = path.offsets_select(path.offsets_rank(pos1+1));
@@ -3738,18 +3744,11 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
     {
         Mapping* first_mapping = aln.mutable_path()->add_mapping();
         *first_mapping = mapping_at_path_position(name, pos1);
-        Edit* e = first_mapping->add_edit();
-        e->set_to_length(node_length(first_mapping->position().node_id()));
-        e->set_from_length(e->to_length());
     }
     // get p to point to the next step (or past it, if we're a feature on a single node)
     int64_t p = (int64_t)pos1 + node_length(aln.path().mapping(0).position().node_id()) - trim_start;
     while (p < pos2) {
-        Mapping m = mapping_at_path_position(name, p);
-        Edit* e = m.add_edit();
-        e->set_to_length(node_length(m.position().node_id()));
-        e->set_from_length(e->to_length());
-        *aln.mutable_path()->add_mapping() = m;
+        *aln.mutable_path()->add_mapping() = mapping_at_path_position(name, p);
         p += mapping_from_length(aln.path().mapping(aln.path().mapping_size()-1));
     }
     // trim to the target
@@ -3761,6 +3760,9 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
         *aln.mutable_path() = cut_path(aln.path(), path_from_length(aln.path()) - trim_end).first;
     }
     aln.set_name(feature);
+    if (is_reverse) {
+       reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return this->node_length(node_id); });
+    }
     return aln;
 }
 
