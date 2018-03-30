@@ -388,12 +388,6 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    // Something weird happens with the current haplotype generation logic if there are multiple graphs.
-    if (index_haplotypes && file_names.size() != 1) {
-        cerr << "error: [vg index] haplotype index can only be built for a single graph" << endl;
-        return 1;
-    }
-
     if (file_names.size() <= 0 && dbg_names.empty()){
         //cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;

@@ -90,10 +90,10 @@ is $? 0 "building an XG index of multiple graphs with haplotypes"
 vg index -g xy.gcsa -k 2 x.vg y.vg
 is $? 0 "building a GCSA index of multiple graphs with haplotypes"
 
-vg index -x xy2.xg -F x.threads -F y.threads -g xy2.gcsa -k 2 x.vg y.vg
-is $? 0 "building XG and GCSA indexes at once"
+vg index -x xy2.xg -g xy2.gcsa -k 2 -G xy2.gbwt -v small/xy2.vcf.gz x.vg y.vg
+is $? 0 "building all three indexes at once"
 
-cmp xy.xg xy2.xg && cmp xy.gcsa xy2.gcsa && cmp xy.gcsa.lcp xy2.gcsa.lcp
+cmp xy.xg xy2.xg && cmp xy.gcsa xy2.gcsa && cmp xy.gcsa.lcp xy2.gcsa.lcp && cmp xy.gbwt xy2.gbwt
 is $? 0 "the indexes are identical"
 
 rm -f x.vg y.vg
