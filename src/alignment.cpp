@@ -822,22 +822,22 @@ int64_t cigar_edits(const bam1_t *b, list<Edit> mapping, xg::XG* xgindex) {
         const int ol = bam_cigar_oplen(cigar[k]);
         if (bam_cigar_type(cigar[k])&1) {
             // Consume query
-            e->set_to_length(ol);
+            e.set_to_length(ol);
             string sequence; sequence.resize(ol);
             for (int i = 0; i < ol; i++ ) {
                sequence[i] = "=ACMGRSVTWYHKDBN"[bam_seqi(bam_get_seq(b), query_length + i)];
             }
-            e->set_sequence(sequence);
+            e.set_sequence(sequence);
             query_length += ol;
         } else {
-            e->set_to_length(0);
+            e.set_to_length(0);
         }
         if (bam_cigar_type(cigar[k])&2) {
             // Consume ref
-            e->set_from_length(ol);
+            e.set_from_length(ol);
             ref_length += ol;
         } else {
-            e->set_from_length(0);
+            e.set_from_length(0);
         }
         //e = m->add_edit();
         mapping.push_back(e);
@@ -845,7 +845,7 @@ int64_t cigar_edits(const bam1_t *b, list<Edit> mapping, xg::XG* xgindex) {
     return ref_length;
 }
 
-int64_t cigar_mapping(const bam1_t *b, Mapping& mapping, xg::XG* xgindex) {
+int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, xg::XG* xgindex) {
     int64_t ref_length = 0;
     int64_t query_length = 0;
 
@@ -875,19 +875,20 @@ int64_t cigar_mapping(const bam1_t *b, Mapping& mapping, xg::XG* xgindex) {
         } else {
             e->set_from_length(0);
         }
-        e = m->add_edit();
+        e = mapping->add_edit();
     }
     return ref_length;
 }
 
-void mapping_against_path(Alignment& alignment, const bam1_t *b, xg::XG* xgindex, bool on_reverse_strand) {
-    Path& path = alignment.path();
-    list<Edits> edits;
+void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::XG* xgindex, bool on_reverse_strand) {
+    Path path = alignment.path();
+    list<Edit> edits;
 
     // if cigar is existed
-    int64_t length = cigar_edits(b, edits, xg);
+    int64_t length = cigar_edits(b, edits, xgindex);
 
-    Alignment aln = target_alignment(bam_get_rname(b), bam->core.pos, bam->core.pos + length, "", edits);
+    // false
+    Alignment aln = xgindex->target_alignment(chr, b->core.pos, b->core.pos + length, "", false, edits);
 
     if(on_reverse_strand) {
       // Flip CIGAR ops into forward strand ordering
@@ -981,11 +982,7 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     return flag;
 }
 
-Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
-    bam_to_alignment(b, rg_sample, nullptr);
-}
-
-Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, xg::XG* xgindex) {
+Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh, xg::XG* xgindex) {
 
     Alignment alignment;
 
@@ -1046,8 +1043,8 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, xg::
         
     }
     
-    if (!xgindex == nullptr) {
-      mapping_against_path(alignment, *b, xgindex, b->core.flag & BAM_FREVERSE);
+    if (xgindex != nullptr) {
+        mapping_against_path(alignment, b, bh->target_name[b->core.tid], xgindex, b->core.flag & BAM_FREVERSE);
     }
     
     // TODO: htslib doesn't wrap this flag for some reason.
@@ -1058,6 +1055,10 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, xg::
     }
 
     return alignment;
+}
+
+Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
+    bam_to_alignment(b, rg_sample, nullptr, nullptr);
 }
 
 int alignment_to_length(const Alignment& a) {

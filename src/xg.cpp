@@ -3734,7 +3734,7 @@ pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const 
     return make_pos_t(node_id, is_rev, offset);
 }
 
-void add_edits_with_consuming(&Mapping first_mapping, list<Edit> edits_queue, size_t length) {
+void add_edits_with_consuming(Mapping* first_mapping, list<Edit> edits_queue, size_t length) {
     // Pop edits from the queue until reference_length of edits reaches at length.
     std::list<Edit>::iterator front;
     while(length > 0) {
@@ -3742,11 +3742,11 @@ void add_edits_with_consuming(&Mapping first_mapping, list<Edit> edits_queue, si
         Edit* e = first_mapping->add_edit();
         e->set_to_length(front->from_length());
         e->set_from_length(front->to_length());
-        if (front->sequence()) {
+        if (front->sequence() != "") {
             e->set_sequence(front->sequence());
         }
 
-        length -= front->to_length()
+        length -= front->to_length();
         if (length < 0) {
             front->set_to_length(front->to_length() + length);
             front->set_from_length(front->from_length() + length);
@@ -3756,7 +3756,7 @@ void add_edits_with_consuming(&Mapping first_mapping, list<Edit> edits_queue, si
     }
 }
 
-Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse, list<Edit> edits_queue) const {
+Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse, list<Edit>& edits_queue) const {
     Alignment aln;
     const XGPath& path = *paths[path_rank(name)-1];
     size_t first_node_start = path.offsets_select(path.offsets_rank(pos1+1));
@@ -3773,7 +3773,7 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
     int64_t p = (int64_t)pos1 + node_length(aln.path().mapping(0).position().node_id()) - trim_start;
     while (p < pos2) {
         Mapping m = mapping_at_path_position(name, p);
-        add_edits_with_consuming(m, edits_queue, node_length(m.position().node_id()));
+        add_edits_with_consuming(&m, edits_queue, node_length(m.position().node_id()));
 //        Edit* e = m.add_edit();
 //        e->set_to_length(node_length(m.position().node_id()));
 //        e->set_from_length(e->to_length());
