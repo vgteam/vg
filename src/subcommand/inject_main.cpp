@@ -150,9 +150,9 @@ int main_inject(int argc, char** argv) {
       }
     };
     if (threads > 1) {
-        hts_for_each_parallel(file_name, lambda);
+        hts_for_each_parallel(file_name, lambda, xgidx);
     } else {
-        hts_for_each(file_name, lambda);
+        hts_for_each(file_name, lambda, xgidx);
     }
     write_alignments(std::cout, buf);
     buf.clear();

@@ -5,7 +5,7 @@
 
 namespace vg {
 
-int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
+int hts_for_each(string& filename, function<void(Alignment&)> lambda, xg::XG* xgindex) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -14,7 +14,7 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
     parse_rg_sample_map(hdr->text, rg_sample);
     bam1_t *b = bam_init1();
     while (sam_read1(in, hdr, b) >= 0) {
-        Alignment a = bam_to_alignment(b, rg_sample);
+        Alignment a = bam_to_alignment(b, rg_sample, hdr, xgindex);
         lambda(a);
     }
     bam_destroy1(b);
@@ -24,7 +24,11 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
 
 }
 
-int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
+int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
+    return hts_for_each(filename, lambda, nullptr);
+}
+
+int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, xg::XG* xgindex) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -49,7 +53,7 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
                 more_data = sam_read1(in, hdr, b) >= 0;
             }
             if (more_data) {
-                Alignment a = bam_to_alignment(b, rg_sample);
+                Alignment a = bam_to_alignment(b, rg_sample, hdr, xgindex);
                 lambda(a);
             }
         }
@@ -60,6 +64,10 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
     hts_close(in);
     return 1;
 
+}
+
+int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
+    return hts_for_each_parallel(filename, lambda, nullptr);
 }
 
 bam_hdr_t* hts_file_header(string& filename, string& header) {
@@ -1058,7 +1066,7 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, cons
 }
 
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
-    bam_to_alignment(b, rg_sample, nullptr, nullptr);
+    return bam_to_alignment(b, rg_sample, nullptr, nullptr);
 }
 
 int alignment_to_length(const Alignment& a) {
