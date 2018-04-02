@@ -710,7 +710,7 @@ namespace vg {
         if (from.has_fragment_prev()) {
             to.set_paired_read_name(from.fragment_prev().name());
         }
-        else {
+        else if (from.has_fragment_next()) {
             to.set_paired_read_name(from.fragment_next().name());
         }
     }

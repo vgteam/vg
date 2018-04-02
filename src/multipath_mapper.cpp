@@ -1447,7 +1447,8 @@ namespace vg {
     
     void MultipathMapper::split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out) const {
         
-        for (size_t i = 0; i < multipath_alns_out.size(); i++) {
+        size_t num_original_alns = multipath_alns_out.size();
+        for (size_t i = 0; i < num_original_alns; i++) {
             
             vector<vector<int64_t>> comps = connected_components(multipath_alns_out[i]);
             
