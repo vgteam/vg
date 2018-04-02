@@ -310,7 +310,7 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
         }
         
         // Save the path under the component
-        auto component = node_to_component[path_mappings.front().position().node_id()];
+        auto component = node_to_component[path_mappings.front().node_id()];
         component_paths[component].push_back(name);
         
 #ifdef debug
@@ -321,9 +321,9 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
             // Total up the length. We could use from length on the mapping, but
             // sometimes (like in the tests) the mapping edits haven't been
             // populated.
-            path_length[name] += graph.get_length(graph.get_handle(mapping.position().node_id(), false));
+            path_length[name] += graph.get_length(graph.get_handle(mapping.node_id(), false));
             
-            if (node_to_component[mapping.position().node_id()] != component) {
+            if (node_to_component[mapping.node_id()] != component) {
                 // If we use a path like this to pick telomeres we will segfault Cactus.
                 throw runtime_error("Path " + name + " spans multiple connected components!");
             }
@@ -398,10 +398,10 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
                     
                     // See if I can get two tips on its ends.
                     // Get the inward-facing start and end handles.
-                    handle_t path_start = graph.get_handle(path_mappings.front().position().node_id(),
-                        path_mappings.front().position().is_reverse());
-                    handle_t path_end = graph.get_handle(path_mappings.back().position().node_id(),
-                        !path_mappings.back().position().is_reverse());
+                    handle_t path_start = graph.get_handle(path_mappings.front().node_id(),
+                        path_mappings.front().is_reverse());
+                    handle_t path_end = graph.get_handle(path_mappings.back().node_id(),
+                        !path_mappings.back().is_reverse());
                     
                     if (component_tips[i].count(path_start) && component_tips[i].count(path_end)) {
                         // This path ends in two tips so we can consider it

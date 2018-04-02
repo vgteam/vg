@@ -5,9 +5,12 @@
  */
  
 #include "find_shortest_paths.hpp"
+#include <structures/updateable_priority_queue.hpp>
 
 namespace vg {
 namespace algorithms {
+
+using namespace structures;
 
 unordered_map<handle_t, size_t>  find_shortest_paths(const HandleGraph* g, handle_t start) {
 
@@ -27,11 +30,11 @@ unordered_map<handle_t, size_t>  find_shortest_paths(const HandleGraph* g, handl
         }
     };
     
-    priority_queue<Record, vector<Record>, IsFirstGreater> queue;
+    // We use a filtered priority queue for auto-Dijkstra
+    UpdateablePriorityQueue<Record, handle_t, vector<Record>, IsFirstGreater> queue([](const Record& item) {
+        return item.second;
+    });
     
-    // We keep a set of visited handles
-    unordered_set<handle_t> visited;
-
     // We keep a current handle
     handle_t current = start;
     size_t distance = 0;
@@ -43,18 +46,11 @@ unordered_map<handle_t, size_t>  find_shortest_paths(const HandleGraph* g, handl
         tie(distance, current) = queue.top();
         queue.pop();
         
-        if (visited.count(current)) {
-            // We've seen this already with a shorter distance so skip it
-            continue;
-        }
-        
 #ifdef debug_vg_algorithms
         cerr << "Visit " << g->get_id(current) << " " << g->get_is_reverse(current) << " at distance " << distance << endl;
 #endif    
 
-        // Visit the handle
-        visited.insert(current);
-        // Record its distance
+        // Record handle's distance
         distances[current] = distance;
         
         if (current != start) {
@@ -67,13 +63,9 @@ unordered_map<handle_t, size_t>  find_shortest_paths(const HandleGraph* g, handl
         g->follow_edges(current, false, [&](const handle_t& next) {
             // For each handle to the right of here
             
-            if (visited.count(next)) {
-                // Seen it
-                return;
-            }
-            
             if (!distances.count(next) || distance < distances[next]) {
-                // New shortest distance
+                // New shortest distance. Will never happen after the handle comes out of the queue because of Dijkstra.
+                // TODO: Recording the distance here is redundant.
                 distances[next] = distance;
                 queue.push(make_pair(distance, next));
                 

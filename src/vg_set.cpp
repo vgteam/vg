@@ -128,7 +128,7 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
                         }
                         
                         // Move the mapping into place
-                        mappings[path.name()][mapping.rank()] = move(mapping);
+                        mappings[path.name()][mapping.rank()] = mapping;
                     }
                 }
 
@@ -146,11 +146,11 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
                 
                 for(auto& rank_and_mapping : kv.second) {
                     // Put in all the mappings. Ignore the rank since thay're already marked with and sorted by rank.
-                    *path.add_mapping() = move(rank_and_mapping.second);
+                    *path.add_mapping() = rank_and_mapping.second;
                 }
                 
                 // Now the Path is rebuilt; stick it in the big output map.
-                removed_paths[path.name()] = move(path);
+                removed_paths[path.name()] = path;
             }
             
 #ifdef debug
@@ -171,6 +171,11 @@ void VGset::for_each_kmer_parallel(int kmer_size, const function<void(const kmer
 
 void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
                                    id_t head_id, id_t tail_id) {
+    if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
+        id_t max_id = get_max_id(); // expensive, as we'll stream through all the files
+        head_id = max_id + 1;
+        tail_id = max_id + 2;
+    }
 
     // When we're sure we know what this kmer instance looks like, we'll write
     // it out exactly once. We need the start_end_id actually used in order to
@@ -198,6 +203,7 @@ void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_li
         head_id = max_id + 1;
         tail_id = max_id + 2;
     }
+
     size_t total_size = 0;
     for_each([&](VG* g) {
         // set up the graph with the head/tail nodes
@@ -213,6 +219,12 @@ void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_li
 // writes to a set of temp files and returns their names
 vector<string> VGset::write_gcsa_kmers_binary(int kmer_size, size_t& size_limit,
                                               id_t head_id, id_t tail_id) {
+    if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
+        id_t max_id = get_max_id(); // expensive, as we'll stream through all the files
+        head_id = max_id + 1;
+        tail_id = max_id + 2;
+    }
+
     vector<string> tmpnames;
     size_t total_size = 0;
     for_each([&](VG* g) {

@@ -347,6 +347,8 @@ public:
     size_t size() const;
   };
   
+  /// Make a new linear_haplo_structure with the given indexes, mutation and recombination scoring parameters, and reference path in the XG.
+  /// Penalties *must* be negative, and ought to be something like -9*2.3 mutation and -6*2.3 recombination.
   linear_haplo_structure(istream& slls_index, double log_mut_penalty, double log_recomb_penalty, xg::XG& xg_index, size_t xg_ref_rank);
   ~linear_haplo_structure();
   haplo_score_type score(const vg::Path& path) const;

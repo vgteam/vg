@@ -41,17 +41,17 @@ struct PathIndex {
     /// Index from Mapping pointers in a VG Paths object to their actual
     /// positions along their paths. Pointers may dangle if the vg graph
     /// changes the path.
-    map<const Mapping*, size_t> mapping_positions;
+    map<const mapping_t*, size_t> mapping_positions;
     
     /// Index just a path
     PathIndex(const Path& path);
     
     /// Index just a list of mappings
-    PathIndex(const list<Mapping>& mappings);
+    PathIndex(const list<mapping_t>& mappings);
     
     /// Index a list of mappings embedded in the given vg's Paths object, and
     /// pull sequence from the given vg.
-    PathIndex(const list<Mapping>& mappings, VG& vg);
+    PathIndex(const list<mapping_t>& mappings, VG& vg);
     
     /// Index a path and pull sequence from an XG index.
     PathIndex(const Path& path, const xg::XG& vg);

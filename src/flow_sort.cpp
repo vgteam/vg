@@ -131,15 +131,15 @@ void FlowSort::flow_sort_nodes(list<NodeTraversal>& sorted_nodes,
     //edge weight is determined as number of paths, that go through the edge
     WeightedGraph w_graph;
     w_graph.construct(*this, ref_name, isGrooming);
-    list<Mapping> ref_path(vg.paths.get_path(ref_name).begin(),
-            vg.paths.get_path(ref_name).end());
+    list<mapping_t> ref_path(vg.paths.get_path(ref_name).begin(),
+                             vg.paths.get_path(ref_name).end());
     ref_path.reverse();
     Growth growth;
 
     for(auto const &mapping : ref_path) 
     {
-        growth.backbone.insert(mapping.position().node_id());
-        growth.ref_path.push_back(mapping.position().node_id());
+        growth.backbone.insert(mapping.node_id());
+        growth.ref_path.push_back(mapping.node_id());
     }
     for (auto const &entry : vg.node_by_id) 
     {
@@ -267,7 +267,7 @@ FlowSort::WeightedGraph::construct(FlowSort& fs, const string& ref_name, bool is
         nodes.insert(edge.first->to());
 
         //assign weight to the minimum number of paths of the adjacent nodes
-        auto from_node_mapping = fs.vg.paths.get_node_mapping(from);
+        auto from_node_mapping = fs.vg.paths.get_node_mapping_by_path_name(from);
 //        NodeMapping to_node_mapping = paths.get_node_mapping(to);
         int weight = 1;
 

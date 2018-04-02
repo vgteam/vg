@@ -188,6 +188,7 @@ Alignment simplify(const Alignment& a, bool trim_internal_deletions = true);
 map<id_t, int> alignment_quality_per_node(const Alignment& aln);
 
 void parse_bed_regions(istream& bedstream, xg::XG* xgindex, vector<Alignment>* out_alignments);
+void parse_gff_regions(istream& gtfstream, xg::XG* xgindex, vector<Alignment>* out_alignments);
 
 Position alignment_start(const Alignment& aln);
 Position alignment_end(const Alignment& aln);Position alignment_start(const Alignment& aln);

@@ -613,7 +613,10 @@ int main_find(int argc, char** argv) {
                     Mapping mapping;
                     mapping.mutable_position()->set_node_id(m.node_id);
                     mapping.mutable_position()->set_is_reverse(m.is_reverse);
-                    
+                    Edit* e = mapping.add_edit();
+                    size_t l = xindex.node_length(m.node_id);
+                    e->set_from_length(l);
+                    e->set_to_length(l);
                     *(path.add_mapping()) = mapping;
                 }
 

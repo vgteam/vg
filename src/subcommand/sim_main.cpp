@@ -89,7 +89,7 @@ int main_sim(int argc, char** argv) {
             {"align-out", no_argument, 0, 'a'},
             {"json-out", no_argument, 0, 'J'},
             {"allow-Ns", no_argument, 0, 'N'},
-            {"base-rate", required_argument, 0, 'e'},
+            {"sub-rate", required_argument, 0, 'e'},
             {"indel-rate", required_argument, 0, 'i'},
             {"indel-err-prop", required_argument, 0, 'd'},
             {"scale-err", required_argument, 0, 'S'},
@@ -235,7 +235,7 @@ int main_sim(int argc, char** argv) {
         Mapper rescorer(xgidx, nullptr, nullptr);
         // Override the "default" full length bonus, just like every other subcommand that uses a mapper ends up doing.
         // TODO: is it safe to change the default?
-        rescorer.set_alignment_scores(default_match, default_mismatch, default_gap_open, default_gap_extension, 5);
+        rescorer.set_alignment_scores(default_match, default_mismatch, default_gap_open, default_gap_extension, default_full_length_bonus);
         // Include the full length bonuses if requested.
         rescorer.strip_bonuses = strip_bonuses;
         // We define a function to score a generated alignment under the mapper

@@ -242,7 +242,7 @@ public:
 
     // map a path (can have edits, ie from Alignment) from base graph to augmented graph
     // aug_path parameter is empty path that will be written to
-    void map_path(const Path& base_path, list<Mapping>& aug_path, bool expect_edits);
+    void map_path(const Path& base_path, list<mapping_t>& aug_path, bool expect_edits);
 
     // Apply edits from base_mapping to corresponding augmented mappings that share same
     // from interval, but don't yet have edits (called by map_path);
@@ -255,7 +255,7 @@ public:
     // map paths from input graph into called (augmented) graph
     void map_paths();
     // make sure mapped paths generate same strings as input paths
-    void verify_path(const Path& in_path, const list<Mapping>& call_path);
+    void verify_path(const Path& in_path, const list<mapping_t>& call_path);
     
     // call position at given base
     // if insertion flag set to true, call insertion between base and next base

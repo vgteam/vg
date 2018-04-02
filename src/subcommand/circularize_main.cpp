@@ -137,7 +137,7 @@ int main_circularize(int argc, char** argv){
     }
 
     if (describe){
-       for (pair<string, list<Mapping> > p : graph->paths._paths){
+       for (auto& p : graph->paths._paths){
             cout << p.first << endl;
        }
        exit(0);

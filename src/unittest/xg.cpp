@@ -304,23 +304,32 @@ TEST_CASE("Target to alignment extraction", "[xg-target-to-aln]") {
     xg::XG xg_index(graph);
 
     SECTION("Subpath getting gives us the expected 1bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 1, 2, "feature");
+        Alignment target = xg_index.target_alignment("path", 1, 2, "feature", false);
         REQUIRE(alignment_from_length(target) == 2 - 1);
     }
 
     SECTION("Subpath getting gives us the expected 10bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 10, 20, "feature");
+        Alignment target = xg_index.target_alignment("path", 10, 20, "feature", false);
         REQUIRE(alignment_from_length(target) == 20 - 10);
     }
 
     SECTION("Subpath getting gives us the expected 14bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 0, 14, "feature");
+        Alignment target = xg_index.target_alignment("path", 0, 14, "feature", false);
         REQUIRE(alignment_from_length(target) == 14);
     }
 
     SECTION("Subpath getting gives us the expected 21bp alignment") {
-        Alignment target = xg_index.target_alignment("path", 0, 21, "feature");
+        Alignment target = xg_index.target_alignment("path", 0, 21, "feature", false);
         REQUIRE(alignment_from_length(target) == 21);
+    }
+
+    SECTION("Subpath getting gives us the expected inverted 7bp alignment") {
+        Alignment target = xg_index.target_alignment("path", 0, 7, "feature", true);
+        REQUIRE(alignment_from_length(target) == 7);
+        REQUIRE(target.path().mapping(0).position().node_id() == n2->id());
+        REQUIRE(target.path().mapping(1).position().node_id() == n0->id());
+        REQUIRE(target.path().mapping(0).position().is_reverse() == true);
+        REQUIRE(target.path().mapping(1).position().is_reverse() == true);
     }
 
 }

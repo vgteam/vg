@@ -109,7 +109,7 @@ void help_prune(char** argv) {
     std::cerr << "pruning modes (-P, -r, and -u are mutually exclusive):" << std::endl;
     std::cerr << "    -P, --prune            simply prune the graph (default)" << std::endl;
     std::cerr << "    -r, --restore-paths    restore the edges on non-alt paths" << std::endl;
-    std::cerr << "    -u, --unfold-paths     unfold XG paths (requires -g)" << std::endl;
+    std::cerr << "    -u, --unfold-paths     unfold XG paths and GBWT threads (requires -g)" << std::endl;
     std::cerr << "    -v, --verify-paths     verify that the paths exist after pruning" << std::endl;
     std::cerr << "                           (potentially very slow)" << std::endl;
     std::cerr << "unfolding options:" << std::endl;

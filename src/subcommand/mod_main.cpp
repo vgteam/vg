@@ -75,7 +75,6 @@ void help_mod(char** argv) {
          << "    -M, --max-degree N      unlink nodes that have edge degree greater than N" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --length, for debugging" << endl
-         << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
          << "    -y, --destroy-node ID   remove node with given id" << endl
          << "    -B, --bluntify          bluntify the graph, making nodes for duplicated sequences in overlaps" << endl
          << "    -a, --cactus            convert to cactus graph representation" << endl
@@ -113,7 +112,6 @@ int main_mod(int argc, char** argv) {
     bool remove_path = false;
     bool compact_ranks = false;
     bool drop_paths = false;
-    bool force_path_match = false;
     set<string> paths_to_retain;
     bool retain_complement = false;
     vector<int64_t> root_nodes;
@@ -169,7 +167,6 @@ int main_mod(int argc, char** argv) {
             {"remove-path", no_argument, 0, 'A'},
             {"orient-forward", no_argument, 0, 'O'},
             {"unfold", required_argument, 0, 'f'},
-            {"force-path-match", no_argument, 0, 'F'},
             {"retain-path", required_argument, 0, 'r'},
             {"subgraph", required_argument, 0, 'g'},
             {"context", required_argument, 0, 'x'},
@@ -192,7 +189,7 @@ int main_mod(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNAf:CDFr:Ig:x:RTU:Bbd:Ow:L:y:Z:Eav:G:M:",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNAf:CDr:Ig:x:RTU:Bbd:Ow:L:y:Z:Eav:G:M:",
                 long_options, &option_index);
 
 
@@ -290,10 +287,6 @@ int main_mod(int argc, char** argv) {
 
         case 'O':
             orient_forward = true;
-            break;
-
-        case 'F':
-            force_path_match = true;
             break;
 
         case 'P':
@@ -450,7 +443,7 @@ int main_mod(int argc, char** argv) {
 
                 for(auto& mapping : graph->paths.get_path(alt_path_name)) {
                     // Mark all nodes that are part of it as on alt paths
-                    alt_path_ids.insert(mapping.position().node_id());
+                    alt_path_ids.insert(mapping.node_id());
                 }
 
             }
@@ -508,7 +501,7 @@ int main_mod(int argc, char** argv) {
 
                 for(auto& mapping : graph->paths.get_path(alt_path_name)) {
                     // Un-mark all nodes that are on this alt path, since it is used by the sample.
-                    alt_path_ids.erase(mapping.position().node_id());
+                    alt_path_ids.erase(mapping.node_id());
                 }
             }
 
@@ -677,10 +670,6 @@ int main_mod(int argc, char** argv) {
     
     if (remove_path) {
         graph->remove_path();
-    }
-
-    if (force_path_match) {
-        graph->force_path_match();
     }
 
     if (orient_forward) {

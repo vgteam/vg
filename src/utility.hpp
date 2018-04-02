@@ -12,6 +12,7 @@
 #include <cmath>
 #include <unordered_set>
 #include <random>
+#include <type_traits>
 #include <signal.h>
 #include <unistd.h>
 #include "vg.pb.h"

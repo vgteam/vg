@@ -122,7 +122,7 @@ int main_index(int argc, char** argv) {
     }
 
     // Which indexes to build.
-    bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt, build_gcsa = false, build_rocksdb = false;
+    bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt = false, build_gcsa = false, build_rocksdb = false;
 
     // Files we should read.
     string vcf_name, mapping_name;
@@ -262,7 +262,7 @@ int main_index(int argc, char** argv) {
             threads_name = optarg;
             break;
         case 'B':
-            samples_in_batch = std::stoul(optarg);
+            samples_in_batch = std::max(std::stoul(optarg), 1ul);
             break;
         case 'R':
             {
@@ -312,7 +312,7 @@ int main_index(int argc, char** argv) {
             mapping_name = optarg;
             break;
         case 'k':
-            kmer_size = std::stoul(optarg);
+            kmer_size = std::max(std::stoul(optarg), 1ul);
             break;
         case 'X':
             params.setSteps(std::stoul(optarg));
@@ -377,15 +377,20 @@ int main_index(int argc, char** argv) {
         string file_name = get_input_file_name(optind, argc, argv);
         file_names.push_back(file_name);
     }
-    
+
+    if (xg_name.empty() && gbwt_name.empty() && threads_name.empty() && gcsa_name.empty() && rocksdb_name.empty()) {
+        cerr << "error: [vg index] index type not specified" << endl;
+        return 1;
+    }
+
+    if ((build_gbwt || write_threads) && !(index_haplotypes || index_paths)) {
+        cerr << "error: [vg index] cannot build GBWT without threads" << endl;
+        return 1;
+    }
+
     if (file_names.size() <= 0 && dbg_names.empty()){
         //cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
-    }
-    
-    if (kmer_size <= 0) {
-        cerr << "error: [vg index] kmer size must be positive" << endl;
-        return 1;
     }
     
     if (build_gcsa && kmer_size > gcsa::Key::MAX_LENGTH) {
@@ -393,13 +398,8 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    if (index_haplotypes && samples_in_batch < 1) {
-        cerr << "error: [vg index] Batch size must be positive and nonzero" << endl;
-        return 1;
-    }
-
     if ((build_gbwt || write_threads) && thread_db_names.size() > 1) {
-        cerr << "error: [vg index] Cannot use multiple thread database files with -G or -H" << endl;
+        cerr << "error: [vg index] cannot use multiple thread database files with -G or -H" << endl;
         return 1;
     }
 
@@ -539,7 +539,7 @@ int main_index(int argc, char** argv) {
 
                 // How many bases is it?
                 size_t path_length = xg_index->path_length(path_name);
-                
+
                 // We're going to extract it and index it, so we don't keep
                 // making queries against it for every sample.
                 PathIndex path_index(xg_index->path(path_name));
@@ -1008,7 +1008,8 @@ int main_index(int argc, char** argv) {
                 write_thread_db(thread_db_names.front(), thread_names, haplotype_count);
             } else if (!xg_name.empty()) {
                 if (show_progress) {
-                    cerr << "Storing thread database in the XG index..." << endl;
+                    cerr << "Storing " << thread_names.size() << " thread names from "
+                         << haplotype_count << " haplotypes in the XG index..." << endl;
                 }
                 xg_index->set_thread_names(thread_names);
                 xg_index->set_haplotype_count(haplotype_count);
@@ -1058,6 +1059,8 @@ int main_index(int argc, char** argv) {
         // Use the same temp directory as VG.
         gcsa::TempFile::setDirectory(temp_file::get_dir());
 
+        double start = gcsa::readTimer();
+
         // Generate temporary kmer files
         bool delete_kmer_files = false;
         if (dbg_names.empty()) {
@@ -1079,6 +1082,20 @@ int main_index(int argc, char** argv) {
         gcsa::InputGraph input_graph(dbg_names, true, gcsa::Alphabet(), mapping_name);
         gcsa::GCSA gcsa_index(input_graph, params);
         gcsa::LCPArray lcp_array(input_graph, params);
+        if (show_progress) {
+            double seconds = gcsa::readTimer() - start;
+            cerr << "GCSA2 index built in " << seconds << " seconds, "
+                 << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+            cerr << "I/O volume: " << gcsa::inGigabytes(gcsa::readVolume()) << " GB read, "
+                 << gcsa::inGigabytes(gcsa::writeVolume()) << " GB write" << endl;
+        }
+
+        // Save the indexes
+        if (show_progress) {
+            cerr << "Saving the index to disk..." << endl;
+        }
+        sdsl::store_to_file(gcsa_index, gcsa_name);
+        sdsl::store_to_file(lcp_array, gcsa_name + ".lcp");
 
         // Verify the index
         if (verify_gcsa) {
@@ -1096,13 +1113,6 @@ int main_index(int argc, char** argv) {
                 temp_file::remove(filename);
             }
         }
-
-        // Save the indexes
-        if (show_progress) {
-            cerr << "Saving the index to disk..." << endl;
-        }
-        sdsl::store_to_file(gcsa_index, gcsa_name);
-        sdsl::store_to_file(lcp_array, gcsa_name + ".lcp");
     }
 
     if (build_rocksdb) {

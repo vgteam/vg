@@ -347,7 +347,7 @@ size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Al
     
     size_t nLines = unpaired_for_each_parallel(get_read, lambda);
     
-    delete buf;
+    delete[] buf;
     gzclose(fp);
     return nLines;
     
@@ -379,7 +379,7 @@ size_t fastq_paired_interleaved_for_each_parallel_after_wait(const string& filen
     
     size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true);
     
-    delete buf;
+    delete[] buf;
     gzclose(fp);
     return nLines;
 }
@@ -406,7 +406,7 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
     
     size_t nLines = paired_for_each_parallel_after_wait(get_pair, lambda, single_threaded_until_true);
     
-    delete buf;
+    delete[] buf;
     gzclose(fp1);
     gzclose(fp2);
     return nLines;
@@ -426,7 +426,7 @@ size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)
         nLines++;
     }
     gzclose(fp);
-    delete buffer;
+    delete[] buffer;
     return nLines;
 }
 
@@ -444,7 +444,7 @@ size_t fastq_paired_interleaved_for_each(const string& filename, function<void(A
         nLines++;
     }
     gzclose(fp);
-    delete buffer;
+    delete[] buffer;
     return nLines;
 }
 
@@ -467,7 +467,7 @@ size_t fastq_paired_two_files_for_each(const string& file1, const string& file2,
     }
     gzclose(fp1);
     gzclose(fp2);
-    delete buffer;
+    delete[] buffer;
     return nLines;
 
 }
@@ -612,7 +612,7 @@ string alignment_to_sam_internal(const Alignment& alignment,
         // Keep the alignment name as is because even if the name looks paired, the reads are semantically unpaired.
         alignment_name = alignment.name();
     }
-
+    
     sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
         << (mapped ? refseq : "*") << "\t"
@@ -1365,6 +1365,8 @@ void parse_bed_regions(istream& bedstream,
     size_t sbuf;
     size_t ebuf;
     string name;
+    size_t score;
+    string strand;
 
     for (int line = 1; getline(bedstream, row); ++line) {
         if (row.size() < 2 || row[0] == '#') {
@@ -1380,13 +1382,74 @@ void parse_bed_regions(istream& bedstream,
         } else {
             ss >> name;
             assert(sbuf < ebuf);
+            ss >> score;
+            ss >> strand;
+
+            bool is_reverse = false;
+            if(!ss.fail() && strand.compare("-") == 0) {
+                is_reverse = true;
+            }
 
             if (xgindex->path_rank(seq) == 0) {
                 // This path doesn't exist, and we'll get a segfault or worse if
                 // we go look for positions in it.
                 cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
             } else {
-                Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name);
+                Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name, is_reverse);
+
+                out_alignments->push_back(alignment);
+            }
+        }
+    }
+}
+
+void parse_gff_regions(istream& gffstream,
+                       xg::XG* xgindex,
+                       vector<Alignment>* out_alignments) {
+    out_alignments->clear();
+    if (!gffstream) {
+        cerr << "Unable to open gff3/gtf file." << endl;
+        return;
+    }
+    string row;
+    string seq;
+    string source;
+    string type;
+    size_t sbuf;
+    size_t ebuf;
+    string name = "";
+    string score;
+    string strand;
+
+    for (int line = 1; getline(gffstream, row); ++line) {
+        if (row.size() < 2 || row[0] == '#') {
+            continue;
+        }
+        istringstream ss(row);
+        ss >> seq;
+        ss >> source;
+        ss >> type;
+        ss >> sbuf;
+        ss >> ebuf;
+
+        if (ss.fail()) {
+            cerr << "Error parsing gtf/gff line " << line << ": " << row << endl;
+        } else {
+            assert(sbuf < ebuf);
+            ss >> score;
+            ss >> strand;
+
+            bool is_reverse = false;
+            if(!ss.fail() && strand.compare("-") == 0) {
+                is_reverse = true;
+            }
+
+            if (xgindex->path_rank(seq) == 0) {
+                // This path doesn't exist, and we'll get a segfault or worse if
+                // we go look for positions in it.
+                cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
+            } else {
+                Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name, is_reverse);
 
                 out_alignments->push_back(alignment);
             }

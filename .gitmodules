@@ -82,3 +82,6 @@
 [submodule "deps/structures"]
 	path = deps/structures
 	url = https://github.com/vgteam/structures.git
+[submodule "deps/sparsepp"]
+	path = deps/sparsepp
+	url = https://github.com/greg7mdp/sparsepp.git
