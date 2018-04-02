@@ -87,21 +87,23 @@ using namespace std;
                 return conservation_line;
             };
             
+            auto is_blank = [](const string& str) {
+                return all_of(str.begin(), str.end(), [](char c){return isspace(c);});
+            };
+            
             auto get_next_sequence_line = [&](istream& in) {
                 string next;
                 
                 bool got_data = getline(in, next).good();
                 bool conservation_line = is_conservation_line(next);
+                bool blank = is_blank(next);
                 
-                while (got_data && (next.empty() || conservation_line)) {
+                while (got_data && (next.empty() || conservation_line || blank)) {
                     
                     got_data = getline(in, next).good();
                     conservation_line = is_conservation_line(next);
+                    blank = is_blank(next);
                     
-                }
-                if (conservation_line || !got_data || all_of(next.begin(), next.end(), [](char c){return isspace(c);})) {
-                    // hack for edge case that the final line is a conservation line or whitespace
-                    next.clear();
                 }
                 return next;
             };
@@ -373,6 +375,19 @@ using namespace std;
                     cerr << "\t" << curr.first << " " << curr.second->id() << endl;
                 }
 #endif
+            }
+            
+            for (pair<const string, Path*> path_record : aln_path) {
+                Path* path = path_record.second;
+                for (size_t i = 0; i < path->mapping_size(); i++) {
+                    Mapping* mapping = path->mutable_mapping(i);
+                    assert(mapping->edit_size() == 0);
+                    Edit* edit = mapping->add_edit();
+                    
+                    size_t node_length = graph.get_node(mapping->position().node_id())->sequence().size();
+                    edit->set_from_length(node_length);
+                    edit->set_to_length(node_length);
+                }
             }
             
             graph.destroy_node(dummy_node);
