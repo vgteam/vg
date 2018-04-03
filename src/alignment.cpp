@@ -890,13 +890,13 @@ int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, xg::XG* xgindex) {
 
 void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::XG* xgindex, bool on_reverse_strand) {
     Path path = alignment.path();
-    Mapping* cigar_mapping;
+    Mapping cigar_mapping;
 
     // if cigar is existed
-    int64_t length = cigar_mapping(b, cigar_mapping, xgindex);
+    int64_t length = cigar_mapping(b, *cigar_mapping, xgindex);
 
     // false
-    Alignment aln = xgindex->target_alignment(chr, b->core.pos, b->core.pos + length, "", false, cigar_mapping);
+    Alignment aln = xgindex->target_alignment(chr, b->core.pos, b->core.pos + length, "", false, *cigar_mapping);
 
     if(on_reverse_strand) {
       // Flip CIGAR ops into forward strand ordering

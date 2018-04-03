@@ -3757,7 +3757,7 @@ void add_edits_with_consuming(Mapping* first_mapping, list<Edit> edits_queue, si
 }
 
 // ref-relative offset
-pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
+pair<Mapping, Mapping> cut_mapping_offset(const Mapping& m, size_t offset) {
     Mapping left, right;
     //cerr << ".cutting mapping " << pb2json(m) << " at " << offset << endl;
     // both result mappings will be in the same orientation as the original
@@ -3843,11 +3843,11 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
         Mapping* first_mapping = aln.mutable_path()->add_mapping();
         *first_mapping = mapping_at_path_position(name, pos1);
 //        add_edits_with_consuming(first_mapping, edits_queue, node_length(first_mapping->position().node_id()));
-        auto mappings = cut_mapping(cigar_mapping, first_mapping->position().node_id())
-        for (size_t j = 0 ; j < mappings.first.edit_size(); ++j) {
-            first_mapping->add_edit() = mappings.first.edit(j);
+        auto mappings = cut_mapping_offset(cigar_mapping, first_mapping->position().node_id());
+        for (size_t j = 0; j < mappings.first.edit_size(); ++j) {
+            *first_mapping->add_edit() = mappings.first.edit(j);
         }
-        cigar_mapping = mappings.second
+        cigar_mapping = mappings.second;
 //        Edit* e = first_mapping->add_edit();
 //        e->set_to_length(node_length(first_mapping->position().node_id()));
 //        e->set_from_length(e->to_length());
@@ -3857,11 +3857,11 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
     while (p < pos2) {
         Mapping m = mapping_at_path_position(name, p);
 //        add_edits_with_consuming(&m, edits_queue, node_length(m.position().node_id()));
-        auto mappings = cut_mapping(cigar_mapping, node_length(m.position().node_id()));
+        auto mappings = cut_mapping_offset(cigar_mapping, node_length(m.position().node_id()));
         for (size_t j = 0 ; j < mappings.first.edit_size(); ++j) {
-            m.add_edit() = mappings.first.edit(j);
+            *m.add_edit() = mappings.first.edit(j);
         }
-        cigar_mapping = mappings.second
+        cigar_mapping = mappings.second;
 //        Edit* e = m.add_edit();
 //        e->set_to_length(node_length(m.position().node_id()));
 //        e->set_from_length(e->to_length());
