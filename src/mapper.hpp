@@ -238,7 +238,7 @@ public:
     int hit_max = 0;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = false;
     bool prefilter_redundant_hits = true;
-    int max_sub_mem_recursion_depth = 1;
+    int max_sub_mem_recursion_depth = 2;
     int unpaired_penalty = 17;
     bool precollapse_order_length_hits = true;
     

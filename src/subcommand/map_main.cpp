@@ -164,6 +164,7 @@ int main_map(int argc, char** argv) {
     bool refpos_table = false;
     bool patch_alignments = true;
     int min_banded_mq = 0;
+    int max_sub_mem_recursion_depth = 2;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -936,6 +937,7 @@ int main_map(int argc, char** argv) {
                  << ", min_cluster_length = " << m->min_cluster_length << endl;
         }
         m->fast_reseed = use_fast_reseed;
+        m->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent);
         if(matrix_stream.is_open()) m->load_scoring_matrix(matrix_stream);

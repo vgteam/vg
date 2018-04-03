@@ -3419,7 +3419,7 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
         }
     }
     // get the graph with cluster.hpp's cluster_subgraph
-    Graph graph = cluster_subgraph(*xindex, aln, mems, 1.61803);
+    Graph graph = cluster_subgraph_walk(*xindex, aln, mems, 1);
     bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
     // and test each direction for which we have MEM hits
     Alignment aln_fwd;

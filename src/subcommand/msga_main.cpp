@@ -129,6 +129,7 @@ int main_msga(int argc, char** argv) {
     bool show_align_progress = false;
     bool bigger_first = true;
     bool patch_alignments = true;
+    int max_sub_mem_recursion_depth = 2;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -587,6 +588,7 @@ int main_msga(int argc, char** argv) {
             mapper->fast_reseed = use_fast_reseed;
             mapper->max_target_factor = max_target_factor;
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
+            mapper->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
             //mapper->adjust_alignments_for_base_quality = qual_adjust_alignments;
             mapper->extra_multimaps = extra_multimaps;
             mapper->mapping_quality_method = mapping_quality_method;
