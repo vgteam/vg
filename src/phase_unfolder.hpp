@@ -28,9 +28,6 @@ namespace vg {
  * variation.
  * Requires the XG index of the original graph and an empty GBWT index or
  * an GBWT index of the original graph.
- * Note: A "border-to-border" path is a) a path from a border node to
- * another border node containing no other border nodes; or b) maximal path
- * starting from a border node encountering no other border nodes.
  * Note: PhaseUnfolder only considers paths of length >= 2.
  */
 class PhaseUnfolder {
@@ -54,7 +51,8 @@ public:
      *
      * - For each component, find all border-to-border paths and threads
      * supported by the indexes. Then unfold the component by duplicating the
-     * nodes, so that the paths are disjoint, except for their endpoints.
+     * nodes, so that the paths are disjoint, except for their shared prefixes
+     * and suffixes.
      *
      * - Extend the input graph with the unfolded components.
      */
@@ -111,28 +109,52 @@ private:
 
     /**
      * Generate all border-to-border paths in the component supported by the
-     * GBWT index. Unfold the path by duplicating the inner nodes so that the
-     * paths become disjoint, except for their endpoints.
+     * indexes. Unfold the paths by duplicating the inner nodes so that the
+     * paths become disjoint, except for their shared prefixes/suffixes.
      */
     size_t unfold_component(VG& component, VG& graph, VG& unfolded);
 
     /**
-     * Generate all paths or threads starting from the given node that are
-     * supported by the corresponding index and end at the border. Insert the
-     * generated paths into the set in canonical order.
+     * Generate all paths supported by the XG index passing through the given
+     * node until the border or until the path ends. Insert the generated
+     * paths into the set in the canonical orientation, and use them as
+     * reference paths for extending threads.
      */
     void generate_paths(VG& component, vg::id_t from);
+
+   /**
+    * Generate all paths supported by the GBWT index from the given node until
+    * the border. Extend paths that start/end at internal nodes using the
+    * reference paths. If the node is a border node, consider all threads
+    * passing through it. Otherwise consider only the threads starting from
+    * it, and do not output threads reaching a border.
+    */
     void generate_threads(VG& component, vg::id_t from);
 
     /**
      * Create or extend the state with the given node orientation, and insert
-     * it into the stack if it is supported by the GBWT index.
+     * it into the stack if it is supported by the GBWT index. Use 'starting'
+     * to determine whether the initial state is for the threads starting at
+     * the node or for the threads passing through the node.
      */
-    void create_state(vg::id_t node, bool is_reverse);
+    void create_state(vg::id_t node, bool is_reverse, bool starting);
     bool extend_state(state_type state, vg::id_t node, bool is_reverse);
 
+    /**
+     * Try to extend the path at both ends until the border by using the
+     * reference paths. Insert the extended path into the set in the canonical
+     * orientation.
+     */
+    void extend_path(const path_type& path);
+
     /// Insert the path into the set in the canonical orientation.
-    void insert_path(const path_type& path);
+    void insert_path(const path_type& path, bool from_border, bool to_border);
+
+    /// Get the id for the duplicate of 'node' after 'from'.
+    gbwt::node_type get_prefix(gbwt::node_type from, gbwt::node_type node);
+
+    /// Get the id for the duplicate of 'node' before 'to'.
+    gbwt::node_type get_suffix(gbwt::node_type node, gbwt::node_type to);
 
     /// XG and GBWT indexes for the original graph.
     const xg::XG&     xg_index;
@@ -144,6 +166,7 @@ private:
     /// Internal data structures for the current component.
     hash_set<vg::id_t>     border;
     std::stack<state_type> states;
+    std::vector<path_type> reference_paths;
 
     /// Tries for the unfolded prefixes and reverse suffixes.
     /// prefixes[(from, to)] is the mapping for to, and
