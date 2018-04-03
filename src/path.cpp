@@ -1178,8 +1178,8 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
             // remove empty mappings as these are redundant
             if (m.edit_size() == 0) continue;
         }
-        if (s.mapping_size()
-            && m.position().is_reverse() == s.mapping(s.mapping_size()-1).position().is_reverse()) {
+        if (s.mapping_size()) {
+            //&& m.position().is_reverse() == s.mapping(s.mapping_size()-1).position().is_reverse()) {
             // if this isn't the first mapping
             // refer to the last mapping
             Mapping* l = s.mutable_mapping(s.mapping_size()-1);
@@ -1208,10 +1208,12 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
             // if our last mapping has no position, but we do, merge
             if (!l->has_position() && m.has_position()) {
                 *l->mutable_position() = m.position();
-            // otherwise, if we end at exactly the start position of the next mapping, we can merge
-            } else if (l->has_position() && m.has_position()
-                       && l->position().node_id() == m.position().node_id()
-                       && l->position().offset() + mapping_from_length(*l) == m.position().offset()) {
+            }
+            // if we end at exactly the start position of the next mapping, we can merge
+            if (l->has_position() && m.has_position()
+                && l->position().is_reverse() == m.position().is_reverse()
+                && l->position().node_id() == m.position().node_id()
+                && l->position().offset() + mapping_from_length(*l) == m.position().offset()) {
                 // we can merge the current mapping onto the old one
                 *l = concat_mappings(*l, m, trim_internal_deletions);
             } else {
@@ -1383,6 +1385,7 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
             *n.add_edit() = e;
         }
     }
+    if (!mapping_from_length(n)) n.clear_position();
     return n;
 }
 
