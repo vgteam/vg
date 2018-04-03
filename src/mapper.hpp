@@ -422,6 +422,7 @@ private:
                                            int stride,
                                            int max_mem_length,
                                            int band_width,
+                                           int band_overlap,
                                            double& cluster_mq,
                                            int keep_multimaps = 0,
                                            int additional_multimaps = 0,
@@ -435,7 +436,8 @@ private:
                                    int kmer_size = 0,
                                    int stride = 0,
                                    int max_mem_length = 0,
-                                   int band_width = 1000);
+                                   int band_width = 1000,
+                                   int band_overlap = 500);
     // alignment based on the MEM approach
 //    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int max_mem_length, int additional_multimaps = 0);
     // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
@@ -461,7 +463,7 @@ protected:
                              bool keep_bonuses = true);
     
     // make the bands used in banded alignment
-    vector<Alignment> make_bands(const Alignment& read, int band_width, vector<pair<int, int>>& to_strip);
+    vector<Alignment> make_bands(const Alignment& read, int band_width, int band_overlap, vector<pair<int, int>>& to_strip);
 public:
     // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
     // LCP array, and an optional haplotype score provider.
@@ -543,14 +545,16 @@ public:
                     int kmer_size = 0,
                     int stride = 0,
                     int max_mem_length = 0,
-                    int band_width = 1000);
+                    int band_width = 1000,
+                    int band_overlap = 500);
 
     // Align the given read and return an aligned copy. Does not modify the input Alignment.
     Alignment align(const Alignment& read,
                     int kmer_size = 0,
                     int stride = 0,
                     int max_mem_length = 0,
-                    int band_width = 1000);
+                    int band_width = 1000,
+                    int band_overlap = 500);
 
     // Align the given read with multi-mapping. Returns the alignments in score
     // order, up to multimaps (or max_multimaps if multimaps is 0). Does not update the alignment passed in.
@@ -560,7 +564,8 @@ public:
                                   int kmer_size = 0,
                                   int stride = 0,
                                   int max_mem_length = 0,
-                                  int band_width = 1000);
+                                  int band_width = 1000,
+                                  int band_overlap = 500);
     
     // paired-end based
     

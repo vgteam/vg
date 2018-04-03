@@ -1493,15 +1493,16 @@ bool VG::adjacent(const Position& pos1, const Position& pos2) {
 void VG::flip_doubly_reversed_edges(void) {
     for_each_edge([this](Edge* e) {
             if (e->from_start() && e->to_end()) {
+                unindex_edge_by_node_sides(e);
                 e->set_from_start(false);
                 e->set_to_end(false);
                 id_t f = e->to();
                 id_t t = e->from();
                 e->set_to(t);
                 e->set_from(f);
+                index_edge_by_node_sides(e);
             }
         });
-    rebuild_edge_indexes();
 }
 
 // by definition, we can merge nodes that are a "simple component"
@@ -6674,7 +6675,7 @@ Alignment VG::align(const Alignment& alignment,
 
     flip_doubly_reversed_edges();
 
-    if ((acyclic || is_acyclic()) && !has_inverting_edges()) {
+    if (acyclic && !has_inverting_edges()) {
         // graph is a non-inverting DAG, so we just need to sort
 #ifdef debug
         cerr << "Graph is a non-inverting DAG, so just sort and align" << endl;
@@ -6693,7 +6694,7 @@ Alignment VG::align(const Alignment& alignment,
         // TODO: we probably want to be able to span more than just the sequence
         // length if we don't get a hint. Look at scores and guess the max span
         // with those scores?
-        size_t max_length = max(max_span, alignment.sequence().size());
+        size_t max_length = min(max_span, alignment.sequence().size());
         size_t component_length_max = 100*max_length; // hard coded to be 100x
 
         // dagify the graph by unfolding inversions and then applying dagify forward unroll

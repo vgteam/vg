@@ -1840,24 +1840,24 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             aligned = vg.align(aln,
                                get_regular_aligner(),
                                traceback,
-                               assume_acyclic,
+                               certainly_acyclic,
                                max_query_graph_ratio,
                                pinned_alignment,
                                pin_left,
                                banded_global,
                                0, // band padding override
-                               aln.sequence().size()*1.61803);
+                               aln.sequence().size());
         } else {
             aligned = vg.align_qual_adjusted(aln,
                                              get_qual_adj_aligner(),
                                              traceback,
-                                             assume_acyclic,
+                                             certainly_acyclic,
                                              max_query_graph_ratio,
                                              pinned_alignment,
                                              pin_left,
                                              banded_global,
                                              0, // band padding override
-                                             aln.sequence().size()*1.61803);
+                                             aln.sequence().size());
         }
     } else {
         // we've got an id-sortable graph and we can directly align with gssw
@@ -1880,10 +1880,10 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
     return aligned;
 }
 
-Alignment Mapper::align(const string& seq, int kmer_size, int stride, int max_mem_length, int band_width) {
+Alignment Mapper::align(const string& seq, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap) {
     Alignment aln;
     aln.set_sequence(seq);
-    return align(aln, kmer_size, stride, max_mem_length, band_width);
+    return align(aln, kmer_size, stride, max_mem_length, band_width, band_overlap);
 }
 
 pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
@@ -3839,39 +3839,13 @@ bool Mapper::check_alignment(const Alignment& aln) {
     return true;
 }
 
-vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, vector<pair<int, int>>& to_strip) {
-    if (band_width % 4) {
-        band_width -= band_width % 4; band_width += 4;
-    }
-    int div = 2;
-    while (read.sequence().size()/div > band_width) {
-        ++div;
-    }
-    int segment_size = read.sequence().size()/div;
-    // use segment sizes divisible by 4, as this simplifies math
-    // round up as well
-    // we'll divide the overlap by 2 and 2 and again when stripping from the start
-    // and end of sub-reads
-    if (segment_size % 4) {
-        segment_size -= segment_size % 4; segment_size += 4;
-    }
+vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, int band_overlap, vector<pair<int, int>>& to_strip) {
+    int segment_size = min((int)read.sequence().size(), band_width);
 #ifdef debug_mapper
     if (debug) {
         cerr << "Segment size be " << segment_size << "/" << read.sequence().size() << endl;
     }
 #endif
-    // and overlap them too
-    //int to_align = div * 2 - 1; // number of alignments we'll do
-    //vector<pair<size_t, size_t>> to_strip; to_strip.resize(to_align);
-    //vector<Alignment> bands; bands.resize(to_align);
-
-    int remainder = (int)read.sequence().size() % segment_size;
-    //cerr << "remainder " << remainder << endl;
-    if (remainder % 2) {
-        remainder -= remainder % 2; remainder += 2; // make divisible by 2
-    }
-    //cerr << "remainder adj " << remainder << endl;
-
     vector<int> start_positions;
 
     // record the start positions
@@ -3879,40 +3853,31 @@ vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, vect
     while (offset+segment_size < read.sequence().size()) {
         if (offset == 0) {
             start_positions.push_back(0);
-            if (remainder) {
-                offset += remainder/2;
-            } else {
-                offset += segment_size/2;
-            }
+            offset += band_width-band_overlap;
         } else {
             start_positions.push_back(offset);
-            offset += segment_size/2;
+            offset += band_width-band_overlap;
         }
     }
-    // add in the last alignment
-    start_positions.push_back(read.sequence().size()-segment_size);
+    // add in the last alignment if we need it
+    if (offset < read.sequence().size()) {
+        start_positions.push_back(read.sequence().size()-segment_size);
+    }
     // set up the structures to hold onto the banded alignments
     int to_align = start_positions.size();
     to_strip.resize(to_align);
     vector<Alignment> bands; bands.resize(to_align);
     int i = 0;
-    int q = segment_size/4;
     for (auto& p : start_positions) {
-        // so that we tend to obtain the path component derived from the middle of alignments
-        // with the exception of the first and last alignments
-        // we will remove half the overlap length from each end
-        // the overlap length is 1/2 the bandwidth, so we remove 1/4 length from each end
         if (&p == &start_positions.front()) {
-            to_strip[i].second = segment_size - (start_positions[i+1] + q);
-        } else if (&p == &start_positions.back()) {
-            to_strip[i].first = start_positions[i-1]+segment_size-q - p;
-            // if we only have two bands, handle the potential non-divisibility by 2
-            if (start_positions.size() == 2) {
-                to_strip[i].first -= (int)read.sequence().size() % 2;
+            if (start_positions.size() > 1) {
+                to_strip[i].second = band_overlap/2;
             }
+        } else if (&p == &start_positions.back()) {
+            to_strip[i].first = start_positions[i-1]+segment_size-band_overlap/2 - p;
         } else {
-            to_strip[i].first = q;
-            to_strip[i].second = q;
+            to_strip[i].first = band_overlap/2;
+            to_strip[i].second = band_overlap/2;
         }
         //cerr << "position: " << p << " strip " << to_strip[i].first << " " << to_strip[i].second << endl;
         auto& aln = bands[i];
@@ -3924,7 +3889,7 @@ vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, vect
     return bands;
 }
 
-vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int stride, int max_mem_length, int band_width) {
+vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap) {
 
     auto aligner = get_aligner(!read.quality().empty());
     int8_t match = aligner->match;
@@ -3961,7 +3926,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     // the bands which define our best to Nth best alignment. Changes to the chain model cost
     // function can be used to enable direct detection of SVs and other large scale variations.
     vector<pair<int, int>> to_strip;
-    vector<Alignment> bands = make_bands(read, band_width, to_strip);
+    vector<Alignment> bands = make_bands(read, band_width, band_overlap, to_strip);
     vector<vector<Alignment>> multi_alns;
     multi_alns.resize(bands.size());
 
@@ -3969,7 +3934,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         //cerr << "aligning band " << i << endl;
         vector<Alignment>& malns = multi_alns[i];
         double cluster_mq = 0;
-        malns = align_multi_internal(true, bands[i], kmer_size, stride, max_mem_length, bands[i].sequence().size(), cluster_mq, band_multimaps, extra_multimaps, nullptr);
+        malns = align_multi_internal(true, bands[i], kmer_size, stride, max_mem_length, bands[i].sequence().size(), 0, cluster_mq, band_multimaps, extra_multimaps, nullptr);
         for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
             Alignment& aln = *a;
             int mapqual = aln.mapping_quality();
@@ -4188,13 +4153,13 @@ void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_align
     }
 }
     
-vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int max_mem_length, int band_width) {
+vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap) {
     double cluster_mq = 0;
     Alignment clean_aln;
     clean_aln.set_name(aln.name());
     clean_aln.set_sequence(aln.sequence());
     clean_aln.set_quality(aln.quality());
-    return align_multi_internal(true, clean_aln, kmer_size, stride, max_mem_length, band_width, cluster_mq, max_multimaps, extra_multimaps, nullptr);
+    return align_multi_internal(true, clean_aln, kmer_size, stride, max_mem_length, band_width, band_overlap, cluster_mq, max_multimaps, extra_multimaps, nullptr);
 }
     
 vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
@@ -4202,6 +4167,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                int kmer_size, int stride,
                                                int max_mem_length,
                                                int band_width,
+                                               int band_overlap,
                                                double& cluster_mq,
                                                int keep_multimaps,
                                                int additional_multimaps,
@@ -4235,7 +4201,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
 #pragma omp critical
         if (debug) cerr << "switching to banded alignment" << endl;
 #endif
-        return vector<Alignment>{align_banded(aln, kmer_size, stride, max_mem_length, band_width)};
+        return vector<Alignment>{align_banded(aln, kmer_size, stride, max_mem_length, band_width, band_overlap)};
     }
     
     // try to get at least 2 multimaps so that we can calculate mapping quality
@@ -4291,11 +4257,11 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     return alignments;
 }
 
-Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int max_mem_length, int band_width) {
+Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap) {
     // TODO computing mapping quality could be inefficient depending on the method chosen
     
     // Do the multi-mapping
-    vector<Alignment> best = align_multi(aln, kmer_size, stride, max_mem_length, band_width);
+    vector<Alignment> best = align_multi(aln, kmer_size, stride, max_mem_length, band_width, band_overlap);
 
     if(best.size() == 0) {
         // Spit back an alignment that says we failed, but make sure it has the right sequence in it.
@@ -4582,7 +4548,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                 if (edit.sequence().size() > max_patch_length) {
                     // do the banding thing
                     //cerr << "banding" << endl;
-                    bands = make_bands(patch, max_patch_length, to_strip);
+                    bands = make_bands(patch, max_patch_length, max_patch_length/4, to_strip);
                 } else {
                     //cerr << "not banding" << endl;
                     to_strip.push_back(make_pair(0,0));
