@@ -2050,8 +2050,8 @@ Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
     Graph graph;
-    int inside_padding = 8;
-    int end_padding = 32;
+    int inside_padding = max(1, (int)aln.sequence().size()/16);
+    int end_padding = max(8, (int)aln.sequence().size()/8);
     int get_before = end_padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     if (get_before) {
         graph.MergeFrom(xg.graph_context_id(rev_start_pos, get_before));
