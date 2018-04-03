@@ -4022,14 +4022,14 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         // consider both the forward and inversion case
         int64_t dist_fwd = distances.first;
         if (dist_fwd < aln2.sequence().size()) {
-            int64_t graph_dist = graph_distance(aln1_end, aln2_begin, aln2.sequence().size());
-            dist_fwd = min(graph_dist, dist_fwd);
+            int64_t graph_dist_fwd = graph_distance(aln1_end, aln2_begin, aln2.sequence().size());
+            dist_fwd = min(graph_dist_fwd, dist_fwd);
         }
         dist_fwd -= band_distance;
         int64_t dist_inv = distances.second;
         if (dist_inv < aln2.sequence().size()) {
-            int64_t graph_dist = graph_distance(aln2_begin, aln1_end, aln2.sequence().size());
-            dist_inv = min(graph_dist, dist_inv);
+            int64_t graph_dist_inv = graph_distance(aln2_begin, aln1_end, aln2.sequence().size());
+            dist_inv = min(graph_dist_inv, dist_inv);
         }
         dist_inv -= band_distance;
         double fwd_score = -((double)gap_open + (double)dist_fwd * (double)gap_extension);

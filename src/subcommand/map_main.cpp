@@ -1049,7 +1049,7 @@ int main_map(int argc, char** argv) {
 #pragma omp parallel for
         for (size_t i = 0; i < ref.index->sequenceNames.size(); ++i) {
             auto& name = ref.index->sequenceNames[i];
-            string seq = nonATGCNtoN(ref.getSequence(name));
+            string seq = nonATGCNtoN(toUppercase(ref.getSequence(name)));
             align_seq(name, seq);
         }
     }
