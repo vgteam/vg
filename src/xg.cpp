@@ -3843,7 +3843,7 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
         Mapping* first_mapping = aln.mutable_path()->add_mapping();
         *first_mapping = mapping_at_path_position(name, pos1);
 //        add_edits_with_consuming(first_mapping, edits_queue, node_length(first_mapping->position().node_id()));
-        auto mappings = cut_mapping_offset(cigar_mapping, first_mapping->position().node_id());
+        auto mappings = cut_mapping_offset(cigar_mapping, node_length(first_mapping->position().node_id()));
         for (size_t j = 0; j < mappings.first.edit_size(); ++j) {
             *first_mapping->add_edit() = mappings.first.edit(j);
         }
