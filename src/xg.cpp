@@ -3844,6 +3844,7 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
         *first_mapping = mapping_at_path_position(name, pos1);
 //        add_edits_with_consuming(first_mapping, edits_queue, node_length(first_mapping->position().node_id()));
         auto mappings = cut_mapping_offset(cigar_mapping, node_length(first_mapping->position().node_id()));
+        first_mapping->clear_edit();
         for (size_t j = 0; j < mappings.first.edit_size(); ++j) {
             *first_mapping->add_edit() = mappings.first.edit(j);
         }
@@ -3858,6 +3859,7 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
         Mapping m = mapping_at_path_position(name, p);
 //        add_edits_with_consuming(&m, edits_queue, node_length(m.position().node_id()));
         auto mappings = cut_mapping_offset(cigar_mapping, node_length(m.position().node_id()));
+        m.clear_edit();
         for (size_t j = 0 ; j < mappings.first.edit_size(); ++j) {
             *m.add_edit() = mappings.first.edit(j);
         }
@@ -3869,13 +3871,13 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
         p += mapping_from_length(aln.path().mapping(aln.path().mapping_size()-1));
     }
     // trim to the target
-    int64_t trim_end = p - pos2;
-    if (trim_start) {
-        *aln.mutable_path() = cut_path(aln.path(), trim_start).second;
-    }
-    if (trim_end) {
-        *aln.mutable_path() = cut_path(aln.path(), path_from_length(aln.path()) - trim_end).first;
-    }
+    //int64_t trim_end = p - pos2;
+    //if (trim_start) {
+    //    *aln.mutable_path() = cut_path(aln.path(), trim_start).second;
+    //}
+    //if (trim_end) {
+    //    *aln.mutable_path() = cut_path(aln.path(), path_from_length(aln.path()) - trim_end).first;
+    //}
     aln.set_name(feature);
     return aln;
 }
