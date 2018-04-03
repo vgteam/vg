@@ -128,7 +128,7 @@ int main_inject(int argc, char** argv) {
       xgidx = new xg::XG(xg_stream);
     }
     if (!xg_stream || xgidx == nullptr) {
-      cerr << "[vg surject] error: could not open xg index" << endl;
+      cerr << "[vg inject] error: could not open xg index" << endl;
       return 1;
     }
 
