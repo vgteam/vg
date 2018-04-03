@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 8
+plan tests 10
 
 vg construct -r small/x.fa > j.vg
 vg index -x j.xg j.vg
@@ -28,11 +28,17 @@ is $(vg inject -p x -x x.xg small/x.sam | vg surject -p x -x x.xg -t 1 - | vg vi
 is "$(samtools view -S small/x.sam | cut -f 1 | sort)" "$(vg inject -p x -x x.xg small/x.sam | vg surject -p x -x x.xg -t 1 -s - | sort -k 4n | cut -f 1)" \
     "vg inject retains read names"
 
+is "$(samtools view -S small/x.sam | cut -f 4)" "$(vg inject -p x -x j.xg small/x.sam | vg surject -p x -x j.xg -t 1 -s - | cut -f 4 | sort)" \
+    "vg inject works perfectly for the position of alignment with simple graph"
+
 is "$(samtools view -S small/x.sam | cut -f 4)" "$(vg inject -p x -x x.xg small/x.sam | vg surject -p x -x x.xg -t 1 -s - | cut -f 4 | sort)" \
     "vg inject works perfectly for the position of alignment"
 
 is "$(samtools view -S small/x.sam | cut -f 5)" "$(vg inject -p x -x x.xg small/x.sam | vg surject -p x -x x.xg -t 1 -s - | sort -k 4n | cut -f 5)" \
-    "vg inject works perfectly for the mappign quality of alignment"
+    "vg inject works perfectly for the mapping quality of alignment"
+
+is "$(samtools view -S small/x.sam | cut -f 6)" "$(vg inject -p x -x j.xg small/x.sam | vg surject -p x -x j.xg -t 1 -s - | sort -k 4n | cut -f 6)" \
+    "vg inject works perfectly for the cigar of alignment with simple graph"
 
 is "$(samtools view -S small/x.sam | cut -f 6)" "$(vg inject -p x -x x.xg small/x.sam | vg surject -p x -x x.xg -t 1 -s - | sort -k 4n | cut -f 6)" \
     "vg inject works perfectly for the cigar of alignment"
