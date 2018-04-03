@@ -5,7 +5,7 @@
 #include <bitset>
 #include <arpa/inet.h>
 
-//#define VERBOSE_DEBUG
+#define VERBOSE_DEBUG
 //#define debug_algorithms
 //#define debug_component_index
 
