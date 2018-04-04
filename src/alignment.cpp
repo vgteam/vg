@@ -859,9 +859,8 @@ int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, xg::XG* xgindex) {
 
     const auto cigar = bam_get_cigar(b);
 
-    Edit* e = mapping->add_edit();
-
     for (int k = 0; k < b->core.n_cigar; k++) {
+        Edit* e = mapping->add_edit();
         const int op = bam_cigar_op(cigar[k]);
         const int ol = bam_cigar_oplen(cigar[k]);
         if (bam_cigar_type(cigar[k])&1) {
@@ -883,7 +882,6 @@ int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, xg::XG* xgindex) {
         } else {
             e->set_from_length(0);
         }
-        e = mapping->add_edit();
     }
     return ref_length;
 }
@@ -903,6 +901,10 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::
       reverse_complement_alignment_in_place(&alignment, [&](vg::id_t node_id) { return xgindex->node_length(node_id); });
     }
     *alignment.mutable_path() = aln.path();
+    Position* refpos = alignment.add_refpos();
+    refpos->set_name(chr);
+    refpos->set_offset(b->core.pos);
+    refpos->set_is_reverse(on_reverse_strand);
 }
 
 // act like the path this is against is the reference
@@ -1052,6 +1054,7 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, cons
     }
     
     if (xgindex != nullptr) {
+        alignment.set_mapping_quality(b->core.qual);
         mapping_against_path(alignment, b, bh->target_name[b->core.tid], xgindex, b->core.flag & BAM_FREVERSE);
     }
     
