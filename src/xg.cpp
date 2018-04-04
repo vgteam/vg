@@ -3734,106 +3734,6 @@ pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const 
     return make_pos_t(node_id, is_rev, offset);
 }
 
-void add_edits_with_consuming(Mapping* first_mapping, list<Edit> edits_queue, size_t length) {
-    // Pop edits from the queue until reference_length of edits reaches at length.
-    std::list<Edit>::iterator front;
-    while(length > 0) {
-        front = edits_queue.begin();
-        Edit* e = first_mapping->add_edit();
-        e->set_to_length(front->from_length());
-        e->set_from_length(front->to_length());
-        if (front->sequence() != "") {
-            e->set_sequence(front->sequence());
-        }
-
-        length -= front->to_length();
-        if (length < 0) {
-            front->set_to_length(front->to_length() + length);
-            front->set_from_length(front->from_length() + length);
-        } else {
-            edits_queue.pop_front();
-        }
-    }
-}
-
-// ref-relative offset
-pair<Mapping, Mapping> cut_mapping_offset(const Mapping& m, size_t offset) {
-    Mapping left, right;
-    //cerr << ".cutting mapping " << pb2json(m) << " at " << offset << endl;
-    // both result mappings will be in the same orientation as the original
-    left.mutable_position()->set_is_reverse(m.position().is_reverse());
-    right.mutable_position()->set_is_reverse(m.position().is_reverse());
-    left.set_rank(m.rank());
-    right.set_rank(m.rank());
-
-    //assert(m.has_position() && m.position().node_id());
-    // left always has the position of the input mapping
-    if (m.has_position()) *left.mutable_position() = m.position();
-    // nothing to cut
-    if (offset == 0) {
-        // we will get a 0-length left
-        right = m;
-    } else if (offset >= mapping_from_length(m)) {
-        // or a 0-length right
-        left = m;
-    } else {
-        // we need to cut the mapping
-
-        // find the cut point and build the two mappings
-        size_t seen = 0;
-        size_t j = 0;
-        // loop over those before our position
-        for ( ; j < m.edit_size() && seen < offset; ++j) {
-            auto& e = m.edit(j);
-            //cerr << "at edit " << pb2json(e) << endl;
-            if (seen + e.from_length() > offset) {
-                // we need to divide this edit
-                auto edits = cut_edit_at_from(e, seen + e.from_length() - offset);
-                *left.add_edit() = edits.first;
-                *right.add_edit() = edits.second;
-            } else {
-                // this would be the last edit before the target position
-                // so we just drop it onto the last mapping of p1
-                *left.add_edit() = e;
-            }
-            seen += e.from_length();
-        }
-        // now we add to the second path
-        assert(seen >= offset);
-        for ( ; j < m.edit_size(); ++j) {
-            *right.add_edit() = m.edit(j);
-        }
-    }
-    if (m.has_position()) {
-        // The right mapping has a position on this same node
-        right.mutable_position()->set_node_id(m.position().node_id());
-        right.mutable_position()->set_offset(left.position().offset()
-                                             + mapping_from_length(left));
-    }
-    if (left.has_position()
-        && !left.position().node_id()) {
-        left.clear_position();
-    }
-    if (right.has_position()
-        && !right.position().node_id()) {
-        right.clear_position();
-    }
-    /*
-    if (!(!m.has_position()
-           || (left.has_position()
-               && left.position().node_id()
-               && right.has_position()
-               && right.position().node_id()))) {
-        cerr << "problem with cut alignment" << endl
-             << "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
-        assert(false);
-    }
-    */
-    //cerr << "cut mappings " << endl
-    //<< "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
-    return make_pair(left, right);
-}
-
 Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse, Mapping& cigar_mapping) const {
     Alignment aln;
     const XGPath& path = *paths[path_rank(name)-1];
@@ -3842,7 +3742,6 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
     {
         Mapping* first_mapping = aln.mutable_path()->add_mapping();
         *first_mapping = mapping_at_path_position(name, pos1);
-//        add_edits_with_consuming(first_mapping, edits_queue, node_length(first_mapping->position().node_id()));
         auto mappings = cut_mapping_offset(cigar_mapping, node_length(first_mapping->position().node_id())-trim_start);
         first_mapping->clear_edit();
 
@@ -3888,15 +3787,11 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
             }
         }
         cigar_mapping = mappings.second;
-//        Edit* e = first_mapping->add_edit();
-//        e->set_to_length(node_length(first_mapping->position().node_id()));
-//        e->set_from_length(e->to_length());
     }
     // get p to point to the next step (or past it, if we're a feature on a single node)
     int64_t p = (int64_t)pos1 + node_length(aln.path().mapping(0).position().node_id()) - trim_start;
     while (p < pos2) {
         Mapping m = mapping_at_path_position(name, p);
-//        add_edits_with_consuming(&m, edits_queue, node_length(m.position().node_id()));
         auto mappings = cut_mapping_offset(cigar_mapping, node_length(m.position().node_id()));
         m.clear_edit();
 
@@ -3940,20 +3835,9 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
             }
         }
         cigar_mapping = mappings.second;
-//        Edit* e = m.add_edit();
-//        e->set_to_length(node_length(m.position().node_id()));
-//        e->set_from_length(e->to_length());
         *aln.mutable_path()->add_mapping() = m;
         p += mapping_from_length(aln.path().mapping(aln.path().mapping_size()-1));
     }
-    // trim to the target
-    //int64_t trim_end = p - pos2;
-    //if (trim_start) {
-    //    *aln.mutable_path() = cut_path(aln.path(), trim_start).second;
-    //}
-    //if (trim_end) {
-    //    *aln.mutable_path() = cut_path(aln.path(), path_from_length(aln.path()) - trim_end).first;
-    //}
     aln.set_name(feature);
     if (is_reverse) {
        reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return this->node_length(node_id); });

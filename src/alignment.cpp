@@ -816,43 +816,6 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
     }
 }
 
-int64_t cigar_edits(const bam1_t *b, list<Edit> mapping, xg::XG* xgindex) {
-    int64_t ref_length = 0;
-    int64_t query_length = 0;
-
-    const auto cigar = bam_get_cigar(b);
-
-    //Edit* e = mapping->add_edit();
-
-    for (int k = 0; k < b->core.n_cigar; k++) {
-        Edit e;
-        const int op = bam_cigar_op(cigar[k]);
-        const int ol = bam_cigar_oplen(cigar[k]);
-        if (bam_cigar_type(cigar[k])&1) {
-            // Consume query
-            e.set_to_length(ol);
-            string sequence; sequence.resize(ol);
-            for (int i = 0; i < ol; i++ ) {
-               sequence[i] = "=ACMGRSVTWYHKDBN"[bam_seqi(bam_get_seq(b), query_length + i)];
-            }
-            e.set_sequence(sequence);
-            query_length += ol;
-        } else {
-            e.set_to_length(0);
-        }
-        if (bam_cigar_type(cigar[k])&2) {
-            // Consume ref
-            e.set_from_length(ol);
-            ref_length += ol;
-        } else {
-            e.set_from_length(0);
-        }
-        //e = m->add_edit();
-        mapping.push_back(e);
-    }
-    return ref_length;
-}
-
 int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, xg::XG* xgindex) {
     int64_t ref_length = 0;
     int64_t query_length = 0;
@@ -890,17 +853,16 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::
     Path path = alignment.path();
     Mapping mapping;
 
-    // if cigar is existed
     int64_t length = cigar_mapping(b, &mapping, xgindex);
 
-    // false
-    Alignment aln = xgindex->target_alignment(chr, b->core.pos, b->core.pos + length, "", false, mapping);
+    Alignment aln = xgindex->target_alignment(chr, b->core.pos, b->core.pos + length, "", on_reverse_strand, mapping);
 
-    if(on_reverse_strand) {
+    // if(on_reverse_strand) {
       // Flip CIGAR ops into forward strand ordering
-      reverse_complement_alignment_in_place(&alignment, [&](vg::id_t node_id) { return xgindex->node_length(node_id); });
-    }
+    //  reverse_complement_alignment_in_place(&alignment, [&](vg::id_t node_id) { return xgindex->node_length(node_id); });
+    //}
     *alignment.mutable_path() = aln.path();
+
     Position* refpos = alignment.add_refpos();
     refpos->set_name(chr);
     refpos->set_offset(b->core.pos);
@@ -1053,7 +1015,7 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, cons
         
     }
     
-    if (xgindex != nullptr) {
+    if (xgindex != nullptr && bh != nullptr) {
         alignment.set_mapping_quality(b->core.qual);
         mapping_against_path(alignment, b, bh->target_name[b->core.tid], xgindex, b->core.flag & BAM_FREVERSE);
     }
