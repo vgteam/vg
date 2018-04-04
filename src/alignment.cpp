@@ -857,10 +857,6 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::
 
     Alignment aln = xgindex->target_alignment(chr, b->core.pos, b->core.pos + length, "", on_reverse_strand, mapping);
 
-    // if(on_reverse_strand) {
-      // Flip CIGAR ops into forward strand ordering
-    //  reverse_complement_alignment_in_place(&alignment, [&](vg::id_t node_id) { return xgindex->node_length(node_id); });
-    //}
     *alignment.mutable_path() = aln.path();
 
     Position* refpos = alignment.add_refpos();
