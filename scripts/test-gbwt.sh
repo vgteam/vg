@@ -385,7 +385,6 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --maxDisk 100G \
             --multipath-only \
             --use-gbwt \
-            --use-snarls \
             --mpmap_opts "--max-paths 10" \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
@@ -420,7 +419,6 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --config "${TREE_PATH}/toil-vg.conf" \
             --maxDisk 100G \
             --multipath-only \
-            --use-snarls \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minaf_${MIN_AF}" \
@@ -454,7 +452,6 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --config "${TREE_PATH}/toil-vg.conf" \
             --maxDisk 100G \
             --multipath-only \
-            --use-snarls \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}" \
@@ -488,7 +485,6 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --config "${TREE_PATH}/toil-vg.conf" \
             --maxDisk 100G \
             --multipath-only \
-            --use-snarls \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/primary" \
@@ -657,13 +653,14 @@ fi
 SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Do the R plots
+# TODO: Reduce number of conditions and re-enable
 
-if [[ ! -e "${OUTPUT_PATH}/roc.svg" ]]; then
-    Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
-fi
-if [[ ! -e "${OUTPUT_PATH}/pr.svg" ]]; then
-    Rscript "${SCRIPT_DIRECTORY}/plot-pr.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/pr.svg"
-fi
+#if [[ ! -e "${OUTPUT_PATH}/roc.svg" ]]; then
+#    Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
+#fi
+#if [[ ! -e "${OUTPUT_PATH}/pr.svg" ]]; then
+#    Rscript "${SCRIPT_DIRECTORY}/plot-pr.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/pr.svg"
+#fi
 
 rm "${TREE_PATH}/toil-vg.conf"
 rmdir "${TREE_PATH}"
