@@ -3744,6 +3744,9 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
         *first_mapping = mapping_at_path_position(name, pos1);
         auto mappings = cut_mapping_offset(cigar_mapping, node_length(first_mapping->position().node_id())-trim_start);
         first_mapping->clear_edit();
+        if (trim_start > 0) {
+          first_mapping->mutable_position()->set_offset(trim_start);
+        }
 
         string from_seq = node_sequence(first_mapping->position().node_id());
         int from_pos = trim_start;

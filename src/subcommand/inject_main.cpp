@@ -22,9 +22,7 @@ void help_inject(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE       use the graph in this xg index" << endl
-         << "    -t, --threads N          number of threads to use" << endl
-         << "    -p, --into-path NAME     inject from this path (many allowed, default: all in bam)" << endl
-         << "    -F, --into-paths FILE    inject from nonoverlapping path names listed in FILE (one per line)" << endl;
+         << "    -t, --threads N          number of threads to use" << endl;
 }
 
 int main_inject(int argc, char** argv) {
