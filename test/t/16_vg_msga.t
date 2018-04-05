@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 11
+plan tests 12
 
 #is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 4 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
 
@@ -51,3 +51,6 @@ is $? 0 "edges in cycles with two nodes are correctly included"
 
 vg msga -f GRCh38_alts/FASTA/HLA/B-3106.fa -w 256 -E 4 -B 4 -W 64 -P 0.9 | vg validate -
 is $? 0 "HLA B-3106 is assembled into a valid graph"
+
+vg msga -f msgas/inv.fa -w 16 -O 5 | vg validate -
+is $? 0 "odd-sized overlaps may be used for chunked alignment"

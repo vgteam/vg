@@ -3865,6 +3865,7 @@ vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, int 
     if (offset < read.sequence().size()) {
         start_positions.push_back(read.sequence().size()-segment_size);
     }
+    int m = band_overlap % 2;
     // set up the structures to hold onto the banded alignments
     int to_align = start_positions.size();
     to_strip.resize(to_align);
@@ -3873,13 +3874,13 @@ vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, int 
     for (auto& p : start_positions) {
         if (&p == &start_positions.front()) {
             if (start_positions.size() > 1) {
-                to_strip[i].second = band_overlap/2;
+                to_strip[i].second = band_overlap/2 + m;
             }
         } else if (&p == &start_positions.back()) {
-            to_strip[i].first = start_positions[i-1]+segment_size-band_overlap/2 - p;
+            to_strip[i].first = (start_positions[i-1]+segment_size-band_overlap/2-m)-p;
         } else {
             to_strip[i].first = band_overlap/2;
-            to_strip[i].second = band_overlap/2;
+            to_strip[i].second = band_overlap/2 + m;
         }
         //cerr << "position: " << p << " strip " << to_strip[i].first << " " << to_strip[i].second << endl;
         auto& aln = bands[i];
