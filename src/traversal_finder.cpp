@@ -35,7 +35,7 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     regex front ("(_alt_)(.*)");
     regex alt_str ("(_alt_)");
     regex back ("(_[0-9]*)");
-    map<string, list<Mapping> > gpaths = graph.paths._paths;
+    auto& gpaths = graph.paths._paths;
     set<string> gpath_names;
     for (auto x : gpaths){
         gpath_names.insert(x.first);
@@ -98,10 +98,10 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
                 // Add the start node to the traversal
                 *fresh_trav.add_visit() = site.start();
                 // Fill in our traversal
-                list<Mapping> ms = gpaths[a];
+                auto& ms = gpaths[a];
                 for (auto m : ms){
-                    int64_t n_id = m.position().node_id();
-                    bool backward = m.position().is_reverse();
+                    int64_t n_id = m.node_id();
+                    bool backward = m.is_reverse();
                     Visit* v = fresh_trav.add_visit();
                     v->set_node_id(n_id);
                     v->set_backward(backward);
@@ -429,9 +429,9 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
         // If we have some paths that visit both ends (in some orientation)
 
         // Get all the mappings to the end node, by path name
-        auto& endmappings_by_name = graph.paths.get_node_mapping(graph.get_node(site.end().node_id()));
+        auto endmappings_by_name = graph.paths.get_node_mapping_by_path_name(graph.get_node(site.end().node_id()));
 
-        for(auto& name_and_mappings : graph.paths.get_node_mapping(graph.get_node(site.start().node_id()))) {
+        for(auto name_and_mappings : graph.paths.get_node_mapping_by_path_name(graph.get_node(site.start().node_id()))) {
             // Go through the paths that visit the start node
 
             // Grab their names
@@ -460,7 +460,7 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
                 // mapping? If start is a forward traversal and we found a
                 // forward mapping, we go right. If either is backward we go
                 // left, and if both are backward we go right again.
-                bool traversal_direction = mapping->position().is_reverse() != site.start().backward();
+                bool traversal_direction = mapping->is_reverse() != site.start().backward();
 
 #ifdef debug
 #pragma omp critical (cerr)
@@ -472,7 +472,7 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
                 
                     // We are going left in the read but right in the snarl, so
                     // we want to enter the snarl's start node
-                    bool enter_start = mapping_enters_side(*mapping, graph.get_handle(site.start()), &graph);
+                    bool enter_start = mapping_enters_side(mapping->to_mapping(), graph.get_handle(site.start()), &graph);
 
 #ifdef debug
 #pragma omp critical (cerr)
@@ -487,7 +487,7 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
                 } else {
                     // We are going right, so we want to exit the snarl's start
                     // node
-                    bool exit_start = mapping_exits_side(*mapping, graph.get_handle(site.start()), &graph);
+                    bool exit_start = mapping_exits_side(mapping->to_mapping(), graph.get_handle(site.start()), &graph);
                     
 #ifdef debug
 #pragma omp critical (cerr)
@@ -518,20 +518,20 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
 #endif
 
                     // Say we visit this node along the path, in this orientation
-                    *path_traversed.add_visit() = to_visit(!traversal_direction ? *mapping :
-                        reverse_complement_mapping(*mapping,[this](id_t node_id) {
-                            return this->graph.get_node(node_id)->sequence().length();
-                        }), true);
-                    
-                    if(mapping->position().node_id() == site.end().node_id() && mapping->position().is_reverse() == expected_end_orientation) {
+                    *path_traversed.add_visit() = to_visit(!traversal_direction ? mapping->to_mapping() :
+                                                           reverse_complement_mapping(mapping->to_mapping(),[this](id_t node_id) {
+                                                                   return this->graph.get_node(node_id)->sequence().length();
+                                                               }), true);
+
+                    if(mapping->node_id() == site.end().node_id() && mapping->is_reverse() == expected_end_orientation) {
                         // Does our mapping actually cross through the ending side?
                         // It has to either enter the end node, or exit the end
                         // node, depending on which way in the read we read. And
                         // if it doesn't we try again.
                         if (!traversal_direction &&
-                            !mapping_enters_side(*mapping, graph.get_handle(site.end()), &graph) ||
+                            !mapping_enters_side(mapping->to_mapping(), graph.get_handle(site.end()), &graph) ||
                             traversal_direction && 
-                            !mapping_exits_side(*mapping, graph.get_handle(site.end()), &graph)) {
+                            !mapping_exits_side(mapping->to_mapping(), graph.get_handle(site.end()), &graph)) {
                             break;
                         }
 

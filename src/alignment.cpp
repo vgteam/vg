@@ -612,7 +612,7 @@ string alignment_to_sam_internal(const Alignment& alignment,
         // Keep the alignment name as is because even if the name looks paired, the reads are semantically unpaired.
         alignment_name = alignment.name();
     }
-
+    
     sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
         << (mapped ? refseq : "*") << "\t"

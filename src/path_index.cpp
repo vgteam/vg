@@ -45,7 +45,7 @@ PathIndex::PathIndex(const Path& path) {
     
 }
 
-PathIndex::PathIndex(const list<Mapping>& mappings, VG& vg) {
+PathIndex::PathIndex(const list<mapping_t>& mappings, VG& vg) {
     // Trace the given path in the given VG graph, collecting sequence
     
     // We're going to build the sequence string
@@ -59,37 +59,37 @@ PathIndex::PathIndex(const list<Mapping>& mappings, VG& vg) {
     
     for (auto& mapping : mappings) {
     
-        if (!by_id.count(mapping.position().node_id())) {
+        if (!by_id.count(mapping.node_id())) {
             // This is the first time we have visited this node in the path.
             
             // Add in a mapping.
-            by_id[mapping.position().node_id()] = 
-                std::make_pair(path_base, mapping.position().is_reverse());
+            by_id[mapping.node_id()] = 
+                std::make_pair(path_base, mapping.is_reverse());
 #ifdef debug
             #pragma omp critical (cerr)
-            std::cerr << "Node " << mapping.position().node_id() << " rank " << mapping.rank()
+            std::cerr << "Node " << mapping.node_id() << " rank " << mapping.rank()
                 << " starts at base " << path_base << " with "
-                << vg.get_node(mapping.position().node_id())->sequence() << std::endl;
+                << vg.get_node(mapping.node_id())->sequence() << std::endl;
 #endif
             
             // Make sure ranks are monotonically increasing along the path, or
             // unset.
-            assert(mapping.rank() > last_rank || (mapping.rank() == 0 && last_rank == 0));
-            last_rank = mapping.rank();
+            assert(mapping.rank > last_rank || (mapping.rank == 0 && last_rank == 0));
+            last_rank = mapping.rank;
         }
         
         // Say that this node appears here along the reference in this
         // orientation.
-        by_start[path_base] = NodeSide(mapping.position().node_id(), mapping.position().is_reverse());
+        by_start[path_base] = NodeSide(mapping.node_id(), mapping.is_reverse());
     
         // Remember that occurrence by node ID.
-        node_occurrences[mapping.position().node_id()].push_back(by_start.find(path_base));
+        node_occurrences[mapping.node_id()].push_back(by_start.find(path_base));
     
         // Say this Mapping happens at this base along the path
         mapping_positions[&mapping] = path_base;
     
         // Find the node's sequence
-        std::string node_sequence = vg.get_node(mapping.position().node_id())->sequence();
+        std::string node_sequence = vg.get_node(mapping.node_id())->sequence();
     
         while(path_base == 0 && node_sequence.size() > 0 &&
             (node_sequence[0] != 'A' && node_sequence[0] != 'T' && node_sequence[0] != 'C' &&
@@ -102,13 +102,13 @@ PathIndex::PathIndex(const list<Mapping>& mappings, VG& vg) {
             // which leads with an X.
             #pragma omp critical (cerr)
             std::cerr << "Warning: dropping invalid leading character "
-                << node_sequence[0] << " from node " << mapping.position().node_id()
+                << node_sequence[0] << " from node " << mapping.node_id()
                 << std::endl;
                 
             node_sequence.erase(node_sequence.begin());
         }
         
-        if (mapping.position().is_reverse()) {
+        if (mapping.is_reverse()) {
             // Put the reverse sequence in the path
             seq_stream << reverse_complement(node_sequence);
         } else {
@@ -129,7 +129,7 @@ PathIndex::PathIndex(const list<Mapping>& mappings, VG& vg) {
     // Record the length of the last mapping's node, since there's no next mapping to work it out from
     last_node_length = mappings.empty() ?
         0 : 
-        vg.get_node(mappings.back().position().node_id())->sequence().size();
+        vg.get_node(mappings.back().node_id())->sequence().size();
     
     // Create the actual reference sequence we will use
     sequence = seq_stream.str();
@@ -292,7 +292,7 @@ void PathIndex::update_mapping_positions(VG& vg, const string& path_name) {
         mapping_positions[&mapping] = path_base;
         
         // Go right by its length
-        path_base += mapping_to_length(mapping);
+        path_base += mapping.length;
     }
 }
 

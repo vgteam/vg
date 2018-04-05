@@ -32,6 +32,7 @@
 
 using namespace std;
 using namespace haplo;
+using namespace structures;
 
 namespace vg {
 
@@ -61,11 +62,6 @@ namespace vg {
                                   vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                   vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
                                   size_t max_alt_mappings);
-        
-        /// Debugging function to check that multipath alignment meets the formalism's basic
-        /// invariants. Returns true if multipath alignment is valid, else false. Does not
-        /// validate alignment score.
-        bool validate_multipath_alignment(const MultipathAlignment& multipath_aln) const;
         
         /// Sets the minimum clustering MEM length to the approximate length that a MEM would have to be to
         /// have at most the given probability of occurring in random sequence of the same size as the graph
@@ -288,6 +284,7 @@ namespace vg {
         // a memo for the transcendental p-value function (thread local to maintain threadsafety)
         static thread_local unordered_map<pair<size_t, size_t>, double> p_value_memo;
     };
+        
 }
 
 

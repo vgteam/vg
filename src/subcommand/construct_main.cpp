@@ -19,26 +19,29 @@ using namespace vg::subcommand;
 void help_construct(char** argv) {
     cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
          << "options:" << endl
-         << "    -v, --vcf FILE        input VCF (may repeat)" << endl
-         << "    -r, --reference FILE  input FASTA reference (may repeat)" << endl
-         << "    -M, --msa FILE        input multiple sequence alignment" << endl
-         << "    -F, --msa-format      format of the MSA file (options: fasta, maf, clustal; default fasta)" << endl
-         << "    -d, --drop-msa-paths  don't add paths for the MSA sequences into the graph" << endl
-         << "    -n, --rename V=F      rename contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
-         << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
-         << "    -R, --region REGION   specify a particular chromosome or 1-based inclusive region" << endl
-         << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
-         << "                          sequence name could be inadvertently parsed as a region)" << endl
-         << "    -z, --region-size N   variants per region to parallelize" << endl
-         << "    -m, --node-max N      limit the maximum allowable node sequence size (defaults to 1000)" << endl
-         << "                          nodes greater than this threshold will be divided" << endl
-         << "                          Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
-         << "    -p, --progress        show progress" << endl
-         << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
-         << "    -S, --handle-sv       include SVs in construction of graph." << endl
-         << "    -I, --insertions FILE a FASTA file containing insertion sequences "<< endl 
+         << "construct from a reference and variant calls:" << endl
+         << "    -r, --reference FILE   input FASTA reference (may repeat)" << endl
+         << "    -v, --vcf FILE         input VCF (may repeat)" << endl
+         << "                           Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
+         << "    -n, --rename V=F       rename contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
+         << "    -a, --alt-paths        save paths for alts of variants by variant ID" << endl
+         << "    -R, --region REGION    specify a particular chromosome or 1-based inclusive region" << endl
+         << "    -C, --region-is-chrom  don't attempt to parse the region (use when the reference" << endl
+         << "                           sequence name could be inadvertently parsed as a region)" << endl
+         << "    -z, --region-size N    variants per region to parallelize" << endl
+         << "    -t, --threads N        use N threads to construct graph (defaults to numCPUs)" << endl
+         << "    -S, --handle-sv        include structural variants in construction of graph." << endl
+         << "    -I, --insertions FILE  a FASTA file containing insertion sequences "<< endl
          << "                           (referred to in VCF) to add to graph." << endl
-         << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
+         << "    -f, --flat-alts N      don't chop up alternate alleles from input VCF" << endl
+         << "construct from a multiple sequence alignment:" << endl
+         << "    -M, --msa FILE         input multiple sequence alignment" << endl
+         << "    -F, --msa-format       format of the MSA file (options: fasta, maf, clustal; default fasta)" << endl
+         << "    -d, --drop-msa-paths   don't add paths for the MSA sequences into the graph" << endl
+         << "shared construction options:" << endl
+         << "    -m, --node-max N       limit the maximum allowable node sequence size (defaults to 1000)" << endl
+         << "                           nodes greater than this threshold will be divided" << endl
+         << "    -p, --progress         show progress" << endl;
 
 }
 
@@ -62,6 +65,7 @@ int main_construct(int argc, char** argv) {
     int max_node_size = 1000;
     bool keep_paths = true;
     string msa_format = "fasta";
+    bool show_progress = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -150,7 +154,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'p':
-            constructor.show_progress = true;
+            show_progress = true;
             break;
 
         case 'z':
@@ -203,6 +207,7 @@ int main_construct(int argc, char** argv) {
     };
     
     constructor.max_node_size = max_node_size;
+    constructor.show_progress = show_progress;
     
     if (constructor.max_node_size == 0) {
         // Make sure we can actually make nodes
@@ -331,9 +336,11 @@ int main_construct(int argc, char** argv) {
             exit(1);
         }
         
-        MSAConverter msa_converter(msa_file, msa_format, max_node_size);
-
-        VG msa_graph = msa_converter.make_graph(keep_paths);
+        MSAConverter msa_converter;
+        msa_converter.show_progress = show_progress;
+        
+        msa_converter.load_alignments(msa_file, msa_format);
+        VG msa_graph = msa_converter.make_graph(keep_paths, max_node_size);
         
         callback(msa_graph.graph);
     }

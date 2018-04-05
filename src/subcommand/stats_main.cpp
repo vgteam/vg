@@ -205,31 +205,31 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    VG* graph;
+    VG graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = new VG(in);
+            graph.from_istream(in);
     });
 
     if (stats_size) {
-        cout << "nodes" << "\t" << graph->node_count() << endl
-            << "edges" << "\t" << graph->edge_count() << endl;
+        cout << "nodes" << "\t" << graph.node_count() << endl
+            << "edges" << "\t" << graph.edge_count() << endl;
     }
 
     if (node_count) {
-        cout << graph->node_count() << endl;
+        cout << graph.node_count() << endl;
     }
 
     if (edge_count) {
-        cout << graph->edge_count() << endl;
+        cout << graph.edge_count() << endl;
     }
 
     if (stats_length) {
-        cout << "length" << "\t" << graph->total_length_of_nodes() << endl;
+        cout << "length" << "\t" << graph.total_length_of_nodes() << endl;
     }
 
     if (stats_heads) {
         vector<Node*> heads;
-        graph->head_nodes(heads);
+        graph.head_nodes(heads);
         cout << "heads" << "\t";
         for (vector<Node*>::iterator h = heads.begin(); h != heads.end(); ++h) {
             cout << (*h)->id() << " ";
@@ -239,7 +239,7 @@ int main_stats(int argc, char** argv) {
 
     if (stats_tails) {
         vector<Node*> tails;
-        graph->tail_nodes(tails);
+        graph.tail_nodes(tails);
         cout << "tails" << "\t";
         for (vector<Node*>::iterator t = tails.begin(); t != tails.end(); ++t) {
             cout << (*t)->id() << " ";
@@ -249,7 +249,7 @@ int main_stats(int argc, char** argv) {
 
     if (stats_subgraphs) {
         list<VG> subgraphs;
-        graph->disjoint_subgraphs(subgraphs);
+        graph.disjoint_subgraphs(subgraphs);
         // these are topologically-sorted
         for (list<VG>::iterator s = subgraphs.begin(); s != subgraphs.end(); ++s) {
             VG& subgraph = *s;
@@ -264,22 +264,22 @@ int main_stats(int argc, char** argv) {
     }
 
     if (stats_range) {
-        cout << "node-id-range\t" << graph->min_node_id() << ":" << graph->max_node_id() << endl;
+        cout << "node-id-range\t" << graph.min_node_id() << ":" << graph.max_node_id() << endl;
     }
 
     if (show_sibs) {
-        graph->for_each_node([graph](Node* n) {
-                for (auto trav : graph->full_siblings_to(NodeTraversal(n, false))) {
+        graph.for_each_node([&graph](Node* n) {
+                for (auto trav : graph.full_siblings_to(NodeTraversal(n, false))) {
                     cout << n->id() << "\t" << "to-sib" << "\t" << trav.node->id() << endl;
                 }
-                for (auto trav : graph->full_siblings_from(NodeTraversal(n, false))) {
+                for (auto trav : graph.full_siblings_from(NodeTraversal(n, false))) {
                     cout << n->id() << "\t" << "from-sib" << "\t" << trav.node->id() << endl;
                 }
             });
     }
 
     if (show_components) {
-        for (auto& c : graph->strongly_connected_components()) {
+        for (auto& c : graph.strongly_connected_components()) {
             for (auto& id : c) {
                 cout << id << ", ";
             }
@@ -288,7 +288,7 @@ int main_stats(int argc, char** argv) {
     }
 
     if (is_acyclic) {
-        if (graph->is_acyclic()) {
+        if (graph.is_acyclic()) {
             cout << "acyclic" << endl;
         } else {
             cout << "cyclic" << endl;
@@ -297,17 +297,17 @@ int main_stats(int argc, char** argv) {
 
     if (head_distance) {
         for (auto id : ids) {
-            auto n = graph->get_handle(id, false);
+            auto n = graph.get_handle(id, false);
             cout << id << " to head:\t"
-                << distance_to_head(n, 1000, graph) << endl;
+                 << distance_to_head(n, 1000, &graph) << endl;
         }
     }
 
     if (tail_distance) {
         for (auto id : ids) {
-            auto n = graph->get_handle(id, false);
+            auto n = graph.get_handle(id, false);
             cout << id << " to tail:\t"
-                << distance_to_tail(n, 1000, graph) << endl;
+                << distance_to_tail(n, 1000, &graph) << endl;
         }
     }
 
@@ -363,17 +363,17 @@ int main_stats(int argc, char** argv) {
         cout << "comparison" << "\t" << "x" << "\t" << "y" << endl;
         vector<string> path_names;
         if (overlap_all_paths) {
-            path_names = graph->paths.all_path_names();
+            path_names = graph.paths.all_path_names();
         } else {
             path_names = paths_to_overlap;
         }
         for (auto& p1_name : path_names) {
-            Path p1 = graph->paths.path(p1_name);
+            Path p1 = graph.paths.path(p1_name);
             for (auto& p2_name : path_names) {
                 if (p1_name == p2_name) {
                     continue;
                 }
-                Path p2 = graph->paths.path(p2_name);
+                Path p2 = graph.paths.path(p2_name);
                 cb(p1, p2);
             }
         }
@@ -429,10 +429,10 @@ int main_stats(int argc, char** argv) {
         // have 2 alleles and which only have 1 in the graph.
         map<string, map<string, size_t>> reads_on_allele;
 
-        graph->for_each_node_parallel([&](Node* node) {
+        graph.for_each_node_parallel([&](Node* node) {
             // For every node
 
-            if(!graph->paths.has_node_mapping(node)) {
+            if(!graph.paths.has_node_mapping(node)) {
                 // No paths to go over. If we try and get them we'll be
                 // modifying the paths in parallel, which will explode.
                 return;
@@ -440,7 +440,7 @@ int main_stats(int argc, char** argv) {
 
             // We want an allele path on it
             string allele_path;
-            for(auto& name_and_mappings : graph->paths.get_node_mapping(node)) {
+            for(auto& name_and_mappings : graph.paths.get_node_mapping_by_path_name(node)) {
                 // For each path on it
                 if(path_name_is_allele(name_and_mappings.first)) {
                     // If it's an allele path
@@ -679,7 +679,7 @@ int main_stats(int argc, char** argv) {
         // as many times as their nodes are touched. Also note that we ignore
         // edge effects and a read that stops before the end of a node will
         // visit the whole node.
-        graph->for_each_node_parallel([&](Node* node) {
+        graph.for_each_node_parallel([&](Node* node) {
             // For every node
             if(!node_visit_counts.count(node->id()) || node_visit_counts.at(node->id()) == 0) {
                 // If we never visited it with a read, count it.
@@ -738,7 +738,7 @@ int main_stats(int argc, char** argv) {
             }
         }
 
-        cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->node_count()
+        cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph.node_count()
             << " (" << unvisited_node_bases << " bp)" << endl;
         if(verbose) {
             for(auto& id : unvisited_ids) {
@@ -746,7 +746,7 @@ int main_stats(int argc, char** argv) {
             }
         }
 
-        cout << "Single-visited nodes: " << single_visited_nodes << "/" << graph->node_count()
+        cout << "Single-visited nodes: " << single_visited_nodes << "/" << graph.node_count()
             << " (" << single_visited_node_bases << " bp)" << endl;
         if(verbose) {
             for(auto& id : single_visited_ids) {
@@ -767,7 +767,7 @@ int main_stats(int argc, char** argv) {
         // We will go through all the snarls and compute stats.
         
         // First compute the snarls
-        auto manager = CactusSnarlFinder(*graph).find_snarls();
+        auto manager = CactusSnarlFinder(graph).find_snarls();
         
         // We will track depth for each snarl
         unordered_map<const Snarl*, size_t> depth;
@@ -794,7 +794,7 @@ int main_stats(int argc, char** argv) {
             
             // Number of chains (including unary child snarls)
             // Will be 0 for leaves
-            auto& chains = manager.chains_of(snarl);
+            auto chains = manager.chains_of(snarl);
             cout << "chains\t" << chains.size() << endl;
             
             for (auto& chain : chains) {
@@ -804,14 +804,12 @@ int main_stats(int argc, char** argv) {
             
             // Net graph info
             // Internal connectivity not important, we just want the size.
-            auto netGraph = manager.net_graph_of(snarl, graph, false);
+            auto netGraph = manager.net_graph_of(snarl, &graph, false);
             cout << "net-graph-size\t" << netGraph.node_size() << endl;
             
         });
         
     }
-
-    delete graph;
 
     return 0;
 

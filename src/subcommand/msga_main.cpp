@@ -42,8 +42,8 @@ void help_msga(char** argv) {
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -w, --band-width INT    band width for long read alignment [128]" << endl
-         << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [10*{-w}]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [1]" << endl
+         << "    -J, --band-jump INT     the maximum number of bands of insertion we consider in the alignment chain model [128]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [16]" << endl
          << "    -M, --max-multimaps INT consider this many alternate alignments for the entire sequence [1]" << endl
          << "    --no-patch-aln          do not patch banded alignments by locally aligning unaligned regions" << endl
          << "local alignment parameters:" << endl
@@ -92,9 +92,9 @@ int main_msga(int argc, char** argv) {
     // optimal alignment through a series of bands based on a proximity metric
     int max_multimaps = 1;
     float min_identity = 0.0;
-    int band_width = 128;
-    int max_band_jump = -1;
-    int band_multimaps = 1;
+    int band_width = 256;
+    int max_band_jump = 128;
+    int band_multimaps = 16;
     size_t doubling_steps = 3;
     bool debug = false;
     bool debug_align = false;
@@ -572,7 +572,7 @@ int main_msga(int argc, char** argv) {
             mapper->debug = debug_align;
             mapper->min_identity = min_identity;
             mapper->min_banded_mq = min_banded_mq;
-            mapper->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width * 10;
+            mapper->max_band_jump = max_band_jump;
             mapper->band_multimaps = band_multimaps;
             mapper->drop_chain = drop_chain;
             mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length
@@ -693,7 +693,7 @@ int main_msga(int argc, char** argv) {
             graph->paths.to_graph(graph->graph);
             // and rebuild the indexes
             rebuild(graph);
-            //graph->serialize_to_file(name + "-post-index.vg");
+            //graph->serialize_to_file(convert(i) + "-" + name + "-post.vg");
 
             // verfy validity of path
             bool is_valid = graph->is_valid();

@@ -181,11 +181,11 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         
         // We start at the start node. Copy out all the mapping pointers on that
         // node, so we can go through them while tampering with them.
-        map<string, set<Mapping*> > mappings_by_path = graph.paths.get_node_mapping(graph.get_node(leaf->start().node_id()));
+        map<string, set<mapping_t*> > mappings_by_path = graph.paths.get_node_mapping_by_path_name(graph.get_node(leaf->start().node_id()));
         
         // It's possible a path can enter the site through the end node and
         // never hit the start. So we're going to trim those back before we delete nodes and edges.
-        map<string, set<Mapping*> > end_mappings_by_path = graph.paths.get_node_mapping(graph.get_node(leaf->end().node_id()));
+        map<string, set<mapping_t*> > end_mappings_by_path = graph.paths.get_node_mapping_by_path_name(graph.get_node(leaf->end().node_id()));
         
         if (!drop_hairpin_paths) {
             // We shouldn't drop paths if they hairpin and can't be represented
@@ -204,7 +204,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 // Unpack the name
                 auto& path_name = kv.first;
                 
-                for (Mapping* start_mapping : kv.second) {
+                for (mapping_t* start_mapping : kv.second) {
                     // For each visit to the start node
                 
                     if (found_hairpin) {
@@ -213,22 +213,22 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     }
                 
                     // Determine what orientation we're going to scan in
-                    bool backward = start_mapping->position().is_reverse();
+                    bool backward = start_mapping->is_reverse();
                     
                     // Start at the start node
-                    Mapping* here = start_mapping;
+                    mapping_t* here = start_mapping;
                     
                     while (here) {
                         // Until we hit the start/end of the path or the mapping we want
-                        if (here->position().node_id() == leaf->end().node_id() &&
-                            here->position().is_reverse() == (leaf->end().backward() != backward)) {
+                        if (here->node_id() == leaf->end().node_id() &&
+                            here->is_reverse() == (leaf->end().backward() != backward)) {
                             // We made it out.
                             // Stop scanning!
                             break;
                         }
                         
-                        if (here->position().node_id() == leaf->start().node_id() &&
-                            here->position().is_reverse() != (leaf->start().backward() != backward)) {
+                        if (here->node_id() == leaf->start().node_id() &&
+                            here->is_reverse() != (leaf->start().backward() != backward)) {
                             // We have encountered the start node with an incorrect orientation.
                             cerr << "warning:[vg simplify] Path " << path_name
                                 << " doubles back through start of site "
@@ -256,7 +256,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 // Unpack the name
                 auto& path_name = kv.first;
                 
-                for (Mapping* end_mapping : kv.second) {
+                for (mapping_t* end_mapping : kv.second) {
                     
                     if (found_hairpin) {
                         // We only care if there are 1 or more hairpins, not how many
@@ -264,22 +264,22 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     }
                     
                     // Determine what orientation we're going to scan in
-                    bool backward = end_mapping->position().is_reverse();
+                    bool backward = end_mapping->is_reverse();
                     
                     // Start at the end
-                    Mapping* here = end_mapping;
+                    mapping_t* here = end_mapping;
                     
                     while (here) {
                         
-                        if (here->position().node_id() == leaf->start().node_id() &&
-                            here->position().is_reverse() == (leaf->start().backward() != backward)) {
+                        if (here->node_id() == leaf->start().node_id() &&
+                            here->is_reverse() == (leaf->start().backward() != backward)) {
                             // We made it out.
                             // Stop scanning!
                             break;
                         }
                         
-                        if (here->position().node_id() == leaf->end().node_id() &&
-                            here->position().is_reverse() != (leaf->end().backward() != backward)) {
+                        if (here->node_id() == leaf->end().node_id() &&
+                            here->is_reverse() != (leaf->end().backward() != backward)) {
                             // We have encountered the end node with an incorrect orientation.
                             cerr << "warning:[vg simplify] Path " << path_name
                                 << " doubles back through end of site "
@@ -308,7 +308,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         }
         
         // We'll keep a set of the end mappings we managed to find, starting from the start
-        set<Mapping*> found_end_mappings;
+        set<mapping_t*> found_end_mappings;
         
         for (auto& kv : mappings_by_path) {
             // For each path that hits the start node
@@ -322,26 +322,26 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
             // out-the-same-side traversals as valid genotypes somehow..
             bool kill_path = false;
             
-            for (Mapping* start_mapping : kv.second) {
+            for (mapping_t* start_mapping : kv.second) {
                 // For each visit to the start node
                 
                 // Determine what orientation we're going to scan in
-                bool backward = start_mapping->position().is_reverse();
+                bool backward = start_mapping->is_reverse();
                 
                 // We're going to fill this list with the mappings we need to
                 // remove and replace in this path for this traversal. Initially
                 // runs from start of site to end of site, but later gets
                 // flipped into path-local orientation.
-                list<Mapping*> existing_mappings;
+                list<mapping_t*> existing_mappings;
                 
                 // Tracing along forward/backward from each as appropriate, see
                 // if the end of the site is found in the expected orientation
                 // (or if the path ends first).
                 bool found_end = false;
-                Mapping* here = start_mapping;
+                mapping_t* here = start_mapping;
                 
                 // We want to remember the end mapping when we find it
-                Mapping* end_mapping = nullptr;
+                mapping_t* end_mapping = nullptr;
                 
 #ifdef debug
                 cerr << "Scanning " << path_name << " from " << pb2json(*here)
@@ -355,8 +355,8 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     cerr << "\tat " << pb2json(*here) << endl;
 #endif
                     
-                    if (here->position().node_id() == leaf->end().node_id() &&
-                        here->position().is_reverse() == (leaf->end().backward() != backward)) {
+                    if (here->node_id() == leaf->end().node_id() &&
+                        here->is_reverse() == (leaf->end().backward() != backward)) {
                         // We have encountered the end of the site in the
                         // orientation we expect, given the orientation we saw
                         // for the start.
@@ -373,8 +373,8 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                         break;
                     }
                     
-                    if (here->position().node_id() == leaf->start().node_id() &&
-                        here->position().is_reverse() != (leaf->start().backward() != backward)) {
+                    if (here->node_id() == leaf->start().node_id() &&
+                        here->is_reverse() != (leaf->start().backward() != backward)) {
                         // We have encountered the start node with an incorrect orientation.
                         cerr << "warning:[vg simplify] Path " << path_name
                             << " doubles back through start of site "
@@ -386,7 +386,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                         break;
                     }
                     
-                    if (!nodes.count(graph.get_node(here->position().node_id()))) {
+                    if (!nodes.count(graph.get_node(here->node_id()))) {
                         // We really should stay inside the site!
                         cerr << "error:[vg simplify] Path " << path_name
                             << " somehow escapes site " << to_node_traversal(leaf->start(), graph)
@@ -402,7 +402,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     }
                     
                     // Scan left along ther path if we found the site start backwards, and right if we found it forwards.
-                    Mapping* next = backward ? graph.paths.traverse_left(here) : graph.paths.traverse_right(here);
+                    mapping_t* next = backward ? graph.paths.traverse_left(here) : graph.paths.traverse_right(here);
                     
                     if (next == nullptr) {
                         // We hit the end of the path without finding the end of the site.
@@ -411,8 +411,8 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     }
                     
                     // Make into NodeTraversals
-                    NodeTraversal here_traversal(graph.get_node(here->position().node_id()), here->position().is_reverse());
-                    NodeTraversal next_traversal(graph.get_node(next->position().node_id()), next->position().is_reverse());
+                    NodeTraversal here_traversal(graph.get_node(here->node_id()), here->is_reverse());
+                    NodeTraversal next_traversal(graph.get_node(next->node_id()), next->is_reverse());
                     
                     if (backward) {
                         // We're scanning the other way
@@ -470,7 +470,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 // This is super ugly. Can we view the site in path
                 // coordinates or something?
                 PathIndex& path_index = *path_indexes.at(path_name).get();
-                Mapping* mapping_after_first = existing_mappings.empty() ?
+                mapping_t* mapping_after_first = existing_mappings.empty() ?
                     (backward ? start_mapping : end_mapping) : existing_mappings.front();
                 assert(path_index.mapping_positions.count(mapping_after_first));
                 size_t variable_start = path_index.mapping_positions.at(mapping_after_first); 
@@ -482,7 +482,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 for (auto* mapping : existing_mappings) {
                     // Add in the lengths of all the mappings that will get
                     // removed.
-                    old_site_length += mapping_from_length(*mapping);
+                    old_site_length += mapping->length;
                 }
 #ifdef debug
                 cerr << "Replacing " << old_site_length << " bp at " << variable_start
@@ -493,7 +493,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 features.on_path_edit(path_name, variable_start, old_site_length, new_site_length);
                 
                 // Where will we insert the new site traversal into the path?
-                list<Mapping>::iterator insert_position;
+                list<mapping_t>::iterator insert_position;
                 
                 if (!existing_mappings.empty()) {
                     // If there are existing internal mappings, we'll insert right where they were
@@ -519,9 +519,9 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 
                 // Make sure we're going to insert starting from the correct end of the site.
                 if (backward) {
-                    assert(insert_position->position().node_id() == leaf->start().node_id());
+                    assert(insert_position->node_id() == leaf->start().node_id());
                 } else {
-                    assert(insert_position->position().node_id() == leaf->end().node_id());
+                    assert(insert_position->node_id() == leaf->end().node_id());
                 }
                 
                 // Loop through the internal visits in the canonical
@@ -536,19 +536,17 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     const Visit& visit = backward ? traversal.visit(i)
                                                   : traversal.visit(traversal.visit_size() - i - 1);
                     
-                    // Make a Mapping to represent it
-                    Mapping new_mapping;
-                    new_mapping.mutable_position()->set_node_id(visit.node_id());
+                    // Make a mapping_t to represent it
+                    mapping_t new_mapping;
+                    new_mapping.set_node_id(visit.node_id());
                     // We hit this node backward if it's backward along the
                     // traversal, xor if we are traversing the traversal
                     // backward
-                    new_mapping.mutable_position()->set_is_reverse(visit.backward() != backward);
+                    new_mapping.set_is_reverse(visit.backward() != backward);
                     
-                    // Add an edit
-                    Edit* edit = new_mapping.add_edit();
+                    // Add the length
                     size_t node_seq_length = graph.get_node(visit.node_id())->sequence().size();
-                    edit->set_from_length(node_seq_length);
-                    edit->set_to_length(node_seq_length);
+                    new_mapping.length = node_seq_length;
                     
 #ifdef debug
                     cerr << path_name << ": Add mapping " << pb2json(new_mapping) << endl;
@@ -582,7 +580,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
             // bubble we're popping
             bool kill_path = false;
             
-            for (Mapping* end_mapping : kv.second) {
+            for (mapping_t* end_mapping : kv.second) {
                 if (found_end_mappings.count(end_mapping)) {
                     // Skip the traversals of the site that we handled.
                     continue;
@@ -593,18 +591,18 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 // leaves the site.
                 
                 // Determine what orientation we're going to scan in
-                bool backward = end_mapping->position().is_reverse();
+                bool backward = end_mapping->is_reverse();
                 
                 // Start at the end
-                Mapping* here = end_mapping;
+                mapping_t* here = end_mapping;
                 
                 // Keep a list of mappings we need to remove
-                list<Mapping*> to_remove;
+                list<mapping_t*> to_remove;
                 
                 while (here) {
                     
-                    if (here->position().node_id() == leaf->end().node_id() &&
-                        here->position().is_reverse() != (leaf->end().backward() != backward)) {
+                    if (here->node_id() == leaf->end().node_id() &&
+                        here->is_reverse() != (leaf->end().backward() != backward)) {
                         // We have encountered the end node with an incorrect orientation.
                         cerr << "warning:[vg simplify] Path " << path_name
                             << " doubles back through end of site "
@@ -715,7 +713,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 // managed to get into the site without touching the start
                 // node. We'll delete those paths.
                 set<string> paths_to_kill;
-                for (auto& kv : graph.paths.get_node_mapping(node)) {
+                for (auto& kv : graph.paths.get_node_mapping_by_path_name(node)) {
                 
                     if (mappings_by_path.count(kv.first)) {
                         // We've already actually updated this path; the

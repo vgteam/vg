@@ -27,7 +27,8 @@ namespace vg {
                 
                 istringstream strm(input);
                 
-                MSAConverter msa_converter(strm, "fasta");
+                MSAConverter msa_converter;
+                msa_converter.load_alignments(strm, "fasta");
                 
                 VG graph = msa_converter.make_graph();
             }
@@ -38,7 +39,20 @@ namespace vg {
                 
                 istringstream strm(input);
                 
-                MSAConverter msa_converter(strm, "maf");
+                MSAConverter msa_converter;
+                msa_converter.load_alignments(strm, "maf");
+                
+                VG graph = msa_converter.make_graph();
+            }
+            
+            SECTION("MSAConverter can build from MAF input with multiple alignments") {
+                
+                string input = "##maf version=1\n\n# SNP\na score=0 mafExtractor_splicedBlock=true splice_id=1_0\ns human.1           0  3 +  10 GCA\ns chimp.2       0  3 +  8 GCA\ns cat.3    0  3 +  7 GTA\n\n# Indel and strand change\na score=0 mafExtractor_splicedBlock=true splice_id=1_0\ns human.1           3  7 +  10 GCAGAAT\ns chimp.2       3  5 +  8 GCAG--T\ns cat.3    0  4 -  7 --A-AAT";
+                
+                istringstream strm(input);
+                
+                MSAConverter msa_converter;
+                msa_converter.load_alignments(strm, "maf");
                 
                 VG graph = msa_converter.make_graph();
             }
@@ -49,7 +63,8 @@ namespace vg {
                 
                 istringstream strm(input);
                 
-                MSAConverter msa_converter(strm, "clustal");
+                MSAConverter msa_converter;
+                msa_converter.load_alignments(strm, "clustal");
                 
                 VG graph = msa_converter.make_graph();
             }
@@ -63,7 +78,8 @@ namespace vg {
                 
                 istringstream strm(input);
                 
-                MSAConverter msa_converter(strm, "fasta");
+                MSAConverter msa_converter;
+                msa_converter.load_alignments(strm, "fasta");
                 
                 VG graph = msa_converter.make_graph();
                 
@@ -80,9 +96,10 @@ namespace vg {
                 
                 istringstream strm(input);
                 
-                MSAConverter msa_converter(strm, "fasta", 1);
+                MSAConverter msa_converter;
+                msa_converter.load_alignments(strm, "fasta");
                 
-                VG graph = msa_converter.make_graph();
+                VG graph = msa_converter.make_graph(true, 1);
                 
                 Graph& g = graph.graph;
                 
@@ -96,7 +113,8 @@ namespace vg {
                 
                 istringstream strm(input);
                 
-                MSAConverter msa_converter(strm, "fasta");
+                MSAConverter msa_converter;
+                msa_converter.load_alignments(strm, "fasta");
                 
                 VG graph = msa_converter.make_graph();
                 
@@ -128,7 +146,8 @@ namespace vg {
                 
                 istringstream strm(input);
                 
-                MSAConverter msa_converter(strm, "fasta");
+                MSAConverter msa_converter;
+                msa_converter.load_alignments(strm, "fasta");
                 
                 VG graph = msa_converter.make_graph();
                 
@@ -158,7 +177,8 @@ namespace vg {
                 
                 istringstream strm(input);
                 
-                MSAConverter msa_converter(strm, "fasta");
+                MSAConverter msa_converter;
+                msa_converter.load_alignments(strm, "fasta");
                 
                 VG graph = msa_converter.make_graph();
                 
@@ -193,7 +213,8 @@ namespace vg {
                 
                 istringstream strm(input);
                 
-                MSAConverter msa_converter(strm, "fasta");
+                MSAConverter msa_converter;
+                msa_converter.load_alignments(strm, "fasta");
                 
                 VG graph = msa_converter.make_graph();
                 

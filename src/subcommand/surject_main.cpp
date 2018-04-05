@@ -186,14 +186,17 @@ int main_surject(int argc, char** argv) {
             buffer.resize(thread_count);
             function<void(Alignment&)> lambda = [&xgidx, &path_names, &buffer, &surjectors](Alignment& src) {
                 int tid = omp_get_thread_num();
-                Alignment surj;
                 // Since we're outputting full GAM, we ignore all this info
                 // about where on the path the alignment falls. But we need to
                 // provide the space to the surject call anyway.
                 string path_name;
                 int64_t path_pos;
                 bool path_reverse;
-                buffer[tid].push_back(surjectors[tid]->surject_classic(src, path_names, path_name, path_pos, path_reverse));
+                buffer[tid].push_back(surjectors[omp_get_thread_num()]->path_anchored_surject(src,
+                                                                                              path_names,
+                                                                                              path_name,
+                                                                                              path_pos,
+                                                                                              path_reverse));
                 stream::write_buffered(cout, buffer[tid], 100);
             };
             get_input_file(file_name, [&](istream& in) {
@@ -252,7 +255,11 @@ int main_surject(int argc, char** argv) {
                 // reads need to come out with a 0 1-based position.
                 int64_t path_pos = -1; 
                 bool path_reverse = false;
-                auto surj = surjectors[omp_get_thread_num()]->surject_classic(src, path_names, path_name, path_pos, path_reverse);
+                auto surj = surjectors[omp_get_thread_num()]->path_anchored_surject(src,
+                                                                                    path_names,
+                                                                                    path_name,
+                                                                                    path_pos,
+                                                                                    path_reverse);
                 // Always use the surjected alignment, even if it surjects to unmapped.
                 
                 if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {

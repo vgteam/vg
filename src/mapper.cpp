@@ -1846,7 +1846,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                pin_left,
                                banded_global,
                                0, // band padding override
-                               aln.sequence().size());
+                               aln.sequence().size()*1.61803);
         } else {
             aligned = vg.align_qual_adjusted(aln,
                                              get_qual_adj_aligner(),
@@ -1857,7 +1857,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                              pin_left,
                                              banded_global,
                                              0, // band padding override
-                                             aln.sequence().size());
+                                             aln.sequence().size()*1.61803);
         }
     } else {
         // we've got an id-sortable graph and we can directly align with gssw
@@ -2044,7 +2044,9 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
     return likely;
 }
 
-pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, int full_length_bonus, bool traceback) {
+pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
+                                     bool& tried1, bool& tried2,
+                                     int match_score, int full_length_bonus, bool traceback) {
     auto pair_sig = signature(mate1, mate2);
     // bail out if we can't figure out how far to go
     bool rescued1 = false;
@@ -2055,9 +2057,6 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     double min_threshold = 0.5;
     double perfect_score = mate1.sequence().size() * match_score + full_length_bonus * 2;
     double accept_pval = 1e-6;
-    double attempt_pval = 1e-6;
-    //bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, attempt_pval));
-    //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     // based on our statistics about the alignments
     // get the subgraph overlapping the likely candidate position of the second alignment
     bool rescue_off_first = false;
@@ -2067,7 +2066,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     //cerr << "---------------------------" << pb2json(mate1) << endl << pb2json(mate2) << endl;
     //cerr << "---------------------------" << endl;
 #ifdef debug_rescue
-    //if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
+    if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << endl;
     if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
     if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
 #endif
@@ -2122,6 +2121,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     for (auto& orientation : orientations) {
         if (rescue_off_first) {
             Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, certainly_acyclic);
+            tried2 = true;
             //write_alignment_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
@@ -2135,11 +2135,13 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
                 if (debug) cerr << "rescued aln2 " << pb2json(aln2) << endl;
 #endif
                 mate2 = aln2;
+                mate2.clear_refpos();
                 max_mate2_score = mate2.score();
                 rescued2 = true;
             }
         } else if (rescue_off_second) {
             Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, certainly_acyclic);
+            tried1 = true;
             //write_alignment_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
@@ -2153,6 +2155,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
                 if (debug) cerr << "rescued aln1 " << pb2json(aln1) << endl;
 #endif
                 mate1 = aln1;
+                mate1.clear_refpos();
                 max_mate1_score = mate1.score();
                 rescued1 = true;
             }
@@ -2420,25 +2423,22 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // don't allow going backwards in the threads
             return -std::numeric_limits<double>::max();
         } else {
+            pos_t m1_pos = make_pos_t(m1.nodes.front());
+            pos_t m2_pos = make_pos_t(m2.nodes.front());
             int max_length = max(read1.sequence().size(), read2.sequence().size());
-            pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
-            int64_t approx_dist = d.first; // take the "same orientation" distance
             double overlap_length = mems_overlap_length(m1, m2);
-            /*if (approx_dist < 32) {
-                approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
-                }*/
-            if (approx_dist > max_length) {
+            pair<int64_t, int64_t> distances = mem_min_oriented_distances(m1, m2);
+            int64_t dist_fwd = distances.first; // use only the forward orientation
+            //int64_t dist_inv = distances.second;
+            if (dist_fwd > max_length) {
                 // too far
                 return -std::numeric_limits<double>::max();
             } else {
                 // accepted transition
-                int64_t distance = approx_dist;
-                double jump = abs((m2.begin - m1.begin) - distance);
-                if (jump) {
-                    return (double) -(gap_open + jump * gap_extension) -overlap_length;
-                } else {
-                    return -overlap_length;
-                }
+                int read_dist = m2.begin - m1.begin;
+                double jump_fwd = abs(read_dist - dist_fwd);
+                //double jump_inv = abs(read_dist - dist_inv);
+                return (double) -(gap_open*(jump_fwd>0) + jump_fwd*gap_extension) -overlap_length;
             }
         }
     };
@@ -2733,12 +2733,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         bool rescued = false;
         int j = 0;
         for (auto& p : aln_ptrs) {
-            if (++j > mate_rescues) break;
+            if (j > mate_rescues) break;
             auto& aln1 = p->first;
             auto& aln2 = p->second;
             int score1 = aln1.score();
             int score2 = aln2.score();
-            pair<bool, bool> rescues = pair_rescue(aln1, aln2, match, full_length_bonus, true);
+            bool tried1 = false; bool tried2 = false;
+            pair<bool, bool> rescues = pair_rescue(aln1, aln2, tried1, tried2, match, full_length_bonus, true);
+            if (tried1) ++j;
+            if (tried2) ++j;
             rescued_aln[&aln1] = rescues.first;
             rescued_aln[&aln2] = rescues.second;
             rescued |= rescues.first || rescues.second;
@@ -2831,7 +2834,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     
     int read1_max_score = 0;
     int read2_max_score = 0;
-    // we must be considering more than one pair to do the paired-end mq calculation
     int possible_pairs = 0;
 
     // build up the results
@@ -2845,7 +2847,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
     bool max_first = results.first.size() && (read1_max_score == results.first.front().score() && read2_max_score == results.second.front().score());
 
-    // compute mapping qulaity
+    // compute mapping quality
     compute_mapping_qualities(results, cluster_mq, maybe_mq1, maybe_mq2, mq_cap1, mq_cap2);
 
     // remove the extra pair used to compute mapping quality if necessary
@@ -2966,14 +2968,15 @@ void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) {
 }
 
 void Mapper::annotate_with_initial_path_positions(Alignment& aln) {
-    aln.clear_refpos();
-    auto init_path_positions = alignment_path_offsets(aln);
-    for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
-        for (auto& pos : pos_record.second) {
-            Position* refpos = aln.add_refpos();
-            refpos->set_name(pos_record.first);
-            refpos->set_offset(pos.first);
-            refpos->set_is_reverse(pos.second);
+    if (!aln.refpos_size()) {
+        auto init_path_positions = alignment_path_offsets(aln);
+        for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
+            for (auto& pos : pos_record.second) {
+                Position* refpos = aln.add_refpos();
+                refpos->set_name(pos_record.first);
+                refpos->set_offset(pos.first);
+                refpos->set_is_reverse(pos.second);
+            }
         }
     }
 }
@@ -3136,30 +3139,19 @@ Mapper::align_mem_multi(const Alignment& aln,
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
         int64_t max_length = aln.sequence().size();
-        pair<int64_t, int64_t> d = mem_min_oriented_distances(m1, m2);
-        int64_t approx_dist = d.first;// same orientation
         double overlap_length = mems_overlap_length(m1, m2);
-        /*if (approx_dist < 32 && same_orientation) {
-            approx_dist = min(approx_dist, graph_distance(m1_pos, m2_pos, max_length));
-            }*/
-#ifdef debug_mapper
-#pragma omp critical
-        {
-            if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << " approx_dist " << approx_dist << endl;
-        }
-#endif
-        if (approx_dist > max_length) {
+        pair<int64_t, int64_t> distances = mem_min_oriented_distances(m1, m2);
+        int64_t dist_fwd = distances.first; // use only the forward orientation
+        //int64_t dist_inv = distances.second;
+        if (dist_fwd > max_length) {
             // too far
             return -std::numeric_limits<double>::max();
         } else {
             // accepted transition
-            int64_t distance = approx_dist;
-            double jump = abs((m2.begin - m1.begin) - distance);
-            if (jump) {
-                return (double) -(gap_open + jump * gap_extension) -overlap_length;
-            } else {
-                return -overlap_length;
-            }
+            int read_dist = m2.begin - m1.begin;
+            double jump_fwd = abs(read_dist - dist_fwd);
+            //double jump_inv = abs(read_dist - dist_inv);
+            return (double) -(gap_open*(jump_fwd>0) + jump_fwd*gap_extension) -overlap_length;
         }
     };
 
@@ -3408,6 +3400,14 @@ double Mapper::compute_uniqueness(const Alignment& aln, const vector<MaximalExac
 }
 
 Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback) {
+    // check if we can just fill out the alignment with exact matches
+    /*
+    if (cluster_coverage(mems) == aln.sequence().size()) {
+        Alignment walked = mems_to_alignment(aln, mems);
+        assert(walked.identity() == 1);
+        return walked;
+    }
+    */
     // poll the mems to see if we should flip
     int count_fwd = 0, count_rev = 0;
     for (auto& mem : mems) {
@@ -3419,7 +3419,7 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
         }
     }
     // get the graph with cluster.hpp's cluster_subgraph
-    Graph graph = cluster_subgraph(*xindex, aln, mems);
+    Graph graph = cluster_subgraph(*xindex, aln, mems, 1.61803);
     bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
     // and test each direction for which we have MEM hits
     Alignment aln_fwd;
@@ -3970,8 +3970,6 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         vector<Alignment>& malns = multi_alns[i];
         double cluster_mq = 0;
         malns = align_multi_internal(true, bands[i], kmer_size, stride, max_mem_length, bands[i].sequence().size(), cluster_mq, band_multimaps, extra_multimaps, nullptr);
-        // always include an unaligned mapping
-        malns.push_back(bands[i]);
         for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
             Alignment& aln = *a;
             int mapqual = aln.mapping_quality();
@@ -4007,36 +4005,45 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     // cost function
     auto transition_weight = [&](const Alignment& aln1, const Alignment& aln2,
                                  const map<string, vector<pair<size_t, bool> > >& pos1,
-                                 const map<string, vector<pair<size_t, bool> > >& pos2) {
+                                 const map<string, vector<pair<size_t, bool> > >& pos2,
+                                 int64_t band_distance) {
         if (aln1.has_path() && !aln2.has_path()) {
-            // pay a lot to go into unaligned from aligned
-            return -(double)5.0*(aln2.sequence().size() * gap_extension + gap_open);
+            // pay a lot to go into unaligned from aligned because then we risk dropping into a random place
+            return -(double)(5*aln2.sequence().size() * gap_extension + gap_open);
         } else if (!aln1.has_path() && !aln2.has_path()) {
-            // pay some to continue unaligned
-            return -(double)2.0*(aln2.sequence().size() * gap_extension);
+            // pay to continue unaligned
+            return -(double)(2*aln2.sequence().size() * gap_extension);
         } else if (!aln1.has_path() && aln2.has_path()) {
             return 0.0;
         }
         auto aln1_end = make_pos_t(path_end(aln1.path()));
         auto aln2_begin = make_pos_t(path_start(aln2.path()));
         pair<int64_t, int64_t> distances = min_oriented_distances(pos1, pos2);
-        bool same_orientation = distances.first <= distances.second;
-        int64_t dist = min(distances.first, distances.second);
-        if (dist < aln2.sequence().size()) {
+        // consider both the forward and inversion case
+        int64_t dist_fwd = distances.first;
+        if (dist_fwd < aln2.sequence().size()) {
             int64_t graph_dist = graph_distance(aln1_end, aln2_begin, aln2.sequence().size());
-            dist = min(graph_dist, dist);
+            dist_fwd = min(graph_dist, dist_fwd);
         }
-        if (debug) cerr << "dist " << dist << endl;
-        return -((double)gap_open + (double)dist * (double)gap_extension);
+        dist_fwd -= band_distance;
+        int64_t dist_inv = distances.second;
+        if (dist_inv < aln2.sequence().size()) {
+            int64_t graph_dist = graph_distance(aln2_begin, aln1_end, aln2.sequence().size());
+            dist_inv = min(graph_dist, dist_inv);
+        }
+        dist_inv -= band_distance;
+        double fwd_score = -((double)gap_open + (double)dist_fwd * (double)gap_extension);
+        double inv_score = -2.0*((double)gap_open + (double)dist_inv * (double)gap_extension);
+        return max(fwd_score, inv_score);
     };
 
-    AlignmentChainModel chainer(multi_alns, this, transition_weight, 4, 64, 128);
+    AlignmentChainModel chainer(multi_alns, this, transition_weight, max_band_jump, 64, max_band_jump*2);
     if (debug) chainer.display(cerr);
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps, false, debug);
     if (patch_alignments) {
         for (auto& aln : alignments) {
             // patch the alignment to deal with short unaligned regions
-            aln = patch_alignment(aln, band_width);
+            aln = patch_alignment(aln, band_width/2);
         }
     }
     // sort the alignments by score
@@ -4541,6 +4548,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
     Alignment patched;
     // walk along the alignment and find the portions that are unaligned
     int read_pos = 0;
+    double extend_fwd = 1.61803;
+    double extend_rev = 1.0/1.61803;
     auto& path = aln.path();
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
@@ -4594,8 +4603,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         for (auto& pos : band_ref_pos) {
                             //cerr << "trying position " << pos << endl;
                             pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
-                            Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size()*4);
-                            graph.MergeFrom(xindex->graph_context_id(pos, band.sequence().size()*2));
+                            Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size()*extend_fwd);
+                            graph.MergeFrom(xindex->graph_context_id(pos, band.sequence().size()*extend_rev));
                             sort_by_id_dedup_and_clean(graph);
                             bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, certainly_acyclic);
@@ -4611,9 +4620,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             //cerr << "trying position " << pos << endl;
-                            Graph graph = xindex->graph_context_id(pos, band.sequence().size()*4);
+                            Graph graph = xindex->graph_context_id(pos, band.sequence().size()*extend_fwd);
                             pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
-                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*2));
+                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*extend_rev));
                             sort_by_id_dedup_and_clean(graph);
                             //cerr << "on graph " << pb2json(graph) << endl;
                             bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
@@ -4625,9 +4634,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             //cerr << "trying position " << pos << endl;
-                            Graph graph = xindex->graph_context_id(pos, band.sequence().size()*4);
+                            Graph graph = xindex->graph_context_id(pos, band.sequence().size()*extend_fwd);
                             pos_t pos_rev = reverse(pos, xg_node_length(id(pos), xindex));
-                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*2));
+                            graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*extend_rev));
                             sort_by_id_dedup_and_clean(graph);
                             //cerr << "on graph " << pb2json(graph) << endl;
                             bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
@@ -4841,6 +4850,9 @@ Alignment Mapper::mems_to_alignment(const Alignment& aln, const vector<MaximalEx
 
     auto alnm = simplify(merge_alignments(alns));
     *alnm.mutable_quality() = aln.quality();
+    alnm.set_name(aln.name());
+    alnm.set_score(score_alignment(alnm));
+    alnm.set_identity(identity(alnm.path()));
     return alnm;
 }
 
@@ -4880,7 +4892,7 @@ const vector<string> balanced_kmers(const string& seq, const int kmer_size, cons
 AlignmentChainModel::AlignmentChainModel(
     vector<vector<Alignment> >& bands,
     Mapper* mapper,
-    const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&)>& transition_weight,
+    const function<double(const Alignment&, const Alignment&, const map<string, vector<pair<size_t, bool> > >&, const map<string, vector<pair<size_t, bool> > >&, int64_t)>& transition_weight,
     int vertex_band_width,
     int position_depth,
     int max_connections) {
@@ -4889,6 +4901,7 @@ AlignmentChainModel::AlignmentChainModel(
     int idx = 0;
     for (auto& band : bands) {
         for (auto& aln : band) {
+            if (!aln.has_path() || aln.score() == 0) continue;
             AlignmentChainModelVertex v;
             v.aln = &aln;
             v.band_begin = offset;
@@ -4912,7 +4925,8 @@ AlignmentChainModel::AlignmentChainModel(
         for (auto u = v+1; u != model.end(); ++u) {
             if (v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
                 if (v->band_idx + vertex_band_width >= u->band_idx) {
-                    double weight = transition_weight(*v->aln, *u->aln, v->positions, u->positions);
+                    double weight = transition_weight(*v->aln, *u->aln, v->positions, u->positions,
+                                                      u->band_begin - v->band_begin+v->aln->sequence().size());
                     if (weight > -std::numeric_limits<double>::max()) {
                         v->next_cost.push_back(make_pair(&*u, weight));
                         u->prev_cost.push_back(make_pair(&*v, weight));

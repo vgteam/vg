@@ -38,8 +38,8 @@ void help_map(char** argv) {
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -m, --acyclic-graph     improves runtime when the graph is acyclic" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
-         << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [{-w}]" << endl
-         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [1]" << endl
+         << "    -J, --band-jump INT     the maximum number of bands of insertion we consider in the alignment chain model [128]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [16]" << endl
          << "    -Z, --band-min-mq INT   treat bands with less than this MQ as unaligned [0]" << endl
          << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [5000:0:0:0:1]" << endl
          << "                            max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
@@ -116,8 +116,8 @@ int main_map(int argc, char** argv) {
     string fastq1, fastq2;
     bool interleaved_input = false;
     int band_width = 256;
-    int band_multimaps = 1;
-    int max_band_jump = -1;
+    int band_multimaps = 16;
+    int max_band_jump = 128;
     bool always_rescue = false;
     bool top_pairs_only = false;
     int max_mem_length = 0;
@@ -126,11 +126,11 @@ int main_map(int argc, char** argv) {
     float mem_reseed_factor = 1.5;
     int max_target_factor = 100;
     int buffer_size = 512;
-    int8_t match = 1;
-    int8_t mismatch = 4;
-    int8_t gap_open = 6;
-    int8_t gap_extend = 1;
-    int8_t full_length_bonus = 5;
+    int8_t match = default_match;
+    int8_t mismatch = default_mismatch;
+    int8_t gap_open = default_gap_open;
+    int8_t gap_extend = default_gap_extension;
+    int8_t full_length_bonus = default_full_length_bonus;
     int unpaired_penalty = 17;
     double haplotype_consistency_exponent = 1;
     bool strip_bonuses = false;
@@ -724,7 +724,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = surjectors[omp_get_thread_num()]->surject_classic(aln, path_names, path_name, path_pos, path_reverse);
+            auto surj = surjectors[omp_get_thread_num()]->path_anchored_surject(aln, path_names, path_name, path_pos, path_reverse);
             surjects1.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // hack: if we haven't established the header, we look at the reads to guess which read groups to put in it
@@ -740,7 +740,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = surjectors[omp_get_thread_num()]->surject_classic(aln, path_names, path_name, path_pos, path_reverse);
+            auto surj = surjectors[omp_get_thread_num()]->path_anchored_surject(aln, path_names, path_name, path_pos, path_reverse);
             surjects2.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // Don't try and populate the header; it should have happened already
@@ -958,7 +958,7 @@ int main_map(int argc, char** argv) {
         m->frag_stats.fragment_model_update_interval = fragment_model_update;
         m->max_mapping_quality = max_mapping_quality;
         m->mate_rescues = mate_rescues;
-        m->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
+        m->max_band_jump = max_band_jump;
         m->identity_weight = identity_weight;
         m->assume_acyclic = acyclic_graph;
         m->patch_alignments = patch_alignments;

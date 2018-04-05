@@ -817,7 +817,7 @@ public:
                      sdsl::structure_tree_node* v = NULL,
                      std::string name = "") const;
     // Get a mapping. Note that the mapping will not have its lengths filled in.
-    Mapping mapping(size_t offset) const; // 0-based
+    Mapping mapping(size_t offset, const function<int64_t(id_t)>& node_length) const;
 
     // Get the node orientation at a 0-based offset.
     id_t node(size_t offset) const;

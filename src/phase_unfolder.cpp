@@ -4,6 +4,7 @@
 #include <cassert>
 #include <iostream>
 #include <map>
+#include <set>
 
 namespace vg {
 
@@ -155,6 +156,14 @@ bool verify_path(const PathType& path, VG& unfolded, const hash_map<vg::id_t, st
     return false;
 }
 
+template<class Decoder>
+void printId(vg::id_t id) {
+    std::cerr << Decoder::id(id);
+    if (Decoder::is_reverse(id)) {
+        std::cerr << " (reverse)";
+    }
+}
+
 size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
 
     // Create a mapping from original -> duplicates.
@@ -171,6 +180,7 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
     }
 
     size_t total_paths = this->xg_index.max_path_rank() + this->gbwt_index.sequences(), verified = 0, failures = 0;
+    std::set<vg::id_t> failed_threads;
     ProgressBar* progress = nullptr;
     if (show_progress) {
         progress = new ProgressBar(total_paths, "Verifying paths");
@@ -191,9 +201,12 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
         {
             if (!successful) {
                 failures++;
+                if (i >= this->xg_index.max_path_rank()) {
+                    failed_threads.insert(i - this->xg_index.max_path_rank());
+                }
             }
             verified++;
-            if (show_progress) {
+            if (show_progress && (verified % 1000 == 0 || verified >= total_paths)) {
                 progress->Progressed(verified);
             }
         }
@@ -202,7 +215,16 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
     if (show_progress) {
         delete progress; progress = nullptr;
         std::cerr << std::endl;
+
+        for (vg::id_t thread_id : failed_threads) {
+            std::vector<gbwt::node_type> path = this->gbwt_index.extract(thread_id);
+            std::cerr << "Failed: "; printId<gbwt::Path>(thread_id);
+            std::cerr << ": from "; printId<gbwt::Node>(path.front());
+            std::cerr << ", to "; printId<gbwt::Node>(path.back());
+            std::cerr << ", length " << path.size() << std::endl;
+        }
     }
+
     return failures;
 }
 
