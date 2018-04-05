@@ -1846,6 +1846,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                pin_left,
                                banded_global,
                                0, // band padding override
+                               aln.sequence().size(),
                                aln.sequence().size());
         } else {
             aligned = vg.align_qual_adjusted(aln,
@@ -1857,6 +1858,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                              pin_left,
                                              banded_global,
                                              0, // band padding override
+                                             aln.sequence().size(),
                                              aln.sequence().size());
         }
     } else {

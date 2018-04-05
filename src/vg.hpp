@@ -970,6 +970,7 @@ public:
                     bool banded_global = false,
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
+                    size_t unroll_length = 0,
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
     /// Align to the graph.
@@ -985,6 +986,7 @@ public:
                     bool banded_global = false,
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
+                    size_t unroll_length = 0,
                     bool print_score_matrices = false);
     
     /// Align with default Aligner.
@@ -1000,6 +1002,7 @@ public:
                     bool banded_global = false,
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
+                    size_t unroll_length = 0,
                     bool print_score_matrices = false);
     /// Align with default Aligner.
     /// Align to the graph.
@@ -1014,6 +1017,7 @@ public:
                     bool banded_global = false,
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
+                    size_t unroll_length = 0,
                     bool print_score_matrices = false);
     
     /// Align with base quality adjusted scores.
@@ -1030,6 +1034,7 @@ public:
                                   bool banded_global = false,
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
+                                  size_t unroll_length = 0,
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
     /// Align to the graph.
@@ -1045,6 +1050,7 @@ public:
                                   bool banded_global = false,
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
+                                  size_t unroll_length = 0,
                                   bool print_score_matrices = false);
     
     
@@ -1162,6 +1168,7 @@ private:
                     bool banded_global = false,
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
+                    size_t unroll_length = 0,
                     bool print_score_matrices = false);
 
 
