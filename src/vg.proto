@@ -108,6 +108,13 @@ enum FeatureType {
     HAPLOTYPE_LOGPROB = 2; // Actual log probability haplotype consistency likelihood
     CORRECTNESS = 3; // Correctness metric, 1 = perfectly aligned to truth, 0 = not overlapping true alignment
     SECONDARY_SCORES = 4; // The ordered list of scores of secondary mappings
+    UNIQUENESS = 5; // The fraction of bases in the alignment that are covered by MEMs with <=1 total hits in the graph
+    FRAGMENT_SCORE = 6; // Score under the fragment model, assume higher is better
+    FRAGMENT_DISTRIBUTION_MAX = 7; // Max distance limit of the fragment length distribution under which the read was aligned
+    FRAGMENT_DISTRIBUTION_MEAN = 8; // Mean of the fragment length distribution under which the read was aligned
+    FRAGMENT_DISTRIBUTION_STDDEV = 9; // Standard deviation of the fragment length distribution under which the read was aligned
+    FRAGMENT_DISTRIBUTION_SAME_ORIENTATION_TAG = 10; // Same-orientation flag of the fragment distribution under which the read was aligned
+    FRAGMENT_DISTRIBUTION_DIRECTION_TAG = 11; // Direction flag of the fragment distribution under which the read was aligned
 }
 
 // Alignments and MultipathAlignments use a feature system for annotation.
@@ -152,10 +159,6 @@ message Alignment {
     bool mate_on_reverse_strand = 24;
     bool soft_clipped = 25;
     bool discordant_insert_size = 26;
-    
-    double uniqueness = 27; // The fraction of bases in the alignment that are covered by MEMs with <=1 total hits in the graph
-    double fragment_score = 30; // Score under the given fragment model, assume higher is better
-    bool mate_mapped_to_disjoint_subgraph = 31;
     
     string fragment_length_distribution = 32; // The fragment length distribution under which a paired-end alignment was aligned.
 

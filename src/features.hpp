@@ -53,13 +53,25 @@ vector<double> get_features(const Item& item, const FeatureType& feature);
 template<typename Item>
 vector<double> get_features(const Item* item, const FeatureType& feature);
 
-/// Add the given tag feature to the given item, if not present already.
+/// Add the given tag feature to the given item, assuming it is not present already.
 template<typename Item>
 void add_feature(Item* item, const FeatureType& feature);
 
-/// Append the given value to the given multi-valued feature.
+/// Add the given tag feature if the given flkag is set, assuming it is not present already.
+template<typename Item>
+void add_feature(Item* item, const FeatureType& feature, const bool& flag);
+
+/// Append the given value to the given multi-valued feature, or add the given
+/// value for the given single-valued feature it it is not yet set.
 template<typename Item>
 void add_feature(Item* item, const FeatureType& feature, const double& value);
+
+/// Append the given value to the given multi-valued feature, or add the given
+/// value for the given single-valued feature it it is not yet set.
+/// Coerces integral values to double.
+template<typename Item, typename Integral,
+    typename Enabled = typename enable_if<is_integral<Integral>::value && !is_same<Integral, bool>::value>::type>
+void add_feature(Item* item, const FeatureType& feature, const Integral& value);
 
 /// Set the given single-valued feature to the given value, adding it if it doesn't exist yet.
 template<typename Item>
@@ -131,10 +143,15 @@ vector<double> get_features(const Item* item, const FeatureType& feature) {
 
 template<typename Item>
 void add_feature(Item* item, const FeatureType& feature) {
-    if (!has_feature(item, feature)) {
-        // If it isn't in the list already, add it.
-        Feature* added = item->add_feature();
-        added->set_type(feature);
+    Feature* added = item->add_feature();
+    added->set_type(feature);
+}
+
+template<typename Item>
+void add_feature(Item* item, const FeatureType& feature, const bool& flag) {
+    if (flag) {
+        // If the flag is true, actually add it.
+        add_feature(item, feature);
     }
 }
 
@@ -145,6 +162,11 @@ void add_feature(Item* item, const FeatureType& feature, const double& value) {
     added->set_type(feature);
     // And set the value
     added->set_value(value);
+}
+
+template<typename Item, typename Integral, typename Enabled>
+void add_feature(Item* item, const FeatureType& feature, const Integral& value) {
+    add_feature(item, feature, (double)value);
 }
 
 template<typename Item>

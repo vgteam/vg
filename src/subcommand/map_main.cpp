@@ -1243,8 +1243,8 @@ int main_map(int argc, char** argv) {
                 } else {
                     // Output the alignments in JSON or protobuf as appropriate.
                     if (compare_gam) {
-                        set_feature(&alnp.first.front(), FeatureType::CORRECTNESS, overlap(aln1.path(), alnp.first.front().path()));
-                        set_feature(&alnp.second.front(), FeatureType::CORRECTNESS, overlap(aln2.path(), alnp.second.front().path()));
+                        add_feature(&alnp.first.front(), FeatureType::CORRECTNESS, overlap(aln1.path(), alnp.first.front().path()));
+                        add_feature(&alnp.second.front(), FeatureType::CORRECTNESS, overlap(aln2.path(), alnp.second.front().path()));
                     }
                     output_alignments(alnp.first, alnp.second);
                 }
@@ -1318,7 +1318,7 @@ int main_map(int argc, char** argv) {
                 std::chrono::duration<double> elapsed_seconds = end-start;
                 // Output the alignments in JSON or protobuf as appropriate.
                 if (compare_gam) {
-                    set_feature(&alignments.front(), FeatureType::CORRECTNESS, overlap(alignment.path(), alignments.front().path()));
+                    add_feature(&alignments.front(), FeatureType::CORRECTNESS, overlap(alignment.path(), alignments.front().path()));
                 }
                 output_alignments(alignments, empty_alns);
             };
