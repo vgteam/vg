@@ -1826,21 +1826,21 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  Graph& graph,
                                  size_t max_query_graph_ratio,
                                  bool traceback,
-                                 bool certainly_acyclic,
+                                 bool acyclic_and_sorted,
                                  bool pinned_alignment,
                                  bool pin_left,
                                  bool banded_global,
                                  bool keep_bonuses) {
     // check if we need to make a vg graph to handle this graph
     Alignment aligned;
-    if (!certainly_acyclic) { //!is_id_sortable(graph) || has_inversion(graph)) {
+    if (!acyclic_and_sorted) { //!is_id_sortable(graph) || has_inversion(graph)) {
         VG vg;
         vg.extend(graph);
         if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
             aligned = vg.align(aln,
                                get_regular_aligner(),
                                traceback,
-                               certainly_acyclic,
+                               acyclic_and_sorted,
                                max_query_graph_ratio,
                                pinned_alignment,
                                pin_left,
@@ -1852,7 +1852,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             aligned = vg.align_qual_adjusted(aln,
                                              get_qual_adj_aligner(),
                                              traceback,
-                                             certainly_acyclic,
+                                             acyclic_and_sorted,
                                              max_query_graph_ratio,
                                              pinned_alignment,
                                              pin_left,
@@ -2115,14 +2115,14 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
         // align against it
     }
     sort_by_id_dedup_and_clean(graph);
-    bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
+    bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
     //VG g; g.extend(graph);string h = g.hash();
     //g.serialize_to_file("rescue-" + h + ".vg");
     int max_mate1_score = mate1.score();
     int max_mate2_score = mate2.score();
     for (auto& orientation : orientations) {
         if (rescue_off_first) {
-            Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, certainly_acyclic);
+            Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, acyclic_and_sorted);
             tried2 = true;
             //write_alignment_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
@@ -2131,7 +2131,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
 #endif
             if (aln2.score() > max_mate2_score && (double)aln2.score()/perfect_score > min_threshold && pair_consistent(mate1, aln2, accept_pval)) {
                 if (!traceback) { // now get the traceback
-                    aln2 = align_maybe_flip(mate2, graph, orientation, true, certainly_acyclic);
+                    aln2 = align_maybe_flip(mate2, graph, orientation, true, acyclic_and_sorted);
                 }
 #ifdef debug_rescue
                 if (debug) cerr << "rescued aln2 " << pb2json(aln2) << endl;
@@ -2142,7 +2142,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
                 rescued2 = true;
             }
         } else if (rescue_off_second) {
-            Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, certainly_acyclic);
+            Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, acyclic_and_sorted);
             tried1 = true;
             //write_alignment_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
@@ -2151,7 +2151,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
 #endif
             if (aln1.score() > max_mate1_score && (double)aln1.score()/perfect_score > min_threshold && pair_consistent(aln1, mate2, accept_pval)) {
                 if (!traceback) { // now get the traceback
-                    aln1 = align_maybe_flip(mate1, graph, orientation, true, certainly_acyclic);
+                    aln1 = align_maybe_flip(mate1, graph, orientation, true, acyclic_and_sorted);
                 }
 #ifdef debug_rescue
                 if (debug) cerr << "rescued aln1 " << pb2json(aln1) << endl;
@@ -2177,8 +2177,8 @@ Alignment Mapper::realign_from_start_position(const Alignment& aln, int extra, i
     Graph graph = xindex->graph_context_id(pos, get_at_least/1.61803);
     graph.MergeFrom(xindex->graph_context_id(reverse(pos, get_node_length(id(pos))), get_at_least*(1-1/1.61803)));
     sort_by_id_dedup_and_clean(graph);
-    bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
-    Alignment result = align_maybe_flip(aln, graph, is_rev(pos), true, certainly_acyclic);
+    bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
+    Alignment result = align_maybe_flip(aln, graph, is_rev(pos), true, acyclic_and_sorted);
     if (result.score() >= score) {
         return result;
     } else {
@@ -3337,7 +3337,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     return alns;
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool certainly_acyclic, bool banded_global) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global) {
     Alignment aln = base;
     map<id_t, int64_t> node_length;
     if (flip) {
@@ -3363,7 +3363,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool fli
                          graph,
                          max_query_graph_ratio,
                          traceback,
-                         certainly_acyclic,
+                         acyclic_and_sorted,
                          pinned_alignment,
                          pinned_reverse,
                          banded_global,
@@ -3422,16 +3422,16 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     }
     // get the graph with cluster.hpp's cluster_subgraph
     Graph graph = cluster_subgraph_walk(*xindex, aln, mems, 1);
-    bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
+    bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
     // and test each direction for which we have MEM hits
     Alignment aln_fwd;
     Alignment aln_rev;
     // try both ways if we're not sure if we are acyclic
-    if (count_fwd || !certainly_acyclic) {
-        aln_fwd = align_maybe_flip(aln, graph, false, traceback, certainly_acyclic);
+    if (count_fwd || !acyclic_and_sorted) {
+        aln_fwd = align_maybe_flip(aln, graph, false, traceback, acyclic_and_sorted);
     }
-    if (count_rev || !certainly_acyclic) {
-        aln_rev = align_maybe_flip(aln, graph, true, traceback, certainly_acyclic);
+    if (count_rev || !acyclic_and_sorted) {
+        aln_rev = align_maybe_flip(aln, graph, true, traceback, acyclic_and_sorted);
     }
     // TODO check if we have soft clipping on the end of the graph and if so try to expand the context
     if (aln_fwd.score() + aln_rev.score() == 0) {
@@ -4574,8 +4574,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                             Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size()*extend_fwd);
                             graph.MergeFrom(xindex->graph_context_id(pos, band.sequence().size()*extend_rev));
                             sort_by_id_dedup_and_clean(graph);
-                            bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, certainly_acyclic);
+                            bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, acyclic_and_sorted);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                         // TODO
@@ -4593,8 +4593,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                             graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*extend_rev));
                             sort_by_id_dedup_and_clean(graph);
                             //cerr << "on graph " << pb2json(graph) << endl;
-                            bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, certainly_acyclic);
+                            bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, acyclic_and_sorted);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                     } else {
@@ -4607,8 +4607,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                             graph.MergeFrom(xindex->graph_context_id(pos_rev, band.sequence().size()*extend_rev));
                             sort_by_id_dedup_and_clean(graph);
                             //cerr << "on graph " << pb2json(graph) << endl;
-                            bool certainly_acyclic = is_id_sortable(graph) && !has_inversion(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, certainly_acyclic);
+                            bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, acyclic_and_sorted);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                     }

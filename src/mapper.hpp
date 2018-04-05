@@ -456,7 +456,7 @@ protected:
                              Graph& graph,
                              size_t max_query_graph_ratio,
                              bool traceback,
-                             bool certainly_acyclic,
+                             bool acyclic_and_sorted,
                              bool pinned_alignment = false,
                              bool pin_left = false,
                              bool global = false,
@@ -533,7 +533,7 @@ public:
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool certainly_acyclic, bool banded_global = false);
+    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);

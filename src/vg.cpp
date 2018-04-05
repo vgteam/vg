@@ -6607,7 +6607,7 @@ Alignment VG::align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
                     bool traceback,
-                    bool acyclic,
+                    bool acyclic_and_sorted,
                     size_t max_query_graph_ratio,
                     bool pinned_alignment,
                     bool pin_left,
@@ -6676,12 +6676,11 @@ Alignment VG::align(const Alignment& alignment,
 
     flip_doubly_reversed_edges();
 
-    if (acyclic && !has_inverting_edges()) {
+    if (acyclic_and_sorted) {
         // graph is a non-inverting DAG, so we just need to sort
 #ifdef debug
         cerr << "Graph is a non-inverting DAG, so just sort and align" << endl;
 #endif
-        //algorithms::sort(this); // it's already sorted
         // run the alignment
         do_align(this->graph);
     } else {
@@ -6751,7 +6750,7 @@ Alignment VG::align(const Alignment& alignment,
 Alignment VG::align(const Alignment& alignment,
                     Aligner* aligner,
                     bool traceback,
-                    bool acyclic,
+                    bool acyclic_and_sorted,
                     size_t max_query_graph_ratio,
                     bool pinned_alignment,
                     bool pin_left,
@@ -6760,7 +6759,7 @@ Alignment VG::align(const Alignment& alignment,
                     size_t max_span,
                     size_t unroll_length,
                     bool print_score_matrices) {
-    return align(alignment, aligner, nullptr, traceback, acyclic, max_query_graph_ratio,
+    return align(alignment, aligner, nullptr, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
                  max_span, unroll_length, print_score_matrices);
 }
@@ -6768,7 +6767,7 @@ Alignment VG::align(const Alignment& alignment,
 Alignment VG::align(const string& sequence,
                     Aligner* aligner,
                     bool traceback,
-                    bool acyclic,
+                    bool acyclic_and_sorted,
                     size_t max_query_graph_ratio,
                     bool pinned_alignment,
                     bool pin_left,
@@ -6779,14 +6778,14 @@ Alignment VG::align(const string& sequence,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align(alignment, aligner, traceback, acyclic, max_query_graph_ratio,
+    return align(alignment, aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
                  max_span, unroll_length, print_score_matrices);
 }
 
 Alignment VG::align(const Alignment& alignment,
                     bool traceback,
-                    bool acyclic,
+                    bool acyclic_and_sorted,
                     size_t max_query_graph_ratio,
                     bool pinned_alignment,
                     bool pin_left,
@@ -6796,14 +6795,14 @@ Alignment VG::align(const Alignment& alignment,
                     size_t unroll_length,
                     bool print_score_matrices) {
     Aligner default_aligner = Aligner();
-    return align(alignment, &default_aligner, traceback, acyclic, max_query_graph_ratio,
+    return align(alignment, &default_aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
                  max_span, unroll_length, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
                     bool traceback,
-                    bool acyclic,
+                    bool acyclic_and_sorted,
                     size_t max_query_graph_ratio,
                     bool pinned_alignment,
                     bool pin_left,
@@ -6814,7 +6813,7 @@ Alignment VG::align(const string& sequence,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align(alignment, traceback, acyclic, max_query_graph_ratio,
+    return align(alignment, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
                  max_span, unroll_length, print_score_matrices);
 }
@@ -6822,7 +6821,7 @@ Alignment VG::align(const string& sequence,
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner* qual_adj_aligner,
                                   bool traceback,
-                                  bool acyclic,
+                                  bool acyclic_and_sorted,
                                   size_t max_query_graph_ratio,
                                   bool pinned_alignment,
                                   bool pin_left,
@@ -6831,7 +6830,7 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   size_t max_span,
                                   size_t unroll_length,
                                   bool print_score_matrices) {
-    return align(alignment, nullptr, qual_adj_aligner, traceback, acyclic, max_query_graph_ratio,
+    return align(alignment, nullptr, qual_adj_aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
                  max_span, unroll_length, print_score_matrices);
 }
@@ -6839,7 +6838,7 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
 Alignment VG::align_qual_adjusted(const string& sequence,
                                   QualAdjAligner* qual_adj_aligner,
                                   bool traceback,
-                                  bool acyclic,
+                                  bool acyclic_and_sorted,
                                   size_t max_query_graph_ratio,
                                   bool pinned_alignment,
                                   bool pin_left,
@@ -6850,7 +6849,7 @@ Alignment VG::align_qual_adjusted(const string& sequence,
                                   bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align_qual_adjusted(alignment, qual_adj_aligner, traceback, acyclic, max_query_graph_ratio,
+    return align_qual_adjusted(alignment, qual_adj_aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                                pinned_alignment, pin_left, banded_global, band_padding_override,
                                max_span, unroll_length, print_score_matrices);
 }
