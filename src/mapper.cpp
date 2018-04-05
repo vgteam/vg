@@ -1,6 +1,7 @@
 #include <unordered_set>
 #include "mapper.hpp"
 #include "haplotypes.hpp"
+#include "features.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 
 //#define debug_mapper
@@ -1708,9 +1709,9 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
             // Convert to points, raise to haplotype consistency exponent power, and apply
             alns[i]->set_score(max((int64_t)0, alns[i]->score() + score_penalty));
             // Note that we successfully corrected the score
-            alns[i]->set_haplotype_scored(true);
+            add_feature(alns[i], FeatureType::HAPLOTYPE_SCORED_TAG);
             // And save the raw log probability
-            alns[i]->set_haplotype_logprob(haplotype_logprobs[i]);
+            set_feature(alns[i], FeatureType::HAPLOTYPE_LOGPROB, haplotype_logprobs[i]);
 
             if (debug) {
                 cerr << "Alignment statring at " << alns[i]->path().mapping(0).position().node_id()

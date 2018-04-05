@@ -104,15 +104,15 @@ message Path {
 // A FeatureType defines a feature
 enum FeatureType {
     UNDEFINED = 0;
-    HAPLOTYPE_SCORED_TAG = 1;
-    HAPLOTYOE_LOGPROB = 2;
+    HAPLOTYPE_SCORED_TAG = 1; // True if this alignment's score is adjusted for haplotype consistency, and false otherwise.
+    HAPLOTYPE_LOGPROB = 2; // Actual log probability haplotype consistency likelihood
 }
 
 // Alignments and MultipathAlignments use a feature system for annotation.
-// Features are defined by an integral ID, and a double value. Features that
-// are flags or tags do not use the value. Features that can have multiple
-// values appear multiple times (like Protobuf repeated fields). String values
-// are not supported.
+// Features are defined by an integral ID, and can carry a double value.
+// Features that are tags do not use the value. Features that can have multiple
+// values can appear multiple times (like Protobuf repeated fields). String
+// values are not supported.
 //
 // A Feature is an instance of a certain feature type, possibly with a value,
 // used for annotating Alignments and MultipathAlignments
@@ -158,10 +158,7 @@ message Alignment {
     
     string fragment_length_distribution = 32; // The fragment length distribution under which a paired-end alignment was aligned.
 
-    bool haplotype_scored = 33; // True if this alignment's score is adjusted for haplotype consistency, and false otherwise.
-    double haplotype_logprob = 34; // Actual log probability haplotype consistency likelihood
-    
-    repeated Feature features = 35; // Allow for annotation with features 
+    repeated Feature feature = 35; // Allow for annotation with features 
 }
 
 // A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment
@@ -188,7 +185,7 @@ message MultipathAlignment {
     // The name of the MultipathAlignment paired with this one
     string paired_read_name = 9;
     
-    repeated Feature features = 10; // Allow for annotation with features 
+    repeated Feature feature = 10; // Allow for annotation with features 
 }
 
 // A non-branching path of a MultipathAlignment

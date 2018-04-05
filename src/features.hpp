@@ -6,10 +6,11 @@
 
 #include <vg.pb.h>
 
-#include <pb2json.hpp>
+#include "json2pb.h"
 
 #include <vector>
 #include <string>
+#include <type_traits>
 
 
 
@@ -29,7 +30,7 @@ using namespace std;
 
 /// Determine if the given alignment has ther given tag feature, or any
 /// instances of the given numerical or list feature.
-template<typename Item>
+template<typename Item, typename Enabled = typename enable_if<!is_pointer<Item>::value>::type>
 bool has_feature(const Item& item, const FeatureType& feature);
 
 template<typename Item>
@@ -38,7 +39,7 @@ bool has_feature(const Item* item, const FeatureType& feature);
 /// Get the numerical value of the given single-value feature on the given
 /// item. Throws an error if the feature isn't present. Should not be called on
 /// multi-valued features.
-template<typename Item>
+template<typename Item, typename Enabled = typename enable_if<!is_pointer<Item>::value>::type>
 double get_feature(const Item& item, const FeatureType& feature);
 
 template<typename Item>
@@ -46,7 +47,7 @@ double get_feature(const Item* item, const FeatureType& feature);
 
 /// Get the numerical values of the given multi-valued feature, or an empty
 /// vector if the feature isn't present.
-template<typename Item>
+template<typename Item, typename Enabled = typename enable_if<!is_pointer<Item>::value>::type>
 vector<double> get_features(const Item& item, const FeatureType& feature);
 
 template<typename Item>
@@ -73,7 +74,7 @@ void remove_feature(Item* item, const FeatureType& feature);
 // Implementation
 ////////////////////////////////////////////////////////////////////////
 
-template<typename Item>
+template<typename Item, typename Enabled>
 bool has_feature(const Item& item, const FeatureType& feature) {
     for (auto& record : item.feature()) {
         // Do a linear scan
@@ -91,7 +92,7 @@ bool has_feature(const Item* item, const FeatureType& feature) {
     return has_feature(*item, feature);
 }
 
-template<typename Item>
+template<typename Item, typename Enabled>
 double get_feature(const Item& item, const FeatureType& feature) {
     for (auto& record : item.feature()) {
         // Do a linear scan
@@ -110,7 +111,7 @@ double get_feature(const Item* item, const FeatureType& feature) {
 }
 
 
-template<typename Item>
+template<typename Item, typename Enabled>
 vector<double> get_features(const Item& item, const FeatureType& feature) {
     vector<double> to_return;
     for (auto& record : item.feature()) {
@@ -155,7 +156,7 @@ void set_feature(Item* item, const FeatureType& feature, const double& value) {
 template<typename Item>
 void remove_feature(Item* item, const FeatureType& feature) {
     for (size_t i = 0; i < item->feature_size();) {
-        if (item->feature(i)->type() == feature) {
+        if (item->feature(i).type() == feature) {
             // We need to remove it
             // So swap it last
             item->mutable_feature()->SwapElements(i, item->feature_size());
