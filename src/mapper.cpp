@@ -4015,7 +4015,14 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     }
     // sort the alignments by score
     std::sort(alignments.begin(), alignments.end(), [](const Alignment& aln1, const Alignment& aln2) { return aln1.score() > aln2.score(); });
-    if (alignments.size() == 1) {
+    if (alignments.empty()) {
+        alignments.push_back(read);
+        auto& aln = alignments.back();
+        aln.clear_score();
+        aln.clear_path();
+        aln.clear_identity();
+        aln.clear_mapping_quality();
+    } else if (alignments.size() == 1) {
         alignments.front().set_mapping_quality(max_mapping_quality);
     } else {
         compute_mapping_qualities(alignments, 0, max_mapping_quality, max_mapping_quality);
@@ -4734,6 +4741,12 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
     }
 #endif
     // simplify the mapping representation
+    for (size_t i = 0; i < patched.path().mapping_size(); ++i) {
+        Mapping* mapping = patched.mutable_path()->mutable_mapping(i);
+        if (mapping->has_position() && from_length(*mapping) == 0) {
+            mapping->clear_position();
+        }
+    }
     patched = simplify(patched, trim_internal_deletions);
     // set the identity
     patched.set_identity(identity(patched.path()));

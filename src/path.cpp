@@ -1206,7 +1206,7 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
                 }
             }
             // if our last mapping has no position, but we do, merge
-            if (!l->has_position() && m.has_position()) {
+            if ((!l->has_position() || l->position().node_id() == 0) && m.has_position()) {
                 *l->mutable_position() = m.position();
             }
             // if we end at exactly the start position of the next mapping, we can merge
@@ -1385,7 +1385,6 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
             *n.add_edit() = e;
         }
     }
-    if (!mapping_from_length(n)) n.clear_position();
     return n;
 }
 
