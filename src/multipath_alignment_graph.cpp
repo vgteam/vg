@@ -72,23 +72,6 @@ namespace vg {
         
         // compute reachability and add edges
         add_reachability_edges(vg, projection_trans, injection_trans);
-        
-#ifdef debug_multipath_alignment
-        cerr << "final mem graph:" << endl;
-        for (size_t i = 0; i < path_nodes.size(); i++) {
-            PathNode& path_node = path_nodes[i];
-            cerr << i << " " << pb2json(path_node.path) << " ";
-            for (auto iter = path_node.begin; iter != path_node.end; iter++) {
-                cerr << *iter;
-            }
-            cerr << endl;
-            cerr << "\t";
-            for (auto edge : path_node.edges) {
-                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (path_nodes[edge.first].begin - path_node.end) << ") ";
-            }
-            cerr << endl;
-        }
-#endif
     }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
@@ -2262,6 +2245,23 @@ namespace vg {
         
         // Go to the state where we know the reachability edges exist.
         has_reachability_edges = true;
+        
+#ifdef debug_multipath_alignment
+        cerr << "final graph after adding reachability edges:" << endl;
+        for (size_t i = 0; i < path_nodes.size(); i++) {
+            PathNode& path_node = path_nodes[i];
+            cerr << i << " " << pb2json(path_node.path) << " ";
+            for (auto iter = path_node.begin; iter != path_node.end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+            cerr << "\t";
+            for (auto edge : path_node.edges) {
+                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (path_nodes[edge.first].begin - path_node.end) << ") ";
+            }
+            cerr << endl;
+        }
+#endif
     }
     
     void MultipathAlignmentGraph::clear_reachability_edges() {
