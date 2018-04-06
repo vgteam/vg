@@ -1937,35 +1937,7 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
 }
 
 map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby) {
-    map<string, vector<pair<size_t, bool> > > offsets;
-    for (auto& mapping : aln.path().mapping()) {
-        auto pos_offs = (nearby ?
-                         xindex->nearest_offsets_in_paths(make_pos_t(mapping.position()), aln.sequence().size())
-                         : xindex->offsets_in_paths(make_pos_t(mapping.position())));
-        for (auto& p : pos_offs) {
-            auto& v = offsets[p.first];
-            auto& y = p.second;
-            v.reserve(v.size() + distance(y.begin(),y.end()));
-            v.insert(v.end(),y.begin(),y.end());
-        }
-        //if (just_first && offsets.size()) break; // find a single node that has a path position
-    }
-    if (!nearby && offsets.empty()) { // find the nearest if we couldn't find any before
-        return alignment_path_offsets(aln, just_min, true);
-    }
-    if (just_min) {
-        // take the min offset in each path
-        for (auto& p : offsets) {
-            auto& v = p.second;
-            auto m = *min_element(v.begin(), v.end(),
-                                  [](const pair<size_t, bool>& a,
-                                     const pair<size_t, bool>& b)
-                                  { return a.first < b.first; });
-            v.clear();
-            v.push_back(m);
-        }
-    }
-    return offsets;
+    return xg_alignment_path_offsets(aln, just_min, nearby, xindex);
 }
 
 map<string ,vector<pair<size_t, bool> > > Mapper::alignment_refpos_to_path_offsets(const Alignment& aln) {
@@ -2989,7 +2961,6 @@ void Mapper::annotate_with_initial_path_positions(Alignment& aln) {
         }
     }
 }
-
 
 double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters,
                                                int read_length) {

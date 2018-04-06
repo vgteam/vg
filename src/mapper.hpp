@@ -479,7 +479,6 @@ public:
     double graph_entropy(void);
 
     // use the xg index to get the first position of an alignment on a reference path
-    map<string, vector<pair<size_t, bool> > > alignment_initial_path_positions(const Alignment& aln);
     void annotate_with_initial_path_positions(Alignment& aln);
     void annotate_with_initial_path_positions(vector<Alignment>& alns);
 

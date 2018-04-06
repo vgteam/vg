@@ -212,5 +212,50 @@ set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, xg::XG* x
     }
 }
 
+map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby, xg::XG* xgidx) {
+    map<string, vector<pair<size_t, bool> > > offsets;
+    for (auto& mapping : aln.path().mapping()) {
+        auto pos_offs = (nearby ?
+                         xgidx->nearest_offsets_in_paths(make_pos_t(mapping.position()), aln.sequence().size())
+                         : xgidx->offsets_in_paths(make_pos_t(mapping.position())));
+        for (auto& p : pos_offs) {
+            auto& v = offsets[p.first];
+            auto& y = p.second;
+            v.reserve(v.size() + distance(y.begin(),y.end()));
+            v.insert(v.end(),y.begin(),y.end());
+        }
+        //if (just_first && offsets.size()) break; // find a single node that has a path position
+    }
+    if (!nearby && offsets.empty()) { // find the nearest if we couldn't find any before
+        return xg_alignment_path_offsets(aln, just_min, true, xgidx);
+    }
+    if (just_min) {
+        // take the min offset in each path
+        for (auto& p : offsets) {
+            auto& v = p.second;
+            auto m = *min_element(v.begin(), v.end(),
+                                  [](const pair<size_t, bool>& a,
+                                     const pair<size_t, bool>& b)
+                                  { return a.first < b.first; });
+            v.clear();
+            v.push_back(m);
+        }
+    }
+    return offsets;
+}
+
+void xg_annotate_with_initial_path_positions(Alignment& aln, bool just_min, bool nearby, xg::XG* xgidx) {
+    if (!aln.refpos_size()) {
+        auto init_path_positions = xg_alignment_path_offsets(aln, just_min, nearby, xgidx);
+        for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
+            for (auto& pos : pos_record.second) {
+                Position* refpos = aln.add_refpos();
+                refpos->set_name(pos_record.first);
+                refpos->set_offset(pos.first);
+                refpos->set_is_reverse(pos.second);
+            }
+        }
+    }
+}
 
 }
