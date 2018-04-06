@@ -914,8 +914,16 @@ int main_mpmap(int argc, char** argv) {
                 output_buf.back().set_sample_name(sample_name);
             }
             
-            // Assume things are already on the correct strands
-            output_buf.emplace_back(move(mp_aln_pair.second));
+            // switch second read back to the opposite strand if necessary
+            if (same_strand) {
+                output_buf.emplace_back(move(mp_aln_pair.second));
+            }
+            else {
+                output_buf.emplace_back();
+                rev_comp_multipath_alignment(mp_aln_pair.second,
+                                             [&](vg::id_t node_id) { return xg_index.node_length(node_id); },
+                                             output_buf.back());
+            }
             
             // label with read group and sample name
             if (!read_group.empty()) {
@@ -956,7 +964,11 @@ int main_mpmap(int argc, char** argv) {
             // compute identity again
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
-            // Assume everything is correctly stranded already 
+            // switch second read back to the opposite strand if necessary
+            if (!same_strand) {
+                reverse_complement_alignment_in_place(&output_buf.back(),
+                                                      [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+            }
             
             // label with read group and sample name
             if (!read_group.empty()) {
@@ -998,70 +1010,14 @@ int main_mpmap(int argc, char** argv) {
 #ifdef record_read_run_times
         clock_t start = clock();
 #endif
-
-        // Make alignment pointers
-        auto* aln_1 = &alignment_1;
-        auto* aln_2 = &alignment_2;
-
-        // We want to go worse read first, so compute the total quality for each
-        size_t total_1 = accumulate(aln_1->quality().begin(), aln_1->quality().end(), (size_t)0);
-        size_t total_2 = accumulate(aln_2->quality().begin(), aln_2->quality().end(), (size_t)0);
-
-        // Decide if we will need to flip the reads, based on mean quality
-        bool flip = (total_2/(double)aln_2->quality().size() < total_1/(double)aln_1->quality().size());
-        
-        if (flip) {
-            // Swap the input read order so the worse one comes first.
-            swap(aln_1, aln_2);
-        }
-
         if (!same_strand) {
             // remove the path so we won't try to RC it (the path may not refer to this graph)
-            aln_2->clear_path();
-            reverse_complement_alignment_in_place(aln_2, [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+            alignment_2.clear_path();
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
         }
-        
-        // Remember how many ambiguous pairs were in the buffer, so if we have to swap back any new ones we can
-        auto old_ambiguous_pair_count = ambiguous_pair_buffer.size();
                 
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
-        multipath_mapper.multipath_map_paired(*aln_1, *aln_2, mp_aln_pairs, ambiguous_pair_buffer, max_num_mappings);
-       
-        
-        if (!same_strand) {
-            // The second read needs to be reverse complemented back to the
-            // forward strand in the output and/or buffer. We have to do it
-            // here (before the optional swap) instead of in the output
-            // routines because read order determines which read we RC.
-            for (auto& pair : mp_aln_pairs) {
-                // RC it in the output
-                rev_comp_multipath_alignment_in_place(&pair.second,
-                                                      [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
-            }
-            
-            for (size_t i = old_ambiguous_pair_count; i < ambiguous_pair_buffer.size(); i++) {
-                // RC it in the buffer
-                // TODO: RC-ing and RC-ing back and RC-ing again for reads that get buffered is a waste of time.
-                reverse_complement_alignment_in_place(&ambiguous_pair_buffer[i].second,
-                                                      [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
-            }
-        }
-       
-        if (flip) {
-            // Now put the reads back in the original order for output or for queueing.
-            // TODO: can we do this with less copying?
-            for (auto& pair : mp_aln_pairs) {
-                // Swap all the results
-                swap(pair.first, pair.second);
-            }
-            
-            for (size_t i = old_ambiguous_pair_count; i < ambiguous_pair_buffer.size(); i++) {
-                // Swap any ambiguous pairs put in ther buffer back
-                swap(ambiguous_pair_buffer[i].first, ambiguous_pair_buffer[i].second);
-            }
-            
-        }
-        
+        multipath_mapper.multipath_map_paired(alignment_1, alignment_2, mp_aln_pairs, ambiguous_pair_buffer, max_num_mappings);
         if (single_path_alignment_mode) {
             output_single_path_paired_alignments(mp_aln_pairs);
         }
@@ -1121,8 +1077,13 @@ int main_mpmap(int argc, char** argv) {
 #pragma omp parallel for
             for (size_t i = 0; i < ambiguous_pair_buffer.size(); i++) {
                 pair<Alignment, Alignment>& aln_pair = ambiguous_pair_buffer[i];
-                
-                // The pairs are in original input order in the buffer, so leave them there.
+                // we reverse complemented the alignment on the first pass, so switch back so we don't break
+                // the alignment functions expectations
+                // TODO: slightly wasteful, inelegant
+                if (!same_strand) {
+                    reverse_complement_alignment_in_place(&aln_pair.second,
+                                                          [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+                }
                 do_paired_alignments(aln_pair.first, aln_pair.second);
             }
         }
