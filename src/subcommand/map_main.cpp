@@ -1261,6 +1261,8 @@ int main_map(int argc, char** argv) {
                     if (compare_gam) {
                         alnp.first.front().set_correct(overlap(aln1.path(), alnp.first.front().path()));
                         alnp.second.front().set_correct(overlap(aln2.path(), alnp.second.front().path()));
+                        alignment_set_distance_to_correct(alnp.first.front(), aln1);
+                        alignment_set_distance_to_correct(alnp.second.front(), aln2);
                     }
                     output_alignments(alnp.first, alnp.second);
                 }
@@ -1337,6 +1339,7 @@ int main_map(int argc, char** argv) {
                 // Output the alignments in JSON or protobuf as appropriate.
                 if (compare_gam) {
                     alignments.front().set_correct(overlap(alignment.path(), alignments.front().path()));
+                    alignment_set_distance_to_correct(alignments.front(), alignment);
                 }
                 output_alignments(alignments, empty_alns);
             };

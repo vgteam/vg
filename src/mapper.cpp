@@ -1940,14 +1940,6 @@ map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const A
     return xg_alignment_path_offsets(aln, just_min, nearby, xindex);
 }
 
-map<string ,vector<pair<size_t, bool> > > Mapper::alignment_refpos_to_path_offsets(const Alignment& aln) {
-    map<string, vector<pair<size_t, bool> > > offsets;
-    for (auto& refpos : aln.refpos()) {
-        offsets[refpos.name()].push_back(make_pair(refpos.offset(), refpos.is_reverse()));
-    }
-    return offsets;
-}
-
 vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_mate) {
     // fallback to approx when we don't have paths
     if (xindex->path_count == 0) {

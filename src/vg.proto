@@ -140,6 +140,7 @@ message Alignment {
     bool haplotype_scored = 33; // True if this alignment's score is adjusted for haplotype consistency, and false otherwise.
     double haplotype_logprob = 34; // Actual log probability haplotype consistency likelihood
     double time_used = 35; // The time this alignment took
+    Position to_correct = 36; // A path/offset/orientation pair specifying the distance to the correct alignment
 }
 
 // A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment
