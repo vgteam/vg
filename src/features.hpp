@@ -4,15 +4,12 @@
 /// \file
 /// features.hpp: utilities for working with Feature and FeatureType from the VG Protobuf
 
+// We need this for FeatureType but it would be nice if we didn't.
 #include <vg.pb.h>
-
-#include "json2pb.h"
 
 #include <vector>
 #include <string>
 #include <type_traits>
-
-
 
 namespace vg {
 
@@ -124,7 +121,7 @@ double get_feature(const Item& item, const FeatureType& feature) {
         }
     }
     // Otherwise we didn't find it
-    throw runtime_error("Feature " + to_string(feature) + " not found in " + pb2json(item));
+    throw runtime_error("Feature " + to_string(feature) + " not found in item");
 }
 
 template<typename Item>

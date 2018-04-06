@@ -160,8 +160,6 @@ message Alignment {
     bool soft_clipped = 25;
     bool discordant_insert_size = 26;
     
-    string fragment_length_distribution = 32; // The fragment length distribution under which a paired-end alignment was aligned.
-
     repeated Feature feature = 35; // Allow for annotation with features 
 }
 
