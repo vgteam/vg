@@ -5,18 +5,18 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 51
+plan tests 53
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 
-is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq '.path.mapping[0].position.offset')" "3" "offset counts unused bases from the start of the node on the forward strand"
+is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j | jq '.path.mapping[0].position.offset')" "3" "offset counts unused bases from the start of the node on the forward strand"
 
-is  "$(vg map --score-matrix default.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq '.path.mapping[0].position.offset')" "3" "score-matrix defaults match 1 mismatch -4 should produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
+is  "$(vg map --score-matrix default.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j | jq '.path.mapping[0].position.offset')" "3" "score-matrix defaults match 1 mismatch -4 should produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
 
-isnt  "$(vg map --score-matrix negative.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq '.path.mapping[0].position.offset')" "3" "negative of score-matrix defaults should not produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
+isnt  "$(vg map --score-matrix negative.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j | jq '.path.mapping[0].position.offset')" "3" "negative of score-matrix defaults should not produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
 
-is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa -j - | jq '.path.mapping[0].position.offset')" "5" "offset counts unused bases from the start of the node on the reverse strand"
+is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa -j | jq '.path.mapping[0].position.offset')" "5" "offset counts unused bases from the start of the node on the reverse strand"
 
 is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -j | tr ',' '\n' | grep node_id | grep "72\|73\|76\|77" | wc -l) 4 "global alignment traverses the correct path"
 
@@ -166,6 +166,10 @@ is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 8)" "$(printf '0\n0')
 is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "2" "surjection of unpaired reads to SAM yields distinct QNAMEs"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '*\n*')" "surjection of unpaired reads to SAM produces absent partner contigs"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16')" "surjection of unpaired reads to SAM produces correct flags"
+
+# Test position comparison
+is "$(vg map -d x -G <(vg sim -a -s 13241 -n 10 -v 300 -x x.xg) --compare-range 100 -j | jq -c 'select((.feature[] | select(.type == 12) | length) > 0)' | wc -l)" "10" "position comparison works for single reads"
+is "$(vg map -d x -iG <(vg sim -a -s 13241 -n 10 -p 500 -v 300 -x x.xg) --compare-range 100 -j | jq -c 'select((.feature[] | select(.type == 12) | length) > 0)' | wc -l)" "20" "position comparison works for paired reads"
 
 rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa x.gcsa.lcp x.gbwt graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp surjected.sam
 
