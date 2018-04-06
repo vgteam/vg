@@ -2283,6 +2283,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     bool only_top_scoring_pair,
     bool retrying) {
 
+    chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
+
     Alignment read1;
     read1.set_name(first_mate.name());
     read1.set_sequence(first_mate.sequence());
@@ -2960,6 +2962,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // if we have references, annotate the alignments with their reference positions
     annotate_with_initial_path_positions(results.first);
     annotate_with_initial_path_positions(results.second);
+
+    chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+    auto used_time = chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+    results.first.front().set_time_used(used_time);
+    results.second.front().set_time_used(used_time);
 
     return results;
 
@@ -3913,6 +3920,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     }
 #endif
 
+    chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
+
     // scan across the read choosing bands
     // these bands are hard coded to overlap by 50%
     // the second and next-to-last bands begin or end remander/2 into the read
@@ -4030,6 +4039,9 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         filter_and_process_multimaps(alignments, max_multimaps);
     }
     //cerr << "got alignment " << pb2json(alignments.front()) << endl;
+    chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+    // set time for alignment
+    alignments.front().set_time_used(chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
     return alignments;
 }
 
@@ -4213,7 +4225,9 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
 #endif
         return vector<Alignment>{align_banded(aln, kmer_size, stride, max_mem_length, band_width, band_overlap)};
     }
-    
+
+    chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
+
     // try to get at least 2 multimaps so that we can calculate mapping quality
     int additional_multimaps_for_quality;
     if (additional_multimaps == 0 && max_multimaps == 1 && mapping_quality_method != None) {
@@ -4263,7 +4277,9 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
 #endif
     
     annotate_with_initial_path_positions(alignments);
-
+    chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+    // set time for alignment
+    alignments.front().set_time_used(chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
     return alignments;
 }
 
