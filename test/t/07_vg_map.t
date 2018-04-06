@@ -168,8 +168,8 @@ is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '*\n*')" "surjecti
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16')" "surjection of unpaired reads to SAM produces correct flags"
 
 # Test position comparison
-is "$(vg map -d x -G <(vg sim -a -s 13241 -n 10 -v 300 -x x.xg) --compare-range 100 -j | jq -c 'select((.feature[] | select(.type == 12) | length) > 0)' | wc -l)" "10" "position comparison works for single reads"
-is "$(vg map -d x -iG <(vg sim -a -s 13241 -n 10 -p 500 -v 300 -x x.xg) --compare-range 100 -j | jq -c 'select((.feature[] | select(.type == 12) | length) > 0)' | wc -l)" "20" "position comparison works for paired reads"
+is "$(vg map -d x -G <(vg sim -a -s 13241 -n 10 -v 300 -x x.xg) --compare-range 100 -j | jq -c 'select((.feature[] | select(.type == "CORRECT_TAG") | length) > 0)' | wc -l)" "10" "position comparison works for single reads"
+is "$(vg map -d x -iG <(vg sim -a -s 13241 -n 10 -p 500 -v 300 -x x.xg) --compare-range 100 -j | jq -c 'select((.feature[] | select(.type == "CORRECT_TAG") | length) > 0)' | wc -l)" "20" "position comparison works for paired reads"
 
 rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa x.gcsa.lcp x.gbwt graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp surjected.sam
 

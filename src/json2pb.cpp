@@ -100,8 +100,10 @@ static json_t * _field2json(const Message& msg, const FieldDescriptor *field, si
 			const EnumValueDescriptor* ef = (repeated)?
 				ref->GetRepeatedEnum(msg, field, index):
 				ref->GetEnum(msg, field);
-
-			jf = json_integer(ef->number());
+            
+            // We support parsing either numbers or names.
+            // For output, we will use names, which are more legible to Javascript, hopefully.
+			jf = json_string(ef->name().c_str());
 			break;
 		}
 		default:
