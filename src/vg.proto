@@ -115,6 +115,7 @@ enum FeatureType {
     FRAGMENT_DISTRIBUTION_STDDEV = 9; // Standard deviation of the fragment length distribution under which the read was aligned
     FRAGMENT_DISTRIBUTION_SAME_ORIENTATION_TAG = 10; // Same-orientation flag of the fragment distribution under which the read was aligned
     FRAGMENT_DISTRIBUTION_DIRECTION_TAG = 11; // Direction flag of the fragment distribution under which the read was aligned
+    CORRECT_TAG = 12; // Tag for reads which are mapped "correctly", usually within a range of a correct path position
 }
 
 // Alignments and MultipathAlignments use a feature system for annotation.
@@ -149,7 +150,7 @@ message Alignment {
     double identity = 16; // Portion of aligned bases that are perfect matches, or 0 if no bases are aligned.
     repeated Path fragment = 17; // An estimate of the length of the fragment, if this Alignment is paired.
     repeated Locus locus = 18; // The loci that this alignment supports. TODO: get rid of this, we have annotations in our data model again.
-    repeated Position refpos = 19; // Position of the alignment in reference paths embedded in graph
+    repeated Position refpos = 19; // Position of the alignment in reference paths embedded in graph (using name, offset from left, and is_reverse)
     
     // SAMTools-style flags
     bool read_paired = 20;

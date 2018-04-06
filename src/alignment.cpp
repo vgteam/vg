@@ -865,6 +865,34 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::
     refpos->set_is_reverse(on_reverse_strand);
 }
 
+size_t min_refpos_distance(const Alignment& aln1, const Alignment& aln2) {
+    // First put all the positions of the first read into a map
+    unordered_map<string, pair<bool, size_t>> positions;
+    for (auto& pos : aln1.refpos()) {
+        positions[pos.name()] = make_pair(pos.is_reverse(), pos.offset());
+    }
+    
+    size_t min_dist = numeric_limits<size_t>::max();
+    
+    for (auto& pos : aln2.refpos()) {
+        // For each position for the second Alignment
+        if (positions.count(pos.name())) {
+            // If we share a path, get the other Alignment's position
+            auto& other = positions[pos.name()];
+            
+            if (pos.is_reverse() == other.first) {
+                // They are on the same strand, so do distance
+                size_t dist = (other.second > pos.offset()) ? (other.second - pos.offset()) : (pos.offset() - other.second);
+                // And min it in
+                min_dist = min(dist, min_dist);
+            }
+        }
+    }
+    
+    // Return the minimum distance found
+    return min_dist;
+}
+
 // act like the path this is against is the reference
 // and generate an equivalent cigar
 // Produces CIGAR in forward strand space of the reference sequence.

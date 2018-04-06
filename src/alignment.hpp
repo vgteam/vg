@@ -132,6 +132,11 @@ string alignment_to_sam(const Alignment& alignment,
 string cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
 void mapping_against_path(Alignment& alignment, const bam1_t *b, xg::XG* xgindex, bool on_reverse_strand);
 
+/// Compute the minimum distance between two Alignments on any shared path, going by their refpos positions.
+/// Assumes a single refpos per path name, at most.
+/// If no path orientations are shared, returns numeric_limist<size_t>::max()
+size_t min_refpos_distance(const Alignment& aln1, const Alignment& aln2);
+
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired);
 short quality_char_to_short(char c);
 char quality_short_to_char(short i);
