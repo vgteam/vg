@@ -1168,7 +1168,6 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
     // push inserted sequences to the left
     for (size_t i = 0; i < p.mapping_size(); ++i) {
         auto m = simplify(p.mapping(i), trim_internal_deletions);
-        //cerr << "simplified " << pb2json(m) << endl;
         // remove empty mappings as these are redundant
         if (trim_internal_deletions) {
             // remove wholly-deleted or empty mappings as these are redundant
@@ -1216,14 +1215,18 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
                 m.mutable_position()->set_offset(from_length(*l));
             }
             // if we end at exactly the start position of the next mapping, we can merge
-            if (l->has_position() && m.has_position()
-                && l->position().is_reverse() == m.position().is_reverse()
-                && l->position().node_id() == m.position().node_id()
-                && l->position().offset() + mapping_from_length(*l) == m.position().offset()) {
+            if ((!l->has_position() && !m.has_position())
+                ||
+                (l->has_position() && m.has_position()
+                 && l->position().is_reverse() == m.position().is_reverse()
+                 && l->position().node_id() == m.position().node_id()
+                 && l->position().offset() + mapping_from_length(*l) == m.position().offset())) {
                 // we can merge the current mapping onto the old one
                 *l = concat_mappings(*l, m, trim_internal_deletions);
             } else {
-                *s.add_mapping() = m;
+                if (from_length(m) || to_length(m)) {
+                    *s.add_mapping() = m;
+                }
             }
         } else {
             *s.add_mapping() = m;

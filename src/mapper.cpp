@@ -4742,12 +4742,15 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
     }
 #endif
     // simplify the mapping representation
-    for (size_t i = 0; i < patched.path().mapping_size(); ++i) {
-        Mapping* mapping = patched.mutable_path()->mutable_mapping(i);
-        if (mapping->has_position() && from_length(*mapping) == 0) {
-            mapping->clear_position();
+    auto clear_positions = [&](Alignment& aln) {
+        for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
+            Mapping* mapping = aln.mutable_path()->mutable_mapping(i);
+            if (mapping->has_position() && from_length(*mapping) == 0) {
+                mapping->clear_position();
+            }
         }
-    }
+    };
+    clear_positions(patched);
     patched = simplify(patched, trim_internal_deletions);
     // set the identity
     patched.set_identity(identity(patched.path()));
