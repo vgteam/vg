@@ -203,7 +203,7 @@ void remove_feature(Item* item, const FeatureType& feature) {
         if (item->feature(i).type() == feature) {
             // We need to remove it
             // So swap it last
-            item->mutable_feature()->SwapElements(i, item->feature_size());
+            item->mutable_feature()->SwapElements(i, item->feature_size() - 1);
             // And remove the last element
             item->mutable_feature()->RemoveLast();
             
