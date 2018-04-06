@@ -4768,7 +4768,7 @@ void Mapper::remove_full_length_bonuses(Alignment& aln) {
 // handles split alignments, where gaps of unknown length are
 // by estimating length using the positional paths embedded in the graph
 int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) {
-    
+
     // Find the right aligner to score with
     BaseAligner* aligner = get_aligner();
     

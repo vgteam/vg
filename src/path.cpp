@@ -1206,8 +1206,14 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
                 }
             }
             // if our last mapping has no position, but we do, merge
-            if ((!l->has_position() || l->position().node_id() == 0) && m.has_position()) {
+            if ((!l->has_position() || l->position().node_id() == 0)
+                && (m.has_position() && m.position().node_id() != 0)) {
                 *l->mutable_position() = m.position();
+                // if our last mapping has a position, and we don't, merge
+            } else if ((!m.has_position() || m.position().node_id() == 0)
+                       && (l->has_position() && l->position().node_id() != 0)) {
+                *m.mutable_position() = *l->mutable_position();
+                m.mutable_position()->set_offset(from_length(*l));
             }
             // if we end at exactly the start position of the next mapping, we can merge
             if (l->has_position() && m.has_position()
@@ -1327,9 +1333,10 @@ Mapping concat_mappings(const Mapping& m, const Mapping& n, bool trim_internal_d
 Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
     Mapping n;
     if (m.rank()) n.set_rank(m.rank());
-    //cerr << "pre simplify " << pb2json(m) << endl;
     // take the old position (which may be empty)
-    *n.mutable_position() = m.position();
+    if (m.has_position()) {
+        *n.mutable_position() = m.position();
+    }
 
     size_t j = 0;
     if (trim_internal_deletions) {
