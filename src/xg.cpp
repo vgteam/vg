@@ -3734,6 +3734,120 @@ pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const 
     return make_pos_t(node_id, is_rev, offset);
 }
 
+Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse, Mapping& cigar_mapping) const {
+    Alignment aln;
+    const XGPath& path = *paths[path_rank(name)-1];
+    size_t first_node_start = path.offsets_select(path.offsets_rank(pos1+1));
+    int64_t trim_start = pos1 - first_node_start;
+    {
+        Mapping* first_mapping = aln.mutable_path()->add_mapping();
+        *first_mapping = mapping_at_path_position(name, pos1);
+        auto mappings = cut_mapping_offset(cigar_mapping, node_length(first_mapping->position().node_id())-trim_start);
+        first_mapping->clear_edit();
+        if (trim_start > 0) {
+          first_mapping->mutable_position()->set_offset(trim_start);
+        }
+
+        string from_seq = node_sequence(first_mapping->position().node_id());
+        int from_pos = trim_start;
+        for (size_t j = 0; j < mappings.first.edit_size(); ++j) {
+            if (mappings.first.edit(j).to_length() == mappings.first.edit(j).from_length()) {// if (mappings.first.edit(j).sequence() != nullptr) {
+                // do the sequences match?
+                // emit a stream of "SNPs" and matches
+                    int last_start = from_pos;
+                    int k = 0;
+                    Edit* edit;
+                    for (int to_pos = 0 ; to_pos < mappings.first.edit(j).to_length() ; ++to_pos, ++from_pos) {
+                        //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
+                        if (from_seq[from_pos] != mappings.first.edit(j).sequence()[to_pos]) {
+                            // emit the last "match" region
+                            if (from_pos - last_start > 0) {
+                                edit = first_mapping->add_edit();
+                                edit->set_from_length(from_pos-last_start);
+                                edit->set_to_length(from_pos-last_start);
+                            }
+                            // set up the SNP
+                            edit = first_mapping->add_edit();
+                            edit->set_from_length(1);
+                            edit->set_to_length(1);
+                            edit->set_sequence(from_seq.substr(to_pos,1));
+                            last_start = from_pos+1;
+                        }
+                    }
+                    // handles the match at the end or the case of no SNP
+                    if (from_pos - last_start > 0) {
+                        edit = first_mapping->add_edit();
+                        edit->set_from_length(from_pos-last_start);
+                        edit->set_to_length(from_pos-last_start);
+                    }
+                    // to_pos += length;
+                    // from_pos += length;
+            } else {
+                // Edit* edit = first_mapping->add_edit();
+                // *edit = mappings.first.edit(j);
+                *first_mapping->add_edit() = mappings.first.edit(j);
+                from_pos += mappings.first.edit(j).from_length();
+            }
+        }
+        cigar_mapping = mappings.second;
+    }
+    // get p to point to the next step (or past it, if we're a feature on a single node)
+    int64_t p = (int64_t)pos1 + node_length(aln.path().mapping(0).position().node_id()) - trim_start;
+    while (p < pos2) {
+        Mapping m = mapping_at_path_position(name, p);
+        auto mappings = cut_mapping_offset(cigar_mapping, node_length(m.position().node_id()));
+        m.clear_edit();
+
+        string from_seq = node_sequence(m.position().node_id());
+        int from_pos = 0;
+        for (size_t j = 0 ; j < mappings.first.edit_size(); ++j) {
+            if (mappings.first.edit(j).to_length() == mappings.first.edit(j).from_length()) {
+                // do the sequences match?
+                // emit a stream of "SNPs" and matches
+                    int last_start = from_pos;
+                    int k = 0;
+                    Edit* edit;
+                    for (int to_pos = 0 ; to_pos < mappings.first.edit(j).to_length() ; ++to_pos, ++from_pos) {
+                        //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
+                        if (from_seq[from_pos] != mappings.first.edit(j).sequence()[to_pos]) {
+                            // emit the last "match" region
+                            if (from_pos - last_start > 0) {
+                                edit = m.add_edit();
+                                edit->set_from_length(from_pos-last_start);
+                                edit->set_to_length(from_pos-last_start);
+                            }
+                            // set up the SNP
+                            edit = m.add_edit();
+                            edit->set_from_length(1);
+                            edit->set_to_length(1);
+                            edit->set_sequence(from_seq.substr(to_pos,1));
+                            last_start = from_pos+1;
+                        }
+                    }
+                    // handles the match at the end or the case of no SNP
+                    if (from_pos - last_start > 0) {
+                        edit = m.add_edit();
+                        edit->set_from_length(from_pos-last_start);
+                        edit->set_to_length(from_pos-last_start);
+                    }
+                    // to_pos += length;
+                    // from_pos += length;
+            } else {
+                *m.add_edit() = mappings.first.edit(j);
+                from_pos += mappings.first.edit(j).from_length();
+            }
+        }
+        cigar_mapping = mappings.second;
+        *aln.mutable_path()->add_mapping() = m;
+        p += mapping_from_length(aln.path().mapping(aln.path().mapping_size()-1));
+    }
+    aln.set_name(feature);
+    if (is_reverse) {
+       reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) { return this->node_length(node_id); });
+    }
+    return aln;
+}
+
 Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse) const {
     Alignment aln;
     const XGPath& path = *paths[path_rank(name)-1];

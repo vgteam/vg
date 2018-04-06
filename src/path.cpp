@@ -1744,6 +1744,89 @@ pair<mapping_t, mapping_t> cut_mapping(const mapping_t& m, const Position& pos) 
     return make_pair(mapping_t(r.first), mapping_t(r.second));
 }
 
+// ref-relative with offset
+pair<Mapping, Mapping> cut_mapping_offset(const Mapping& m, size_t offset) {
+    Mapping left, right;
+    //cerr << ".cutting mapping " << pb2json(m) << " at " << offset << endl;
+    // both result mappings will be in the same orientation as the original
+    left.mutable_position()->set_is_reverse(m.position().is_reverse());
+    right.mutable_position()->set_is_reverse(m.position().is_reverse());
+    left.set_rank(m.rank());
+    right.set_rank(m.rank());
+
+    //assert(m.has_position() && m.position().node_id());
+    // left always has the position of the input mapping
+    if (m.has_position()) *left.mutable_position() = m.position();
+    // nothing to cut
+    if (offset == 0) {
+        // we will get a 0-length left
+        right = m;
+    } else if (offset >= mapping_from_length(m)) {
+        // or a 0-length right
+        left = m;
+    } else {
+        // we need to cut the mapping
+
+        // find the cut point and build the two mappings
+        size_t seen = 0;
+        size_t j = 0;
+        // loop over those before our position
+        for ( ; j < m.edit_size() && seen < offset; ++j) {
+            auto& e = m.edit(j);
+            //cerr << "at edit " << pb2json(e) << endl;
+            if (seen + e.from_length() > offset) {
+                // we need to divide this edit
+                auto edits = cut_edit_at_from(e, seen + e.from_length() - offset);
+                *left.add_edit() = edits.first;
+                *right.add_edit() = edits.second;
+            } else {
+                // this would be the last edit before the target position
+                // so we just drop it onto the last mapping of p1
+                *left.add_edit() = e;
+            }
+            seen += e.from_length();
+        }
+        // now we add to the second path
+        assert(seen >= offset);
+        for ( ; j < m.edit_size(); ++j) {
+            *right.add_edit() = m.edit(j);
+        }
+    }
+    if (m.has_position()) {
+        // The right mapping has a position on this same node
+        right.mutable_position()->set_node_id(m.position().node_id());
+        right.mutable_position()->set_offset(left.position().offset()
+                                             + mapping_from_length(left));
+    }
+    if (left.has_position()
+        && !left.position().node_id()) {
+        left.clear_position();
+    }
+    if (right.has_position()
+        && !right.position().node_id()) {
+        right.clear_position();
+    }
+    /*
+    if (!(!m.has_position()
+           || (left.has_position()
+               && left.position().node_id()
+               && right.has_position()
+               && right.position().node_id()))) {
+        cerr << "problem with cut alignment" << endl
+             << "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
+        assert(false);
+    }
+    */
+    //cerr << "cut mappings " << endl
+    //<< "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
+    return make_pair(left, right);
+}
+
+pair<mapping_t, mapping_t> cut_mapping_offset(const mapping_t& m, size_t offset) {
+    auto r = cut_mapping_offset(m.to_mapping(), offset);
+    return make_pair(mapping_t(r.first), mapping_t(r.second));
+}
+
 // mapping-relative
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
     Mapping left, right;

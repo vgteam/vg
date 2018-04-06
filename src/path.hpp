@@ -282,6 +282,9 @@ Path& extend_path(Path& path1, const Path& path2);
 // divide mapping at reference-relative position
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos);
 pair<mapping_t, mapping_t> cut_mapping(const mapping_t& m, const Position& pos);
+// divide mapping at reference-relative offset (as measure in from_length)
+pair<Mapping, Mapping> cut_mapping_offset(const Mapping& m, size_t offset);
+pair<mapping_t, mapping_t> cut_mapping_offset(const mapping_t& m, size_t offset);
 // divide mapping at target-relative offset (as measured in to_length)
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset);
 pair<mapping_t, mapping_t> cut_mapping(const mapping_t& m, size_t offset);
