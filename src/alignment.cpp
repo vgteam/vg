@@ -850,7 +850,9 @@ int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, xg::XG* xgindex) {
 }
 
 void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::XG* xgindex, bool on_reverse_strand) {
-    Path path = alignment.path();
+
+    if (b->core.pos == -1) return;
+
     Mapping mapping;
 
     int64_t length = cigar_mapping(b, &mapping, xgindex);
