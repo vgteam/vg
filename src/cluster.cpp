@@ -2011,7 +2011,7 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg
             auto handle = xg.get_handle(gcsa::Node::id(pos), gcsa::Node::rc(pos));
             string h_seq = xg.get_sequence(handle);
             size_t mem_todo = mem_seq.size() - query_offset;
-            size_t overlap = min(mem_todo, h_seq.size()-gcsa::Node::offset(pos));
+            size_t overlap = min((size_t)mem_todo, (size_t)(h_seq.size()-gcsa::Node::offset(pos)));
             /*
             cerr << pos << " " << mem_todo << " " << overlap << endl
                  << mem_seq.substr(query_offset, overlap) << endl
