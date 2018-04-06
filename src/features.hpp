@@ -73,9 +73,19 @@ template<typename Item, typename Integral,
     typename Enabled = typename enable_if<is_integral<Integral>::value && !is_same<Integral, bool>::value>::type>
 void add_feature(Item* item, const FeatureType& feature, const Integral& value);
 
+/// Set the given tag feature to the given value, even if it is already present.
+template<typename Item>
+void set_feature(Item* item, const FeatureType& feature, const bool& flag);
+
 /// Set the given single-valued feature to the given value, adding it if it doesn't exist yet.
 template<typename Item>
 void set_feature(Item* item, const FeatureType& feature, const double& value);
+
+/// Set the given single-valued feature to the given value, adding it if it doesn't exist yet.
+/// Coerces integral values to double.
+template<typename Item, typename Integral,
+    typename Enabled = typename enable_if<is_integral<Integral>::value && !is_same<Integral, bool>::value>::type>
+void set_feature(Item* item, const FeatureType& feature, const Integral& value);
 
 /// Remove the given tag frature, or all instances of the given single- or
 /// multi-valued feature, form the given item, if any are present.
@@ -170,10 +180,22 @@ void add_feature(Item* item, const FeatureType& feature, const Integral& value) 
 }
 
 template<typename Item>
+void set_feature(Item* item, const FeatureType& feature, const bool& flag) {
+    remove_feature(item, feature);
+    add_feature(item, feature, flag);
+}
+
+template<typename Item>
 void set_feature(Item* item, const FeatureType& feature, const double& value) {
     remove_feature(item, feature);
     add_feature(item, feature, value);
 }
+
+template<typename Item, typename Integral, typename Enabled>
+void set_feature(Item* item, const FeatureType& feature, const Integral& value) {
+    set_feature(item, feature, (double)value);
+}
+
 
 template<typename Item>
 void remove_feature(Item* item, const FeatureType& feature) {
