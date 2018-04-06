@@ -214,15 +214,22 @@ int main_sim(int argc, char** argv) {
         }
     }
 
-    // Make a sample to sample reads with
-    Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns);
-    
     // Make a Mapper to score reads, with the default parameters
-    Mapper rescorer(xgidx, nullptr, nullptr);
-    // We define a function to score a generated alignment under the mapper
-    auto rescore = [&] (Alignment& aln) {
+    // Also used to annotate reads with true path positions.
+    Mapper mapper(xgidx, nullptr, nullptr);
+    
+    // Override the "default" full length bonus, just like every other subcommand that uses a mapper ends up doing.
+    // TODO: is it safe to change the default?
+    mapper.set_alignment_scores(default_match, default_mismatch, default_gap_open, default_gap_extension, default_full_length_bonus);
+    // Include the full length bonuses if requested.
+    mapper.strip_bonuses = strip_bonuses;
+    
+    // We define a function to score a generated alignment under the mapper and tag it with its true path positions
+    auto annotate_and_score = [&] (Alignment& aln) {
         // Score using exact distance.
-        aln.set_score(rescorer.score_alignment(aln, false));
+        aln.set_score(mapper.score_alignment(aln, false));
+        // Annotate with path positions
+        mapper.annotate_with_initial_path_positions(aln);
     };
     
     if (fastq_name.empty()) {
@@ -230,19 +237,6 @@ int main_sim(int argc, char** argv) {
         
         // Make a sample to sample reads with
         Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names);
-        
-        // Make a Mapper to score reads, with the default parameters
-        Mapper rescorer(xgidx, nullptr, nullptr);
-        // Override the "default" full length bonus, just like every other subcommand that uses a mapper ends up doing.
-        // TODO: is it safe to change the default?
-        rescorer.set_alignment_scores(default_match, default_mismatch, default_gap_open, default_gap_extension, default_full_length_bonus);
-        // Include the full length bonuses if requested.
-        rescorer.strip_bonuses = strip_bonuses;
-        // We define a function to score a generated alignment under the mapper
-        auto rescore = [&] (Alignment& aln) {
-            // Score using exact distance.
-            aln.set_score(rescorer.score_alignment(aln, false));
-        };
         
         size_t max_iter = 1000;
         int nonce = 1;
@@ -267,9 +261,9 @@ int main_sim(int argc, char** argv) {
                 if (align_out) {
                     // write it out as requested
                     
-                    // We will need scores
-                    rescore(alns.front());
-                    rescore(alns.back());
+                    // We will need metadata
+                    annotate_and_score(alns.front());
+                    annotate_and_score(alns.back());
                     
                     if (json_out) {
                         cout << pb2json(alns.front()) << endl;
@@ -302,8 +296,8 @@ int main_sim(int argc, char** argv) {
                 if (align_out) {
                     // write it out as requested
                     
-                    // We will need scores
-                    rescore(aln);
+                    // We will need metadata
+                    annotate_and_score(aln);
                     
                     if (json_out) {
                         cout << pb2json(aln) << endl;
@@ -321,8 +315,6 @@ int main_sim(int argc, char** argv) {
     else {
         // Use the trained error rate
         
-        Aligner aligner(default_match, default_mismatch, default_gap_open, default_gap_extension, 5);
-        
         NGSSimulator sampler(*xgidx,
                              fastq_name,
                              interleaved,
@@ -339,8 +331,9 @@ int main_sim(int argc, char** argv) {
         if (fragment_length) {
             for (size_t i = 0; i < num_reads; i++) {
                 pair<Alignment, Alignment> read_pair = sampler.sample_read_pair();
-                read_pair.first.set_score(aligner.score_ungapped_alignment(read_pair.first, strip_bonuses));
-                read_pair.second.set_score(aligner.score_ungapped_alignment(read_pair.second, strip_bonuses));
+                
+                annotate_and_score(read_pair.first);
+                annotate_and_score(read_pair.second);
                 
                 if (align_out) {
                     if (json_out) {
@@ -362,7 +355,8 @@ int main_sim(int argc, char** argv) {
         else {
             for (size_t i = 0; i < num_reads; i++) {
                 Alignment read = sampler.sample_read();
-                read.set_score(aligner.score_ungapped_alignment(read, strip_bonuses));
+                
+                annotate_and_score(read);
                 
                 if (align_out) {
                     if (json_out) {
