@@ -1550,9 +1550,12 @@ map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const
 }
 
 void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base) {
-    // find a matching reference pair
-    auto aln_offsets = alignment_refpos_to_path_offsets(aln);
     auto base_offsets = alignment_refpos_to_path_offsets(base);
+    return alignment_set_distance_to_correct(aln, base_offsets);
+}
+
+void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<pair<size_t, bool> > >& base_offsets) {
+    auto aln_offsets = alignment_refpos_to_path_offsets(aln);
     // bail out if we can't compare
     if (!(aln_offsets.size() && base_offsets.size())) return;
     // otherwise find the minimum distance and relative orientation

@@ -203,6 +203,7 @@ Position alignment_end(const Alignment& aln);Position alignment_start(const Alig
 map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const Alignment& aln);
 /// annotate the first alignment with its minimum distance to the second in their annotated paths
 void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base);
+void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<pair<size_t, bool> > >& base_offsets);
 
 }
 
