@@ -963,13 +963,14 @@ public:
     Alignment align(const string& sequence,
                     Aligner* aligner,
                     bool traceback = true,
-                    bool acyclic = false,
+                    bool acyclic_and_sorted = false,
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
                     bool banded_global = false,
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
+                    size_t unroll_length = 0,
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
     /// Align to the graph.
@@ -978,13 +979,14 @@ public:
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     bool traceback = true,
-                    bool acyclic = false,
+                    bool acyclic_and_sorted = false,
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
                     bool banded_global = false,
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
+                    size_t unroll_length = 0,
                     bool print_score_matrices = false);
     
     /// Align with default Aligner.
@@ -993,13 +995,14 @@ public:
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const Alignment& alignment,
                     bool traceback = true,
-                    bool acyclic = false,
+                    bool acyclic_and_sorted = false,
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
                     bool banded_global = false,
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
+                    size_t unroll_length = 0,
                     bool print_score_matrices = false);
     /// Align with default Aligner.
     /// Align to the graph.
@@ -1007,13 +1010,14 @@ public:
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const string& sequence,
                     bool traceback = true,
-                    bool acyclic = false,
+                    bool acyclic_and_sorted = false,
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
                     bool banded_global = false,
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
+                    size_t unroll_length = 0,
                     bool print_score_matrices = false);
     
     /// Align with base quality adjusted scores.
@@ -1023,13 +1027,14 @@ public:
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner* qual_adj_aligner,
                                   bool traceback = true,
-                                  bool acyclic = false,
+                                  bool acyclic_and_sorted = false,
                                   size_t max_query_graph_ratio = 0,
                                   bool pinned_alignment = false,
                                   bool pin_left = false,
                                   bool banded_global = false,
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
+                                  size_t unroll_length = 0,
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
     /// Align to the graph.
@@ -1038,13 +1043,14 @@ public:
     Alignment align_qual_adjusted(const string& sequence,
                                   QualAdjAligner* qual_adj_aligner,
                                   bool traceback = true,
-                                  bool acyclic = false,
+                                  bool acyclic_and_sorted = false,
                                   size_t max_query_graph_ratio = 0,
                                   bool pinned_alignment = false,
                                   bool pin_left = false,
                                   bool banded_global = false,
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
+                                  size_t unroll_length = 0,
                                   bool print_score_matrices = false);
     
     
@@ -1155,13 +1161,14 @@ private:
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
                     bool traceback = true,
-                    bool acyclic = false,
+                    bool acyclic_and_sorted = false,
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
                     bool banded_global = false,
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
+                    size_t unroll_length = 0,
                     bool print_score_matrices = false);
 
 

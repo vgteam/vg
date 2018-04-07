@@ -1992,34 +1992,33 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     
     return to_return;
 }
-
 // collect node starts to build out graph
-vector<pair<pos_t, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem) {
+vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem) {
     // walk the match, getting all the nodes that it touches
     string mem_seq = mem.sequence();
-    vector<pair<pos_t, size_t> > positions;
-    unordered_set<pair<pos_t, size_t> > seen_pos;
-    //unordered_set<handle_t> handles;
-    unordered_set<pair<pos_t, size_t> > next; // handles and offsets of the exact match set we need to extend
-    pos_t start_pos = make_pos_t(mem.nodes.front());
+    vector<pair<gcsa::node_type, size_t> > positions;
+    hash_set<pair<gcsa::node_type, size_t> > seen_pos;
+    //hash_set<handle_t> handles;
+    hash_set<pair<gcsa::node_type, size_t> > next; // handles and offsets of the exact match set we need to extend
+    auto start_pos = mem.nodes.front();
     next.insert(make_pair(start_pos, 0));
     while (!next.empty()) {
-        unordered_set<pair<pos_t, size_t> > todo;
+        hash_set<pair<gcsa::node_type, size_t> > todo;
         for (auto& h : next) {
             auto& pos = h.first;
             size_t query_offset = h.second;
             // check if we match each node in next
-            auto handle = xg.get_handle(id(pos), is_rev(pos));
+            auto handle = xg.get_handle(gcsa::Node::id(pos), gcsa::Node::rc(pos));
             string h_seq = xg.get_sequence(handle);
             size_t mem_todo = mem_seq.size() - query_offset;
-            size_t overlap = min(mem_todo, h_seq.size()-offset(pos));
+            size_t overlap = min((size_t)mem_todo, (size_t)(h_seq.size()-gcsa::Node::offset(pos)));
             /*
             cerr << pos << " " << mem_todo << " " << overlap << endl
                  << mem_seq.substr(query_offset, overlap) << endl
                  << h_seq.substr(offset(pos), overlap) << endl;
             */
             // if we do, insert into nodes
-            if (mem_seq.substr(query_offset, overlap) == h_seq.substr(offset(pos), overlap)) {
+            if (mem_seq.substr(query_offset, overlap) == h_seq.substr(gcsa::Node::offset(pos), overlap)) {
                 if (!seen_pos.count(h)) {
                     seen_pos.insert(h);
                     auto q = h;
@@ -2029,7 +2028,10 @@ vector<pair<pos_t, size_t> > mem_node_start_positions(const xg::XG& xg, const vg
                 // if we continue past this node, insert our next nodes into nexts
                 if (mem_todo - overlap > 0) {
                     size_t new_off = query_offset + overlap;
-                    xg.follow_edges(handle, false, [&](const handle_t& next) { todo.insert(make_pair(make_pos_t(xg.get_id(next), xg.get_is_reverse(next), 0), new_off)); return true; });
+                    xg.follow_edges(handle, false, [&](const handle_t& next) {
+                            todo.insert(make_pair(gcsa::Node::encode(xg.get_id(next), 0, xg.get_is_reverse(next)), new_off));
+                            return true;
+                        });
                 }
             } else {
                 // still store at least this node and the remainder
@@ -2046,7 +2048,7 @@ vector<pair<pos_t, size_t> > mem_node_start_positions(const xg::XG& xg, const vg
     }
     // ensure positions are sorted by remainder
     std::sort(positions.begin(), positions.end(),
-              [](const pair<pos_t, size_t>& a, const pair<pos_t, size_t>& b) {
+              [](const pair<gcsa::node_type, size_t>& a, const pair<gcsa::node_type, size_t>& b) {
                   return a.second > b.second;
               });
     return positions;
@@ -2061,8 +2063,8 @@ Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
     Graph graph;
-    int inside_padding = 8;
-    int end_padding = 32;
+    int inside_padding = max(1, (int)aln.sequence().size()/16);
+    int end_padding = max(8, (int)aln.sequence().size()/8);
     int get_before = end_padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     if (get_before) {
         graph.MergeFrom(xg.graph_context_id(rev_start_pos, get_before));
@@ -2071,27 +2073,27 @@ Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector
     for (int i = 0; i < mems.size(); ++i) {
         auto& mem = mems[i];
         //cerr << mem << endl;
-        vector<pair<pos_t, size_t> > match_positions = mem_node_start_positions(xg, mem);
+        vector<pair<gcsa::node_type, size_t> > match_positions = mem_node_start_positions(xg, mem);
         if (!match_positions.size()) {
             // TODO XXX is MEM merging causing this to occur?
-            match_positions.push_back(make_pair(make_pos_t(mem.nodes.front()), mem.length()));
+            match_positions.push_back(make_pair(mem.nodes.front(), mem.length()));
         }
         for (auto& p : match_positions) {
-            graph.MergeFrom(xg.node_subgraph_id(id(p.first)));
+            graph.MergeFrom(xg.node_subgraph_id(gcsa::Node::id(p.first)));
         }
         // extend after the last match node with the expansion
         auto& p = match_positions.back();
         auto& pos = p.first;
         int mem_remainder = p.second;
         //cerr << p.first << " " << p.second << endl;
-        int get_after = xg.node_length(id(pos))
+        int get_after = xg.node_length(gcsa::Node::id(pos))
             + (i+1 == mems.size() ?
                end_padding +
                expansion * ((int)(aln.sequence().end() - mem.end) + mem_remainder)
                :
                inside_padding +
                expansion * ((int)(mems[i+1].begin - mem.end) + mem_remainder));
-        if (get_after > 0) graph.MergeFrom(xg.graph_context_id(pos, get_after));
+        if (get_after > 0) graph.MergeFrom(xg.graph_context_id(make_pos_t(pos), get_after));
     }
     xg.expand_context(graph, 1, false);
     sort_by_id_dedup_and_clean(graph);

@@ -115,6 +115,7 @@ enum FeatureType {
     FRAGMENT_DISTRIBUTION_STDDEV = 9; // Standard deviation of the fragment length distribution under which the read was aligned
     FRAGMENT_DISTRIBUTION_SAME_ORIENTATION_TAG = 10; // Same-orientation flag of the fragment distribution under which the read was aligned
     FRAGMENT_DISTRIBUTION_DIRECTION_TAG = 11; // Direction flag of the fragment distribution under which the read was aligned
+    TIME_USED = 12; // The time in microseconds that this alignment took to compute
 }
 
 // Alignments and MultipathAlignments use a feature system for annotation.
@@ -159,8 +160,9 @@ message Alignment {
     bool mate_on_reverse_strand = 24;
     bool soft_clipped = 25;
     bool discordant_insert_size = 26;
-    
+
     repeated Feature feature = 35; // Allow for annotation with features 
+    Position to_correct = 36; // A path/offset/orientation pair specifying the distance to the correct alignment
 }
 
 // A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment

@@ -39,6 +39,7 @@ void help_map(char** argv) {
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -m, --acyclic-graph     improves runtime when the graph is acyclic" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
+         << "    -O, --band-overlap INT  band overlap for long read alignment [{-w}/8]" << endl
          << "    -J, --band-jump INT     the maximum number of bands of insertion we consider in the alignment chain model [128]" << endl
          << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [16]" << endl
          << "    -Z, --band-min-mq INT   treat bands with less than this MQ as unaligned [0]" << endl
@@ -48,7 +49,7 @@ void help_map(char** argv) {
          << "    -p, --print-frag-model  suppress alignment output and print the fragment model on stdout as per {-I} format" << endl
          << "    --frag-calc INT         update the fragment model every INT perfect pairs [10]" << endl
          << "    --fragment-x FLOAT      calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
-         << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
+         << "    --mate-rescues INT      attempt up to INT mate rescues per pair [64]" << endl
          << "    -S, --unpaired-cost INT penalty for an unpaired read pair [17]" << endl
          << "    --no-patch-aln          do not patch banded alignments by locally aligning unaligned regions" << endl
          << "scoring:" << endl
@@ -117,6 +118,7 @@ int main_map(int argc, char** argv) {
     string fastq1, fastq2;
     bool interleaved_input = false;
     int band_width = 256;
+    int band_overlap = -1;
     int band_multimaps = 16;
     int max_band_jump = 128;
     bool always_rescue = false;
@@ -165,6 +167,7 @@ int main_map(int argc, char** argv) {
     bool refpos_table = false;
     bool patch_alignments = true;
     int min_banded_mq = 0;
+    int max_sub_mem_recursion_depth = 2;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -194,6 +197,7 @@ int main_map(int argc, char** argv) {
                 {"fasta", required_argument, 0, 'F'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"band-width", required_argument, 0, 'w'},
+                {"band-overlap", required_argument, 0, 'O'},
                 {"band-multi", required_argument, 0, 'B'},
                 {"band-jump", required_argument, 0, 'J'},
                 {"band-min-mq", required_argument, 0, 'Z'},
@@ -224,7 +228,7 @@ int main_map(int argc, char** argv) {
                 {"mq-overlap", required_argument, 0, 'n'},
                 {"try-at-least", required_argument, 0, 'l'},
                 {"mq-max", required_argument, 0, 'Q'},
-                {"mate-rescues", required_argument, 0, 'O'},
+                {"mate-rescues", required_argument, 0, '0'},
                 {"approx-mq-cap", required_argument, 0, 'E'},
                 {"fixed-frag-model", no_argument, 0, 'U'},
                 {"print-frag-model", no_argument, 0, 'p'},
@@ -239,7 +243,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:824:3:9:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:824:3:9:0:",
                          long_options, &option_index);
 
 
@@ -379,6 +383,10 @@ int main_map(int argc, char** argv) {
             band_width = atoi(optarg);
             break;
 
+        case 'O':
+            band_overlap = atoi(optarg);
+            break;
+
         case 'B':
             band_multimaps = atoi(optarg);
             break;
@@ -494,7 +502,7 @@ int main_map(int argc, char** argv) {
             unpaired_penalty = atoi(optarg);
             break;
 
-        case 'O':
+        case '0':
             mate_rescues = atoi(optarg);
             break;
 
@@ -566,6 +574,10 @@ int main_map(int argc, char** argv) {
         xg_name = db_name + ".xg";
         gcsa_name = db_name + gcsa::GCSA::EXTENSION;
         gbwt_name = db_name + gbwt::GBWT::EXTENSION;
+    }
+
+    if (band_overlap == -1) {
+        band_overlap = band_width/8;
     }
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
@@ -937,6 +949,7 @@ int main_map(int argc, char** argv) {
                  << ", min_cluster_length = " << m->min_cluster_length << endl;
         }
         m->fast_reseed = use_fast_reseed;
+        m->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent);
         if(matrix_stream.is_open()) m->load_scoring_matrix(matrix_stream);
@@ -976,7 +989,7 @@ int main_map(int argc, char** argv) {
             unaligned.set_quality(qual);
         }
 
-        vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width);
+        vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap);
         if(alignments.size() == 0) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
@@ -1011,7 +1024,7 @@ int main_map(int argc, char** argv) {
                     Alignment unaligned;
                     unaligned.set_sequence(line);
 
-                    vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width);
+                    vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap);
 
                     for(auto& alignment : alignments) {
                         // Set the alignment metadata
@@ -1037,7 +1050,7 @@ int main_map(int argc, char** argv) {
                 unaligned.set_sequence(seq);
                 unaligned.set_name(name);
                 int tid = omp_get_thread_num();
-                vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width);
+                vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap);
                 for(auto& alignment : alignments) {
                     // Set the alignment metadata
                     if (!sample_name.empty()) alignment.set_sample_name(sample_name);
@@ -1050,7 +1063,7 @@ int main_map(int argc, char** argv) {
 #pragma omp parallel for
         for (size_t i = 0; i < ref.index->sequenceNames.size(); ++i) {
             auto& name = ref.index->sequenceNames[i];
-            string seq = nonATGCNtoN(ref.getSequence(name));
+            string seq = nonATGCNtoN(toUppercase(ref.getSequence(name)));
             align_seq(name, seq);
         }
     }
@@ -1064,6 +1077,7 @@ int main_map(int argc, char** argv) {
              &kmer_stride,
              &max_mem_length,
              &band_width,
+             &band_overlap,
              &empty_alns]
                 (Alignment& alignment) {
 
@@ -1073,7 +1087,7 @@ int main_map(int argc, char** argv) {
                     }
 
                     int tid = omp_get_thread_num();
-                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
+                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap);
 
                     // Output the alignments in JSON or protobuf as appropriate.
                     output_alignments(alignments, empty_alns);
@@ -1104,6 +1118,7 @@ int main_map(int argc, char** argv) {
                  &kmer_stride,
                  &max_mem_length,
                  &band_width,
+                 &band_overlap,
                  &pair_window,
                  &top_pairs_only,
                  &print_fragment_model,
@@ -1155,11 +1170,12 @@ int main_map(int argc, char** argv) {
                  &kmer_stride,
                  &max_mem_length,
                  &band_width,
+                 &band_overlap,
                  &empty_alns]
                     (Alignment& alignment) {
 
                         int tid = omp_get_thread_num();
-                        vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
+                        vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap);
                         //cerr << "This is just before output_alignments" << alignment.DebugString() << endl;
                         output_alignments(alignments, empty_alns);
                     };
@@ -1185,6 +1201,7 @@ int main_map(int argc, char** argv) {
                  &kmer_stride,
                  &max_mem_length,
                  &band_width,
+                 &band_overlap,
                  &pair_window,
                  &top_pairs_only,
                  &print_fragment_model,
@@ -1245,6 +1262,8 @@ int main_map(int argc, char** argv) {
                     if (compare_gam) {
                         add_feature(&alnp.first.front(), FeatureType::CORRECTNESS, overlap(aln1.path(), alnp.first.front().path()));
                         add_feature(&alnp.second.front(), FeatureType::CORRECTNESS, overlap(aln2.path(), alnp.second.front().path()));
+                        alignment_set_distance_to_correct(alnp.first.front(), aln1);
+                        alignment_set_distance_to_correct(alnp.second.front(), aln2);
                     }
                     output_alignments(alnp.first, alnp.second);
                 }
@@ -1257,6 +1276,7 @@ int main_map(int argc, char** argv) {
                  &kmer_stride,
                  &max_mem_length,
                  &band_width,
+                 &band_overlap,
                  &compare_gam,
                  &pair_window,
                  &top_pairs_only,
@@ -1308,17 +1328,19 @@ int main_map(int argc, char** argv) {
                  &kmer_stride,
                  &max_mem_length,
                  &band_width,
+                 &band_overlap,
                  &compare_gam,
                  &empty_alns]
                 (Alignment& alignment) {
                 int tid = omp_get_thread_num();
                 std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-                vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
+                vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap);
                 std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
                 // Output the alignments in JSON or protobuf as appropriate.
                 if (compare_gam) {
                     add_feature(&alignments.front(), FeatureType::CORRECTNESS, overlap(alignment.path(), alignments.front().path()));
+                    alignment_set_distance_to_correct(alignments.front(), alignment);
                 }
                 output_alignments(alignments, empty_alns);
             };
