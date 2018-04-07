@@ -76,7 +76,8 @@ void help_map(char** argv) {
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    --surject-to TYPE       surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
          << "    --buffer-size INT       buffer this many alignments together before outputting in GAM [512]" << endl
-         << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
+         << "    -X, --compare           if realigning GAM, add CORRECTNESS feature set to overlap with input" << endl
+         << "    --compare-range INT     if realigning GAM, add CORRECT_TAG feature if within INT bases of the true position on any path" << endl
          << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT produce up to INT alignments for each read [1]" << endl
@@ -93,6 +94,7 @@ int main_map(int argc, char** argv) {
     }
 
     #define OPT_SCORE_MATRIX 1000
+    #define OPT_COMPARE_RANGE 1001
     string matrix_file_name;
     string seq;
     string qual;
@@ -142,7 +144,8 @@ int main_map(int argc, char** argv) {
     double maybe_mq_threshold = 0;
     double identity_weight = 2;
     string gam_input;
-    bool compare_gam = false;
+    bool compare_gam_by_overlap = false;
+    int64_t compare_gam_range = -1;
     int fragment_max = 5000;
     int fragment_size = 0;
     double fragment_mean = 0;
@@ -214,6 +217,7 @@ int main_map(int argc, char** argv) {
                 {"qual-adjust", no_argument, 0, 'A'},
                 {"try-up-to", required_argument, 0, 'u'},
                 {"compare", no_argument, 0, 'X'},
+                {"compare-range", required_argument, 0, OPT_COMPARE_RANGE},
                 {"fragment", required_argument, 0, 'I'},
                 {"fragment-x", required_argument, 0, '3'},
                 {"full-l-bonus", required_argument, 0, 'L'},
@@ -241,7 +245,6 @@ int main_map(int argc, char** argv) {
         int option_index = 0;
         c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:824:3:9:",
                          long_options, &option_index);
-
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -452,8 +455,11 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'X':
-            compare_gam = true;
-            output_json = true;
+            compare_gam_by_overlap = true;
+            break;
+            
+        case OPT_COMPARE_RANGE:
+            compare_gam_range = atoi(optarg);
             break;
 
         case 'v':
@@ -523,7 +529,13 @@ int main_map(int argc, char** argv) {
             exit(1);
         }
     }
-
+    
+    // There should be no positional arguments
+    if (optind != argc) {
+        cerr << "error:[vg map] unrecognized argument " << argv[optind] << endl;
+        exit(1);
+    }
+    
     if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty() && gam_input.empty() && fasta_file.empty()) {
         cerr << "error:[vg map] A sequence or read file is required when mapping." << endl;
         return 1;
@@ -1086,7 +1098,6 @@ int main_map(int argc, char** argv) {
         if (interleaved_input) {
             // paired interleaved
             auto output_func = [&output_alignments,
-                                &compare_gam,
                                 &print_fragment_model]
                 (Alignment& aln1,
                  Alignment& aln2,
@@ -1230,101 +1241,119 @@ int main_map(int argc, char** argv) {
     }
 
     if (!gam_input.empty()) {
-        ifstream gam_in(gam_input);
-        if (interleaved_input) {
-            auto output_func = [&output_alignments,
-                                &compare_gam,
-                                &print_fragment_model]
-                (Alignment& aln1,
-                 Alignment& aln2,
-                 pair<vector<Alignment>, vector<Alignment>>& alnp) {
-                if (print_fragment_model) {
-                    // do nothing
-                } else {
-                    // Output the alignments in JSON or protobuf as appropriate.
-                    if (compare_gam) {
-                        add_feature(&alnp.first.front(), FeatureType::CORRECTNESS, overlap(aln1.path(), alnp.first.front().path()));
-                        add_feature(&alnp.second.front(), FeatureType::CORRECTNESS, overlap(aln2.path(), alnp.second.front().path()));
-                    }
-                    output_alignments(alnp.first, alnp.second);
-                }
-            };
-            function<void(Alignment&,Alignment&)> lambda =
-                [&mapper,
-                 &output_alignments,
-                 &keep_secondary,
-                 &kmer_size,
-                 &kmer_stride,
-                 &max_mem_length,
-                 &band_width,
-                 &compare_gam,
-                 &pair_window,
-                 &top_pairs_only,
-                 &print_fragment_model,
-                 &output_func](Alignment& aln1, Alignment& aln2) {
-                auto our_mapper = mapper[omp_get_thread_num()];
-                bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false);
-                if (!queued_resolve_later) {
-                    output_func(aln1, aln2, alnp);
-                    // check if we should try to align the queued alignments
-                    if (our_mapper->frag_stats.fragment_size != 0
-                        && !our_mapper->imperfect_pairs_to_retry.empty()) {
-                        int i = 0;
-                        for (auto p : our_mapper->imperfect_pairs_to_retry) {
-                            auto alnp = our_mapper->align_paired_multi(p.first, p.second,
-                                                                       queued_resolve_later,
-                                                                       max_mem_length,
-                                                                       top_pairs_only,
-                                                                       true);
-                            output_func(p.first, p.second, alnp);
+        get_input_file(gam_input, [&](istream& gam_in) {
+            if (interleaved_input) {
+                auto output_func = [&output_alignments,
+                                    &compare_gam_by_overlap,
+                                    &compare_gam_range,
+                                    &print_fragment_model]
+                    (Alignment& aln1,
+                     Alignment& aln2,
+                     pair<vector<Alignment>, vector<Alignment>>& alnp) {
+                    if (print_fragment_model) {
+                        // do nothing
+                    } else {
+                        // Output the alignments in JSON or protobuf as appropriate.
+                        
+                        // But annotate it first
+                        if (compare_gam_by_overlap) {
+                            // Tag with overlap portion if requested
+                            add_feature(&alnp.first.front(), FeatureType::CORRECTNESS, overlap(aln1.path(), alnp.first.front().path()));
+                            add_feature(&alnp.second.front(), FeatureType::CORRECTNESS, overlap(aln2.path(), alnp.second.front().path()));
                         }
-                        our_mapper->imperfect_pairs_to_retry.clear();
+                        if (compare_gam_range >= 0) {
+                            // Tag the alignments as correct if they are close enough to the true alignments in path space
+                            add_feature(&alnp.first.front(), FeatureType::CORRECT_TAG,
+                                (min_refpos_distance(aln1, alnp.first.front()) <= compare_gam_range));
+                            add_feature(&alnp.second.front(), FeatureType::CORRECT_TAG,
+                                (min_refpos_distance(aln2, alnp.second.front()) <= compare_gam_range));
+                        }
+                        
+                        output_alignments(alnp.first, alnp.second);
                     }
-                }
-            };
-            stream::for_each_interleaved_pair_parallel(gam_in, lambda);
-#pragma omp parallel
-            {
-                auto our_mapper = mapper[omp_get_thread_num()];
-                our_mapper->frag_stats.fragment_size = fragment_max;
-                for (auto p : our_mapper->imperfect_pairs_to_retry) {
+                };
+                function<void(Alignment&,Alignment&)> lambda =
+                    [&mapper,
+                     &output_alignments,
+                     &keep_secondary,
+                     &kmer_size,
+                     &kmer_stride,
+                     &max_mem_length,
+                     &band_width,
+                     &pair_window,
+                     &top_pairs_only,
+                     &print_fragment_model,
+                     &output_func](Alignment& aln1, Alignment& aln2) {
+                    auto our_mapper = mapper[omp_get_thread_num()];
                     bool queued_resolve_later = false;
-                    auto alnp = our_mapper->align_paired_multi(p.first, p.second,
-                                                               queued_resolve_later,
-                                                               max_mem_length,
-                                                               top_pairs_only,
-                                                               true);
-                    output_func(p.first, p.second, alnp);
+                    auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false);
+                    if (!queued_resolve_later) {
+                        output_func(aln1, aln2, alnp);
+                        // check if we should try to align the queued alignments
+                        if (our_mapper->frag_stats.fragment_size != 0
+                            && !our_mapper->imperfect_pairs_to_retry.empty()) {
+                            int i = 0;
+                            for (auto p : our_mapper->imperfect_pairs_to_retry) {
+                                auto alnp = our_mapper->align_paired_multi(p.first, p.second,
+                                                                           queued_resolve_later,
+                                                                           max_mem_length,
+                                                                           top_pairs_only,
+                                                                           true);
+                                output_func(p.first, p.second, alnp);
+                            }
+                            our_mapper->imperfect_pairs_to_retry.clear();
+                        }
+                    }
+                };
+                stream::for_each_interleaved_pair_parallel(gam_in, lambda);
+#pragma omp parallel
+                {
+                    auto our_mapper = mapper[omp_get_thread_num()];
+                    our_mapper->frag_stats.fragment_size = fragment_max;
+                    for (auto p : our_mapper->imperfect_pairs_to_retry) {
+                        bool queued_resolve_later = false;
+                        auto alnp = our_mapper->align_paired_multi(p.first, p.second,
+                                                                   queued_resolve_later,
+                                                                   max_mem_length,
+                                                                   top_pairs_only,
+                                                                   true);
+                        output_func(p.first, p.second, alnp);
+                    }
+                    our_mapper->imperfect_pairs_to_retry.clear();
                 }
-                our_mapper->imperfect_pairs_to_retry.clear();
+            } else {
+                function<void(Alignment&)> lambda =
+                    [&mapper,
+                     &output_alignments,
+                     &keep_secondary,
+                     &kmer_size,
+                     &kmer_stride,
+                     &max_mem_length,
+                     &band_width,
+                     &compare_gam_by_overlap,
+                     &compare_gam_range,
+                     &empty_alns]
+                    (Alignment& alignment) {
+                    int tid = omp_get_thread_num();
+                    std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
+                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
+                    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+                    std::chrono::duration<double> elapsed_seconds = end-start;
+                    // Output the alignments in JSON or protobuf as appropriate.
+                    if (compare_gam_by_overlap) {
+                        // Tag with overlap with correct alignment
+                        add_feature(&alignments.front(), FeatureType::CORRECTNESS, overlap(alignment.path(), alignments.front().path()));
+                    }
+                    if (compare_gam_range >= 0) {
+                        // Tag correct if near enough to correct alignment
+                        add_feature(&alignments.front(), FeatureType::CORRECT_TAG,
+                                    (min_refpos_distance(alignment, alignments.front()) <= compare_gam_range));
+                    }
+                    output_alignments(alignments, empty_alns);
+                };
+                stream::for_each_parallel(gam_in, lambda);
             }
-        } else {
-            function<void(Alignment&)> lambda =
-                [&mapper,
-                 &output_alignments,
-                 &keep_secondary,
-                 &kmer_size,
-                 &kmer_stride,
-                 &max_mem_length,
-                 &band_width,
-                 &compare_gam,
-                 &empty_alns]
-                (Alignment& alignment) {
-                int tid = omp_get_thread_num();
-                std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-                vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
-                std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-                std::chrono::duration<double> elapsed_seconds = end-start;
-                // Output the alignments in JSON or protobuf as appropriate.
-                if (compare_gam) {
-                    add_feature(&alignments.front(), FeatureType::CORRECTNESS, overlap(alignment.path(), alignments.front().path()));
-                }
-                output_alignments(alignments, empty_alns);
-            };
-            stream::for_each_parallel(gam_in, lambda);
-        }
-        gam_in.close();
+        });
     }
 
     if (print_fragment_model) {
