@@ -1,6 +1,7 @@
 #include <unordered_set>
 #include "mapper.hpp"
 #include "haplotypes.hpp"
+#include "features.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 
 //#define debug_mapper
@@ -1708,9 +1709,9 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
             // Convert to points, raise to haplotype consistency exponent power, and apply
             alns[i]->set_score(max((int64_t)0, alns[i]->score() + score_penalty));
             // Note that we successfully corrected the score
-            alns[i]->set_haplotype_scored(true);
+            add_feature(alns[i], FeatureType::HAPLOTYPE_SCORED_TAG);
             // And save the raw log probability
-            alns[i]->set_haplotype_logprob(haplotype_logprobs[i]);
+            add_feature(alns[i], FeatureType::HAPLOTYPE_LOGPROB, haplotype_logprobs[i]);
 
             if (debug) {
                 cerr << "Alignment statring at " << alns[i]->path().mapping(0).position().node_id()
@@ -1718,7 +1719,6 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
                     << " from " << alns[i]->score() - score_penalty << " to " << alns[i]->score() << endl;
             }
         }
-        // Otherwise leave haplotype_scored as false, the default.
     }
 }
     
@@ -2249,6 +2249,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
 
+    // Make clean copies with no features or extraneous set fields
     Alignment read1;
     read1.set_name(first_mate.name());
     read1.set_sequence(first_mate.sequence());
@@ -2631,8 +2632,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                       pair<Alignment, Alignment>* pair2) {
                       double weight1=0, weight2=0;
                       if (frag_stats.fragment_size) {
-                          weight1 = pair1->first.fragment_score();
-                          weight2 = pair2->first.fragment_score();
+                          weight1 = get_feature(pair1->first, FeatureType::FRAGMENT_SCORE);
+                          weight2 = get_feature(pair2->first, FeatureType::FRAGMENT_SCORE);
                       }
                       double score1 = (pair1->first.score() + pair1->second.score());
                       double score2 = (pair2->first.score() + pair2->second.score());
@@ -2843,13 +2844,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // Before we update the fragment length distribution, remember the
     // distribution used here.
     
-    stringstream fragment_dist;
-    fragment_dist << frag_stats.fragment_size
-        << ':' << frag_stats.cached_fragment_length_mean
-        << ':' << frag_stats.cached_fragment_length_stdev 
-        << ':' << frag_stats.cached_fragment_orientation_same
-        << ':' << frag_stats.cached_fragment_direction;
-    
     // we tried to align
     // if we don't have a fragment_size yet determined
     // and we didn't get a perfect, unambiguous hit on both reads
@@ -2906,13 +2900,26 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         aln.clear_identity();
     }
     
+        stringstream fragment_dist;
+    fragment_dist << frag_stats.fragment_size
+        << ':' << frag_stats.cached_fragment_length_mean
+        << ':' << frag_stats.cached_fragment_length_stdev 
+        << ':' << frag_stats.cached_fragment_orientation_same
+        << ':' << frag_stats.cached_fragment_direction;
+    
     // Make sure to link up alignments even if they aren't mapped.
     for (auto& aln : results.first) {
         aln.set_name(read1.name());
         aln.mutable_fragment_next()->set_name(read2.name());
         aln.set_sequence(read1.sequence());
         aln.set_quality(read1.quality());
-        aln.set_fragment_length_distribution(fragment_dist.str());
+        
+        // Save the fragment distribution
+        add_feature(&aln, FRAGMENT_DISTRIBUTION_MAX, frag_stats.fragment_size);
+        add_feature(&aln, FRAGMENT_DISTRIBUTION_MEAN, frag_stats.cached_fragment_length_mean);
+        add_feature(&aln, FRAGMENT_DISTRIBUTION_STDDEV, frag_stats.cached_fragment_length_stdev);
+        add_feature(&aln, FRAGMENT_DISTRIBUTION_SAME_ORIENTATION_TAG, frag_stats.cached_fragment_orientation_same);
+        add_feature(&aln, FRAGMENT_DISTRIBUTION_DIRECTION_TAG, frag_stats.cached_fragment_direction);
     }
 
     for (auto& aln : results.second) {
@@ -2920,7 +2927,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         aln.mutable_fragment_prev()->set_name(read1.name());
         aln.set_sequence(read2.sequence());
         aln.set_quality(read2.quality());
-        aln.set_fragment_length_distribution(fragment_dist.str());
+        
+        // Save the fragment distribution
+        add_feature(&aln, FRAGMENT_DISTRIBUTION_MAX, frag_stats.fragment_size);
+        add_feature(&aln, FRAGMENT_DISTRIBUTION_MEAN, frag_stats.cached_fragment_length_mean);
+        add_feature(&aln, FRAGMENT_DISTRIBUTION_STDDEV, frag_stats.cached_fragment_length_stdev);
+        add_feature(&aln, FRAGMENT_DISTRIBUTION_SAME_ORIENTATION_TAG, frag_stats.cached_fragment_orientation_same);
+        add_feature(&aln, FRAGMENT_DISTRIBUTION_DIRECTION_TAG, frag_stats.cached_fragment_direction);
     }
 
     // if we have references, annotate the alignments with their reference positions
@@ -3543,8 +3556,10 @@ void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment
             max_score = max(max_score, score);
         }
     }
-    aln1.set_fragment_score(max_score);
-    aln2.set_fragment_score(max_score);
+    // We need to use set_feature here since this is called by sort_and_dedup which is called multiple times.
+    // TODO: reduce duplicate work
+    set_feature(&aln1, FeatureType::FRAGMENT_SCORE, max_score);
+    set_feature(&aln2, FeatureType::FRAGMENT_SCORE, max_score);
 }
 
 // XXX TODO this is busted because it doesn't respect the actual paths in the graph and assumes the alignment mapping position provides relative direction
@@ -4059,7 +4074,7 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
     vector<double> frag_weights;
     for (int i = 0; i < pair_alns.first.size(); ++i) {
         auto& aln1 = pair_alns.first[i];
-        frag_weights.push_back(aln1.fragment_score());
+        frag_weights.push_back(get_feature(aln1, FeatureType::FRAGMENT_SCORE));
     }
     switch (mapping_quality_method) {
         case Approx:

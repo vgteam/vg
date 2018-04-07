@@ -85,3 +85,6 @@
 [submodule "deps/sparsepp"]
 	path = deps/sparsepp
 	url = https://github.com/greg7mdp/sparsepp.git
+[submodule "deps/dlib"]
+	path = deps/dlib
+	url = https://github.com/davisking/dlib.git

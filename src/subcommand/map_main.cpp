@@ -4,6 +4,7 @@
 #include "../mapper.hpp"
 #include "../surjector.hpp"
 #include "../stream.hpp"
+#include "../features.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -1259,8 +1260,8 @@ int main_map(int argc, char** argv) {
                 } else {
                     // Output the alignments in JSON or protobuf as appropriate.
                     if (compare_gam) {
-                        alnp.first.front().set_correct(overlap(aln1.path(), alnp.first.front().path()));
-                        alnp.second.front().set_correct(overlap(aln2.path(), alnp.second.front().path()));
+                        add_feature(&alnp.first.front(), FeatureType::CORRECTNESS, overlap(aln1.path(), alnp.first.front().path()));
+                        add_feature(&alnp.second.front(), FeatureType::CORRECTNESS, overlap(aln2.path(), alnp.second.front().path()));
                         alignment_set_distance_to_correct(alnp.first.front(), aln1);
                         alignment_set_distance_to_correct(alnp.second.front(), aln2);
                     }
@@ -1338,7 +1339,7 @@ int main_map(int argc, char** argv) {
                 std::chrono::duration<double> elapsed_seconds = end-start;
                 // Output the alignments in JSON or protobuf as appropriate.
                 if (compare_gam) {
-                    alignments.front().set_correct(overlap(alignment.path(), alignments.front().path()));
+                    add_feature(&alignments.front(), FeatureType::CORRECTNESS, overlap(alignment.path(), alignments.front().path()));
                     alignment_set_distance_to_correct(alignments.front(), alignment);
                 }
                 output_alignments(alignments, empty_alns);

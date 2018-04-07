@@ -1,9 +1,9 @@
-#ifndef VG_FEATURE_SET_HPP_INCLUDED
-#define VG_FEATURE_SET_HPP_INCLUDED
+#ifndef VG_GENOMIC_FEATURE_SET_HPP_INCLUDED
+#define VG_GENOMIC_FEATURE_SET_HPP_INCLUDED
 
 /** \file
  *
- * Defines a FeatureSet class that can read and write BED files, and that can
+ * Defines a GenomicFeatureSet class that can read and write BED files, and that can
  * keep BED features up to date as paths are edited.
  */
 
@@ -26,7 +26,7 @@ using namespace std;
  * Originally designed to allow BED files to be carried through "vg simplify",
  * but could be used for other annotation liftover tasks.
  */
-class FeatureSet {
+class GenomicFeatureSet {
 
 public:
     /**
@@ -62,7 +62,7 @@ public:
     void save_bed(ostream& out) const;
     
     /**
-     * Notify the FeatureSet that, at the given path, from the given start
+     * Notify the GenomicFeatureSet that, at the given path, from the given start
      * position, the given number of bases bave been replaced with the other
      * given number of bases. Can handle pure inserts, pure deletions, length-
      * preserving substitutions, and general length-changing substitutions.

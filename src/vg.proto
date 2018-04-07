@@ -101,6 +101,37 @@ message Path {
     int64 length = 4; // Optional length annotation for the Path.
 }
 
+// A FeatureType defines a feature
+enum FeatureType {
+    UNDEFINED = 0;
+    HAPLOTYPE_SCORED_TAG = 1; // True if this alignment's score is adjusted for haplotype consistency, and false otherwise.
+    HAPLOTYPE_LOGPROB = 2; // Actual log probability haplotype consistency likelihood
+    CORRECTNESS = 3; // Correctness metric, 1 = perfectly aligned to truth, 0 = not overlapping true alignment
+    SECONDARY_SCORES = 4; // The ordered list of scores of secondary mappings
+    UNIQUENESS = 5; // The fraction of bases in the alignment that are covered by MEMs with <=1 total hits in the graph
+    FRAGMENT_SCORE = 6; // Score under the fragment model, assume higher is better
+    FRAGMENT_DISTRIBUTION_MAX = 7; // Max distance limit of the fragment length distribution under which the read was aligned
+    FRAGMENT_DISTRIBUTION_MEAN = 8; // Mean of the fragment length distribution under which the read was aligned
+    FRAGMENT_DISTRIBUTION_STDDEV = 9; // Standard deviation of the fragment length distribution under which the read was aligned
+    FRAGMENT_DISTRIBUTION_SAME_ORIENTATION_TAG = 10; // Same-orientation flag of the fragment distribution under which the read was aligned
+    FRAGMENT_DISTRIBUTION_DIRECTION_TAG = 11; // Direction flag of the fragment distribution under which the read was aligned
+    TIME_USED = 12; // The time in microseconds that this alignment took to compute
+}
+
+// Alignments and MultipathAlignments use a feature system for annotation.
+// Features are defined by an integral ID, and can carry a double value.
+// Features that are tags do not use the value. Features that can have multiple
+// values can appear multiple times (like Protobuf repeated fields). String
+// values are not supported.
+//
+// A Feature is an instance of a certain feature type, possibly with a value,
+// used for annotating Alignments and MultipathAlignments
+message Feature {
+    FeatureType type = 1;
+    double value = 2;
+}
+
+
 // Alignments link query strings, such as other genomes or reads, to Paths.
 //
 message Alignment {
@@ -129,17 +160,8 @@ message Alignment {
     bool mate_on_reverse_strand = 24;
     bool soft_clipped = 25;
     bool discordant_insert_size = 26;
-    double uniqueness = 27; // The fraction of bases in the alignment that are covered by MEMs with <=1 total hits in the graph
-    double correct = 28; // Correctness metric 1 = perfectly aligned to truth, 0 = not overlapping true alignment
-    repeated int32 secondary_score = 29; // The ordered list of scores of secondary mappings
-    double fragment_score = 30; // Score under the given fragment model, assume higher is better
-    bool mate_mapped_to_disjoint_subgraph = 31;
-    
-    string fragment_length_distribution = 32; // The fragment length distribution under which a paired-end alignment was aligned.
 
-    bool haplotype_scored = 33; // True if this alignment's score is adjusted for haplotype consistency, and false otherwise.
-    double haplotype_logprob = 34; // Actual log probability haplotype consistency likelihood
-    double time_used = 35; // The time this alignment took
+    repeated Feature feature = 35; // Allow for annotation with features 
     Position to_correct = 36; // A path/offset/orientation pair specifying the distance to the correct alignment
 }
 
@@ -164,7 +186,10 @@ message MultipathAlignment {
     // optional: indices of Subpaths that align the beginning of the read (i.e. source nodes)
     repeated uint32 start = 8;
 
+    // The name of the MultipathAlignment paired with this one
     string paired_read_name = 9;
+    
+    repeated Feature feature = 10; // Allow for annotation with features 
 }
 
 // A non-branching path of a MultipathAlignment
