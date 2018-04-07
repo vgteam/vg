@@ -1,4 +1,4 @@
-#include "genomic_feature_set.hpp"
+#include "feature_set.hpp"
 
 #include <sstream>
 
@@ -6,7 +6,7 @@ namespace vg {
 
 using namespace std;
 
-void GenomicFeatureSet::load_bed(istream& in) {
+void FeatureSet::load_bed(istream& in) {
     // We want to read the BED line by line
     string line;
     while (getline(in, line)) {
@@ -39,7 +39,7 @@ void GenomicFeatureSet::load_bed(istream& in) {
     }
 }
 
-void GenomicFeatureSet::save_bed(ostream& out) const {
+void FeatureSet::save_bed(ostream& out) const {
     for (auto& kv : features) {
         // For all the contigs
         for (auto& feature : kv.second) {
@@ -49,7 +49,7 @@ void GenomicFeatureSet::save_bed(ostream& out) const {
     }
 }
 
-void GenomicFeatureSet::on_path_edit(const string& path, size_t start, size_t old_length, size_t new_length) {
+void FeatureSet::on_path_edit(const string& path, size_t start, size_t old_length, size_t new_length) {
 #ifdef debug
     cerr << "Edit at " << path << " " << start << " from length " << old_length << " to length " << new_length << endl;
 #endif
@@ -149,7 +149,7 @@ void GenomicFeatureSet::on_path_edit(const string& path, size_t start, size_t ol
     }
 }
 
-const vector<GenomicFeatureSet::Feature>& GenomicFeatureSet::get_features(const string& path) const {
+const vector<FeatureSet::Feature>& FeatureSet::get_features(const string& path) const {
     return features.at(path);
 }
 

@@ -8,7 +8,7 @@
 #include "traversal_finder.hpp"
 #include "utility.hpp"
 #include "path.hpp"
-#include "genomic_feature_set.hpp"
+#include "feature_set.hpp"
 #include "path_index.hpp"
 
 
@@ -55,7 +55,7 @@ public:
     
     /// Stores the features in the graph, and gets updated as simplification
     /// proceeds. The user should load the features in and pull them out.
-    GenomicFeatureSet features;
+    FeatureSet features;
     
 protected:
 
