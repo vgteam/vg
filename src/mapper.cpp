@@ -2942,8 +2942,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
     auto used_time = chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-    results.first.front().set_time_used(used_time);
-    results.second.front().set_time_used(used_time);
+    add_feature(&results.first.front(), TIME_USED, used_time);
+    add_feature(&results.second.front(), TIME_USED, used_time);
 
     return results;
 
@@ -4019,7 +4019,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     //cerr << "got alignment " << pb2json(alignments.front()) << endl;
     chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
     // set time for alignment
-    alignments.front().set_time_used(chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
+    add_feature(&alignments.front(), TIME_USED, chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
     return alignments;
 }
 
@@ -4257,7 +4257,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     annotate_with_initial_path_positions(alignments);
     chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
     // set time for alignment
-    alignments.front().set_time_used(chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
+    add_feature(&alignments.front(), TIME_USED, chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
     return alignments;
 }
 
