@@ -1,6 +1,5 @@
 #include "gssw_aligner.hpp"
 #include "json2pb.h"
-#include "features.hpp"
 
 static const double quality_scale_factor = 10.0 / log(10.0);
 static const double exp_overflow_limit = log(std::numeric_limits<double>::max());
@@ -529,7 +528,7 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
 
     alignments[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality)));
     for (int i = 1; i < alignments.size(); ++i) {
-        add_feature(&alignments[0], FeatureType::SECONDARY_SCORES, alignments[i].score());
+        alignments[0].add_secondary_score(alignments[i].score());
     }
 }
 
@@ -658,10 +657,10 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     alignment_pairs.second[max_idx].set_mapping_quality(mapping_quality);
 
     for (int i = 1; i < alignment_pairs.first.size(); ++i) {
-        add_feature(&alignment_pairs.first[0], FeatureType::SECONDARY_SCORES, alignment_pairs.first[i].score());
+        alignment_pairs.first[0].add_secondary_score(alignment_pairs.first[i].score());
     }
     for (int i = 1; i < alignment_pairs.second.size(); ++i) {
-        add_feature(&alignment_pairs.second[0], FeatureType::SECONDARY_SCORES, alignment_pairs.second[i].score());
+        alignment_pairs.second[0].add_secondary_score(alignment_pairs.second[i].score());
     }
 
 }

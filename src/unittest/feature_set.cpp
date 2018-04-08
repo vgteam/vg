@@ -1,12 +1,12 @@
 /** \file
  *
- * Unit tests for the GenomicFeatureSet, which keeps some BED-like regions in sync with
+ * Unit tests for the FeatureSet, which keeps some BED-like regions in sync with
  * changes to a graph.
  */
 
 #include <iostream>
 #include <sstream>
-#include "../genomic_feature_set.hpp"
+#include "../feature_set.hpp"
 
 #include "catch.hpp"
 
@@ -15,7 +15,7 @@ namespace unittest {
 
 using namespace std;
 
-TEST_CASE("GenomicFeatureSet can load and save a BED record", "[genomicfeatureset][simplify]") {
+TEST_CASE("FeatureSet can load and save a BED record", "[featureset][simplify]") {
 
     // Make a BED stream to read
     stringstream in("seq1\t5\t10\trecord\n");
@@ -23,7 +23,7 @@ TEST_CASE("GenomicFeatureSet can load and save a BED record", "[genomicfeaturese
     stringstream out;
     
     // Run the BED through the load
-    GenomicFeatureSet features;
+    FeatureSet features;
     features.load_bed(in);
     
     // Look at the features that are in there
@@ -43,7 +43,7 @@ TEST_CASE("GenomicFeatureSet can load and save a BED record", "[genomicfeaturese
 
 }
 
-TEST_CASE("Internal deletions move the end left", "[genomicfeatureset][simplify]") {
+TEST_CASE("Internal deletions move the end left", "[featureset][simplify]") {
 
     // Make a BED stream to read
     stringstream in("seq1\t5\t10\trecord\n");
@@ -51,7 +51,7 @@ TEST_CASE("Internal deletions move the end left", "[genomicfeatureset][simplify]
     stringstream out;
     
     // Run the BED through the load
-    GenomicFeatureSet features;
+    FeatureSet features;
     features.load_bed(in);
     
     // Add edit
@@ -65,7 +65,7 @@ TEST_CASE("Internal deletions move the end left", "[genomicfeatureset][simplify]
 
 }
 
-TEST_CASE("Internal insertions move the end right", "[genomicfeatureset][simplify]") {
+TEST_CASE("Internal insertions move the end right", "[featureset][simplify]") {
 
     // Make a BED stream to read
     stringstream in("seq1\t5\t10\trecord\n");
@@ -73,7 +73,7 @@ TEST_CASE("Internal insertions move the end right", "[genomicfeatureset][simplif
     stringstream out;
     
     // Run the BED through the load
-    GenomicFeatureSet features;
+    FeatureSet features;
     features.load_bed(in);
     
     // Add edit
@@ -87,7 +87,7 @@ TEST_CASE("Internal insertions move the end right", "[genomicfeatureset][simplif
 
 }
 
-TEST_CASE("Left-edge length-increasing substitutions move the end right", "[genomicfeatureset][simplify]") {
+TEST_CASE("Left-edge length-increasing substitutions move the end right", "[featureset][simplify]") {
 
     // Make a BED stream to read
     stringstream in("seq1\t5\t10\trecord\n");
@@ -95,7 +95,7 @@ TEST_CASE("Left-edge length-increasing substitutions move the end right", "[geno
     stringstream out;
     
     // Run the BED through the load
-    GenomicFeatureSet features;
+    FeatureSet features;
     features.load_bed(in);
     
     // Add edit
@@ -109,7 +109,7 @@ TEST_CASE("Left-edge length-increasing substitutions move the end right", "[geno
 
 }
 
-TEST_CASE("Left-edge pure insertions move the end right", "[genomicfeatureset][simplify]") {
+TEST_CASE("Left-edge pure insertions move the end right", "[featureset][simplify]") {
 
     // Make a BED stream to read
     stringstream in("seq1\t5\t10\trecord\n");
@@ -117,7 +117,7 @@ TEST_CASE("Left-edge pure insertions move the end right", "[genomicfeatureset][s
     stringstream out;
     
     // Run the BED through the load
-    GenomicFeatureSet features;
+    FeatureSet features;
     features.load_bed(in);
     
     // Add edit
@@ -131,7 +131,7 @@ TEST_CASE("Left-edge pure insertions move the end right", "[genomicfeatureset][s
 
 }
 
-TEST_CASE("Pre-feature insertions move start and end right", "[genomicfeatureset][simplify]") {
+TEST_CASE("Pre-feature insertions move start and end right", "[featureset][simplify]") {
 
     // Make a BED stream to read
     stringstream in("seq1\t5\t10\trecord\n");
@@ -139,7 +139,7 @@ TEST_CASE("Pre-feature insertions move start and end right", "[genomicfeatureset
     stringstream out;
     
     // Run the BED through the load
-    GenomicFeatureSet features;
+    FeatureSet features;
     features.load_bed(in);
     
     // Add edit
@@ -153,7 +153,7 @@ TEST_CASE("Pre-feature insertions move start and end right", "[genomicfeatureset
 
 }
 
-TEST_CASE("Pre-feature deletions move start and end left", "[genomicfeatureset][simplify]") {
+TEST_CASE("Pre-feature deletions move start and end left", "[featureset][simplify]") {
 
     // Make a BED stream to read
     stringstream in("seq1\t5\t10\trecord\n");
@@ -161,7 +161,7 @@ TEST_CASE("Pre-feature deletions move start and end left", "[genomicfeatureset][
     stringstream out;
     
     // Run the BED through the load
-    GenomicFeatureSet features;
+    FeatureSet features;
     features.load_bed(in);
     
     // Add edit
@@ -175,7 +175,7 @@ TEST_CASE("Pre-feature deletions move start and end left", "[genomicfeatureset][
 
 }
 
-TEST_CASE("Pre-feature substitutions do nothing", "[genomicfeatureset][simplify]") {
+TEST_CASE("Pre-feature substitutions do nothing", "[featureset][simplify]") {
 
     // Make a BED stream to read
     stringstream in("seq1\t5\t10\trecord\n");
@@ -183,7 +183,7 @@ TEST_CASE("Pre-feature substitutions do nothing", "[genomicfeatureset][simplify]
     stringstream out;
     
     // Run the BED through the load
-    GenomicFeatureSet features;
+    FeatureSet features;
     features.load_bed(in);
     
     // Add edit
@@ -197,7 +197,7 @@ TEST_CASE("Pre-feature substitutions do nothing", "[genomicfeatureset][simplify]
 
 }
 
-TEST_CASE("Partly left-overlapping length-preserving substitutions clip features", "[genomicfeatureset][simplify]") {
+TEST_CASE("Partly left-overlapping length-preserving substitutions clip features", "[featureset][simplify]") {
 
     // Make a BED stream to read
     stringstream in("seq1\t5\t10\trecord\n");
@@ -205,7 +205,7 @@ TEST_CASE("Partly left-overlapping length-preserving substitutions clip features
     stringstream out;
     
     // Run the BED through the load
-    GenomicFeatureSet features;
+    FeatureSet features;
     features.load_bed(in);
     
     // Add edit
@@ -219,7 +219,7 @@ TEST_CASE("Partly left-overlapping length-preserving substitutions clip features
 
 }
 
-TEST_CASE("Partly right-overlapping length-preserving substitutions clip features", "[genomicfeatureset][simplify]") {
+TEST_CASE("Partly right-overlapping length-preserving substitutions clip features", "[featureset][simplify]") {
 
     // Make a BED stream to read
     stringstream in("seq1\t5\t10\trecord\n");
@@ -227,7 +227,7 @@ TEST_CASE("Partly right-overlapping length-preserving substitutions clip feature
     stringstream out;
     
     // Run the BED through the load
-    GenomicFeatureSet features;
+    FeatureSet features;
     features.load_bed(in);
     
     // Add edit
@@ -241,7 +241,7 @@ TEST_CASE("Partly right-overlapping length-preserving substitutions clip feature
 
 }
 
-TEST_CASE("Complete deletions remove the feature", "[genomicfeatureset][simplify]") {
+TEST_CASE("Complete deletions remove the feature", "[featureset][simplify]") {
 
     // Make a BED stream to read
     stringstream in("seq1\t5\t10\trecord\n");
@@ -249,7 +249,7 @@ TEST_CASE("Complete deletions remove the feature", "[genomicfeatureset][simplify
     stringstream out;
     
     // Run the BED through the load
-    GenomicFeatureSet features;
+    FeatureSet features;
     features.load_bed(in);
     
     // Add edit
