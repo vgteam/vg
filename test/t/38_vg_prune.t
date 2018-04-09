@@ -46,8 +46,8 @@ vg index -G y.gbwt -v small/xy2.vcf.gz y.vg
 # Check the range in the node mapping at each point
 is $(head -c 16 xy.mapping | hexdump -v -e '4/4 "%u_"') 99_0_99_0_ "empty mapping starts from the right node id"
 vg prune -u -g x.gbwt -e 1 -a -m xy.mapping x.vg > /dev/null
-is $(head -c 16 xy.mapping | hexdump -v -e '4/4 "%u_"') 99_0_127_0_ "the first unfolded graph adds the correct number of nodes to the mapping"
+is $(head -c 16 xy.mapping | hexdump -v -e '4/4 "%u_"') 99_0_128_0_ "the first unfolded graph adds the correct number of nodes to the mapping"
 vg prune -u -g y.gbwt -e 1 -a -m xy.mapping y.vg > /dev/null
-is $(head -c 16 xy.mapping | hexdump -v -e '4/4 "%u_"') 99_0_154_0_ "the second unfolded graph adds the correct number of nodes to the mapping"
+is $(head -c 16 xy.mapping | hexdump -v -e '4/4 "%u_"') 99_0_156_0_ "the second unfolded graph adds the correct number of nodes to the mapping"
 
 rm -f x.vg y.vg x.gbwt y.gbwt xy.mapping

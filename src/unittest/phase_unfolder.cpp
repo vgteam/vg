@@ -93,7 +93,7 @@ void check_unfolded_edges(VG& vg_graph,
         REQUIRE(found_edges == corresponding_edges);
     }
 
-    SECTION("the duplicated edges must the right paths") {
+    SECTION("the duplicated edges must form the right paths") {
         for (vg::id_t node = next_id; node <= vg_graph.max_node_id(); node++) {
             std::vector<Edge*> edges = vg_graph.edges_of(vg_graph.get_node(node));
             std::set<vg::id_t> predecessors, successors;
@@ -104,7 +104,6 @@ void check_unfolded_edges(VG& vg_graph,
                     successors.insert(edge->to());
                 }
             }
-            REQUIRE(predecessors.empty() == successors.empty());
             for (vg::id_t pred : predecessors) {
                 for (vg::id_t succ : successors) {
                     std::vector<vg::id_t> path { unfolder.get_mapping(pred), unfolder.get_mapping(node), unfolder.get_mapping(succ) };
@@ -144,38 +143,43 @@ void prune_and_restore(VG& vg_graph, const std::set<vg::id_t>& to_remove, PhaseU
     }
 }
 
-// A toy graph for GA(T|GGG)TA(C|A)A with some additional edges.
+/*
+  A toy graph for GA(T|GGG)TA(C|A)A with some additional edges. The idea is to remove nodes
+  3, 4, 7, 8, and 9. There are two components in the complement graph, and in one of them
+  all unfolded paths and threads are maximal. The maximal paths should all end in the same
+  duplicate of node 9.
+*/
 const std::string unfolder_graph = R"(
-    {
-        "node": [
-            {"id": 1, "sequence": "G"},
-            {"id": 2, "sequence": "A"},
-            {"id": 3, "sequence": "T"},
-            {"id": 4, "sequence": "GGG"},
-            {"id": 5, "sequence": "T"},
-            {"id": 6, "sequence": "A"},
-            {"id": 7, "sequence": "C"},
-            {"id": 8, "sequence": "A"},
-            {"id": 9, "sequence": "A"}
-        ],
-        "edge": [
-            {"from": 1, "to": 2},
-            {"from": 1, "to": 4},
-            {"from": 1, "to": 6},
-            {"from": 2, "to": 3},
-            {"from": 2, "to": 4},
-            {"from": 3, "to": 5},
-            {"from": 4, "to": 5},
-            {"from": 5, "to": 6},
-            {"from": 6, "to": 7},
-            {"from": 6, "to": 8},
-            {"from": 7, "to": 9},
-            {"from": 8, "to": 9}
-        ]
-    }
+{
+    "node": [
+        {"id": 1, "sequence": "G"},
+        {"id": 2, "sequence": "A"},
+        {"id": 3, "sequence": "T"},
+        {"id": 4, "sequence": "GGG"},
+        {"id": 5, "sequence": "T"},
+        {"id": 6, "sequence": "A"},
+        {"id": 7, "sequence": "C"},
+        {"id": 8, "sequence": "A"},
+        {"id": 9, "sequence": "A"}
+    ],
+    "edge": [
+        {"from": 1, "to": 2},
+        {"from": 1, "to": 4},
+        {"from": 1, "to": 6},
+        {"from": 2, "to": 3},
+        {"from": 2, "to": 4},
+        {"from": 3, "to": 5},
+        {"from": 4, "to": 5},
+        {"from": 5, "to": 6},
+        {"from": 6, "to": 7},
+        {"from": 6, "to": 8},
+        {"from": 7, "to": 9},
+        {"from": 8, "to": 9}
+    ]
+}
 )";
 
-// A toy graph for GA(T|GGG)TA(C|A)A with some additional edges and  a path.
+// The above graph with a reference path.
 const std::string unfolder_graph_path = R"(
 {
     "node": [
@@ -244,7 +248,7 @@ TEST_CASE("PhaseUnfolder can unfold XG paths", "[phaseunfolder][indexing]") {
 
     // Check the nodes.
     SECTION("the unfolded graph should have 7 nodes") {
-        std::set<vg::id_t> expected_nodes { 1, 2, 5, 6, 9, 10, 11 };
+        std::set<vg::id_t> expected_nodes { 1, 2, 5, 6, 10, 11, 12 };
         std::multiset<vg::id_t> corresponding_nodes { 1, 2, 3, 5, 6, 7, 9 };
         check_unfolded_nodes(vg_graph, xg_index, unfolder, expected_nodes, corresponding_nodes);
     }
@@ -353,7 +357,7 @@ TEST_CASE("PhaseUnfolder can unfold GBWT threads", "[phaseunfolder][indexing]") 
 
     // Check the nodes.
     SECTION("the unfolded graph should have 9 nodes") {
-        std::set<vg::id_t> expected_nodes { 1, 2, 5, 6, 9, 10, 11, 12, 13 };
+        std::set<vg::id_t> expected_nodes { 1, 2, 5, 6, 10, 11, 12, 13, 14 };
         std::multiset<vg::id_t> corresponding_nodes { 1, 2, 4, 4, 5, 6, 7, 8, 9 };
         check_unfolded_nodes(vg_graph, xg_index, unfolder, expected_nodes, corresponding_nodes);
     }
@@ -419,7 +423,7 @@ TEST_CASE("PhaseUnfolder can unfold both XG paths and GBWT threads", "[phaseunfo
 
     // Check the nodes.
     SECTION("the unfolded graph should have 10 nodes") {
-        std::set<vg::id_t> expected_nodes { 1, 2, 5, 6, 9, 10, 11, 12, 13, 14 };
+        std::set<vg::id_t> expected_nodes { 1, 2, 5, 6, 10, 11, 12, 13, 14, 15 };
         std::multiset<vg::id_t> corresponding_nodes { 1, 2, 3, 4, 4, 5, 6, 7, 8, 9 };
         check_unfolded_nodes(vg_graph, xg_index, unfolder, expected_nodes, corresponding_nodes);
     }
@@ -436,30 +440,72 @@ TEST_CASE("PhaseUnfolder can unfold both XG paths and GBWT threads", "[phaseunfo
     }
 }
 
-// A toy graph for GAT(A|T)ACA.
+/*
+  A toy graph for GAT(A|T)ACA. The idea is to remove nodes 3 to 6, which form a
+  bubble. All paths through the bubble share prefixes 2 -> 3 and suffixes 6 -> 7,
+  which should be merged. We can also try extending a short haplotype with the
+  reference.
+*/
 const std::string unfolder_graph_simple = R"(
-    {
-        "node": [
-            {"id": 1, "sequence": "G"},
-            {"id": 2, "sequence": "A"},
-            {"id": 3, "sequence": "T"},
-            {"id": 4, "sequence": "A"},
-            {"id": 5, "sequence": "T"},
-            {"id": 6, "sequence": "A"},
-            {"id": 7, "sequence": "C"},
-            {"id": 8, "sequence": "A"}
-        ],
-        "edge": [
-            {"from": 1, "to": 2},
-            {"from": 2, "to": 3},
-            {"from": 3, "to": 4},
-            {"from": 3, "to": 5},
-            {"from": 4, "to": 6},
-            {"from": 5, "to": 6},
-            {"from": 6, "to": 7},
-            {"from": 7, "to": 8}
-        ]
-    }
+{
+    "node": [
+        {"id": 1, "sequence": "G"},
+        {"id": 2, "sequence": "A"},
+        {"id": 3, "sequence": "T"},
+        {"id": 4, "sequence": "A"},
+        {"id": 5, "sequence": "T"},
+        {"id": 6, "sequence": "A"},
+        {"id": 7, "sequence": "C"},
+        {"id": 8, "sequence": "A"}
+    ],
+    "edge": [
+        {"from": 1, "to": 2},
+        {"from": 2, "to": 3},
+        {"from": 3, "to": 4},
+        {"from": 3, "to": 5},
+        {"from": 4, "to": 6},
+        {"from": 5, "to": 6},
+        {"from": 6, "to": 7},
+        {"from": 7, "to": 8}
+    ]
+}
+)";
+
+// The above graph with a reference path.
+const std::string unfolder_graph_simple_path = R"(
+{
+    "node": [
+        {"id": 1, "sequence": "G"},
+        {"id": 2, "sequence": "A"},
+        {"id": 3, "sequence": "T"},
+        {"id": 4, "sequence": "A"},
+        {"id": 5, "sequence": "T"},
+        {"id": 6, "sequence": "A"},
+        {"id": 7, "sequence": "C"},
+        {"id": 8, "sequence": "A"}
+    ],
+    "edge": [
+        {"from": 1, "to": 2},
+        {"from": 2, "to": 3},
+        {"from": 3, "to": 4},
+        {"from": 3, "to": 5},
+        {"from": 4, "to": 6},
+        {"from": 5, "to": 6},
+        {"from": 6, "to": 7},
+        {"from": 7, "to": 8}
+    ],
+    "path": [
+        {"name": "hint", "mapping": [
+            {"position": {"node_id": 1}, "rank" : 1 },
+            {"position": {"node_id": 2}, "rank" : 2 },
+            {"position": {"node_id": 3}, "rank" : 3 },
+            {"position": {"node_id": 5}, "rank" : 4 },
+            {"position": {"node_id": 6}, "rank" : 5 },
+            {"position": {"node_id": 7}, "rank" : 6 },
+            {"position": {"node_id": 8}, "rank" : 7 }
+        ]}
+    ]
+}
 )";
 
 TEST_CASE("PhaseUnfolder can merge shared prefixes and suffixes", "[phaseunfolder][indexing]") {
@@ -491,6 +537,55 @@ TEST_CASE("PhaseUnfolder can merge shared prefixes and suffixes", "[phaseunfolde
     std::vector<std::vector<gbwt::node_type>> gbwt_threads {
         upper_path, lower_path
     };
+    gbwt::GBWT gbwt_index = get_gbwt(gbwt_threads);
+
+    // Build a PhaseUnfolder with duplicate node ids starting from 9.
+    vg::id_t next_id = 9;
+    PhaseUnfolder unfolder(xg_index, gbwt_index, next_id);
+
+    // Build a VG graph.
+    VG vg_graph;
+    Graph temp_graph;
+    json2pb(temp_graph, unfolder_graph_simple.c_str(), unfolder_graph_simple.size());
+    vg_graph.merge(temp_graph);
+
+    // Remove the bubble, including its endpoints.
+    std::set<vg::id_t> to_remove { 3, 4, 5, 6 };
+    prune_and_unfold(vg_graph, to_remove, unfolder);
+
+    // Check the nodes.
+    SECTION("the unfolded graph should have 8 nodes") {
+        std::set<vg::id_t> expected_nodes { 1, 2, 7, 8, 9, 10, 11, 12 };
+        std::multiset<vg::id_t> corresponding_nodes { 1, 2, 3, 4, 5, 6, 7, 8 };
+        check_unfolded_nodes(vg_graph, xg_index, unfolder, expected_nodes, corresponding_nodes);
+    }
+
+    // Check the edges.
+    SECTION("the unfolded graph should have 8 edges") {
+        std::multiset<std::pair<vg::id_t, vg::id_t>> corresponding_edges {
+            { 1, 2 }, { 2, 3 }, { 3, 4 }, { 3, 5 }, { 4, 6 }, { 5, 6 }, { 6, 7 }, { 7, 8 }
+        };
+        std::set<std::vector<vg::id_t>> expected_paths {
+            { 2, 3, 4 }, { 2, 3, 5 }, { 3, 4, 6 }, { 3, 5, 6 }, { 4, 6, 7 }, { 5, 6, 7 }
+        };
+        check_unfolded_edges(vg_graph, unfolder, corresponding_edges, expected_paths, next_id);
+    }
+}
+
+TEST_CASE("PhaseUnfolder can extend short threads", "[phaseunfolder][indexing]") {
+
+    // Build an XG index.
+    Graph simple_graph_with_path;
+    json2pb(simple_graph_with_path, unfolder_graph_simple_path.c_str(), unfolder_graph_simple_path.size());
+    xg::XG xg_index(simple_graph_with_path);
+
+    // Build a GBWT for the fragment that is different from the reference.
+    std::vector<gbwt::node_type> short_fragment {
+        gbwt::Node::encode(3, false),
+        gbwt::Node::encode(4, false),
+        gbwt::Node::encode(6, false)
+    };
+    std::vector<std::vector<gbwt::node_type>> gbwt_threads { short_fragment };
     gbwt::GBWT gbwt_index = get_gbwt(gbwt_threads);
 
     // Build a PhaseUnfolder with duplicate node ids starting from 9.
