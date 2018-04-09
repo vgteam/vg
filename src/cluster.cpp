@@ -1760,11 +1760,13 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         for (size_t j = 0; j < component.size(); j++) {
             int32_t dp_score = nodes[component[j]].dp_score;
             if (dp_score > traceback_end.first) {
+                // this is better than all previous scores, so throw anything we have away
                 traceback_end.first = dp_score;
                 traceback_end.second.clear();
                 traceback_end.second.push_back(component[j]);
             }
             else if (dp_score == traceback_end.first) {
+                // this is equivalent to the current best, so hold onto both
                 traceback_end.second.push_back(component[j]);
             }
         }
@@ -1812,12 +1814,21 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         while (!trace_stack.empty()) {
             size_t trace_idx = trace_stack.back();
             trace_stack.pop_back();
+#ifdef debug_od_clusterer
+            cerr << "\ttracing back from " << trace_idx << " with DP score " << nodes[trace_idx].dp_score << " and node score " << nodes[trace_idx].score << endl;
+#endif
             
             int32_t target_source_score = nodes[trace_idx].dp_score - nodes[trace_idx].score;
             for (ODEdge& edge : nodes[trace_idx].edges_to) {
+#ifdef debug_od_clusterer
+                cerr << "\t\ttrace from " << edge.to_idx << " would have score " << nodes[edge.to_idx].dp_score + edge.weight + nodes[trace_idx].score << endl;
+#endif
                 if (nodes[edge.to_idx].dp_score + edge.weight == target_source_score && !stacked.count(edge.to_idx)) {
                     trace_stack.push_back(edge.to_idx);
-                    stacked.insert(trace_idx);
+                    stacked.insert(edge.to_idx);
+#ifdef debug_od_clusterer
+                    cerr << "\t\tidentifying this as a proper traceback that we have not yet traced" << endl;
+#endif
                 }
             }
         }
