@@ -1321,7 +1321,7 @@ class VGCITest(TestCase):
                            sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5 -I',
                            sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
 
-    @timeout_decorator.timeout(1200)
+    @timeout_decorator.timeout(3000)
     def test_sim_mhc_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
         so jenkins doesn't report failures.  vg is run only in single ended with multipath on

@@ -4144,6 +4144,7 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
     clean_aln.set_name(aln.name());
     clean_aln.set_sequence(aln.sequence());
     clean_aln.set_quality(aln.quality());
+    clean_aln.clear_refpos();
     return align_multi_internal(true, clean_aln, kmer_size, stride, max_mem_length, band_width, band_overlap, cluster_mq, max_multimaps, extra_multimaps, nullptr);
 }
     
