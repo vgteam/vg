@@ -251,21 +251,21 @@ function wait_on_jobs() {
 if [[ "${RUN_JOBS}" == "1" ]]; then
     # We actually want to run the toil-vg jobs
 
-    #CONDITIONS+=("snp1kg-mp")
-    #if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp" ]]; then
-    #    # Do the full snp1kg graph multipath
-    #    toil-vg mapeval "${TREE_PATH}/snp1kg-mp" "${OUTPUT_PATH}/snp1kg-mp" \
-    #        --single_reads_chunk \
-    #        --config "${TREE_PATH}/toil-vg.conf" \
-    #        --maxDisk 100G \
-    #        --multipath-only \
-    #        --fastq "${READS_DIR}/sim.fq.gz" \
-    #        --truth "${READS_DIR}/true.pos" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
-    #        --gam-names snp1kg 2>&1 & 
-    #    JOB_ARRAY+=("$!")
-    #fi
-    #wait_on_jobs
+    CONDITIONS+=("snp1kg-mp")
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp" ]]; then
+        # Do the full snp1kg graph multipath
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp" "${OUTPUT_PATH}/snp1kg-mp" \
+            --single_reads_chunk \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
+            --multipath-only \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
+            --gam-names snp1kg 2>&1 & 
+        JOB_ARRAY+=("$!")
+    fi
+    wait_on_jobs
     
     CONDITIONS+=("snp1kg-mp-snarlcut")
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-snarlcut" ]]; then
