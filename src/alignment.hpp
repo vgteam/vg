@@ -199,6 +199,12 @@ void parse_gff_regions(istream& gtfstream, xg::XG* xgindex, vector<Alignment>* o
 Position alignment_start(const Alignment& aln);
 Position alignment_end(const Alignment& aln);Position alignment_start(const Alignment& aln);
 
+/// return the path offsets as cached in the alignment
+map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const Alignment& aln);
+/// annotate the first alignment with its minimum distance to the second in their annotated paths
+void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base);
+void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<pair<size_t, bool> > >& base_offsets);
+
 }
 
 #endif

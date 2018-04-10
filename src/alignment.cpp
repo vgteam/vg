@@ -850,7 +850,9 @@ int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, xg::XG* xgindex) {
 }
 
 void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::XG* xgindex, bool on_reverse_strand) {
-    Path path = alignment.path();
+
+    if (b->core.pos == -1) return;
+
     Mapping mapping;
 
     int64_t length = cigar_mapping(b, &mapping, xgindex);
@@ -1537,6 +1539,53 @@ Position alignment_end(const Alignment& aln) {
         pos.set_offset(pos.offset() + mapping_from_length(last));
     }
     return pos;
+}
+
+map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const Alignment& aln) {
+    map<string, vector<pair<size_t, bool> > > offsets;
+    for (auto& refpos : aln.refpos()) {
+        offsets[refpos.name()].push_back(make_pair(refpos.offset(), refpos.is_reverse()));
+    }
+    return offsets;
+}
+
+void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base) {
+    auto base_offsets = alignment_refpos_to_path_offsets(base);
+    return alignment_set_distance_to_correct(aln, base_offsets);
+}
+
+void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<pair<size_t, bool> > >& base_offsets) {
+    auto aln_offsets = alignment_refpos_to_path_offsets(aln);
+    // bail out if we can't compare
+    if (!(aln_offsets.size() && base_offsets.size())) return;
+    // otherwise find the minimum distance and relative orientation
+    Position result;
+    size_t min_distance = std::numeric_limits<size_t>::max();
+    for (auto& path : aln_offsets) {
+        auto& name = path.first;
+        auto& aln_positions = path.second;
+        auto f = base_offsets.find(name);
+        if (f == base_offsets.end()) continue;
+        auto& base_positions = f->second;
+        for (auto& p1 : aln_positions) {
+            for (auto& p2 : base_positions) {
+                // disable relative inversions
+                if (p1.second != p2.second) continue;
+                // are they in the same orientation?
+                size_t dist = abs((int64_t)p1.first - (int64_t)p2.first);
+                if (dist < min_distance) {
+                    min_distance = dist;
+                    result.set_name(name);
+                    result.set_is_reverse(p1.second != p2.second);
+                    result.set_offset(dist);
+                }
+            }
+        }
+    }
+    // set the distance to correct if we got one
+    if (min_distance < std::numeric_limits<size_t>::max()) {
+        *aln.mutable_to_correct() = result;
+    }
 }
 
 }

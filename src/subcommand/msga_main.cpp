@@ -41,7 +41,8 @@ void help_msga(char** argv) {
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
-         << "    -w, --band-width INT    band width for long read alignment [128]" << endl
+         << "    -w, --band-width INT    band width for long read alignment [256]" << endl
+         << "    -O, --band-overlap INT  band overlap for long read alignment [{-w}/8]" << endl
          << "    -J, --band-jump INT     the maximum number of bands of insertion we consider in the alignment chain model [128]" << endl
          << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [16]" << endl
          << "    -M, --max-multimaps INT consider this many alternate alignments for the entire sequence [1]" << endl
@@ -54,7 +55,7 @@ void help_msga(char** argv) {
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes [16]" << endl
-         << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
+        //<< "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
          << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max [3]" << endl
          << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
@@ -93,6 +94,7 @@ int main_msga(int argc, char** argv) {
     int max_multimaps = 1;
     float min_identity = 0.0;
     int band_width = 256;
+    int band_overlap = -1;
     int max_band_jump = 128;
     int band_multimaps = 16;
     size_t doubling_steps = 3;
@@ -129,6 +131,7 @@ int main_msga(int argc, char** argv) {
     bool show_align_progress = false;
     bool bigger_first = true;
     bool patch_alignments = true;
+    int max_sub_mem_recursion_depth = 2;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -143,9 +146,9 @@ int main_msga(int argc, char** argv) {
                 {"graph", required_argument, 0, 'g'},
                 {"base", required_argument, 0, 'b'},
                 {"idx-kmer-size", required_argument, 0, 'K'},
-                {"idx-no-recomb", no_argument, 0, 'O'},
                 {"idx-doublings", required_argument, 0, 'X'},
                 {"band-width", required_argument, 0, 'w'},
+                {"band-overlap", required_argument, 0, 'O'},
                 {"band-jump", required_argument, 0, 'J'},
                 {"band-multi", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
@@ -182,7 +185,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:a8",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:O:I:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:a8",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -289,9 +292,8 @@ int main_msga(int argc, char** argv) {
             idx_kmer_size = atoi(optarg);
             break;
 
-
         case 'O':
-            idx_path_only = true;
+            band_overlap = atoi(optarg);
             break;
 
         case 'm':
@@ -386,6 +388,9 @@ int main_msga(int argc, char** argv) {
         return 1;
     }
 
+    if (band_overlap == -1) {
+        band_overlap = band_width/8;
+    }
 
     // build the graph or read it in from input
     VG* graph;
@@ -587,6 +592,7 @@ int main_msga(int argc, char** argv) {
             mapper->fast_reseed = use_fast_reseed;
             mapper->max_target_factor = max_target_factor;
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
+            mapper->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
             //mapper->adjust_alignments_for_base_quality = qual_adjust_alignments;
             mapper->extra_multimaps = extra_multimaps;
             mapper->mapping_quality_method = mapping_quality_method;
@@ -630,7 +636,7 @@ int main_msga(int argc, char** argv) {
                             << graph->length() << "bp "
                             << "n:" << graph->node_count() << " "
                             << "e:" << graph->edge_count() << endl;
-            Alignment aln = mapper->align(seq, 0, 0, 0, band_width);
+            Alignment aln = mapper->align(seq, 0, 0, 0, band_width, band_overlap);
             aln.set_name(name);
             if (aln.path().mapping_size()) {
                 auto aln_seq = graph->path_string(aln.path());

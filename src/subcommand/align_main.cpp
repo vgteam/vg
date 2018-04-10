@@ -199,7 +199,7 @@ int main_align(int argc, char** argv) {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
         if(matrix_stream.is_open()) aligner.load_scoring_matrix(matrix_stream);
         alignment = graph->align(seq, &aligner, true, false, 0, pinned_alignment, pin_left,
-            banded_global, 0, max(seq.size(), graph->length()), debug);
+                                 banded_global, 0, max(seq.size(), graph->length()), 0, debug);
     }
 
     if (!seq_name.empty()) {

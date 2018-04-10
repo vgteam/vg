@@ -238,7 +238,7 @@ public:
     int hit_max = 0;       // ignore or MEMs with more than this many hits
     bool use_approx_sub_mem_count = false;
     bool prefilter_redundant_hits = true;
-    int max_sub_mem_recursion_depth = 1;
+    int max_sub_mem_recursion_depth = 2;
     int unpaired_penalty = 17;
     bool precollapse_order_length_hits = true;
     
@@ -422,6 +422,7 @@ private:
                                            int stride,
                                            int max_mem_length,
                                            int band_width,
+                                           int band_overlap,
                                            double& cluster_mq,
                                            int keep_multimaps = 0,
                                            int additional_multimaps = 0,
@@ -435,7 +436,8 @@ private:
                                    int kmer_size = 0,
                                    int stride = 0,
                                    int max_mem_length = 0,
-                                   int band_width = 1000);
+                                   int band_width = 1000,
+                                   int band_overlap = 500);
     // alignment based on the MEM approach
 //    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int max_mem_length, int additional_multimaps = 0);
     // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
@@ -454,14 +456,14 @@ protected:
                              Graph& graph,
                              size_t max_query_graph_ratio,
                              bool traceback,
-                             bool certainly_acyclic,
+                             bool acyclic_and_sorted,
                              bool pinned_alignment = false,
                              bool pin_left = false,
                              bool global = false,
                              bool keep_bonuses = true);
     
     // make the bands used in banded alignment
-    vector<Alignment> make_bands(const Alignment& read, int band_width, vector<pair<int, int>>& to_strip);
+    vector<Alignment> make_bands(const Alignment& read, int band_width, int band_overlap, vector<pair<int, int>>& to_strip);
 public:
     // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
     // LCP array, and an optional haplotype score provider.
@@ -477,7 +479,6 @@ public:
     double graph_entropy(void);
 
     // use the xg index to get the first position of an alignment on a reference path
-    map<string, vector<pair<size_t, bool> > > alignment_initial_path_positions(const Alignment& aln);
     void annotate_with_initial_path_positions(Alignment& aln);
     void annotate_with_initial_path_positions(vector<Alignment>& alns);
 
@@ -531,7 +532,7 @@ public:
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool certainly_acyclic, bool banded_global = false);
+    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
@@ -543,14 +544,16 @@ public:
                     int kmer_size = 0,
                     int stride = 0,
                     int max_mem_length = 0,
-                    int band_width = 1000);
+                    int band_width = 1000,
+                    int band_overlap = 500);
 
     // Align the given read and return an aligned copy. Does not modify the input Alignment.
     Alignment align(const Alignment& read,
                     int kmer_size = 0,
                     int stride = 0,
                     int max_mem_length = 0,
-                    int band_width = 1000);
+                    int band_width = 1000,
+                    int band_overlap = 500);
 
     // Align the given read with multi-mapping. Returns the alignments in score
     // order, up to multimaps (or max_multimaps if multimaps is 0). Does not update the alignment passed in.
@@ -560,7 +563,8 @@ public:
                                   int kmer_size = 0,
                                   int stride = 0,
                                   int max_mem_length = 0,
-                                  int band_width = 1000);
+                                  int band_width = 1000,
+                                  int band_overlap = 500);
     
     // paired-end based
     
@@ -598,8 +602,6 @@ public:
     int64_t approx_alignment_position(const Alignment& aln);
     // get the full path offsets for the alignment, considering every mapping if just_first is not set
     map<string, vector<pair<size_t, bool> > > alignment_path_offsets(const Alignment& aln, bool just_min = true, bool nearby = false);
-    // return the path offsets as cached in the alignment
-    map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const Alignment& aln);
     // get the end position of the alignment
     Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined
