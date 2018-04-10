@@ -85,3 +85,6 @@
 [submodule "deps/sparsepp"]
 	path = deps/sparsepp
 	url = https://github.com/greg7mdp/sparsepp.git
+[submodule "deps/vowpal_wabbit"]
+	path = deps/vowpal_wabbit
+	url = https://github.com/JohnLangford/vowpal_wabbit.git

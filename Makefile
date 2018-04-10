@@ -120,6 +120,7 @@ LINLS_DIR:=deps/sublinear-Li-Stephens
 STRUCTURES_DIR:=deps/structures
 BACKWARD_CPP_DIR:=deps/backward-cpp
 ELFUTILS_DIR:=deps/elfutils
+VOWPALWABBIT_DIR:=deps/vowpal_wabbit
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # Dependencies that go into libvg's archive
@@ -154,6 +155,7 @@ LIB_DEPS += $(LIB_DIR)/libraptor2.a
 LIB_DEPS += $(LIB_DIR)/libfml.a
 LIB_DEPS += $(LIB_DIR)/libsublinearLS.a
 LIB_DEPS += $(LIB_DIR)/libstructures.a
+LIB_DEPS += $(LIB_DIR)/libvw.a
 ifneq ($(shell uname -s),Darwin)
 	# On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
 	# backward-cpp will use.
@@ -325,6 +327,9 @@ $(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/*.c $(RAPTOR_DIR)/src/*.h
 
 $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp 
 	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
+    
+$(LIB_DIR)/libvw.a: $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/*
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && $(MAKE) $(FILTER) && cp vowpalwabbit/libvw.a $(CWD)/$(LIB_DIR)/ && mkdir -p $(CWD)/$(INC_DIR)/vowpalwabbit && cp vowpalwabbit/*.h $(CWD)/$(INC_DIR)/vowpalwabbit/
 
 $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 	+cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
@@ -470,6 +475,7 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gperftools && $(MAKE) clean
+	cd $(DEP_DIR) && cd vowpal_wabbit && $(MAKE) clean
 	rm -Rf $(RAPTOR_DIR)/build/*
 	## TODO vg source code
 	## TODO LRU_CACHE
