@@ -59,6 +59,7 @@ class VGCITest(TestCase):
         self.do_teardown = True
         self.baseline = 's3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline'
         self.cores = 8
+        self.sim_chunk_size = 100000
         self.force_outstore = False
 
         self.loadCFG()
@@ -607,7 +608,10 @@ class VGCITest(TestCase):
             opts += '--container {} '.format(self.container)
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
-        opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, 8, 8)
+        sim_chunks = int(reads / self.sim_chunk_size)
+        if reads % self.sim_chunk_size:
+            sim_chunks += 1
+        opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, sim_chunks, 8)
         if sim_opts:
             opts += '--sim_opts \'{}\' '.format(sim_opts)
         if sim_fastq:
