@@ -89,11 +89,14 @@ int main_inject(int argc, char** argv) {
 
     vector<Alignment> buf;
     function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
-      buf.push_back(aln);
-      if (buf.size() > 1000) {
-        write_alignments(std::cout, buf);
-        buf.clear();
-      }
+#pragma omp critical (buf)
+        {
+            buf.push_back(aln);
+            if (buf.size() > 1000) {
+                write_alignments(std::cout, buf);
+                buf.clear();
+            }
+        }
     };
     if (threads > 1) {
         hts_for_each_parallel(file_name, lambda, xgidx);

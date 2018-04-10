@@ -36,6 +36,8 @@ set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, xg::XG* x
 Node xg_node(id_t id, xg::XG* xgidx);
 vector<Edge> xg_edges_on_start(id_t id, xg::XG* xgidx);
 vector<Edge> xg_edges_on_end(id_t id, xg::XG* xgidx);
+map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby, xg::XG* xgidx);
+void xg_annotate_with_initial_path_positions(Alignment& aln, bool just_min, bool nearby, xg::XG* xgidx);
 
 }
 
