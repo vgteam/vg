@@ -29,6 +29,7 @@ int main_gamcompare(int argc, char** argv) {
 
     if (argc == 2) {
         help_gamcompare(argv);
+        exit(1);
     }
 
     int threads = 1;
@@ -46,7 +47,7 @@ int main_gamcompare(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "ht:",
+        c = getopt_long (argc, argv, "hr:t:",
                          long_options, &option_index);
 
         // Detect the end of the options.
