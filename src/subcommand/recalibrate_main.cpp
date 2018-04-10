@@ -147,8 +147,12 @@ int main_recalibrate(int argc, char** argv) {
             if (!model_filename.empty()) {
                 // Save to the given model
                 vw_args += " -f " + model_filename;
+                
+#ifdef debug
                 // Also dump a human-readable version where feature names aren't hashed.
                 vw_args += " --invert_hash " + model_filename + ".inv";
+#endif
+                
             }
             
             // TODO: what do any of the other parameters do?
