@@ -56,6 +56,12 @@ string alignment_to_example_string(const Alignment& aln, bool train) {
     }
     s << "secondaryScore:" << to_string(secondary_score) << " ";
     
+    // Count the secondary alignments
+    s << "secondaryCount:" << aln.secondary_score_size() << " ";
+    
+    // Also do the identity
+    s << "identity:" << aln.identity() << " ";
+    
     // TODO: more features
     return s.str();
 }
@@ -128,13 +134,21 @@ int main_recalibrate(int argc, char** argv) {
             // We must always pass --no_stdin because
             // <https://github.com/JohnLangford/vowpal_wabbit/commit/7d5754e168c679ff8968f18a967ccd11a2ba1e80>
             // says so.
+            string vw_args = "--no_stdin";
             // We need the logistic stuff to make the predictor predict probabilities
-            string vw_args = "--no_stdin --link=logistic --loss_function=logistic";
+            vw_args += " --link=logistic --loss_function=logistic";
+            // We need this to do quadradic interaction features (kernel)
+            vw_args += " -q ::";
+            // Add L2 regularization
+            vw_args += " --l2 0.000001";
+            
             
             // We also apparently have to decide now what file name we want output to go to and use -f to send it there.
             if (!model_filename.empty()) {
                 // Save to the given model
                 vw_args += " -f " + model_filename;
+                // Also dump a human-readable version where feature names aren't hashed.
+                vw_args += " --invert_hash " + model_filename + ".inv";
             }
             
             // TODO: what do any of the other parameters do?
@@ -145,8 +159,6 @@ int main_recalibrate(int argc, char** argv) {
                 
                 // Turn each Alignment into a VW-format string
                 string example_string = alignment_to_example_string(aln, true);
-                
-                cerr << "Example string: " << example_string << endl;
                 
                 // Load an example for each Alignment.
                 // You can apparently only have so many examples at a time because they live in a ring buffer of unspecified size.
@@ -159,8 +171,6 @@ int main_recalibrate(int argc, char** argv) {
                 // It's not clear what it does but it is probably training.
                 // If we didn't label the data, this would just predict instead.
                 model->learn(example);
-                
-                cerr << "p2 = " << example->pred.prob << endl;
                 
                 // Clean up the example
                 VW::finish_example(*model, example);
@@ -197,8 +207,6 @@ int main_recalibrate(int argc, char** argv) {
                 // Turn each Alignment into a VW-format string
                 string example_string = alignment_to_example_string(aln, false);
                 
-                cerr << "Example string: " << example_string << endl;
-                
                 // Load an example for each Alignment.
                 example* example = VW::read_example(*model, example_string);
                 
@@ -207,15 +215,19 @@ int main_recalibrate(int argc, char** argv) {
                 // If we didn't label the data, this would just predict instead.
                 model->learn(example);
                 
-                cerr << "p2 = " << example->pred.prob << endl;
-                
                 // Get the correctness prediction from -1 to 1
-                double guess = example->pred.prob;
+                double prob = example->pred.prob;
                 // Convert into a real MAPQ estimate.
-                guess = prob_to_phred(1.0 - guess);
+                double guess = prob_to_phred(1.0 - prob);
+                // Clamp to 0 to 60
+                double clamped = max(0.0, min(60.0, guess));
+               
+#ifdef debug
+                cerr << example_string << " -> " << prob << " -> " << guess << " -> " << clamped << endl;
+#endif
                 
                 // Set the MAPQ to output.
-                aln.set_mapping_quality(guess);
+                aln.set_mapping_quality(clamped);
                 
                 // Clean up the example
                 VW::finish_example(*model, example);
