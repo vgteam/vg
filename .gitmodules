@@ -88,3 +88,6 @@
 [submodule "deps/vowpal_wabbit"]
 	path = deps/vowpal_wabbit
 	url = https://github.com/JohnLangford/vowpal_wabbit.git
+[submodule "deps/boost-subset"]
+	path = deps/boost-subset
+	url = https://github.com/vgteam/boost-subset.git

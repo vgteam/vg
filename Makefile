@@ -120,6 +120,7 @@ LINLS_DIR:=deps/sublinear-Li-Stephens
 STRUCTURES_DIR:=deps/structures
 BACKWARD_CPP_DIR:=deps/backward-cpp
 ELFUTILS_DIR:=deps/elfutils
+BOOST_DIR:=deps/boost-subset
 VOWPALWABBIT_DIR:=deps/vowpal_wabbit
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
@@ -157,6 +158,7 @@ LIB_DEPS += $(LIB_DIR)/libsublinearLS.a
 LIB_DEPS += $(LIB_DIR)/libstructures.a
 LIB_DEPS += $(LIB_DIR)/libvw.a
 LIB_DEPS += $(LIB_DIR)/liballreduce.a
+LIB_DEPS += $(LIB_DIR)/libboost_program_options.a
 ifneq ($(shell uname -s),Darwin)
 	# On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
 	# backward-cpp will use.
@@ -329,10 +331,29 @@ $(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/*.c $(RAPTOR_DIR)/src/*.h
 $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp 
 	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
     
-$(LIB_DIR)/libvw.a: $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/*
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && $(MAKE) $(FILTER) && cp vowpalwabbit/libvw.a vowpalwabbit/liballreduce.a $(CWD)/$(LIB_DIR)/ && mkdir -p $(CWD)/$(INC_DIR)/vowpalwabbit && cp vowpalwabbit/*.h $(CWD)/$(INC_DIR)/vowpalwabbit/
+# To build libvw we need to point it at our Boost, but then configure decides
+# it needs to build vwdll, which depends on codecvt, which isn't actually
+# shipped in the GCC 4.9 STL. So we hack vwdll AKA libvw_c_wrapper out of the
+# build.
+# Also, autogen.sh looks for Boost in the system, and who knows what it will do
+# if it doesn't find it, so let it fail.
+$(LIB_DIR)/libvw.a: $(LIB_DIR)/libboost_program_options.a $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/*
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.pc//g' Makefile.am
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.la//g' vowpalwabbit/Makefile.am
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper\.pc/d' configure.ac
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i '/vwdll/d' Makefile.am
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i '/libvw_c_wrapper/d' vowpalwabbit/Makefile.am
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && (./autogen.sh || true)
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && ./configure --with-boost=$(CWD)
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && $(MAKE) $(FILTER)
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/.libs/libvw.a vowpalwabbit/.libs/liballreduce.a $(CWD)/$(LIB_DIR)/
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && mkdir -p $(CWD)/$(INC_DIR)/vowpalwabbit
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/*.h $(CWD)/$(INC_DIR)/vowpalwabbit/
 	
 $(LIB_DIR)/liballreduce.a: $(LIB_DIR)/libvw.a
+
+$(LIB_DIR)/libboost_program_options.a: $(BOOST_DIR)/libs/program_options/src/* $(BOOST_DIR)/boost/program_options/*
+	+. ./source_me.sh && cd $(BOOST_DIR) && ./bootstrap.sh --with-libraries=program_options --libdir=$(CWD)/$(LIB_DIR) --includedir=$(CWD)/$(INC_DIR) $(FILTER) && ./b2 --link=static install $(FILTER)
 
 $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 	+cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
