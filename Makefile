@@ -341,8 +341,8 @@ $(LIB_DIR)/libvw.a: $(LIB_DIR)/libboost_program_options.a $(VOWPALWABBIT_DIR)/* 
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.pc//g' Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.la//g' vowpalwabbit/Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper\.pc/d' configure.ac
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i '/vwdll/d' Makefile.am
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i '/libvw_c_wrapper/d' vowpalwabbit/Makefile.am
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/vwdll/d' Makefile.am
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper/d' vowpalwabbit/Makefile.am
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && (./autogen.sh || true)
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && ./configure --with-boost=$(CWD)
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && $(MAKE) $(FILTER)
