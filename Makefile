@@ -84,7 +84,10 @@ ROCKSDB_PORTABLE=PORTABLE=1 # needed to build rocksdb without weird assembler op
 LD_LIB_FLAGS += -lrocksdb
 ROCKSDB_LDFLAGS = $(shell grep PLATFORM_LDFLAGS deps/rocksdb/make_config.mk | cut -d '=' -f2 | sed s/-ljemalloc// | sed s/-ltcmalloc// | sed s/-ltbb//)
 
-STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
+# When building statically, we need to tell the linker not to bail if it sees multiple definitions.
+# libc on e.g. our Jenkins host does not define malloc as weak, so tcmalloc can't override it in a static build.
+# TODO: Why did this problem only begin to happen when libvw was added?
+STATIC_FLAGS=-static -static-libstdc++ -static-libgcc -Wl,--allow-multiple-definition 
 
 # These are put into libvg. Grab everything except main.
 OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cpp)))
