@@ -482,7 +482,6 @@ size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string nam
     written += sdsl::write_member(min_id, out, child, "min_id");
     written += sdsl::write_member(max_id, out, child, "max_id");
 
-    // written += i_iv.serialize(out, child, "id_rank_vector");
     written += r_iv.serialize(out, child, "rank_id_vector");
 
     written += g_iv.serialize(out, child, "graph_vector");
@@ -951,7 +950,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     cerr << "|g_bv| = " << size_in_mega_bytes(g_bv) << endl;
     cerr << "|s_iv| = " << size_in_mega_bytes(s_iv) << endl;
 
-    //cerr << "|i_iv| = " << size_in_mega_bytes(i_iv) << endl;
     //cerr << "|i_wt| = " << size_in_mega_bytes(i_wt) << endl;
 
     cerr << "|s_bv| = " << size_in_mega_bytes(s_bv) << endl;
@@ -981,9 +979,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     
     cerr << "total size [MB] = " << (
         size_in_mega_bytes(s_iv)
-        //+ size_in_mega_bytes(s_bv)
-
-        //+ size_in_mega_bytes(i_iv)
+        + size_in_mega_bytes(s_bv)
         + size_in_mega_bytes(g_iv)
 
         //+ size_in_mega_bytes(i_wt)
@@ -1420,15 +1416,7 @@ int64_t XG::rank_to_id(size_t rank) const {
         cerr << "[xg] error: Request for id of rank " << rank << "/" << node_count << endl;
         assert(false);
     }
-    int i = 0;
-    int j = 0;
-    while(rank!=i){
-        if (g_bv[j] == 1){
-            i++;
-        }
-        j++;
-    }
-    return g_iv[j-1];
+    return g_iv[g_bv_select(rank)];
 }
 
 int XG::edge_type(bool from_start, bool to_end) const {
