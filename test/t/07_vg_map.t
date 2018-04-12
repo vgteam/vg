@@ -10,46 +10,46 @@ plan tests 51
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 
-is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq '.path.mapping[0].position.offset')" "3" "offset counts unused bases from the start of the node on the forward strand"
+is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "3" "offset counts unused bases from the start of the node on the forward strand"
 
-is  "$(vg map --score-matrix default.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq '.path.mapping[0].position.offset')" "3" "score-matrix defaults match 1 mismatch -4 should produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
+is  "$(vg map --score-matrix default.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "3" "score-matrix defaults match 1 mismatch -4 should produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
 
-isnt  "$(vg map --score-matrix negative.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq '.path.mapping[0].position.offset')" "3" "negative of score-matrix defaults should not produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
+isnt  "$(vg map --score-matrix negative.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "3" "negative of score-matrix defaults should not produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
 
-is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa -j - | jq '.path.mapping[0].position.offset')" "5" "offset counts unused bases from the start of the node on the reverse strand"
+is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "5" "offset counts unused bases from the start of the node on the reverse strand"
 
 is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -j | tr ',' '\n' | grep node_id | grep "72\|73\|76\|77" | wc -l) 4 "global alignment traverses the correct path"
 
-is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 58 "alignment score is as expected"
+is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -j | jq -r '.score')" 58 "alignment score is as expected"
 
-is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 106 "scoring parameters are respected"
+is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -j | jq -r '.score')" 106 "scoring parameters are respected"
 
-is $(vg map --score-matrix 2_2.mat -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 106 "score-matrix file should give same results as --match 2 --mismatch 2: scoring parameters are respected"
+is "$(vg map --score-matrix 2_2.mat -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -j | jq -r '.score')" 106 "score-matrix file should give same results as --match 2 --mismatch 2: scoring parameters are respected"
 
-is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }')" 58 "full length bonus always be included"
+is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 -x x.xg -g x.gcsa -j | jq -r '.score')" 58 "full length bonus always be included"
 
-is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 --full-l-bonus 0 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }')" 96 "full length bonus can be set to 0"
+is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 --full-l-bonus 0 -x x.xg -g x.gcsa -j | jq -r '.score')" 96 "full length bonus can be set to 0"
 
 vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -d x >/dev/null
 is $? 0 "vg map takes -d as input without a variant graph"
 
-is $(vg map -s TCAGATTCTCATCCCTCCTCAAGGGCGTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -x x.xg -g x.gcsa -j | jq . | grep '"sequence": "G"' | wc -l) 1 "vg map can align across a SNP"
+is $(vg map -s TCAGATTCTCATCCCTCCTCAAGGGCGTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -x x.xg -g x.gcsa -j | jq -r . | grep '"sequence": "G"' | wc -l) 1 "vg map can align across a SNP"
 
-is $(vg map --reads <(vg sim -s 69 -n 1000 -l 100 -x x.xg) -x x.xg -g x.gcsa  | vg view -a - | jq -c '.score == 110 // [.score, .sequence]' | grep true | wc -l) 1000 "alignment works on a small graph"
+is $(vg map --reads <(vg sim -s 69 -n 1000 -l 100 -x x.xg) -x x.xg -g x.gcsa  | vg view -a - | jq -r -c '.score == 110 // [.score, .sequence]' | grep true | wc -l) 1000 "alignment works on a small graph"
 
 seq=TCAGATTCTCATCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG
-is $(vg map -s $seq -x x.xg -g x.gcsa | vg view -a - | jq -c '[.score, .sequence, .path.node_id]' | md5sum | awk '{print $1}') \
-   $(vg map -s $seq -j -x x.xg -g x.gcsa | jq -c '[.score, .sequence, .path.node_id]' | md5sum | awk '{print $1}') \
+is $(vg map -s $seq -x x.xg -g x.gcsa | vg view -a - | jq -r -c '[.score, .sequence, .path.node_id]' | md5sum | awk '{print $1}') \
+   $(vg map -s $seq -j -x x.xg -g x.gcsa | jq -r -c '[.score, .sequence, .path.node_id]' | md5sum | awk '{print $1}') \
    "binary alignment format is equivalent to json version"
 
-is $(vg map -b small/x.bam -x x.xg -g x.gcsa -j | jq .quality | grep null | wc -l) 0 "alignment from BAM correctly handles qualities"
+is $(vg map -b small/x.bam -x x.xg -g x.gcsa -j | jq -r .quality | grep null | wc -l) 0 "alignment from BAM correctly handles qualities"
 
 is $(vg map -s $seq -w 30 -x x.xg -g x.gcsa -j | wc -l) 1 "chunky-banded alignment works"
 
 scores=$(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -j -M 2 | jq -r '.score' | tr '\n' ',')
 is "${scores}" $(printf ${scores} | tr ',' '\n' | sort -nr | tr '\n' ',')  "multiple alignments are returned in descending score order"
 
-is "$(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -j -M 2 | jq -c 'select(.is_secondary | not)' | wc -l)" "1" "only a single primary alignment is returned"
+is "$(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -j -M 2 | jq -r -c 'select(.is_secondary | not)' | wc -l)" "1" "only a single primary alignment is returned"
 
 rm -f x.vg x.xg x.gcsa x.gcsa.lcp
 rm -rf x.vg.index
@@ -61,10 +61,10 @@ is $(vg map -K -b minigiab/NA12878.chr22.tiny.bam -x giab.xg -g giab.gcsa | vg v
 
 is $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - -x giab.xg -g giab.gcsa | vg view -a - | wc -l) $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | grep ^@ | wc -l) "mapping from a fastq produces the expected number of alignments"
 
-is $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - -x giab.xg -g giab.gcsa -M 2 -j | jq -c 'select(.is_secondary | not)' | wc -l) $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - -x giab.xg -g giab.gcsa -M 1 -j | wc -l) "allowing secondary alignments with MEM mapping does not change number of primary alignments"
+is $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - -x giab.xg -g giab.gcsa -M 2 -j | jq -r -c 'select(.is_secondary | not)' | wc -l) $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - -x giab.xg -g giab.gcsa -M 1 -j | wc -l) "allowing secondary alignments with MEM mapping does not change number of primary alignments"
 
-count_prev=$(samtools sort -n minigiab/NA12878.chr22.tiny.bam -T sorting.tmp | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa | vg view -a - | jq .fragment_prev.name | grep null | wc -l)
-count_next=$(samtools sort -n minigiab/NA12878.chr22.tiny.bam -T sorting.tmp | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa | vg view -a - | jq .fragment_next.name | grep null | wc -l)
+count_prev=$(samtools sort -n minigiab/NA12878.chr22.tiny.bam -T sorting.tmp | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa | vg view -a - | jq -r .fragment_prev.name | grep null | wc -l)
+count_next=$(samtools sort -n minigiab/NA12878.chr22.tiny.bam -T sorting.tmp | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa | vg view -a - | jq -r .fragment_next.name | grep null | wc -l)
 
 is $count_prev $count_next "vg connects paired-end reads in gam output"
 
@@ -72,14 +72,14 @@ rm -f giab.vg giab.xg giab.gcsa giab.gcsa.lcp sorting.tmp*
 
 #vg index -s -k 27 -e 7 graphs/199754000:199755000.vg
 
-#a=$(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -j | jq '.path.mapping[0].position.offset' -c)
-#b=$(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 500 -j | jq '.path.mapping[0].position.offset' -c)
+#a=$(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -j | jq -r '.path.mapping[0].position.offset' -c)
+#b=$(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 500 -j | jq -r '.path.mapping[0].position.offset' -c)
 #is $a $b "banded alignment works correctly even with varied band size"
 
-#c=$(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -j | jq -c '.path.mapping[0].position.offset')
+#c=$(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -j | jq -r -c '.path.mapping[0].position.offset')
 #is $c 29 "unitig mapping produces the correct position"
 
-#is $(for i in $(seq 500 50 2000); do vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B $i -j | jq '.path.mapping[0].position.offset' -c; done | sort | uniq | wc -l) 1 "varying the bandwidth does not change the mapping start position"
+#is $(for i in $(seq 500 50 2000); do vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B $i -j | jq -r '.path.mapping[0].position.offset' -c; done | sort | uniq | wc -l) 1 "varying the bandwidth does not change the mapping start position"
 
 #rm -rf graphs/199754000:199755000.vg.index
 
@@ -94,16 +94,16 @@ is $? 0 "mapping to graphs that can't be oriented without swapping edges works c
 rm -Rf e.xg e.gcsa e.vg
 
 vg index -k10 -g g.idx.gcsa -x g.idx.xg graphs/multimap.vg
-is $(vg map -M 2 -s "GCTAAGAGTAGGCCGGGGGTGTAGACCTTTGGGGTTGAATAAATCTATTGTACTAATCGG" -d g.idx -j | jq -c 'select(.is_secondary == true)' | wc -l) 1 "reads multi-map to multiple possible locations"
+is $(vg map -M 2 -s "GCTAAGAGTAGGCCGGGGGTGTAGACCTTTGGGGTTGAATAAATCTATTGTACTAATCGG" -d g.idx -j | jq -r -c 'select(.is_secondary == true)' | wc -l) 1 "reads multi-map to multiple possible locations"
 
 rm -f g.idx.gcsa g.idx.xg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg sim -s 1337 -n 1000 -x x.xg >x.reads
-is $(vg map -T x.reads -d x -j | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
+is $(vg map -T x.reads -d x -j | jq -r -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
 
-is $(vg map -T <(head -1 x.reads) -d x -j -t 1 -Q 30 | jq .mapping_quality) 30 "the mapping quality may be capped"
+is $(vg map -T <(head -1 x.reads) -d x -j -t 1 -Q 30 | jq -r .mapping_quality) 30 "the mapping quality may be capped"
 
 vg index -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -k 16 graphs/refonly-lrc_kir.vg
 
@@ -121,8 +121,8 @@ is $(vg map -T x.reads -x x.xg -g x.gcsa -k 22 -j | jq -r ".mapping_quality" | w
 
 rm temp_paired_alignment.json temp_independent_alignment.json
 
-vg map -f alignment/mismatch_full_qual.fq -x x.xg -g x.gcsa -k 22 -j -A | jq -c '.score' > temp_scores_full_qual.txt
-vg map -f alignment/mismatch_reduced_qual.fq -x x.xg -g x.gcsa -k 22 -j -A | jq -c '.score' > temp_scores_reduced_qual.txt
+vg map -f alignment/mismatch_full_qual.fq -x x.xg -g x.gcsa -k 22 -j -A | jq -r -c '.score' > temp_scores_full_qual.txt
+vg map -f alignment/mismatch_reduced_qual.fq -x x.xg -g x.gcsa -k 22 -j -A | jq -r -c '.score' > temp_scores_reduced_qual.txt
 is $(paste temp_scores_full_qual.txt temp_scores_reduced_qual.txt | column -s $'\t' -t | awk '{if ($1 < $2) count++} END{print count}') 10 "base quality adjusted alignment produces higher scores if mismatches have low quality"
 rm temp_scores_full_qual.txt temp_scores_reduced_qual.txt
 
@@ -144,12 +144,12 @@ vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -v small/x.vcf.gz --gbwt-name x.gbwt -k 16 x.vg
 
 # This read is all ref which matches no haplotype in x.vcf.gz and visits some unused nodes
-is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.unvisited.fq -j | jq '.score')" "36" "mapping a read that touches unused nodes gets the base score"
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.unvisited.fq -j | jq -r '.score')" "36" "mapping a read that touches unused nodes gets the base score"
 # This read is all alt which does match a haplotype
-is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.match.fq -j | jq '.score')" "35" "mapping a read that matches a haplotype gets a small penalty"
-is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 0 --full-l-bonus 0 -f reads/x.match.fq -j | jq '.score')" "36" "mapping a read that matches a haplotype with exponent 0 gets the base score"
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.match.fq -j | jq -r '.score')" "35" "mapping a read that matches a haplotype gets a small penalty"
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 0 --full-l-bonus 0 -f reads/x.match.fq -j | jq -r '.score')" "36" "mapping a read that matches a haplotype with exponent 0 gets the base score"
 # This read matches no haplotypes but only visits used nodes
-is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.offhap.fq -j | jq '.score')" "22" "mapping a read that matches no haplotypes gets a larger penalty"
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.offhap.fq -j | jq -r '.score')" "22" "mapping a read that matches no haplotypes gets a larger penalty"
 
 # Test paired surjected mapping
 vg map -d x -iG <(vg sim -a -s 13241 -n 1 -p 500 -v 300 -x x.xg | vg view -a - | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --surject-to SAM >surjected.sam
@@ -171,12 +171,12 @@ rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa x.gcsa.lcp x.gbw
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >tiny.vg
 vg index -k 16 -x tiny.xg -g tiny.gcsa tiny.vg
-is $(vg map -d tiny -f tiny/tiny.fa -j | jq .identity) 1 "mapper can read FASTA input"
+is $(vg map -d tiny -f tiny/tiny.fa -j | jq -r .identity) 1 "mapper can read FASTA input"
 cat <<EOF >t.fa
 >x
 CAAATAAGGCTTGGAAATTTTCTGGA
 GTTCTATTATATTCCAACTCTCTG
 EOF
-is $(vg map -d tiny -F t.fa -j | jq .identity) 1 "mapper can read multiline FASTA input"
+is $(vg map -d tiny -F t.fa -j | jq -r .identity) 1 "mapper can read multiline FASTA input"
 
 rm -f tiny.vg tiny.xg tiny.gcsa tiny.gcsa.lcp t.fa t.fa.fai

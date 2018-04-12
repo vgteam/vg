@@ -60,7 +60,13 @@ void json2pb(Message &msg, FILE* fp) {
 }
 
 void json2pb(Message &msg, const std::string& buf) {
-    assert(google::protobuf::util::JsonStringToMessage(buf, &msg).ok());
+    auto status = google::protobuf::util::JsonStringToMessage(buf, &msg);
+    
+    if (!status.ok()) {
+        // This generally will happen if someone feeds in the wrong type of JSON.
+        // TODO: It would be nice to be able to find the neme of the offending non-existent field.
+        throw std::runtime_error("Could not deserialize " + msg.GetTypeName() + ": " + status.ToString());
+    }
 }
 
 void json2pb(Message &msg, const char *buf, size_t size) {
@@ -74,6 +80,11 @@ std::string pb2json(const Message &msg) {
     opts.preserve_proto_field_names = true;
 
 	std::string buffer;
-    assert(google::protobuf::util::MessageToJsonString(msg, &buffer, opts).ok());
+    auto status = google::protobuf::util::MessageToJsonString(msg, &buffer, opts);
+    
+    if (!status.ok()) {
+        throw std::runtime_error("Could not serialize " + msg.GetTypeName() + ": " + status.ToString());
+    }
+    
     return buffer;
 }
