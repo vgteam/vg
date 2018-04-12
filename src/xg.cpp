@@ -2148,6 +2148,33 @@ size_t XG::path_rank(const string& name) const {
     return pn_bv_rank(occs[0])+1; // step past '#'
 }
 
+vector<size_t> XG::path_ranks_by_prefix(const string& prefix) const {
+    // find the name in the csa
+    string query = start_marker + prefix;
+    auto occs = locate(pn_csa, query);
+    vector<size_t> ranks;
+    for (size_t i = 0; i < occs.size(); ++i) {
+        ranks.push_back(pn_bv_rank(occs[i])+1); // step past '#'
+    }
+    return ranks;
+}
+
+vector<string> XG::path_names_by_prefix(const string& prefix) const {
+    vector<string> names;
+    for (auto& rank : path_ranks_by_prefix(prefix)) {
+        names.push_back(path_name(rank));
+    }
+    return names;
+}
+
+vector<Path> XG::paths_by_prefix(const string& prefix) const {
+    vector<Path> paths;
+    for (auto& name : path_names_by_prefix(prefix)) {
+        paths.emplace_back(path(name));
+    }
+    return paths;
+}
+
 string XG::path_name(size_t rank) const {
     size_t start = pn_bv_select(rank)+1; // step past '#'
     size_t end = rank == path_count ? pn_iv.size() : pn_bv_select(rank+1);
