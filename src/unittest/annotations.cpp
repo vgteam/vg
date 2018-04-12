@@ -23,9 +23,7 @@ TEST_CASE("Annotations can be populated", "[alignment][annotation]") {
         string key2_name = "dogs";
         
         // It's undefined behavior to have a completely empty Value in the annotations Struct.
-        // It won't persist over serialization.
         // So put in a NullValue-holding Value.
-   
         (*aln.mutable_annotations()->mutable_fields())[key_name].set_null_value(google::protobuf::NullValue::NULL_VALUE);
         
         (*aln.mutable_annotations()->mutable_fields())[key2_name].set_number_value(1000);
@@ -35,11 +33,9 @@ TEST_CASE("Annotations can be populated", "[alignment][annotation]") {
        
         string serialized = pb2json(aln);
         
+        // Serialize and deserialize
         Alignment aln2;
         json2pb(aln2, serialized.c_str(), serialized.size());
-       
-        cerr << pb2json(aln) << endl;
-        cerr << pb2json(aln2) << endl;
        
         REQUIRE(aln2.annotations().fields().count(key_name));
         REQUIRE(aln2.annotations().fields().count(key2_name));
