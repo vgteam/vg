@@ -125,7 +125,6 @@ BACKWARD_CPP_DIR:=deps/backward-cpp
 ELFUTILS_DIR:=deps/elfutils
 BOOST_DIR:=deps/boost-subset
 VOWPALWABBIT_DIR:=deps/vowpal_wabbit
-STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
