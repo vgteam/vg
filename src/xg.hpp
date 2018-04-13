@@ -630,7 +630,6 @@ private:
     ////////////////////////////////////////////////////////////////////////////
 
     // maintain old ids from input, ranked as in s_iv and s_bv
-    int_vector<> i_iv;
     int64_t min_id = 0; // id ranges don't have to start at 0
     int64_t max_id = 0;
     int_vector<> r_iv; // ids-id_min is the rank
