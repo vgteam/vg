@@ -150,7 +150,10 @@ void set_annotation(Annotated* annotated, const string& name, const AnnotationTy
 
 template<typename Annotated>
 void clear_annotation(Annotated* annotated, const string& name) {
-    Annotation<Annotated>::clear(annotated, name);
+    // Get ahold of the struct
+    auto* annotation_struct = Annotation<Annotated>::get_mutable(annotated);
+    // Clear out that field
+    annotation_struct->mutable_fields()->clear(name);
 }
 
 }
