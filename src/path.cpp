@@ -14,6 +14,7 @@ mapping_t::mapping_t(const Mapping& m) {
     length = mapping_from_length(m);
     // only import fully embedded mappings
     assert(length == mapping_to_length(m));
+    // Note that in the case of no edits (deprecated shorthand for a full-length perfect match), length will be 0. 
     rank = m.rank();
 }
 
@@ -22,9 +23,12 @@ Mapping mapping_t::to_mapping(void) const {
     Position* p = m.mutable_position();
     p->set_node_id(node_id());
     p->set_is_reverse(is_reverse());
-    Edit* e = m.add_edit();
-    e->set_to_length(length);
-    e->set_from_length(length);
+    if (length != 0) {
+        // We're storing an Edit that knows it length, not a deprecated shorthand full-length match.
+        Edit* e = m.add_edit();
+        e->set_to_length(length);
+        e->set_from_length(length);
+    }
     m.set_rank(rank);
     return m;
 }

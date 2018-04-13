@@ -6209,7 +6209,7 @@ void VG::to_gfa(ostream& out) {
         p_elem.name = p.first;
         for (auto m : p.second){
             p_elem.segment_names.push_back( std::to_string(m.node_id()) );
-            p_elem.orientations.push_back( m.is_reverse() );
+            p_elem.orientations.push_back( !m.is_reverse() );
             Node* n = get_node( m.node_id() );
             stringstream cigaro;
             //cigaro << n->sequence().size() << (p.mapping(m_ind.position().is_reverse()) ? "M" : "M");
