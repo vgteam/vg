@@ -121,14 +121,14 @@ int main_mpmap(int argc, char** argv) {
     int max_rescue_attempts = 32;
     int max_num_mappings = 1;
     int buffer_size = 100;
-    int hit_max = 512;
+    int hit_max = 1024;
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
-    int reseed_length = 36;
+    int reseed_length = 22;
     double reseed_diff = 0.4;
     double reseed_exp = 0.065;
     bool use_adaptive_reseed = true;
-    double cluster_ratio = 0.15;
+    double cluster_ratio = 0.10;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Adaptive;
@@ -136,7 +136,7 @@ int main_mpmap(int argc, char** argv) {
     int max_dist_error = 12;
     int num_alt_alns = 4;
     double suboptimal_path_exponent = 1.25;
-    double likelihood_approx_exp = 8.0;
+    double likelihood_approx_exp = 10.0;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
     size_t frag_length_sample_size = 1000;
@@ -152,7 +152,7 @@ int main_mpmap(int argc, char** argv) {
     size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
-    double secondary_rescue_score_diff = 0.65;
+    double secondary_rescue_score_diff = 2.0;
     size_t rescue_only_min = numeric_limits<size_t>::max(); // disabling this for now
     size_t rescue_only_anchor_max = 16;
     string sample_name = "";
