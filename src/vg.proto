@@ -148,7 +148,7 @@ message Alignment {
     Position to_correct = 36; // A path/offset/orientation pair specifying the distance to the correct alignment
     bool correctly_mapped = 37; // This can be set to true to annotate the Alignment as having been mapped correctly.
     
-    google.protobuf.Struct annotations = 100; // Annotations carried along with the Alignment.
+    google.protobuf.Struct annotation = 100; // Annotations carried along with the Alignment.
 }
 
 // A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment
@@ -173,6 +173,8 @@ message MultipathAlignment {
     repeated uint32 start = 8;
 
     string paired_read_name = 9;
+    
+    google.protobuf.Struct annotation = 100; // Annotations carried along with the Alignment.
 }
 
 // A non-branching path of a MultipathAlignment
