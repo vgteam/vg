@@ -13,19 +13,29 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../xg.hpp"
+#include <gbwt/dynamic_gbwt.h>
 
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
 void help_paths(char** argv) {
-    cerr << "usage: " << argv[0] << " paths [options] <graph.vg>" << endl
+    cerr << "usage: " << argv[0] << " paths [options]" << endl
          << "options:" << endl
+         << "  input:" << endl
+         << "    -v, --vg FILE         use the graph in this vg FILE" << endl
+         << "    -x, --xg FILE         use the graph in the XG index FILE" << endl
+         << "    -g, --gbwt FILE       use the GBWT index in FILE" << endl
          << "  inspection:" << endl
-         << "    -x, --extract         return (as GAM alignments) the stored paths in the graph" << endl
+         << "    -X, --extract-gam     return (as GAM alignments) the stored paths in the graph" << endl
+         << "    -V, --extract-vg      return (as path-only .vg) the queried paths (requires -x -g and -q or -Q)" << endl
+        //<< "    -X, --extract         return (as a chunked graph) the stored paths in the graph" << endl
          << "    -L, --list            return (as a list of names, one per line) the path names" << endl
-         << "    -X, --list-xg FILE    return path names (as -L) but from given xg file" << endl  
-         << "    -s, --as-seqs         write each path as a sequence" << endl;
+         << "    -T, --threads         return the threads (requires GBWT)" << endl
+         << "    -q, --threads-by STR  return the threads with the given prefix (requires GBWT)" << endl
+         << "    -Q, --paths-by STR    return the paths with the given prefix" << endl;
+    //<< "    -s, --as-seqs         write each path as a sequence" << endl;
 }
 
 int main_paths(int argc, char** argv) {
@@ -35,11 +45,16 @@ int main_paths(int argc, char** argv) {
         return 1;
     }
 
-    int max_length = 0;
     bool as_seqs = false;
-    bool extract = false;
+    bool extract_as_gam = false;
+    bool extract_as_vg = false;
     bool list_paths = false;
-    string list_paths_xg;
+    string xg_file;
+    string vg_file;
+    string gbwt_file;
+    string thread_prefix;
+    string path_prefix;
+    bool extract_threads = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -47,16 +62,22 @@ int main_paths(int argc, char** argv) {
         static struct option long_options[] =
 
         {
-            {"extract", no_argument, 0, 'x'},
+            {"vg", required_argument, 0, 'v'},
+            {"xg", required_argument, 0, 'x'},
+            {"gbwt", required_argument, 0, 'g'},
+            {"extract-gam", no_argument, 0, 'X'},
+            {"extract-vg", no_argument, 0, 'V'},
             {"list", no_argument, 0, 'L'},
-            {"list-xg", required_argument, 0, 'X'},
             {"max-length", required_argument, 0, 'l'},
             {"as-seqs", no_argument, 0, 's'},
+            {"threads-by", required_argument, 0, 'q'},
+            {"paths-by", required_argument, 0, 'Q'},
+            {"threads", no_argument, 0, 'T'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "l:hs:xLX:",
+        c = getopt_long (argc, argv, "hs:LXv:x:g:q:Q:VT",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -66,95 +87,162 @@ int main_paths(int argc, char** argv) {
         switch (c)
         {
 
-            case 'x':
-                extract = true;
-                break;
-                
-            case 'L':
-                list_paths = true;
-                break;
+        case 'v':
+            vg_file = optarg;
+            break;
 
-            case 'X':
-                list_paths_xg = optarg;
-                break;                
+        case 'x':
+            xg_file = optarg;
+            break;
 
-            case 'l':
-                max_length = atoi(optarg);
-                break;
+        case 'g':
+            gbwt_file = optarg;
+            break;
+            
+        case 'X':
+            extract_as_gam = true;
+            break;
 
-            case 's':
-                as_seqs = true;
-                break;
+        case 'V':
+            extract_as_vg = true;
+            break;
 
-            case 'h':
-            case '?':
-                help_paths(argv);
-                exit(1);
-                break;
+        case 'L':
+            list_paths = true;
+            break;
 
-            default:
-                abort ();
+        case 's':
+            as_seqs = true;
+            break;
+
+        case 'Q':
+            thread_prefix = optarg;
+            break;
+
+        case 'q':
+            path_prefix = optarg;
+            break;
+
+        case 'T':
+            extract_threads = true;
+            break;
+
+        case 'h':
+        case '?':
+            help_paths(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
         }
     }
 
-    if (!list_paths_xg.empty()) {
-        if (optind < argc) {
-            cerr << "[vg paths] paths does not accept postional arguments with -X" << endl;
-            return 1;
-        }
-        xg::XG xindex;
-        ifstream in(list_paths_xg.c_str());
-        xindex.load(in);
-        size_t max_path = xindex.max_path_rank();
-        for (size_t i = 1; i <= max_path; ++i) {
-            cout << xindex.path_name(i) << endl;
-        }
-        return 0;
+    if (!vg_file.empty() && !xg_file.empty()) {
+        cerr << "[vg paths] Error: both vg and xg index given" << endl;
+        assert(false);
     }
 
-    VG* graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = new VG(in);
-    });
-
-    if (extract) {
-        vector<Alignment> alns = graph->paths_as_alignments();
-        write_alignments(cout, alns);
-        delete graph;
-        return 0;
+    if (!vg_file.empty()) {
+        VG graph;
+        if (vg_file == "-") {
+            graph.from_istream(std::cin);
+        } else {
+            ifstream in(vg_file.c_str());
+            graph.from_istream(in);
+        }
+        if (list_paths) {
+            graph.paths.for_each_name([&](const string& name) {
+                    cout << name << endl;
+                });
+        } else if (extract_as_gam) {
+            vector<Alignment> alns = graph.paths_as_alignments();
+            write_alignments(cout, alns);
+        } else if (extract_as_vg) {
+            cerr << "[vg paths] Error: vg extraction is only defined for prefix queries against a XG/GBWT index pair" << endl;
+            assert(false);
+        } else if (!thread_prefix.empty()) {
+            cerr << "[vg paths] Error: a thread prefix query requires a XG/GBWT index pair" << endl;
+            assert(false);
+        }
+        
+    } else if (!xg_file.empty()) {
+        xg::XG xgidx;
+        ifstream in(xg_file.c_str());
+        xgidx.load(in);
+        if (list_paths) {
+            size_t max_path = xgidx.max_path_rank();
+            for (size_t i = 1; i <= max_path; ++i) {
+                cout << xgidx.path_name(i) << endl;
+            }
+        } else if (!thread_prefix.empty() || extract_threads) {
+            if (gbwt_file.empty()) {
+                cerr << "[vg paths] Error: thread extraction requires a GBWT" << endl;
+                assert(false);
+            }
+            gbwt::GBWT index;
+            sdsl::load_from_file(index, gbwt_file);
+            vector<int64_t> thread_ids;
+            if (extract_threads) {
+                for (gbwt::size_type id = 1; id <= index.sequences()/2; id += 1) {
+                    thread_ids.push_back(id);
+                }
+            } else if (!thread_prefix.empty()) {
+                thread_ids = xgidx.threads_named_starting(thread_prefix);
+            }
+            for (auto& id : thread_ids) {
+                //cerr << "thread_id " << id << endl;
+                vector<gbwt::node_type> sequence = index.extract(gbwt::Path::encode(id-1, false));
+                Path path;
+                path.set_name(xgidx.thread_name(id));
+                for (auto node : sequence) {
+                    Mapping* m = path.add_mapping();
+                    Position* p = m->mutable_position();
+                    p->set_node_id(gbwt::Node::id(node));
+                    p->set_is_reverse(gbwt::Node::is_reverse(node));
+                    Edit* e = m->add_edit();
+                    size_t len = xgidx.node_length(p->node_id());
+                    e->set_to_length(len);
+                    e->set_from_length(len);
+                }
+                if (extract_as_gam) {
+                    vector<Alignment> alns;
+                    alns.emplace_back(xgidx.path_as_alignment(path));
+                    write_alignments(cout, alns);
+                } else if (extract_as_vg) {
+                    Graph g;
+                    *(g.add_path()) = path;
+                    vector<Graph> gb = { g };
+                    stream::write_buffered(cout, gb, 0);
+                }
+            }
+        } else {
+            if (extract_as_gam) {
+                auto alns = xgidx.paths_as_alignments();
+                write_alignments(cout, alns);
+            } else if (!path_prefix.empty()) {
+                vector<Path> got = xgidx.paths_by_prefix(path_prefix);
+                if (extract_as_gam) {
+                    vector<Alignment> alns;
+                    for (auto& path : got) {
+                        alns.emplace_back(xgidx.path_as_alignment(path));
+                    }
+                    write_alignments(cout, alns);
+                } else if (extract_as_vg) {
+                    for(auto& path : got) {
+                        Graph g;
+                        *(g.add_path()) = xgidx.path(path.name());
+                        vector<Graph> gb = { g };
+                        stream::write_buffered(cout, gb, 0);
+                    }
+                }
+            }
+        }
+    } else {
+        cerr << "[vg paths] Error: a xg or vg file is required" << endl;
+        assert(false);
     }
     
-    if (list_paths) {
-        graph->paths.for_each_name([&](const string& name) {
-            cout << name << endl;
-        });
-        delete graph;
-        return 0;
-    }
-
-    if (max_length == 0) {
-        cerr << "error:[vg paths] a --max-length is required when generating paths" << endl;
-    }
-
-    function<void(size_t,Path&)> paths_to_seqs = [graph](size_t mapping_index, Path& p) {
-        string seq = graph->path_sequence(p);
-#pragma omp critical(cout)
-        cout << seq << endl;
-    };
-
-    function<void(size_t,Path&)> paths_to_json = [](size_t mapping_index, Path& p) {
-        string json2 = pb2json(p);
-#pragma omp critical(cout)
-        cout<<json2<<endl;
-    };
-
-    function<void(size_t, Path&)>* callback = &paths_to_seqs;
-    if (!as_seqs) {
-        callback = &paths_to_json;
-    }
-
-    delete graph;
-
     return 0;
 
 }

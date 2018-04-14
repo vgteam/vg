@@ -268,6 +268,15 @@ public:
 
     /// Pull out the path with the given name.
     Path path(const string& name) const;
+    /// Get the path string
+    string path_string(const Path& path);
+    /// Get the path as an alignment
+    Alignment path_as_alignment(const string& name);
+    /// Convert the Path to an alignment
+    Alignment path_as_alignment(const Path& path);
+    /// Get all the paths as alignments
+    vector<Alignment> paths_as_alignments(void);
+    /// Get the path object by name
     const XGPath& get_path(const string& name) const;
     /// Returns the rank of the path with the given name, or 0 if no such path exists.
     size_t path_rank(const string& name) const;

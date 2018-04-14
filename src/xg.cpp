@@ -2127,6 +2127,36 @@ Path XG::path(const string& name) const {
     
 }
 
+string XG::path_string(const Path& path) {
+    string seq;
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& m = path.mapping(i);
+        Node n = node(m.position().node_id());
+        seq.append(mapping_sequence(m, n));
+    }
+    return seq;
+}
+
+Alignment XG::path_as_alignment(const string& name) {
+    return path_as_alignment(path(name));
+}
+
+Alignment XG::path_as_alignment(const Path& path) {
+    Alignment aln;
+    *aln.mutable_path() = path;
+    aln.set_name(aln.path().name());
+    aln.set_sequence(path_string(aln.path()));
+    return aln;
+}
+
+vector<Alignment> XG::paths_as_alignments(void) {
+    vector<Alignment> alns;
+    for (size_t i = 0; i < paths.size(); ++i) {
+        alns.emplace_back(path_as_alignment(path_name(i+1)));
+    }
+    return alns;
+}
+
 const XGPath& XG::get_path(const string& name) const {
     return *paths[path_rank(name)-1];
 }
@@ -5135,12 +5165,15 @@ pair<int64_t, int64_t> XG::thread_start(int64_t thread_id, bool is_rev) const {
 string XG::thread_name(int64_t thread_id) const {
     // How many forward threads are there?
     // Don't use side_thread_wt since it is only filled in if the gPBWT is used.
-    size_t thread_count = tn_cbv_rank(tn_cbv.size()) - 1;
+    //size_t thread_count = tn_cbv_rank(tn_cbv.size()) - 1;
 
     // convert to forward thread
+    /*
     if (thread_id > thread_count) {
         thread_id -= thread_count;
     }
+    */
+    //thread_id -= (thread_id+1) % 2;
     return extract(tn_csa,
                    tn_cbv_select(thread_id)+1, // skip delimiter
                    tn_cbv_select(thread_id+1)-1); // to next-1
