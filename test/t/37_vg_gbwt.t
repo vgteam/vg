@@ -15,7 +15,7 @@ vg ids -j x.vg y.vg
 
 
 # Chromosome X
-vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
+vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
 is $(vg gbwt -c x.gbwt) 2 "there are 2 threads for chromosome x"
 
 # Full extraction of threads
@@ -42,7 +42,7 @@ is $(vg gbwt -c xy2.gbwt) 4 "there are 4 threads in the merged index"
 cmp xy.gbwt xy2.gbwt
 is $? 0 "the merged indexes are identical"
 
-rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt
+rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt x.xg
 
 
 # Build a GBWT for paths
