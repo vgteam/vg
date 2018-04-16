@@ -28,7 +28,7 @@ CXXFLAGS := -O3 -fopenmp -std=c++11 -ggdb -g -MMD -MP $(CXXFLAGS)
 
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lsublinearLS -lhts -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures
+LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lsublinearLS -lhts -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce
 
 ifeq ($(shell uname -s),Darwin)
 	# We may need libraries from Macports
@@ -84,7 +84,10 @@ ROCKSDB_PORTABLE=PORTABLE=1 # needed to build rocksdb without weird assembler op
 LD_LIB_FLAGS += -lrocksdb
 ROCKSDB_LDFLAGS = $(shell grep PLATFORM_LDFLAGS deps/rocksdb/make_config.mk | cut -d '=' -f2 | sed s/-ljemalloc// | sed s/-ltcmalloc// | sed s/-ltbb//)
 
-STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
+# When building statically, we need to tell the linker not to bail if it sees multiple definitions.
+# libc on e.g. our Jenkins host does not define malloc as weak, so tcmalloc can't override it in a static build.
+# TODO: Why did this problem only begin to happen when libvw was added?
+STATIC_FLAGS=-static -static-libstdc++ -static-libgcc -Wl,--allow-multiple-definition 
 
 # These are put into libvg. Grab everything except main.
 OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cpp)))
@@ -120,7 +123,8 @@ LINLS_DIR:=deps/sublinear-Li-Stephens
 STRUCTURES_DIR:=deps/structures
 BACKWARD_CPP_DIR:=deps/backward-cpp
 ELFUTILS_DIR:=deps/elfutils
-STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
+BOOST_DIR:=deps/boost-subset
+VOWPALWABBIT_DIR:=deps/vowpal_wabbit
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
@@ -154,6 +158,9 @@ LIB_DEPS += $(LIB_DIR)/libraptor2.a
 LIB_DEPS += $(LIB_DIR)/libfml.a
 LIB_DEPS += $(LIB_DIR)/libsublinearLS.a
 LIB_DEPS += $(LIB_DIR)/libstructures.a
+LIB_DEPS += $(LIB_DIR)/libvw.a
+LIB_DEPS += $(LIB_DIR)/liballreduce.a
+LIB_DEPS += $(LIB_DIR)/libboost_program_options.a
 ifneq ($(shell uname -s),Darwin)
 	# On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
 	# backward-cpp will use.
@@ -325,6 +332,31 @@ $(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/*.c $(RAPTOR_DIR)/src/*.h
 
 $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp 
 	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
+    
+# To build libvw we need to point it at our Boost, but then configure decides
+# it needs to build vwdll, which depends on codecvt, which isn't actually
+# shipped in the GCC 4.9 STL. So we hack vwdll AKA libvw_c_wrapper out of the
+# build.
+# Also, autogen.sh looks for Boost in the system, and who knows what it will do
+# if it doesn't find it, so let it fail.
+$(LIB_DIR)/libvw.a: $(LIB_DIR)/libboost_program_options.a $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/*
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.pc//g' Makefile.am
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.la//g' vowpalwabbit/Makefile.am
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper\.pc/d' configure.ac
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/vwdll/d' Makefile.am
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper/d' vowpalwabbit/Makefile.am
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && (./autogen.sh || true)
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && ./configure --with-boost=$(CWD)
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && $(MAKE) $(FILTER)
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/.libs/libvw.a vowpalwabbit/.libs/liballreduce.a $(CWD)/$(LIB_DIR)/
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && mkdir -p $(CWD)/$(INC_DIR)/vowpalwabbit
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/*.h $(CWD)/$(INC_DIR)/vowpalwabbit/
+	
+$(LIB_DIR)/liballreduce.a: $(LIB_DIR)/libvw.a
+
+$(LIB_DIR)/libboost_program_options.a: $(BOOST_DIR)/libs/program_options/src/* $(BOOST_DIR)/boost/program_options/*
+	+. ./source_me.sh && cd $(BOOST_DIR) && ./bootstrap.sh --with-libraries=program_options --libdir=$(CWD)/$(LIB_DIR) --includedir=$(CWD)/$(INC_DIR) $(FILTER) && ./b2 --link=static install $(FILTER)
+	+. ./source_me.sh && if [[ $(shell uname -s) == "Darwin" ]]; then install_name_tool -id $(CWD)/$(LIB_DIR)/libboost_program_options.dylib $(CWD)/$(LIB_DIR)/libboost_program_options.dylib; fi
 
 $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 	+cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
@@ -470,6 +502,7 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gperftools && $(MAKE) clean
+	cd $(DEP_DIR) && cd vowpal_wabbit && $(MAKE) clean
 	rm -Rf $(RAPTOR_DIR)/build/*
 	## TODO vg source code
 	## TODO LRU_CACHE

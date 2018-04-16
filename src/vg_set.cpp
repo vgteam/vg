@@ -95,6 +95,10 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
             // Load chunks from all the files and pass them into XG.
             std::ifstream in(name);
             
+            if (name == "-"){
+                if (!in) throw ifstream::failure("vg_set: cannot read from stdin. Failed to open " + name);
+            }
+            
             if (!in) throw ifstream::failure("failed to open " + name);
             
             function<void(Graph&)> handle_graph = [&](Graph& graph) {
