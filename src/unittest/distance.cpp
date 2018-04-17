@@ -5,12 +5,13 @@
 #include "vg.hpp"
 #include "catch.hpp"
 #include "snarls.hpp"
+#include "distance.hpp"
 #include "testTraversal.cpp"
 #include "genotypekit.hpp"
 #include <fstream>
 namespace vg {
     namespace unittest {
-        TEST_CASE( "Traverse graph maybe",
+        TEST_CASE( "Test distance index",
                    "[dist]" ) {
         VG graph;
         Node* n1 = graph.create_node("GCA");
@@ -56,26 +57,10 @@ namespace vg {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls();
-        const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
-        NetGraph net_graph(top_snarl.start(), top_snarl.end(), top_chains, top_unary_snarls, &graph, false);
+        DistanceIndex di = makeDistanceIndex(&graph, snarl_manager); 
         
         SECTION( "TRAVERSE GRAPH" ) {
-            const vector<const Snarl*>& snarls = 
-                                               snarl_manager.top_level_snarls();
-            for (int i = 0; i < snarls.size(); i++) {
-                Snarl snarl = *snarls[i];
-                NetGraph ng = snarl_manager.net_graph_of(&snarl,&graph,true);
-                handle_t handle = ng.get_start();
-                auto printHandle= [&]( const handle_t& h )->bool {
-                    if (snarl_manager.is_leaf(&snarl)){
-                    std::cout << ng.get_sequence(h);}
-                    return true;
-                    };
-                id_t id = ng.get_id(handle);
-                
-                std::cout << ng.get_sequence(handle);  
-                ng.follow_edges(handle, false, printHandle);
-            }
+            REQUIRE(true);
         }
     }
     }    

@@ -15,7 +15,7 @@ namespace vg {
         visit_to_index maps each visit (node_id, negative if reverse) to an int
         distances stores all the distance bewteen each pair of visits in a snarl
         */
-        unordered_map<int, size_t>* visit_to_index;
+        unordered_map<pair<id_t, bool>, size_t>* visit_to_index;
         vector<int64_t>* distances;
     };
 
@@ -27,4 +27,7 @@ namespace vg {
              //map from node id of first nodein snarl
         unordered_map<id_t, ChainDistances*> cd;
     };
+      
+    
+    DistanceIndex makeDistanceIndex(VG* graph, SnarlManager& sm);
 }
