@@ -108,6 +108,9 @@ namespace vg {
         /// Converts a MultipathAlignmentGraph to a GraphViz Dot representation, output to the given ostream.
         void to_dot(ostream& out) const;
         
+        /// Get lists of the vg node IDs that participate in each connected component in the MultipathAlignmentGraph
+        vector<vector<id_t>> get_connected_components() const;
+        
         /// Does the multipath alignment xgraph have any nodes?
         bool empty();
         

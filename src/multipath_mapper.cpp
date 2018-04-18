@@ -400,19 +400,37 @@ namespace vg {
         cerr << "rescued alignment is " << pb2json(rescue_multipath_aln) << endl;
         cerr << "rescued alignment has effective match length " << pseudo_length(rescue_multipath_aln) / 3 << ", which gives p-value " << random_match_p_value(pseudo_length(rescue_multipath_aln) / 3, rescue_multipath_aln.sequence().size()) << endl;
 #endif
-        return (raw_mapq >= min(25, max_mapping_quality)
-                && random_match_p_value(
-                    pseudo_length(rescue_multipath_aln) / 3,
-                    rescue_multipath_aln.sequence().size()) < max_mapping_p_value * 0.1);
+
+        
+        if (raw_mapq < min(25, max_mapping_quality)) {
+#ifdef debug_multipath_mapper
+            cerr << "rescue fails because raw_mapq " << raw_mapq << " < " << min(25, max_mapping_quality) << endl;
+#endif
+            return false;
+        }
+        
+        auto p_val = random_match_p_value(pseudo_length(rescue_multipath_aln) / 3, rescue_multipath_aln.sequence().size());
+        
+        if (p_val >= max_mapping_p_value * 0.1) {
+#ifdef debug_multipath_mapper
+            cerr << "rescue fails because p value " << p_val << " >= " <<  (max_mapping_p_value * 0.1) << endl;
+#endif
+            return false;
+        }
+        
+        return true;
     }
     
     bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) {
+    
+        // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
+        auto p_val = random_match_p_value(pseudo_length(multipath_aln) / 3, multipath_aln.sequence().size());
+    
 #ifdef debug_multipath_mapper
-        cerr << "effective match length of read " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) / 3 << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << random_match_p_value(pseudo_length(multipath_aln) / 3, multipath_aln.sequence().size()) << endl;
+        cerr << "effective match length of read " << multipath_aln.name() << " is " << pseudo_length(multipath_aln) / 3 << " in read length " << multipath_aln.sequence().size() << ", yielding p-value " << p_val << endl;
 #endif
         
-        // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
-        return random_match_p_value(pseudo_length(multipath_aln) / 3, multipath_aln.sequence().size()) > max_mapping_p_value;
+        return p_val > max_mapping_p_value;
     }
     
     size_t MultipathMapper::pseudo_length(const MultipathAlignment& multipath_aln) const {
@@ -961,7 +979,10 @@ namespace vg {
                     cerr << "cluster " << i << " is already in a pair" << endl;
 #endif
 
-                    continue;
+#ifdef debug_multipath_mapper
+                    cerr << "keep rescuing anyway" << endl;
+#endif
+                    //continue;
                 }
                 
 #ifdef debug_multipath_mapper
@@ -969,6 +990,9 @@ namespace vg {
 #endif
                 
                 if (get<2>(cluster_graphs[i]) * get_aligner()->match < max_score - max_score_diff) {
+#ifdef debug_multipath_mapper
+                    cerr << "the approximate score of the remaining is too low to consider" << endl;
+#endif
                     // the approximate score of the remaining is too low to consider
                     break;
                 }
@@ -1020,7 +1044,15 @@ namespace vg {
                                 
                             }
                         }
+                    } else {
+#ifdef debug_multipath_mapper
+                        cerr << "rescue failed" << endl;
+#endif 
                     }
+                } else {
+#ifdef debug_multipath_mapper
+                    cerr << "rescued alignment is likely a mismapping" << endl;
+#endif
                 }
                 
                 num_rescues++;
@@ -1075,7 +1107,12 @@ namespace vg {
             
             // merge the rescued secondaries into the return vector
             merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, rescued_secondaries, rescued_distances);
+        } else {
+#ifdef debug_multipath_mapper
+            cerr << "no rescues succeeded" << endl;
+#endif
         }
+        
     }
     
     void MultipathMapper::multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
@@ -2173,6 +2210,9 @@ namespace vg {
         
         // make the graph we need to align to
         // TODO: can I do this without the copy constructor for the forward strand?
+#ifdef debug_multipath_mapper_alignment
+        cerr << "use_single_stranded: " << use_single_stranded << " mem_strand: " << mem_strand << endl;
+#endif
         VG align_graph = use_single_stranded ? (mem_strand ? vg->reverse_complement_graph(node_trans) : *vg) : vg->split_strands(node_trans);
         
         // if we are using only the forward strand of the current graph, a make trivial node translation so
@@ -2225,13 +2265,38 @@ namespace vg {
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
             multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
             
+#ifdef debug_multipath_mapper_alignment
+            cerr << "align_graph has " << align_graph.node_count() << " nodes and " << align_graph.edge_count() << " edges" << endl;
+            cerr << "*vg has " << vg->node_count() << " nodes and " << vg->edge_count() << " edges" << endl;
+            
+            for (size_t i = 0; i < min(align_graph.graph.node_size(), vg->graph.node_size()); i++) {
+                cerr << "Entry " << i << ": " << align_graph.graph.node(i).id() << " vs " << vg->graph.node(i).id() << endl;
+            }
+            
+#endif
+            
             // But then we need to reconstruct the reachability edges afterwards
-            multi_aln_graph.add_reachability_edges(*vg, node_trans, node_inj);
+            multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
         }
 
 #ifdef debug_multipath_mapper_alignment
         cerr << "MultipathAlignmentGraph going into alignment:" << endl;
         multi_aln_graph.to_dot(cerr);
+        
+        for (auto& ids : multi_aln_graph.get_connected_components()) {
+            cerr << "Component: ";
+            for (auto& id : ids) {
+                cerr << id << " ";
+            }
+            cerr << endl;
+        }
+        
+        {
+            static int dumpnum = 0;
+            ofstream graph_out("graph" + to_string(dumpnum++) + ".dot");
+            multi_aln_graph.to_dot(graph_out);
+            
+        }
 #endif
         
         // do the connecting alignments and fill out the MultipathAlignment object
@@ -2496,6 +2561,11 @@ namespace vg {
     // TODO: pretty duplicative with the unpaired version
     void MultipathMapper::sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
                                                            vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const {
+        
+#ifdef debug_multipath_mapper
+        cerr << "Sorting and computing mapping qualities for paired reads" << endl;
+#endif
+        
         assert(multipath_aln_pairs.size() == cluster_pairs.size());
         
         if (multipath_aln_pairs.empty()) {
