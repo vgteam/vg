@@ -4,8 +4,8 @@
 //
 //
 
-//#define debug_multipath_mapper
-//#define debug_multipath_mapper_alignment
+#define debug_multipath_mapper
+#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
 
@@ -13,6 +13,7 @@
 #include "multipath_alignment_graph.hpp"
 
 #include "algorithms/topological_sort.hpp"
+#include "annotation.hpp"
 
 namespace vg {
     
@@ -1430,10 +1431,18 @@ namespace vg {
             }
         }
         
-        // add pair names
+        // Compute the fragment length distribution.
+        // TODO: make this machine-readable instead of a copy-able string.
+        string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.stdev());
+        
         for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
+            // add pair names to connect the paired reads
             multipath_aln_pair.first.set_paired_read_name(multipath_aln_pair.second.name());
             multipath_aln_pair.second.set_paired_read_name(multipath_aln_pair.first.name());
+            
+            // Annotate with paired end distribution
+            set_annotation(&multipath_aln_pair.first, "fragment_length_distribution", distribution);
+            set_annotation(&multipath_aln_pair.second, "fragment_length_distribution", distribution);
         }
         
         // clean up the VG objects on the heap
@@ -2217,7 +2226,7 @@ namespace vg {
             multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
             
             // But then we need to reconstruct the reachability edges afterwards
-            multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
+            multi_aln_graph.add_reachability_edges(*vg, node_trans, node_inj);
         }
 
 #ifdef debug_multipath_mapper_alignment

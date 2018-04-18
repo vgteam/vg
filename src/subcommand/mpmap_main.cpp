@@ -886,6 +886,11 @@ int main_mpmap(int argc, char** argv) {
             // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
+            if (mp_aln.has_annotation()) {
+                // Move over annotations
+                output_buf.back().set_allocated_annotation(mp_aln.release_annotation());
+            }
+            
             // label with read group and sample name
             if (!read_group.empty()) {
                 output_buf.back().set_read_group(read_group);
