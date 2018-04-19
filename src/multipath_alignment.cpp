@@ -8,6 +8,7 @@
 
 #include <type_traits>
 
+#define debug_multiple_tracebacks
 //#define debug_verbose_validation
 
 using namespace std;
@@ -328,13 +329,16 @@ namespace vg {
         aln_out.set_score(score);
     }
     
-    
     int32_t optimal_alignment_score(const MultipathAlignment& multipath_aln){
         // do dynamic programming without traceback
         return optimal_alignment_internal(multipath_aln, nullptr);
     }
     
     vector<Alignment> optimal_alignments(const MultipathAlignment& multipath_aln, size_t count) {
+        
+#ifdef debug_multiple_tracebacks
+        cerr << "Computing top " << count << " alignments" << endl;
+#endif
         
         // Keep a list of what we're going to emit.
         vector<Alignment> to_return;
@@ -364,12 +368,19 @@ namespace vg {
                 // The item belongs in the queue because it fits or it beats
                 // the current worst thing.
                 queue.push(item);
+            } else {
+#ifdef debug_multiple_tracebacks
+                cerr << "Rejected! Queue is full!" << endl;
+#endif
             }
             
             while(queue.size() > max_size) {
                 // We have more possibilities than we need to consider to emit
                 // the top count alignments. Get rid of the worst one.
                 queue.pop_max();
+#ifdef debug_multiple_tracebacks
+                cerr << "Existing item displaced!" << endl;
+#endif
             }
         };
         
@@ -422,6 +433,10 @@ namespace vg {
                 // The path is just to be here
                 step_list_t starting_path{i};
                 
+#ifdef debug_multiple_tracebacks
+                cerr << "Could start at subpath " << i << " with penalty " << penalty << endl;
+#endif
+                
                 try_enqueue(make_pair(penalty, starting_path));
             }
         }
@@ -437,8 +452,18 @@ namespace vg {
             
             assert(!basis.empty());
             
+#ifdef debug_multiple_tracebacks
+            size_t basis_size = 0;
+            for (auto& i : basis) {
+                basis_size++;
+            }
+            cerr << "Consider " << basis_size << " element traceback to " << basis.front() << " with penalty "
+                 << basis_score_difference << endl;
+            cerr << "\t" << pb2json(multipath_aln.subpath(basis.front()).path()) << endl;
+#endif
+            
             if (problem.prev_subpath[basis.front()] == -1) {
-                // If it leads all the way to a read that is optimal as a start
+                // If it leads all the way to a subpath that is optimal as a start
                 
                 // Make an Alignment to emit it in
                 to_return.emplace_back();
@@ -454,6 +479,11 @@ namespace vg {
                 
                 // Set score
                 aln_out.set_score(opt_score - basis_score_difference);
+                
+#ifdef debug_multiple_tracebacks
+                cerr << "Traceback reaches end; emit with score " << aln_out.score() << endl;
+#endif
+                
             } else {
                 // The path does not lead all the way to a source
                 
@@ -495,6 +525,10 @@ namespace vg {
                     
                     // Calculate the score differences from optimal
                     auto total_penalty = basis_score_difference + additional_penalty;
+                    
+#ifdef debug_multiple_tracebacks
+                    cerr << "\tAugment with " << prev << " to penalty " << total_penalty << endl;
+#endif
                     
                     // Put them in the priority queue
                     try_enqueue(make_pair(total_penalty, extended_path));

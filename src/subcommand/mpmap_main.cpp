@@ -881,8 +881,15 @@ int main_mpmap(int argc, char** argv) {
         auto& output_buf = single_path_output_buffer[omp_get_thread_num()];
         // add optimal alignments to the output buffer
         for (MultipathAlignment& mp_aln : mp_alns) {
-            output_buf.emplace_back();
-            optimal_alignment(mp_aln, output_buf.back());
+            // For each multipath alignment, get the greedy nonoverlapping
+            // single-path alignments from the top k optimal single-path
+            // alignments.
+            vector<Alignment> options;
+            multipath_mapper.reduce_to_single_path(mp_aln, options, 5);
+            
+            // There will always be at least one result. Use the optimal alignment.
+            output_buf.emplace_back(std::move(options.front()));
+            
             // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
@@ -949,8 +956,18 @@ int main_mpmap(int argc, char** argv) {
         // add optimal alignments to the output buffer
         for (pair<MultipathAlignment, MultipathAlignment>& mp_aln_pair : mp_aln_pairs) {
             
-            output_buf.emplace_back();
-            optimal_alignment(mp_aln_pair.first, output_buf.back());
+            // Compute nonoverlapping single path alignments for each multipath alignment
+            vector<Alignment> options;
+            multipath_mapper.reduce_to_single_path(mp_aln_pair.first, options, 50);
+            
+            // There will always be at least one result. Use the optimal alignment.
+            output_buf.emplace_back(std::move(options.front()));
+            
+            if (mp_aln_pair.first.has_annotation()) {
+                // Move over annotations
+                output_buf.back().set_allocated_annotation(mp_aln_pair.first.release_annotation());
+            }
+            
             // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
@@ -964,8 +981,16 @@ int main_mpmap(int argc, char** argv) {
             // arbitrarily decide that this is the "previous" fragment
             output_buf.back().mutable_fragment_next()->set_name(mp_aln_pair.second.name());
             
-            output_buf.emplace_back();
-            optimal_alignment(mp_aln_pair.second, output_buf.back());
+            // Now do the second read
+            options.clear();
+            multipath_mapper.reduce_to_single_path(mp_aln_pair.second, options, 50);
+            output_buf.emplace_back(std::move(options.front()));
+            
+            if (mp_aln_pair.second.has_annotation()) {
+                // Move over annotations
+                output_buf.back().set_allocated_annotation(mp_aln_pair.second.release_annotation());
+            }
+            
             // compute identity again
             output_buf.back().set_identity(identity(output_buf.back().path()));
             

@@ -979,10 +979,7 @@ namespace vg {
                     cerr << "cluster " << i << " is already in a pair" << endl;
 #endif
 
-#ifdef debug_multipath_mapper
-                    cerr << "keep rescuing anyway" << endl;
-#endif
-                    //continue;
+                    continue;
                 }
                 
 #ifdef debug_multipath_mapper
@@ -1488,6 +1485,85 @@ namespace vg {
         }
         for (auto cluster_graph : cluster_graphs2) {
             delete get<0>(cluster_graph);
+        }
+    }
+    
+    void MultipathMapper::reduce_to_single_path(const MultipathAlignment& multipath_aln, vector<Alignment>& alns_out,
+                                                size_t max_alt_mappings) const {
+    
+#ifdef debug_multipath_mapper
+        cerr << "linearizing multipath alignment" << endl;
+#endif        
+        // Compute a few optimal alignments
+        auto alns = optimal_alignments(multipath_aln, max_alt_mappings + 1);
+        
+        assert(!alns.empty());
+        
+        // Make a list of all the scores
+        vector<double> scores(1, alns[0].score());
+        // Emit the alignment
+        alns_out.push_back(alns[0]);
+        
+#ifdef debug_multipath_mapper
+        cerr << "found optimal mapping with score " << alns_out[0].score() << endl;
+        cerr << "\t" << pb2json(alns_out[0]) << endl;
+#endif
+        
+        // Find all the nodes touched by the best alignment
+        unordered_set<id_t> in_best;
+        for (auto& m : alns[0].path().mapping()) {
+            // Put each node in the set
+            in_best.insert(m.position().node_id());
+        }
+        
+        for (size_t i = 1; i < alns.size(); i++) {
+            // For each other alignment, decide if it overlaps the best one
+            size_t overlapped = 0;
+            for (auto& m : alns[i].path().mapping()) {
+                if (in_best.count(m.position().node_id())) {
+                    overlapped++;
+                }
+            }
+            
+#ifdef debug_multipath_mapper
+            cerr << "found suboptimal mapping overlapping " << overlapped << "/" << alns[i].path().mapping_size() << " with score " 
+                << alns[i].score() << endl;
+            cerr << "\t" << pb2json(alns[i]) << endl;
+#endif
+            
+            if (overlapped == 0) {
+                // This is a nonoverlapping alignment so we want to emit it
+                // Save its score
+                scores.push_back(alns[i].score());
+                // Emit the alignment
+                alns_out.push_back(alns[i]);
+                
+                // Don't overlap with it either.
+                for (auto& m : alns[i].path().mapping()) {
+                    // Put each node in the set
+                    in_best.insert(m.position().node_id());
+                }
+            }
+        }
+        
+#ifdef debug_multipath_mapper
+        cerr << "overall found optimal mapping with score " << alns_out[0].score() << " plus " << (alns_out.size() - 1)
+            << " of " << max_alt_mappings << " alternate linearizations";
+        if (alns_out.size() >= 2) {
+            cerr << " with best score " << alns_out[1].score();
+        }
+        cerr << endl;
+#endif   
+       
+        if (mapping_quality_method != None) {
+            // Now compute the MAPQ for the best alignment
+            auto placement_mapq = compute_raw_mapping_quality_from_scores(scores, mapping_quality_method);
+            // And min it in with what;s there already.
+            alns_out[0].set_mapping_quality(min(alns_out[0].mapping_quality(), placement_mapq));
+            for (size_t i = 1; i < alns_out.size(); i++) {
+                // And zero all the others
+                alns_out[i].set_mapping_quality(0);
+            }
         }
     }
     
@@ -2265,16 +2341,6 @@ namespace vg {
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
             multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
             
-#ifdef debug_multipath_mapper_alignment
-            cerr << "align_graph has " << align_graph.node_count() << " nodes and " << align_graph.edge_count() << " edges" << endl;
-            cerr << "*vg has " << vg->node_count() << " nodes and " << vg->edge_count() << " edges" << endl;
-            
-            for (size_t i = 0; i < min(align_graph.graph.node_size(), vg->graph.node_size()); i++) {
-                cerr << "Entry " << i << ": " << align_graph.graph.node(i).id() << " vs " << vg->graph.node(i).id() << endl;
-            }
-            
-#endif
-            
             // But then we need to reconstruct the reachability edges afterwards
             multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
         }
@@ -2289,13 +2355,6 @@ namespace vg {
                 cerr << id << " ";
             }
             cerr << endl;
-        }
-        
-        {
-            static int dumpnum = 0;
-            ofstream graph_out("graph" + to_string(dumpnum++) + ".dot");
-            multi_aln_graph.to_dot(graph_out);
-            
         }
 #endif
         
@@ -2386,6 +2445,37 @@ namespace vg {
                 }
             }
         }
+    }
+    
+    int32_t MultipathMapper::compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method) const {
+   
+        // We should never actually compute a MAPQ with the None method. If we try, it means something has gonbe wrong.
+        assert(mapq_method != None);
+   
+        // TODO: BaseAligner's mapping quality computation insists on sometimes appending a 0 to your score list.
+        // We don't want to take a mutable score list, so we copy it here.
+        // This can be removed when BaseAligner is fixed to take const score lists.
+        vector<double> mutable_scores(scores.begin(), scores.end());
+   
+        int32_t raw_mapq;
+        if (mapping_quality_method == Adaptive) {
+            raw_mapq = get_aligner()->compute_mapping_quality(mutable_scores, mutable_scores.size() < 2 ? true :
+                                                              (mutable_scores[1] < mutable_scores[0] - 
+                                                              get_aligner()->mapping_quality_score_diff(max_mapping_quality)));
+        }
+        else {
+            raw_mapq = get_aligner()->compute_mapping_quality(mutable_scores, mapping_quality_method == Approx);
+        }
+        
+        // arbitrary scaling, seems to help performance
+        raw_mapq *= mapq_scaling_factor;
+        
+#ifdef debug_multipath_mapper
+        cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
+#endif
+
+        return raw_mapq;
+
     }
     
     void MultipathMapper::sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns,
@@ -2539,21 +2629,9 @@ namespace vg {
 #endif
         
         if (mapq_method != None) {
-            int32_t raw_mapq;
-            if (mapq_method == Adaptive) {
-                raw_mapq = get_aligner()->compute_mapping_quality(scores, scores.size() < 2 ? true :
-                                                                  (scores[1] < scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)));
-            }
-            else {
-                raw_mapq = get_aligner()->compute_mapping_quality(scores, mapq_method == Approx);
-            }
-            
-            // arbitrary scaling, seems to help performance
-            raw_mapq *= mapq_scaling_factor;
-            
-#ifdef debug_multipath_mapper
-            cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
-#endif
+            // Sometimes we are passed None, which means to not update the MAPQs at all. But otherwise, we do MAPQs.
+            // Compute and set the mapping quality
+            int32_t raw_mapq = compute_raw_mapping_quality_from_scores(scores, mapq_method);
             multipath_alns.front().set_mapping_quality(min<int32_t>(raw_mapq, max_mapping_quality));
         }
     }
@@ -2721,21 +2799,9 @@ namespace vg {
 #endif
         
         if (mapping_quality_method != None) {
-            int32_t raw_mapq;
-            if (mapping_quality_method == Adaptive) {
-                raw_mapq = get_aligner()->compute_mapping_quality(scores, scores.size() < 2 ? true :
-                                                                  (scores[1] < scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)));
-            }
-            else {
-                raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
-            }
-            
-            // arbitrary scaling, seems to help performance
-            raw_mapq *= mapq_scaling_factor;
-            
-#ifdef debug_multipath_mapper
-            cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
-#endif
+            // Compute the raw mapping quality
+            int32_t raw_mapq = compute_raw_mapping_quality_from_scores(scores, mapping_quality_method);
+            // Limit it to the max.
             int32_t mapq = min<int32_t>(raw_mapq, max_mapping_quality);
             multipath_aln_pairs.front().first.set_mapping_quality(mapq);
             multipath_aln_pairs.front().second.set_mapping_quality(mapq);
