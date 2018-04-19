@@ -62,6 +62,20 @@ namespace vg {
     ///
     vector<Alignment> optimal_alignments(const MultipathAlignment& multipath_aln, size_t count);
     
+    /// Finds k or fewer top-scoring alignments starting at distinct subpaths and ending at distinct subpaths.
+    /// Asymmetrical: the optimal alignment for each end subpath is found, greedily, subject to the constraint,
+    /// but the start subpaths are first-come first-serve. Also, distinct subpaths may not guarantee distinct
+    /// actual alignments, so alignments may need deduplication.
+    ///
+    /// Note: Assumes that each subpath's Path object uses one Mapping per node and that
+    /// start subpaths have been identified
+    ///
+    ///  Args:
+    ///    multipath_aln     multipath alignment to find optimal paths through
+    ///    count             maximum number of top alignments to return
+    ///
+    vector<Alignment> optimal_alignments_with_distinct_ends(const MultipathAlignment& multipath_aln, size_t count);
+    
     /// Stores the reverse complement of a MultipathAlignment in another MultipathAlignment
     ///
     ///  Args:

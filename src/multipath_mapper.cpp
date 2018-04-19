@@ -4,8 +4,8 @@
 //
 //
 
-#define debug_multipath_mapper
-#define debug_multipath_mapper_alignment
+//#define debug_multipath_mapper
+//#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
 
@@ -1494,8 +1494,10 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "linearizing multipath alignment" << endl;
 #endif        
-        // Compute a few optimal alignments
-        auto alns = optimal_alignments(multipath_aln, max_alt_mappings + 1);
+        // Compute a few optimal alignments starting/ending with distinct subpaths.
+        // This hopefully gives us a feel for the positional diversity of the MultipathMapping.
+        // But we still may have duplicates or overlaps.
+        auto alns = optimal_alignments_with_distinct_ends(multipath_aln, max_alt_mappings + 1);
         
         assert(!alns.empty());
         
