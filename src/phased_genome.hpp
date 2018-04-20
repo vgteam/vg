@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <cassert>
 #include <list>
+#include <algorithm>
 #include "vg.pb.h"
 #include "vg.hpp"
 #include "nodetraversal.hpp"
@@ -99,10 +100,16 @@ namespace vg {
         void set_allele(const Snarl& site, NodeTraversalIterator first, NodeTraversalIterator last,
                         int which_haplotype);
         
-        // Returns the score of the highest scoring alignment contained in the multipath alignment
-        // that is restricted to the phased genome's paths through the variation graph.
-        //
-        // Note: assumes that MultipathAlignment has 'start' field filled in
+        /// Returns a vector of node traversals representing the allele at the indicated site on
+        /// the indicated haplotype. The allele is returned in the orientation of the Snarl (start
+        /// to end), not necessarily the orientation on the haplotype. The start and end nodes
+        /// of the Snarl are not included in the allele.
+        vector<NodeTraversal> get_allele(const Snarl& site, int which_haplotype);
+        
+        /// Returns the score of the highest scoring alignment contained in the multipath alignment
+        /// that is restricted to the phased genome's paths through the variation graph.
+        ///
+        /// Note: assumes that MultipathAlignment has 'start' field filled in
         int32_t optimal_score_on_genome(const MultipathAlignment& multipath_aln, VG& graph);
         
         // TODO: make a local subalignment optimal score function (main obstacle is scoring partial subpaths)
