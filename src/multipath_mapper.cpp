@@ -1499,7 +1499,22 @@ namespace vg {
         // But we still may have duplicates or overlaps in vg node space.
         auto alns = optimal_alignments_with_disjoint_subpaths(multipath_aln, max_alt_mappings + 1);
         
-        assert(!alns.empty());
+        if (alns.empty()) {
+            // This happens only if the read is totally unmapped
+            assert(multipath_aln.subpath_size() == 0);
+            
+            // Output an unmapped alignment.
+            alns_out.emplace_back();
+            Alignment& aln = alns_out.back();
+            
+            // Transfer read information over to alignment
+            transfer_read_metadata(multipath_aln, aln);
+            
+            // Score and MAPQ and path and stuff will all be 0.
+            return;
+        }
+        
+        // Otherwise we know there is at least one non-unmapped mapping
         
         // Make a list of all the scores
         vector<double> scores(1, alns[0].score());

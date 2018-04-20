@@ -64,9 +64,10 @@ namespace vg {
                                   size_t max_alt_mappings);
                                   
         /// Given a mapped MultipathAlignment, reduce it to up to
-        /// max_alt_mappings nonoverlapping single path alignments, with
+        /// max_alt_mappings + 1 nonoverlapping single path alignments, with
         /// mapping qualities accounting for positional uncertainty between
         /// them.
+        /// Even if the read is unmapped, there will always be at least one (possibly score 0) output alignment.
         void reduce_to_single_path(const MultipathAlignment& multipath_aln, vector<Alignment>& alns_out, size_t max_alt_mappings) const;
         
         /// Sets the minimum clustering MEM length to the approximate length that a MEM would have to be to

@@ -53,6 +53,8 @@ namespace vg {
     /// Note that some or all of these may be duplicate Alignments, which were spelled out
     /// by tracebacks through different sequences of subpaths that shared alignment material.
     ///
+    /// If the best alignment is no alignment (i.e. the read is unmapped), returns an empty vector.
+    ///
     /// Note: Assumes that each subpath's Path object uses one Mapping per node and that
     /// start subpaths have been identified
     ///
@@ -66,6 +68,8 @@ namespace vg {
     /// Asymmetrical: the optimal alignment for each end subpath is found, greedily, subject to the constraint,
     /// but the other subpaths are first-come first-serve. Also, distinct subpaths may not guarantee distinct
     /// actual alignments, so alignments may need deduplication.
+    ///
+    /// If the best alignment is no alignment (i.e. the read is unmapped), returns an empty vector.
     ///
     /// Note: Assumes that each subpath's Path object uses one Mapping per node and that
     /// start subpaths have been identified
