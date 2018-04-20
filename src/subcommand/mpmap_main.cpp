@@ -958,7 +958,7 @@ int main_mpmap(int argc, char** argv) {
             
             // Compute nonoverlapping single path alignments for each multipath alignment
             vector<Alignment> options;
-            multipath_mapper.reduce_to_single_path(mp_aln_pair.first, options, 50);
+            multipath_mapper.reduce_to_single_path(mp_aln_pair.first, options, 5);
             
             // There will always be at least one result. Use the optimal alignment.
             output_buf.emplace_back(std::move(options.front()));
@@ -983,7 +983,7 @@ int main_mpmap(int argc, char** argv) {
             
             // Now do the second read
             options.clear();
-            multipath_mapper.reduce_to_single_path(mp_aln_pair.second, options, 50);
+            multipath_mapper.reduce_to_single_path(mp_aln_pair.second, options, 5);
             output_buf.emplace_back(std::move(options.front()));
             
             if (mp_aln_pair.second.has_annotation()) {
