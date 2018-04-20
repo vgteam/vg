@@ -541,10 +541,10 @@ namespace vg {
         
     }
     
-    vector<Alignment> optimal_alignments_with_distinct_ends(const MultipathAlignment& multipath_aln, size_t count) {
+    vector<Alignment> optimal_alignments_with_disjoint_subpaths(const MultipathAlignment& multipath_aln, size_t count) {
         
 #ifdef debug_multiple_tracebacks
-        cerr << "Computing top " << count << " alignments with distinct endpoints" << endl;
+        cerr << "Computing top " << count << " alignments with disjoint subpaths" << endl;
 #endif
         
         // Keep a list of what we're going to emit.
@@ -608,24 +608,46 @@ namespace vg {
             }
         }
         
-        // Keep a set of the starting subpaths that have been used, so we can
-        // reject them. TODO: We get the optimal alignment for each end,
-        // subject to the constraint, but a start may be used in a suboptimal
-        // alignment for that start, and we may never see its optimal
+        // Keep a bit vector of the subpaths that have been used, so we can reject
+        // them. TODO: We get the optimal alignment for each end, subject to
+        // the constraint, but any other subpath may be used in a suboptimal
+        // alignment for that subpath, and we may never see its optimal
         // alignment.
-        unordered_set<size_t> used_starts;
+        vector<bool> subpath_is_used(multipath_aln.subpath_size(), false);
         
         while (!end_queue.empty() && to_return.size() < count) {
             // For each distinct ending subpath in the multipath
             
 #ifdef debug_multiple_tracebacks
-            cerr << "Look for an alignment ending with " << end_queue.min().second.front() << endl;
+            cerr << "Look for alignment " << to_return.size() << " ending with " << end_queue.min().second.front() << endl;
 #endif
             
             // Make a real queue for starting from it
             MinMaxHeap<pair<int32_t, step_list_t>> queue;
             queue.push(end_queue.min());
             end_queue.pop_min();
+            
+            if (subpath_is_used[queue.min().second.front()]) {
+                // We shouldn't ever have the place we want to trace back from already used, but if it is already used we don't want to use it.
+                
+#ifdef debug_multiple_tracebacks
+                cerr << "Skip " << queue.min().second.front() << " because it was already emitted in a previous traceback" << endl;
+#endif
+                
+                continue;
+            }
+            
+            // We also want to remember the lowest penalty with which each
+            // subpath has been queued, so we can do a real Dijkstra traversal
+            // and not waste all our time on combinatorial paths to get places
+            // with the same or higher penalty.
+            vector<size_t> min_penalty_for_subpath(multipath_aln.subpath_size(), numeric_limits<size_t>::max());
+            // Seed with the end we are starting with.
+            min_penalty_for_subpath[queue.min().second.front()] = queue.min().first;
+            
+            // We also track visited-ness, so we don;t query edges for the same thing twice.
+            // TODO: This is the world's most hacky Dijkstra and needs to be rewritten from the top with an understanding of what it is supposed to be doing.
+            vector<bool> subpath_is_visited(multipath_aln.subpath_size(), false);
         
             while (!queue.empty() && to_return.size() < count) {
                 // Each iteration
@@ -647,18 +669,31 @@ namespace vg {
                      << basis_score_difference << endl;
                 cerr << "\t" << pb2json(multipath_aln.subpath(basis.front()).path()) << endl;
 #endif
+
+                if (subpath_is_used[basis.front()]) {
+                    // We already used this start and can't use it again. Try something else.
+                    // TODO: This shouldn't happen; we are also catching this case on enqueue.
+#ifdef debug_multiple_tracebacks
+                    cerr << "Traceback reaches already used subpath; skip" << endl;
+#endif
+                    
+                    continue;
+                }
+                
+                if (subpath_is_visited[basis.front()]) {
+                    // We already processed this; this must be a higher cost version of the same thing.
+                    assert(basis_score_difference >= min_penalty_for_subpath[basis.front()]);
+                    
+#ifdef debug_multiple_tracebacks
+                    cerr << "Found more expensive version of subpath that has already been processed; skip" << endl;
+#endif
+                    
+                    continue;
+                }
+                subpath_is_visited[basis.front()] = true;
                 
                 if (problem.prev_subpath[basis.front()] == -1) {
                     // If it leads all the way to a subpath that is optimal as a start
-                    
-                    if (used_starts.count(basis.front())) {
-                        // We already used this start and can't use it again. Try something else.
-#ifdef debug_multiple_tracebacks
-                        cerr << "Traceback reaches already used start; skip" << endl;
-#endif
-                        
-                        continue;
-                    }
                     
                     // Make an Alignment to emit it in
                     to_return.emplace_back();
@@ -679,22 +714,16 @@ namespace vg {
                     cerr << "Traceback reaches start; emit with score " << aln_out.score() << endl;
 #endif
 
-                    // Record the used-ness of this start
-                    used_starts.insert(basis.front());
+                    for (auto& subpath : basis) {
+                        // Record the used-ness of all the subpaths
+                        subpath_is_used[subpath] = true;
+                    }
 
                     // Break out of this loop and try a different starting position
                     break;
                     
                 } else {
                     // The path does not lead all the way to a source
-                    
-                    // Find out all the places we can come from, and the score
-                    // penalties, relative to the optimal score for an alignment
-                    // visiting the basis's lead subpath, that we would take if we
-                    // came from each.
-                    // Note that we will only do this once per subpath, when we are
-                    // working on the optimal alignment going through that subpath.
-                    list<pair<int64_t, int32_t>> destinations;
                     
                     // The destinations will be all places we could have arrived here from
                     auto& here = basis.front();
@@ -703,34 +732,43 @@ namespace vg {
                     auto& best_prefix_score = problem.prefix_score[here];
                     
                     for (auto& prev : prev_subpaths[here]) {
-                        if (used_starts.count(prev)) {
-                            // If it was a start, we can't go through it, so we would have to start there. And someone already has.
+                        // For each candidate previous subpath
+                        
+                        if (subpath_is_used[prev]) {
+                            // This subpath has already been used in an emitted alignment, so we can't use it.
+                            
+#ifdef debug_multiple_tracebacks
+                            cerr << "\tSkip " << prev << " which is already used" << endl;
+#endif
+                            
                             continue;
                         }
-                    
+                        
                         // For each, compute the score of the optimal alignment ending at that predecessor
                         auto prev_opt_score = problem.prefix_score[prev] + multipath_aln.subpath(prev).score();
                         
                         // What's the difference we would take if we went with this predecessor?
                         auto additional_penalty = best_prefix_score - prev_opt_score;
                         
-                        destinations.emplace_back(prev, additional_penalty);
-                    }
-                    
-                    // TODO: unify loops!
-                    
-                    for (auto& destination : destinations) {
-                        // Prepend each of the things that can be prepended
+                        // Calculate the score differences from optimal
+                        auto total_penalty = basis_score_difference + additional_penalty;
                         
-                        // Unpack
-                        auto& prev = destination.first;
-                        auto& additional_penalty = destination.second;
+                        if (total_penalty >= min_penalty_for_subpath[prev]) {
+                            // This previous subpath is already reachable with a penalty as good or better.
+                            // Don't bother with it again
+                            
+#ifdef debug_multiple_tracebacks
+                            cerr << "\tSkip " << prev << " with penalty " << total_penalty << " >= " << min_penalty_for_subpath[prev] << endl;
+#endif
+                            
+                            continue;
+                        }
+                        
+                        // Record that this is the cheapest we managed to get here
+                        min_penalty_for_subpath[prev] = total_penalty;
                         
                         // Make an extended path
                         auto extended_path = basis.push_front(prev);
-                        
-                        // Calculate the score differences from optimal
-                        auto total_penalty = basis_score_difference + additional_penalty;
                         
 #ifdef debug_multiple_tracebacks
                         cerr << "\tAugment with " << prev << " to penalty " << total_penalty << endl;
@@ -739,6 +777,7 @@ namespace vg {
                         // Put them in the priority queue
                         queue.push(make_pair(total_penalty, extended_path));
                     }
+                    
                     
                 }
             }

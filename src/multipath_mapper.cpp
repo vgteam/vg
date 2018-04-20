@@ -1494,10 +1494,10 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "linearizing multipath alignment" << endl;
 #endif        
-        // Compute a few optimal alignments starting/ending with distinct subpaths.
+        // Compute a few optimal alignments using disjoint sets of subpaths.
         // This hopefully gives us a feel for the positional diversity of the MultipathMapping.
-        // But we still may have duplicates or overlaps.
-        auto alns = optimal_alignments_with_distinct_ends(multipath_aln, max_alt_mappings + 1);
+        // But we still may have duplicates or overlaps in vg node space.
+        auto alns = optimal_alignments_with_disjoint_subpaths(multipath_aln, max_alt_mappings + 1);
         
         assert(!alns.empty());
         
