@@ -507,6 +507,7 @@ int main_stats(int argc, char** argv) {
         vector<pair<vg::id_t, Edit>> deletions;
         vector<pair<vg::id_t, Edit>> substitutions;
         vector<pair<vg::id_t, Edit>> softclips;
+        vector<pair<double, size_t>> edit_distances;
 
         function<void(Alignment&)> lambda = [&](Alignment& aln) {
             int tid = omp_get_thread_num();
@@ -535,7 +536,7 @@ int main_stats(int argc, char** argv) {
                 // do something. Discard the read? Not just count it on both sides
                 // like we do now.
                 set<pair<string, string>> alleles_supported;
-
+                size_t edit_distance = 0;
                 for(size_t i = 0; i < aln.path().mapping_size(); i++) {
                     // For every mapping...
                     auto& mapping = aln.path().mapping(i);
@@ -572,6 +573,7 @@ int main_stats(int argc, char** argv) {
                                 // Record this insertion
                                 #pragma omp critical (total_inserted_bases)
                                 total_inserted_bases += edit.to_length() - edit.from_length();
+                                edit_distance += edit.to_length() - edit.from_length();
                                 #pragma omp critical (total_insertions)
                                 total_insertions++;
                                 if(verbose) {
@@ -585,6 +587,7 @@ int main_stats(int argc, char** argv) {
                             // Record this deletion
                             #pragma omp critical (total_deleted_bases)
                             total_deleted_bases += edit.from_length() - edit.to_length();
+                            edit_distance += edit.from_length() - edit.to_length();
                             #pragma omp critical (total_deletions)
                             total_deletions++;
                             if(verbose) {
@@ -597,6 +600,7 @@ int main_stats(int argc, char** argv) {
                             // TODO: a substitution might also occur as part of a deletion/insertion above!
                             #pragma omp critical (total_substituted_bases)
                             total_substituted_bases += edit.from_length();
+                            edit_distance += edit.from_length();
                             #pragma omp critical (total_substitutions)
                             total_substitutions++;
                             if(verbose) {
@@ -608,6 +612,8 @@ int main_stats(int argc, char** argv) {
 
                     }
                 }
+                #pragma omp critical (edit_distances)
+                edit_distances.push_back(make_pair(aln.identity(), edit_distance));
 
                 for(auto& site_and_allele : alleles_supported) {
                     // This read is informative for an allele of a site.
@@ -759,6 +765,11 @@ int main_stats(int argc, char** argv) {
             cout << " (" << (double)significantly_biased_hets / total_hets * 100 << "%)";
         }
         cout << endl;
+
+        cout << "Edit distances:\n";
+        for(auto& name_and_count : edit_distances) {
+            cout << name_and_count.first << "\t" << name_and_count.second << "\n";
+        }
 
 
     }
