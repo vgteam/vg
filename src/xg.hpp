@@ -111,9 +111,9 @@ public:
                bool is_sorted_dag);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 8;
+    const static uint32_t MAX_INPUT_VERSION = 9;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 8;
+    const static uint32_t OUTPUT_VERSION = 9;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
