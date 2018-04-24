@@ -14,6 +14,7 @@ mapping_t::mapping_t(const Mapping& m) {
     length = mapping_from_length(m);
     // only import fully embedded mappings
     assert(length == mapping_to_length(m));
+    // Note that in the case of no edits (deprecated shorthand for a full-length perfect match), length will be 0. 
     rank = m.rank();
 }
 
@@ -22,9 +23,12 @@ Mapping mapping_t::to_mapping(void) const {
     Position* p = m.mutable_position();
     p->set_node_id(node_id());
     p->set_is_reverse(is_reverse());
-    Edit* e = m.add_edit();
-    e->set_to_length(length);
-    e->set_from_length(length);
+    if (length != 0) {
+        // We're storing an Edit that knows it length, not a deprecated shorthand full-length match.
+        Edit* e = m.add_edit();
+        e->set_to_length(length);
+        e->set_from_length(length);
+    }
     m.set_rank(rank);
     return m;
 }
@@ -1168,7 +1172,6 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
     // push inserted sequences to the left
     for (size_t i = 0; i < p.mapping_size(); ++i) {
         auto m = simplify(p.mapping(i), trim_internal_deletions);
-        //cerr << "simplified " << pb2json(m) << endl;
         // remove empty mappings as these are redundant
         if (trim_internal_deletions) {
             // remove wholly-deleted or empty mappings as these are redundant
@@ -1178,8 +1181,8 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
             // remove empty mappings as these are redundant
             if (m.edit_size() == 0) continue;
         }
-        if (s.mapping_size()
-            && m.position().is_reverse() == s.mapping(s.mapping_size()-1).position().is_reverse()) {
+        if (s.mapping_size()) {
+            //&& m.position().is_reverse() == s.mapping(s.mapping_size()-1).position().is_reverse()) {
             // if this isn't the first mapping
             // refer to the last mapping
             Mapping* l = s.mutable_mapping(s.mapping_size()-1);
@@ -1206,16 +1209,28 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
                 }
             }
             // if our last mapping has no position, but we do, merge
-            if (!l->has_position() && m.has_position()) {
+            if ((!l->has_position() || l->position().node_id() == 0)
+                && (m.has_position() && m.position().node_id() != 0)) {
                 *l->mutable_position() = m.position();
-            // otherwise, if we end at exactly the start position of the next mapping, we can merge
-            } else if (l->has_position() && m.has_position()
-                       && l->position().node_id() == m.position().node_id()
-                       && l->position().offset() + mapping_from_length(*l) == m.position().offset()) {
+                // if our last mapping has a position, and we don't, merge
+            } else if ((!m.has_position() || m.position().node_id() == 0)
+                       && (l->has_position() && l->position().node_id() != 0)) {
+                *m.mutable_position() = *l->mutable_position();
+                m.mutable_position()->set_offset(from_length(*l));
+            }
+            // if we end at exactly the start position of the next mapping, we can merge
+            if ((!l->has_position() && !m.has_position())
+                ||
+                (l->has_position() && m.has_position()
+                 && l->position().is_reverse() == m.position().is_reverse()
+                 && l->position().node_id() == m.position().node_id()
+                 && l->position().offset() + mapping_from_length(*l) == m.position().offset())) {
                 // we can merge the current mapping onto the old one
                 *l = concat_mappings(*l, m, trim_internal_deletions);
             } else {
-                *s.add_mapping() = m;
+                if (from_length(m) || to_length(m)) {
+                    *s.add_mapping() = m;
+                }
             }
         } else {
             *s.add_mapping() = m;
@@ -1325,9 +1340,10 @@ Mapping concat_mappings(const Mapping& m, const Mapping& n, bool trim_internal_d
 Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
     Mapping n;
     if (m.rank()) n.set_rank(m.rank());
-    //cerr << "pre simplify " << pb2json(m) << endl;
     // take the old position (which may be empty)
-    *n.mutable_position() = m.position();
+    if (m.has_position()) {
+        *n.mutable_position() = m.position();
+    }
 
     size_t j = 0;
     if (trim_internal_deletions) {
@@ -1741,6 +1757,89 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
 
 pair<mapping_t, mapping_t> cut_mapping(const mapping_t& m, const Position& pos) {
     auto r = cut_mapping(m.to_mapping(), pos);
+    return make_pair(mapping_t(r.first), mapping_t(r.second));
+}
+
+// ref-relative with offset
+pair<Mapping, Mapping> cut_mapping_offset(const Mapping& m, size_t offset) {
+    Mapping left, right;
+    //cerr << ".cutting mapping " << pb2json(m) << " at " << offset << endl;
+    // both result mappings will be in the same orientation as the original
+    left.mutable_position()->set_is_reverse(m.position().is_reverse());
+    right.mutable_position()->set_is_reverse(m.position().is_reverse());
+    left.set_rank(m.rank());
+    right.set_rank(m.rank());
+
+    //assert(m.has_position() && m.position().node_id());
+    // left always has the position of the input mapping
+    if (m.has_position()) *left.mutable_position() = m.position();
+    // nothing to cut
+    if (offset == 0) {
+        // we will get a 0-length left
+        right = m;
+    } else if (offset >= mapping_from_length(m)) {
+        // or a 0-length right
+        left = m;
+    } else {
+        // we need to cut the mapping
+
+        // find the cut point and build the two mappings
+        size_t seen = 0;
+        size_t j = 0;
+        // loop over those before our position
+        for ( ; j < m.edit_size() && seen < offset; ++j) {
+            auto& e = m.edit(j);
+            //cerr << "at edit " << pb2json(e) << endl;
+            if (seen + e.from_length() > offset) {
+                // we need to divide this edit
+                auto edits = cut_edit_at_from(e, seen + e.from_length() - offset);
+                *left.add_edit() = edits.first;
+                *right.add_edit() = edits.second;
+            } else {
+                // this would be the last edit before the target position
+                // so we just drop it onto the last mapping of p1
+                *left.add_edit() = e;
+            }
+            seen += e.from_length();
+        }
+        // now we add to the second path
+        assert(seen >= offset);
+        for ( ; j < m.edit_size(); ++j) {
+            *right.add_edit() = m.edit(j);
+        }
+    }
+    if (m.has_position()) {
+        // The right mapping has a position on this same node
+        right.mutable_position()->set_node_id(m.position().node_id());
+        right.mutable_position()->set_offset(left.position().offset()
+                                             + mapping_from_length(left));
+    }
+    if (left.has_position()
+        && !left.position().node_id()) {
+        left.clear_position();
+    }
+    if (right.has_position()
+        && !right.position().node_id()) {
+        right.clear_position();
+    }
+    /*
+    if (!(!m.has_position()
+           || (left.has_position()
+               && left.position().node_id()
+               && right.has_position()
+               && right.position().node_id()))) {
+        cerr << "problem with cut alignment" << endl
+             << "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
+        assert(false);
+    }
+    */
+    //cerr << "cut mappings " << endl
+    //<< "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
+    return make_pair(left, right);
+}
+
+pair<mapping_t, mapping_t> cut_mapping_offset(const mapping_t& m, size_t offset) {
+    auto r = cut_mapping_offset(m.to_mapping(), offset);
     return make_pair(mapping_t(r.first), mapping_t(r.second));
 }
 

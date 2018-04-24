@@ -36,7 +36,7 @@ void trace_haplotypes_and_paths(xg::XG& index, const gbwt::GBWT* haplotype_datab
 
   // add our haplotypes to the subgraph, naming ith haplotype "thread_i"
   for (int i = 0; i < haplotypes.size(); ++i) {
-    Path p = path_from_thread_t(haplotypes[i].first);
+    Path p = path_from_thread_t(haplotypes[i].first, index);
     p.set_name("thread_" + to_string(i));
     out_thread_frequencies[p.name()] = haplotypes[i].second;
     *(out_graph.add_path()) = move(p);
@@ -61,7 +61,7 @@ Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_lis
   }
   construct_graph_from_nodes_and_edges(g, index, nodes, edges);
   for(int i = 0; i < haplotype_list.size(); i++) {
-    Path p = path_from_thread_t(haplotype_list[i].first);
+    Path p = path_from_thread_t(haplotype_list[i].first, index);
     p.set_name(to_string(i));
     *(g.add_path()) = move(p);
   }
@@ -131,21 +131,27 @@ void construct_graph_from_nodes_and_edges(Graph& g, xg::XG& index,
   }
 }
 
-Path path_from_thread_t(thread_t& t) {
+Path path_from_thread_t(thread_t& t, xg::XG& index) {
 	Path toReturn;
 	int rank = 1;
 	for(int i = 0; i < t.size(); i++) {
 		Mapping* mapping = toReturn.add_mapping();
 
-    // Set up the position
-    mapping->mutable_position()->set_node_id(t[i].node_id);
-    mapping->mutable_position()->set_is_reverse(t[i].is_reverse);
+        // Set up the position
+        mapping->mutable_position()->set_node_id(t[i].node_id);
+        mapping->mutable_position()->set_is_reverse(t[i].is_reverse);
 
-    // Set the rank
-    mapping->set_rank(rank++);
-  }
-  // We're done making the path
-  return toReturn;
+        // Set up the edits
+        Edit* e = mapping->add_edit();
+        size_t l = index.node_length(t[i].node_id);
+        e->set_from_length(l);
+        e->set_to_length(l);
+
+        // Set the rank
+        mapping->set_rank(rank++);
+    }
+    // We're done making the path
+    return toReturn;
 }
 
 vector<pair<thread_t,int> > list_haplotypes(xg::XG& index,

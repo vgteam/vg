@@ -95,6 +95,10 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
             // Load chunks from all the files and pass them into XG.
             std::ifstream in(name);
             
+            if (name == "-"){
+                if (!in) throw ifstream::failure("vg_set: cannot read from stdin. Failed to open " + name);
+            }
+            
             if (!in) throw ifstream::failure("failed to open " + name);
             
             function<void(Graph&)> handle_graph = [&](Graph& graph) {
@@ -128,7 +132,7 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
                         }
                         
                         // Move the mapping into place
-                        mappings[path.name()][mapping.rank()] = move(mapping);
+                        mappings[path.name()][mapping.rank()] = mapping;
                     }
                 }
 
@@ -146,11 +150,11 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
                 
                 for(auto& rank_and_mapping : kv.second) {
                     // Put in all the mappings. Ignore the rank since thay're already marked with and sorted by rank.
-                    *path.add_mapping() = move(rank_and_mapping.second);
+                    *path.add_mapping() = rank_and_mapping.second;
                 }
                 
                 // Now the Path is rebuilt; stick it in the big output map.
-                removed_paths[path.name()] = move(path);
+                removed_paths[path.name()] = path;
             }
             
 #ifdef debug

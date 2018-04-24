@@ -199,6 +199,33 @@ namespace vg {
         return iterator(0, which_haplotype, nullptr);
     }
     
+    vector<NodeTraversal> PhasedGenome::get_allele(const Snarl& site, int which_haplotype) {
+        
+        Haplotype& haplotype = *haplotypes[which_haplotype];
+        
+        // can only get the allele of a site that already is in the haplotype
+        assert(haplotype.sites.count(&site));
+        
+        // get the allele
+        pair<HaplotypeNode*, HaplotypeNode*> haplo_site = haplotype.sites[&site];
+        vector<NodeTraversal> allele;
+        for (HaplotypeNode* haplo_node = haplo_site.first->next; haplo_node != haplo_site.second;
+             haplo_node = haplo_node->next) {
+            allele.push_back(haplo_node->node_traversal);
+        }
+        
+        // is site in the reverse direction on haplotype?
+        if (haplo_site.first->node_traversal.node->id() != site.start().node_id()) {
+            // reverse the allele
+            reverse(allele.begin(), allele.end());
+            // swap the orientation
+            for (NodeTraversal& node_traversal : allele) {
+                node_traversal.backward = !node_traversal.backward;
+            }
+        }
+        return allele;
+    }
+    
     void PhasedGenome::swap_alleles(const Snarl& site, int haplotype_1, int haplotype_2) {
         Haplotype& haplo_1 = *haplotypes[haplotype_1];
         Haplotype& haplo_2 = *haplotypes[haplotype_2];

@@ -18,7 +18,7 @@ is $(vg chunk -x x.xg -p x -c 10| vg stats - -N) 210 "vg chunk with no options p
 is $(vg chunk -x x.xg -p x -c 10| vg stats - -E) 291 "vg chunk with no options preserves edges"
 
 # check a small chunk
-is $(vg chunk -x x.xg -p x:20-30 -c 0 | vg view - -j | jq -c '.path[0].mapping[].position' | jq 'select ((.node_id == 9))' | grep node | sed s/,// | sort | uniq | wc -l) 1 "chunk has path going through node 9"
+is $(vg chunk -x x.xg -p x:20-30 -c 0 | vg view - -j | jq -c '.path[0].mapping[].position' | jq 'select ((.node_id == "9"))' | grep node | sed s/,// | sort | uniq | wc -l) 1 "chunk has path going through node 9"
 
 # check no crash when using chunk_size, and filenames deterministic
 rm -f _chunk_test*

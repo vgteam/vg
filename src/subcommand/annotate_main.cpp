@@ -130,6 +130,7 @@ int main_annotate(int argc, char** argv) {
         if (add_positions) {
             //map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, bool first_hit_only);
             function<void(Alignment&)> lambda = [&](Alignment& aln) {
+                aln.clear_refpos();
                 mapper.annotate_with_initial_path_positions(aln);
                 buffer.push_back(aln);
                 stream::write_buffered(cout, buffer, 100);

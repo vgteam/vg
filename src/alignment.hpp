@@ -21,6 +21,8 @@ const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
+int hts_for_each(string& filename, function<void(Alignment&)> lambda, xg::XG* xgindex);
+int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, xg::XG* xgindex);
 int fastq_for_each(string& filename, function<void(Alignment&)> lambda);
 bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment);
 bool get_next_interleaved_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2);
@@ -58,6 +60,9 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
 string cigar_string(vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
 
+void cigar_mapping(const bam1_t *b, Mapping& mapping, xg::XG* xgindex);
+
+Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh, xg::XG* xgindex);
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
 
 /**
@@ -125,6 +130,7 @@ string alignment_to_sam(const Alignment& alignment,
 
 
 string cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
+void mapping_against_path(Alignment& alignment, const bam1_t *b, xg::XG* xgindex, bool on_reverse_strand);
 
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired);
 short quality_char_to_short(char c);
@@ -192,6 +198,12 @@ void parse_gff_regions(istream& gtfstream, xg::XG* xgindex, vector<Alignment>* o
 
 Position alignment_start(const Alignment& aln);
 Position alignment_end(const Alignment& aln);Position alignment_start(const Alignment& aln);
+
+/// return the path offsets as cached in the alignment
+map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const Alignment& aln);
+/// annotate the first alignment with its minimum distance to the second in their annotated paths
+void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base);
+void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<pair<size_t, bool> > >& base_offsets);
 
 }
 

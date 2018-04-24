@@ -90,10 +90,10 @@ is $? 0 "building an XG index of multiple graphs with haplotypes"
 vg index -g xy.gcsa -k 2 x.vg y.vg
 is $? 0 "building a GCSA index of multiple graphs with haplotypes"
 
-vg index -x xy2.xg -F x.threads -F y.threads -g xy2.gcsa -k 2 x.vg y.vg
-is $? 0 "building XG and GCSA indexes at once"
+vg index -x xy2.xg -g xy2.gcsa -k 2 -G xy2.gbwt -v small/xy2.vcf.gz x.vg y.vg
+is $? 0 "building all three indexes at once"
 
-cmp xy.xg xy2.xg && cmp xy.gcsa xy2.gcsa && cmp xy.gcsa.lcp xy2.gcsa.lcp
+cmp xy.xg xy2.xg && cmp xy.gcsa xy2.gcsa && cmp xy.gcsa.lcp xy2.gcsa.lcp && cmp xy.gbwt xy2.gbwt
 is $? 0 "the indexes are identical"
 
 rm -f x.vg y.vg
@@ -158,7 +158,7 @@ is $? 0 "building an xg index containing a gPBWT"
 vg find -t -x x.xg >part.vg
 is "$(cat x.vg part.vg | vg view -j - | jq '.path[].name' | grep '_thread' | wc -l)" 2 "the gPBWT can be queried for two threads for each haplotype"
 
-is $(vg find -x x.xg -q _thread_1_x_0 | vg paths -L - | wc -l) 1 "a specific thread may be pulled from the graph by name"
+is $(vg find -x x.xg -q _thread_1_x_0 | vg paths -L -v - | wc -l) 1 "a specific thread may be pulled from the graph by name"
 
 vg index -x x.xg -v small/x.vcf.gz x.vg --exclude 1
 vg find -t -x x.xg >part.vg
@@ -169,8 +169,8 @@ rm -f x.vg x.xg part.vg x.gcsa
 
 vg construct -r small/xy.fa -v small/xy.vcf.gz -a >xy.vg
 vg index -x xy.xg -v small/xy.vcf.gz xy.vg
-is $(vg find -x xy.xg -t | vg paths -L - | wc -l) 4 "a thread is stored per haplotype, sample, and reference sequence"
-is $(vg find -x xy.xg -q _thread_1_y | vg paths -L - | wc -l) 2 "we have the expected number of threads per chromosome"
+is $(vg find -x xy.xg -t | vg paths -L -v - | wc -l) 4 "a thread is stored per haplotype, sample, and reference sequence"
+is $(vg find -x xy.xg -q _thread_1_y | vg paths -L -v - | wc -l) 2 "we have the expected number of threads per chromosome"
 rm -f xy.vg xy.xg
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg

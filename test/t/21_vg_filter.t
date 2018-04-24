@@ -23,10 +23,10 @@ vg filter -x x.xg -R chunks.bed -B filter_chunk x.gam
 is $(ls -l filter_chunk-*.gam | wc -l) 5 "vg filter makes right number of chunks."
 
 # is chunk 0 (2-3) comprised of nodes 1,2,4? 
-is $(vg view -a filter_chunk-0.gam | jq -c '.path.mapping[].position' | jq 'select ((.node_id == 1) or (.node_id == 2) or (.node_id == 4))' | grep node | sed s/,// | sort | uniq | wc -l) 3 "vg filter left chunk has all left nodes"
+is $(vg view -a filter_chunk-0.gam | jq -c '.path.mapping[].position' | jq 'select ((.node_id == "1") or (.node_id == "2") or (.node_id == "4"))' | grep node | sed s/,// | sort | uniq | wc -l) 3 "vg filter left chunk has all left nodes"
 
 # check that chunk 4 is off to the right a bit
-is $(vg view -a filter_chunk-3.gam | jq -c '.path.mapping[].position' | jq 'select ((.node_id < 4))' | wc -l) 0 "vg filter right chunk has no left nodes"
+is $(vg view -a filter_chunk-3.gam | jq -c '.path.mapping[].position' | jq 'select (((.node_id | tonumber) < 4))' | wc -l) 0 "vg filter right chunk has no left nodes"
 
 # check that chunk 5 is everything
 is $(vg view -a filter_chunk-4.gam | jq . | grep mapping | wc -l) 5000 "vg filter big chunk has everything"

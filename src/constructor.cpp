@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <memory>
 
+//#define debug
 
 namespace vg {
 
@@ -1130,7 +1131,7 @@ namespace vg {
         size_t leading_offset;
         // At what position in the reference sequence do we stop (past-the-end)?
         size_t reference_end;
-
+        
         if (allowed_vcf_regions.count(vcf_contig)) {
             // Only look at the region we were asked for. We will only find variants
             // *completely* contained in this region! Partially-overlapping variants
@@ -1142,6 +1143,10 @@ namespace vg {
             leading_offset = 0;
             reference_end = reference.sequenceLength(reference_contig);
         }
+        
+#ifdef debug
+        cerr << "building contig for chunk of reference " << reference_contig << " in interval " << leading_offset << " to " << reference_end << endl;
+#endif
 
         // Set up a progress bar thhrough the chromosome
         create_progress("building graph for " + vcf_contig, reference_end - leading_offset);

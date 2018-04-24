@@ -5,7 +5,7 @@
 
 namespace vg {
 
-int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
+int hts_for_each(string& filename, function<void(Alignment&)> lambda, xg::XG* xgindex) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -14,7 +14,7 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
     parse_rg_sample_map(hdr->text, rg_sample);
     bam1_t *b = bam_init1();
     while (sam_read1(in, hdr, b) >= 0) {
-        Alignment a = bam_to_alignment(b, rg_sample);
+        Alignment a = bam_to_alignment(b, rg_sample, hdr, xgindex);
         lambda(a);
     }
     bam_destroy1(b);
@@ -24,7 +24,11 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
 
 }
 
-int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
+int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
+    return hts_for_each(filename, lambda, nullptr);
+}
+
+int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, xg::XG* xgindex) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -49,7 +53,7 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
                 more_data = sam_read1(in, hdr, b) >= 0;
             }
             if (more_data) {
-                Alignment a = bam_to_alignment(b, rg_sample);
+                Alignment a = bam_to_alignment(b, rg_sample, hdr, xgindex);
                 lambda(a);
             }
         }
@@ -60,6 +64,10 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
     hts_close(in);
     return 1;
 
+}
+
+int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
+    return hts_for_each_parallel(filename, lambda, nullptr);
 }
 
 bam_hdr_t* hts_file_header(string& filename, string& header) {
@@ -808,6 +816,57 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
     }
 }
 
+int64_t cigar_mapping(const bam1_t *b, Mapping* mapping, xg::XG* xgindex) {
+    int64_t ref_length = 0;
+    int64_t query_length = 0;
+
+    const auto cigar = bam_get_cigar(b);
+
+    for (int k = 0; k < b->core.n_cigar; k++) {
+        Edit* e = mapping->add_edit();
+        const int op = bam_cigar_op(cigar[k]);
+        const int ol = bam_cigar_oplen(cigar[k]);
+        if (bam_cigar_type(cigar[k])&1) {
+            // Consume query
+            e->set_to_length(ol);
+            string sequence; sequence.resize(ol);
+            for (int i = 0; i < ol; i++ ) {
+               sequence[i] = "=ACMGRSVTWYHKDBN"[bam_seqi(bam_get_seq(b), query_length + i)];
+            }
+            e->set_sequence(sequence);
+            query_length += ol;
+        } else {
+            e->set_to_length(0);
+        }
+        if (bam_cigar_type(cigar[k])&2) {
+            // Consume ref
+            e->set_from_length(ol);
+            ref_length += ol;
+        } else {
+            e->set_from_length(0);
+        }
+    }
+    return ref_length;
+}
+
+void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::XG* xgindex, bool on_reverse_strand) {
+
+    if (b->core.pos == -1) return;
+
+    Mapping mapping;
+
+    int64_t length = cigar_mapping(b, &mapping, xgindex);
+
+    Alignment aln = xgindex->target_alignment(chr, b->core.pos, b->core.pos + length, "", on_reverse_strand, mapping);
+
+    *alignment.mutable_path() = aln.path();
+
+    Position* refpos = alignment.add_refpos();
+    refpos->set_name(chr);
+    refpos->set_offset(b->core.pos);
+    refpos->set_is_reverse(on_reverse_strand);
+}
+
 // act like the path this is against is the reference
 // and generate an equivalent cigar
 // Produces CIGAR in forward strand space of the reference sequence.
@@ -893,7 +952,7 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     return flag;
 }
 
-Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
+Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh, xg::XG* xgindex) {
 
     Alignment alignment;
 
@@ -954,7 +1013,10 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
         
     }
     
-    
+    if (xgindex != nullptr && bh != nullptr) {
+        alignment.set_mapping_quality(b->core.qual);
+        mapping_against_path(alignment, b, bh->target_name[b->core.tid], xgindex, b->core.flag & BAM_FREVERSE);
+    }
     
     // TODO: htslib doesn't wrap this flag for some reason.
     alignment.set_is_secondary(b->core.flag & BAM_FSECONDARY);
@@ -964,6 +1026,10 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
     }
 
     return alignment;
+}
+
+Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
+    return bam_to_alignment(b, rg_sample, nullptr, nullptr);
 }
 
 int alignment_to_length(const Alignment& a) {
@@ -1473,6 +1539,53 @@ Position alignment_end(const Alignment& aln) {
         pos.set_offset(pos.offset() + mapping_from_length(last));
     }
     return pos;
+}
+
+map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const Alignment& aln) {
+    map<string, vector<pair<size_t, bool> > > offsets;
+    for (auto& refpos : aln.refpos()) {
+        offsets[refpos.name()].push_back(make_pair(refpos.offset(), refpos.is_reverse()));
+    }
+    return offsets;
+}
+
+void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base) {
+    auto base_offsets = alignment_refpos_to_path_offsets(base);
+    return alignment_set_distance_to_correct(aln, base_offsets);
+}
+
+void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<pair<size_t, bool> > >& base_offsets) {
+    auto aln_offsets = alignment_refpos_to_path_offsets(aln);
+    // bail out if we can't compare
+    if (!(aln_offsets.size() && base_offsets.size())) return;
+    // otherwise find the minimum distance and relative orientation
+    Position result;
+    size_t min_distance = std::numeric_limits<size_t>::max();
+    for (auto& path : aln_offsets) {
+        auto& name = path.first;
+        auto& aln_positions = path.second;
+        auto f = base_offsets.find(name);
+        if (f == base_offsets.end()) continue;
+        auto& base_positions = f->second;
+        for (auto& p1 : aln_positions) {
+            for (auto& p2 : base_positions) {
+                // disable relative inversions
+                if (p1.second != p2.second) continue;
+                // are they in the same orientation?
+                size_t dist = abs((int64_t)p1.first - (int64_t)p2.first);
+                if (dist < min_distance) {
+                    min_distance = dist;
+                    result.set_name(name);
+                    result.set_is_reverse(p1.second != p2.second);
+                    result.set_offset(dist);
+                }
+            }
+        }
+    }
+    // set the distance to correct if we got one
+    if (min_distance < std::numeric_limits<size_t>::max()) {
+        *aln.mutable_to_correct() = result;
+    }
 }
 
 }

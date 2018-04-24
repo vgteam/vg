@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 11
+plan tests 12
 
 #is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 4 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
 
@@ -33,7 +33,7 @@ vg msga -g s.vg -f msgas/s-rev.fa -w 20 | vg mod -U 10 - | vg mod -c - >s+rev.vg
 is $(vg view s.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg view s+rev.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "adding in existing sequences in reverse doesn't change graph"
 rm -f s.vg s+rev.vg
 
-is $((for seq in $(vg msga -f msgas/w.fa -b x -K 16 | vg paths -x - | vg view -a - | jq .sequence | sed s/\"//g ); do grep $seq msgas/w.fa ; done) | wc -l) 2 "the paths of the graph encode the original sequences used to build it"
+is $((for seq in $(vg msga -f msgas/w.fa -b x -K 16 | vg paths -v - -X | vg view -a - | jq .sequence | sed s/\"//g ); do grep $seq msgas/w.fa ; done) | wc -l) 2 "the paths of the graph encode the original sequences used to build it"
 
 vg msga -f msgas/w.fa -b x -K 16 -w 20 | vg validate -
 is $? 0 "even when banding the paths of the graph encode the original sequences used to build it"
@@ -44,10 +44,13 @@ is $? 0 "HLA K-3138 correctly includes all input paths"
 vg msga -f msgas/cycle.fa -b s1 -w 64 -t 1 | vg validate -
 is $? 0 "a difficult cyclic path can be included to produce a valid graph"
 
-is $(vg msga -f msgas/inv.fa -w 20 | vg mod -U 10 - | vg view -j - | jq -c '.path[] | select(.name == "inv") | .mapping[] | select(.position.is_reverse)'  | wc -l) 1 "a reference sequence set representing an inversion in it may be msga'd and detected" 
+is $(vg msga -f msgas/inv.fa -w 20 | vg mod -U 10 - | vg view -j - | jq -c '.path[] | select(.name == "inv") | .mapping[] | select(.position.is_reverse)'  | wc -l) 2 "a reference sequence set representing an inversion in it may be msga'd and detected" 
 
 vg msga -f msgas/l.fa -b a1 -w 16 | vg validate -
 is $? 0 "edges in cycles with two nodes are correctly included"
 
 vg msga -f GRCh38_alts/FASTA/HLA/B-3106.fa -w 256 -E 4 -B 4 -W 64 -P 0.9 | vg validate -
 is $? 0 "HLA B-3106 is assembled into a valid graph"
+
+vg msga -f msgas/inv.fa -w 16 -O 5 | vg validate -
+is $? 0 "odd-sized overlaps may be used for chunked alignment"

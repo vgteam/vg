@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/struct.proto";
+
 package vg;
 
 // *Graphs* are collections of nodes and edges.
@@ -78,6 +80,9 @@ message Mapping {
 //     offset-    7 6 5 4 3 2 1 0 ←
 //     seq+        G A T T A C A
 //     offset+  → 0 1 2 3 4 5 6 7
+//
+// A Position can also, with the `name` and `offset` fields, be used to represent a distance along a named `Path`.
+// TODO: Is this an appropriate hack? Or should we add a new message?
 
 message Position {
     int64 node_id = 1; // The Node on which the Position is.
@@ -139,6 +144,11 @@ message Alignment {
 
     bool haplotype_scored = 33; // True if this alignment's score is adjusted for haplotype consistency, and false otherwise.
     double haplotype_logprob = 34; // Actual log probability haplotype consistency likelihood
+    double time_used = 35; // The time this alignment took
+    Position to_correct = 36; // A path/offset/orientation pair specifying the distance to the correct alignment
+    bool correctly_mapped = 37; // This can be set to true to annotate the Alignment as having been mapped correctly.
+    
+    google.protobuf.Struct annotation = 100; // Annotations carried along with the Alignment.
 }
 
 // A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment
@@ -163,6 +173,8 @@ message MultipathAlignment {
     repeated uint32 start = 8;
 
     string paired_read_name = 9;
+    
+    google.protobuf.Struct annotation = 100; // Annotations carried along with the Alignment.
 }
 
 // A non-branching path of a MultipathAlignment
