@@ -33,7 +33,7 @@ vg msga -g s.vg -f msgas/s-rev.fa -w 20 | vg mod -U 10 - | vg mod -c - >s+rev.vg
 is $(vg view s.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg view s+rev.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "adding in existing sequences in reverse doesn't change graph"
 rm -f s.vg s+rev.vg
 
-is $((for seq in $(vg msga -f msgas/w.fa -b x -K 16 | vg paths -x - | vg view -a - | jq .sequence | sed s/\"//g ); do grep $seq msgas/w.fa ; done) | wc -l) 2 "the paths of the graph encode the original sequences used to build it"
+is $((for seq in $(vg msga -f msgas/w.fa -b x -K 16 | vg paths -v - -X | vg view -a - | jq .sequence | sed s/\"//g ); do grep $seq msgas/w.fa ; done) | wc -l) 2 "the paths of the graph encode the original sequences used to build it"
 
 vg msga -f msgas/w.fa -b x -K 16 -w 20 | vg validate -
 is $? 0 "even when banding the paths of the graph encode the original sequences used to build it"
