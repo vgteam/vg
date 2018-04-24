@@ -22,6 +22,8 @@ void help_gamcompare(char** argv) {
          << endl
          << "options:" << endl
          << "    -r, --range N            distance within which to consider reads correct" << endl
+         << "    -T, --tsv                output TSV (correct, mq, aligner, read) comaptible with plot-qq.R instead of GAM" << endl
+         << "    -a, --aligner            aligner name for TSV output [\"vg\"]" << endl
          << "    -t, --threads N          number of threads to use" << endl;
 }
 
@@ -29,10 +31,13 @@ int main_gamcompare(int argc, char** argv) {
 
     if (argc == 2) {
         help_gamcompare(argv);
+        exit(1);
     }
 
     int threads = 1;
     int64_t range = -1;
+    bool output_tsv = false;
+    string aligner_name = "vg";
 
     int c;
     optind = 2;
@@ -41,12 +46,14 @@ int main_gamcompare(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"range", required_argument, 0, 'r'},
+            {"tsv", no_argument, 0, 'T'},
+            {"aligner", required_argument, 0, 'a'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "ht:",
+        c = getopt_long (argc, argv, "hr:Ta:t:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -57,6 +64,14 @@ int main_gamcompare(int argc, char** argv) {
 
         case 'r':
             range = atoi(optarg);
+            break;
+            
+        case 'T':
+            output_tsv = true;
+            break;
+            
+        case 'a':
+            aligner_name = optarg;
             break;
 
         case 't':
@@ -93,8 +108,39 @@ int main_gamcompare(int argc, char** argv) {
         stream::for_each_parallel(truth_file_in, record_truth);
     }
 
+    // We have a buffer for annotated alignments
     vector<Alignment> buf;
-    function<void(Alignment&)> annotate_test = [&buf,&true_positions,&range](Alignment& aln) {
+    
+    // We have an output function to dump all the reads in the buffer in the correct format
+    auto flush_buffer = [&buf,&output_tsv,&aligner_name]() {
+        // We print exactly one header line.
+        static bool header_printed = false;
+        if (output_tsv) {
+            // Output TSV to standard out in the format plot-qq.R needs.
+            if (!header_printed) {
+                // It needs a header
+                cout << "correct\tmq\taligner\tread" << endl;
+                header_printed = true;
+            }
+            
+            for (auto& aln : buf) {
+                // Dump each alignment
+                cout << (aln.correctly_mapped() ? "1" : "0") << "\t";
+                cout << aln.mapping_quality() << "\t";
+                cout << aligner_name << "\t";
+                cout << aln.name() << endl;
+            }
+            
+        } else {
+            // Output by serializing Alignment objects
+            write_alignments(cout, buf);
+        }
+        
+        buf.clear();
+    };
+    
+    // This function annotates every read with distance and correctness, and batch-outputs them.
+    function<void(Alignment&)> annotate_test = [&buf,&flush_buffer,&true_positions,&range](Alignment& aln) {
         auto f = true_positions.find(aln.name());
         if (f != true_positions.end()) {
             auto& true_position = f->second;
@@ -111,8 +157,7 @@ int main_gamcompare(int argc, char** argv) {
         {
             buf.push_back(aln);
             if (buf.size() > 1000) {
-                write_alignments(std::cout, buf);
-                buf.clear();
+                flush_buffer();
             }
         }
     };
@@ -125,8 +170,8 @@ int main_gamcompare(int argc, char** argv) {
         stream::for_each_parallel(test_file_in, annotate_test);
     }
 
-    write_alignments(std::cout, buf);
-    buf.clear();
+    // Save whatever's in the buffer at the end.
+    flush_buffer();
     cout.flush();
 
     return 0;

@@ -13,7 +13,7 @@ dist: trusty
 before_install:
   - if [ -e deps ]; then mv deps deps_cached; fi
   - git submodule update --init --recursive
-  - rsync -rv --checksum deps/ deps_cached/
+  - rsync -rv --links --checksum deps/ deps_cached/
   - rm -Rf deps
   # Keep the cached deps if the right compiler version was used.
   # Otherwise start fresk

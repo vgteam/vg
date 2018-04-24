@@ -32,11 +32,11 @@ is $? 0 "can sort and re-number a graph with self loops"
 vg ids -s cyclic/all.vg > sorted.vg
 is $? 0 "can sort and renumber a complex cyclic graph"
 
-is $(vg ids -s ids/unordered.vg | vg view -j - | jq -c '.edge[] | select(.from > .to)' | wc -l) 0 "sorting removes back-edges in a DAG"
+is $(vg ids -s ids/unordered.vg | vg view -j - | jq -r -c '.edge[] | select((.from | tonumber) > (.to | tonumber))' | wc -l) 0 "sorting removes back-edges in a DAG"
 
 rm sorted.vg
 
-is $(vg ids -s ids/unordered.vg | vg view -j - | jq -c '.node[1] == {"id":2,"sequence":"T"}') "true" "sorting assigns node IDs in topological order"
+is $(vg ids -s ids/unordered.vg | vg view -j - | jq -r -c '.node[1] == {"id":"2","sequence":"T"}') "true" "sorting assigns node IDs in topological order"
 
 # this test now breaks under the current VG.paths semantics, which require our paths to record the exact match lengths of the nodes
 #vg ids -s graphs/snp1kg-brca2-unsorted.vg | vg validate -
