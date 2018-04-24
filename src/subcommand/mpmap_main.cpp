@@ -121,11 +121,11 @@ int main_mpmap(int argc, char** argv) {
     int hit_max = 512;
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
-    int reseed_length = 36;
-    double reseed_diff = 0.4;
+    int reseed_length = 28;
+    double reseed_diff = 0.45;
     double reseed_exp = 0.065;
     bool use_adaptive_reseed = true;
-    double cluster_ratio = 0.15;
+    double cluster_ratio = 0.2;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Adaptive;
@@ -156,7 +156,7 @@ int main_mpmap(int argc, char** argv) {
     string read_group = "";
     bool prefilter_redundant_hits = true;
     bool precollapse_order_length_hits = true;
-    int max_sub_mem_recursion_depth = 2;
+    int max_sub_mem_recursion_depth = 1;
     
     int c;
     optind = 2; // force optind past command positional argument
