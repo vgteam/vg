@@ -372,6 +372,83 @@ namespace vg {
                 REQUIRE(iter == genome.end(1));
             }
             
+            SECTION( "PhasedGenome can retrieve an allele" ) {
+                // construct graph
+                
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("CTGA");
+                Node* n5 = graph.create_node("TTG");
+                Node* n6 = graph.create_node("CGGATA");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n4);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n4, n5);
+                graph.create_edge(n5, n6);
+                // segregating inversion
+                graph.create_edge(n4, n5, false, true);
+                graph.create_edge(n5, n6, true, false);
+                
+                CactusSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                
+                PhasedGenome genome = PhasedGenome(snarl_manager);
+                
+                // construct haplotypes
+                
+                list<NodeTraversal> haplotype_1;
+                list<NodeTraversal> haplotype_2;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n2));
+                haplotype_1.push_back(NodeTraversal(n4));
+                haplotype_1.push_back(NodeTraversal(n5));
+                haplotype_1.push_back(NodeTraversal(n6));
+                
+                haplotype_2.push_back(NodeTraversal(n1));
+                haplotype_2.push_back(NodeTraversal(n3));
+                haplotype_2.push_back(NodeTraversal(n4));
+                haplotype_2.push_back(NodeTraversal(n5, true)); // reversed
+                haplotype_2.push_back(NodeTraversal(n6));
+                
+                int haplo_id_1 = genome.add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                int haplo_id_2 = genome.add_haplotype(haplotype_2.begin(), haplotype_2.end());
+                
+                // index sites
+                
+                genome.build_indices();
+                
+                // find the site we want to retrieve
+                for (const Snarl* site : snarl_manager.top_level_snarls()) {
+                    if (site->start().node_id() == n1->id()) {
+                        vector<NodeTraversal> allele_1 = genome.get_allele(*site, haplo_id_1);
+                        vector<NodeTraversal> allele_2 = genome.get_allele(*site, haplo_id_2);
+                        
+                        REQUIRE(allele_1.size() == 1);
+                        REQUIRE(allele_2.size() == 1);
+                        
+                        REQUIRE(allele_1[0] == NodeTraversal(n2, false));
+                        REQUIRE(allele_2[0] == NodeTraversal(n3, false));
+                    }
+                    else if (site->end().node_id() == n1->id()) {
+                        vector<NodeTraversal> allele_1 = genome.get_allele(*site, haplo_id_1);
+                        vector<NodeTraversal> allele_2 = genome.get_allele(*site, haplo_id_2);
+                        
+                        REQUIRE(allele_1.size() == 1);
+                        REQUIRE(allele_2.size() == 1);
+                        
+                        
+                        REQUIRE(allele_1[0] == NodeTraversal(n2, true));
+                        REQUIRE(allele_2[0] == NodeTraversal(n3, true));
+                    }
+                }
+            }
+            
             SECTION( "PhasedGenome can swap a simple allele between chromosomes") {
                 
                 // construct graph

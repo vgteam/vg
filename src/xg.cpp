@@ -145,11 +145,12 @@ void XG::load(istream& in) {
         case 5: // Fall through
         case 6:
         case 7:
+        case 8:
             cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. "
                  << "For better performance over repeated loads, consider recreating this XG with 'vg index' "
                  << "or upgrading it with 'vg xg'." << endl;
             // Fall through
-        case 8:
+        case 9:
             {
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
@@ -160,7 +161,7 @@ void XG::load(istream& in) {
                 sdsl::read_member(min_id, in);
                 sdsl::read_member(max_id, in);
                 
-                if (file_version <= 7) {
+                if (file_version <= 8) {
                     // Load the old id int vector to skip
                     int_vector<> i_iv;
                     i_iv.load(in);
