@@ -642,7 +642,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     mems.erase(unique(mems.begin(), mems.end()), mems.end());
     // remove MEMs that are overlapping positionally (they may be redundant)
     
-    if (precollapse_order_length_hits) {
+    // sometimes we can merge hits that are only split up because we hit the order of the GCSA2 indexå
+    if (precollapse_order_length_hits && gcsa->order() < seq_end - seq_begin) {
         precollapse_order_length_runs(seq_begin, mems);
     }
 

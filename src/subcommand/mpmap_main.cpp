@@ -944,8 +944,10 @@ int main_mpmap(int argc, char** argv) {
         // add optimal alignments to the output buffer
         for (pair<MultipathAlignment, MultipathAlignment>& mp_aln_pair : mp_aln_pairs) {
             
+            // make a single path alignment
             output_buf.emplace_back();
             optimal_alignment(mp_aln_pair.first, output_buf.back());
+            
             // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
@@ -959,9 +961,11 @@ int main_mpmap(int argc, char** argv) {
             // arbitrarily decide that this is the "previous" fragment
             output_buf.back().mutable_fragment_next()->set_name(mp_aln_pair.second.name());
             
+            // make a single path alignment
             output_buf.emplace_back();
             optimal_alignment(mp_aln_pair.second, output_buf.back());
-            // compute identity again
+            
+            // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
             // switch second read back to the opposite strand if necessary
