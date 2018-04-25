@@ -115,6 +115,9 @@ int main_mpmap(int argc, char** argv) {
     int snarl_cut_size = 5;
     int max_map_attempts = 48;
     int population_max_paths = 1;
+    // How many distinct single path alignments should we look for in a multipath, for MAPQ?
+    // TODO: create an option.
+    int localization_max_paths = 5;
     int max_rescue_attempts = 32;
     int max_num_mappings = 1;
     int buffer_size = 100;
@@ -885,7 +888,7 @@ int main_mpmap(int argc, char** argv) {
             // single-path alignments from the top k optimal single-path
             // alignments.
             vector<Alignment> options;
-            multipath_mapper.reduce_to_single_path(mp_aln, options, 5);
+            multipath_mapper.reduce_to_single_path(mp_aln, options, localization_max_paths);
             
             // There will always be at least one result. Use the optimal alignment.
             output_buf.emplace_back(std::move(options.front()));
@@ -958,7 +961,7 @@ int main_mpmap(int argc, char** argv) {
             
             // Compute nonoverlapping single path alignments for each multipath alignment
             vector<Alignment> options;
-            multipath_mapper.reduce_to_single_path(mp_aln_pair.first, options, 5);
+            multipath_mapper.reduce_to_single_path(mp_aln_pair.first, options, localization_max_paths);
             
             // There will always be at least one result. Use the optimal alignment.
             output_buf.emplace_back(std::move(options.front()));
@@ -983,7 +986,7 @@ int main_mpmap(int argc, char** argv) {
             
             // Now do the second read
             options.clear();
-            multipath_mapper.reduce_to_single_path(mp_aln_pair.second, options, 5);
+            multipath_mapper.reduce_to_single_path(mp_aln_pair.second, options, localization_max_paths);
             output_buf.emplace_back(std::move(options.front()));
             
             if (mp_aln_pair.second.has_annotation()) {
