@@ -152,7 +152,8 @@ int main_mpmap(int argc, char** argv) {
     size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
-    double secondary_rescue_score_diff = 0.65;
+    double secondary_rescue_score_diff = 0.8;
+    size_t secondary_rescue_attempts = 4;
     size_t rescue_only_min = numeric_limits<size_t>::max(); // disabling this for now
     size_t rescue_only_anchor_max = 16;
     string sample_name = "";
@@ -808,8 +809,9 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.unstranded_clustering = unstranded_clustering;
     
     // set pair rescue parameters
-    multipath_mapper.secondary_rescue_score_diff = secondary_rescue_score_diff;
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
+    multipath_mapper.secondary_rescue_score_diff = secondary_rescue_score_diff;
+    multipath_mapper.secondary_rescue_attempts = secondary_rescue_attempts;
     multipath_mapper.rescue_only_min = rescue_only_min;
     multipath_mapper.rescue_only_anchor_max = rescue_only_anchor_max;
     
