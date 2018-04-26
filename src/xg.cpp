@@ -5,7 +5,7 @@
 #include <bitset>
 #include <arpa/inet.h>
 
-//#define VERBOSE_DEBUG
+#define VERBOSE_DEBUG
 //#define debug_algorithms
 //#define debug_component_index
 
@@ -586,6 +586,8 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
     // need to store node sides
     unordered_map<side_t, vector<side_t> > from_to;
     unordered_map<side_t, vector<side_t> > to_from;
+    unordered_map<side_t, vector<side_t> > start_side;
+    unordered_map<side_t, vector<side_t> > end_side;
     map<string, vector<trav_t> > path_nodes;
 
     // This takes in graph chunks and adds them into our temporary storage.
@@ -593,6 +595,8 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
                                      &node_label,
                                      &from_to,
                                      &to_from,
+                                     &start_side,
+                                     &end_side,
                                      &path_nodes](Graph& graph) {
 
         for (int64_t i = 0; i < graph.node_size(); ++i) {
@@ -612,8 +616,29 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
             }
             if (new_edge) {
                 ++edge_count;
-                from_to[make_side(e.from(), e.from_start())].push_back(make_side(e.to(), e.to_end()));
-                to_from[make_side(e.to(), e.to_end())].push_back(make_side(e.from(), e.from_start()));
+//                from_to[make_side(e.from(), e.from_start())].push_back(make_side(e.to(), e.to_end()));
+//                to_from[make_side(e.to(), e.to_end())].push_back(make_side(e.from(), e.from_start()));
+//                cerr << "e.from " << e.from() << " e.from_start " << e.from_start() << " make_side(e.from(), e.from_start()) " << make_side(e.from(), e.from_start()) << endl;
+//                cerr << "e.to " << e.to() << " e.to_end " << e.to_end() << " make_side(to(), e.from_start()) " << make_side(e.to(), e.to_end()) << endl;
+//                cerr << "from_to " << from_to[make_side(e.from(), e.from_start())] <<" to_from " << to_from[make_side(e.to(), e.to_end())] << endl;
+                
+                // if negative then edge type 0 (go to start), if postive then edge type 1 (go to end)
+                if (e.from_start() &&  e.to_end()){
+                    start_side[make_side(e.from(), e.from_start())].push_back(e.to());
+                    end_side[make_side(e.to(), e.to_end())].push_back(e.from() * -1);
+                }
+                else if (e.from_start()){
+                    start_side[make_side(e.from(), e.from_start())].push_back(e.to() * -1);
+                    start_side[make_side(e.to(), e.to_end())].push_back(e.from() * -1);
+                }
+                else if (e.to_end()){
+                    end_side[make_side(e.from(), e.from_start())].push_back(e.to());
+                    end_side[make_side(e.to(), e.to_end())].push_back(e.from());
+                }
+                else{
+                    end_side[make_side(e.from(), e.from_start())].push_back(e.to()*-1);
+                    start_side[make_side(e.to(), e.to_end())].push_back(e.from());
+                }
             }
         }
 
@@ -680,7 +705,7 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
     }
 
     build(node_label, from_to, to_from, path_nodes, validate_graph, print_graph,
-        store_threads, is_sorted_dag);
+        store_threads, is_sorted_dag, start_side, end_side);
     
 }
 
@@ -691,7 +716,9 @@ void XG::build(vector<pair<id_t, string> >& node_label,
                bool validate_graph,
                bool print_graph,
                bool store_threads,
-               bool is_sorted_dag) {
+               bool is_sorted_dag,
+               unordered_map<side_t, vector<side_t> >& start_side,
+               unordered_map<side_t, vector<side_t> >& end_side) {
 
     size_t entity_count = node_count + edge_count;
 
@@ -758,6 +785,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     util::assign(g_iv, int_vector<>(g_iv_size));
     util::assign(g_bv, bit_vector(g_iv_size));
     int64_t g = 0; // pointer into g_iv and g_bv
+    cerr << endl << endl<<endl;
     for (int64_t i = 0; i < node_count; ++i) {
         Node n = node(i_iv[i]);
         
@@ -772,20 +800,59 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         size_t from_edge_count_idx = g++;
         // write the edges in id-based format
         // we will next convert these into relative format
+//        cerr << endl<< "n.id() "<< n.id() << endl;
+//        for (auto end : { false, true }) {
+//            auto& to_sides = to_from[make_side(n.id(), end)];
+//            for (auto& e : to_sides) {
+//                cerr << "to_from e " << e << " side_id(e) "<< side_id(e) << " edge_type(side_is_end(e), end, false) " << edge_type(side_is_end(e), end, false) << endl;
+//                cerr << "     end" << end << " side_is_end(e) "<< side_is_end(e)<< endl;
+//                g_iv[g++] = side_id(e);
+//                g_iv[g++] = edge_type(side_is_end(e), end, false);
+//                ++to_edge_count;
+//            }
+//        }
+//        g_iv[to_edge_count_idx] = to_edge_count;
+//        for (auto end : { false, true }) {
+//            auto& from_sides = from_to[make_side(n.id(), end)];
+//            for (auto& e : from_sides) {
+//                cerr << "from_to e " << e << " side_id(e) "<< side_id(e) << " edge_type(end, side_is_end(e), true) " << edge_type(end, side_is_end(e), true) << endl;
+//                cerr << "      end " << end << " side_is_end(e) "<< side_is_end(e)<< endl;
+//                g_iv[g++] = side_id(e);
+//                g_iv[g++] = edge_type(end, side_is_end(e), true);
+//                ++from_edge_count;
+//            }
+//        }
+        cerr << endl<< "n.id() "<< n.id() << endl;
         for (auto end : { false, true }) {
-            auto& to_sides = to_from[make_side(n.id(), end)];
-            for (auto& e : to_sides) {
+            auto& s_sides = start_side[make_side(n.id(), end)];
+            for (auto& e : s_sides) {
+                cerr << "start_side e " << e << " side_id(e) "<< side_id(e) << endl;
                 g_iv[g++] = side_id(e);
-                g_iv[g++] = edge_type(side_is_end(e), end);
+                if (e<0){
+                    cerr << "edge type " << 0 << endl;
+                    g_iv[g++] = 0;
+                }
+                else {
+                    cerr << "edge type " << 1 << endl;
+                    g_iv[g++] = 1;
+                }
                 ++to_edge_count;
             }
         }
         g_iv[to_edge_count_idx] = to_edge_count;
         for (auto end : { false, true }) {
-            auto& from_sides = from_to[make_side(n.id(), end)];
-            for (auto& e : from_sides) {
+            auto& e_sides = end_side[make_side(n.id(), end)];
+            for (auto& e : e_sides) {
+                cerr << "end_side e " << e << " side_id(e) "<< side_id(e) << endl;
                 g_iv[g++] = side_id(e);
-                g_iv[g++] = edge_type(end, side_is_end(e));
+                if (e<0){
+                    cerr << "edge type " << 0 << endl;
+                    g_iv[g++] = 0;
+                }
+                else {
+                    cerr << "edge type " << 1 << endl;
+                    g_iv[g++] = 1;
+                }
                 ++from_edge_count;
             }
         }
@@ -795,7 +862,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     // set up rank and select supports on g_bv so we can locate nodes in g_iv
     util::assign(g_bv_rank, rank_support_v<1>(&g_bv));
     util::assign(g_bv_select, bit_vector::select_1_type(&g_bv));
-    
+
     // convert the edges in g_iv to relativistic form
     for (int64_t i = 0; i < node_count; ++i) {
         int64_t id = i_iv[i];
@@ -1156,7 +1223,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
 
         cerr << "graph ok" << endl;
     }
-    
 }
     
 void XG::index_component_path_sets() {
@@ -1420,7 +1486,7 @@ int64_t XG::rank_to_id(size_t rank) const {
     return g_iv[g_bv_select(rank)];
 }
 
-int XG::edge_type(bool from_start, bool to_end) const {
+int XG::edge_type(bool from_start, bool to_end, bool from_to) const {
     if (from_start && to_end) {
         return 4;
     } else if (from_start) {
@@ -1449,22 +1515,31 @@ Edge XG::edge_from_encoding(int64_t from, int64_t to, int type) const {
     edge.set_from(from);
     edge.set_to(to);
     switch (type) {
-    case 1:
-        break;
-    case 2:
-        edge.set_to_end(true);
-        break;
-    case 3:
-        edge.set_from_start(true);
-        break;
-    case 4:
-        edge.set_from_start(true);
-        edge.set_to_end(true);
-        break;
-    default:
-        assert(false);
-        break;
+        case 0:
+            break;
+        case 1:
+            break;
+        default:
+            assert(false);
+            break;
     }
+//    switch (type) {
+//    case 1:
+//        break;
+//    case 2:
+//        edge.set_to_end(true);
+//        break;
+//    case 3:
+//        edge.set_from_start(true);
+//        break;
+//    case 4:
+//        edge.set_from_start(true);
+//        edge.set_to_end(true);
+//        break;
+//    default:
+//        assert(false);
+//        break;
+//    }
     return edge;
 }
 
@@ -1505,11 +1580,13 @@ Graph XG::node_subgraph_g(int64_t g) const {
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
+        cerr << "node_subgraph_g g" << g << " from " << from << " type " << type << endl;
         *graph.add_edge() = edge_from_encoding(from, g, type);
     }
     for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
+        cerr << "node_subgraph_g g" << g << " to " << to << " type " << type << endl;
         *graph.add_edge() = edge_from_encoding(g, to, type);
     }
     return graph;
@@ -1665,7 +1742,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
         
         // Make sure we got a valid edge type and we haven't wandered off into non-edge data.
         assert(type >= 0);
-        assert(type <= 3);
+        assert(type <= 1);
         
         if (edge_filter(type, is_to, want_left, is_reverse)) {
             
@@ -1774,11 +1851,13 @@ vector<Edge> XG::edges_of(int64_t id) const {
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
+        cerr << "edges_of g" << g << " from " << from << " type " << type << endl;
         edges.push_back(edge_from_encoding(from, g, type));
     }
     for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
+        cerr << "edges_of g" << g << " to " << to << " type " << type << endl;
         edges.push_back(edge_from_encoding(g, to, type));
     }
     for (auto& edge : edges) { 
@@ -1798,6 +1877,7 @@ vector<Edge> XG::edges_to(int64_t id) const {
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
+        cerr << "edges_to g" << g << " from " << from << " type " << type << endl;
         edges.push_back(edge_from_encoding(from, g, type));
     }
     for (auto& edge : edges) { 
@@ -1818,6 +1898,7 @@ vector<Edge> XG::edges_from(int64_t id) const {
     for (int64_t j = f; j < e; ) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
+        cerr << "edges_from g" << g << " to " << to << " type " << type << endl;
         edges.push_back(edge_from_encoding(g, to, type));
     }
     for (auto& edge : edges) { 
@@ -1905,6 +1986,7 @@ size_t XG::edge_graph_idx(const Edge& edge_in) const {
     for (int64_t j = f; j < e; ++i) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
+        cerr << "edge_graph_idx g" << g << " to " << to << " type " << type << endl;
         Edge curr = edge_from_encoding(g, to, type);
         curr.set_from(g_iv[curr.from()+G_NODE_ID_OFFSET]);
         curr.set_to(g_iv[curr.to()+G_NODE_ID_OFFSET]);

@@ -108,7 +108,9 @@ public:
                bool validate_graph,
                bool print_graph,
                bool store_threads,
-               bool is_sorted_dag);
+               bool is_sorted_dag,
+               unordered_map<side_t, vector<side_t> >& start_side,
+               unordered_map<side_t, vector<side_t> >& end_side);
                
     // What's the maximum XG version number we can read with this code?
     const static uint32_t MAX_INPUT_VERSION = 9;
@@ -197,7 +199,7 @@ public:
     void idify_graph(Graph& graph) const;
     
     /// a numerical code for the edge type (based on the two reversal flags)
-    int edge_type(bool from_start, bool to_end) const;
+    int edge_type(bool from_start, bool to_end, bool from_to) const;
     int edge_type(const Edge& edge) const;
     
     ////////////////////////////////////////////////////////////////////////////
