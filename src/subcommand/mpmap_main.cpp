@@ -62,7 +62,7 @@ void help_mpmap(char** argv) {
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [48]" << endl
-    << "  -O, --max-paths INT       consider (up to) this many paths per alignment when scoring by population consistency [1]" << endl
+    << "  -O, --max-paths INT       consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
     << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
@@ -114,7 +114,7 @@ int main_mpmap(int argc, char** argv) {
     bool interleaved_input = false;
     int snarl_cut_size = 5;
     int max_map_attempts = 48;
-    int population_max_paths = 1;
+    int population_max_paths = 10;
     // How many distinct single path alignments should we look for in a multipath, for MAPQ?
     // TODO: create an option.
     int localization_max_paths = 5;
@@ -556,13 +556,15 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (population_max_paths < 1) {
-        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set to " << population_max_paths << ", must set to a positive integer." << endl;
+    if (population_max_paths < 0) {
+        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set to " << population_max_paths << ", must set to a nonnegative integer." << endl;
         exit(1);
     }
     
-    if (population_max_paths != 1 && gbwt_name.empty() && sublinearLS_name.empty()) {
-        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set when population database (-H or --linear-index) not provided." << endl;
+    if (population_max_paths != 10 && population_max_paths != 0 && gbwt_name.empty() && sublinearLS_name.empty()) {
+        // Don't allow anything but the default or the "disabled" setting without an index.
+        // TODO: This restriction makes neat auto-generation of command line options for different conditions hard.
+        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) is specified but population database (-H or --linear-index) was not provided." << endl;
         exit(1);
     }
     
@@ -650,7 +652,7 @@ int main_mpmap(int argc, char** argv) {
     
     // adjust parameters that produce irrelevant extra work in single path mode
     
-    if (single_path_alignment_mode && population_max_paths == 1) {
+    if (single_path_alignment_mode && population_max_paths == 0) {
         // TODO: I don't like having these constants floating around in two different places, but it's not very risky, just a warning
         if (!snarls_name.empty()) {
             cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
@@ -797,7 +799,8 @@ int main_mpmap(int argc, char** argv) {
     // set mapping quality parameters
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
-    multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr);
+    // Use population MAPQs when we have the right option combination to make that sensible.
+    multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
     multipath_mapper.population_max_paths = population_max_paths;
     
     // set pruning and clustering parameters
