@@ -16,33 +16,8 @@ namespace vg {
 using namespace std;
 
 ////////////////////////////////////////////////////////////////////////
-// Internal Types
-////////////////////////////////////////////////////////////////////////
-
-/// We define an adapter for things that are annotated to let us get at the annotation struct.
-template<typename T>
-struct Annotation {
-    /// Get the immutable annotations Struct
-    static const google::protobuf::Struct& get(const T& t);
-    /// Get the mutable annotations struct.
-    static google::protobuf::Struct* get_mutable(T* t);
-    /// Clear all annotations
-    void clear(T* t);
-};
-
-/// Cast a Protobuf generic Value to any type.
-template <typename T, typename Enabled = void>
-T value_cast(const google::protobuf::Value& value);
-
-/// Cast any type to a generic Protobuf value.
-template<typename T,  typename Enabled = void>
-google::protobuf::Value value_cast(const T& wrap);
-
-
-////////////////////////////////////////////////////////////////////////
 // API
 ////////////////////////////////////////////////////////////////////////
-
 
 /// Get the annotation with the given name and return it.
 /// If not present, returns the Protobuf default value for the annotation type.
@@ -60,6 +35,28 @@ void set_annotation(Annotated* annotated, const string& name, const AnnotationTy
 template<typename Annotated>
 void clear_annotation(Annotated* annotated, const string& name);
 
+////////////////////////////////////////////////////////////////////////
+// Internal Definitions
+////////////////////////////////////////////////////////////////////////
+
+/// We define an adapter for things that are annotated to let us get at the annotation struct.
+template<typename T>
+struct Annotation {
+    /// Get the immutable annotations Struct
+    static const google::protobuf::Struct& get(const T& t);
+    /// Get the mutable annotations struct.
+    static google::protobuf::Struct* get_mutable(T* t);
+    /// Clear all annotations
+    void clear(T* t);
+};
+
+/// Cast a Protobuf generic Value to any type.
+template <typename T, typename Enabled = void>
+inline T value_cast(const google::protobuf::Value& value);
+
+/// Cast any type to a generic Protobuf value.
+template<typename T,  typename Enabled = void>
+inline google::protobuf::Value value_cast(const T& wrap);
 
 ////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -81,39 +78,39 @@ void Annotation<T>::clear(T* t) {
 }
 
 template<>
-bool value_cast<bool, void>(const google::protobuf::Value& value) {
+inline bool value_cast<bool, void>(const google::protobuf::Value& value) {
     assert(value.kind_case() == google::protobuf::Value::KindCase::kBoolValue);
     return value.bool_value();
 }
 
 template<>
-double value_cast<double, void>(const google::protobuf::Value& value) {
+inline double value_cast<double, void>(const google::protobuf::Value& value) {
     assert(value.kind_case() == google::protobuf::Value::KindCase::kNumberValue);
     return value.number_value();
 }
 
 template<>
-string value_cast<string, void>(const google::protobuf::Value& value) {
+inline string value_cast<string, void>(const google::protobuf::Value& value) {
     assert(value.kind_case() == google::protobuf::Value::KindCase::kStringValue);
     return value.string_value();
 }
 
 template<>
-google::protobuf::Value value_cast<bool, void>(const bool& wrap) {
+inline google::protobuf::Value value_cast<bool, void>(const bool& wrap) {
     google::protobuf::Value to_return;
     to_return.set_bool_value(wrap);
     return to_return;
 }
 
 template<>
-google::protobuf::Value value_cast<double, void>(const double& wrap) {
+inline google::protobuf::Value value_cast<double, void>(const double& wrap) {
     google::protobuf::Value to_return;
     to_return.set_number_value(wrap);
     return to_return;
 }
 
 template<>
-google::protobuf::Value value_cast<string, void>(const string& wrap) {
+inline google::protobuf::Value value_cast<string, void>(const string& wrap) {
     google::protobuf::Value to_return;
     to_return.set_string_value(wrap);
     return to_return;

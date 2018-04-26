@@ -3129,6 +3129,47 @@ namespace vg {
         }
         out << "}" << endl;
     }
+    
+    vector<vector<id_t>> MultipathAlignmentGraph::get_connected_components() const {
+        // Brea all the path_nodes into components using this union-find
+        structures::UnionFind unionfind(path_nodes.size());
+        
+        for (size_t i = 0; i < path_nodes.size(); i++) {
+            // For each node
+            for (auto& edge : path_nodes[i].edges) {
+                // For each outgoing edge...
+                
+                // Union both ends into the same component.
+                unionfind.union_groups(unionfind.find_group(i), unionfind.find_group(edge.first));
+            }
+        }
+        
+        // Assemble the vectors of ids
+        vector<vector<id_t>> to_return;
+        
+        for (auto& component : unionfind.all_groups()) {
+            // For each connected component
+            
+            // Make a set of vg graph IDs in it
+            set<id_t> vg_ids;
+            
+            for (auto& path_node : component) {
+                // For each path in the vg graph used by the component
+                auto& path = path_nodes[path_node].path;
+                
+                for (auto& mapping : path.mapping()) {
+                    // For each mapping in the path, remember its vg graph node
+                    vg_ids.insert(mapping.position().node_id());
+                }
+            }
+            
+            // Copy the unique vg nodes used byt this component of PathNodes into the list of components to return
+            to_return.emplace_back(vg_ids.begin(), vg_ids.end());
+        }
+        
+        return to_return;
+        
+    }
 }
 
 
