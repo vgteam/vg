@@ -115,6 +115,9 @@ int main_mpmap(int argc, char** argv) {
     int snarl_cut_size = 5;
     int max_map_attempts = 48;
     int population_max_paths = 1;
+    // How many distinct single path alignments should we look for in a multipath, for MAPQ?
+    // TODO: create an option.
+    int localization_max_paths = 5;
     int max_rescue_attempts = 32;
     int max_num_mappings = 1;
     int buffer_size = 100;
@@ -881,10 +884,22 @@ int main_mpmap(int argc, char** argv) {
         auto& output_buf = single_path_output_buffer[omp_get_thread_num()];
         // add optimal alignments to the output buffer
         for (MultipathAlignment& mp_aln : mp_alns) {
-            output_buf.emplace_back();
-            optimal_alignment(mp_aln, output_buf.back());
+            // For each multipath alignment, get the greedy nonoverlapping
+            // single-path alignments from the top k optimal single-path
+            // alignments.
+            vector<Alignment> options;
+            multipath_mapper.reduce_to_single_path(mp_aln, options, localization_max_paths);
+            
+            // There will always be at least one result. Use the optimal alignment.
+            output_buf.emplace_back(std::move(options.front()));
+            
             // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
+            
+            if (mp_aln.has_annotation()) {
+                // Move over annotations
+                output_buf.back().set_allocated_annotation(mp_aln.release_annotation());
+            }
             
             // label with read group and sample name
             if (!read_group.empty()) {
@@ -944,8 +959,18 @@ int main_mpmap(int argc, char** argv) {
         // add optimal alignments to the output buffer
         for (pair<MultipathAlignment, MultipathAlignment>& mp_aln_pair : mp_aln_pairs) {
             
-            output_buf.emplace_back();
-            optimal_alignment(mp_aln_pair.first, output_buf.back());
+            // Compute nonoverlapping single path alignments for each multipath alignment
+            vector<Alignment> options;
+            multipath_mapper.reduce_to_single_path(mp_aln_pair.first, options, localization_max_paths);
+            
+            // There will always be at least one result. Use the optimal alignment.
+            output_buf.emplace_back(std::move(options.front()));
+            
+            if (mp_aln_pair.first.has_annotation()) {
+                // Move over annotations
+                output_buf.back().set_allocated_annotation(mp_aln_pair.first.release_annotation());
+            }
+            
             // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
@@ -959,8 +984,16 @@ int main_mpmap(int argc, char** argv) {
             // arbitrarily decide that this is the "previous" fragment
             output_buf.back().mutable_fragment_next()->set_name(mp_aln_pair.second.name());
             
-            output_buf.emplace_back();
-            optimal_alignment(mp_aln_pair.second, output_buf.back());
+            // Now do the second read
+            options.clear();
+            multipath_mapper.reduce_to_single_path(mp_aln_pair.second, options, localization_max_paths);
+            output_buf.emplace_back(std::move(options.front()));
+            
+            if (mp_aln_pair.second.has_annotation()) {
+                // Move over annotations
+                output_buf.back().set_allocated_annotation(mp_aln_pair.second.release_annotation());
+            }
+            
             // compute identity again
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
