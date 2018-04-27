@@ -7,6 +7,7 @@
 #include <iostream>
 #include <chrono>
 #include <ctime>
+#include <sstream>
 #include "xg.hpp"
 #include "packer.hpp"
 #include "alignment.hpp"
@@ -22,8 +23,8 @@ class Viz {
 public:
     Viz(void) { }
     ~Viz(void) { close(); }
-    Viz(xg::XG* x, vector<Packer>* p, const string& o, int w, int h, bool c);
-    void init(xg::XG* x, vector<Packer>* p, const string& o, int w, int h, bool c);
+    Viz(xg::XG* x, vector<Packer>* p, const string& o, int w, int h, bool c, bool d);
+    void init(xg::XG* x, vector<Packer>* p, const string& o, int w, int h, bool c, bool d);
     void draw(void);
     void draw_graph(void);
     void close(void);
@@ -38,6 +39,7 @@ private:
     bool output_png = false;
     bool output_svg = false;
     bool show_cnv = true;
+    bool show_dna = true;
     int image_width = 0;
     int image_height = 0;
     int left_border = 0;

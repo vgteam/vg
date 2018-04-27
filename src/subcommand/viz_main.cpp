@@ -18,7 +18,8 @@ void help_viz(char** argv) {
          << "    -o, --out FILE        write to file (could be .png or .svg)" << endl
          << "    -X, --width N         write an image N pixels wide (default 1024)" << endl
          << "    -Y, --height N        write an image N pixels high (default 1024)" << endl
-         << "    -C, --hide-cnv        suppress the visualization of CNVs in paths" << endl;
+         << "    -C, --show-cnv        visualize CNVs in paths on new rows (default uses text)" << endl
+         << "    -D, --hide-dna        suppress the visualization of DNA sequences" << endl;
 }
 
 int main_viz(int argc, char** argv) {
@@ -30,7 +31,8 @@ int main_viz(int argc, char** argv) {
     int image_height = 1024;
     int image_width = 0;
     double scale_factor = 1.0;
-    bool show_cnv = true;
+    bool show_cnv = false;
+    bool show_dna = true;
     
     if (argc == 2) {
         help_viz(argv);
@@ -51,10 +53,11 @@ int main_viz(int argc, char** argv) {
             {"out", required_argument, 0, 'o'},
             {"scale", required_argument, 0, 's'},
             {"hide-cnv", no_argument, 0, 'C'},
+            {"hide-dna", no_argument, 0, 'D'},
             {0, 0, 0, 0}
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:i:n:o:X:Y:s:C",
+        c = getopt_long (argc, argv, "hx:i:n:o:X:Y:s:CD",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -90,7 +93,10 @@ int main_viz(int argc, char** argv) {
             scale_factor = atof(optarg);
             break;
         case 'C':
-            show_cnv = false;
+            show_cnv = true;
+            break;
+        case 'D':
+            show_dna = false;
             break;
         default:
             abort();
@@ -114,7 +120,7 @@ int main_viz(int argc, char** argv) {
         p.load_from_file(f);
     }
 
-    Viz viz(&xgidx, &packs, image_out, image_width, image_height, show_cnv);
+    Viz viz(&xgidx, &packs, image_out, image_width, image_height, show_cnv, show_dna);
     viz.draw();
 
     return 0;

@@ -3,16 +3,17 @@
 
 namespace vg {
 
-Viz::Viz(xg::XG* x, vector<Packer>* p, const string& o, int w, int h, bool c) {
-    init(x, p, o, w, h, c);
+Viz::Viz(xg::XG* x, vector<Packer>* p, const string& o, int w, int h, bool c, bool d) {
+    init(x, p, o, w, h, c, d);
 }
 
-void Viz::init(xg::XG* x, vector<Packer>* p, const string& o, int w, int h, bool c) {
+void Viz::init(xg::XG* x, vector<Packer>* p, const string& o, int w, int h, bool c, bool d) {
     xgidx = x;
     packs = p;
     outfile = o;
-    left_border = 32;
+    left_border = 64;
     show_cnv = c;
+    show_dna = d;
     image_height = h;
     image_width = (w ? w : xgidx->seq_length + xgidx->node_count + left_border*2);
     top_border = image_height/2;
@@ -73,6 +74,20 @@ void Viz::draw_graph(void) {
             cairo_set_line_width(cr, 1);
             cairo_line_to(cr, s+l, top_border);
             cairo_stroke(cr);
+            // DNA
+            if (show_dna) {
+                cairo_text_extents_t te;
+                cairo_select_font_face(cr, "Arial",
+                                       CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+                cairo_set_font_size(cr, 1);
+                string seq = xgidx->node_sequence(id);
+                for (int i = 0; i < seq.size(); ++i) {
+                    string c = string(1, seq[i]);
+                    cairo_text_extents(cr, c.c_str(), &te);
+                    cairo_move_to(cr, s+i+0.05, top_border+2.1);
+                    cairo_show_text(cr, c.c_str());
+                }
+            }
             /*
             // tick marks
             cairo_move_to(cr, s, 32);
@@ -96,7 +111,7 @@ void Viz::draw_graph(void) {
                         x3 = s2, y3 = y;
                     cairo_move_to(cr, x, y);
                     cairo_curve_to(cr, x1, y1, x2, y2, x3, y3);
-                    cairo_set_line_width(cr, 0.5);
+                    cairo_set_line_width(cr, 0.25);
                     cairo_stroke(cr);
                     return true;
                 });
@@ -104,8 +119,16 @@ void Viz::draw_graph(void) {
     int y_pos = top_border + 4;
     for (size_t i = 1; i <= xgidx->path_count; ++i) {
         string path_name = xgidx->path_name(i);
-        set_hash_color(path_name);
         Path p = xgidx->path(path_name);
+        // write the path name
+        {
+            cairo_text_extents_t te;
+            cairo_select_font_face(cr, "Arial", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+            cairo_set_font_size(cr, 1);
+            cairo_text_extents(cr, path_name.c_str(), &te);
+            cairo_move_to(cr, left_border-32, y_pos);
+            cairo_show_text(cr, path_name.c_str());
+        }
         // determine counts
         map<id_t, int> counts;
         int max_count = 0;
@@ -115,17 +138,32 @@ void Viz::draw_graph(void) {
             max_count = max(c, max_count);
         }
         for (auto& c : counts) {
+            set_hash_color(path_name);
             //for (auto& m : p.mapping()) {
             // get the start and end position of the node relative to the image
-            id_t id = c.first;//m.position().node_id();
+
+            id_t id = c.first;
             double s = node_offset(id);
             size_t l = xgidx->node_length(id);
-            int node_copy_number = (!show_cnv ? 1 : c.second);
-            for (int j = 0; j < c.second; ++j) {
+            for (int j = 0; j < (!show_cnv ? 1 : c.second); ++j) {
                 cairo_move_to(cr, s, y_pos+(j*2));
                 cairo_set_line_width(cr, 1);
                 cairo_line_to(cr, s+l, y_pos+(j*2));
                 cairo_stroke(cr);
+            }
+            if (!show_cnv && c.second > 1) {
+                cairo_text_extents_t te;
+                auto q = hash_to_rgb(path_name, 0.5);
+                cairo_set_source_rgb(cr, 1.0-get<0>(q), 1.0-get<1>(q), 1.0-get<2>(q));
+                cairo_select_font_face(cr, "Arial",
+                                       CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+                cairo_set_font_size(cr, 1);
+                stringstream ss;
+                ss << c.second << "X";
+                string label = ss.str();
+                cairo_text_extents(cr, label.c_str(), &te);
+                cairo_move_to(cr, s, y_pos+0.25);
+                cairo_show_text(cr, label.c_str());
             }
         }
         max_count = (!show_cnv ? 1 : max_count);
