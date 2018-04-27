@@ -251,21 +251,21 @@ function wait_on_jobs() {
 if [[ "${RUN_JOBS}" == "1" ]]; then
     # We actually want to run the toil-vg jobs
 
-    #CONDITIONS+=("snp1kg-mp")
-    #if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp" ]]; then
-    #    # Do the full snp1kg graph multipath
-    #    toil-vg mapeval "${TREE_PATH}/snp1kg-mp" "${OUTPUT_PATH}/snp1kg-mp" \
-    #        --single_reads_chunk \
-    #        --config "${TREE_PATH}/toil-vg.conf" \
-    #        --maxDisk 100G \
-    #        --multipath-only \
-    #        --fastq "${READS_DIR}/sim.fq.gz" \
-    #        --truth "${READS_DIR}/true.pos" \
-    #        --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
-    #        --gam-names snp1kg 2>&1 & 
-    #    JOB_ARRAY+=("$!")
-    #fi
-    #wait_on_jobs
+    CONDITIONS+=("snp1kg-mp")
+    if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp" ]]; then
+        # Do the full snp1kg graph multipath
+        toil-vg mapeval "${TREE_PATH}/snp1kg-mp" "${OUTPUT_PATH}/snp1kg-mp" \
+            --single_reads_chunk \
+            --config "${TREE_PATH}/toil-vg.conf" \
+            --maxDisk 100G \
+            --multipath-only \
+            --fastq "${READS_DIR}/sim.fq.gz" \
+            --truth "${READS_DIR}/true.pos" \
+            --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_filter" \
+            --gam-names snp1kg 2>&1 & 
+        JOB_ARRAY+=("$!")
+    fi
+    wait_on_jobs
     
     CONDITIONS+=("snp1kg-mp-snarlcut")
     if [[ ! -e "${OUTPUT_PATH}/snp1kg-mp-snarlcut" ]]; then
@@ -385,7 +385,6 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --maxDisk 100G \
             --multipath-only \
             --use-gbwt \
-            --use-snarls \
             --mpmap_opts "--max-paths 10" \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
@@ -420,7 +419,6 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --config "${TREE_PATH}/toil-vg.conf" \
             --maxDisk 100G \
             --multipath-only \
-            --use-snarls \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_minaf_${MIN_AF}" \
@@ -454,7 +452,6 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --config "${TREE_PATH}/toil-vg.conf" \
             --maxDisk 100G \
             --multipath-only \
-            --use-snarls \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/snp1kg-${REGION_NAME}_${SAMPLE_NAME}" \
@@ -488,7 +485,6 @@ if [[ "${RUN_JOBS}" == "1" ]]; then
             --config "${TREE_PATH}/toil-vg.conf" \
             --maxDisk 100G \
             --multipath-only \
-            --use-snarls \
             --fastq "${READS_DIR}/sim.fq.gz" \
             --truth "${READS_DIR}/true.pos" \
             --index-bases "${GRAPHS_PATH}/primary" \
@@ -657,13 +653,14 @@ fi
 SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Do the R plots
+# TODO: Reduce number of conditions and re-enable
 
-if [[ ! -e "${OUTPUT_PATH}/roc.svg" ]]; then
-    Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
-fi
-if [[ ! -e "${OUTPUT_PATH}/pr.svg" ]]; then
-    Rscript "${SCRIPT_DIRECTORY}/plot-pr.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/pr.svg"
-fi
+#if [[ ! -e "${OUTPUT_PATH}/roc.svg" ]]; then
+#    Rscript "${SCRIPT_DIRECTORY}/plot-roc.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/roc.svg"
+#fi
+#if [[ ! -e "${OUTPUT_PATH}/pr.svg" ]]; then
+#    Rscript "${SCRIPT_DIRECTORY}/plot-pr.R" "${OUTPUT_PATH}/position.results.tsv" "${OUTPUT_PATH}/pr.svg"
+#fi
 
 rm "${TREE_PATH}/toil-vg.conf"
 rmdir "${TREE_PATH}"
