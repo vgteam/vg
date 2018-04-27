@@ -29,9 +29,9 @@ dat.roc <- dat %>%
 dat.roc %>% ggplot(aes( x= log10(FPR), y = log10(1-TPR), color = aligner, label=mq)) +
     geom_line() + geom_text_repel(data = subset(dat.roc, mq %% 10 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
     geom_point(aes(size=Positive+Negative)) +
-    scale_color_manual(values=c("#1f78b4","#a6cee3","#e31a1c","#fb9a99","#33a02c","#b2df8a","#6600cc","#e5ccff","#ff8000","#ffe5cc","#5c415d","#9a7c9b", "#458b74", "#76eec6", "#698b22", "#b3ee3a", "#008b8b", "#00eeee")) +
-    scale_size_continuous("number") +
+    scale_color_manual(values=c("#1f78b4","#a6cee3","#e31a1c","#fb9a99","#33a02c","#b2df8a","#6600cc","#e5ccff","#ff8000","#ffe5cc","#5c415d","#9a7c9b", "#458b74", "#76eec6", "#698b22", "#b3ee3a", "#008b8b", "#00eeee"), guide=guide_legend(title=NULL, ncol=2)) +
+    scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
     theme_bw()
 
 filename <- commandArgs(TRUE)[2]
-ggsave(filename, height=4, width=5.45)
+ggsave(filename, height=4, width=7)
