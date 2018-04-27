@@ -97,9 +97,9 @@ namespace vg {
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
         double mapq_scaling_factor = 1.0 / 4.0;
-        // There must be a ScoreProvider provided if this is true
+        // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
         bool use_population_mapqs = false;
-        size_t population_max_paths = 1;
+        size_t population_max_paths = 10;
         // Note that, like the haplotype scoring code, we work with recombiantion penalties in exponent form.
         double recombination_penalty = 9 * 2.3;
         size_t rescue_only_min = 128;
