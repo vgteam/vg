@@ -8,6 +8,7 @@
 
 #include <type_traits>
 
+//#define debug_multiple_tracebacks
 //#define debug_verbose_validation
 
 using namespace std;
@@ -328,13 +329,16 @@ namespace vg {
         aln_out.set_score(score);
     }
     
-    
     int32_t optimal_alignment_score(const MultipathAlignment& multipath_aln){
         // do dynamic programming without traceback
         return optimal_alignment_internal(multipath_aln, nullptr);
     }
     
     vector<Alignment> optimal_alignments(const MultipathAlignment& multipath_aln, size_t count) {
+        
+#ifdef debug_multiple_tracebacks
+        cerr << "Computing top " << count << " alignments" << endl;
+#endif
         
         // Keep a list of what we're going to emit.
         vector<Alignment> to_return;
@@ -364,12 +368,19 @@ namespace vg {
                 // The item belongs in the queue because it fits or it beats
                 // the current worst thing.
                 queue.push(item);
+            } else {
+#ifdef debug_multiple_tracebacks
+                cerr << "Rejected! Queue is full!" << endl;
+#endif
             }
             
             while(queue.size() > max_size) {
                 // We have more possibilities than we need to consider to emit
                 // the top count alignments. Get rid of the worst one.
                 queue.pop_max();
+#ifdef debug_multiple_tracebacks
+                cerr << "Existing item displaced!" << endl;
+#endif
             }
         };
         
@@ -422,6 +433,10 @@ namespace vg {
                 // The path is just to be here
                 step_list_t starting_path{i};
                 
+#ifdef debug_multiple_tracebacks
+                cerr << "Could end at subpath " << i << " with penalty " << penalty << endl;
+#endif
+                
                 try_enqueue(make_pair(penalty, starting_path));
             }
         }
@@ -437,8 +452,18 @@ namespace vg {
             
             assert(!basis.empty());
             
+#ifdef debug_multiple_tracebacks
+            size_t basis_size = 0;
+            for (auto& i : basis) {
+                basis_size++;
+            }
+            cerr << "Consider " << basis_size << " element traceback to " << basis.front() << " with penalty "
+                 << basis_score_difference << endl;
+            cerr << "\t" << pb2json(multipath_aln.subpath(basis.front()).path()) << endl;
+#endif
+            
             if (problem.prev_subpath[basis.front()] == -1) {
-                // If it leads all the way to a read that is optimal as a start
+                // If it leads all the way to a subpath that is optimal as a start
                 
                 // Make an Alignment to emit it in
                 to_return.emplace_back();
@@ -454,6 +479,11 @@ namespace vg {
                 
                 // Set score
                 aln_out.set_score(opt_score - basis_score_difference);
+                
+#ifdef debug_multiple_tracebacks
+                cerr << "Traceback reaches start; emit with score " << aln_out.score() << endl;
+#endif
+                
             } else {
                 // The path does not lead all the way to a source
                 
@@ -496,10 +526,260 @@ namespace vg {
                     // Calculate the score differences from optimal
                     auto total_penalty = basis_score_difference + additional_penalty;
                     
+#ifdef debug_multiple_tracebacks
+                    cerr << "\tAugment with " << prev << " to penalty " << total_penalty << endl;
+#endif
+                    
                     // Put them in the priority queue
                     try_enqueue(make_pair(total_penalty, extended_path));
                 }
                 
+            }
+        }
+        
+        return to_return;
+        
+    }
+    
+    vector<Alignment> optimal_alignments_with_disjoint_subpaths(const MultipathAlignment& multipath_aln, size_t count) {
+        
+#ifdef debug_multiple_tracebacks
+        cerr << "Computing top " << count << " alignments with disjoint subpaths" << endl;
+#endif
+        
+        // Keep a list of what we're going to emit.
+        vector<Alignment> to_return;
+        
+        // Fill out the dynamic programming problem
+        auto dp_result = run_multipath_dp(multipath_aln);
+        // Get the filled DP problem
+        MultipathProblem& problem = get<0>(dp_result);
+        // And the optimal final subpath
+        int64_t& opt_subpath = get<1>(dp_result);
+        // And the optimal score
+        int32_t& opt_score = get<2>(dp_result);
+        
+        // Keep lists of DP steps
+        using step_list_t = ImmutableList<int64_t>;
+        
+        // Have a queue just for end positions
+        MinMaxHeap<pair<int32_t, step_list_t>> end_queue;
+        
+        // Also, subpaths only keep track of their nexts, so we need to invert
+        // that so we can get all valid prev subpaths.
+        vector<vector<int64_t>> prev_subpaths;
+        
+        prev_subpaths.resize(multipath_aln.subpath_size());
+        for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            // For each subpath
+            
+            // If it has no successors, we can start a traceback here
+            bool valid_traceback_start = true;
+            
+            for (auto& next_subpath : multipath_aln.subpath(i).next()) {
+                // For each next subpath it lists
+                
+                // Register this subpath as a predecessor of the next
+                prev_subpaths[next_subpath].push_back(i);
+                
+                if (multipath_aln.subpath(next_subpath).score() >= 0) {
+                    // This successor has a nonnegative score, so taking it
+                    // after us would generate a longer, same- or
+                    // higher-scoring alignment. So we shouldn't start a
+                    // traceback from subpath i.
+                    valid_traceback_start = false;
+                }
+            }
+            
+            if (valid_traceback_start) {
+                // We can start a traceback here.
+                
+                // The score penalty for starting here is the optimal score minus the optimal score starting here
+                auto penalty = opt_score - (problem.prefix_score[i] + multipath_aln.subpath(i).score());
+                
+                // The path is just to be here
+                step_list_t starting_path{i};
+                
+#ifdef debug_multiple_tracebacks
+                cerr << "Could end at subpath " << i << " with penalty " << penalty << endl;
+#endif
+                
+                end_queue.push(make_pair(penalty, starting_path));
+            }
+        }
+        
+        // Keep a bit vector of the subpaths that have been used, so we can reject
+        // them. TODO: We get the optimal alignment for each end, subject to
+        // the constraint, but any other subpath may be used in a suboptimal
+        // alignment for that subpath, and we may never see its optimal
+        // alignment.
+        vector<bool> subpath_is_used(multipath_aln.subpath_size(), false);
+        
+        while (!end_queue.empty() && to_return.size() < count) {
+            // For each distinct ending subpath in the multipath
+            
+#ifdef debug_multiple_tracebacks
+            cerr << "Look for alignment " << to_return.size() << " ending with " << end_queue.min().second.front() << endl;
+#endif
+            
+            // Make a real queue for starting from it
+            MinMaxHeap<pair<int32_t, step_list_t>> queue;
+            queue.push(end_queue.min());
+            end_queue.pop_min();
+            
+            if (subpath_is_used[queue.min().second.front()]) {
+                // We shouldn't ever have the place we want to trace back from already used, but if it is already used we don't want to use it.
+                
+#ifdef debug_multiple_tracebacks
+                cerr << "Skip " << queue.min().second.front() << " because it was already emitted in a previous traceback" << endl;
+#endif
+                
+                continue;
+            }
+            
+            // We also want to remember the lowest penalty with which each
+            // subpath has been queued, so we can do a real Dijkstra traversal
+            // and not waste all our time on combinatorial paths to get places
+            // with the same or higher penalty.
+            vector<size_t> min_penalty_for_subpath(multipath_aln.subpath_size(), numeric_limits<size_t>::max());
+            // Seed with the end we are starting with.
+            min_penalty_for_subpath[queue.min().second.front()] = queue.min().first;
+            
+            // We also track visited-ness, so we don;t query edges for the same thing twice.
+            // TODO: This is the world's most hacky Dijkstra and needs to be rewritten from the top with an understanding of what it is supposed to be doing.
+            vector<bool> subpath_is_visited(multipath_aln.subpath_size(), false);
+        
+            while (!queue.empty() && to_return.size() < count) {
+                // Each iteration
+                
+                // Grab the best list as our basis
+                int32_t basis_score_difference;
+                step_list_t basis;
+                tie(basis_score_difference, basis) = queue.min();
+                queue.pop_min();
+                
+                assert(!basis.empty());
+                
+#ifdef debug_multiple_tracebacks
+                size_t basis_size = 0;
+                for (auto& i : basis) {
+                    basis_size++;
+                }
+                cerr << "Consider " << basis_size << " element traceback to " << basis.front() << " with penalty "
+                     << basis_score_difference << endl;
+                cerr << "\t" << pb2json(multipath_aln.subpath(basis.front()).path()) << endl;
+#endif
+
+                if (subpath_is_used[basis.front()]) {
+                    // We already used this start and can't use it again. Try something else.
+                    // TODO: This shouldn't happen; we are also catching this case on enqueue.
+#ifdef debug_multiple_tracebacks
+                    cerr << "Traceback reaches already used subpath; skip" << endl;
+#endif
+                    
+                    continue;
+                }
+                
+                if (subpath_is_visited[basis.front()]) {
+                    // We already processed this; this must be a higher cost version of the same thing.
+                    assert(basis_score_difference >= min_penalty_for_subpath[basis.front()]);
+                    
+#ifdef debug_multiple_tracebacks
+                    cerr << "Found more expensive version of subpath that has already been processed; skip" << endl;
+#endif
+                    
+                    continue;
+                }
+                subpath_is_visited[basis.front()] = true;
+                
+                if (problem.prev_subpath[basis.front()] == -1) {
+                    // If it leads all the way to a subpath that is optimal as a start
+                    
+                    // Make an Alignment to emit it in
+                    to_return.emplace_back();
+                    Alignment& aln_out = to_return.back();
+                    
+                    // Set up read info and MAPQ
+                    // TODO: MAPQ on secondaries?
+                    transfer_read_metadata(multipath_aln, aln_out);
+                    aln_out.set_mapping_quality(multipath_aln.mapping_quality());
+                    
+                    // Populate path
+                    populate_path_from_traceback(multipath_aln, problem, basis.begin(), basis.end(), aln_out.mutable_path());
+                    
+                    // Set score
+                    aln_out.set_score(opt_score - basis_score_difference);
+                    
+#ifdef debug_multiple_tracebacks
+                    cerr << "Traceback reaches start; emit with score " << aln_out.score() << endl;
+#endif
+
+                    for (auto& subpath : basis) {
+                        // Record the used-ness of all the subpaths
+                        subpath_is_used[subpath] = true;
+                    }
+
+                    // Break out of this loop and try a different starting position
+                    break;
+                    
+                } else {
+                    // The path does not lead all the way to a source
+                    
+                    // The destinations will be all places we could have arrived here from
+                    auto& here = basis.front();
+                    
+                    // To compute the additional score difference, we need to know what our optimal prefix score was.
+                    auto& best_prefix_score = problem.prefix_score[here];
+                    
+                    for (auto& prev : prev_subpaths[here]) {
+                        // For each candidate previous subpath
+                        
+                        if (subpath_is_used[prev]) {
+                            // This subpath has already been used in an emitted alignment, so we can't use it.
+                            
+#ifdef debug_multiple_tracebacks
+                            cerr << "\tSkip " << prev << " which is already used" << endl;
+#endif
+                            
+                            continue;
+                        }
+                        
+                        // For each, compute the score of the optimal alignment ending at that predecessor
+                        auto prev_opt_score = problem.prefix_score[prev] + multipath_aln.subpath(prev).score();
+                        
+                        // What's the difference we would take if we went with this predecessor?
+                        auto additional_penalty = best_prefix_score - prev_opt_score;
+                        
+                        // Calculate the score differences from optimal
+                        auto total_penalty = basis_score_difference + additional_penalty;
+                        
+                        if (total_penalty >= min_penalty_for_subpath[prev]) {
+                            // This previous subpath is already reachable with a penalty as good or better.
+                            // Don't bother with it again
+                            
+#ifdef debug_multiple_tracebacks
+                            cerr << "\tSkip " << prev << " with penalty " << total_penalty << " >= " << min_penalty_for_subpath[prev] << endl;
+#endif
+                            
+                            continue;
+                        }
+                        
+                        // Record that this is the cheapest we managed to get here
+                        min_penalty_for_subpath[prev] = total_penalty;
+                        
+                        // Make an extended path
+                        auto extended_path = basis.push_front(prev);
+                        
+#ifdef debug_multiple_tracebacks
+                        cerr << "\tAugment with " << prev << " to penalty " << total_penalty << endl;
+#endif
+                        
+                        // Put them in the priority queue
+                        queue.push(make_pair(total_penalty, extended_path));
+                    }
+                    
+                    
+                }
             }
         }
         
