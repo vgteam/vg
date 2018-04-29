@@ -26,9 +26,9 @@ int main_viz(int argc, char** argv) {
 
     string xg_name;
     vector<string> packs_in;
-    vector<string> names;
+    vector<string> pack_names;
     string image_out;
-    int image_height = 1024;
+    int image_height = 0;
     int image_width = 0;
     double scale_factor = 1.0;
     bool show_cnv = false;
@@ -75,7 +75,7 @@ int main_viz(int argc, char** argv) {
             xg_name = optarg;
             break;
         case 'n':
-            names.push_back(optarg);
+            pack_names.push_back(optarg);
             break;
         case 'i':
             packs_in.push_back(optarg);
@@ -120,7 +120,12 @@ int main_viz(int argc, char** argv) {
         p.load_from_file(f);
     }
 
-    Viz viz(&xgidx, &packs, image_out, image_width, image_height, show_cnv, show_dna);
+    // default to using the file names as the row names for the packs
+    if (pack_names.empty()) {
+        pack_names = packs_in;
+    }
+
+    Viz viz(&xgidx, &packs, pack_names, image_out, image_width, image_height, show_cnv, show_dna);
     viz.draw();
 
     return 0;

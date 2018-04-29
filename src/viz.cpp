@@ -3,20 +3,24 @@
 
 namespace vg {
 
-Viz::Viz(xg::XG* x, vector<Packer>* p, const string& o, int w, int h, bool c, bool d) {
-    init(x, p, o, w, h, c, d);
+Viz::Viz(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d) {
+    init(x, p, n, o, w, h, c, d);
 }
 
-void Viz::init(xg::XG* x, vector<Packer>* p, const string& o, int w, int h, bool c, bool d) {
+void Viz::init(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d) {
     xgidx = x;
     packs = p;
+    pack_names = n;
     outfile = o;
-    left_border = 64;
     show_cnv = c;
     show_dna = d;
-    image_height = h;
+    compute_borders_and_dimensions();
+    /*
+    left_border = 8;
+    top_border = 8;
+    image_height = (h ? h : rendered_height() + top_border*2);
     image_width = (w ? w : xgidx->seq_length + xgidx->node_count + left_border*2);
-    top_border = image_height/2;
+    */
     std::regex svgbase(".svg$");
     std::regex pngbase(".png$");
     if (std::regex_search(outfile, svgbase)) {
@@ -31,9 +35,63 @@ void Viz::init(xg::XG* x, vector<Packer>* p, const string& o, int w, int h, bool
     cr = cairo_create(surface);
 }
 
+void Viz::compute_borders_and_dimensions(void) {
+    top_border = 4;
+    xgidx->for_each_handle([&](const handle_t& h) {
+            id_t id = xgidx->get_id(h);
+            double s = node_offset(id);
+            size_t l = xgidx->node_length(id);
+            xgidx->follow_edges(h, false, [&](const handle_t& o) {
+                    id_t id2 = xgidx->get_id(o);
+                    double s2 = node_offset(id2);
+                    double x = s+l;
+                    int delta = s2 - x;
+                    double w = pow(log(abs(delta)+1), 1.5);
+                    int xdiff = (delta < 0 ? -w : w)/2;
+                    int ydiff = w*2;
+                    top_border = max(ydiff, top_border);
+                    return true;
+                });
+        });
+    int height = top_border + 4;
+    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
+    cr = cairo_create(surface);
+    for (size_t i = 1; i <= xgidx->path_count; ++i) {
+        string path_name = xgidx->path_name(i);
+        cairo_text_extents_t te;
+        cairo_select_font_face(cr, "Arial", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+        cairo_set_font_size(cr, 1);
+        cairo_text_extents(cr, path_name.c_str(), &te);
+        left_border = max(left_border, (int)round(te.width+2));
+        height += 2;
+    }
+    height += 2;
+    for (int i = 0; i < packs->size(); ++i) {
+        auto& pack_name = pack_names[i];
+        cairo_text_extents_t te;
+        cairo_select_font_face(cr, "Arial", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+        cairo_set_font_size(cr, 1);
+        cairo_text_extents(cr, pack_name.c_str(), &te);
+        left_border = max(left_border, (int)round(te.width+2));
+        height += 2;
+    }
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+    cr = nullptr;
+    surface = nullptr;
+    height += 2;
+    image_width = xgidx->seq_length + xgidx->node_count + left_border * 2;
+    image_height = height;
+}
+
 double Viz::node_offset(id_t id) {
     // provides 1 extra pixel of space per node plus border
     return xgidx->node_start(id) + xgidx->id_to_rank(id) + left_border;
+}
+
+double Viz::nodes_before_offset(size_t pos) {
+    // how many nodes have there been before the current position in the seq vector
+    return xgidx->id_to_rank(xgidx->node_at_seq_pos(pos+1));
 }
 
 tuple<double, double, double> hash_to_rgb(const string& str, double min_sum) {
@@ -65,14 +123,15 @@ void Viz::set_hash_color(const string& str) {
 
 void Viz::draw_graph(void) {
     cairo_set_source_rgb(cr, 0, 0, 0);
+    int y_pos = top_border;
     xgidx->for_each_handle([&](const handle_t& h) {
             // get the start and end position of the node relative to the image
             id_t id = xgidx->get_id(h);
             double s = node_offset(id);
             size_t l = xgidx->node_length(id);
-            cairo_move_to(cr, s, top_border);
+            cairo_move_to(cr, s, y_pos);
             cairo_set_line_width(cr, 1);
-            cairo_line_to(cr, s+l, top_border);
+            cairo_line_to(cr, s+l, y_pos);
             cairo_stroke(cr);
             // DNA
             if (show_dna) {
@@ -84,24 +143,16 @@ void Viz::draw_graph(void) {
                 for (int i = 0; i < seq.size(); ++i) {
                     string c = string(1, seq[i]);
                     cairo_text_extents(cr, c.c_str(), &te);
-                    cairo_move_to(cr, s+i+0.05, top_border+2.1);
+                    cairo_move_to(cr, s+i+0.05, y_pos+2.1);
                     cairo_show_text(cr, c.c_str());
                 }
             }
-            /*
-            // tick marks
-            cairo_move_to(cr, s, 32);
-            cairo_set_line_width(cr, 0.3);
-            cairo_line_to(cr, s, 32+2);
-            cairo_line_to(cr, s, 32-2);
-            cairo_stroke(cr);
-            */
             // edges from
             xgidx->follow_edges(h, false, [&](const handle_t& o) {
                     id_t id2 = xgidx->get_id(o);
                     double s2 = node_offset(id2);
                     double x = s+l;
-                    double y = top_border;
+                    double y = y_pos;
                     int delta = s2 - x;
                     double w = pow(log(abs(delta)+1), 1.5);
                     int xdiff = (delta < 0 ? -w : w)/2;
@@ -116,17 +167,18 @@ void Viz::draw_graph(void) {
                     return true;
                 });
         });
-    int y_pos = top_border + 4;
+    y_pos += 4;
     for (size_t i = 1; i <= xgidx->path_count; ++i) {
         string path_name = xgidx->path_name(i);
         Path p = xgidx->path(path_name);
         // write the path name
         {
+            set_hash_color(path_name);
             cairo_text_extents_t te;
             cairo_select_font_face(cr, "Arial", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
             cairo_set_font_size(cr, 1);
             cairo_text_extents(cr, path_name.c_str(), &te);
-            cairo_move_to(cr, left_border-32, y_pos);
+            cairo_move_to(cr, left_border-(te.width+1), y_pos+0.35);
             cairo_show_text(cr, path_name.c_str());
         }
         // determine counts
@@ -168,6 +220,39 @@ void Viz::draw_graph(void) {
         }
         max_count = (!show_cnv ? 1 : max_count);
         y_pos += 2*max_count;
+    }
+    y_pos += 2;
+    // coverage maps
+    for (int i = 0; i < packs->size(); ++i) {
+        auto& pack = packs->at(i);
+        auto& name = pack_names[i];
+        set_hash_color(name);
+        {
+            cairo_text_extents_t te;
+            cairo_select_font_face(cr, "Arial", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+            cairo_set_font_size(cr, 1);
+            cairo_text_extents(cr, name.c_str(), &te);
+            cairo_move_to(cr, left_border-(te.width+1), y_pos);
+            cairo_show_text(cr, name.c_str());
+        }
+        // for each position draw a bar representing coverage
+        size_t max_coverage = 0;
+        for (size_t j = 0; j < pack.coverage_size(); ++j) {
+            max_coverage = max(max_coverage, pack.coverage_at_position(j));
+        }
+        // use max_coverage to normalize into 0/1
+        for (size_t j = 0; j < pack.coverage_size(); ++j) {
+            double c = (double)pack.coverage_at_position(j)/(double)max_coverage;
+            double x_pos = j + left_border + nodes_before_offset(j) + 0.5;
+            //cerr << "cov " << name << " " << j << " " << c << " " << x_pos << " " << y_pos << endl;
+            // draw a line that tall
+            cairo_move_to(cr, x_pos, y_pos);
+            //cairo_set_line_width(cr, c*2);
+            cairo_set_line_width(cr, 1);
+            cairo_line_to(cr, x_pos, y_pos-c);
+            cairo_stroke(cr);
+        }
+        y_pos += 2;
     }
 }
 
