@@ -45,9 +45,9 @@ dat.roc %>%
         # There will be points with variable sizes
         geom_point(aes(size=Positive+Negative)) +
         # We manually assign these selected colors
-        scale_color_manual(values=c("#1f78b4","#a6cee3","#e31a1c","#fb9a99","#33a02c","#b2df8a","#6600cc","#e5ccff","#ff8000","#ffe5cc","#5c415d","#9a7c9b", "#458b74", "#76eec6", "#698b22", "#b3ee3a", "#008b8b", "#00eeee")) +
+        scale_color_manual(values=c("#1f78b4","#a6cee3","#e31a1c","#fb9a99","#33a02c","#b2df8a","#6600cc","#e5ccff","#ff8000","#ffe5cc","#5c415d","#9a7c9b", "#458b74", "#76eec6", "#698b22", "#b3ee3a", "#008b8b", "#00eeee"), guide=guide_legend(title=NULL, ncol=2)) +
         # And we want a size legend
-        scale_size_continuous("number") +
+        scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
         # And we want a fake log Y axis
         scale_y_continuous(labels=c("1e-0","1e-1","1e-2","1e-3","1e-4","1e-5","1e-6","1e-7"), breaks=c(0,1,2,3,4,5,6,7), limits=c(2, 6)) +
         # Label it
@@ -61,4 +61,4 @@ dat.roc %>%
 
 # Now save to the second command line argument
 filename <- commandArgs(TRUE)[2]
-ggsave(filename, height=4, width=5.45)
+ggsave(filename, height=4, width=7)
