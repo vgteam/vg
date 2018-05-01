@@ -16,6 +16,7 @@ new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"
 if(length(new.packages)) install.packages(new.packages)
 require("tidyverse")
 require("ggrepel")
+require("scales") # For squish
 
 dat <- read.table(commandArgs(TRUE)[1], header=T)
 dat$bin <- cut(dat$mq, c(-Inf,seq(0,60,1),Inf))
@@ -24,15 +25,25 @@ dat.roc <- dat %>%
     group_by(aligner, mq) %>%
     summarise(Positive = sum(Positive), Negative = sum(Negative)) %>%
     arrange(-mq) %>%
-    mutate(TPR = cumsum(Positive) / sum(Positive+Negative), FPR = cumsum(Negative) / sum(Positive+Negative))
+    mutate(Total=sum(Positive+Negative)) %>%
+    mutate(TPR = cumsum(Positive) / Total, FPR = cumsum(Negative) / Total)
+    
+# We want smart scales that know how tiny a rate of things we can care about
+total.reads <- max(dat.roc$Total)
+min.log10 <- floor(log10(1/total.reads))
+max.log10 <- 0
+# Work out a set of bounds to draw the plot on
+range.log10 <- min.log10 : max.log10
+range.unlogged = 10^range.log10
 
-dat.roc %>% ggplot(aes( x= FPR, y = TPR, color = aligner, label=mq)) +
+dat.plot <- ggplot(dat.roc, aes( x= FPR, y = TPR, color = aligner, label=mq)) +
     geom_line() + geom_text_repel(data = subset(dat.roc, mq %% 10 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
     geom_point(aes(size=Positive+Negative)) +
-    scale_color_manual(values=c("#1f78b4","#a6cee3","#e31a1c","#fb9a99","#33a02c","#b2df8a","#6600cc","#e5ccff","#ff8000","#ffe5cc","#5c415d","#9a7c9b", "#458b74", "#76eec6", "#698b22", "#b3ee3a", "#008b8b", "#00eeee")) +
-    scale_size_continuous("number") +
-    scale_x_log10(breaks=c(1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,1e-0)) +
+    scale_color_manual(values=c("#1f78b4","#a6cee3","#e31a1c","#fb9a99","#33a02c","#b2df8a","#6600cc","#e5ccff","#ff8000","#ffe5cc","#5c415d","#9a7c9b", "#458b74", "#76eec6", "#698b22", "#b3ee3a", "#008b8b", "#00eeee"), guide=guide_legend(title=NULL, ncol=2)) +
+    scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
+    scale_x_log10(limits=c(range.unlogged[1],range.unlogged[length(range.unlogged)]), breaks=range.unlogged, oob=squish) +
+    geom_vline(xintercept=1/total.reads) + # vertical line at one wrong read
     theme_bw()
-
+    
 filename <- commandArgs(TRUE)[2]
-ggsave(filename, height=4, width=5.45)
+ggsave(filename, height=4, width=7)
