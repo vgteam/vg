@@ -30,6 +30,18 @@ if (length(commandArgs(TRUE)) > 2) {
     dat <- dat[dat$aligner %in% aligner.set,]
 }
 
+# Determine the order of aligners, based on sorting in a dash-separated tag aware manner
+aligner.names <- levels(dat$aligner)
+name.lists <- aligner.names %>% (function(name) map(name,  (function(x) as.list(unlist(strsplit(x, "-"))))))
+# Transpose name fragments into a list of vectors for each position, with NAs when tag lists end early
+max.parts <- max(sapply(name.lists, length))
+name.cols <- list()
+for (i in 1:max.parts) {
+    name.cols[[i]] <- sapply(name.lists, function(x) if (length(x) >= i) { x[[i]] } else { NA })
+}
+name.order <- do.call(order,name.cols)
+dat$aligner <- factor(dat$aligner, levels=aligner.names[name.order])
+
 dat$bin <- cut(dat$mq, c(-Inf,seq(0,60,1),Inf))
 dat.roc <- dat %>%
     mutate(Positive = correct == 1, Negative = correct == 0) %>%
