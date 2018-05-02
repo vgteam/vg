@@ -190,7 +190,7 @@ void Viz::draw_graph(void) {
             max_count = max(c, max_count);
         }
         for (auto& c : counts) {
-            set_hash_color(path_name);
+            //set_hash_color(path_name);
             //for (auto& m : p.mapping()) {
             // get the start and end position of the node relative to the image
 
