@@ -1,5 +1,7 @@
 #!/usr/bin/env Rscript
 #
+# plot-roc.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include>]
+#
 # plots a pseudo-ROC that allows the comparison of different alignment methods and their mapping quality calculations
 # the format is clarified in the map-sim script, and should be a table (tab separated) of:
 #      correct   mq    score   aligner
@@ -18,7 +20,17 @@ require("tidyverse")
 require("ggrepel")
 require("scales") # For squish
 
+# Read in the combined toil-vg stats.tsv, listing:
+# correct, mapq, aligner (really graph name), read name
 dat <- read.table(commandArgs(TRUE)[1], header=T)
+
+if (length(commandArgs(TRUE)) > 2) {
+    # A set of aligners to plot is specified. Parse it.
+    aligner.set <- unlist(strsplit(commandArgs(TRUE)[3], ","))
+    # Subset the data to those aligners
+    dat <- dat[dat$aligner %in% aligner.set,]
+}
+
 dat$bin <- cut(dat$mq, c(-Inf,seq(0,60,1),Inf))
 dat.roc <- dat %>%
     mutate(Positive = correct == 1, Negative = correct == 0) %>%

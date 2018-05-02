@@ -1,12 +1,24 @@
 #!/usr/bin/env Rscript
 
+# plot-qq.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include>]
+
 list.of.packages <- c("tidyverse", "ggrepel")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 require("tidyverse")
 require("ggrepel")
 
+# Read in the combined toil-vg stats.tsv, listing:
+# correct, mapq, aligner (really graph name), read name
 dat <- read.table(commandArgs(TRUE)[1], header=T)
+
+if (length(commandArgs(TRUE)) > 2) {
+    # A set of aligners to plot is specified. Parse it.
+    aligner.set <- unlist(strsplit(commandArgs(TRUE)[3], ","))
+    # Subset the data to those aligners
+    dat <- dat[dat$aligner %in% aligner.set,]
+}
+
 dat$bin <- cut(dat$mq, c(-Inf,seq(0,60,1),Inf))
 x <- as.data.frame(summarize(group_by(dat, bin, aligner), N=n(), mapq=mean(mq), mapprob=mean(1-10^(-mapq/10)), observed=mean(correct)))
 
