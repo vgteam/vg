@@ -700,11 +700,11 @@ namespace vg {
         vector<MultipathAlignment> multipath_alns_1, multipath_alns_2;
         if (!block_rescue_from_1) {
             align_to_cluster_graphs(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                    cluster_graphs1, multipath_alns_1, max_alt_mappings);
+                                    cluster_graphs1, multipath_alns_1, max_single_end_mappings_for_rescue);
         }
         if (!block_rescue_from_2) {
             align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                    cluster_graphs2, multipath_alns_2, max_alt_mappings);
+                                    cluster_graphs2, multipath_alns_2, max_single_end_mappings_for_rescue);
         }
         
         if (multipath_alns_1.empty() || multipath_alns_2.empty() ? false :
