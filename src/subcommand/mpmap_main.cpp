@@ -113,12 +113,13 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus = default_full_length_bonus;
     bool interleaved_input = false;
     int snarl_cut_size = 5;
-    int max_map_attempts = 128;
+    int max_map_attempts = 48;
+    int max_single_end_mappings_for_rescue = 64;
+    int max_rescue_attempts = 32;
     int population_max_paths = 1;
     // How many distinct single path alignments should we look for in a multipath, for MAPQ?
     // TODO: create an option.
     int localization_max_paths = 5;
-    int max_rescue_attempts = 32;
     int max_num_mappings = 1;
     int buffer_size = 100;
     int hit_max = 1024;
@@ -369,7 +370,7 @@ int main_mpmap(int argc, char** argv) {
                     mapq_method = Exact;
                 }
                 else {
-                    cerr << "error:[vg mpmap] Unrecognized mapping quality (-v) option: " << mapq_arg << ". Choose from {0, 1, 2}." << endl;
+                    cerr << "error:[vg mpmap] Unrecognized mapping quality (-v) option: " << mapq_arg << ". Choose from {0, 1, 2, 3}." << endl;
                     exit(1);
                 }
             }
@@ -810,6 +811,7 @@ int main_mpmap(int argc, char** argv) {
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
+    multipath_mapper.max_single_end_mappings_for_rescue = max(max(max_single_end_mappings_for_rescue, max_rescue_attempts), max_num_mappings);
     multipath_mapper.secondary_rescue_score_diff = secondary_rescue_score_diff;
     multipath_mapper.secondary_rescue_attempts = secondary_rescue_attempts;
     multipath_mapper.rescue_only_min = rescue_only_min;

@@ -86,13 +86,14 @@ namespace vg {
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
         double max_suboptimal_path_score_ratio = 2.0;
-        size_t num_mapping_attempts = 1;
+        size_t num_mapping_attempts = 48;
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
         double max_mapping_p_value = 0.00001;
         bool unstranded_clustering = true;
+        size_t max_single_end_mappings_for_rescue = 64;
         size_t max_rescue_attempts = 32;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
