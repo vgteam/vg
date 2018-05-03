@@ -23,13 +23,13 @@ void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph.vg > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
-         << "    -p, --pathnames       output variant paths as SnarlTraversals to STDOUT" << endl
-         << "    -r, --traversals FILE output SnarlTraversals for ultrabubbles." << endl
-         << "    -l, --leaf-only       restrict traversals to leaf ultrabubbles." << endl
-         << "    -o, --top-level       restrict traversals to top level ultrabubbles" << endl
-         << "    -m, --max-nodes N     only compute traversals for snarls with <= N nodes [10]" << endl
-         << "    -t, --filter-trivial  don't report snarls that consist of a single edge" << endl
-         << "    -s, --sort-snarls     return snarls in sorted order by node ID (for topologically ordered graphs)" << endl;
+         << "    -p, --pathnames        output variant paths as SnarlTraversals to STDOUT" << endl
+         << "    -r, --traversals FILE  output SnarlTraversals for ultrabubbles." << endl
+         << "    -l, --leaf-only        restrict traversals to leaf ultrabubbles." << endl
+         << "    -o, --top-level        restrict traversals to top level ultrabubbles" << endl
+         << "    -m, --max-nodes N      only compute traversals for snarls with <= N nodes [10]" << endl
+         << "    -t, --include-trivial  report snarls that consist of a single edge" << endl
+         << "    -s, --sort-snarls      return snarls in sorted order by node ID (for topologically ordered graphs)" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
@@ -45,7 +45,7 @@ int main_snarl(int argc, char** argv) {
     bool leaf_only = false;
     bool top_level_only = false;
     int max_nodes = 10;
-    bool filter_trivial_snarls = false;
+    bool filter_trivial_snarls = true;
     bool sort_snarls = false;
     bool fill_path_names = false;
 
@@ -59,7 +59,7 @@ int main_snarl(int argc, char** argv) {
                 {"leaf-only", no_argument, 0, 'l'},
                 {"top-level", no_argument, 0, 'o'},
                 {"max-nodes", required_argument, 0, 'm'},
-                {"filter-trivial", no_argument, 0, 't'},
+                {"include-trivial", no_argument, 0, 't'},
                 {"sort-snarls", no_argument, 0, 's'},
                 {0, 0, 0, 0}
             };
@@ -93,7 +93,7 @@ int main_snarl(int argc, char** argv) {
             break;
             
         case 't':
-            filter_trivial_snarls = true;
+            filter_trivial_snarls = false;
             break;
             
         case 's':
@@ -147,7 +147,7 @@ int main_snarl(int argc, char** argv) {
     if (fill_path_names){
         TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
         for (const Snarl* snarl : snarl_roots ){
-            if (filter_trivial_snarls && snarl->type() == ULTRABUBBLE) {
+            if (filter_trivial_snarls) {
                 auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
                 if (contents.first.empty()) {
                     // Nothing but the boundary nodes in this snarl
@@ -208,7 +208,7 @@ int main_snarl(int argc, char** argv) {
             const Snarl* snarl = stack.back();
             stack.pop_back();
             
-            if (filter_trivial_snarls && snarl->type() == ULTRABUBBLE) {
+            if (filter_trivial_snarls) {
                 auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
                 if (contents.first.empty()) {
                     // Nothing but the boundary nodes in this snarl
