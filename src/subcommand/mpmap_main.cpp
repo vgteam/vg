@@ -116,7 +116,6 @@ int main_mpmap(int argc, char** argv) {
     int max_map_attempts = 48;
     int max_single_end_mappings_for_rescue = 64;
     int max_rescue_attempts = 32;
-    int population_max_paths = 1;
     int population_max_paths = 10;
     // How many distinct single path alignments should we look for in a multipath, for MAPQ?
     // TODO: create an option.
