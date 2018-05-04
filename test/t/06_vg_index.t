@@ -7,8 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 48
-
+plan tests 50
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -53,6 +52,15 @@ rm -f x.threads
 rm -f x.xg x.gbwtx.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
 
+# Subregion graph with haplotypes
+vg construct -r small/x.fa -v small/x.vcf.gz -a --region x:100-200 > x.part.vg
+
+vg index -x x.part.xg -G x.part.gbwt --region x:100-200 -v small/x.vcf.gz x.part.vg 2>log.txt
+is $? 0 "building GBWT index for a regional graph"
+
+is "$(cat log.txt | wc -c)" "0" "no warnings about missing variants produced"
+
+rm -f x.part.vg x.part.xg x.part.gbwt log.txt
 
 # Multiple graphs without haplotypes
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C > x.vg 2> /dev/null
