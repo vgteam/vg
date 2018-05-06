@@ -27,7 +27,7 @@ include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 CXXFLAGS := -O3 -fopenmp -std=c++11 -ggdb -g -MMD -MP $(CXXFLAGS)
 
 ifeq ($(shell uname -s),Darwin)
-	PKG_CONFIG_PATH:=/usr/local/lib/pkgconfig
+	PKG_CONFIG_PATH:=/usr/local/lib/pkgconfig:$(PKG_CONFIG_PATH)
 endif
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo pixman-1 freetype2 libpng fontconfig expat)
