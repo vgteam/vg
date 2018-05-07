@@ -26,9 +26,15 @@ include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 
 CXXFLAGS := -O3 -fopenmp -std=c++11 -ggdb -g -MMD -MP $(CXXFLAGS)
 
+LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo)
 
-LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib
 LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lsublinearLS -lhts -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce
+LD_LIB_FLAGS += $(shell pkg-config --libs cairo)
+LD_LIB_FLAGS += $(shell pkg-config --libs pixman-1)
+LD_LIB_FLAGS += $(shell pkg-config --libs freetype2)
+LD_LIB_FLAGS += $(shell pkg-config --libs libpng)
+LD_LIB_FLAGS += $(shell pkg-config --libs fontconfig)
+LD_LIB_FLAGS += $(shell pkg-config --libs expat)
 
 ifeq ($(shell uname -s),Darwin)
 	# We may need libraries from Macports
@@ -204,7 +210,7 @@ $(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(DEP_OBJ) $(DEPS)
 
 # We have system-level deps to install
 get-deps:
-	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev 
+	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev libcairo2-dev libpixman-1-dev
 
 # And we have submodule deps to build
 deps: $(DEPS)
@@ -328,7 +334,7 @@ $(LIB_DIR)/libpinchesandcacti.a: $(LIB_DIR)/libsonlib.a $(CWD)/$(DEP_DIR)/pinche
 	+cd $(DEP_DIR)/pinchesAndCacti && $(MAKE) $(FILTER) && cd $(CWD)/$(DEP_DIR)/sonLib && cp lib/stPinchesAndCacti.a $(CWD)/$(LIB_DIR)/libpinchesandcacti.a && cp lib/3EdgeConnected.a $(CWD)/$(LIB_DIR)/lib3edgeconnected.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
 
 $(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/*.c $(RAPTOR_DIR)/src/*.h
-	+cd $(RAPTOR_DIR)/build && cmake .. && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR) && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
+	+cd $(RAPTOR_DIR)/build && cmake .. && cat src/turtle_lexer.c | sed /yycleanup/d >x && mv x src/turtle_lexer.c && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR) && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
 
 $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp 
 	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
@@ -351,7 +357,7 @@ $(LIB_DIR)/libvw.a: $(LIB_DIR)/libboost_program_options.a $(VOWPALWABBIT_DIR)/* 
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/.libs/libvw.a vowpalwabbit/.libs/liballreduce.a $(CWD)/$(LIB_DIR)/
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && mkdir -p $(CWD)/$(INC_DIR)/vowpalwabbit
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/*.h $(CWD)/$(INC_DIR)/vowpalwabbit/
-	
+
 $(LIB_DIR)/liballreduce.a: $(LIB_DIR)/libvw.a
 
 $(LIB_DIR)/libboost_program_options.a: $(BOOST_DIR)/libs/program_options/src/* $(BOOST_DIR)/boost/program_options/*

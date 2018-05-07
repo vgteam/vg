@@ -23,7 +23,7 @@ using namespace sdsl;
 class Packer {
 public:
     Packer(void);
-    Packer(xg::XG* xidx, size_t bin_size);
+    Packer(xg::XG* xidx, size_t bin_size = 0);
     ~Packer(void);
     xg::XG* xgidx;
     void merge_from_files(const vector<string>& file_names);
@@ -51,6 +51,7 @@ public:
     size_t get_bin_size(void) const;
     size_t get_n_bins(void) const;
     bool is_dynamic(void);
+    size_t coverage_size(void);
 private:
     void ensure_edit_tmpfiles_open(void);
     void close_edit_tmpfiles(void);
