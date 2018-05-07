@@ -216,6 +216,7 @@ void Viz::draw_graph(void) {
                 cairo_text_extents(cr, label.c_str(), &te);
                 cairo_move_to(cr, s, y_pos+0.25);
                 cairo_show_text(cr, label.c_str());
+                set_hash_color(path_name); // undo color change
             }
         }
         max_count = (!show_cnv ? 1 : max_count);
