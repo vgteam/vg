@@ -106,7 +106,6 @@ UNITTEST_OBJ = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_OBJ_DIR)/%.o,$(wi
 # These aren't put into libvg, but they provide subcommand implementations for the vg bianry
 SUBCOMMAND_OBJ = $(patsubst $(SUBCOMMAND_SRC_DIR)/%.cpp,$(SUBCOMMAND_OBJ_DIR)/%.o,$(wildcard $(SUBCOMMAND_SRC_DIR)/*.cpp))
 
-RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
 GPERF_DIR:=deps/gperftools
 SDSL_DIR:=deps/sdsl-lite
@@ -160,7 +159,6 @@ LIB_DEPS += $(LIB_DIR)/libvcfh.a
 LIB_DEPS += $(LIB_DIR)/libgfakluge.a
 LIB_DEPS += $(LIB_DIR)/libsonlib.a
 LIB_DEPS += $(LIB_DIR)/libpinchesandcacti.a
-LIB_DEPS += $(LIB_DIR)/libraptor2.a
 LIB_DEPS += $(LIB_DIR)/libfml.a
 LIB_DEPS += $(LIB_DIR)/libsublinearLS.a
 LIB_DEPS += $(LIB_DIR)/libstructures.a
@@ -332,9 +330,6 @@ $(LIB_DIR)/libsonlib.a: $(CWD)/$(DEP_DIR)/sonLib/C/inc/*.h $(CWD)/$(DEP_DIR)/son
 
 $(LIB_DIR)/libpinchesandcacti.a: $(LIB_DIR)/libsonlib.a $(CWD)/$(DEP_DIR)/pinchesAndCacti/inc/*.h $(CWD)/$(DEP_DIR)/pinchesAndCacti/impl/*.c
 	+cd $(DEP_DIR)/pinchesAndCacti && $(MAKE) $(FILTER) && cd $(CWD)/$(DEP_DIR)/sonLib && cp lib/stPinchesAndCacti.a $(CWD)/$(LIB_DIR)/libpinchesandcacti.a && cp lib/3EdgeConnected.a $(CWD)/$(LIB_DIR)/lib3edgeconnected.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
-
-$(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/*.c $(RAPTOR_DIR)/src/*.h
-	+cd $(RAPTOR_DIR)/build && cmake .. && cat src/turtle_lexer.c | sed /yycleanup/d >x && mv x src/turtle_lexer.c && $(MAKE) $(FILTER) && cp src/libraptor2.a $(CWD)/$(LIB_DIR) && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
 
 $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp 
 	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
