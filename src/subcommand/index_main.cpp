@@ -434,7 +434,7 @@ int main_index(int argc, char** argv) {
         }
         VGset graphs(file_names);
         build_gpbwt = !build_gbwt & !write_threads;
-        graphs.to_xg(*xg_index, index_paths & build_gpbwt, Paths::is_alt, alt_paths);
+        graphs.to_xg(*xg_index, index_paths & build_gpbwt, Paths::is_alt, index_haplotypes ? &alt_paths : nullptr);
         if (show_progress) {
             cerr << "Built base XG index" << endl;
         }
