@@ -1611,28 +1611,28 @@ namespace vg {
         cerr << "final reachability:" << endl;
         cerr << "\tstarts from starts" << endl;
         for (const auto& record : reachable_starts_from_start) {
-            cerr << "\t\tstart of M" << record.first << " is reachable from:" << endl;
+            cerr << "\t\tstart of M" << record.first << " can reach:" << endl;
             for (const auto& endpoint : record.second) {
                 cerr << "\t\t\tstart of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
             }
         }
         cerr << "\tends from starts" << endl;
         for (const auto& record : reachable_ends_from_start) {
-            cerr << "\t\tstart of M" << record.first << " is reachable from:" << endl;
+            cerr << "\t\tstart of M" << record.first << " can reach:" << endl;
             for (const auto& endpoint : record.second) {
                 cerr << "\t\t\tend of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
             }
         }
         cerr << "\tstarts from ends" << endl;
         for (const auto& record : reachable_starts_from_end) {
-            cerr << "\t\tstart of M" << record.first << " is reachable from:" << endl;
+            cerr << "\t\end of M" << record.first << " can reach:" << endl;
             for (const auto& endpoint : record.second) {
-                cerr << "\t\t\tend of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
+                cerr << "\t\t\start of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
             }
         }
         cerr << "\tends from ends" << endl;
         for (const auto& record : reachable_ends_from_end) {
-            cerr << "\t\tend of M" << record.first << " is reachable from:" << endl;
+            cerr << "\t\tend of M" << record.first << " can reach:" << endl;
             for (const auto& endpoint : record.second) {
                 cerr << "\t\t\tend of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
             }
