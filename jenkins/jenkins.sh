@@ -15,6 +15,9 @@
 
 #!/bin/bash
 
+# Don't stop on errors, so we can post a report no matter what
+set +e
+
 # Should we build and run locally, or should we use Docker?
 LOCAL_BUILD=0
 # Should we re-use and keep around the same virtualenv?
@@ -82,9 +85,6 @@ if [ ! -e ~/.aws/credentials ]; then
     >&2 echo "WARNING: No AWS credentials at ~/.aws/credentials; test data may not be able to be downloaded!"
 fi
 
-# Most of the script, we want to die on error
-set -e
-
 # Maximum number of minutes that can have passed since new vg docker image built
 PLATFORM=`uname -s`
 if [ $PLATFORM == "Darwin" ]; then
@@ -112,10 +112,8 @@ fi
 if [ -d "/mnt/ephemeral" ]
 then
      TMPDIR=/mnt/ephemeral/tmp
-     set +e
      rm -rf $TMPDIR
-     mkdir $TMPDIR
-     set -e
+     mkdir -p $TMPDIR
      export TMPDIR
 fi
 
@@ -165,7 +163,6 @@ pip install --upgrade "${TOIL_VG_PACKAGE}"
 if [ "$?" -ne 0 ]
 then
     echo "pip install toil-vg fail"
-    exit 1
 fi
 
 # Make sure we have submodules
@@ -187,7 +184,7 @@ fi
 
 rm -rf vgci-work
 mkdir vgci-work
-
+BUILD_FAIL=0
 if [ "${LOCAL_BUILD}" == "1" ]
 then
     # Just build vg here
@@ -197,7 +194,7 @@ then
     if [ "$?" -ne 0 ]
     then
         echo "vg local build fail"
-        exit 1
+        BUILD_FAIL=1
     fi
     VG_VERSION=`vg version`
     printf "vg-docker-version None\n" >> vgci_cfg.tsv
@@ -216,26 +213,26 @@ else
     if [ "$?" -ne 0 ]
     then
         echo "vg docker build fail"
-        exit 1
+        BUILD_FAIL=1
+    else
+        # Pull down the docker images, so time costs (and instability) of doing so doesn't affect
+        # individual test results (looking at you, rocker/tidyverse:3.4.2)
+        # Allow two tries
+        for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
+        for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
     fi
     VG_VERSION=`docker run jenkins-docker-vg-local vg version`
     printf "vg-docker-version jenkins-docker-vg-local\n" >> vgci_cfg.tsv
-
-    # Pull down the docker images, so time costs (and instability) of doing so doesn't affect
-    # individual test results (looking at you, rocker/tidyverse:3.4.2)
-    # Allow two tries before failing
-    set +e
-    for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
-    set -e
-    for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
 fi
 
-# For the actual test and the cleanup, continue on error
-set +e
-
 # run the tests, output the junit report for Jenkins
-pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml ${SHOW_OPT}
-PYRET="$?"
+rm -f test-report.xml
+PYRET=1
+if [ ${BUILD_FAIL} -ne 1 ]
+then
+    pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml ${SHOW_OPT}
+    PYRET="$?"
+fi
 
 # Generate a report in two files: HTML full output, and a Markdown summary.
 # Takes as input the Jenkins test result XML and the work directory with the
