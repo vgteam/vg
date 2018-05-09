@@ -31,6 +31,7 @@ ADD . /vg
 WORKDIR /vg
 
 # Build
+
 RUN . ./source_me.sh && make get-deps && make -j$(nproc) && make static
 
 ENV PATH /vg/bin:$PATH
