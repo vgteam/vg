@@ -150,7 +150,7 @@ namespace vg {
                                      MappingQualityMethod mapq_method,
                                      vector<clustergraph_t>& cluster_graphs,
                                      vector<MultipathAlignment>& multipath_alns_out,
-                                     size_t max_alt_mappings);
+                                     size_t num_mapping_attempts);
         
         /// After clustering MEMs, extracting graphs, assigning hits to cluster graphs, and determining
         /// which cluster graph pairs meet the fragment length distance constraints, perform multipath
@@ -160,7 +160,6 @@ namespace vg {
                                           vector<clustergraph_t>& cluster_graphs2,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                          size_t max_alt_mappings,
                                           OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
                                           OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
                                           OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
