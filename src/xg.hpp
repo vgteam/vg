@@ -843,7 +843,6 @@ public:
 
 
 Mapping new_mapping(const string& name, int64_t id, size_t rank, bool is_reverse);
-void parse_region(const string& target, string& name, int64_t& start, int64_t& end);
 void to_text(ostream& out, Graph& graph);
 
 // Serialize a rank_select_int_vector in an SDSL serialization compatible way. Returns the number of bytes written.

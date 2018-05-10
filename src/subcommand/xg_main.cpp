@@ -18,6 +18,7 @@
 #include "../stream.hpp"
 #include "../cpp/vg.pb.h"
 #include "../xg.hpp"
+#include "../region.hpp"
 #include "../converter.hpp"
 
 using namespace std;
