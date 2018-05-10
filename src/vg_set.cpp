@@ -74,13 +74,12 @@ int64_t VGset::merge_id_space(void) {
 }
 
 void VGset::to_xg(xg::XG& index, bool store_threads) {
-    map<string, Path> dummy;
     // Nothing matches the default-constructed regex, so nothing will ever be
     // sent to the map.
-    to_xg(index, store_threads, regex(), dummy);
+    to_xg(index, store_threads, regex());
 }
 
-void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take, map<string, Path>& removed_paths) {
+void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take, map<string, Path>* removed_paths) {
     
     // We need to sort out the mappings from different paths by rank. This maps
     // from path anme and then rank to Mapping.
@@ -106,11 +105,11 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
                 cerr << "Got chunk of " << name << "!" << endl;
 #endif
 
-                // We'll move all the paths into one of these.
+                // We'll move all the paths into one of these (if removed_paths is not null)
                 std::list<Path> paths_taken;
 
                 // Remove the matching paths.
-                remove_paths(graph, paths_to_take, &paths_taken);
+                remove_paths(graph, paths_to_take, removed_paths ? &paths_taken : nullptr);
 
                 // Sort out all the mappings from the paths we pulled out
                 for(Path& path : paths_taken) {
@@ -154,7 +153,7 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
                 }
                 
                 // Now the Path is rebuilt; stick it in the big output map.
-                removed_paths[path.name()] = path;
+                (*removed_paths)[path.name()] = path;
             }
             
 #ifdef debug
