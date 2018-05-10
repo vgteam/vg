@@ -146,11 +146,12 @@ void XG::load(istream& in) {
         case 6:
         case 7:
         case 8:
+        case 9:
             cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. "
                  << "For better performance over repeated loads, consider recreating this XG with 'vg index' "
                  << "or upgrading it with 'vg xg'." << endl;
             // Fall through
-        case 9:
+        case 10:
             {
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
@@ -172,6 +173,29 @@ void XG::load(istream& in) {
                 g_bv.load(in);
                 g_bv_rank.load(in, &g_bv);
                 g_bv_select.load(in, &g_bv);
+                if (file_version <= 9) {
+                    int g = 4;
+                    auto to_count = g_iv[g++];
+                    auto from_count = g_iv[g++];
+                    for (g; g < to_count*2+g; g++){
+                        int type = g_bv[g];
+                        if (type == 1){
+                            g_iv[g++] = 0;
+                        }
+                        if (type == 2){
+                            g_iv[g++] = 1;
+                        }
+                    }
+                    for (g; g < from_count*2+g; g++){
+                        int type = g_bv[g];
+                        if (type == 1){
+                            g_iv[g++] = 1;
+                        }
+                        if (type == 2){
+                            g_iv[g++] = 0;
+                        }
+                    }
+                }
 
                 s_iv.load(in);
                 s_bv.load(in);
@@ -1708,6 +1732,7 @@ string XG::get_sequence(const handle_t& handle) const {
     }
 }
 
+// not using anymore
 bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) const {
     // Return true if we want an edge of the given type, where we are the from
     // or to node (according to is_to), when we are looking off the right or
@@ -1721,15 +1746,15 @@ bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) cons
     // 4: start to end
     
     // First compute what we want looking off the right of a node in the forward direction.
-    bool wanted = !is_to && (type == 1 || type == 2) || is_to && (type == 2 || type == 4);
-    
+    // bool wanted = !is_to && (type == 1 || type == 2) || is_to && (type == 2 || type == 4);
+    bool new_wanted = !is_to && (type == 0) || is_to && (type == 1);
     // We computed whether we wanted it assuming we were looking off the right. The complement is what we want looking off the left.
-    wanted = wanted != want_left;
-    
+    // wanted = wanted != want_left;
+    new_wanted = new_wanted != want_left;
     // We computed whether we wanted ot assuming we were in the forward orientation. The complement is what we want in the reverse orientation.
-    wanted = wanted != is_reverse;
-    
-    return wanted;
+    // wanted = wanted != is_reverse;
+    new_wanted = new_wanted != is_reverse;
+    return new_wanted;
 }
 
 bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, bool is_to,
@@ -1743,36 +1768,38 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
         // Make sure we got a valid edge type and we haven't wandered off into non-edge data.
         assert(type >= 0);
         assert(type <= 1);
+        //cerr << "type " << type << " is_to " << is_to << " want_left " << want_left << " is_reverse " << is_reverse << endl;
+        // if (edge_filter(type, is_to, want_left, is_reverse)) {
+            
+        // What's the offset to the other node?
+        int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
+        //cerr << "True offset " << offset << " g " << g << endl;
+        // Make sure we haven't gone off the rails into non-edge data.
+        assert((int64_t) g + offset >= 0);
+        assert(g + offset < g_iv.size());
         
-        if (edge_filter(type, is_to, want_left, is_reverse)) {
-            
-            // What's the offset to the other node?
-            int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
-            
-            // Make sure we haven't gone off the rails into non-edge data.
-            assert((int64_t) g + offset >= 0);
-            assert(g + offset < g_iv.size());
-            
-            // Should we invert?
-            // We only invert if we cross an end to end edge. Or a start to start edge
-            bool new_reverse = is_reverse != (type == 2 || type == 3);
-            
-            // Compose the handle for where we are going
-            handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
-            
-            // We want this edge
-            
-            if (!iteratee(next_handle)) {
-                // Stop iterating
-                return false;
-            }
+        // Should we invert?
+        // We only invert if we cross an end to end edge. Or a start to start edge
+        // bool new_reverse = is_reverse != (type == 2 || type == 3);
+        bool new_reverse = is_reverse != !is_to && (type == 0) || is_to && (type == 1);
+        
+        // Compose the handle for where we are going
+        handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
+        
+        // We want this edge
+        
+        if (!iteratee(next_handle)) {
+            // Stop iterating
+            return false;
         }
-        else {
-            // TODO: delete this after using it to debug
-            int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
-            bool new_reverse = is_reverse != (type == 2 || type == 3);
-            handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
-        }
+//        }
+//        else {
+//            // TODO: delete this after using it to debug
+//            int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
+//            //bool new_reverse = is_reverse != (type == 2 || type == 3);
+//            bool new_reverse = is_reverse != !is_to && (type == 0) || is_to && (type == 1);
+//            handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
+//        }
     }
     // Iteratee didn't stop us.
     return true;
@@ -1792,13 +1819,19 @@ bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     size_t to_start = g + G_NODE_HEADER_LENGTH;
     size_t from_start = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
     
-    // We will look for all the edges on the appropriate side, which means we have to check the from and to edges
-    if (do_edges(g, to_start, edges_to_count, true, go_left, is_reverse, iteratee)) {
-        // All the edges where we're to were accepted, so do the edges where we're from
-        return do_edges(g, from_start, edges_from_count, false, go_left, is_reverse, iteratee);
-    } else {
-        return false;
+    if (is_reverse == go_left) {
+        return do_edges(g, to_start, edges_to_count, true, go_left, is_reverse, iteratee);
     }
+    else { //(is_reverse != go_left):
+        return do_edges(g, from_start, edges_from_count, false, go_left, is_reverse, iteratee);
+    }
+//    // We will look for all the edges on the appropriate side, which means we have to check the from and to edges
+//    if (do_edges(g, to_start, edges_to_count, true, go_left, is_reverse, iteratee)) {
+//        // All the edges where we're to were accepted, so do the edges where we're from
+//        return do_edges(g, from_start, edges_from_count, false, go_left, is_reverse, iteratee);
+//    } else {
+//        return false;
+//    }
 }
 
 void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
