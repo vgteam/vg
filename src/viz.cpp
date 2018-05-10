@@ -3,17 +3,18 @@
 
 namespace vg {
 
-Viz::Viz(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d) {
-    init(x, p, n, o, w, h, c, d);
+Viz::Viz(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
+    init(x, p, n, o, w, h, c, d, t);
 }
 
-void Viz::init(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d) {
+void Viz::init(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
     xgidx = x;
     packs = p;
     pack_names = n;
     outfile = o;
     show_cnv = c;
     show_dna = d;
+    show_paths = t;
     compute_borders_and_dimensions();
     /*
     left_border = 8;
@@ -56,7 +57,7 @@ void Viz::compute_borders_and_dimensions(void) {
     int height = top_border + 4;
     surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
     cr = cairo_create(surface);
-    for (size_t i = 1; i <= xgidx->path_count; ++i) {
+    for (size_t i = 1; show_paths && i <= xgidx->path_count; ++i) {
         string path_name = xgidx->path_name(i);
         cairo_text_extents_t te;
         cairo_select_font_face(cr, "Arial", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
@@ -65,7 +66,6 @@ void Viz::compute_borders_and_dimensions(void) {
         left_border = max(left_border, (int)round(te.width+2));
         height += 2;
     }
-    height += 2;
     for (int i = 0; i < packs->size(); ++i) {
         auto& pack_name = pack_names[i];
         cairo_text_extents_t te;
@@ -168,7 +168,7 @@ void Viz::draw_graph(void) {
                 });
         });
     y_pos += 4;
-    for (size_t i = 1; i <= xgidx->path_count; ++i) {
+    for (size_t i = 1; show_paths && i <= xgidx->path_count; ++i) {
         string path_name = xgidx->path_name(i);
         Path p = xgidx->path(path_name);
         // write the path name
