@@ -417,4 +417,8 @@ ostream& Packer::show_structure(ostream& out) {
     return out;
 }
 
+size_t Packer::coverage_size(void) {
+    return coverage_civ.size();
+}
+
 }

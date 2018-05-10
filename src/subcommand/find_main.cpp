@@ -3,6 +3,7 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../stream.hpp"
+#include "../region.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -528,7 +529,7 @@ int main_find(int argc, char** argv) {
                 // Grab each target region
                 string name;
                 int64_t start, end;
-                xg::parse_region(target, name, start, end);
+                parse_region(target, name, start, end);
                 if(xindex.path_rank(name) == 0) {
                     // Passing a nonexistent path to get_path_range produces Undefined Behavior
                     cerr << "[vg find] error, path " << name << " not found in index" << endl;
@@ -745,7 +746,7 @@ int main_find(int argc, char** argv) {
             for (auto& target : targets) {
                 string name;
                 int64_t start, end;
-                xg::parse_region(target, name, start, end);
+                parse_region(target, name, start, end);
                 // end coordinate is exclusive for get_path()
                 if (end >= 0) {
                     ++end;
