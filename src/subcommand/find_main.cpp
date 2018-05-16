@@ -3,6 +3,7 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../stream.hpp"
+#include "../region.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -52,7 +53,8 @@ void help_find(char** argv) {
          << "haplotypes:" << endl
          << "    -H, --haplotypes FILE  count xg threads in agreement with alignments in the GAM" << endl
          << "    -t, --extract-threads  extract the threads, writing them as paths to the .vg stream on stdout" << endl
-         << "    -q, --threads-named S  return all threads whose names are prefixed with string S (multiple allowed)" << endl; 
+         << "    -q, --threads-named S  return all threads whose names are prefixed with string S (multiple allowed)" << endl
+         << "    -Q, --paths-named S    return all paths whose names are prefixed with S (multiple allowed)" << endl;
 
 }
 
@@ -97,7 +99,9 @@ int main_find(int argc, char** argv) {
     int min_mem_length = 1;
     string to_graph_file;
     bool extract_threads = false;
-    vector<string> extract_patterns;
+    vector<string> extract_thread_patterns;
+    bool extract_paths = false;
+    vector<string> extract_path_patterns;
     vg::id_t approx_id = 0;
     bool list_path_names = false;
 
@@ -141,13 +145,14 @@ int main_find(int argc, char** argv) {
                 {"min-mem", required_argument, 0, 'Z'},
                 {"extract-threads", no_argument, 0, 't'},
                 {"threads-named", required_argument, 0, 'q'},
+                {"paths-named", required_argument, 0, 'Q'},
                 {"approx-pos", required_argument, 0, 'X'},
                 {"list-paths", no_argument, 0, 'I'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:B:fi:DH:G:N:A:Y:Z:tq:X:I",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:B:fi:DH:G:N:A:Y:Z:tq:X:IQ:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -289,7 +294,12 @@ int main_find(int argc, char** argv) {
 
         case 'q':
             extract_threads = true;
-            extract_patterns.push_back(optarg);
+            extract_thread_patterns.push_back(optarg);
+            break;
+
+        case 'Q':
+            extract_paths = true;
+            extract_path_patterns.push_back(optarg);
             break;
 
         case 'X':
@@ -519,7 +529,7 @@ int main_find(int argc, char** argv) {
                 // Grab each target region
                 string name;
                 int64_t start, end;
-                xg::parse_region(target, name, start, end);
+                parse_region(target, name, start, end);
                 if(xindex.path_rank(name) == 0) {
                     // Passing a nonexistent path to get_path_range produces Undefined Behavior
                     cerr << "[vg find] error, path " << name << " not found in index" << endl;
@@ -591,13 +601,12 @@ int main_find(int argc, char** argv) {
 
         }
         if (extract_threads) {
-            size_t thread_number = 0;
             bool extract_reverse = false;
             map<string, list<xg::XG::thread_t> > threads;
-            if (extract_patterns.empty()) {
+            if (extract_thread_patterns.empty()) {
                 threads = xindex.extract_threads(extract_reverse);
             } else {
-                for (auto& pattern : extract_patterns) {
+                for (auto& pattern : extract_thread_patterns) {
                     for (auto& t : xindex.extract_threads_matching(pattern, extract_reverse)) {
                         threads[t.first] = t.second;
                     }
@@ -622,14 +631,28 @@ int main_find(int argc, char** argv) {
 
                 // Get each thread's name
                 path.set_name(thread_name);
-                // Give each thread a name
-                //path.set_name("_thread_" + to_string(thread_number++));
 
                 // We need a Graph for serialization purposes. We do one chunk per
                 // thread in case the threads are long.
                 Graph g;
                 *(g.add_path()) = path;
 
+                // Dump the graph with its mappings. TODO: can we restrict these to
+                vector<Graph> gb = { g };
+                stream::write_buffered(cout, gb, 0);
+            }
+        }
+        if (extract_paths) {
+            vector<Path> paths;
+            for (auto& pattern : extract_path_patterns) {
+                for (auto& p : xindex.paths_by_prefix(pattern)) {
+                    paths.push_back(p);
+                }
+            }
+            for(auto& path : paths) {
+                // We need a Graph for serialization purposes.
+                Graph g;
+                *(g.add_path()) = xindex.path(path.name());
                 // Dump the graph with its mappings. TODO: can we restrict these to
                 vector<Graph> gb = { g };
                 stream::write_buffered(cout, gb, 0);
@@ -723,7 +746,7 @@ int main_find(int argc, char** argv) {
             for (auto& target : targets) {
                 string name;
                 int64_t start, end;
-                xg::parse_region(target, name, start, end);
+                parse_region(target, name, start, end);
                 // end coordinate is exclusive for get_path()
                 if (end >= 0) {
                     ++end;

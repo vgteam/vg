@@ -62,6 +62,13 @@ namespace vg {
                                   vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                   vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
                                   size_t max_alt_mappings);
+                                  
+        /// Given a mapped MultipathAlignment, reduce it to up to
+        /// max_alt_mappings + 1 nonoverlapping single path alignments, with
+        /// mapping qualities accounting for positional uncertainty between
+        /// them.
+        /// Even if the read is unmapped, there will always be at least one (possibly score 0) output alignment.
+        void reduce_to_single_path(const MultipathAlignment& multipath_aln, vector<Alignment>& alns_out, size_t max_alt_mappings) const;
         
         /// Sets the minimum clustering MEM length to the approximate length that a MEM would have to be to
         /// have at most the given probability of occurring in random sequence of the same size as the graph
@@ -90,9 +97,9 @@ namespace vg {
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
         double mapq_scaling_factor = 1.0 / 4.0;
-        // There must be a ScoreProvider provided if this is true
+        // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
         bool use_population_mapqs = false;
-        size_t population_max_paths = 1;
+        size_t population_max_paths = 10;
         // Note that, like the haplotype scoring code, we work with recombiantion penalties in exponent form.
         double recombination_penalty = 9 * 2.3;
         size_t rescue_only_min = 128;
@@ -223,6 +230,9 @@ namespace vg {
         
         /// Remove the full length bonus from all source or sink subpaths that received it
         void strip_full_length_bonuses(MultipathAlignment& mulipath_aln) const;
+        
+        /// Compute a mapping quality from a list of scores, using the selected method.
+        int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
         void sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns, MappingQualityMethod mapq_method) const;

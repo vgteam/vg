@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <memory>
 
+//#define debug
 
 namespace vg {
 
@@ -184,7 +185,11 @@ namespace vg {
 
     ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
             vector<vcflib::Variant> variants, size_t chunk_offset) const {
-
+            
+        #ifdef debug
+        cerr << "constructing chunk " << reference_path_name << ":" << chunk_offset << " length " << reference_sequence.size() << endl;
+        #endif
+        
         // Make sure the input sequence is upper-case
         string uppercase_sequence = toUppercase(reference_sequence);
         
@@ -550,7 +555,7 @@ namespace vg {
                 assert(first_edit_start != numeric_limits<int64_t>::max());
 
                 #ifdef debug
-                cerr << "Edits run between " << first_edit_start << " and " << last_edit_end << endl;
+                cerr << "edits run between " << first_edit_start << " and " << last_edit_end << endl;
                 #endif
 
                 // Create ref nodes from the end of the last clump (where the cursor
@@ -1130,7 +1135,7 @@ namespace vg {
         size_t leading_offset;
         // At what position in the reference sequence do we stop (past-the-end)?
         size_t reference_end;
-
+        
         if (allowed_vcf_regions.count(vcf_contig)) {
             // Only look at the region we were asked for. We will only find variants
             // *completely* contained in this region! Partially-overlapping variants
@@ -1142,6 +1147,10 @@ namespace vg {
             leading_offset = 0;
             reference_end = reference.sequenceLength(reference_contig);
         }
+        
+#ifdef debug
+        cerr << "building contig for chunk of reference " << reference_contig << " in interval " << leading_offset << " to " << reference_end << endl;
+#endif
 
         // Set up a progress bar thhrough the chromosome
         create_progress("building graph for " + vcf_contig, reference_end - leading_offset);
@@ -1186,6 +1195,9 @@ namespace vg {
         // Sometimes we need to emit single node reference chunks gluing things
         // together
         auto emit_reference_node = [&](Node& node) {
+
+            // Don't emit nonexistent nodes
+            assert(node.id() != 0);
 
             // Make a single node chunk for the node
             Graph chunk;
@@ -1541,10 +1553,14 @@ namespace vg {
             chunk_variants.clear();
         }
 
-        // All the chunks have been wired and emitted. Now emit the very last node, if any
-        emit_reference_node(last_node_buffer);
-        // Update the max ID with that last node, so the next call starts at the next ID
-        max_id = max(max_id, (id_t) last_node_buffer.id());
+        // All the chunks have been wired and emitted.
+        
+        if (last_node_buffer.id() != 0) {
+            // Now emit the very last node, if any
+            emit_reference_node(last_node_buffer);
+            // Update the max ID with that last node, so the next call starts at the next ID
+            max_id = max(max_id, (id_t) last_node_buffer.id());
+        }
 
         destroy_progress();
 

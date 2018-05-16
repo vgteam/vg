@@ -222,11 +222,19 @@ def md_summary(xml_root):
     Make a brief summary in Markdown of a testsuite
     """
     build_number = os.getenv('BUILD_NUMBER')
+    
     if build_number:
-        md = '[Jenkins vg tests](http://jenkins.cgcloud.info/job/vg/{}/) complete'.format(
+        md = '[Jenkins vg tests](http://jenkins.cgcloud.info/job/vg/{}/)'.format(
             build_number)
     else:
-        md = 'Jenkins vg tests complete'
+        md = 'Jenkins vg tests'
+    if xml_root:
+        md += ' complete'
+    else:
+        md += ' never ran'
+        if build_number:
+            md += ' ([Check the logs for setup or build errors]'
+            md += '(http://jenkins.cgcloud.info/job/vg/{}/consoleFull))'.format(build_number)
     try:
         if os.getenv('ghprbPullId'):
             md += ' for [PR {}]({})'.format(os.getenv('ghprbPullId'), os.getenv('ghprbPullLink').decode('utf8'))
@@ -281,8 +289,7 @@ def html_header(xml_root):
     
     report = ''
     
-    try:
-        report += '''
+    report += '''
 <!DOCTYPE html><html><head>
 <meta charset="utf-8"/>
 <title>''' + escape(os.getenv('ghprbPullTitle', 'master').decode('utf8')) + ''': vg Test Report</title>
@@ -296,42 +303,52 @@ h1, h2, h3, h4, h5, h6 { font-family: sans-serif; }
 </style></head><body>
 '''
 
-        # will have to modify this if we ever add another test suite
-        testsuite = xml_root
-        
-        ts = parse_testsuite_xml(testsuite)
+    # will have to modify this if we ever add another test suite
+    testsuite = xml_root
 
-        build_number = os.getenv('BUILD_NUMBER')
+    build_number = os.getenv('BUILD_NUMBER')
 
-        report += '<h2>vg Test Report'
-        if os.getenv('ghprbPullId'):
-            report += ' for <a href={}>PR {}: {}</a>'.format(os.getenv('ghprbPullLink'),
-                                                             os.getenv('ghprbPullId'),
-                                                             escape(os.getenv('ghprbPullTitle').decode('utf8')))
-        elif build_number:
-            report += ' for merge to master'
-            
+    report += '<h2>vg Test Report'
+    if os.getenv('ghprbPullId'):
+        report += ' for <a href={}>PR {}: {}</a>'.format(os.getenv('ghprbPullLink'),
+                                                         os.getenv('ghprbPullId'),
+                                                         escape(os.getenv('ghprbPullTitle').decode('utf8')))
+    elif build_number:
+        report += ' for merge to master'
+
+    if testsuite:
+        try:
+            ts = parse_testsuite_xml(testsuite)
+        except:
+            report += ' Error parsing Test Suite XML\n'
+
         if ts['fails'] is not None and int(ts['fails']) >= 1:
             # Some tests failed
             report += ' 👿' + '🔥' * int(ts['fails'])
         else:
             # All tests passed
             report += ' 😄'
-            
+
         report += '</h2>\n'
 
         report += '<p> {} tests passed, {} tests failed and {} tests skipped in {} seconds'.format(
             ts['passes'], ts['fails'], ts['skips'], ts['time'])
         report += '.</p>\n'
-
+    else:
+        # Tests never ran
+        report += ' 👿'
+        report += '</h2>\n'
+        report += '<p> tests never ran. </p>'
         if build_number:
-            report += '<p> <a href=http://jenkins.cgcloud.info/job/vg/{}/>'.format(build_number)
-            report += 'Jenkins test page </a></p>\n'
+            report += '<p><a href=http://jenkins.cgcloud.info/job/vg/{}/consoleFull>'.format(build_number)
+            report += 'Check the logs for setup or build errors. </a></p>\n'
 
-        report += '<p> Report generated on {} </p>\n'.format(str(datetime.datetime.now()))
+    if build_number:
+        report += '<p> <a href=http://jenkins.cgcloud.info/job/vg/{}/>'.format(build_number)
+        report += 'Jenkins test page </a></p>\n'
+
+    report += '<p> Report generated on {} </p>\n'.format(str(datetime.datetime.now()))
         
-    except:
-        report += ' Error parsing Test Suite XML\n'
     return report
 
 def html_table(table, caption = None, rounding = None):
@@ -385,18 +402,21 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
         images = []
         captions = []
         baseline_images = []
-        for plot_name in ['pr', 'pr.control', 'pr.primary.filter', 'pr.control.primary.filter', 'roc', 'qq', 'qq.control',
-                          'roc-snp', 'roc-non_snp', 'roc-weighted']:
-            plot_path = os.path.join(outstore, '{}.svg'.format(plot_name))
-            if os.path.isfile(plot_path):
-                new_name = '{}-{}.svg'.format(tc['name'], plot_name)
-                shutil.copy2(plot_path, os.path.join(report_dir, new_name))
-                images.append(new_name)
-                captions.append(plot_name.upper())
-                baseline_images.append(os.path.join(
-                    'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/vg_ci/jenkins_regression_baseline',
-                    os.path.basename(outstore),
-                    os.path.basename(plot_path)))
+        possible_plot_names = ['pr', 'pr.control', 'pr.primary.filter', 'pr.control.primary.filter', 'roc', 'qq',
+            'qq.control', 'roc-snp', 'roc-non_snp', 'roc-weighted']
+        possible_plot_directories = ['', 'plots/']
+        for plot_name in possible_plot_names:
+            for plot_directory in possible_plot_directories:
+                plot_path = os.path.join(outstore, '{}{}.svg'.format(plot_directory, plot_name))
+                if os.path.isfile(plot_path):
+                    new_name = '{}-{}.svg'.format(tc['name'], plot_name)
+                    shutil.copy2(plot_path, os.path.join(report_dir, new_name))
+                    images.append(new_name)
+                    captions.append(plot_name.upper())
+                    baseline_images.append(os.path.join(
+                        'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/vg_ci/jenkins_regression_baseline',
+                        os.path.basename(outstore),
+                        os.path.basename(plot_path)))
 
         if len(images) > 0:
             report += '<table class="image">\n'
@@ -507,26 +527,27 @@ def write_html_report(xml_root, work_dir, html_dir, html_name = 'index.html'):
     with io.open(html_path, 'w', encoding='utf8') as html_file:
         header = html_header(xml_root)
         html_file.write(header)
-        
-        parsed_testcases = []
-        for testcase in xml_root.iter('testcase'):
-            try:
-                tc = parse_testcase_xml(testcase)
-                parsed_testcases.append(tc)
-            except Exception as err:
-                logging.warning('Unexpected error parsing testcase XML {}'.format(testcase))
-                print(traceback.format_exc())
 
-        # sort test cases so failed first, then sim, the by name
-        def sort_key(tc):
-            key = ('0' if 'sim' in tc['name'] else '1') 
-            key = ('0' if tc['failed'] else '1') + key
-            return key + tc['name']
-                
-        for tc in sorted(parsed_testcases, key=sort_key):
-            if not tc['skipped']:
-                tc_body = html_testcase(tc, work_dir, html_dir)
-                html_file.write(tc_body)
+        if xml_root:
+            parsed_testcases = []
+            for testcase in xml_root.iter('testcase'):
+                try:
+                    tc = parse_testcase_xml(testcase)
+                    parsed_testcases.append(tc)
+                except Exception as err:
+                    logging.warning('Unexpected error parsing testcase XML {}'.format(testcase))
+                    print(traceback.format_exc())
+
+            # sort test cases so failed first, then sim, the by name
+            def sort_key(tc):
+                key = ('0' if 'sim' in tc['name'] else '1') 
+                key = ('0' if tc['failed'] else '1') + key
+                return key + tc['name']
+
+            for tc in sorted(parsed_testcases, key=sort_key):
+                if not tc['skipped']:
+                    tc_body = html_testcase(tc, work_dir, html_dir)
+                    html_file.write(tc_body)
             
         html_file.write('</body>\n</html>\n')
         
@@ -538,8 +559,11 @@ def main(args):
     options = parse_args(args)
 
     # Load up the XML
-    xml_tree = ET.parse(options.xml_in)
-    xml_root = xml_tree.getroot()
+    try:
+        xml_tree = ET.parse(options.xml_in)
+        xml_root = xml_tree.getroot()
+    except Exception as e:
+        xml_root = None
     
     # Write our Markdown summary
     markdown = md_summary(xml_root)

@@ -145,14 +145,13 @@ class hash_map : public google::dense_hash_map<K, V, wang_hash<K>>
 #else
 class hash_map : public spp::sparse_hash_map<K, V, wang_hash<K>>
 #endif
-    {
+{
+#ifdef USE_DENSE_HASH
 public:
     hash_map() {
-#ifdef USE_DENSE_HASH
         this->set_empty_key(-1);
-#endif
-        this->set_deleted_key(-2);
     }
+#endif
 };
 
 template<typename K, typename V>
@@ -162,13 +161,12 @@ class string_hash_map : public google::dense_hash_map<K, V>
 class string_hash_map : public spp::sparse_hash_map<K, V>
 #endif
 {
+#ifdef USE_DENSE_HASH
 public:
     string_hash_map() {
-#ifdef USE_DENSE_HASH
         this->set_empty_key(" ");
-#endif
-        this->set_deleted_key("");
     }
+#endif
 };
 
 template<typename K, typename V>
@@ -178,13 +176,12 @@ class pair_hash_map : public google::dense_hash_map<K, V, wang_hash<K>>
 class pair_hash_map : public spp::sparse_hash_map<K, V, wang_hash<K>>
 #endif
 {
+#ifdef USE_DENSE_HASH
 public:
     pair_hash_map() {
-#ifdef USE_DENSE_HASH
         this->set_empty_key(K(-1, -1));
-#endif
-        this->set_deleted_key(K(-2, -2));
     }
+#endif
 };
 
 template<typename K, typename V>
@@ -194,13 +191,12 @@ class hash_map<K*, V> : public google::dense_hash_map<K*, V, wang_hash<K*>>
 class hash_map<K*, V> : public spp::sparse_hash_map<K*, V, wang_hash<K*>>
 #endif
 {
+#ifdef USE_DENSE_HASH
 public:
     hash_map() {
-#ifdef USE_DENSE_HASH
         this->set_empty_key((K*)(~0));
-#endif
-        this->set_deleted_key((K*)(0));
     }
+#endif
 };
 
 
@@ -213,13 +209,12 @@ class hash_set : public google::dense_hash_set<K, wang_hash<K>>
 class hash_set : public spp::sparse_hash_set<K, wang_hash<K>>
 #endif
     {
+#ifdef USE_DENSE_HASH
 public:
     hash_set() {
-#ifdef USE_DENSE_HASH
         this->set_empty_key(-1);
-#endif
-        this->set_deleted_key(-2);
     }
+#endif
 };
 
 template<typename K>
@@ -229,13 +224,12 @@ class string_hash_set : public google::dense_hash_set<K>
 class string_hash_set : public spp::sparse_hash_set<K>
 #endif
 {
+#ifdef USE_DENSE_HASH
 public:
     string_hash_set() {
-#ifdef USE_DENSE_HASH
         this->set_empty_key(" ");
-#endif
-        this->set_deleted_key("");
     }
+#endif
 };
 
 template<typename K>
@@ -245,13 +239,12 @@ class pair_hash_set : public google::dense_hash_set<K, wang_hash<K>>
 class pair_hash_set : public spp::sparse_hash_set<K, wang_hash<K>>
 #endif
 {
+#ifdef USE_DENSE_HASH
 public:
     pair_hash_set() {
-#ifdef USE_DENSE_HASH
         this->set_empty_key(K(-1, -1));
-#endif
-        this->set_deleted_key(K(-2, -2));
     }
+#endif
 };
 
 template<typename K>
@@ -261,13 +254,12 @@ class hash_set<K*> : public google::dense_hash_set<K*, wang_hash<K*>>
 class hash_set<K*> : public spp::sparse_hash_set<K*, wang_hash<K*>>
 #endif
 {
+#ifdef USE_DENSE_HASH
 public:
     hash_set() {
-#ifdef USE_DENSE_HASH
         this->set_empty_key((K*)(~0));
-#endif
-        this->set_deleted_key((K*)(0));
     }
+#endif
 };
 
 

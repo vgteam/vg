@@ -111,9 +111,9 @@ public:
                bool is_sorted_dag);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 8;
+    const static uint32_t MAX_INPUT_VERSION = 9;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 8;
+    const static uint32_t OUTPUT_VERSION = 9;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -266,16 +266,29 @@ public:
     // Here is the paths API
     ////////////////////////////////////////////////////////////////////////////
 
-    // Pull out the path with the given name.
+    /// Pull out the path with the given name.
     Path path(const string& name) const;
+    /// Get the path string
+    string path_string(const Path& path);
+    /// Get the path as an alignment
+    Alignment path_as_alignment(const string& name);
+    /// Convert the Path to an alignment
+    Alignment path_as_alignment(const Path& path);
+    /// Get all the paths as alignments
+    vector<Alignment> paths_as_alignments(void);
+    /// Get the path object by name
     const XGPath& get_path(const string& name) const;
-    // Returns the rank of the path with the given name, or 0 if no such path
-    // exists.
+    /// Returns the rank of the path with the given name, or 0 if no such path exists.
     size_t path_rank(const string& name) const;
-    // Returns the maxiumum rank of any existing path. A path does exist at this
-    // rank.
+    /// Returns the ranks of the paths prefixed by the given string
+    vector<size_t> path_ranks_by_prefix(const string& prefix) const;
+    /// Returns the names of the paths prefixed by the given string
+    vector<string> path_names_by_prefix(const string& prefix) const;
+    /// Returns the paths with the given prefix
+    vector<Path> paths_by_prefix(const string& prefix) const;
+    /// Returns the maxiumum rank of any existing path. A path does exist at this rank.
     size_t max_path_rank(void) const;
-    // Get the name of the path at the given rank. Ranks begin at 1.
+    /// Get the name of the path at the given rank. Ranks begin at 1.
     string path_name(size_t rank) const;
     vector<size_t> paths_of_node(int64_t id) const;
     map<string, vector<Mapping>> node_mappings(int64_t id) const;
@@ -285,7 +298,7 @@ public:
     size_t node_occs_in_path(int64_t id, size_t rank) const;
     vector<size_t> node_ranks_in_path(int64_t id, const string& name) const;
     vector<size_t> node_ranks_in_path(int64_t id, size_t rank) const;
-    // Get the positions (but not the orientations) of the given node on the given path.
+    /// Get the positions (but not the orientations) of the given node on the given path.
     // See also: oriented_occurrences_on_path, which gives rank and orientation
     vector<size_t> position_in_path(int64_t id, const string& name) const;
     vector<size_t> position_in_path(int64_t id, size_t rank) const;
@@ -630,7 +643,6 @@ private:
     ////////////////////////////////////////////////////////////////////////////
 
     // maintain old ids from input, ranked as in s_iv and s_bv
-    int_vector<> i_iv;
     int64_t min_id = 0; // id ranges don't have to start at 0
     int64_t max_id = 0;
     int_vector<> r_iv; // ids-id_min is the rank
@@ -831,7 +843,6 @@ public:
 
 
 Mapping new_mapping(const string& name, int64_t id, size_t rank, bool is_reverse);
-void parse_region(const string& target, string& name, int64_t& start, int64_t& end);
 void to_text(ostream& out, Graph& graph);
 
 // Serialize a rank_select_int_vector in an SDSL serialization compatible way. Returns the number of bytes written.

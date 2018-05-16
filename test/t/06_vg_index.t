@@ -7,8 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 48
-
+plan tests 50
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -53,6 +52,15 @@ rm -f x.threads
 rm -f x.xg x.gbwtx.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
 
+# Subregion graph with haplotypes
+vg construct -r small/x.fa -v small/x.vcf.gz -a --region x:100-200 > x.part.vg
+
+vg index -x x.part.xg -G x.part.gbwt --region x:100-200 -v small/x.vcf.gz x.part.vg 2>log.txt
+is $? 0 "building GBWT index for a regional graph"
+
+is "$(cat log.txt | wc -c)" "0" "no warnings about missing variants produced"
+
+rm -f x.part.vg x.part.xg x.part.gbwt log.txt
 
 # Multiple graphs without haplotypes
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C > x.vg 2> /dev/null
@@ -158,7 +166,7 @@ is $? 0 "building an xg index containing a gPBWT"
 vg find -t -x x.xg >part.vg
 is "$(cat x.vg part.vg | vg view -j - | jq '.path[].name' | grep '_thread' | wc -l)" 2 "the gPBWT can be queried for two threads for each haplotype"
 
-is $(vg find -x x.xg -q _thread_1_x_0 | vg paths -L - | wc -l) 1 "a specific thread may be pulled from the graph by name"
+is $(vg find -x x.xg -q _thread_1_x_0 | vg paths -L -v - | wc -l) 1 "a specific thread may be pulled from the graph by name"
 
 vg index -x x.xg -v small/x.vcf.gz x.vg --exclude 1
 vg find -t -x x.xg >part.vg
@@ -169,8 +177,8 @@ rm -f x.vg x.xg part.vg x.gcsa
 
 vg construct -r small/xy.fa -v small/xy.vcf.gz -a >xy.vg
 vg index -x xy.xg -v small/xy.vcf.gz xy.vg
-is $(vg find -x xy.xg -t | vg paths -L - | wc -l) 4 "a thread is stored per haplotype, sample, and reference sequence"
-is $(vg find -x xy.xg -q _thread_1_y | vg paths -L - | wc -l) 2 "we have the expected number of threads per chromosome"
+is $(vg find -x xy.xg -t | vg paths -L -v - | wc -l) 4 "a thread is stored per haplotype, sample, and reference sequence"
+is $(vg find -x xy.xg -q _thread_1_y | vg paths -L -v - | wc -l) 2 "we have the expected number of threads per chromosome"
 rm -f xy.vg xy.xg
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg

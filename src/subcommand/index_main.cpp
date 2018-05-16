@@ -14,6 +14,7 @@
 #include "../stream.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
+#include "../region.hpp"
 #include "../path_index.hpp"
 
 #include <gcsa/gcsa.h>
@@ -44,6 +45,7 @@ void help_index(char** argv) {
          << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
+         << "    -I, --region C:S-E     operate on only the given 1-based region of the given VCF contig (may repeat)" << endl
          << "    -E, --exclude SAMPLE   exclude any samples with the given name from haplotype indexing" << endl
          << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants," << endl
          << "                           call all but the first one as ref" << endl
@@ -140,6 +142,7 @@ int main_index(int argc, char** argv) {
     size_t samples_in_batch = 200; // Samples per batch.
     std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
     map<string, string> path_to_vcf; // Path name conversion from --rename.
+    map<string, pair<size_t, size_t>> regions; // Region restrictions for contigs, in VCF name space, as 0-based exclusive-end ranges.
     unordered_set<string> excluded_samples; // Excluded sample names from --exclude.
     bool discard_overlaps = false;
 
@@ -184,6 +187,7 @@ int main_index(int argc, char** argv) {
             {"batch-size", required_argument, 0, 'B'},
             {"range", required_argument, 0, 'R'},
             {"rename", required_argument, 0, 'r'},
+            {"region", required_argument, 0, 'I'},
             {"exclude", required_argument, 0, 'E'},
             {"discard-overlaps", no_argument, 0, 'o'},
 
@@ -214,7 +218,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:TG:H:B:R:r:Eo:g:i:f:k:X:Z:Vd:maANDP:MLSCh",
+        c = getopt_long (argc, argv, "b:t:px:F:v:TG:H:B:R:r:I:Eo:g:i:f:k:X:Z:Vd:maANDP:MLSCh",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -292,7 +296,23 @@ int main_index(int argc, char** argv) {
                 // Add the name mapping
                 path_to_vcf[graph_contig] = vcf_contig;
             }
-            break;            
+            break;
+        case 'I':
+            {
+                // We want to parse this region specifier
+                string region(optarg);
+                
+                Region parsed;
+                parse_region(region, parsed);
+                if (parsed.start <= 0 || parsed.end <= 0) {
+                    // We need both range bounds, and we can't accept 0 since input is 1-based.
+                    cerr << "error: [vg index] could not parse 1-based region " << optarg << endl;
+                }
+                
+                // Make sure to correct the coordinates to 0-based exclusive-end, from 1-based inclusive-end
+                regions[parsed.seq] = make_pair((size_t) (parsed.start - 1), (size_t) parsed.end);
+            }
+            break;
         case 'E':
             excluded_samples.insert(optarg);
             break;
@@ -414,7 +434,7 @@ int main_index(int argc, char** argv) {
         }
         VGset graphs(file_names);
         build_gpbwt = !build_gbwt & !write_threads;
-        graphs.to_xg(*xg_index, index_paths & build_gpbwt, Paths::is_alt, alt_paths);
+        graphs.to_xg(*xg_index, index_paths & build_gpbwt, Paths::is_alt, index_haplotypes ? &alt_paths : nullptr);
         if (show_progress) {
             cerr << "Built base XG index" << endl;
         }
@@ -542,8 +562,9 @@ int main_index(int argc, char** argv) {
 
                 // We're going to extract it and index it, so we don't keep
                 // making queries against it for every sample.
+                // Note that we don't extract the sequence.
                 PathIndex path_index(xg_index->path(path_name));
-
+                
                 // Process the samples in batches to save memory.
                 size_t batch_start = sample_range.first, batch_limit = std::min(batch_start + samples_in_batch, sample_range.second);
                 size_t first_phase = 2 * batch_start, phases_in_batch = 2 * samples_in_batch;
@@ -623,6 +644,16 @@ int main_index(int argc, char** argv) {
                     // the-end reference position.
                     size_t ref_pos = nonvariant_starts[phase_number - first_phase];
                     
+                    if (ref_pos >= end) {
+                        // For the case where the graph ends inside a variant,
+                        // the past-the-end position after the last variant may
+                        // actually be off the graph, which means it is also at
+                        // or past past our target end position. In those
+                        // cases, we should do nothing, as there is no sequence
+                        // that needs to be added.
+                        return;
+                    }
+                   
                     // Get an iterator to the next node visit to add
                     PathIndex::iterator next_to_add = path_index.find_position(ref_pos);
 
@@ -901,9 +932,21 @@ int main_index(int argc, char** argv) {
                 // Process the phases in batches.
                 while (batch_start < sample_range.second) {
 
+                    // We may need an offset on variant positions for progress bar purposes
+                    size_t progress_offset = 0;
+
                     // Look for variants only on this path; seek back if this
                     // is not the first batch.
-                    variant_file.setRegion(vcf_contig_name);
+                    if (regions.count(vcf_contig_name)) {
+                        // Look at only the specified region of this contig
+                        variant_file.setRegion(vcf_contig_name, regions[vcf_contig_name].first, regions[vcf_contig_name].second);
+                        
+                        // Remember where our region starts, for an accurate progress bar
+                        progress_offset = regions[vcf_contig_name].first;
+                    } else {
+                        // Look at the entire contig
+                        variant_file.setRegion(vcf_contig_name);
+                    }
 
                     // Set up progress bar
                     ProgressBar* progress = nullptr;
@@ -938,7 +981,7 @@ int main_index(int argc, char** argv) {
 
                         if (variants_processed++ % 1000 == 0 && progress != nullptr) {
                             // Say we made progress
-                            progress->Progressed(var.position);
+                            progress->Progressed(var.position - progress_offset);
                         }
                     }
 

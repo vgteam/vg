@@ -10,20 +10,26 @@ namespace vg {
 
 using namespace std;
 
-// wrap up region parse output
+// Represent a parsed genomic region.
+// A -1 for start or end indicates that that coordinate is not used.
+// Generally regions parsed form user input will be 1-based.
 struct Region {
     string seq;
     int64_t start;
     int64_t end;
 };
 
+// Parse a genomic contig[:start-end] region. Outputs -1 for missing start or end.
+void parse_region(const string& target, string& name, int64_t& start, int64_t& end);
 
+
+// Parse a genomic contig[:start-end] region. Outputs -1 for missing start or end.
 inline void parse_region(string& region,
                          Region& out_region) {
-    xg::parse_region(region,
-                     out_region.seq,
-                     out_region.start,
-                     out_region.end);
+    parse_region(region,
+                 out_region.seq,
+                 out_region.start,
+                 out_region.end);
 }
     
 // parse a bed file and return a list of regions (like above)

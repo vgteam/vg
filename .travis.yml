@@ -13,7 +13,7 @@ dist: trusty
 before_install:
   - if [ -e deps ]; then mv deps deps_cached; fi
   - git submodule update --init --recursive
-  - rsync -rv --checksum deps/ deps_cached/
+  - rsync -rv --links --checksum deps/ deps_cached/
   - rm -Rf deps
   # Keep the cached deps if the right compiler version was used.
   # Otherwise start fresk
@@ -34,8 +34,10 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc49; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm install ruby-2.3.3; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm use 2.3.3; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install jq jansson coreutils md5sha1sum samtools rasqal bison raptor rasqal gperftools autogen gcc6 lz4 xz; brew link bison --force; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install jq jansson coreutils md5sha1sum samtools rasqal bison raptor rasqal gperftools autogen gcc6 lz4 xz cairo expat; brew link bison --force; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then echo pkg-config results should be $(pkg-config --libs --cflags cairo); fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CFLAGS="-I/usr/local/include/"; fi
