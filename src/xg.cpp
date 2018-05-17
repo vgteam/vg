@@ -1512,7 +1512,10 @@ Node XG::node(int64_t id) const {
 
 string XG::node_sequence(int64_t id) const {
     size_t rank = id_to_rank(id);
-    assert(rank != 0); // We can crash if we try to look up rank 0.
+    if (rank == 0) {
+        // Node isn't there
+        throw runtime_error("xg cannot get sequence for nonexistent node " + to_string(id));
+    }
     size_t start = s_bv_select(rank);
     size_t end = rank == node_count ? s_bv.size() : s_bv_select(rank+1);
     string s; s.resize(end-start);

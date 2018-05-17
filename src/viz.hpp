@@ -23,8 +23,8 @@ class Viz {
 public:
     Viz(void) { }
     ~Viz(void) { close(); }
-    Viz(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d);
-    void init(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d);
+    Viz(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t);
+    void init(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t);
     void draw(void);
     void draw_graph(void);
     void close(void);
@@ -43,6 +43,7 @@ private:
     bool output_svg = false;
     bool show_cnv = true;
     bool show_dna = true;
+    bool show_paths = true;
     int image_width = 0;
     int image_height = 0;
     int left_border = 0;
