@@ -169,34 +169,32 @@ void XG::load(istream& in) {
                 }
                 r_iv.load(in);
                 
-                g_iv.load(in);
-                g_bv.load(in);
-                g_bv_rank.load(in, &g_bv);
-                g_bv_select.load(in, &g_bv);
-                if (file_version <= 9) {
-                    int g = 4;
-                    auto to_count = g_iv[g++];
-                    auto from_count = g_iv[g++];
-                    for (g; g < to_count*2+g; g++){
-                        int type = g_bv[g];
-                        if (type == 1){
-                            g_iv[g++] = 0;
-                        }
-                        if (type == 2){
-                            g_iv[g++] = 1;
-                        }
-                    }
-                    for (g; g < from_count*2+g; g++){
-                        int type = g_bv[g];
-                        if (type == 1){
-                            g_iv[g++] = 1;
-                        }
-                        if (type == 2){
-                            g_iv[g++] = 0;
-                        }
-                    }
+                if (file_version > 9) {
+                    g_iv.load(in);
+                    g_bv.load(in);
+                    g_bv_rank.load(in, &g_bv);
+                    g_bv_select.load(in, &g_bv);
                 }
-
+                else{ // if old file version, change edge encoding
+                    size_t g_iv_size =
+                        node_count * G_NODE_HEADER_LENGTH // record headers
+                        + edge_count * 2 * G_EDGE_LENGTH; // edges (stored twice)
+                    int_vector<> g_iv_old;
+                    bit_vector g_bv_old;
+                    rank_support_v<1> g_bv_rank_old;
+                    bit_vector::select_1_type g_bv_select_old;
+//                    util::assign(g_iv_old, int_vector<>(g_iv_size));
+//                    util::assign(g_bv_old, bit_vector(g_iv_size));
+//                    util::assign(g_bv_rank_old, rank_support_v<1>(&g_bv_old));
+//                    util::assign(g_bv_select_old, bit_vector::select_1_type(&g_bv_old));
+                    g_iv_old.load(in);
+                    g_bv_old.load(in);
+                    g_bv_rank_old.load(in, &g_bv);
+                    g_bv_select_old.load(in, &g_bv);
+                    
+                    convert_old_edge_to_new(g_iv_old,g_bv_old,g_bv_rank_old,g_bv_select_old);
+                }
+                
                 s_iv.load(in);
                 s_bv.load(in);
                 s_bv_rank.load(in, &s_bv);
@@ -282,6 +280,101 @@ void XG::load(istream& in) {
     }
 
 }
+    
+void XG::convert_old_edge_to_new(int_vector<> g_iv_old, bit_vector g_bv_old, rank_support_v<1> g_bv_rank_old, bit_vector::select_1_type g_bv_select_old) {
+    size_t g_iv_size =
+        node_count * G_NODE_HEADER_LENGTH // record headers
+        + edge_count * 2 * G_EDGE_LENGTH; // edges (stored twice)
+    
+    int64_t header = G_NODE_HEADER_LENGTH;
+    int64_t headerfrom = G_NODE_HEADER_LENGTH;
+    int z = 0;
+    util::assign(g_iv, int_vector<>(g_iv_size));
+    util::assign(g_bv, bit_vector(g_iv_size));
+    for (int64_t i = 0; i < g_iv_size; i += header) {
+        g_bv[z] = 1;
+        g_iv[z++] = g_iv_old[i];
+        g_iv[z++] = g_iv_old[i+1];
+        g_iv[z++] = g_iv_old[i+2];
+        vector<vector<side_t>> start_side;
+        vector<vector<side_t>> end_side;
+        int64_t g = i;
+        // get to the edges to
+        int edges_to_count = g_iv_old[g+G_NODE_TO_COUNT_OFFSET];
+        int edges_from_count = g_iv_old[g+G_NODE_FROM_COUNT_OFFSET];
+        int sequence_size = g_iv_old[g+G_NODE_LENGTH_OFFSET];
+        int64_t t = g + G_NODE_HEADER_LENGTH;
+        int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
+        // to side
+        for (int64_t j = t; j < f; ) {
+            int node = g_iv_old[j];
+            int edge_type = g_iv_old[j+1];
+            vector<side_t> temp;
+            temp.push_back(node);
+            if (edge_type == 1){
+                temp.push_back(1);
+                start_side.push_back(temp);
+            }
+            else if (edge_type == 2){
+                temp.push_back(1);
+                end_side.push_back(temp);
+            }
+            else if (edge_type == 3){
+                temp.push_back(0);
+                start_side.push_back(temp);
+            }
+            else{
+                temp.push_back(0);
+                end_side.push_back(temp);
+            }
+            j += 2;
+            i += 2;
+        }
+        // from side
+        for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
+            int node = g_iv_old[j];
+            int edge_type = g_iv_old[j+1];
+            vector<side_t> temp;
+            temp.push_back(node);
+            if (edge_type == 1){
+                temp.push_back(0);
+                end_side.push_back(temp);
+            }
+            else if (edge_type == 2){
+                temp.push_back(1);
+                end_side.push_back(temp);
+            }
+            else if (edge_type == 3){
+                temp.push_back(0);
+                start_side.push_back(temp);
+            }
+            else{
+                temp.push_back(1);
+                start_side.push_back(temp);
+            }
+            j += 2;
+            i += 2;
+        }
+        g_iv[z++] = start_side.size();
+        g_iv[z++] = end_side.size();
+        
+        for (int j=0; j<start_side.size(); j++){
+            vector<side_t> node_edge = start_side.at(j);
+            g_iv[z++] = node_edge[0];
+            g_iv[z++] = node_edge[1];
+        }
+        for (int j=0; j<end_side.size(); j++){
+            vector<side_t> node_edge = end_side.at(j);
+            
+            g_iv[z++] = node_edge[0];
+            g_iv[z++] = node_edge[1];
+        }
+    
+    }
+    util::assign(g_bv_rank, rank_support_v<1>(&g_bv));
+    util::assign(g_bv_select, bit_vector::select_1_type(&g_bv));
+}
+
 
 void XGPath::load(istream& in, uint32_t file_version, const function<int64_t(size_t)>& rank_to_id) {
     if (file_version >= 8) {
@@ -809,7 +902,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     util::assign(g_iv, int_vector<>(g_iv_size));
     util::assign(g_bv, bit_vector(g_iv_size));
     int64_t g = 0; // pointer into g_iv and g_bv
-    cerr << endl << endl<<endl;
     for (int64_t i = 0; i < node_count; ++i) {
         Node n = node(i_iv[i]);
         
@@ -846,18 +938,18 @@ void XG::build(vector<pair<id_t, string> >& node_label,
 //                ++from_edge_count;
 //            }
 //        }
-        cerr << endl<< "n.id() "<< n.id() << endl;
+        //cerr << endl<< "n.id() "<< n.id() << endl;
         for (auto end : { false, true }) {
             auto& s_sides = start_side[make_side(n.id(), end)];
             for (auto& e : s_sides) {
-                cerr << "start_side e " << e << " side_id(e) "<< side_id(e) << endl;
+                //cerr << "start_side e " << e << " side_id(e) "<< side_id(e) << endl;
                 g_iv[g++] = side_id(e);
                 if (e<0){
-                    cerr << "edge type " << 0 << endl;
+                    //cerr << "edge type " << 0 << endl;
                     g_iv[g++] = 0;
                 }
                 else {
-                    cerr << "edge type " << 1 << endl;
+                    //cerr << "edge type " << 1 << endl;
                     g_iv[g++] = 1;
                 }
                 ++to_edge_count;
@@ -867,14 +959,14 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         for (auto end : { false, true }) {
             auto& e_sides = end_side[make_side(n.id(), end)];
             for (auto& e : e_sides) {
-                cerr << "end_side e " << e << " side_id(e) "<< side_id(e) << endl;
+                //cerr << "end_side e " << e << " side_id(e) "<< side_id(e) << endl;
                 g_iv[g++] = side_id(e);
                 if (e<0){
-                    cerr << "edge type " << 0 << endl;
+                    //cerr << "edge type " << 0 << endl;
                     g_iv[g++] = 0;
                 }
                 else {
-                    cerr << "edge type " << 1 << endl;
+                    //cerr << "edge type " << 1 << endl;
                     g_iv[g++] = 1;
                 }
                 ++from_edge_count;
@@ -1604,13 +1696,11 @@ Graph XG::node_subgraph_g(int64_t g) const {
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
-        cerr << "node_subgraph_g g" << g << " from " << from << " type " << type << endl;
         *graph.add_edge() = edge_from_encoding(from, g, type);
     }
     for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
-        cerr << "node_subgraph_g g" << g << " to " << to << " type " << type << endl;
         *graph.add_edge() = edge_from_encoding(g, to, type);
     }
     return graph;
@@ -1884,13 +1974,11 @@ vector<Edge> XG::edges_of(int64_t id) const {
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
-        cerr << "edges_of g" << g << " from " << from << " type " << type << endl;
         edges.push_back(edge_from_encoding(from, g, type));
     }
     for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
-        cerr << "edges_of g" << g << " to " << to << " type " << type << endl;
         edges.push_back(edge_from_encoding(g, to, type));
     }
     for (auto& edge : edges) { 
@@ -1910,7 +1998,6 @@ vector<Edge> XG::edges_to(int64_t id) const {
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
-        cerr << "edges_to g" << g << " from " << from << " type " << type << endl;
         edges.push_back(edge_from_encoding(from, g, type));
     }
     for (auto& edge : edges) { 
@@ -1931,7 +2018,6 @@ vector<Edge> XG::edges_from(int64_t id) const {
     for (int64_t j = f; j < e; ) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
-        cerr << "edges_from g" << g << " to " << to << " type " << type << endl;
         edges.push_back(edge_from_encoding(g, to, type));
     }
     for (auto& edge : edges) { 
@@ -2019,7 +2105,6 @@ size_t XG::edge_graph_idx(const Edge& edge_in) const {
     for (int64_t j = f; j < e; ++i) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
-        cerr << "edge_graph_idx g" << g << " to " << to << " type " << type << endl;
         Edge curr = edge_from_encoding(g, to, type);
         curr.set_from(g_iv[curr.from()+G_NODE_ID_OFFSET]);
         curr.set_to(g_iv[curr.to()+G_NODE_ID_OFFSET]);

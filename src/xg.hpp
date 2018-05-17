@@ -113,9 +113,9 @@ public:
                unordered_map<side_t, vector<side_t> >& end_side);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 9;
+    const static uint32_t MAX_INPUT_VERSION = 10;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 9;
+    const static uint32_t OUTPUT_VERSION = 10;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -123,7 +123,7 @@ public:
     size_t serialize(std::ostream& out,
                      sdsl::structure_tree_node* v = NULL,
                      std::string name = "");
-                     
+    void convert_old_edge_to_new(int_vector<> g_iv_old, bit_vector g_bv_old, rank_support_v<1> g_bv_rank_old, bit_vector::select_1_type g_bv_select_old);
     
     ////////////////////////////////////////////////////////////////////////////
     // Basic API
