@@ -180,6 +180,80 @@ void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
 size_t VG::node_size() const {
     return graph.node_size();
 }
+    
+path_handle_t VG::get_path_handle(const string& path_name) const {
+    return as_path_handle(reinterpret_cast<int64_t>(&paths._paths.at(path_name)));
+}
+
+size_t VG::get_occurrence_count(const path_handle_t& path_handle) const {
+    return reinterpret_cast<const list<mapping_t>*>(as_integer(path_handle))->size();
+}
+
+size_t VG::get_path_count() const {
+    return paths._paths.size();
+}
+
+void VG::for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const {
+    for (const pair< string, list<mapping_t>>& path_record : paths._paths) {
+        iteratee(as_path_handle(reinterpret_cast<int64_t>(&path_record.second)));
+    }
+}
+
+handle_t VG::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    return get_handle(reinterpret_cast<const mapping_t*>(as_integers(occurrence_handle)[1])->node_id(),
+                      reinterpret_cast<const mapping_t*>(as_integers(occurrence_handle)[1])->is_reverse());
+}
+
+occurrence_handle_t VG::get_first_occurrence(const path_handle_t& path_handle) const {
+    occurrence_handle_t occurrence_handle;
+    as_integers(occurrence_handle)[0] = as_integer(path_handle);
+    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&reinterpret_cast<const list<mapping_t>*>(as_integer(path_handle))->front());
+    return occurrence_handle;
+}
+
+occurrence_handle_t VG::get_last_occurrence(const path_handle_t& path_handle) const {
+    occurrence_handle_t occurrence_handle;
+    as_integers(occurrence_handle)[0] = as_integer(path_handle);
+    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&reinterpret_cast<const list<mapping_t>*>(as_integer(path_handle))->back());
+    return occurrence_handle;
+}
+
+bool VG::has_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
+    iter++;
+    return iter != reinterpret_cast<list<mapping_t>*>(as_integers(occurrence_handle)[0])->end();
+}
+
+bool VG::has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
+    return iter != reinterpret_cast<list<mapping_t>*>(as_integers(occurrence_handle)[0])->begin();
+}
+
+occurrence_handle_t VG::get_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    occurrence_handle_t next_occurence_handle;
+    as_integers(next_occurence_handle)[0] = as_integers(occurrence_handle)[0];
+    list<mapping_t>::const_iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
+    iter++;
+    as_integers(next_occurence_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
+    return next_occurence_handle;
+}
+
+occurrence_handle_t VG::get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    occurrence_handle_t prev_occurence_handle;
+    as_integers(prev_occurence_handle)[0] = as_integers(occurrence_handle)[0];
+    list<mapping_t>::const_iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
+    iter--;
+    as_integers(prev_occurence_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
+    return prev_occurence_handle;
+}
+
+path_handle_t VG::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    return as_path_handle(as_integers(occurrence_handle)[0]);
+}
+
+size_t VG::get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    return reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])->rank - 1;
+}
 
 handle_t VG::create_handle(const string& sequence) {
     Node* node = create_node(sequence);

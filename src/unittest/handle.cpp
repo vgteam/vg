@@ -51,10 +51,56 @@ TEST_CASE( "Handle utility functions work", "[handle]" ) {
             for (size_t j = 0; j < handles.size(); j++) {
                 if (i == j) {
                     REQUIRE(handles[i] == handles[j]);
-                    REQUIRE(! (handles[i] != handles[j]));
+                    REQUIRE(!(handles[i] != handles[j]));
                 } else {
                     REQUIRE(handles[i] != handles[j]);
-                    REQUIRE(! (handles[i] == handles[j]));
+                    REQUIRE(!(handles[i] == handles[j]));
+                }
+            }
+        }
+    }
+    
+    
+    SECTION("Path handle equality works") {
+        vector<path_handle_t> handles;
+        
+        for (size_t i = 0; i < 100; i++) {
+            handles.push_back(as_path_handle(i));
+        }
+        
+        for (size_t i = 0; i < handles.size(); i++) {
+            for (size_t j = 0; j < handles.size(); j++) {
+                if (i == j) {
+                    REQUIRE(handles[i] == handles[j]);
+                    REQUIRE(!(handles[i] != handles[j]));
+                } else {
+                    REQUIRE(handles[i] != handles[j]);
+                    REQUIRE(!(handles[i] == handles[j]));
+                }
+            }
+        }
+    }
+    
+    SECTION("Occurrence handle equality works") {
+        vector<occurrence_handle_t> handles;
+        
+        for (size_t i = 0; i < 10; i++) {
+            for (size_t j = 0; j < 10; j++) {
+                occurrence_handle_t handle;
+                as_integers(handle)[0] = i;
+                as_integers(handle)[1] = j;
+                handles.push_back(handle);
+            }
+        }
+        
+        for (size_t i = 0; i < handles.size(); i++) {
+            for (size_t j = 0; j < handles.size(); j++) {
+                if (i == j) {
+                    REQUIRE(handles[i] == handles[j]);
+                    REQUIRE(!(handles[i] != handles[j]));
+                } else {
+                    REQUIRE(handles[i] != handles[j]);
+                    REQUIRE(!(handles[i] == handles[j]));
                 }
             }
         }
@@ -514,6 +560,193 @@ TEST_CASE("Mutable handle graphs work", "[handle][vg]") {
     }
     
     
+}
+    
+TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]") {
+    
+    // Make a vg graph
+    VG vg;
+    
+    Node* n0 = vg.create_node("CGA");
+    Node* n1 = vg.create_node("TTGG");
+    Node* n2 = vg.create_node("CCGT");
+    Node* n3 = vg.create_node("C");
+    Node* n4 = vg.create_node("GT");
+    Node* n5 = vg.create_node("GATAA");
+    Node* n6 = vg.create_node("CGG");
+    Node* n7 = vg.create_node("ACA");
+    Node* n8 = vg.create_node("GCCG");
+    Node* n9 = vg.create_node("ATATAAC");
+    
+    vg.create_edge(n1, n0, true, true); // a doubly reversing edge to keep it interesting
+    vg.create_edge(n1, n2);
+    vg.create_edge(n2, n3);
+    vg.create_edge(n2, n4);
+    vg.create_edge(n3, n5);
+    vg.create_edge(n4, n5);
+    vg.create_edge(n5, n6);
+    vg.create_edge(n5, n8);
+    vg.create_edge(n6, n7);
+    vg.create_edge(n6, n8);
+    vg.create_edge(n7, n9);
+    vg.create_edge(n8, n9);
+    
+    Path path1 ,path2, path3;
+    path1.set_name("1");
+    path2.set_name("2");
+    path3.set_name("3");
+    
+    Mapping* m10 = path1.add_mapping();
+    m10->mutable_position()->set_node_id(n0->id());
+    m10->set_rank(1);
+    Mapping* m11 = path1.add_mapping();
+    m11->mutable_position()->set_node_id(n1->id());
+    m11->set_rank(2);
+    Mapping* m12 = path1.add_mapping();
+    m12->mutable_position()->set_node_id(n2->id());
+    m12->set_rank(3);
+    Mapping* m13 = path1.add_mapping();
+    m13->mutable_position()->set_node_id(n4->id());
+    m13->set_rank(4);
+    Mapping* m14 = path1.add_mapping();
+    m14->mutable_position()->set_node_id(n5->id());
+    m14->set_rank(5);
+    
+    Mapping* m20 = path2.add_mapping();
+    m20->mutable_position()->set_node_id(n3->id());
+    m20->set_rank(1);
+    Mapping* m21 = path2.add_mapping();
+    m21->mutable_position()->set_node_id(n5->id());
+    m21->set_rank(2);
+    Mapping* m22 = path2.add_mapping();
+    m22->mutable_position()->set_node_id(n6->id());
+    m22->set_rank(3);
+    Mapping* m23 = path2.add_mapping();
+    m23->mutable_position()->set_node_id(n7->id());
+    m23->set_rank(4);
+    Mapping* m24 = path2.add_mapping();
+    m24->mutable_position()->set_node_id(n9->id());
+    m24->set_rank(5);
+    
+    Mapping* m30 = path3.add_mapping();
+    m30->mutable_position()->set_node_id(n8->id());
+    m30->mutable_position()->set_is_reverse(true);
+    m30->set_rank(1);
+    Mapping* m31 = path3.add_mapping();
+    m31->mutable_position()->set_node_id(n5->id());
+    m31->mutable_position()->set_is_reverse(true);
+    m31->set_rank(2);
+    Mapping* m32 = path3.add_mapping();
+    m32->mutable_position()->set_node_id(n3->id());
+    m32->mutable_position()->set_is_reverse(true);
+    m32->set_rank(3);
+    
+    vg.paths.extend(path1);
+    vg.paths.extend(path2);
+    vg.paths.extend(path3);
+    
+    // also add the paths to the Protobuf graph so that they're XG'able
+    vg.paths.to_graph(vg.graph);
+    
+    xg::XG xg_index(vg.graph);
+    
+    SECTION("Handles can find all paths") {
+        
+        int vg_path_count = 0, xg_path_count = 0;
+        
+        function<void(const path_handle_t&)> count_vg_paths = [&](const path_handle_t& ph) {
+            vg_path_count++;
+        };
+        
+        function<void(const path_handle_t&)> count_xg_paths = [&](const path_handle_t& ph) {
+            xg_path_count++;
+        };
+        
+        vg.for_each_path_handle(count_vg_paths);
+        xg_index.for_each_path_handle(count_xg_paths);
+        
+        REQUIRE(vg_path_count == 3);
+        REQUIRE(xg_path_count == 3);
+        REQUIRE(vg.get_path_count() == 3);
+        REQUIRE(xg_index.get_path_count() == 3);
+    }
+    
+    SECTION("Handles can traverse paths") {
+        
+        // check that a path is correctly accessible and traversible
+        auto check_path_traversal = [&](const PathHandleGraph& graph, const Path& path) {
+            
+            path_handle_t path_handle = graph.get_path_handle(path.name());
+            
+            REQUIRE(graph.get_occurrence_count(path_handle) == path.mapping_size());
+            
+            // check that occurrence is pointing to the same index along the path
+            auto check_occurrence = [&](const occurrence_handle_t& occurrence_handle,
+                                        int mapping_idx) {
+                
+                REQUIRE(graph.get_path_handle_of_occurrence(occurrence_handle) == path_handle);
+                
+                const Mapping& mapping = path.mapping(mapping_idx);
+                
+                handle_t handle = graph.get_occurrence(occurrence_handle);
+                
+                REQUIRE(graph.get_id(handle) == mapping.position().node_id());
+                REQUIRE(graph.get_is_reverse(handle) == mapping.position().is_reverse());
+                REQUIRE(graph.get_ordinal_rank_of_occurrence(occurrence_handle) == mapping_idx);
+            };
+            
+            occurrence_handle_t occurrence_handle;
+            
+            // iterate front to back
+            occurrence_handle = graph.get_first_occurrence(path_handle);
+            for (int i = 0; i < path.mapping_size(); i++) {
+                if (i + 1 < path.mapping_size()) {
+                    REQUIRE(graph.has_next_occurrence(occurrence_handle));
+                }
+                else {
+                    REQUIRE(!graph.has_next_occurrence(occurrence_handle));
+                }
+                
+                if (i > 0) {
+                    REQUIRE(graph.has_previous_occurrence(occurrence_handle));
+                }
+                else {
+                    REQUIRE(!graph.has_previous_occurrence(occurrence_handle));
+                }
+                
+                check_occurrence(occurrence_handle, i);
+                occurrence_handle = graph.get_next_occurrence(occurrence_handle);
+            }
+            
+            // iterate back to front
+            occurrence_handle = graph.get_last_occurrence(path_handle);
+            for (int i = path.mapping_size() - 1; i >= 0; i--) {
+                if (i + 1 < path.mapping_size()) {
+                    REQUIRE(graph.has_next_occurrence(occurrence_handle));
+                }
+                else {
+                    REQUIRE(!graph.has_next_occurrence(occurrence_handle));
+                }
+                
+                if (i > 0) {
+                    REQUIRE(graph.has_previous_occurrence(occurrence_handle));
+                }
+                else {
+                    REQUIRE(!graph.has_previous_occurrence(occurrence_handle));
+                }
+                
+                check_occurrence(occurrence_handle, i);
+                occurrence_handle = graph.get_previous_occurrence(occurrence_handle);
+            }
+        };
+        
+        check_path_traversal(vg, path1);
+        check_path_traversal(vg, path2);
+        check_path_traversal(vg, path3);
+        check_path_traversal(xg_index, path1);
+        check_path_traversal(xg_index, path2);
+        check_path_traversal(xg_index, path3);
+    }
 }
 
 }

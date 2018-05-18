@@ -78,7 +78,7 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public MutableHandleGraph {
+class VG : public Progressive, public MutableHandleGraph, public PathHandleGraph {
 
 public:
 
@@ -125,6 +125,49 @@ public:
     
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Path handle interface
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Look up the path handle for the given path name
+    virtual path_handle_t get_path_handle(const string& path_name) const;
+    
+    /// Returns the number of node occurrences in the path
+    virtual size_t get_occurrence_count(const path_handle_t& path_handle) const;
+    
+    /// Returns the number of paths stored in the graph
+    virtual size_t get_path_count() const;
+    
+    /// Execute a function on each path in the graph
+    virtual void for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const;
+    
+    /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
+    virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /// Get a handle to the first occurrence in a path
+    virtual occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to the last occurrence in a path
+    virtual occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const;
+    
+    /// Returns true if the occurrence is not the last occurence on the path, else false
+    virtual bool has_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /// Returns true if the occurrence is not the first occurence on the path, else false
+    virtual bool has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /// Returns a handle to the next occurrence on the path
+    virtual occurrence_handle_t get_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /// Returns a handle to the previous occurrence on the path
+    virtual occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /// Returns a handle to the path that an occurrence is on
+    virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /// Returns the 0-based ordinal rank of a occurrence on a path
+    virtual size_t get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Mutable handle-based interface

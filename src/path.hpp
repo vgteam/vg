@@ -54,7 +54,7 @@ public:
     }
     // move constructor
     Paths(Paths&& other) noexcept {
-        _paths = other._paths;
+        _paths = std::move(other._paths);
         other.clear();
         rebuild_node_mapping();
     }
