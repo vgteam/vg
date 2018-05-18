@@ -206,9 +206,9 @@ int main_stats(int argc, char** argv) {
     }
 
     VG graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-            graph.from_istream(in);
-    });
+    //get_input_file(optind, argc, argv, [&](istream& in) {
+    //        graph.from_istream(in);
+    //});
 
     if (stats_size) {
         cout << "nodes" << "\t" << graph.node_count() << endl
@@ -429,7 +429,7 @@ int main_stats(int argc, char** argv) {
         // have 2 alleles and which only have 1 in the graph.
         map<string, map<string, size_t>> reads_on_allele;
 
-        graph.for_each_node_parallel([&](Node* node) {
+/*        graph.for_each_node_parallel([&](Node* node) {
             // For every node
 
             if(!graph.paths.has_node_mapping(node)) {
@@ -472,7 +472,7 @@ int main_stats(int argc, char** argv) {
                 #pragma omp critical (reads_on_allele)
                 reads_on_allele[site][allele] = 0;
             }
-        });
+        });*/
 
 
         // These are the general stats we will compute.
@@ -507,6 +507,7 @@ int main_stats(int argc, char** argv) {
         vector<pair<vg::id_t, Edit>> deletions;
         vector<pair<vg::id_t, Edit>> substitutions;
         vector<pair<vg::id_t, Edit>> softclips;
+        vector<tuple<::std::string, size_t, double>> edit_distances;
 
         function<void(Alignment&)> lambda = [&](Alignment& aln) {
             int tid = omp_get_thread_num();
@@ -535,18 +536,18 @@ int main_stats(int argc, char** argv) {
                 // do something. Discard the read? Not just count it on both sides
                 // like we do now.
                 set<pair<string, string>> alleles_supported;
-
+                size_t edit_distance = 0;
                 for(size_t i = 0; i < aln.path().mapping_size(); i++) {
                     // For every mapping...
                     auto& mapping = aln.path().mapping(i);
                     vg::id_t node_id = mapping.position().node_id();
 
-                    if(allele_path_for_node.count(node_id)) {
+                    //if(allele_path_for_node.count(node_id)) {
                         // We hit a unique node for this allele. Add it to the set,
                         // in case we hit another unique node for it later in the
                         // read.
-                        alleles_supported.insert(allele_path_for_node.at(node_id));
-                    }
+                    //    alleles_supported.insert(allele_path_for_node.at(node_id));
+                    //}
 
                     // Record that there was a visit to this node.
                     #pragma omp critical (node_visit_counts)
@@ -572,6 +573,7 @@ int main_stats(int argc, char** argv) {
                                 // Record this insertion
                                 #pragma omp critical (total_inserted_bases)
                                 total_inserted_bases += edit.to_length() - edit.from_length();
+                                edit_distance += edit.to_length() - edit.from_length();
                                 #pragma omp critical (total_insertions)
                                 total_insertions++;
                                 if(verbose) {
@@ -585,6 +587,7 @@ int main_stats(int argc, char** argv) {
                             // Record this deletion
                             #pragma omp critical (total_deleted_bases)
                             total_deleted_bases += edit.from_length() - edit.to_length();
+                            edit_distance += edit.from_length() - edit.to_length();
                             #pragma omp critical (total_deletions)
                             total_deletions++;
                             if(verbose) {
@@ -597,6 +600,7 @@ int main_stats(int argc, char** argv) {
                             // TODO: a substitution might also occur as part of a deletion/insertion above!
                             #pragma omp critical (total_substituted_bases)
                             total_substituted_bases += edit.from_length();
+                            edit_distance += edit.from_length();
                             #pragma omp critical (total_substitutions)
                             total_substitutions++;
                             if(verbose) {
@@ -608,6 +612,8 @@ int main_stats(int argc, char** argv) {
 
                     }
                 }
+                #pragma omp critical (edit_distances)
+                edit_distances.push_back(make_tuple(aln.name(), edit_distance, aln.identity()));
 
                 for(auto& site_and_allele : alleles_supported) {
                     // This read is informative for an allele of a site.
@@ -679,7 +685,7 @@ int main_stats(int argc, char** argv) {
         // as many times as their nodes are touched. Also note that we ignore
         // edge effects and a read that stops before the end of a node will
         // visit the whole node.
-        graph.for_each_node_parallel([&](Node* node) {
+    /*    graph.for_each_node_parallel([&](Node* node) {
             // For every node
             if(!node_visit_counts.count(node->id()) || node_visit_counts.at(node->id()) == 0) {
                 // If we never visited it with a read, count it.
@@ -703,6 +709,7 @@ int main_stats(int argc, char** argv) {
                 }
             }
         });
+    */
 
         cout << "Total alignments: " << total_alignments << endl;
         cout << "Total primary: " << total_primary << endl;
@@ -738,27 +745,32 @@ int main_stats(int argc, char** argv) {
             }
         }
 
-        cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph.node_count()
-            << " (" << unvisited_node_bases << " bp)" << endl;
-        if(verbose) {
-            for(auto& id : unvisited_ids) {
-                cout << "\t" << id << endl;
-            }
-        }
+     //   cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph.node_count()
+     //       << " (" << unvisited_node_bases << " bp)" << endl;
+     //  if(verbose) {
+     //       for(auto& id : unvisited_ids) {
+     //           cout << "\t" << id << endl;
+     //       }
+     //   }
 
-        cout << "Single-visited nodes: " << single_visited_nodes << "/" << graph.node_count()
-            << " (" << single_visited_node_bases << " bp)" << endl;
-        if(verbose) {
-            for(auto& id : single_visited_ids) {
-                cout << "\t" << id << endl;
-            }
-        }
+     //   cout << "Single-visited nodes: " << single_visited_nodes << "/" << graph.node_count()
+     //       << " (" << single_visited_node_bases << " bp)" << endl;
+     //   if(verbose) {
+     //       for(auto& id : single_visited_ids) {
+     //           cout << "\t" << id << endl;
+     //       }
+     //   }
 
         cout << "Significantly biased heterozygous sites: " << significantly_biased_hets << "/" << total_hets;
         if(total_hets > 0) {
             cout << " (" << (double)significantly_biased_hets / total_hets * 100 << "%)";
         }
         cout << endl;
+
+        cout << "Edit distances:\n";
+        for(auto& name_and_count : edit_distances) {
+            cout << std::get<0>(name_and_count) << "\t" << std::get<1>(name_and_count) << "\t" << std::get<2>(name_and_count) << "\n";
+        }
 
 
     }
