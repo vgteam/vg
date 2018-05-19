@@ -402,18 +402,21 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
         images = []
         captions = []
         baseline_images = []
-        for plot_name in ['pr', 'pr.control', 'pr.primary.filter', 'pr.control.primary.filter', 'roc', 'qq', 'qq.control',
-                          'roc-snp', 'roc-non_snp', 'roc-weighted']:
-            plot_path = os.path.join(outstore, '{}.svg'.format(plot_name))
-            if os.path.isfile(plot_path):
-                new_name = '{}-{}.svg'.format(tc['name'], plot_name)
-                shutil.copy2(plot_path, os.path.join(report_dir, new_name))
-                images.append(new_name)
-                captions.append(plot_name.upper())
-                baseline_images.append(os.path.join(
-                    'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/vg_ci/jenkins_regression_baseline',
-                    os.path.basename(outstore),
-                    os.path.basename(plot_path)))
+        possible_plot_names = ['pr', 'pr.control', 'pr.primary.filter', 'pr.control.primary.filter', 'roc', 'qq',
+            'qq.control', 'roc-snp', 'roc-non_snp', 'roc-weighted']
+        possible_plot_directories = ['', 'plots/']
+        for plot_name in possible_plot_names:
+            for plot_directory in possible_plot_directories:
+                plot_path = os.path.join(outstore, '{}{}.svg'.format(plot_directory, plot_name))
+                if os.path.isfile(plot_path):
+                    new_name = '{}-{}.svg'.format(tc['name'], plot_name)
+                    shutil.copy2(plot_path, os.path.join(report_dir, new_name))
+                    images.append(new_name)
+                    captions.append(plot_name.upper())
+                    baseline_images.append(os.path.join(
+                        'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/vg_ci/jenkins_regression_baseline',
+                        os.path.basename(outstore),
+                        os.path.basename(plot_path)))
 
         if len(images) > 0:
             report += '<table class="image">\n'

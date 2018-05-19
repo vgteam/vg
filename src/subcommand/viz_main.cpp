@@ -19,6 +19,7 @@ void help_viz(char** argv) {
          << "    -X, --width N         write an image N pixels wide (default 1024)" << endl
          << "    -Y, --height N        write an image N pixels high (default 1024)" << endl
          << "    -C, --show-cnv        visualize CNVs in paths on new rows (default uses text)" << endl
+         << "    -P, --hide-paths      hide reference paths in the graph" << endl
          << "    -D, --hide-dna        suppress the visualization of DNA sequences" << endl;
 }
 
@@ -33,6 +34,7 @@ int main_viz(int argc, char** argv) {
     double scale_factor = 1.0;
     bool show_cnv = false;
     bool show_dna = true;
+    bool show_paths = true;
     
     if (argc == 2) {
         help_viz(argv);
@@ -54,10 +56,11 @@ int main_viz(int argc, char** argv) {
             {"scale", required_argument, 0, 's'},
             {"hide-cnv", no_argument, 0, 'C'},
             {"hide-dna", no_argument, 0, 'D'},
+            {"hide-paths", no_argument, 0, 'P'},
             {0, 0, 0, 0}
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:i:n:o:X:Y:s:CD",
+        c = getopt_long (argc, argv, "hx:i:n:o:X:Y:s:CDP",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -98,6 +101,9 @@ int main_viz(int argc, char** argv) {
         case 'D':
             show_dna = false;
             break;
+        case 'P':
+            show_paths = false;
+            break;
         default:
             abort();
         }
@@ -125,7 +131,7 @@ int main_viz(int argc, char** argv) {
         pack_names = packs_in;
     }
 
-    Viz viz(&xgidx, &packs, pack_names, image_out, image_width, image_height, show_cnv, show_dna);
+    Viz viz(&xgidx, &packs, pack_names, image_out, image_width, image_height, show_cnv, show_dna, show_paths);
     viz.draw();
 
     return 0;

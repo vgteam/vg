@@ -19,7 +19,8 @@ RUN apt-get -qq update && apt-get -qq install -y \
     make \
     git \
     zlib1g-dev \
-    rs
+    rs \
+    libffi-dev
 
 ADD http://mirrors.kernel.org/ubuntu/pool/universe/b/bwa/bwa_0.7.15-5_amd64.deb /tmp/bwa.deb
 RUN dpkg -i /tmp/bwa.deb
