@@ -19,48 +19,60 @@ using namespace std;
 
 // Step 1) Get undirected adjacency connected components of VG *sides*
 // (note we can't put NodeSides in header, so leave this function static)
-typedef set<NodeSide> SideSet;
-typedef map<NodeSide, int> Side2Component;
-static void compute_side_components(VG& graph, 
-                                    vector<SideSet>& components,
-                                    Side2Component& side_to_component) {
-
-    // update components datastructures with a side.  if comp is -1
-    // create new component
-    function<void(NodeSide, int)> update_component = [&] (NodeSide side, int comp) {
-        if (comp == -1) {
-            components.push_back(SideSet());
-            comp = components.size() - 1;
-        }
-        SideSet& component = components[comp];
-        assert(side_to_component.find(side) == side_to_component.end());
-        side_to_component[side] = comp;
-        component.insert(side);
-    };
+// Here and elsewhere we adopt the convention that a forward handle indicates
+// the end of a node
+typedef unordered_set<handle_t> HandleSet;
+typedef unordered_map<handle_t, int> Handle2Component;
+static void compute_side_components(const HandleGraph& graph,
+                                    vector<HandleSet>& components,
+                                    Handle2Component& handle_to_component) {
     
-    // create a connected component of a node side and everything adjacent
-    // (if not added already)
-    function<void(NodeSide)> add_node_side = [&](NodeSide side) {
-        queue<NodeSide> q;
-        q.push(side);
-        while (!q.empty()) {
-            NodeSide cur_side = q.front();
-            q.pop();
-            if (side_to_component.find(cur_side) == side_to_component.end()) {
-                update_component(cur_side, cur_side == side ? -1 : components.size() - 1);
-                // visit all adjacent sides
-                set<NodeSide> adj_sides = graph.sides_of(cur_side);
-                for (auto adj_side : adj_sides) {
-                    q.push(adj_side);
-                }
+    // if a handle's side hasn't been added to a component yet, traverses it's component
+    // and adds it to the return structures
+    function<void(const handle_t& handle)> add_handle = [&](const handle_t& handle) {
+        // have we already visited this side?
+        if (!handle_to_component.count(handle)) {
+            // make a new component
+            int component_id = components.size();
+            components.emplace_back();
+            auto& component = components.back();
+            
+            // mark the current node as being on this component
+            handle_to_component[handle] = component_id;
+            component.insert(handle);
+            
+            // set up structures to do a BFS traversal
+            queue<handle_t> q;
+            q.push(handle);
+            
+            while (!q.empty()) {
+                handle_t next_handle = q.front();
+                q.pop();
+                
+                graph.follow_edges(next_handle, false, [&](const handle_t& traversed_handle) {
+                    // to get the handle corresponding to the side we're touching, we have to
+                    // flip the traversal around
+                    handle_t adjacent_side = graph.flip(traversed_handle);
+                    
+                    // if necessary, enqueue and assign the side to a component
+                    if (!handle_to_component.count(adjacent_side)) {
+                        handle_to_component[adjacent_side] = component_id;
+                        component.insert(adjacent_side);
+                        q.push(adjacent_side);
+                    }
+                    return true;
+                });
             }
         }
     };
 
-    graph.for_each_node([&](Node* n) {
-            add_node_side(NodeSide(n->id(), false));
-            add_node_side(NodeSide(n->id(), true));
-        });
+    graph.for_each_handle([&](const handle_t& handle) {
+        // component for end of node
+        add_handle(handle);
+        // component for start of node
+        add_handle(graph.flip(handle));
+    });
+    
 }
 
 void* mergeNodeObjects(void* a, void* b) {
@@ -179,15 +191,15 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
 // Step 2) Make a Cactus Graph. Returns the graph and a list of paired
 // cactusEdgeEnd telomeres, one after the other. Both members of the return
 // value must be destroyed.
-pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string>& hint_paths) {
+pair<stCactusGraph*, stList*> handle_graph_to_cactus(VG& graph, const unordered_set<string>& hint_paths) {
 
     // in a cactus graph, every node is an adjacency component.
     // every edge is a *vg* node connecting the component
 
     // start by identifying adjacency components
-    vector<SideSet> components;
-    Side2Component side_to_component;
-    compute_side_components(graph, components, side_to_component);
+    vector<HandleSet> components;
+    Handle2Component handle_to_component;
+    compute_side_components(graph, components, handle_to_component);
 
     // map cactus nodes back to components
     vector<stCactusNode*> cactus_nodes(components.size());
@@ -217,36 +229,42 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
             // For every side in it
             
             // Work out the other side of that node
-            NodeSide other_side(side.node, !side.is_end);
+            handle_t other_side = graph.flip(side);
             // And what component it is in
-            int j = side_to_component[other_side];
+            int j = handle_to_component[other_side];
             
-            if (!edge_ends.count(side.node)) {
+            id_t node_id = graph.get_id(side);
+            id_t other_node_id = graph.get_id(other_side);
+            
+            // by our convention, the forward strand traversal is the end
+            bool is_end = !graph.get_is_reverse(side);
+            bool other_is_end = !graph.get_is_reverse(other_side);
+            
+            if (!edge_ends.count(node_id)) {
                 // If we haven't made the Cactus edge for this graph node yet
-            
+                
                 // afraid to try to get C++ NodeSide class into C, so we copy to
                 // equivalent struct
                 CactusSide* cac_side1 = (CactusSide*)malloc(sizeof(CactusSide));
                 CactusSide* cac_side2 = (CactusSide*)malloc(sizeof(CactusSide));
-                cac_side1->node = side.node;
-                cac_side1->is_end = side.is_end;
-                cac_side2->node = other_side.node;
-                cac_side2->is_end = other_side.is_end;
+                cac_side1->node = node_id;
+                cac_side1->is_end = is_end;
+                cac_side2->node = other_node_id;
+                cac_side2->is_end = other_is_end;
 #ifdef debug
-                cerr << "Creating cactus edge for sides " << side << " -- " << other_side << ": "
-                     << i << " -> " << j << endl;
+                cerr << "Creating cactus edge for sides " << pb2json(to_visit(side)) << " -- " << pb2json(to_visit(other_side)) << ": "
+                << i << " -> " << j << endl;
 #endif
-
+                
                 // We get the cactusEdgeEnd corresponding to the side stored in side.
                 // This may be either the left (if that NodeSide is a start), or the right (if that NodeSide is an end).
-                stCactusEdgeEnd* cactus_edge = stCactusEdgeEnd_construct(
-                    cactus_graph,
-                    cactus_nodes[i],
-                    cactus_nodes[j],
-                    cac_side1,
-                    cac_side2);
+                stCactusEdgeEnd* cactus_edge = stCactusEdgeEnd_construct(cactus_graph,
+                                                                         cactus_nodes[i],
+                                                                         cactus_nodes[j],
+                                                                         cac_side1,
+                                                                         cac_side2);
                 // Save the cactusEdgeEnd for the left side of the node.
-                edge_ends[side.node] = side.is_end ? stCactusEdgeEnd_getOtherEdgeEnd(cactus_edge) : cactus_edge;
+                edge_ends[node_id] = is_end ? stCactusEdgeEnd_getOtherEdgeEnd(cactus_edge) : cactus_edge;
             }
         }
     }
@@ -716,7 +734,7 @@ VG cactusify(VG& graph) {
     if (graph.size() == 0) {
         return VG();
     }
-    auto parts = vg_to_cactus(graph, unordered_set<string>());
+    auto parts = handle_graph_to_cactus(graph, unordered_set<string>());
     stList_destruct(parts.second);
     stCactusGraph* cactus_graph = parts.first;
     VG out_graph = cactus_to_vg(cactus_graph);
