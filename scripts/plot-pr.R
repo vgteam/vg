@@ -23,6 +23,8 @@ if (length(commandArgs(TRUE)) > 2) {
     aligner.set <- unlist(strsplit(commandArgs(TRUE)[3], ","))
     # Subset the data to those aligners
     dat <- dat[dat$aligner %in% aligner.set,]
+    # And restrict the aligner factor levels to just the ones in the set
+    dat$aligner <- factor(dat$aligner, levels=aligner.set)
 }
 
 # Determine the order of aligners, based on sorting in a dash-separated tag aware manner
@@ -35,7 +37,45 @@ for (i in 1:max.parts) {
     name.cols[[i]] <- sapply(name.lists, function(x) if (length(x) >= i) { x[[i]] } else { NA })
 }
 name.order <- do.call(order,name.cols)
-dat$aligner <- factor(dat$aligner, levels=aligner.names[name.order])
+aligner.names <- aligner.names[name.order]
+dat$aligner <- factor(dat$aligner, levels=aligner.names)
+name.lists <- name.lists[name.order]
+
+# Determine colors for aligners
+bold.colors <- c("#1f78b4","#e31a1c","#33a02c","#6600cc","#ff8000","#5c415d","#458b74","#698b22","#008b8b")
+light.colors <- c("#a6cee3","#fb9a99","#b2df8a","#e5ccff","#ffe5cc","#9a7c9b","#76eec6","#b3ee3a","#00eeee")
+# We have to go through both lists together when assigning colors, because pe and non-pe versions of a condition need corresponding colors.
+cursor <- 1
+
+# This will map from non-pe condition name string to color index.
+colors <- c()
+for (i in 1:length(name.lists)) {
+    # For each name
+    name.parts <- unlist(name.lists[[i]])
+    if (name.parts[length(name.parts)] == "pe") {
+        # Drop the pe tag if present
+        name.parts <- name.parts[-c(length(name.parts))]
+    }
+    
+    # Join up to a string again
+    name <- paste(name.parts, collapse='-')
+    
+    if (! name %in% names(colors)) {
+        # No colors assigned for this pair of conditions, so assign them.
+        # We always assign pe and non-pe colors in lockstep, whichever we see first.
+        new.colors <- c(bold.colors[cursor], light.colors[cursor])
+        names(new.colors) <- c(paste(name, 'pe', sep='-'), name)
+        colors <- c(colors, new.colors)
+        
+        cursor <- cursor + 1
+        if (cursor > length(bold.colors)) {
+            stop('Ran out of colors! Too many conditions!')
+        }
+    }
+}
+
+# Make colors a vector in the same order as the actually-used aligner names
+colors <- colors[aligner.names]
 
 # Add a bin "factor" to each row, binning float MAPQs into bins from 0 to 60 (and inclusing bins for out of range on each end)
 dat$bin <- cut(dat$mq, c(-Inf,seq(0,60,1),Inf))
@@ -72,7 +112,7 @@ dat.roc %>%
         # There will be points with variable sizes
         geom_point(aes(size=Positive+Negative)) +
         # We manually assign these selected colors
-        scale_color_manual(values=c("#1f78b4","#a6cee3","#e31a1c","#fb9a99","#33a02c","#b2df8a","#6600cc","#e5ccff","#ff8000","#ffe5cc","#5c415d","#9a7c9b", "#458b74", "#76eec6", "#698b22", "#b3ee3a", "#008b8b", "#00eeee"), guide=guide_legend(title=NULL, ncol=2)) +
+        scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
         # And we want a size legend
         scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
         # And we want a fake log Y axis
