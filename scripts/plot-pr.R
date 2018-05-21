@@ -68,7 +68,7 @@ dat.roc %>%
         # We will use a line plot
         geom_line() + 
         # There will be cool floating labels
-        geom_text_repel(data = subset(dat.roc, mq %% 10 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
+        geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
         # There will be points with variable sizes
         geom_point(aes(size=Positive+Negative)) +
         # We manually assign these selected colors

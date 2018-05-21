@@ -51,7 +51,7 @@ dat$aligner <- factor(dat$aligner, levels=aligner.names[name.order])
 
 dat$bin <- cut(dat$mq, c(-Inf,seq(0,60,1),Inf))
 dat.roc <- dat %>%
-    mutate(Positive = correct == 1, Negative = correct == 0) %>%
+    mutate(Positive = (correct == 1) * count, Negative = (correct == 0) * count) %>%
     group_by(aligner, mq) %>%
     summarise(Positive = sum(Positive), Negative = sum(Negative)) %>%
     arrange(-mq) %>%
@@ -67,7 +67,7 @@ range.log10 <- min.log10 : max.log10
 range.unlogged = 10^range.log10
 
 dat.plot <- ggplot(dat.roc, aes( x= FPR, y = TPR, color = aligner, label=mq)) +
-    geom_line() + geom_text_repel(data = subset(dat.roc, mq %% 10 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
+    geom_line() + geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
     geom_point(aes(size=Positive+Negative)) +
     scale_color_manual(values=c("#1f78b4","#a6cee3","#e31a1c","#fb9a99","#33a02c","#b2df8a","#6600cc","#e5ccff","#ff8000","#ffe5cc","#5c415d","#9a7c9b", "#458b74", "#76eec6", "#698b22", "#b3ee3a", "#008b8b", "#00eeee"), guide=guide_legend(title=NULL, ncol=2)) +
     scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
