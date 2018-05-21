@@ -451,11 +451,20 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
             
         }
         
-        // Otherwise, compute tip reachability and distance by Dijkstra's
-        // Algorithm and pick the pair of reachable tips with the longest shortest
-        // paths
+        // Otherwise we have to go looking for a long path. Longest path is
+        // NP-hard. If we have a tractable number of tips we can do an
+        // all-against-all repeated Dijkstra and find the longest shortest path
+        // exactly. If we have too many we will have to do a different
+        // algorithm that can get stuck in local maxima but should usually
+        // produce reasonable rootings quickly.
         
-        {
+        if (component_tips[i].size() <= 10) {
+        
+#ifdef debug
+            cerr << "Look for longest shortest path by exact all-tip Dijkstra" << endl;
+#endif
+        
+        
             // Track the distances between pairs of tips (or numeric_limits<size_t>::max() for unreachable).
             // Pairs are stored lowest-node-and-orientation first. Really we want a hashable unordered_pair...
             unordered_map<pair<handle_t, handle_t>, size_t> tip_distances;
@@ -580,7 +589,141 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
                 cerr << "No Dijkstra path found between any two tips." << endl;
 #endif
             }
+        } else {
+            // There are too many tips for all-against-all Dijkstra to be practical.
+            
+            // We will try and find two far-apart tips by Dijkstra ping-pong.
+            assert(component_tips[i].size() >= 1);
+            
+            // This depends on it being easy to get ahold of a pair of
+            // connected tips...
+            
+            // Pick a start node. We will do it arbitrarily. The upside is that
+            // it's deterministic, but the downside is that we may then depend
+            // on happening to have our nodes in a certain order.
+            vector<id_t> component_nodes(weak_components[i].begin(), weak_components[i].end());
+            size_t rank = component_nodes.size()/2;
+            handle_t start = graph.get_handle(component_nodes[rank], false);
+            
+#ifdef debug
+            cerr << "Starting ping-pong from node " << graph.get_id(start) << " out of " << weak_components[i].size() << " options" << endl;
+#endif
+            
+            // Dijkstra in both directions
+            unordered_map<handle_t, size_t> distances_right = algorithms::find_shortest_paths(&graph, start);
+            unordered_map<handle_t, size_t> distances_left = algorithms::find_shortest_paths(&graph, graph.flip(start));
+            
+            // Find the furthest-out reachable tip on each side
+            handle_t furthest_right_tip;
+            size_t furthest_right_distance = numeric_limits<size_t>::max();
+            handle_t furthest_left_tip;
+            size_t furthest_left_distance = numeric_limits<size_t>::max();
+            
+            for (auto& tip : component_tips[i]) {
+                // Look at each tip in the component
+                
+                // Flip the handle because the Dijkstra search looks out and the tip looks in.
+                auto outward = graph.flip(tip);
+                if (distances_right.count(outward)) {
+                    // This tip is reachable looking right
+                    auto& dist = distances_right.at(outward);
+                    if (dist > furthest_right_distance || furthest_right_distance == numeric_limits<size_t>::max()) {
+                        // This is a further tip, so use it
+                        furthest_right_distance = dist;
+                        furthest_right_tip = tip;
+                    }
+                }
+                
+                if (distances_left.count(outward)) {
+                    // This tip is reachable looking left
+                    auto& dist = distances_left.at(outward);
+                    if (dist > furthest_left_distance || furthest_left_distance == numeric_limits<size_t>::max()) {
+                        // This is a further tip, so use it
+                        furthest_left_distance = dist;
+                        furthest_left_tip = tip;
+                    }
+                }
+            }
+            
+            if (furthest_right_distance != numeric_limits<size_t>::max() && furthest_left_distance != numeric_limits<size_t>::max()) {
+                // We found at least one tip in each direction, so we know of a pair of reachable tips.
+                
+#ifdef debug
+                cerr << "Found reachable pair " << graph.get_id(furthest_left_tip) << " and " << graph.get_id(furthest_right_tip) << endl;
+#endif
+                
+                // Set up so we can easily ping and pong
+                vector<handle_t> best_tips{furthest_left_tip, furthest_right_tip};
+                size_t best_tip_distance = 0;
+                bool starting_tip = 0;
+                
+                while(true) {
+               
+#ifdef debug
+                    cerr << "Pingpong off " << graph.get_id(best_tips[starting_tip]) << endl;
+#endif
+               
+                    // Dijkstra out from the current starting tip
+                    unordered_map<handle_t, size_t> distances = algorithms::find_shortest_paths(&graph, best_tips[starting_tip]);
+                    
+                    // Find the other tip that is furthest away (stored in tip orientation and not Dijkstra orientation)
+                    handle_t maximal_tip = best_tips[!starting_tip];
+                    size_t maximal_distance = distances.at(graph.flip(maximal_tip));
+                    
+                    for (auto& tip : component_tips[i]) {
+                        // Look at each tip in the component
+                        
+                        // Flip the handle because the Dijkstra search looks out and the tip looks in.
+                        auto outward = graph.flip(tip);
+                        
+                        if (distances.count(outward)) {
+                            // Our starting tip can reach this tip. How far is it?
+                            auto& dist = distances.at(outward);
+                            
+                            if (dist > maximal_distance) {
+                                // This is the new furthest tip from our starting tip
+                                maximal_tip = tip;
+                                maximal_distance = dist;
+                            }
+                        }
+                    }
+                    
+                    if (maximal_tip == best_tips[!starting_tip]) {
+                        // If it is the other tip we had already, we have finished
+                        
+#ifdef debug
+                        cerr << "Found " << graph.get_id(maximal_tip) << " at " << maximal_distance << " which we had already" << endl;
+#endif
+                        
+                        break;
+                    }
+                    
+                    // Otherwise, replace the old partner and repeat from the replacement
+                    best_tips[!starting_tip] = maximal_tip;
+                    
+#ifdef debug
+                    cerr << "Found " << graph.get_id(maximal_tip) << " at " << maximal_distance << " which is new" << endl;
+#endif
+
+                    // Start from the other tip next.
+                    starting_tip = !starting_tip;
+                }
+                
+                // When we get here we have the local maximum/fixed point of the ping pong. Use it.
+                add_telomeres(best_tips[0], best_tips[1]);
+                continue;
+                
+            }
+            
+            // Otherwise, we found no pair of reachable tips from our chosen starting node.
+            // TODO: We could loop around and try again.
+            // But we might as well just bail out to random tip selection.
+            
         }
+        
+#ifdef debug
+        cerr << "Could not use Dijkstra at all" << endl;
+#endif
         
         // Try even with disconnected tips before breaking into cycles. TODO:
         // Should we do this in preference to cycle breaking? We may eventually
