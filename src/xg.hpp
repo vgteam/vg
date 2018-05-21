@@ -237,6 +237,8 @@ public:
     
     /// Look up the path handle for the given path name
     virtual path_handle_t get_path_handle(const string& path_name) const;
+=    /// Look up the name of a path from a handle to it
+    virtual string get_path_name(const path_handle_t& path_handle) const;
     /// Returns the number of node occurrences in the path
     virtual size_t get_occurrence_count(const path_handle_t& path_handle) const;
     /// Returns the total length of sequence in the path

@@ -1767,6 +1767,10 @@ path_handle_t XG::get_path_handle(const string& path_name) const {
     return as_path_handle(path_rank(path_name));
 }
     
+string XG::get_path_name(const path_handle_t& path_handle) const {
+    return path_name(as_integer(path_handle));
+}
+    
 size_t XG::get_occurrence_count(const path_handle_t& path_handle) const {
     return paths[as_integer(path_handle) - 1]->ids.size();
 }

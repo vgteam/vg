@@ -191,7 +191,7 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
 // Step 2) Make a Cactus Graph. Returns the graph and a list of paired
 // cactusEdgeEnd telomeres, one after the other. Both members of the return
 // value must be destroyed.
-pair<stCactusGraph*, stList*> handle_graph_to_cactus(VG& graph, const unordered_set<string>& hint_paths) {
+pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, const unordered_set<string>& hint_paths) {
 
     // in a cactus graph, every node is an adjacency component.
     // every edge is a *vg* node connecting the component
@@ -317,35 +317,43 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(VG& graph, const unordered_
     // Also get the path length.
     unordered_map<string, size_t> path_length;
     
-    graph.paths.for_each_name([&](const std::string& name) {
-        // For every path
-        auto& path_mappings = graph.paths.get_path(name);
+    
+    
+    graph.for_each_path_handle([&](const path_handle_t& path_handle) {
         
-        if (path_mappings.empty()) {
+        if (graph.get_occurrence_count(path_handle) == 0) {
             // Not a real useful path, so skip it. Some alt paths used for
             // haplotype generation are empty.
             return;
         }
         
-        // Save the path under the component
-        auto component = node_to_component[path_mappings.front().node_id()];
+        string name = graph.get_path_name(path_handle);
+        
+        occurrence_handle_t occurrence_handle = graph.get_first_occurrence(occurrence_handle);
+        
+        auto component = node_to_component[graph.get_node_id(graph.get_occurrence(occurrence_handle))];
         component_paths[component].push_back(name);
+        
         
 #ifdef debug
         cerr << "Path " << name << " belongs to component " << component << endl;
 #endif
         
-        for (auto& mapping : graph.paths.get_path(name)) {
-            // Total up the length. We could use from length on the mapping, but
-            // sometimes (like in the tests) the mapping edits haven't been
-            // populated.
-            path_length[name] += graph.get_length(graph.get_handle(mapping.node_id(), false));
+        auto process_occurrence = [&](const occurrence_handle_t& occurrence_handle) {
+            handle_t handle = graph.get_occurrence(occurrence_handle);
+            path_length[name] += graph.get_length(handle);
             
-            if (node_to_component[mapping.node_id()] != component) {
+            if (node_to_component[graph.get_node_id(handle)] != component) {
                 // If we use a path like this to pick telomeres we will segfault Cactus.
                 throw runtime_error("Path " + name + " spans multiple connected components!");
             }
         }
+        
+        while (graph.has_next_occurrence(occurrence_handle)) {
+            process_occurrence(occurrence_handle);
+            occurrence_handle = graph.get_next_occurrence(occurrence_handle);
+        }
+        process_occurrence(occurrence_handle);
         
 #ifdef debug
         cerr << "\tPath " << name << " has length " << path_length[name] << endl;

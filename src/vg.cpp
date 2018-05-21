@@ -184,6 +184,11 @@ size_t VG::node_size() const {
 path_handle_t VG::get_path_handle(const string& path_name) const {
     return as_path_handle(reinterpret_cast<int64_t>(&paths._paths.at(path_name)));
 }
+    
+string VG::get_path_name(const path_handle_t& path_handle) const {
+    // TODO: o fuk, this will break on an empty path won't it...
+    return paths.id_to_name.at(paths.mapping_itr.at(&reinterpret_cast<const list<mapping_t>*>(as_integer(path_handle))->front()));
+}
 
 size_t VG::get_occurrence_count(const path_handle_t& path_handle) const {
     return reinterpret_cast<const list<mapping_t>*>(as_integer(path_handle))->size();
