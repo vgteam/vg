@@ -1,11 +1,12 @@
 #include "dfs.hpp"
 
 namespace vg {
+namespace algorithms {
 
 using namespace std;
 
 // depth first search across node traversals with interface to traversal tree via callback
-void handle_graph_dfs(
+void dfs(
     const HandleGraph& graph,
     const function<void(const handle_t&)>& handle_begin_fn,  // called when node orientation is first encountered
     const function<void(const handle_t&)>& handle_end_fn,    // called when node orientation goes out of scope
@@ -63,11 +64,11 @@ void handle_graph_dfs(
         while (!todo.empty()) {
             // get the frame
             auto& frame = todo.back();
-            todo.pop_back();
             // and set up reference to it
-            auto& handle = frame.handle;
-            auto& edges_begin = frame.begin;
-            auto& edges_end = frame.end;
+            auto handle = frame.handle;
+            auto edges_begin = frame.begin;
+            auto edges_end = frame.end;
+            todo.pop_back();
             // run through the edges to handle
             while (edges_begin != edges_end) {
                 auto& edge = *edges_begin;
@@ -132,41 +133,42 @@ void handle_graph_dfs(
     }
 }
 
-void handle_graph_dfs(const HandleGraph& graph,
+void dfs(const HandleGraph& graph,
                       const function<void(const handle_t&)>& handle_begin_fn,
                       const function<void(const handle_t&)>& handle_end_fn,
                       const vector<handle_t>& sources,
                       const unordered_set<handle_t>& sinks) {
     auto edge_noop = [](const edge_t& e) { };
-    handle_graph_dfs(graph,
-                     handle_begin_fn,
-                     handle_end_fn,
-                     [](void) { return false; },
-                     edge_noop,
-                     edge_noop,
-                     edge_noop,
-                     edge_noop,
-                     sources,
-                     sinks);
+    dfs(graph,
+        handle_begin_fn,
+        handle_end_fn,
+        [](void) { return false; },
+        edge_noop,
+        edge_noop,
+        edge_noop,
+        edge_noop,
+        sources,
+        sinks);
 }
 
-void handle_graph_dfs(const HandleGraph& graph,
+void dfs(const HandleGraph& graph,
                       const function<void(const handle_t&)>& handle_begin_fn,
                       const function<void(const handle_t&)>& handle_end_fn,
                       const function<bool(void)>& break_fn) {
     auto edge_noop = [](const edge_t& e) { };
     vector<handle_t> empty_sources;
     unordered_set<handle_t> empty_sinks;
-    handle_graph_dfs(graph,
-                     handle_begin_fn,
-                     handle_end_fn,
-                     break_fn,
-                     edge_noop,
-                     edge_noop,
-                     edge_noop,
-                     edge_noop,
-                     empty_sources,
-                     empty_sinks);
+    dfs(graph,
+        handle_begin_fn,
+        handle_end_fn,
+        break_fn,
+        edge_noop,
+        edge_noop,
+        edge_noop,
+        edge_noop,
+        empty_sources,
+        empty_sinks);
 }
 
+}
 }

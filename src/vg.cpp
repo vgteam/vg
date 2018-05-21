@@ -187,7 +187,7 @@ path_handle_t VG::get_path_handle(const string& path_name) const {
     
 string VG::get_path_name(const path_handle_t& path_handle) const {
     // TODO: o fuk, this will break on an empty path won't it...
-    return paths.id_to_name.at(paths.mapping_itr.at(&reinterpret_cast<const list<mapping_t>*>(as_integer(path_handle))->front()));
+    return paths.id_to_name.at(paths.mapping_itr.at(&reinterpret_cast<const list<mapping_t>*>(as_integer(path_handle))->front()).second);
 }
 
 size_t VG::get_occurrence_count(const path_handle_t& path_handle) const {
@@ -3390,7 +3390,7 @@ void VG::dfs(const function<void(NodeTraversal)>& node_begin_fn,
         NULL,
         NULL);
 }
-
+    
 // recursion-free version of Tarjan's strongly connected components algorithm
 // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 // Generalized to bidirected graphs as described (confusingly) in
@@ -3412,7 +3412,7 @@ void VG::dfs(const function<void(NodeTraversal)>& node_begin_fn,
 // both orientations of a node might not actually be in the same strongly
 // connected component in a bidirected graph, so now the components may overlap.
 set<set<id_t> > VG::strongly_connected_components(void) {
-
+    
     // What node visit step are we on?
     int64_t index = 0;
     // What's the search root from which a node was reached?
@@ -3427,17 +3427,17 @@ set<set<id_t> > VG::strongly_connected_components(void) {
     // components generalizes, both orientations of a node always end up in the
     // same component.
     set<set<id_t> > components;
-
+    
     dfs([&](NodeTraversal trav) {
-            // When a NodeTraversal is first visited
-            // It is its own root
-            roots[trav] = trav;
-            // We discovered it at this step
-            discover_idx[trav] = index++;
-            // And it's on the stack
-            stack.push_back(trav);
-            on_stack.insert(trav);
-        },
+        // When a NodeTraversal is first visited
+        // It is its own root
+        roots[trav] = trav;
+        // We discovered it at this step
+        discover_idx[trav] = index++;
+        // And it's on the stack
+        stack.push_back(trav);
+        on_stack.insert(trav);
+    },
         [&](NodeTraversal trav) {
             // When a NodeTraversal is done being recursed into
             for (auto next : travs_from(trav)) {
@@ -3448,9 +3448,9 @@ set<set<id_t> > VG::strongly_connected_components(void) {
                     auto& next_root = roots[next];
                     // Adopt the root of the NodeTraversal that was discovered first.
                     roots[trav] = discover_idx[node_root] <
-                        discover_idx[next_root] ?
-                        node_root :
-                        next_root;
+                    discover_idx[next_root] ?
+                    node_root :
+                    next_root;
                 }
             }
             if (roots[trav] == trav) {
@@ -3469,7 +3469,7 @@ set<set<id_t> > VG::strongly_connected_components(void) {
                 components.insert(component);
             }
         });
-
+    
     return components;
 }
 

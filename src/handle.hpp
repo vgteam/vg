@@ -148,6 +148,16 @@ public:
     }
 };
 
+/**
+ * Define hashes for path handles.
+ */
+template<> struct hash<vg::path_handle_t> {
+public:
+    inline size_t operator()(const vg::path_handle_t& path_handle) const {
+        return std::hash<int64_t>()(vg::as_integer(path_handle));
+    }
+};
+
 }
 
 namespace vg {

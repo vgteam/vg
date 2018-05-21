@@ -84,7 +84,7 @@ public:
     // for its path and the id of the path.
     // The list in question is stored above in _paths.
     // Recall that std::list iterators are bidirectional.
-    hash_map<mapping_t*, pair<list<mapping_t>::iterator, int64_t> > mapping_itr;
+    hash_map<const mapping_t*, pair<list<mapping_t>::iterator, int64_t> > mapping_itr;
     // This maps from mapping_t* pointer to the name of the path it belongs to
     // (which can then be used to get the list its iterator belongs to).
     void sort_by_mapping_rank(void);

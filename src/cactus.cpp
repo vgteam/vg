@@ -3,6 +3,7 @@
 #include "vg.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/weakly_connected_components.hpp"
+#include "algorithms/strongly_connected_components.hpp"
 #include "algorithms/find_shortest_paths.hpp"
 
 extern "C" {
@@ -329,9 +330,9 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
         
         string name = graph.get_path_name(path_handle);
         
-        occurrence_handle_t occurrence_handle = graph.get_first_occurrence(occurrence_handle);
+        occurrence_handle_t occurrence_handle = graph.get_first_occurrence(path_handle);
         
-        auto component = node_to_component[graph.get_node_id(graph.get_occurrence(occurrence_handle))];
+        auto component = node_to_component[graph.get_id(graph.get_occurrence(occurrence_handle))];
         component_paths[component].push_back(name);
         
         
@@ -343,11 +344,11 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
             handle_t handle = graph.get_occurrence(occurrence_handle);
             path_length[name] += graph.get_length(handle);
             
-            if (node_to_component[graph.get_node_id(handle)] != component) {
+            if (node_to_component[graph.get_id(handle)] != component) {
                 // If we use a path like this to pick telomeres we will segfault Cactus.
                 throw runtime_error("Path " + name + " spans multiple connected components!");
             }
-        }
+        };
         
         while (graph.has_next_occurrence(occurrence_handle)) {
             process_occurrence(occurrence_handle);
@@ -362,14 +363,13 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
     
     // We'll also need the strongly connected components, in case the graph is cyclic.
     // This holds all the strongly connected components that live in each weakly connected component.
-    vector<vector<set<id_t>>> component_strong_components(weak_components.size());
-    for (auto& strong_component : graph.strongly_connected_components()) {
+    vector<vector<unordered_set<id_t>>> component_strong_components(weak_components.size());
+    for (auto& strong_component : algorithms::strongly_connected_components(&graph)) {
         // For each strongly connected component
         assert(!strong_component.empty());
         // Assign it to the weak comnponent that some node in it belongs to
-        component_strong_components[node_to_component[*strong_component.begin()]].push_back(strong_component);
+        component_strong_components[node_to_component[*strong_component.begin()]].emplace_back(move(strong_component));
     }
-    
     
     // OK, now we need to fill in the telomeres list with two telomeres per
     // component.
@@ -416,7 +416,9 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
                         continue;
                     }
                     
-                    auto& path_mappings = graph.paths.get_path(path_name);
+                    path_handle_t path_handle = graph.get_path_handle(path_name);
+                    
+                    //auto& path_mappings = graph.paths.get_path(path_name);
                     
 #ifdef debug
                     cerr << "\tPath " << path_name << " has " << path_mappings.size() << " mappings" << endl;
@@ -424,10 +426,8 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
                     
                     // See if I can get two tips on its ends.
                     // Get the inward-facing start and end handles.
-                    handle_t path_start = graph.get_handle(path_mappings.front().node_id(),
-                        path_mappings.front().is_reverse());
-                    handle_t path_end = graph.get_handle(path_mappings.back().node_id(),
-                        !path_mappings.back().is_reverse());
+                    handle_t path_start = graph.get_occurrence(graph.get_first_occurrence(path_handle));
+                    handle_t path_end = graph.flip(graph.get_occurrence(graph.get_last_occurrence(path_handle)));
                     
                     if (component_tips[i].count(path_start) && component_tips[i].count(path_end)) {
                         // This path ends in two tips so we can consider it
