@@ -76,11 +76,11 @@ dat.roc %>%
         # And we want a size legend
         scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
         # And we want a fake log Y axis
-        scale_y_continuous(labels=c("1e-0","1e-1","1e-2","1e-3","1e-4","1e-5","1e-6","1e-7"), breaks=c(0,1,2,3,4,5,6,7), limits=c(2, 6)) +
+        scale_y_continuous(labels=c("1e-0","1e-1","1e-2","1e-3","1e-4","1e-5","1e-6","1e-7","1e-8","1e-9"), breaks=c(0,1,2,3,4,5,6,7,8,9), limits=c(0, 9)) +
         # Label it
         ylab("1 - Precision") +
         # And we want a fake log X axis
-        scale_x_continuous(labels=c("1e-0","1e-1","1e-2","1e-3","1e-4","1e-5","1e-6","1e-7"), breaks=c(0,1,2,3,4,5,6,7), limits=c(0, 6)) +
+        scale_x_continuous(labels=c("1e-0","1e-1","1e-2","1e-3","1e-4","1e-5","1e-6","1e-7","1e-8","1e-9"), breaks=c(0,1,2,3,4,5,6,7,8,9), limits=c(0, 9)) +
         # Label it
         xlab("1 - Recall") +
         # And we want this cool theme
