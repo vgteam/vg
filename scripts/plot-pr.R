@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# plot-pr.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include>]
+# plot-pr.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include> [title]]
 
 # Install required packages
 list.of.packages <- c("tidyverse", "ggrepel")
@@ -25,6 +25,12 @@ if (length(commandArgs(TRUE)) > 2) {
     dat <- dat[dat$aligner %in% aligner.set,]
     # And restrict the aligner factor levels to just the ones in the set
     dat$aligner <- factor(dat$aligner, levels=aligner.set)
+}
+
+# Determine title
+title <- ''
+if (length(commandArgs(TRUE)) > 3) {
+    title <- commandArgs(TRUE)[4]
 }
 
 # Determine the order of aligners, based on sorting in a dash-separated tag aware manner
@@ -102,7 +108,7 @@ dat.roc <- dat %>%
 dat.roc <- dat.roc[complete.cases(dat.roc), ]
 
 # Now we pipe that into ggplot and use + to assemble a bunch of ggplot layers together into a plot.
-dat.roc %>% 
+dat.plot <- dat.roc %>% 
     # Make a base plot mapping each of these variable names to each of these "aesthetic" attributes (like x position and color)
     ggplot(aes(x = -log10(1 - Recall), y = -log10(1 - Precision), color = aligner, label=mq)) + 
         # We will use a line plot
@@ -125,6 +131,11 @@ dat.roc %>%
         xlab("1 - Recall") +
         # And we want this cool theme
         theme_bw()
+        
+if (title != '') {
+    # And a title
+    dat.plot + ggtitle(title)
+}
 
 # Now save to the second command line argument
 filename <- commandArgs(TRUE)[2]

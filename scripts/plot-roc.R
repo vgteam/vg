@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 #
-# plot-roc.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include>]
+# plot-roc.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include> [title]]
 #
 # plots a pseudo-ROC that allows the comparison of different alignment methods and their mapping quality calculations
 # the format is clarified in the map-sim script, and should be a table (tab separated) of:
@@ -29,7 +29,6 @@ if (! ("count" %in% names(dat))) {
     dat$count <- rep(1, nrow(dat))
 }
 
-
 if (length(commandArgs(TRUE)) > 2) {
     # A set of aligners to plot is specified. Parse it.
     aligner.set <- unlist(strsplit(commandArgs(TRUE)[3], ","))
@@ -37,6 +36,12 @@ if (length(commandArgs(TRUE)) > 2) {
     dat <- dat[dat$aligner %in% aligner.set,]
     # And restrict the aligner factor levels to just the ones in the set
     dat$aligner <- factor(dat$aligner, levels=aligner.set)
+}
+
+# Determine title
+title <- ''
+if (length(commandArgs(TRUE)) > 3) {
+    title <- commandArgs(TRUE)[4]
 }
 
 # Determine the order of aligners, based on sorting in a dash-separated tag aware manner
@@ -113,7 +118,13 @@ dat.plot <- ggplot(dat.roc, aes( x= FPR, y = TPR, color = aligner, label=mq)) +
     scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
     scale_x_log10(limits=c(range.unlogged[1],range.unlogged[length(range.unlogged)]), breaks=range.unlogged, oob=squish) +
     geom_vline(xintercept=1/total.reads) + # vertical line at one wrong read
-    theme_bw()
+    theme_bw() + 
+    ggtitle(title)
+    
+if (title != '') {
+    # And a title
+    dat.plot + ggtitle(title)
+}
     
 filename <- commandArgs(TRUE)[2]
 ggsave(filename, height=4, width=7)

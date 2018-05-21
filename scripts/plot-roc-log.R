@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 #
-# plot-log-roc.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include>]
+# plot-log-roc.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include> [title]]
 #
 # plots a pseudo-ROC that allows the comparison of different alignment methods and their mapping quality calculations
 # the format is clarified in the map-sim script, and should be a table (tab separated) of:
@@ -35,6 +35,12 @@ if (length(commandArgs(TRUE)) > 2) {
     dat <- dat[dat$aligner %in% aligner.set,]
     # And restrict the aligner factor levels to just the ones in the set
     dat$aligner <- factor(dat$aligner, levels=aligner.set)
+}
+
+# Determine title
+title <- ''
+if (length(commandArgs(TRUE)) > 3) {
+    title <- commandArgs(TRUE)[4]
 }
 
 # Determine the order of aligners, based on sorting in a dash-separated tag aware manner
@@ -95,12 +101,17 @@ dat.roc <- dat %>%
     arrange(-mq) %>%
     mutate(TPR = cumsum(Positive) / sum(Positive+Negative), FPR = cumsum(Negative) / sum(Positive+Negative))
 
-dat.roc %>% ggplot(aes( x= log10(FPR), y = log10(1-TPR), color = aligner, label=mq)) +
+dat.plot <- dat.roc %>% ggplot(aes( x= log10(FPR), y = log10(1-TPR), color = aligner, label=mq)) +
     geom_line() + geom_text_repel(data = subset(dat.roc, mq %% 60 == 0), size=3.5, point.padding=unit(0.7, "lines"), segment.alpha=I(1/2.5)) +
     geom_point(aes(size=Positive+Negative)) +
     scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
     scale_size_continuous("number", guide=guide_legend(title=NULL, ncol=4)) +
     theme_bw()
+    
+if (title != '') {
+    # And a title
+    dat.plot + ggtitle(title)
+}
 
 filename <- commandArgs(TRUE)[2]
 ggsave(filename, height=4, width=7)

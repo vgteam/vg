@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# plot-qq.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include>]
+# plot-qq.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include> [title]]
 
 list.of.packages <- c("tidyverse", "ggrepel")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
@@ -24,6 +24,12 @@ if (length(commandArgs(TRUE)) > 2) {
     dat <- dat[dat$aligner %in% aligner.set,]
     # And restrict the aligner factor levels to just the ones in the set
     dat$aligner <- factor(dat$aligner, levels=aligner.set)
+}
+
+# Determine title
+title <- ''
+if (length(commandArgs(TRUE)) > 3) {
+    title <- commandArgs(TRUE)[4]
 }
 
 # Determine the order of aligners, based on sorting in a dash-separated tag aware manner
@@ -80,7 +86,7 @@ dat$bin <- cut(dat$mq, c(-Inf,seq(0,60,1),Inf))
 
 x <- as.data.frame(summarize(group_by(dat, bin, aligner), N=n(), mapq=mean(mq), mapprob=mean(1-10^(-mapq/10)), observed=weighted.mean(correct, count)))
 
-ggplot(x, aes(1-mapprob+1e-9, 1-observed+1e-9, color=aligner, size=N, weight=N, label=round(mapq,2))) +
+dat.plot <- ggplot(x, aes(1-mapprob+1e-9, 1-observed+1e-9, color=aligner, size=N, weight=N, label=round(mapq,2))) +
     scale_color_manual(values=colors, guide=guide_legend(title=NULL, ncol=2)) +
     scale_y_log10("measured error", limits=c(5e-7,2), breaks=c(1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,1e0)) +
     scale_x_log10("error estimate", limits=c(5e-7,2), breaks=c(1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,1e0)) +
@@ -89,6 +95,11 @@ ggplot(x, aes(1-mapprob+1e-9, 1-observed+1e-9, color=aligner, size=N, weight=N, 
     geom_smooth() +
     geom_abline(intercept=0, slope=1, linetype=2) +
     theme_bw()
+    
+if (title != '') {
+    # And a title
+    dat.plot + ggtitle(title)
+}
 
 filename <- commandArgs(TRUE)[2]
 ggsave(filename, height=4, width=7)
