@@ -122,7 +122,7 @@ int main_mpmap(int argc, char** argv) {
     int localization_max_paths = 5;
     int max_num_mappings = 1;
     int buffer_size = 100;
-    int hit_max = 1024;
+    int hit_max = 2048;
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
     int reseed_length = 28;
