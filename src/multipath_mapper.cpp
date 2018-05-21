@@ -2309,15 +2309,9 @@ namespace vg {
                       
         if (snarl_manager) {
             // We want to do snarl cutting
-            
-            // We need to have no reachability edges to do it
-            multi_aln_graph.clear_reachability_edges();
         
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
             multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
-            
-            // But then we need to reconstruct the reachability edges afterwards
-            multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
         }
 
 #ifdef debug_multipath_mapper_alignment
