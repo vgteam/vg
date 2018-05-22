@@ -21,8 +21,14 @@ require("ggrepel")
 require("scales") # For squish
 
 # Read in the combined toil-vg stats.tsv, listing:
-# correct, mapq, aligner (really graph name), read name
+# correct, mapq, aligner (really graph name), read name, count
 dat <- read.table(commandArgs(TRUE)[1], header=T)
+
+if (! ("count" %in% names(dat))) {
+    # If the count column is not present, add i
+    dat$count <- rep(1, nrow(dat))
+}
+
 
 if (length(commandArgs(TRUE)) > 2) {
     # A set of aligners to plot is specified. Parse it.
