@@ -10,8 +10,13 @@ require("tidyverse")
 require("ggrepel")
 
 # Read in the combined toil-vg stats.tsv, listing:
-# correct, mapq, aligner (really graph name), read name
+# correct, mapq, aligner (really graph name), read name, count
 dat <- read.table(commandArgs(TRUE)[1], header=T)
+
+if (! ("count" %in% names(dat))) {
+    # If the count column is not present, add i
+    dat$count <- rep(1, nrow(dat))
+}
 
 if (length(commandArgs(TRUE)) > 2) {
     # A set of aligners to plot is specified. Parse it.
@@ -37,8 +42,8 @@ dat$bin <- cut(dat$mq, c(-Inf,seq(0,60,1),Inf))
 
 # Now we break out the cool dplyr/magrittr/tidyverse tools like %>% pipe operators.
 dat.roc <- dat %>%
-    # Make positive and negative flag columns
-    mutate(Positive = correct == 1, Negative = correct == 0) %>%
+    # Make positive and negative count columns
+    mutate(Positive = (correct == 1) * count, Negative = (correct == 0) * count) %>%
     # Arrange into a grouped_tbl by mapping quality bin
     group_by(aligner, mq) %>%
     # For each group, produce a row with the defining mq, total Positive reads, and total Negative reads in each bin.
