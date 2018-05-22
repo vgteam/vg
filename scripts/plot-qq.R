@@ -61,21 +61,30 @@ for (i in 1:length(name.lists)) {
         # Drop the pe tag if present
         name.parts <- name.parts[-c(length(name.parts))]
     }
+    if (name.parts[length(name.parts)] == "se") {
+        # Drop the se tag if present
+        name.parts <- name.parts[-c(length(name.parts))]
+    }
     
     # Join up to a string again
     name <- paste(name.parts, collapse='-')
     
     if (! name %in% names(colors)) {
         # No colors assigned for this pair of conditions, so assign them.
+        
+        if (cursor > length(bold.colors)) {
+            write(colors, stderr())
+            write(aligner.names, stderr())
+            stop('Ran out of colors! Too many conditions!')
+        }
+        
         # We always assign pe and non-pe colors in lockstep, whichever we see first.
-        new.colors <- c(bold.colors[cursor], light.colors[cursor])
-        names(new.colors) <- c(paste(name, 'pe', sep='-'), name)
+        # We need two entries for -se and no tag which are the same.
+        new.colors <- c(bold.colors[cursor], light.colors[cursor], light.colors[cursor])
+        names(new.colors) <- c(paste(name, 'pe', sep='-'), paste(name, 'se', sep='-'), name)
         colors <- c(colors, new.colors)
         
         cursor <- cursor + 1
-        if (cursor > length(bold.colors)) {
-            stop('Ran out of colors! Too many conditions!')
-        }
     }
 }
 
