@@ -5,7 +5,7 @@
 #include <bitset>
 #include <arpa/inet.h>
 
-#define VERBOSE_DEBUG
+//#define VERBOSE_DEBUG
 //#define debug_algorithms
 //#define debug_component_index
 
@@ -176,17 +176,11 @@ void XG::load(istream& in) {
                     g_bv_select.load(in, &g_bv);
                 }
                 else{ // if old file version, change edge encoding
-                    size_t g_iv_size =
-                        node_count * G_NODE_HEADER_LENGTH // record headers
-                        + edge_count * 2 * G_EDGE_LENGTH; // edges (stored twice)
+                    cerr << endl << endl << "DOES THIS OCCUR?" << endl << endl;
                     int_vector<> g_iv_old;
                     bit_vector g_bv_old;
                     rank_support_v<1> g_bv_rank_old;
                     bit_vector::select_1_type g_bv_select_old;
-//                    util::assign(g_iv_old, int_vector<>(g_iv_size));
-//                    util::assign(g_bv_old, bit_vector(g_iv_size));
-//                    util::assign(g_bv_rank_old, rank_support_v<1>(&g_bv_old));
-//                    util::assign(g_bv_select_old, bit_vector::select_1_type(&g_bv_old));
                     g_iv_old.load(in);
                     g_bv_old.load(in);
                     g_bv_rank_old.load(in, &g_bv);
@@ -974,7 +968,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         }
         g_iv[from_edge_count_idx] = from_edge_count;
     }
-    
     // set up rank and select supports on g_bv so we can locate nodes in g_iv
     util::assign(g_bv_rank, rank_support_v<1>(&g_bv));
     util::assign(g_bv_select, bit_vector::select_1_type(&g_bv));
@@ -1181,6 +1174,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         for (size_t i = 0; i < g_iv.size(); ++i) {
             cerr << (int64_t)g_iv[i] << " ";
         } cerr << endl;
+
         for (int64_t i = 0; i < node_count; ++i) {
             int64_t id = rank_to_id(i+1);
             // find the start of the node's record in g_iv
@@ -1196,11 +1190,12 @@ void XG::build(vector<pair<id_t, string> >& node_label,
             } cerr << " : ";
             int64_t t = g + G_NODE_HEADER_LENGTH;
             int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
-            cerr << " from ";
+            cerr << " from (start side) ";
             for (int64_t j = t; j < f; ) {
                 cerr << rank_to_id(g_bv_rank(g+g_iv[j])+1) << " ";
                 j += 2;
             }
+            cerr << " from (end side) ";
             for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
                 cerr << rank_to_id(g_bv_rank(g+g_iv[j])+1) << " ";
                 j += 2;
@@ -1605,29 +1600,29 @@ int64_t XG::rank_to_id(size_t rank) const {
     return g_iv[g_bv_select(rank)];
 }
 
-int XG::edge_type(bool from_start, bool to_end, bool from_to) const {
-    if (from_start && to_end) {
-        return 4;
-    } else if (from_start) {
-        return 3;
-    } else if (to_end) {
-        return 2;
-    } else {
-        return 1;
-    }
-}
-
-int XG::edge_type(const Edge& edge) const {
-    if (edge.from_start() && edge.to_end()) {
-        return 4;
-    } else if (edge.from_start()) {
-        return 3;
-    } else if (edge.to_end()) {
-        return 2;
-    } else {
-        return 1;
-    }
-}
+//int XG::edge_type(bool from_start, bool to_end, bool from_to) const {
+//    if (from_start && to_end) {
+//        return 4;
+//    } else if (from_start) {
+//        return 3;
+//    } else if (to_end) {
+//        return 2;
+//    } else {
+//        return 1;
+//    }
+//}
+//
+//int XG::edge_type(const Edge& edge) const {
+//    if (edge.from_start() && edge.to_end()) {
+//        return 4;
+//    } else if (edge.from_start()) {
+//        return 3;
+//    } else if (edge.to_end()) {
+//        return 2;
+//    } else {
+//        return 1;
+//    }
+//}
 
 Edge XG::edge_from_encoding(int64_t from, int64_t to, int type) const {
     Edge edge;
@@ -1850,7 +1845,7 @@ bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) cons
     return new_wanted;
 }
 
-bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, bool is_to,
+bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, bool is_start,
     bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee) const {
     
     // OK go over all those edges
@@ -1861,7 +1856,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
         // Make sure we got a valid edge type and we haven't wandered off into non-edge data.
         assert(type >= 0);
         assert(type <= 1);
-        //cerr << "type " << type << " is_to " << is_to << " want_left " << want_left << " is_reverse " << is_reverse << endl;
+        // cerr << "type " << type << " is_start " << is_start << " want_left " << want_left << " is_reverse " << is_reverse << endl;
         // if (edge_filter(type, is_to, want_left, is_reverse)) {
             
         // What's the offset to the other node?
@@ -1874,7 +1869,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
         // Should we invert?
         // We only invert if we cross an end to end edge. Or a start to start edge
         // bool new_reverse = is_reverse != (type == 2 || type == 3);
-        bool new_reverse = is_reverse != !is_to && (type == 0) || is_to && (type == 1);
+        bool new_reverse = is_reverse != is_start && (type == 0) || !is_start && (type == 1);
         
         // Compose the handle for where we are going
         handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
@@ -1899,7 +1894,6 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
 }
 
 bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
-
     // Unpack the handle
     size_t g = as_integer(handle) & LOW_BITS;
     bool is_reverse = get_is_reverse(handle);

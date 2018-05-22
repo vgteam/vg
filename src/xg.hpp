@@ -199,8 +199,8 @@ public:
     void idify_graph(Graph& graph) const;
     
     /// a numerical code for the edge type (based on the two reversal flags)
-    int edge_type(bool from_start, bool to_end, bool from_to) const;
-    int edge_type(const Edge& edge) const;
+//    int edge_type(bool from_start, bool to_end, bool from_to) const;
+//    int edge_type(const Edge& edge) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Here is the handle graph API
