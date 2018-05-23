@@ -663,6 +663,13 @@ int main_find(int argc, char** argv) {
             function<void(Alignment&)> lambda = [&nodes](Alignment& aln) {
                 // accumulate nodes matched by the path
                 auto& path = aln.path();
+                if (path.mapping_size() == 1 && !path.mapping(0).has_position() &&
+                    path.mapping(0).edit_size() == 1 && edit_is_insertion(path.mapping(0).edit(0))) {
+                    // This read is a (presumably full length) insert to no
+                    // position. The aligner (used to?) generate these for some
+                    // unmapped reads. We should skip it.
+                    return;
+                }
                 for (int i = 0; i < path.mapping_size(); ++i) {
                     nodes.insert(path.mapping(i).position().node_id());
                 }
