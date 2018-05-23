@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 50
+plan tests 51
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -119,9 +119,15 @@ is $? 0 "GBWT can be built for paths"
 vg index -G x_both.gbwt -T -v small/xy2.vcf.gz x.vg
 is $? 0 "GBWT can be built for both paths and haplotypes"
 
-rm -f x.vg
 rm -f x_ref.gbwt x_both.gbwt
 
+vg index -x x.xg x.vg
+vg sim -s 2384259 -n 100 -l 100 -x x.xg -a >sim.gam
+vg index -G x_gam.gbwt -M sim.gam -x x_gam.xg x.vg
+
+is $(vg paths -g x_gam.gbwt -T -x x_gam.xg -V | vg view -c - | jq -cr '.path[].name'  | sort | md5sum | cut -f 1 -d\ ) $(vg view -a sim.gam | jq -r .name | sort | md5sum | cut -f 1 -d\ ) "we can build a GBWT from alignments and index it by name with xg thread naming"
+
+rm -f x.vg x.xg sim.gam x_gam.gbwt
 
 # Other tests
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
