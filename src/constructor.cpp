@@ -647,7 +647,7 @@ namespace vg {
                                 else if (sv_type == "DEL"){
                                     if (created_nodes.count(key) == 0){
 
-                                        size_t arc_end = variant->position - chunk_offset + variant->get_sv_len(alt_index);
+                                        size_t arc_end = variant->position - chunk_offset + variant->get_sv_len(alt_index)+1;
                                         int64_t arc_start = (int64_t) variant->position - chunk_offset; 
 
                                         deletions_ending_at[arc_end].insert(arc_start);
