@@ -287,7 +287,7 @@ class VGCITest(TestCase):
             opts += '--vcfeval_opts \'--ref-overlap --vcf-score-field GQ\' '
         # don't waste time sharding reads since we only run on one node
         opts += '--single_reads_chunk '
-        opts += '--gcsa_index_cores {} --kmers_cores {} \
+        opts += '--gcsa_index_cores {} \
         --alignment_cores {} --calling_cores {} --call_chunk_cores {} --vcfeval_cores {} '.format(
             self.cores, self.cores, self.cores, max(1, self.cores / 4),
             max(1, self.cores / 2), self.cores)
