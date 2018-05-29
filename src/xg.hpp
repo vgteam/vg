@@ -102,15 +102,14 @@ public:
         bool validate_graph = false, bool print_graph = false,
         bool store_threads = false, bool is_sorted_dag = false); 
     void build(vector<pair<id_t, string> >& node_label,
-               unordered_map<side_t, vector<side_t> >& from_to,
-               unordered_map<side_t, vector<side_t> >& to_from,
                map<string, vector<trav_t> >& path_nodes,
                bool validate_graph,
                bool print_graph,
                bool store_threads,
                bool is_sorted_dag,
                unordered_map<side_t, vector<side_t> >& start_side,
-               unordered_map<side_t, vector<side_t> >& end_side);
+               unordered_map<side_t, vector<side_t> >& end_side,
+               int doubly_reversing_sides);
                
     // What's the maximum XG version number we can read with this code?
     const static uint32_t MAX_INPUT_VERSION = 10;

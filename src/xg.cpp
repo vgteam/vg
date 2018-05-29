@@ -276,16 +276,55 @@ void XG::load(istream& in) {
 }
     
 void XG::convert_old_edge_to_new(int_vector<> g_iv_old, bit_vector g_bv_old, rank_support_v<1> g_bv_rank_old, bit_vector::select_1_type g_bv_select_old) {
-    size_t g_iv_size =
+    size_t g_iv_old_size =
         node_count * G_NODE_HEADER_LENGTH // record headers
         + edge_count * 2 * G_EDGE_LENGTH; // edges (stored twice)
-    
+
     int64_t header = G_NODE_HEADER_LENGTH;
     int64_t headerfrom = G_NODE_HEADER_LENGTH;
+    int doubly_reversing_sides = 0;
+    
+    // find all the double reversing sides
+    for (int64_t i = 0; i < g_iv_old_size; i += header) {
+        int64_t on_node = g_iv_old[i];
+        int64_t g = i;
+        int edges_to_count = g_iv_old[g+G_NODE_TO_COUNT_OFFSET];
+        int edges_from_count = g_iv_old[g+G_NODE_FROM_COUNT_OFFSET];
+        int sequence_size = g_iv_old[g+G_NODE_LENGTH_OFFSET];
+        int64_t t = g + G_NODE_HEADER_LENGTH;
+        int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
+        // to side
+        for (int64_t j = t; j < f; ) {
+            int64_t length = g_iv_old[j];
+            if (on_node == g_iv_old[g+ length]){
+                doubly_reversing_sides++;
+            }
+            j += 2;
+            i += 2;
+        }
+        // from side
+        for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
+            int64_t length = g_iv_old[j];
+            if (on_node == g_iv_old[g+length]){
+                doubly_reversing_sides++;
+            }
+            j += 2;
+            i += 2;
+        }
+    }
+    cerr << "doubly_reversing_sides" << doubly_reversing_sides<<" "<< doubly_reversing_sides/2 << endl;
+    cerr << "G_EDGE_LENGTH"<< G_EDGE_LENGTH << endl;
+    cerr << "edge_count"<< edge_count << endl;
+    // Now find size of the new g_iv and remove doubly reversing sides
+    size_t g_iv_size =
+        node_count * G_NODE_HEADER_LENGTH // record headers
+        + edge_count * 2 * G_EDGE_LENGTH - doubly_reversing_sides/2 * G_EDGE_LENGTH; // edges (stored twice)
+    cerr << "g_iv_old_size " <<g_iv_old_size <<  " g_iv_size " << g_iv_size << endl;
     int z = 0;
     util::assign(g_iv, int_vector<>(g_iv_size));
     util::assign(g_bv, bit_vector(g_iv_size));
-    for (int64_t i = 0; i < g_iv_size; i += header) {
+    int ss_length_change = 0;
+    for (int64_t i = 0; i < g_iv_old_size; i += header) {
         g_bv[z] = 1;
         g_iv[z++] = g_iv_old[i];
         g_iv[z++] = g_iv_old[i+1];
@@ -301,21 +340,42 @@ void XG::convert_old_edge_to_new(int_vector<> g_iv_old, bit_vector g_bv_old, ran
         int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
         // to side
         for (int64_t j = t; j < f; ) {
-            int node = g_iv_old[j];
+            int length = g_iv_old[j];
+            cerr << "length" << length<< endl;
             int edge_type = g_iv_old[j+1];
             vector<side_t> temp;
-            temp.push_back(node);
+            if (length>0){
+                temp.push_back(length - ss_length_change*2);
+            }
+            else if (length<0){
+                temp.push_back(length + ss_length_change*2);
+            }
+            else{ // length is 0
+                temp.push_back(length);
+            }
             if (edge_type == 1){
                 temp.push_back(1);
                 start_side.push_back(temp);
             }
             else if (edge_type == 2){
-                temp.push_back(1);
-                end_side.push_back(temp);
+                if (g_iv_old[g] == g_iv_old[g+length]){
+                    ss_length_change ++;
+                    cerr << (int64_t)g_iv_old[g]<< endl;
+                }
+                else{
+                    temp.push_back(1);
+                    end_side.push_back(temp);
+                }
             }
             else if (edge_type == 3){
-                temp.push_back(0);
-                start_side.push_back(temp);
+                if (g_iv_old[g] == g_iv_old[g+length]){
+                    ss_length_change ++;
+                    cerr << (int64_t)g_iv_old[g]<< endl;
+                }
+                else{
+                    temp.push_back(0);
+                    start_side.push_back(temp);
+                }
             }
             else{
                 temp.push_back(0);
@@ -326,10 +386,18 @@ void XG::convert_old_edge_to_new(int_vector<> g_iv_old, bit_vector g_bv_old, ran
         }
         // from side
         for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
-            int node = g_iv_old[j];
+            int length = g_iv_old[j];
             int edge_type = g_iv_old[j+1];
             vector<side_t> temp;
-            temp.push_back(node);
+            if (length>0){
+                temp.push_back(length - ss_length_change*2);
+            }
+            else if (length<0){
+                temp.push_back(length + ss_length_change*2);
+            }
+            else{ // length is 0
+                temp.push_back(length);
+            }
             if (edge_type == 1){
                 temp.push_back(0);
                 end_side.push_back(temp);
@@ -367,8 +435,11 @@ void XG::convert_old_edge_to_new(int_vector<> g_iv_old, bit_vector g_bv_old, ran
     }
     util::assign(g_bv_rank, rank_support_v<1>(&g_bv));
     util::assign(g_bv_select, bit_vector::select_1_type(&g_bv));
+//    for (int64_t i = 0; i < g_iv_size; i++) {
+//        cerr << (int64_t)g_iv[i] << " ";
+//    }
+    cerr << endl;
 }
-
 
 void XGPath::load(istream& in, uint32_t file_version, const function<int64_t(size_t)>& rank_to_id) {
     if (file_version >= 8) {
@@ -700,7 +771,7 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
     unordered_map<side_t, vector<side_t> > start_side;
     unordered_map<side_t, vector<side_t> > end_side;
     map<string, vector<trav_t> > path_nodes;
-
+    int doubly_reversing_sides = 0;
     // This takes in graph chunks and adds them into our temporary storage.
     function<void(Graph&)> lambda = [this,
                                      &node_label,
@@ -708,7 +779,8 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
                                      &to_from,
                                      &start_side,
                                      &end_side,
-                                     &path_nodes](Graph& graph) {
+                                     &path_nodes,
+                                     &doubly_reversing_sides](Graph& graph) {
 
         for (int64_t i = 0; i < graph.node_size(); ++i) {
             const Node& n = graph.node(i);
@@ -727,11 +799,6 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
             }
             if (new_edge) {
                 ++edge_count;
-//                from_to[make_side(e.from(), e.from_start())].push_back(make_side(e.to(), e.to_end()));
-//                to_from[make_side(e.to(), e.to_end())].push_back(make_side(e.from(), e.from_start()));
-//                cerr << "e.from " << e.from() << " e.from_start " << e.from_start() << " make_side(e.from(), e.from_start()) " << make_side(e.from(), e.from_start()) << endl;
-//                cerr << "e.to " << e.to() << " e.to_end " << e.to_end() << " make_side(to(), e.from_start()) " << make_side(e.to(), e.to_end()) << endl;
-//                cerr << "from_to " << from_to[make_side(e.from(), e.from_start())] <<" to_from " << to_from[make_side(e.to(), e.to_end())] << endl;
                 
                 // if negative then edge type 0 (go to start), if postive then edge type 1 (go to end)
                 if (e.from_start() &&  e.to_end()){
@@ -739,12 +806,24 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
                     end_side[make_side(e.to(), e.to_end())].push_back(e.from() * -1);
                 }
                 else if (e.from_start()){
-                    start_side[make_side(e.from(), e.from_start())].push_back(e.to() * -1);
-                    start_side[make_side(e.to(), e.to_end())].push_back(e.from() * -1);
+                    if (e.to() == e.from()){
+                        doubly_reversing_sides++;
+                        start_side[make_side(e.to(), e.to_end())].push_back(e.from() * -1);
+                    }
+                    else{
+                        start_side[make_side(e.from(), e.from_start())].push_back(e.to() * -1);
+                        start_side[make_side(e.to(), e.to_end())].push_back(e.from() * -1);
+                    }
                 }
                 else if (e.to_end()){
-                    end_side[make_side(e.from(), e.from_start())].push_back(e.to());
-                    end_side[make_side(e.to(), e.to_end())].push_back(e.from());
+                    if (e.to() == e.from()){
+                        doubly_reversing_sides++;
+                        end_side[make_side(e.from(), e.from_start())].push_back(e.to());
+                    }
+                    else{
+                        end_side[make_side(e.from(), e.from_start())].push_back(e.to());
+                        end_side[make_side(e.to(), e.to_end())].push_back(e.from());
+                    }
                 }
                 else{
                     end_side[make_side(e.from(), e.from_start())].push_back(e.to()*-1);
@@ -814,22 +893,21 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
             exit(1);
         }
     }
-
-    build(node_label, from_to, to_from, path_nodes, validate_graph, print_graph,
-        store_threads, is_sorted_dag, start_side, end_side);
+    //cerr << "doubly_reversing_sides" << doubly_reversing_sides << endl;
+    build(node_label, path_nodes, validate_graph, print_graph,
+        store_threads, is_sorted_dag, start_side, end_side, doubly_reversing_sides);
     
 }
 
 void XG::build(vector<pair<id_t, string> >& node_label,
-               unordered_map<side_t, vector<side_t> >& from_to,
-               unordered_map<side_t, vector<side_t> >& to_from,
                map<string, vector<trav_t> >& path_nodes,
                bool validate_graph,
                bool print_graph,
                bool store_threads,
                bool is_sorted_dag,
                unordered_map<side_t, vector<side_t> >& start_side,
-               unordered_map<side_t, vector<side_t> >& end_side) {
+               unordered_map<side_t, vector<side_t> >& end_side,
+               int doubly_reversing_sides) {
 
     size_t entity_count = node_count + edge_count;
 
@@ -892,7 +970,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
     // calculate g_iv size
     size_t g_iv_size =
         node_count * G_NODE_HEADER_LENGTH // record headers
-        + edge_count * 2 * G_EDGE_LENGTH; // edges (stored twice)
+        + edge_count * 2 * G_EDGE_LENGTH - doubly_reversing_sides * G_EDGE_LENGTH ; // edges (stored twice, except doubly reversing ones)
     util::assign(g_iv, int_vector<>(g_iv_size));
     util::assign(g_bv, bit_vector(g_iv_size));
     int64_t g = 0; // pointer into g_iv and g_bv
@@ -910,28 +988,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         size_t from_edge_count_idx = g++;
         // write the edges in id-based format
         // we will next convert these into relative format
-//        cerr << endl<< "n.id() "<< n.id() << endl;
-//        for (auto end : { false, true }) {
-//            auto& to_sides = to_from[make_side(n.id(), end)];
-//            for (auto& e : to_sides) {
-//                cerr << "to_from e " << e << " side_id(e) "<< side_id(e) << " edge_type(side_is_end(e), end, false) " << edge_type(side_is_end(e), end, false) << endl;
-//                cerr << "     end" << end << " side_is_end(e) "<< side_is_end(e)<< endl;
-//                g_iv[g++] = side_id(e);
-//                g_iv[g++] = edge_type(side_is_end(e), end, false);
-//                ++to_edge_count;
-//            }
-//        }
-//        g_iv[to_edge_count_idx] = to_edge_count;
-//        for (auto end : { false, true }) {
-//            auto& from_sides = from_to[make_side(n.id(), end)];
-//            for (auto& e : from_sides) {
-//                cerr << "from_to e " << e << " side_id(e) "<< side_id(e) << " edge_type(end, side_is_end(e), true) " << edge_type(end, side_is_end(e), true) << endl;
-//                cerr << "      end " << end << " side_is_end(e) "<< side_is_end(e)<< endl;
-//                g_iv[g++] = side_id(e);
-//                g_iv[g++] = edge_type(end, side_is_end(e), true);
-//                ++from_edge_count;
-//            }
-//        }
         //cerr << endl<< "n.id() "<< n.id() << endl;
         for (auto end : { false, true }) {
             auto& s_sides = start_side[make_side(n.id(), end)];
@@ -991,6 +1047,10 @@ void XG::build(vector<pair<id_t, string> >& node_label,
             j += 2;
         }
     }
+//    for (int64_t i = 0; i < g_iv_size; i++) {
+//        cerr << (int64_t)g_iv[i] << " ";
+//    }
+//    cerr << endl;
     sdsl::util::clear(i_iv);
     util::bit_compress(g_iv);
 
@@ -1869,7 +1929,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
         // Should we invert?
         // We only invert if we cross an end to end edge. Or a start to start edge
         // bool new_reverse = is_reverse != (type == 2 || type == 3);
-        bool new_reverse = is_reverse != is_start && (type == 0) || !is_start && (type == 1);
+        bool new_reverse = is_reverse != (is_start && (type == 0) || !is_start && (type == 1));
         
         // Compose the handle for where we are going
         handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
@@ -1906,10 +1966,13 @@ bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     size_t to_start = g + G_NODE_HEADER_LENGTH;
     size_t from_start = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
     
-    if (is_reverse == go_left) {
+    if (!is_reverse == go_left || is_reverse == !go_left) {
+        //do_edges(const size_t& g, const size_t& start, const size_t& count, bool is_start, bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee)
+        // this is start side
         return do_edges(g, to_start, edges_to_count, true, go_left, is_reverse, iteratee);
     }
-    else { //(is_reverse != go_left):
+    else { //(is_reverse == go_left):
+        // this is end side
         return do_edges(g, from_start, edges_from_count, false, go_left, is_reverse, iteratee);
     }
 //    // We will look for all the edges on the appropriate side, which means we have to check the from and to edges
