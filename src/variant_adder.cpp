@@ -495,12 +495,12 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         // Do the alignment in both orientations
         
         // Align in the forward orientation using banded global aligner, unrolling for large deletions.
-        aln = graph.align(to_align, &aligner, true, false, 0, false, false, true, 0, max_span);
+        aln = graph.align(to_align, &aligner, true, false, 0, false, false, true, 0, 0, max_span);
         // Align in the reverse orientation using banded global aligner, unrolling for large deletions.
         // TODO: figure out which way our reference path goes through our subgraph and do half the work.
         // Note that if we have reversing edges and a lot of unrolling, we might get the same alignment either way.
         Alignment aln2 = graph.align(reverse_complement(to_align), &aligner, true, false,
-            0, false, false, true, 0, max_span);
+            0, false, false, true, 0, 0, max_span);
         
         // Note that the banded global aligner doesn't fill in identity.
         

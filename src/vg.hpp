@@ -24,6 +24,7 @@
 #include "utility.hpp"
 #include "alignment.hpp"
 #include "prune.hpp"
+#include "mem.hpp"
 
 #include "vg.pb.h"
 #include "hash_map.hpp"
@@ -971,11 +972,26 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
+                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse, see constructor for the X-drop threshold
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
     /// Align to the graph.
     /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
+    Alignment align(const Alignment& alignment,
+                    Aligner* aligner,
+                    const vector<MaximalExactMatch>& mems,
+                    bool traceback = true,
+                    bool acyclic_and_sorted = false,
+                    size_t max_query_graph_ratio = 0,
+                    bool pinned_alignment = false,
+                    bool pin_left = false,
+                    bool banded_global = false,
+                    size_t band_padding_override = 0,
+                    size_t max_span = 0,
+                    size_t unroll_length = 0,
+                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
+                    bool print_score_matrices = false);
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     bool traceback = true,
@@ -987,6 +1003,7 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
+                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
                     bool print_score_matrices = false);
     
     /// Align with default Aligner.
@@ -1003,6 +1020,7 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
+                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
                     bool print_score_matrices = false);
     /// Align with default Aligner.
     /// Align to the graph.
@@ -1018,12 +1036,27 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
+                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
                     bool print_score_matrices = false);
     
     /// Align with base quality adjusted scores.
     /// Align to the graph.
     /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
+    Alignment align_qual_adjusted(const Alignment& alignment,
+                                  QualAdjAligner* qual_adj_aligner,
+                                  const vector<MaximalExactMatch>& mems,
+                                  bool traceback = true,
+                                  bool acyclic_and_sorted = false,
+                                  size_t max_query_graph_ratio = 0,
+                                  bool pinned_alignment = false,
+                                  bool pin_left = false,
+                                  bool banded_global = false,
+                                  size_t band_padding_override = 0,
+                                  size_t max_span = 0,
+                                  size_t unroll_length = 0,
+                                  int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
+                                  bool print_score_matrices = false);
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner* qual_adj_aligner,
                                   bool traceback = true,
@@ -1035,6 +1068,7 @@ public:
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
+                                  int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
     /// Align to the graph.
@@ -1051,6 +1085,7 @@ public:
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
+                                  int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
                                   bool print_score_matrices = false);
     
     
@@ -1160,6 +1195,7 @@ private:
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
+                    const vector<MaximalExactMatch>& mems,
                     bool traceback = true,
                     bool acyclic_and_sorted = false,
                     size_t max_query_graph_ratio = 0,
@@ -1169,6 +1205,7 @@ private:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
+                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
                     bool print_score_matrices = false);
 
 
