@@ -32,7 +32,10 @@ LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lsublinearL
 # Use pkg-config to find Cairo and all the libs it uses
 LD_LIB_FLAGS += $(shell pkg-config --libs --static cairo)
 
+SED=sed
+
 ifeq ($(shell uname -s),Darwin)
+	$(SED)=gsed
 	# We may need libraries from Macports
     # TODO: where does Homebrew keep libraries?
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
@@ -305,7 +308,7 @@ $(INC_DIR)/lru_cache.h: $(DEP_DIR)/lru_cache/*.h $(DEP_DIR)/lru_cache/*.cc
 	+cd $(DEP_DIR)/lru_cache && $(MAKE) $(FILTER) && cp *.h* $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/dynamic.hpp: $(DYNAMIC_DIR)/include/*.hpp $(DYNAMIC_DIR)/include/internal/*.hpp 
-	+cat $(DYNAMIC_DIR)/include/dynamic.hpp | sed 's%<internal/%<dynamic/%' >$(INC_DIR)/dynamic.hpp && cp -r $(CWD)/$(DYNAMIC_DIR)/include/internal $(CWD)/$(INC_DIR)/dynamic
+	+cat $(DYNAMIC_DIR)/include/dynamic.hpp | $(SED) 's%<internal/%<dynamic/%' >$(INC_DIR)/dynamic.hpp && cp -r $(CWD)/$(DYNAMIC_DIR)/include/internal $(CWD)/$(INC_DIR)/dynamic
 
 $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h) 
 	+cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="-L/opt/local/lib" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install
