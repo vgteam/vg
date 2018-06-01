@@ -39,6 +39,7 @@ void help_index(char** argv) {
          << "gbwt options:" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
          << "    -T, --store-threads    generate threads from the embedded paths" << endl
+         << "    -M, --store-gam FILE   generate threads from the alignments in FILE (many allowed)" << endl
          << "    -G, --gbwt-name FILE   store the threads as GBWT in FILE" << endl
          << "    -H, --write-haps FILE  store the threads as sequences in FILE" << endl
          << "    -F, --thread-db FILE   write thread database to FILE" << endl
@@ -65,11 +66,6 @@ void help_index(char** argv) {
          << "    -N, --node-alignments  input is (ideally, sorted) .gam format," << endl
          << "                           cross reference nodes by alignment traversals" << endl
          << "    -D, --dump             print the contents of the db to stdout" << endl
-         << "these are probably unused:" << endl
-         << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
-         << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
-         << "    -L, --path-layout      describes the path layout of the graph" << endl
-         << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl;
 }
 
@@ -138,7 +134,8 @@ int main_index(int argc, char** argv) {
     bool show_progress = false;
 
     // GBWT
-    bool index_haplotypes = false, index_paths = false;
+    bool index_haplotypes = false, index_paths = false, index_gam = false;
+    vector<string> gam_file_names;
     size_t samples_in_batch = 200; // Samples per batch.
     std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
     map<string, string> path_to_vcf; // Path name conversion from --rename.
@@ -159,10 +156,6 @@ int main_index(int argc, char** argv) {
     bool dump_alignments = false;
 
     // Unused?
-    int prune_kb = -1;
-    bool describe_index = false;
-    bool set_kmer_size = false;
-    bool path_layout = false;
     bool compact = false;
 
     int c;
@@ -182,6 +175,7 @@ int main_index(int argc, char** argv) {
             // GBWT
             {"vcf-phasing", required_argument, 0, 'v'},
             {"store-threads", no_argument, 0, 'T'},
+            {"store-gam", required_argument, 0, 'M'},
             {"gbwt-name", required_argument, 0, 'G'},
             {"write-haps", required_argument, 0, 'H'},
             {"batch-size", required_argument, 0, 'B'},
@@ -207,18 +201,12 @@ int main_index(int argc, char** argv) {
             {"dump-alignments", no_argument, 0, 'A'},
             {"node-alignments", no_argument, 0, 'N'},
             {"dump", no_argument, 0, 'D'},
-
-            // Unused?
-            {"prune",  required_argument, 0, 'P'},
-            {"metadata", no_argument, 0, 'M'},
-            {"path-layout", no_argument, 0, 'L'},
-            {"set-kmer", no_argument, 0, 'S'},
             {"compact", no_argument, 0, 'C'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:TG:H:B:R:r:I:Eo:g:i:f:k:X:Z:Vd:maANDP:MLSCh",
+        c = getopt_long (argc, argv, "b:t:px:F:v:TG:H:B:R:r:I:Eo:g:i:f:k:X:Z:Vd:maANDP:CM:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -256,6 +244,11 @@ int main_index(int argc, char** argv) {
         case 'T':
             index_paths = true;
             build_xg = true;
+            break;
+        case 'M':
+            index_gam = true;
+            build_gbwt = true;
+            gam_file_names.push_back(optarg);
             break;
         case 'G':
             build_gbwt = true;
@@ -365,19 +358,6 @@ int main_index(int argc, char** argv) {
             dump_index = true;
             break;
 
-        // Unused?
-        case 'P':
-            prune_kb = atoi(optarg);
-            break;
-        case 'M':
-            describe_index = true;
-            break;
-        case 'L':
-            path_layout = true;
-            break;
-        case 'S':
-            set_kmer_size = true;
-            break;
         case 'C':
             compact = true;
             break;
@@ -403,7 +383,7 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    if ((build_gbwt || write_threads) && !(index_haplotypes || index_paths)) {
+    if ((build_gbwt || write_threads) && !(index_haplotypes || index_paths || index_gam)) {
         cerr << "error: [vg index] cannot build GBWT without threads" << endl;
         return 1;
     }
@@ -441,14 +421,36 @@ int main_index(int argc, char** argv) {
     }
 
     // Generate threads
-    if (index_haplotypes || index_paths) {
+    if (index_haplotypes || index_paths || index_gam) {
 
         if (!build_gbwt && !write_threads && !build_gpbwt) {
             cerr << "error: [vg index] No output format specified for the threads" << endl;
             return 1;
         }
 
-        size_t id_width = gbwt::bit_length(gbwt::Node::encode(xg_index->get_max_id(), true));
+        // if we already made the xg index we can determine the
+        size_t id_width;
+        if (!index_gam) {
+            id_width = gbwt::bit_length(gbwt::Node::encode(xg_index->get_max_id(), true));
+        } else { // indexing a GAM
+            if (show_progress) {
+                cerr << "Finding maximum node id in GAM..." << endl;
+            }
+            vg::id_t max_id = 0;
+            function<void(Alignment&)> lambda = [&](Alignment& aln) {
+                std::vector<gbwt::node_type> buffer;
+                for (auto& m : aln.path().mapping()) {
+                    max_id = max(m.position().node_id(), max_id);
+                }
+            };
+            for (auto& file_name : gam_file_names) {
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each_parallel(in, lambda);
+                });
+            }
+            id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
+        }
+        
         if (show_progress) {
             cerr << "Node id width: " << id_width << endl;
         }
@@ -508,6 +510,25 @@ int main_index(int argc, char** argv) {
                 store_thread(buffer, xg_index->path_name(path_rank));
             }
             haplotype_count++; // We assume that the XG index contains the reference paths.
+        }
+
+        if (index_gam) {
+            if (show_progress) {
+                cerr << "Converting GAM to threads..." << endl;
+            }
+            function<void(Alignment&)> lambda = [&](Alignment& aln) {
+                std::vector<gbwt::node_type> buffer;
+                for (auto& m : aln.path().mapping()) {
+                    buffer.push_back(gbwt::Node::encode(m.position().node_id(), m.position().is_reverse()));
+                }
+                store_thread(buffer, aln.name());
+                haplotype_count++;
+            };
+            for (auto& file_name : gam_file_names) {
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each_parallel(in, lambda);
+                });
+            }
         }
 
         // Generate haplotypes
@@ -1227,54 +1248,12 @@ int main_index(int argc, char** argv) {
             index.close();
         }
 
-        if (prune_kb >= 0) {
-            if (show_progress) {
-                cerr << "pruning kmers > " << prune_kb << " on disk from " << rocksdb_name << endl;
-            }
-            index.open_for_write(rocksdb_name);
-            index.prune_kmers(prune_kb);
-            index.compact();
-            index.close();
-        }
-
-        if (set_kmer_size) {
-            assert(kmer_size != 0);
-            index.open_for_write(rocksdb_name);
-            index.remember_kmer_size(kmer_size);
-            index.close();
-        }
-
         if (dump_index) {
             index.open_read_only(rocksdb_name);
             index.dump(cout);
             index.close();
         }
 
-        if (describe_index) {
-            index.open_read_only(rocksdb_name);
-            set<int> kmer_sizes = index.stored_kmer_sizes();
-            cout << "kmer sizes: ";
-            for (auto kmer_size : kmer_sizes) {
-                cout << kmer_size << " ";
-            }
-            cout << endl;
-            index.close();
-        }
-
-        if (path_layout) {
-            index.open_read_only(rocksdb_name);
-            //index.path_layout();
-            map<string, int64_t> path_by_id = index.paths_by_id();
-            map<string, pair<pair<int64_t, bool>, pair<int64_t, bool>>> layout;
-            map<string, int64_t> length;
-            index.path_layout(layout, length);
-            for (auto& p : layout) {
-                // Negate IDs for backward nodes
-                cout << p.first << " " << p.second.first.first * (p.second.first.second ? -1 : 1) << " "
-                    << p.second.second.first * (p.second.second.second ? -1 : 1) << " " << length[p.first] << endl;
-            }
-            index.close();
-        }
     }
 
     return 0;
