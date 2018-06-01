@@ -1486,6 +1486,8 @@ void parse_gff_regions(istream& gffstream,
     string name = "";
     string score;
     string strand;
+    string num;
+    string annotations;
 
     for (int line = 1; getline(gffstream, row); ++line) {
         if (row.size() < 2 || row[0] == '#') {
@@ -1498,12 +1500,19 @@ void parse_gff_regions(istream& gffstream,
         ss >> sbuf;
         ss >> ebuf;
 
-        if (ss.fail()) {
+        if (ss.fail() || !(sbuf < ebuf)) {
             cerr << "Error parsing gtf/gff line " << line << ": " << row << endl;
         } else {
-            assert(sbuf < ebuf);
             ss >> score;
             ss >> strand;
+            ss >> num;
+            ss >> annotations;
+            vector<string> vals = split(annotations, ";");
+            for (auto& s : vals) {
+                if (s.find("Name=") == 0) {
+                    name = s.substr(5);
+                }
+            }
 
             bool is_reverse = false;
             if(!ss.fail() && strand.compare("-") == 0) {

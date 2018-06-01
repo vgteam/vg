@@ -271,7 +271,8 @@ def md_summary(xml_root):
                 len(warnings), len([w for w in warnings if 'negative score' in w]))
             
     except:
-        md += ' **Error parsing Test Suite XML**\n'
+        if xml_root:
+            md += ' **Error parsing Test Suite XML**\n'
     return md
     
 def escape(string):
