@@ -31,6 +31,8 @@ const size_t TARGET_PROTOBUF_SIZE = MAX_PROTOBUF_SIZE/2;
 ///
 /// Adaptively sets the chunk size, in elements, so that no too-large Protobuf
 /// records are serialized.
+///
+/// Returns true on success, but throws errors on failure.
 template <typename T>
 bool write(std::ostream& out, uint64_t element_count, uint64_t chunk_elements,
     const std::function<T(uint64_t, uint64_t)>& lambda) {
@@ -93,7 +95,7 @@ bool write(std::ostream& out, uint64_t element_count, uint64_t chunk_elements,
         }
     }
     
-    
+    return true;
 
 }
 
