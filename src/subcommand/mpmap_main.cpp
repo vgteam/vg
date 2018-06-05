@@ -164,6 +164,7 @@ int main_mpmap(int argc, char** argv) {
     bool precollapse_order_length_hits = true;
     int max_sub_mem_recursion_depth = 1;
     int max_map_attempts_arg = 0;
+    int secondary_rescue_subopt_diff = 10;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -824,6 +825,7 @@ int main_mpmap(int argc, char** argv) {
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
     multipath_mapper.max_single_end_mappings_for_rescue = max(max(max_single_end_mappings_for_rescue, max_rescue_attempts), max_num_mappings);
+    multipath_mapper.secondary_rescue_subopt_diff = secondary_rescue_subopt_diff;
     multipath_mapper.secondary_rescue_score_diff = secondary_rescue_score_diff;
     multipath_mapper.secondary_rescue_attempts = secondary_rescue_attempts;
     multipath_mapper.rescue_only_min = rescue_only_min;

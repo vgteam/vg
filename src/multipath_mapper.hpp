@@ -106,6 +106,7 @@ namespace vg {
         size_t rescue_only_min = 128;
         size_t rescue_only_anchor_max = 16;
         size_t order_length_repeat_hit_max = 0;
+        int32_t secondary_rescue_subopt_diff = 10;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -273,7 +274,7 @@ namespace vg {
         
         /// Return true if any of the initial positions of the source Subpaths are shared between the two
         /// multipath alignments
-        bool share_start_position(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
+        bool share_terminal_positions(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
         /// Get a thread_local RRMemo with these parameters
         haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;
