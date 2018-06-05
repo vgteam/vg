@@ -86,13 +86,14 @@ namespace vg {
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
         double max_suboptimal_path_score_ratio = 2.0;
-        size_t num_mapping_attempts = 1;
+        size_t num_mapping_attempts = 48;
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
         double max_mapping_p_value = 0.00001;
         bool unstranded_clustering = true;
+        size_t max_single_end_mappings_for_rescue = 64;
         size_t max_rescue_attempts = 32;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
@@ -149,7 +150,7 @@ namespace vg {
                                      MappingQualityMethod mapq_method,
                                      vector<clustergraph_t>& cluster_graphs,
                                      vector<MultipathAlignment>& multipath_alns_out,
-                                     size_t max_alt_mappings);
+                                     size_t num_mapping_attempts);
         
         /// After clustering MEMs, extracting graphs, assigning hits to cluster graphs, and determining
         /// which cluster graph pairs meet the fragment length distance constraints, perform multipath
@@ -159,7 +160,6 @@ namespace vg {
                                           vector<clustergraph_t>& cluster_graphs2,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                          size_t max_alt_mappings,
                                           OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
                                           OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
                                           OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);

@@ -98,7 +98,7 @@ namespace vg {
         auto cluster_graphs = query_cluster_graphs(alignment, mems, clusters);
         
         // actually perform the alignments and post-process to meeth MultipathAlignment invariants
-        align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, max_alt_mappings);
+        align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, num_mapping_attempts);
         
         if (multipath_alns_out.empty()) {
             // add a null alignment so we know it wasn't mapped
@@ -140,12 +140,7 @@ namespace vg {
                                                   MappingQualityMethod mapq_method,
                                                   vector<clustergraph_t>& cluster_graphs,
                                                   vector<MultipathAlignment>& multipath_alns_out,
-                                                  size_t max_alt_mappings) {
-    
-#ifdef debug_multipath_mapper
-        cerr << "sorting subgraphs by read coverage..." << endl;
-#endif
-        
+                                                  size_t num_mapping_attempts) {
         
         
 #ifdef debug_multipath_mapper
@@ -700,11 +695,11 @@ namespace vg {
         vector<MultipathAlignment> multipath_alns_1, multipath_alns_2;
         if (!block_rescue_from_1) {
             align_to_cluster_graphs(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                    cluster_graphs1, multipath_alns_1, max_alt_mappings);
+                                    cluster_graphs1, multipath_alns_1, max_single_end_mappings_for_rescue);
         }
         if (!block_rescue_from_2) {
             align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                    cluster_graphs2, multipath_alns_2, max_alt_mappings);
+                                    cluster_graphs2, multipath_alns_2, max_single_end_mappings_for_rescue);
         }
         
         if (multipath_alns_1.empty() || multipath_alns_2.empty() ? false :
@@ -1376,8 +1371,7 @@ namespace vg {
                 // only perform the mappings that satisfy the expectations on distance
                 
                 align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
-                                             multipath_aln_pairs_out, max_alt_mappings, &paths_of_node_memo,
-                                             &oriented_occurences_memo, &handle_memo);
+                                             multipath_aln_pairs_out, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
                 
                 // do we produce at least one good looking pair alignments from the clustered clusters?
                 if (multipath_aln_pairs_out.empty() ? true : (likely_mismapping(multipath_aln_pairs_out.front().first) ||
@@ -1862,7 +1856,6 @@ namespace vg {
                                                        vector<clustergraph_t>& cluster_graphs2,
                                                        vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                        vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                       size_t max_alt_mappings,
                                                        OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
                                                        OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
                                                        OrientedDistanceClusterer::handle_memo_t* handle_memo) {
