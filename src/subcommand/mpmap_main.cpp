@@ -1080,6 +1080,47 @@ int main_mpmap(int argc, char** argv) {
 #endif
     };
     
+    // do unpaired, independent multipath alignment, and write to buffer as paired
+    function<void(Alignment&, Alignment&)> do_independent_paired_alignments = [&](Alignment& alignment_1, Alignment& alignment_2) {
+        // get reads on the same strand so that oriented distance estimation works correctly
+        // but if we're clearing the ambiguous buffer we already RC'd these on the first pass
+#ifdef record_read_run_times
+        clock_t start = clock();
+#endif
+        if (!same_strand) {
+            // TODO: the output functions undo this transformation, so we have to do it here.
+        
+            // remove the path so we won't try to RC it (the path may not refer to this graph)
+            alignment_2.clear_path();
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+        }
+        
+        // Align independently
+        vector<MultipathAlignment> mp_alns_1, mp_alns_2;
+        multipath_mapper.multipath_map(alignment_1, mp_alns_1, max_num_mappings);
+        multipath_mapper.multipath_map(alignment_2, mp_alns_2, max_num_mappings);
+               
+        vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
+        for (size_t i = 0; i < mp_alns_1.size() && i < mp_alns_2.size(); i++) {
+            // Pair arbitrarily. Stop when one side runs out of alignments.
+            mp_aln_pairs.emplace_back(mp_alns_1[i], mp_alns_2[i]);
+        }
+        
+        // TODO: Set a flag or annotation or something to say we don't really believe the pairing
+       
+        if (single_path_alignment_mode) {
+            output_single_path_paired_alignments(mp_aln_pairs);
+        }
+        else {
+            output_multipath_paired_alignments(mp_aln_pairs);
+        }
+#ifdef record_read_run_times
+        clock_t finish = clock();
+#pragma omp critical
+        read_time_file << alignment_1.name() << "\t" << alignment_2.name() << "\t" << double(finish - start) / CLOCKS_PER_SEC << endl;
+#endif
+    };
+    
     // for streaming paired input, don't spawn parallel tasks unless this evalutes to true
     function<bool(void)> multi_threaded_condition = [&](void) {
         return multipath_mapper.has_fixed_fragment_length_distr();
@@ -1149,8 +1190,7 @@ int main_mpmap(int argc, char** argv) {
                     reverse_complement_alignment_in_place(&aln_pair.second,
                                                           [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
                 }
-                do_unpaired_alignments(aln_pair.first);
-                do_unpaired_alignments(aln_pair.second);
+                do_independent_paired_alignments(aln_pair.first, aln_pair.second);
             }
         }
     }
