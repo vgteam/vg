@@ -405,6 +405,7 @@ ostream& Packer::as_table(ostream& out, bool show_edits) {
         }
         out << endl;
     }
+    return out;
 }
 
 ostream& Packer::show_structure(ostream& out) {

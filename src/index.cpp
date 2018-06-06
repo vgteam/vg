@@ -510,6 +510,7 @@ string Index::entry_to_string(const string& key, const string& value) {
         return traversal_entry_to_string(key, value);
         break;
     default:
+        throw runtime_error("Unrecognized type " + key.substr(0, 1));
         break;
     }
 }

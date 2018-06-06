@@ -642,6 +642,8 @@ Visit SnarlManager::next_snarl(const Visit& here) const {
         // We came out our end. So the next thing is backward if its start doesn't match our end.
         to_return.set_backward(next->start().node_id() != here_snarl->end().node_id());
     }
+    
+    return to_return;
 }
     
 Visit SnarlManager::prev_snarl(const Visit& here) const {
@@ -1008,7 +1010,7 @@ deque<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snar
         // Make a visit to the child
         Visit here;
         transfer_boundary_info(*snarl, *here.mutable_snarl());
-            
+        
         for (Visit walk_left = prev_snarl(here);
              walk_left.has_snarl() && !seen.count(manage(walk_left.snarl()));
              walk_left = prev_snarl(walk_left)) {
