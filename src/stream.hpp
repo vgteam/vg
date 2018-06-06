@@ -20,7 +20,7 @@
 namespace stream {
 
 /// Protobuf will refuse to read messages longer than this size.
-const size_t MAX_PROTOBUF_SIZE = 67108864;
+const size_t MAX_PROTOBUF_SIZE = 1000000000;
 /// We aim to generate messages that are this size
 const size_t TARGET_PROTOBUF_SIZE = MAX_PROTOBUF_SIZE/2;
 
