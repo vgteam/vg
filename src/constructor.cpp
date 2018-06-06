@@ -154,9 +154,8 @@ namespace vg {
             start = min(start, (int64_t) var.position);
             end = max(end, (int64_t) var.get_sv_end(0));
             return std::make_pair( start, end);
-        }
-        else{
-            
+        } else {
+            throw runtime_error("get_bounds(Variant, bool) not implemented for non-SV variants!");
         }
     }
 

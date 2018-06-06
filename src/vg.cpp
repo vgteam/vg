@@ -465,6 +465,8 @@ id_t VG::get_node_at_nucleotide(string pathname, int nuc){
             throw std::out_of_range("Nucleotide position not found in path.");
         }
     }
+    
+    throw std::out_of_range("Nucleotide position not found in path.");
 
 }
 

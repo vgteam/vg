@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 11
+plan tests 12
 
 
 # Exercise the GBWT
@@ -38,7 +38,7 @@ is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls 
 
 rm -f xy2.vg xy2.xg xy2.gcsa xy2.gcsa.lcp xy2.gbwt xy2.snarls
 
-# Do a largetr-scale test
+# Do a larger-scale test
 
 vg index -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -k 16 graphs/refonly-lrc_kir.vg
 
@@ -57,6 +57,11 @@ is $(printf "%s\t%s\n" $paired_range $distant_range | awk '{if ($1 < $2) print 1
 
 rm -f temp_paired_alignment.json temp_distant_alignment.json temp_independent_alignment.json
 
-rm -f graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp
+vg sim -x graphs/refonly-lrc_kir.vg.xg -n 1000 -s 1 -p 500 -l 100 -a > input.gam
+
+vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -G input.gam -i --single-path-mode --no-qual-adjust > output.gam
+is "$(vg view -aj output.gam | jq -c 'select(.fragment_next == null and .fragment_prev == null)' | wc -l)" "0" "small batches are still all paired in the output"
+
+rm -f graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp input.gam output.gam
 
 

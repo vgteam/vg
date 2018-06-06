@@ -628,7 +628,7 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
                 out_file.open(out_name.str());
                 if (!out_file) {
                     cerr << "error[vg chunk]: unable to open output gam: " << out_name.str() << endl;
-                    return 1;
+                    exit(1);
                 }
             }
             gam_buffer.push_back(alignment);
