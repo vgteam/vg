@@ -1684,14 +1684,23 @@ int64_t XG::rank_to_id(size_t rank) const {
 //    }
 //}
 
-Edge XG::edge_from_encoding(int64_t from, int64_t to, int type) const {
+Edge XG::edge_from_encoding(int64_t from, int64_t to, int type, bool on_start_side) const {
     Edge edge;
     edge.set_from(from);
     edge.set_to(to);
     switch (type) {
         case 0:
+            if (on_start_side == true){
+                edge.set_from_start(true);
+            }
             break;
         case 1:
+            if (on_start_side == true){
+                break;
+            }
+            else{
+                edge.set_to_end(true);
+            }
             break;
         default:
             assert(false);
@@ -1754,12 +1763,12 @@ Graph XG::node_subgraph_g(int64_t g) const {
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
-        *graph.add_edge() = edge_from_encoding(from, g, type);
+        *graph.add_edge() = edge_from_encoding(from, g, type, true);
     }
     for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
-        *graph.add_edge() = edge_from_encoding(g, to, type);
+        *graph.add_edge() = edge_from_encoding(g, to, type, false);
     }
     return graph;
 }
@@ -1929,7 +1938,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
         // Should we invert?
         // We only invert if we cross an end to end edge. Or a start to start edge
         // bool new_reverse = is_reverse != (type == 2 || type == 3);
-        bool new_reverse = is_reverse != (is_start && (type == 0) || !is_start && (type == 1));
+        bool new_reverse = is_reverse != ((is_start && (type == 0)) || (!is_start && (type == 1)));
         
         // Compose the handle for where we are going
         handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
@@ -2034,14 +2043,14 @@ vector<Edge> XG::edges_of(int64_t id) const {
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
-        edges.push_back(edge_from_encoding(from, g, type));
+        edges.push_back(edge_from_encoding(from, g, type, true));
     }
     for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
-        edges.push_back(edge_from_encoding(g, to, type));
+        edges.push_back(edge_from_encoding(g, to, type, false));
     }
-    for (auto& edge : edges) { 
+    for (auto& edge : edges) {
         edge.set_from(g_iv[edge.from()+G_NODE_ID_OFFSET]);
         edge.set_to(g_iv[edge.to()+G_NODE_ID_OFFSET]);
     }
@@ -2058,7 +2067,7 @@ vector<Edge> XG::edges_to(int64_t id) const {
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
-        edges.push_back(edge_from_encoding(from, g, type));
+        edges.push_back(edge_from_encoding(from, g, type, true));
     }
     for (auto& edge : edges) { 
         edge.set_from(g_iv[edge.from()+G_NODE_ID_OFFSET]);
@@ -2078,7 +2087,7 @@ vector<Edge> XG::edges_from(int64_t id) const {
     for (int64_t j = f; j < e; ) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
-        edges.push_back(edge_from_encoding(g, to, type));
+        edges.push_back(edge_from_encoding(g, to, type, false));
     }
     for (auto& edge : edges) { 
         edge.set_from(g_iv[edge.from()+G_NODE_ID_OFFSET]);
@@ -2165,7 +2174,7 @@ size_t XG::edge_graph_idx(const Edge& edge_in) const {
     for (int64_t j = f; j < e; ++i) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
-        Edge curr = edge_from_encoding(g, to, type);
+        Edge curr = edge_from_encoding(g, to, type, false); //only going through "from" edges aka edges on the end side of node
         curr.set_from(g_iv[curr.from()+G_NODE_ID_OFFSET]);
         curr.set_to(g_iv[curr.to()+G_NODE_ID_OFFSET]);
         if (curr.to() == edge.to()
@@ -2374,6 +2383,8 @@ void XG::expand_context(Graph& g, size_t dist, bool add_paths, bool use_steps,
 void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
                                  bool expand_forward, bool expand_backward,
                                  int64_t until_node) const {
+//    cerr << "here" << g.node_size() << " " << g.edge_size() << endl;
+//    cerr << "expand_forward " << expand_forward << " expand_backward " << expand_backward << endl;
     map<int64_t, Node*> nodes;
     map<pair<side_t, side_t>, Edge*> edges;
     set<int64_t> to_visit;
@@ -2388,21 +2399,23 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
         auto& edge = g.edge(i);
         to_visit.insert(edge.from());
         to_visit.insert(edge.to());
-        edges[make_pair(make_side(edge.from(), edge.from_start()),
-                        make_side(edge.to(), edge.to_end()))] = g.mutable_edge(i);
+        edges[make_pair(make_side(edge.to(), edge.to_end()),
+                            make_side(edge.from(), edge.from_start()))] = g.mutable_edge(i);
     }
     // and expand
     for (size_t i = 0; i < steps; ++i) {
         set<int64_t> to_visit_next;
         for (auto id : to_visit) {
             // build out the graph
-            // if we have nodes we haven't seeen
+            // if we have nodes we haven't seen
+//            cerr << "id" << id << endl;
             if (nodes.find(id) == nodes.end()) {
                 Node* np = g.add_node();
                 nodes[id] = np;
                 *np = node(id);
             }
             vector<Edge> edges_todo;
+            // Jordan: to and and from do not indicate the same thing as forward and backward
             if (expand_forward && expand_backward) {
                 edges_todo = edges_of(id);
             } else if (expand_forward) {
@@ -2414,6 +2427,8 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
                 exit(1);
             }
             for (auto& edge : edges_todo) {
+//                cerr << edge.from() <<" "<< edge.from_start() <<" "<< edge.to() <<" "<< edge.to_end() << endl;
+                // Jordan: this representation is non-canonical
                 auto sides = make_pair(make_side(edge.from(), edge.from_start()),
                                        make_side(edge.to(), edge.to_end()));
                 if (edges.find(sides) == edges.end()) {
@@ -2432,6 +2447,7 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
         }
         to_visit = to_visit_next;
     }
+        
     // then add connected nodes that we have edges to but didn't pull in yet.
     // These are the nodes reached on the last step; we won't follow their edges
     // to new noded.
@@ -2459,8 +2475,13 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
     // subgraph, because there might be edges connecting the nodes you have that
     // you don't see.
     for(auto& n : last_step_nodes) {
+//        cerr << "n" << n << endl;
+        // Jordan: this should look at all edges, not edges from
         for (auto& edge : edges_from(n)) {
+//            cerr <<"edge.to() "<< edge.to() << " last_step_nodes.count(edge.to()) " << last_step_nodes.count(edge.to()) << endl;
+//            cerr << to_visit.count(edge.to()) << endl;
             if(last_step_nodes.count(edge.to())) {
+//                cerr << edge.from() <<" "<< edge.from_start() <<" "<< edge.to() <<" "<< edge.to_end()  << endl;
                 // This edge connects two nodes that were added on the last
                 // step, and so wouldn't have been found by the main loop.
                 
@@ -2474,7 +2495,27 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
                     edges[sides] = ep;
                 }
             }
-        }       
+        }
+        // Emily: let's try adding the to_edges to see if that fixes stuff
+        for (auto& edge : edges_to(n)) {
+//            cerr <<"edge.from() "<< edge.from() << " last_step_nodes.count(edge.from()) " << last_step_nodes.count(edge.from()) << endl;
+//            cerr << to_visit.count(edge.from()) << endl;
+            if(last_step_nodes.count(edge.from())) {
+//                cerr << edge.to() <<" "<< edge.to_end() <<" "<< edge.from() <<" "<< edge.from_start()  << endl;
+                // This edge connects two nodes that were added on the last
+                // step, and so wouldn't have been found by the main loop.
+                
+                // Determine if it's been seen already (somehow).
+                // TODO: it probably shouldn't have been, unless it's a self loop or something.
+                auto sides = make_pair(make_side(edge.from(), edge.from_start()),
+                                       make_side(edge.to(), edge.to_end()));
+                if (edges.find(sides) == edges.end()) {
+                    // If it isn't there already, add it to the graph
+                    Edge* ep = g.add_edge(); *ep = edge;
+                    edges[sides] = ep;
+                }
+            }
+        }
     }
     // Edges between the last step nodes and other nodes will have already been
     // pulled in, on the step when those other nodes were processed by the main

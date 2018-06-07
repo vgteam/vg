@@ -194,7 +194,8 @@ public:
     /// 2: end to end
     /// 3: start to start
     /// 4: start to end
-    Edge edge_from_encoding(int64_t from, int64_t to, int type) const;
+    Edge edge_from_encoding(int64_t from, int64_t to, int type, bool on_start_side) const;
+//    Edge edge_from_encoding(int64_t from, int64_t to, int type) const;
     void idify_graph(Graph& graph) const;
     
     /// a numerical code for the edge type (based on the two reversal flags)

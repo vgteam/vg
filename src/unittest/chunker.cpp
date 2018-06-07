@@ -116,7 +116,6 @@ TEST_CASE("basic graph chunking", "[chunk]") {
     }
 
     SECTION("Extract partial graph as chunk via id range") {
-        
         Region region = {"x", 3, 6};
         VG subgraph;
         Region out_region;        
