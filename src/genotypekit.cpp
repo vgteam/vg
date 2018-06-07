@@ -481,6 +481,8 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
                 }
 
             }
+            
+        return consistencies;
 }
 
 SimpleTraversalSupportCalculator::~SimpleTraversalSupportCalculator(){

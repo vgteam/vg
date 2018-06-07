@@ -4,15 +4,15 @@ using namespace std;
 namespace vg{
 
     double SRPE::discordance_score(vector<Alignment> alns, VG* subgraph){
-    // Sum up the mapping scores
-    // subtract the soft clips
-    // the discordant insert size reads
-    // and a flat penalty for discordant orientation
-
+        // Sum up the mapping scores
+        // subtract the soft clips
+        // the discordant insert size reads
+        // and a flat penalty for discordant orientation
+        throw runtime_error("Unimplemented!");
     }
 
     void SRPE::call_svs_paired_end(vg::VG* graph, ifstream& gamstream, vector<BREAKPOINT>& bps, string refpath){
-
+        
     }
 
     void SRPE::call_svs_split_read(vg::VG* graph, ifstream& gamstream, vector<BREAKPOINT>& bps, string refpath){

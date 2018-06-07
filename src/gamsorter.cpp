@@ -11,8 +11,6 @@ using namespace vg;
 class AlnSorter{
     bool invert = false;
 public:
-  bool mycomparison(const bool& reverse=false)
-  {invert = reverse;}
   bool operator() (const Alignment& a_one, const Alignment& a_two) const
   {
 
@@ -309,6 +307,8 @@ void GAMSorter::stream_sort(string gamfile){
                 return true;
             }
         //}
+        
+        return false;
      };
 
 
