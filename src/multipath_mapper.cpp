@@ -186,6 +186,10 @@ namespace vg {
             num_mappings++;
         }
         
+#ifdef debug_multipath_mapper
+        cerr << "splitting multicomponent alignments..." << endl;
+#endif
+        
         // split up any alignments that ended up being disconnected
         split_multicomponent_alignments(multipath_alns_out);
         
