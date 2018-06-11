@@ -279,7 +279,6 @@ namespace vg {
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
-        
 #ifdef debug_multipath_alignment
         cerr << "walking out MEMs in graph" << endl;
 #endif
@@ -512,7 +511,7 @@ namespace vg {
     void MultipathAlignmentGraph::collapse_order_length_runs(VG& vg, gcsa::GCSA* gcsa) {
         
 #ifdef debug_multipath_alignment
-        cerr << "looking for runs of order length MEMs to collapse" << endl;
+        cerr << "looking for runs of order length MEMs to collapse with gcsa order "  << gcsa->order() << endl;
 #endif
         
         vector<vector<size_t>> merge_groups;
@@ -728,13 +727,16 @@ namespace vg {
                         }
                     }
                     
+#ifdef debug_multipath_alignment
+                    cerr << "the first mapping to merge is at index " << first_mapping_to_add_idx << " with " << -remaining << " remaining" << endl;
+#endif
+                    
                     // handle the first mapping we add as a special case
                     const Mapping& first_mapping_to_add = merge_from_node.path.mapping(first_mapping_to_add_idx);
                     Mapping* final_merging_mapping = merge_into_node.path.mutable_mapping(merge_into_node.path.mapping_size() - 1);
                     if (final_merging_mapping->position().node_id() == first_mapping_to_add.position().node_id() &&
                         final_merging_mapping->position().is_reverse() == first_mapping_to_add.position().is_reverse() &&
-                        final_merging_mapping->position().offset() == first_mapping_to_add.position().offset() &&
-                        mapping_from_length(*final_merging_mapping) == -remaining) {
+                        first_mapping_to_add.position().offset() - final_merging_mapping->position().offset() - remaining == mapping_from_length(*final_merging_mapping)) {
                         
                         // the mappings are on the same node, so they can be combined
                         int64_t mapping_to_add_length = mapping_from_length(first_mapping_to_add) + remaining;
@@ -742,6 +744,9 @@ namespace vg {
                         final_edit->set_from_length(final_edit->from_length() + mapping_to_add_length);
                         final_edit->set_to_length(final_edit->to_length() + mapping_to_add_length);
                         
+#ifdef debug_multipath_alignment
+                        cerr << "merged mapping is " << pb2json(*final_merging_mapping) << endl;
+#endif
                     }
                     else {
                         // we need to add this as a new mapping
@@ -749,6 +754,9 @@ namespace vg {
                         *new_mapping = first_mapping_to_add;
                         new_mapping->set_rank(final_merging_mapping->rank() + 1);
                         
+#ifdef debug_multipath_alignment
+                        cerr << "new adjacent mapping is " << pb2json(*new_mapping) << endl;
+#endif
                     }
                     
                     // add the remaining mappings as new mappings
@@ -756,13 +764,22 @@ namespace vg {
                         Mapping* new_mapping = merge_into_node.path.add_mapping();
                         *new_mapping = merge_from_node.path.mapping(j);
                         new_mapping->set_rank(merge_into_node.path.mapping(merge_into_node.path.mapping_size() - 2).rank() + 1);
+                        
+#ifdef debug_multipath_alignment
+                        cerr << "new transfer mapping is " << pb2json(*new_mapping) << endl;
+#endif
                     }
                     
                     // merge the substrings on the node
                     merge_into_node.end = merge_from_node.end;
                     
 #ifdef debug_multipath_alignment
-                    cerr << "merged path is " << pb2json(merge_from_node.path) << endl;
+                    cerr << "merged path is " << pb2json(merge_into_node.path) << endl;
+                    cerr << "merged substring is ";
+                    for (auto iter = merge_into_node.begin; iter != merge_into_node.end; iter++) {
+                        cerr << *iter;
+                    }
+                    cerr << endl;
 #endif
                 }
             }
@@ -775,11 +792,20 @@ namespace vg {
                 }
                 else if (removed_so_far > 0) {
                     path_nodes[i - removed_so_far] = move(path_nodes[i]);
+#ifdef debug_multipath_alignment
+                    cerr << "moving path node " << i << " into index " << i - removed_so_far << endl;
+#endif
                 }
+#ifdef debug_multipath_alignment
+                else {
+                    cerr << "moving path node " << i << " into index " << i << endl;
+                }
+#endif
             }
             
             path_nodes.resize(path_nodes.size() - to_remove.size());
         }
+        
     }
     
     void MultipathAlignmentGraph::resect_snarls_from_paths(SnarlManager* cutting_snarls,
@@ -2132,7 +2158,6 @@ namespace vg {
             int64_t mapping_idx = 0;
             int64_t mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
             while (remaining >= mapping_len) {
-                
                 *onto_node->path.add_mapping() = full_path.mapping(mapping_idx);
                 prefix_to_length += mapping_to_length(full_path.mapping(mapping_idx));
                 remaining -= mapping_len;

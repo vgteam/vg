@@ -441,6 +441,7 @@ namespace vg{
             return inverse ? Alignment() : aln;
         }
 
+        return inverse ? Alignment() : aln;
 
     }
 
@@ -613,6 +614,7 @@ namespace vg{
         
         if (found){
             //return ret_alns;
+            throw runtime_error("Unimplemented!");
         }
         else {
             return make_pair(Alignment(), Alignment());
@@ -626,16 +628,16 @@ namespace vg{
     * one-end anchored / softclipped portions
     * and read depth, one day
     */
-    pair<Locus, Locus> Filter::insertion_filter(Alignment& aln_first, Alignment& aln_second){
-        
+    pair<Locus, Locus> Filter::insertion_filter(Alignment& aln_first, Alignment& aln_second) {
+        throw runtime_error("Unimplemented!");
     }
 
     /**
     * Find reads that support duplications
     *
     */
-    pair<Locus, Locus> Filter::duplication_filter(Alignment& aln_first, Alignment& aln_second){
-
+    pair<Locus, Locus> Filter::duplication_filter(Alignment& aln_first, Alignment& aln_second) {
+        throw runtime_error("Unimplemented!");
     }
 
     /**
@@ -650,6 +652,8 @@ namespace vg{
         if (pair_orientation_filter(aln_first, aln_second)){
             return true;
         }
+        // TODO: Full implementation
+        return false;
     }
 
     /**
@@ -657,7 +661,7 @@ namespace vg{
     * we'd like to report all possible breakends, even if that don't match an SV type very well.
     */
     pair<Locus, Locus> Filter::breakend_filter(Alignment& aln_first, Alignment& aln_second){
-
+        throw runtime_error("Unimplemented!");
     }
 
 
@@ -763,8 +767,9 @@ namespace vg{
 
 
     Alignment Filter::coverage_filter(Alignment& aln){
-
+        throw runtime_error("Unimplemented!");
     }
+    
     Alignment Filter::avg_qual_filter(Alignment& aln){
         double total_qual = 0.0;
         // If the parameter for window size is zero, set the local equivalent
