@@ -600,19 +600,42 @@ namespace vg {
         return is_consistent(distance_between(multipath_aln_1, multipath_aln_2, true));
     }
     
-    bool MultipathMapper::share_start_position(const MultipathAlignment& multipath_aln_1,
-                                               const MultipathAlignment& multipath_aln_2) const {
+    bool MultipathMapper::share_terminal_positions(const MultipathAlignment& multipath_aln_1,
+                                                   const MultipathAlignment& multipath_aln_2) const {
         
-        unordered_set<pos_t> starts;
+        unordered_set<pos_t> terminal_positions;
+        
+        // first look for matching starts
         for (size_t i = 0; i < multipath_aln_1.start_size(); i++) {
-            starts.insert(make_pos_t(multipath_aln_1.subpath(multipath_aln_1.start(i)).path().mapping(0).position()));
+            terminal_positions.insert(make_pos_t(multipath_aln_1.subpath(multipath_aln_1.start(i)).path().mapping(0).position()));
         }
         
         for (size_t i = 0; i < multipath_aln_2.start_size(); i++) {
-            if (starts.count(make_pos_t(multipath_aln_2.subpath(multipath_aln_2.start(i)).path().mapping(0).position()))) {
+            if (terminal_positions.count(make_pos_t(multipath_aln_2.subpath(multipath_aln_2.start(i)).path().mapping(0).position()))) {
                 return true;
             }
         }
+        
+        // remove the starts
+        terminal_positions.clear();
+        
+        // now look for matching ends
+        for (size_t i = 0; i < multipath_aln_1.subpath_size(); i++) {
+            const Subpath& subpath = multipath_aln_1.subpath(i);
+            if (subpath.next_size() == 0) {
+                terminal_positions.insert(final_position(subpath.path()));
+            }
+        }
+        
+        for (size_t i = 0; i < multipath_aln_2.subpath_size(); i++) {
+            const Subpath& subpath = multipath_aln_2.subpath(i);
+            if (subpath.next_size() == 0) {
+                if (terminal_positions.count(final_position(subpath.path()))) {
+                    return true;
+                }
+            }
+        }
+        
         return false;
     }
     
@@ -1410,8 +1433,8 @@ namespace vg {
                         std::swap(multipath_aln_pairs_out, rescue_aln_pairs);
                     }
                 }
-                else if (multipath_aln_pairs_out.front().first.mapping_quality() == max_mapping_quality &&
-                         multipath_aln_pairs_out.front().second.mapping_quality() == max_mapping_quality) {
+                else if (multipath_aln_pairs_out.front().first.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff &&
+                         multipath_aln_pairs_out.front().second.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff) {
                     
                     // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
                     // so we use this routine to use rescue on other very good looking independent end clusters
@@ -2781,8 +2804,8 @@ namespace vg {
                 vector<size_t> duplicates_2(1, 0);
                 vector<size_t> to_remove;
                 for (size_t i = 1; i < multipath_aln_pairs.size(); i++) {
-                    bool duplicate_1 = share_start_position(multipath_aln_pairs[0].first, multipath_aln_pairs[i].first);
-                    bool duplicate_2 = share_start_position(multipath_aln_pairs[0].second, multipath_aln_pairs[i].second);
+                    bool duplicate_1 = share_terminal_positions(multipath_aln_pairs[0].first, multipath_aln_pairs[i].first);
+                    bool duplicate_2 = share_terminal_positions(multipath_aln_pairs[0].second, multipath_aln_pairs[i].second);
                     if (duplicate_1 && duplicate_2) {
 #ifdef debug_multipath_mapper
                         cerr << "found double end duplication at index " << i << endl;
