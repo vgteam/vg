@@ -2961,7 +2961,7 @@ namespace vg {
             if (interval.second > curr_smem.second) {
                 // we're in a MEM that covers distinct sequence from the current SMEM, so this is
                 // a new SMEM (because of sort order)
-                curr_smem_end = interval.second;
+                curr_smem = interval;
                 curr_smem_hit_count = 1;
 #ifdef debug_median_algorithm
                 cerr << "\tthis is a new SMEM" << endl;
