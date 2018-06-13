@@ -2940,7 +2940,7 @@ namespace vg {
         int64_t depth = 0;
         
         // we can keep track of the SMEM we're in by checking whether we've passed its final index
-        int64_t curr_smem_end = 0;
+        pair<int64_t, int64_t> curr_smem(0, 0);
         // and the number of hits of this SMEM we've seen
         int64_t curr_smem_hit_count = 0;
         // we will skip one copy of each sub-MEM (heurstically assuming it's redundant with the parent)
@@ -2958,7 +2958,7 @@ namespace vg {
             cerr << "iter for interval [" << interval.first << ", " << interval.second << "), starting at " << at << endl;
 #endif
             
-            if (interval.second > curr_smem_end) {
+            if (interval.second > curr_smem.second) {
                 // we're in a MEM that covers distinct sequence from the current SMEM, so this is
                 // a new SMEM (because of sort order)
                 curr_smem_end = interval.second;
@@ -2967,14 +2967,14 @@ namespace vg {
                 cerr << "\tthis is a new SMEM" << endl;
 #endif
             }
-            else if (interval.second == curr_smem_end) {
+            else if (interval == curr_smem) {
                 // this is another hit of the same SMEM, increase the count
                 curr_smem_hit_count++;
 #ifdef debug_median_algorithm
                 cerr << "\tthis is a repeat of the current SMEM" << endl;
 #endif
             }
-            else if (interval.second < curr_smem_end && skipped_sub_mems[interval] < curr_smem_hit_count) {
+            else if (interval.second < curr_smem.second && skipped_sub_mems[interval] < curr_smem_hit_count) {
                 // we're in a MEM that covers a strict subinterval of the current SMEM, so skip
                 // one sub-MEM per hit of the SMEM on the assumption that it's redundant
                 skipped_sub_mems[interval]++;
