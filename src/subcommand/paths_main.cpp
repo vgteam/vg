@@ -195,7 +195,7 @@ int main_paths(int argc, char** argv) {
             }
             for (auto& id : thread_ids) {
                 //cerr << "thread_id " << id << endl;
-                vector<gbwt::node_type> sequence = index.extract(gbwt::Path::encode(id-1, false));
+                gbwt::vector_type sequence = index.extract(gbwt::Path::encode(id-1, false));
                 Path path;
                 path.set_name(xgidx.thread_name(id));
                 for (auto node : sequence) {

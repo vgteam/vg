@@ -399,26 +399,26 @@ TEST_CASE("We can score haplotypes using GBWT", "[haplo-score][gbwt]") {
   gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
   gbwt::DynamicGBWT* gbwt_index = new gbwt::DynamicGBWT;
   
-  vector<gbwt::node_type> tm = {
-    gbwt::Node::encode(1, false), // dummy for 1-based indexing
-    gbwt::Node::encode(1, false),
-    gbwt::Node::encode(2, false),
-    gbwt::Node::encode(3, false),
-    gbwt::Node::encode(4, false),
-    gbwt::Node::encode(5, false),
-    gbwt::Node::encode(6, false),
-    gbwt::Node::encode(7, false),
-    gbwt::Node::encode(8, false),
+  gbwt::vector_type tm = {
+    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(1, false)), // dummy for 1-based indexing
+    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(1, false)),
+    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(2, false)),
+    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(3, false)),
+    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(4, false)),
+    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(5, false)),
+    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(6, false)),
+    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(7, false)),
+    static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(8, false)),
   };
   
-  vector<gbwt::node_type> t1_2_4_5_7 = {tm[1], tm[2], tm[4], tm[5], tm[7], gbwt::ENDMARKER};
-  vector<gbwt::node_type> t1_3_4_5_7 = {tm[1], tm[3], tm[4], tm[5], tm[7], gbwt::ENDMARKER};
-  vector<gbwt::node_type> t1_2_4_6_7 = {tm[1], tm[2], tm[4], tm[6], tm[7], gbwt::ENDMARKER};
-  vector<gbwt::node_type> t1_3_4_6_7 = {tm[1], tm[3], tm[4], tm[6], tm[7], gbwt::ENDMARKER};
-  vector<gbwt::node_type> t1_2_4_d_7 = {tm[1], tm[2], tm[4], tm[7], gbwt::ENDMARKER};
-  vector<gbwt::node_type> t1_3_4_d_7 = {tm[1], tm[3], tm[4], tm[7], gbwt::ENDMARKER};
+  gbwt::vector_type t1_2_4_5_7 = {tm[1], tm[2], tm[4], tm[5], tm[7], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
+  gbwt::vector_type t1_3_4_5_7 = {tm[1], tm[3], tm[4], tm[5], tm[7], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
+  gbwt::vector_type t1_2_4_6_7 = {tm[1], tm[2], tm[4], tm[6], tm[7], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
+  gbwt::vector_type t1_3_4_6_7 = {tm[1], tm[3], tm[4], tm[6], tm[7], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
+  gbwt::vector_type t1_2_4_d_7 = {tm[1], tm[2], tm[4], tm[7], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
+  gbwt::vector_type t1_3_4_d_7 = {tm[1], tm[3], tm[4], tm[7], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
   
-  vector<vector<gbwt::node_type> > haplotypes_to_add = {
+  vector<gbwt::vector_type> haplotypes_to_add = {
     t1_2_4_5_7,
     t1_2_4_5_7,
     t1_2_4_5_7,
@@ -480,7 +480,7 @@ TEST_CASE("We can score haplotypes using GBWT", "[haplo-score][gbwt]") {
   
   last_sum = hdpc.current_sum();
   
-  vector<gbwt::node_type> query_nodes = {tm[1], tm[2], tm[4]};
+  gbwt::vector_type query_nodes = {tm[1], tm[2], tm[4]};
   vector<size_t> query_node_lengths = {node_lengths[1], node_lengths[2], node_lengths[4]};
   haplo::gbwt_thread_t query(query_nodes, query_node_lengths);
   
@@ -518,7 +518,7 @@ TEST_CASE("We can recognize a required crossover", "[hapo-score][gbwt]") {
   gbwt::DynamicGBWT* gbwt_index = new gbwt::DynamicGBWT;
   
   // Populate a map from node ID to encoded GBWT node.
-  map<vg::id_t, gbwt::node_type> tm;
+  map<vg::id_t, gbwt::vector_type::value_type> tm;
   // And a map of node lengths
   map<vg::id_t, size_t> node_lengths;
   xg_index.for_each_handle([&](const vg::handle_t& here) {
@@ -527,10 +527,10 @@ TEST_CASE("We can recognize a required crossover", "[hapo-score][gbwt]") {
   });
   
   // Make the two threads
-  vector<gbwt::node_type> thread0 = {tm[1], tm[3], tm[4], tm[5], tm[7], tm[8], tm[10], tm[11], gbwt::ENDMARKER};
-  vector<gbwt::node_type> thread1 = {tm[1], tm[2], tm[3], tm[4], tm[5], tm[6], tm[8], tm[9], tm[11], gbwt::ENDMARKER};
+  gbwt::vector_type thread0 = {tm[1], tm[3], tm[4], tm[5], tm[7], tm[8], tm[10], tm[11], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
+  gbwt::vector_type thread1 = {tm[1], tm[2], tm[3], tm[4], tm[5], tm[6], tm[8], tm[9], tm[11], static_cast<gbwt::vector_type::value_type>(gbwt::ENDMARKER)};
   
-  vector<vector<gbwt::node_type> > haplotypes_to_add = {
+  vector<gbwt::vector_type > haplotypes_to_add = {
     thread0,
     thread1
   };
@@ -546,9 +546,9 @@ TEST_CASE("We can recognize a required crossover", "[hapo-score][gbwt]") {
   haplo::haploMath::RRMemo memo(9, 2);
   
   // Now we trace a haplotype that should match
-  vector<gbwt::node_type> should_match = {tm[1], tm[3], tm[4], tm[5], tm[7], tm[8], tm[10], tm[11]};
+  gbwt::vector_type should_match = {tm[1], tm[3], tm[4], tm[5], tm[7], tm[8], tm[10], tm[11]};
   //And one that should need a crossover
-  vector<gbwt::node_type> should_crossover = {tm[1], tm[3], tm[4], tm[5], tm[7], tm[8], tm[9], tm[11]};
+  gbwt::vector_type should_crossover = {tm[1], tm[3], tm[4], tm[5], tm[7], tm[8], tm[9], tm[11]};
   
   // initial node (same for both)
   size_t i = 0;
