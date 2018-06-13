@@ -8,6 +8,7 @@
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
+//#define debug_median_algorithm
 
 #include "multipath_mapper.hpp"
 #include "multipath_alignment_graph.hpp"
@@ -2924,6 +2925,13 @@ namespace vg {
             return a.first < b.first || (a.first == b.first && a.second > b.second);
         });
         
+#ifdef debug_median_algorithm
+        cerr << "intervals:" << endl;
+        for (const auto& interval : mem_intervals) {
+            cerr << "\t[" << interval.first << ", " << interval.second << ")" << endl;
+        }
+#endif
+        
         unordered_map<int64_t, int64_t> coverage_count;
         
         // a pointer to the read index we're currently at
@@ -2946,25 +2954,41 @@ namespace vg {
         for (size_t i = 0; i < mem_intervals.size(); i++) {
             pair<int64_t, int64_t>& interval = mem_intervals[i];
             
+#ifdef debug_median_algorithm
+            cerr << "iter for interval [" << interval.first << ", " << interval.second << "), starting at " << at << endl;
+#endif
+            
             if (interval.second > curr_smem_end) {
                 // we're in a MEM that covers distinct sequence from the current SMEM, so this is
                 // a new SMEM (because of sort order)
                 curr_smem_end = interval.second;
                 curr_smem_hit_count = 1;
+#ifdef debug_median_algorithm
+                cerr << "\tthis is a new SMEM" << endl;
+#endif
             }
             else if (interval.second == curr_smem_end) {
                 // this is another hit of the same SMEM, increase the count
                 curr_smem_hit_count++;
+#ifdef debug_median_algorithm
+                cerr << "\tthis is a repeat of the current SMEM" << endl;
+#endif
             }
             else if (interval.second < curr_smem_end && skipped_sub_mems[interval] < curr_smem_hit_count) {
                 // we're in a MEM that covers a strict subinterval of the current SMEM, so skip
                 // one sub-MEM per hit of the SMEM on the assumption that it's redundant
                 skipped_sub_mems[interval]++;
+#ifdef debug_median_algorithm
+                cerr << "\tthis is a sub-MEM we must skip" << endl;
+#endif
                 continue;
             }
             
             // add the coverage of any segments that come before the start of this interval
             while (ends.empty() ? false : ends.top() <= interval.first) {
+#ifdef debug_median_algorithm
+                cerr << "\ttraversing interval end at " << ends.top() << " adding " << ends.top() - at << " to depth " << depth << endl;
+#endif
                 coverage_count[depth] += ends.top() - at;
                 at = ends.top();
                 ends.pop();
@@ -2972,7 +2996,9 @@ namespace vg {
                 // an interval is leaving scope, decrement the depth
                 depth--;
             }
-            
+#ifdef debug_median_algorithm
+            cerr << "\ttraversing pre-interval segment staring from " << at << " adding " << interval.first - at << " to depth " << depth << endl;
+#endif
             coverage_count[depth] += interval.first - at;
             
             at = interval.first;
@@ -2983,6 +3009,9 @@ namespace vg {
         
         // run through the rest of the ends
         while (!ends.empty()) {
+#ifdef debug_median_algorithm
+            cerr << "\ttraversing interval end at " << ends.top() << " adding " << ends.top() - at << " to depth " << depth << endl;
+#endif
             coverage_count[depth] += ends.top() - at;
             at = ends.top();
             ends.pop();
@@ -2996,11 +3025,22 @@ namespace vg {
         // convert it into a CDF over read coverage
         vector<pair<int64_t, int64_t>> cumul_coverage_count(coverage_count.begin(), coverage_count.end());
         sort(cumul_coverage_count.begin(), cumul_coverage_count.end());
+        
+#ifdef debug_median_algorithm
+        cerr << "\tcoverage distr is: " ;
+        for (const auto& record : cumul_coverage_count) {
+            cerr << record.first << ":" << record.second << "  ";
+        }
+        cerr << endl;
+#endif
+        
         int64_t cumul = 0;
         for (pair<int64_t, int64_t>& coverage_record : cumul_coverage_count) {
             coverage_record.second += cumul;
             cumul = coverage_record.second;
         }
+        
+
         
         // bisect to find the median
         int64_t target = aln.sequence().size() / 2;
@@ -3020,6 +3060,9 @@ namespace vg {
                 low = mid;
             }
         }
+#ifdef debug_median_algorithm
+        cerr << "\tmedian is " << cumul_coverage_count[hi].first << endl;
+#endif
         return cumul_coverage_count[hi].first;
     }
     

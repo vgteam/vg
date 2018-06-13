@@ -164,7 +164,7 @@ int main_mpmap(int argc, char** argv) {
     bool precollapse_order_length_hits = true;
     int max_sub_mem_recursion_depth = 1;
     int max_map_attempts_arg = 0;
-    int secondary_rescue_subopt_diff = 10;
+    int secondary_rescue_subopt_diff = 25;
     
     int c;
     optind = 2; // force optind past command positional argument

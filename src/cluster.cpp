@@ -5,7 +5,7 @@
 
 #include "cluster.hpp"
 
-#define debug_od_clusterer
+//#define debug_od_clusterer
 
 using namespace std;
 using namespace structures;
