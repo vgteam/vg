@@ -535,7 +535,7 @@ namespace vg {
                         // in the future, we'll build out VCF lib to fix this.
                         // TODO build out vcflib to fix this.
                         if (parsed_clump[variant].size() > 1) {
-                            cerr << "ERROR [vg construct]: Multiallelic SVs encountered: " << *variant << endl;
+                            cerr << "error:[vg::Constructor]: Multiallelic SVs encountered: " << *variant << endl;
                             throw runtime_error("Multi-allelic SVs are not currently supported");
                         }
                     }
@@ -698,7 +698,7 @@ namespace vg {
                                 inversion_ends[inv_end].insert(inv_start - 1);
                             } else {
                                 // What even is this?
-                                cerr << "WARNING: [vg construct]: unrecognized SV type " << sv_type << endl;
+                                cerr << "warning:[vg::Constructor]: unrecognized SV type " << sv_type << endl;
                             }
                         } else {
                             // This is not an SV
@@ -1439,8 +1439,14 @@ namespace vg {
             bool variant_acceptable = true;
             if (do_svs) {
                 variant_acceptable = vvar->canonicalize_sv(reference, insertions, true, -1);
-               // now called implicitly in canonicalize: vvar->set_insertion_sequences(insertions);
-                
+                // now called implicitly in canonicalize: vvar->set_insertion_sequences(insertions);
+               
+                if(vvar->is_sv() && vvar->alt.size() > 1) {
+                    // We can't handle multiallelic SVs yet.
+                    #pragma omp critical (cerr)
+                    cerr << "warning:[vg::Constructor] Unsupported multiallelic SV being skipped: " << *vvar << endl;
+                    variant_acceptable = false;
+                }
             }
 
             for (string& alt : vvar->alt) {
