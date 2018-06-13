@@ -534,8 +534,10 @@ namespace vg {
                         // For now, only permit one allele for SVs
                         // in the future, we'll build out VCF lib to fix this.
                         // TODO build out vcflib to fix this.
-                        cerr << "ERROR [vg construct]: Multiallelic SVs encountered: " << *variant << endl;
-                        throw runtime_error("Multi-allelic SVs are not currently supported");
+                        if (parsed_clump[variant].size() > 1) {
+                            cerr << "ERROR [vg construct]: Multiallelic SVs encountered: " << *variant << endl;
+                            throw runtime_error("Multi-allelic SVs are not currently supported");
+                        }
                     }
                 
                     // Get the variable bounds in VCF space for all the trimmed alts of this variant
