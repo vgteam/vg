@@ -2052,7 +2052,11 @@ bool XG::path_contains_node(const string& name, int64_t id) const {
 }
 
 vector<size_t> XG::paths_of_node(int64_t id) const {
-    size_t off = np_bv_select(id_to_rank(id));
+    auto rank = id_to_rank(id);
+    if (rank == 0) {
+        throw runtime_error("Tried to get paths of nonexistent node " + to_string(id));
+    }
+    size_t off = np_bv_select(rank);
     assert(np_bv[off++]);
     vector<size_t> path_ranks;
     while (off < np_bv.size() ? np_bv[off] == 0 : false) {
