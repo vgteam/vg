@@ -276,6 +276,10 @@ namespace vg {
         /// multipath alignments
         bool share_terminal_positions(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
+        /// Returns the median coverage of bases in the reads by bases in the cluster, attempts to remove apparent
+        /// redundant sub-MEMs
+        size_t median_mem_coverage(const memcluster_t& mem_hits, const Alignment& aln) const;
+        
         /// Get a thread_local RRMemo with these parameters
         haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;
         

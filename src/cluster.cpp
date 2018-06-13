@@ -5,7 +5,7 @@
 
 #include "cluster.hpp"
 
-//#define debug_od_clusterer
+#define debug_od_clusterer
 
 using namespace std;
 using namespace structures;
@@ -481,8 +481,14 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
 #ifdef debug_od_clusterer
     for (const auto& strand : strand_relative_position) {
         cerr << "strand reconstruction: "  << endl;
+        vector<size_t> order;
         for (const auto& record : strand) {
-            cerr << "\t" << record.first << ": " << record.second << "\t" << nodes[record.first].mem->sequence() << endl;
+            order.push_back(record.first);
+        }
+        sort(order.begin(), order.end(), [&](size_t a, size_t b) {return strand.at(a) < strand.at(b);});
+        for (const auto i : order) {
+            int64_t strand_pos = strand.at(i);
+            cerr << "\t" << i << ":\t" << strand_pos << "\t" << nodes[i].mem->sequence() << endl;
         }
     }
 #endif
