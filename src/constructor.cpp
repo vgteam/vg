@@ -1441,7 +1441,7 @@ namespace vg {
             for (string& alt : vvar->alt) {
                 // Validate each alt of the variant
 
-                if(!allATGC(alt)) {
+                if(!allATGCN(alt)) {
                     // It may be a symbolic allele or something. Skip this variant.
                     variant_acceptable = false;
                     #pragma omp critical (cerr)
