@@ -542,10 +542,10 @@ namespace vg {
                         // For now, only permit one allele for SVs
                         // in the future, we'll build out VCF lib to fix this.
                         // TODO build out vcflib to fix this.
-                        if (parsed_clump[variant].size() > 1) {
-                            // We already have code to warn and skip these, so if one makes it in here it's an error.
-                            throw runtime_error("Multi-allelic SVs are not currently supported");
-                        }
+                        
+                        // We need to make sure parsed_clump[variant] has an entry for each allele.
+                        // But the contents won't matter since this is an SV.
+                        parsed_clump[variant].resize(variant->alt.size());
                     }
                 
                     // Get the variable bounds in VCF space for all the trimmed alts of this variant
@@ -610,6 +610,10 @@ namespace vg {
                     // For each variant in the clump, sorted by name
                     auto& variant_name = kv.first;
                     auto* variant = kv.second;
+                    
+                    #ifdef debug
+                    cerr << "Process variant " << variant_name << " with " << parsed_clump[variant].size() << " alts" << endl;
+                    #endif
 
                     if (alt_paths) {
                         // Declare its ref path straight away.
@@ -634,7 +638,12 @@ namespace vg {
 
                         // SV HAX
                         if (variant->is_sv()) {
-                            // This variant needs to be processed as an SV
+                            // This variant needs to be processed as an SV.
+                            
+                            // We will ignore parsed_clump, but we still need it
+                            // to have empty entries for the alt alleles to
+                            // trigger the outer loop.
+                            
                             #ifdef debug
                             cerr << "Process alt " << (alt_index + 1) << " of variant " << variant_name << " as an SV" << endl;
                             #endif
