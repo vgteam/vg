@@ -472,8 +472,22 @@ namespace vg {
                     // completely cover the alt, and some of them may be perfect
                     // matches to stretches of reference sequence. Note that the
                     // reference allele of the variant won't appear here.
-                    map<string, vector<vcflib::VariantAllele>> alternates = flat ? variant->flatAlternates() :
+                    map<string, vector<vcflib::VariantAllele>> alternates;
+                    if (flat) {
+                        alternates = variant->flatAlternates();
+                        // if we can, remove the 1bp "standard" base that's added at the beginning of indels
+                        for (auto& v : alternates) {
+                            for (auto& a : v.second) {
+                                if (a.ref[0] == a.alt[0]) {
+                                    a.ref = a.ref.substr(1);
+                                    a.alt = a.alt.substr(1);
+                                    ++a.position;
+                                }
+                            }
+                        }
+                    } else {
                         variant->parsedAlternates();
+                    }
                     if (!variant->is_sv()){
                         //map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
                         //auto alternates = use_flat_alts ? variant.flatAlternates() : variant.parsedAlternates();
