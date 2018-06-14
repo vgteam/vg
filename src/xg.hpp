@@ -195,12 +195,7 @@ public:
     /// 3: start to start
     /// 4: start to end
     Edge edge_from_encoding(int64_t from, int64_t to, int type, bool on_start_side) const;
-//    Edge edge_from_encoding(int64_t from, int64_t to, int type) const;
     void idify_graph(Graph& graph) const;
-    
-    /// a numerical code for the edge type (based on the two reversal flags)
-//    int edge_type(bool from_start, bool to_end, bool from_to) const;
-//    int edge_type(const Edge& edge) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Here is the handle graph API
@@ -251,11 +246,11 @@ public:
 
     // expand by steps (original and default)
     void expand_context_by_steps(Graph& g, size_t steps, bool add_paths = true,
-                                 bool expand_forward = true, bool expand_backward = true,
+                                 bool expand_forward = true, bool expand_start_side = true,
                                  int64_t until_node = 0) const;
     // expand by length
     void expand_context_by_length(Graph& g, size_t length, bool add_paths = true,
-                                  bool expand_forward = true, bool expand_backward = true,
+                                  bool expand_end_side = true, bool expand_start_side = true,
                                   int64_t until_node = 0) const;
     // get the nodes one step from the graph
     void get_connected_nodes(Graph& g) const;
@@ -612,12 +607,6 @@ private:
     // And some masks
     const static size_t HIGH_BIT = (size_t)1 << 63;
     const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
-    
-    /// This is a utility function for the edge exploration. It says whether we
-    /// want to visit an edge depending on its type, whether we're the to or
-    /// from node, whether we want to look left or right, and whether we're
-    /// forward or reverse on the node.
-    bool edge_filter(int type, bool is_to, bool want_left, bool is_reverse) const;
     
     // This loops over the given number of edge records for the given g node,
     // starting at the given start g vector position. For all the edges that are

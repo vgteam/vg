@@ -158,7 +158,6 @@ void XG::load(istream& in) {
                 sdsl::read_member(edge_count, in);
                 sdsl::read_member(path_count, in);
                 size_t entity_count = node_count + edge_count;
-                //cerr << sequence_length << ", " << node_count << ", " << edge_count << endl;
                 sdsl::read_member(min_id, in);
                 sdsl::read_member(max_id, in);
                 
@@ -176,7 +175,6 @@ void XG::load(istream& in) {
                     g_bv_select.load(in, &g_bv);
                 }
                 else{ // if old file version, change edge encoding
-                    cerr << endl << endl << "DOES THIS OCCUR?" << endl << endl;
                     int_vector<> g_iv_old;
                     bit_vector g_bv_old;
                     rank_support_v<1> g_bv_rank_old;
@@ -312,14 +310,10 @@ void XG::convert_old_edge_to_new(int_vector<> g_iv_old, bit_vector g_bv_old, ran
             i += 2;
         }
     }
-    cerr << "doubly_reversing_sides" << doubly_reversing_sides<<" "<< doubly_reversing_sides/2 << endl;
-    cerr << "G_EDGE_LENGTH"<< G_EDGE_LENGTH << endl;
-    cerr << "edge_count"<< edge_count << endl;
     // Now find size of the new g_iv and remove doubly reversing sides
     size_t g_iv_size =
         node_count * G_NODE_HEADER_LENGTH // record headers
         + edge_count * 2 * G_EDGE_LENGTH - doubly_reversing_sides/2 * G_EDGE_LENGTH; // edges (stored twice)
-    cerr << "g_iv_old_size " <<g_iv_old_size <<  " g_iv_size " << g_iv_size << endl;
     int z = 0;
     util::assign(g_iv, int_vector<>(g_iv_size));
     util::assign(g_bv, bit_vector(g_iv_size));
@@ -341,7 +335,6 @@ void XG::convert_old_edge_to_new(int_vector<> g_iv_old, bit_vector g_bv_old, ran
         // to side
         for (int64_t j = t; j < f; ) {
             int length = g_iv_old[j];
-            cerr << "length" << length<< endl;
             int edge_type = g_iv_old[j+1];
             vector<side_t> temp;
             if (length>0){
@@ -435,10 +428,6 @@ void XG::convert_old_edge_to_new(int_vector<> g_iv_old, bit_vector g_bv_old, ran
     }
     util::assign(g_bv_rank, rank_support_v<1>(&g_bv));
     util::assign(g_bv_select, bit_vector::select_1_type(&g_bv));
-//    for (int64_t i = 0; i < g_iv_size; i++) {
-//        cerr << (int64_t)g_iv[i] << " ";
-//    }
-    cerr << endl;
 }
 
 void XGPath::load(istream& in, uint32_t file_version, const function<int64_t(size_t)>& rank_to_id) {
@@ -893,7 +882,6 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
             exit(1);
         }
     }
-    //cerr << "doubly_reversing_sides" << doubly_reversing_sides << endl;
     build(node_label, path_nodes, validate_graph, print_graph,
         store_threads, is_sorted_dag, start_side, end_side, doubly_reversing_sides);
     
@@ -988,18 +976,14 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         size_t from_edge_count_idx = g++;
         // write the edges in id-based format
         // we will next convert these into relative format
-        //cerr << endl<< "n.id() "<< n.id() << endl;
         for (auto end : { false, true }) {
             auto& s_sides = start_side[make_side(n.id(), end)];
             for (auto& e : s_sides) {
-                //cerr << "start_side e " << e << " side_id(e) "<< side_id(e) << endl;
                 g_iv[g++] = side_id(e);
                 if (e<0){
-                    //cerr << "edge type " << 0 << endl;
                     g_iv[g++] = 0;
                 }
                 else {
-                    //cerr << "edge type " << 1 << endl;
                     g_iv[g++] = 1;
                 }
                 ++to_edge_count;
@@ -1009,14 +993,11 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         for (auto end : { false, true }) {
             auto& e_sides = end_side[make_side(n.id(), end)];
             for (auto& e : e_sides) {
-                //cerr << "end_side e " << e << " side_id(e) "<< side_id(e) << endl;
                 g_iv[g++] = side_id(e);
                 if (e<0){
-                    //cerr << "edge type " << 0 << endl;
                     g_iv[g++] = 0;
                 }
                 else {
-                    //cerr << "edge type " << 1 << endl;
                     g_iv[g++] = 1;
                 }
                 ++from_edge_count;
@@ -1047,10 +1028,6 @@ void XG::build(vector<pair<id_t, string> >& node_label,
             j += 2;
         }
     }
-//    for (int64_t i = 0; i < g_iv_size; i++) {
-//        cerr << (int64_t)g_iv[i] << " ";
-//    }
-//    cerr << endl;
     sdsl::util::clear(i_iv);
     util::bit_compress(g_iv);
 
@@ -1660,30 +1637,6 @@ int64_t XG::rank_to_id(size_t rank) const {
     return g_iv[g_bv_select(rank)];
 }
 
-//int XG::edge_type(bool from_start, bool to_end, bool from_to) const {
-//    if (from_start && to_end) {
-//        return 4;
-//    } else if (from_start) {
-//        return 3;
-//    } else if (to_end) {
-//        return 2;
-//    } else {
-//        return 1;
-//    }
-//}
-//
-//int XG::edge_type(const Edge& edge) const {
-//    if (edge.from_start() && edge.to_end()) {
-//        return 4;
-//    } else if (edge.from_start()) {
-//        return 3;
-//    } else if (edge.to_end()) {
-//        return 2;
-//    } else {
-//        return 1;
-//    }
-//}
-
 Edge XG::edge_from_encoding(int64_t from, int64_t to, int type, bool on_start_side) const {
     Edge edge;
     edge.set_from(from);
@@ -1706,23 +1659,6 @@ Edge XG::edge_from_encoding(int64_t from, int64_t to, int type, bool on_start_si
             assert(false);
             break;
     }
-//    switch (type) {
-//    case 1:
-//        break;
-//    case 2:
-//        edge.set_to_end(true);
-//        break;
-//    case 3:
-//        edge.set_from_start(true);
-//        break;
-//    case 4:
-//        edge.set_from_start(true);
-//        edge.set_to_end(true);
-//        break;
-//    default:
-//        assert(false);
-//        break;
-//    }
     return edge;
 }
 
@@ -1889,31 +1825,6 @@ string XG::get_sequence(const handle_t& handle) const {
     }
 }
 
-// not using anymore
-bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) const {
-    // Return true if we want an edge of the given type, where we are the from
-    // or to node (according to is_to), when we are looking off the right or
-    // left side of the node (according to want_left), and when the node is
-    // forward or reverse (accoridng to is_reverse).
-    
-    // Edge type encoding:
-    // 1: end to start
-    // 2: end to end
-    // 3: start to start
-    // 4: start to end
-    
-    // First compute what we want looking off the right of a node in the forward direction.
-    // bool wanted = !is_to && (type == 1 || type == 2) || is_to && (type == 2 || type == 4);
-    bool new_wanted = !is_to && (type == 0) || is_to && (type == 1);
-    // We computed whether we wanted it assuming we were looking off the right. The complement is what we want looking off the left.
-    // wanted = wanted != want_left;
-    new_wanted = new_wanted != want_left;
-    // We computed whether we wanted ot assuming we were in the forward orientation. The complement is what we want in the reverse orientation.
-    // wanted = wanted != is_reverse;
-    new_wanted = new_wanted != is_reverse;
-    return new_wanted;
-}
-
 bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, bool is_start,
     bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee) const {
     
@@ -1925,19 +1836,15 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
         // Make sure we got a valid edge type and we haven't wandered off into non-edge data.
         assert(type >= 0);
         assert(type <= 1);
-        // cerr << "type " << type << " is_start " << is_start << " want_left " << want_left << " is_reverse " << is_reverse << endl;
-        // if (edge_filter(type, is_to, want_left, is_reverse)) {
             
         // What's the offset to the other node?
         int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
-        //cerr << "True offset " << offset << " g " << g << endl;
         // Make sure we haven't gone off the rails into non-edge data.
         assert((int64_t) g + offset >= 0);
         assert(g + offset < g_iv.size());
         
         // Should we invert?
         // We only invert if we cross an end to end edge. Or a start to start edge
-        // bool new_reverse = is_reverse != (type == 2 || type == 3);
         bool new_reverse = is_reverse != ((is_start && (type == 0)) || (!is_start && (type == 1)));
         
         // Compose the handle for where we are going
@@ -1949,14 +1856,6 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
             // Stop iterating
             return false;
         }
-//        }
-//        else {
-//            // TODO: delete this after using it to debug
-//            int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
-//            //bool new_reverse = is_reverse != (type == 2 || type == 3);
-//            bool new_reverse = is_reverse != !is_to && (type == 0) || is_to && (type == 1);
-//            handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
-//        }
     }
     // Iteratee didn't stop us.
     return true;
@@ -1976,7 +1875,6 @@ bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     size_t from_start = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
     
     if (!is_reverse == go_left || is_reverse == !go_left) {
-        //do_edges(const size_t& g, const size_t& start, const size_t& count, bool is_start, bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee)
         // this is start side
         return do_edges(g, to_start, edges_to_count, true, go_left, is_reverse, iteratee);
     }
@@ -1984,13 +1882,6 @@ bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
         // this is end side
         return do_edges(g, from_start, edges_from_count, false, go_left, is_reverse, iteratee);
     }
-//    // We will look for all the edges on the appropriate side, which means we have to check the from and to edges
-//    if (do_edges(g, to_start, edges_to_count, true, go_left, is_reverse, iteratee)) {
-//        // All the edges where we're to were accepted, so do the edges where we're from
-//        return do_edges(g, from_start, edges_from_count, false, go_left, is_reverse, iteratee);
-//    } else {
-//        return false;
-//    }
 }
 
 void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
@@ -2371,20 +2262,18 @@ void XG::neighborhood(int64_t id, size_t dist, Graph& g, bool use_steps) const {
 }
 
 void XG::expand_context(Graph& g, size_t dist, bool add_paths, bool use_steps,
-                        bool expand_forward, bool expand_backward,
+                        bool expand_end_side, bool expand_start_side,
                         int64_t until_node) const {
     if (use_steps) {
-        expand_context_by_steps(g, dist, add_paths, expand_forward, expand_backward, until_node);
+        expand_context_by_steps(g, dist, add_paths, expand_end_side, expand_start_side, until_node);
     } else {
-        expand_context_by_length(g, dist, add_paths, expand_forward, expand_backward, until_node);
+        expand_context_by_length(g, dist, add_paths, expand_end_side, expand_start_side, until_node);
     }
 }
 
 void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
-                                 bool expand_forward, bool expand_backward,
+                                 bool expand_end_side, bool expand_start_side,
                                  int64_t until_node) const {
-//    cerr << "here" << g.node_size() << " " << g.edge_size() << endl;
-//    cerr << "expand_forward " << expand_forward << " expand_backward " << expand_backward << endl;
     map<int64_t, Node*> nodes;
     map<pair<side_t, side_t>, Edge*> edges;
     set<int64_t> to_visit;
@@ -2408,27 +2297,23 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
         for (auto id : to_visit) {
             // build out the graph
             // if we have nodes we haven't seen
-//            cerr << "id" << id << endl;
             if (nodes.find(id) == nodes.end()) {
                 Node* np = g.add_node();
                 nodes[id] = np;
                 *np = node(id);
             }
             vector<Edge> edges_todo;
-            // Jordan: to and and from do not indicate the same thing as forward and backward
-            if (expand_forward && expand_backward) {
+            if (expand_end_side && expand_start_side) {
                 edges_todo = edges_of(id);
-            } else if (expand_forward) {
+            } else if (expand_end_side) {
                 edges_todo = edges_from(id);
-            } else if (expand_backward) {
+            } else if (expand_start_side) {
                 edges_todo = edges_to(id);
             } else {
-                cerr << "[xg] error: Requested neither forward no backward context expansion" << endl;
+                cerr << "[xg] error: Requested neither start side nor end side context expansion" << endl;
                 exit(1);
             }
             for (auto& edge : edges_todo) {
-//                cerr << edge.from() <<" "<< edge.from_start() <<" "<< edge.to() <<" "<< edge.to_end() << endl;
-                // Jordan: this representation is non-canonical
                 auto sides = make_pair(make_side(edge.from(), edge.from_start()),
                                        make_side(edge.to(), edge.to_end()));
                 if (edges.find(sides) == edges.end()) {
@@ -2475,13 +2360,8 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
     // subgraph, because there might be edges connecting the nodes you have that
     // you don't see.
     for(auto& n : last_step_nodes) {
-//        cerr << "n" << n << endl;
-        // Jordan: this should look at all edges, not edges from
         for (auto& edge : edges_from(n)) {
-//            cerr <<"edge.to() "<< edge.to() << " last_step_nodes.count(edge.to()) " << last_step_nodes.count(edge.to()) << endl;
-//            cerr << to_visit.count(edge.to()) << endl;
             if(last_step_nodes.count(edge.to())) {
-//                cerr << edge.from() <<" "<< edge.from_start() <<" "<< edge.to() <<" "<< edge.to_end()  << endl;
                 // This edge connects two nodes that were added on the last
                 // step, and so wouldn't have been found by the main loop.
                 
@@ -2496,12 +2376,8 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
                 }
             }
         }
-        // Emily: let's try adding the to_edges to see if that fixes stuff
         for (auto& edge : edges_to(n)) {
-//            cerr <<"edge.from() "<< edge.from() << " last_step_nodes.count(edge.from()) " << last_step_nodes.count(edge.from()) << endl;
-//            cerr << to_visit.count(edge.from()) << endl;
             if(last_step_nodes.count(edge.from())) {
-//                cerr << edge.to() <<" "<< edge.to_end() <<" "<< edge.from() <<" "<< edge.from_start()  << endl;
                 // This edge connects two nodes that were added on the last
                 // step, and so wouldn't have been found by the main loop.
                 
@@ -2526,7 +2402,7 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
 }
 
 void XG::expand_context_by_length(Graph& g, size_t length, bool add_paths,
-                                  bool expand_forward, bool expand_backward,
+                                  bool expand_end_side, bool expand_start_side,
                                   int64_t until_node) const {
 
     // map node_id --> min-distance-to-left-side, min-distance-to-right-side
@@ -2560,14 +2436,14 @@ void XG::expand_context_by_length(Graph& g, size_t length, bool add_paths,
         pair<int64_t, int64_t> dists = node_table[id];
         if (dists.first < length || dists.second < length) {
             vector<Edge> edges_todo;
-            if (expand_forward && expand_backward) {
+            if (expand_end_side && expand_start_side) {
                 edges_todo = edges_of(id);
-            } else if (expand_forward) {
+            } else if (expand_end_side) {
                 edges_todo = edges_from(id);
-            } else if (expand_backward) {
+            } else if (expand_start_side) {
                 edges_todo = edges_to(id);
             } else {
-                cerr << "[xg] error: Requested neither forward no backward context expansion" << endl;
+                cerr << "[xg] error: Requested neither start side nor end side context expansion" << endl;
                 exit(1);
             }
             for (auto& edge : edges_todo) {
