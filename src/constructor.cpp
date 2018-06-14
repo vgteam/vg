@@ -350,7 +350,15 @@ namespace vg {
 
             // Don't get out of the chunk
             assert(target_position <= reference_sequence.size());
-            assert(target_position >= reference_cursor);
+            assert(reference_cursor <= reference_sequence.size());
+            
+            if (target_position < reference_cursor) {
+                // TODO: should this ever happen? Should we be asked to go backward?
+                #ifdef debug
+                cerr << "Nothing to do! Already sufficient reference!" << endl;
+                #endif
+                return;
+            }
 
             // Make new nodes for all the sequence we want to add
             auto new_nodes = create_nodes(reference_sequence.substr(reference_cursor, target_position - reference_cursor));
@@ -535,7 +543,7 @@ namespace vg {
                         // in the future, we'll build out VCF lib to fix this.
                         // TODO build out vcflib to fix this.
                         if (parsed_clump[variant].size() > 1) {
-                            cerr << "error:[vg::Constructor]: Multiallelic SVs encountered: " << *variant << endl;
+                            // We already have code to warn and skip these, so if one makes it in here it's an error.
                             throw runtime_error("Multi-allelic SVs are not currently supported");
                         }
                     }
@@ -556,6 +564,15 @@ namespace vg {
                         // Save the bounds for making reference node path visits
                         // inside the ref allele of the variable region.
                         variable_bounds[variant] = bounds;
+
+                        #ifdef debug
+                        if (bounds.first < first_edit_start) {
+                            cerr << "Expanded first_edit_start to " << bounds.first << " with " << *variant << endl;
+                        }
+                        if (bounds.second > last_edit_end) {
+                            cerr << "Expanded last_edit_end to " << bounds.second << " with " << *variant << endl;
+                        }
+                        #endif
 
                         // Expand bounds for the variable region of the chunk as a whole
                         first_edit_start = min(first_edit_start, bounds.first);
@@ -808,6 +825,10 @@ namespace vg {
                     // If nothing else, we're going to break at the end of the last
                     // edit in the clump.
                     size_t to_return = last_edit_end;
+                    
+                    #ifdef debug
+                    cerr << "Next breakpoint must be at or before " << last_edit_end << endl;
+                    #endif
 
                     // See if any nodes are registered as starting after our
                     // position. They'll all start before the end of the clump, and
@@ -819,6 +840,9 @@ namespace vg {
                         // If we found something, walk back where the breakpoint
                         // needs to be so we break before that node starts.
                         to_return = min(to_return, next_start_iter->first - 1);
+                        #ifdef debug
+                        cerr << "Next node starts at " << next_start_iter->first - 1 << endl;
+                        #endif
                     }
 
                     // See if any nodes are registered as ending at or after our
@@ -830,6 +854,9 @@ namespace vg {
                         // If we found something, we need to break where that node
                         // ends.
                         to_return = min(to_return, next_end_iter->first );
+                        #ifdef debug
+                        cerr << "Next node ends at " << next_end_iter->first << endl;
+                        #endif
                     }
 
                     // See if any deletions are registered as ending after here.
@@ -842,6 +869,9 @@ namespace vg {
                         // needs to be so we break before the node after the
                         // deletion starts.
                         to_return = min(to_return, deletion_end_iter->first - 1);
+                        #ifdef debug
+                        cerr << "Next deletion ends at " << deletion_end_iter->first - 1 << endl;
+                        #endif
                     }
 
                     // See if any deletions are known to start at or after this
@@ -856,6 +886,9 @@ namespace vg {
                         // needs to be so we break at the position the deletion
                         // needs to leave from.
                         to_return = min(to_return, (size_t)*deletion_start_iter);
+                        #ifdef debug
+                        cerr << "Next deletion starts at " << *deletion_start_iter << endl;
+                        #endif
                     }
 
                     // Check to see if any inversions happen past this point
@@ -863,12 +896,22 @@ namespace vg {
                     auto inv_end_iter = inversion_ends.upper_bound(position);
                     if (inv_end_iter != inversion_ends.end()){
                         to_return = min(to_return, (size_t) inv_end_iter->first - 1);
+                        #ifdef debug
+                        cerr << "Next inversion ends at " << inv_end_iter->first - 1 << endl;
+                        #endif
                     }
 
                     auto inv_start_iter = inversion_starts.lower_bound(position);
                     if (inv_start_iter != inversion_starts.end()){
                         to_return = min(to_return, (size_t) inv_start_iter->first);
+                        #ifdef debug
+                        cerr << "Next inversion starts at " << inv_start_iter->first << endl;
+                        #endif
                     }
+                    
+                    #ifdef debug
+                    cerr << "Selected " << to_return << " as breakpoint" << endl;
+                    #endif
 
                     return to_return;
 
@@ -885,6 +928,14 @@ namespace vg {
 
                     // Find where the next node run must end to attach to stuff
                     size_t next_end = next_breakpoint_after(reference_cursor);
+                    
+                    #ifdef debug
+                    cerr << "Creating reference nodes from " << reference_cursor << " out to "
+                        << next_end << "/" << reference_sequence.size() << endl;
+                    #endif
+                    
+                    assert(reference_cursor <= reference_sequence.size());
+                    assert(next_end <= reference_sequence.size());
 
                     // We need to have a reference node/run of nodes (which may have
                     // already been created by a reference match) between where the
@@ -943,6 +994,8 @@ namespace vg {
 
                     // Advance the reference cursor to after this run of reference nodes
                     reference_cursor = next_end + 1;
+                    
+                    assert(reference_cursor <= reference_sequence.size());
 
                     // Keep going until we have created reference nodes through to
                     // the end of the clump's interior edits.
@@ -1435,20 +1488,42 @@ namespace vg {
             // While we have variants we want to include
             auto vvar = variant_source.get();
 
-            //bool variant_acceptable = !vvar->is_sv();
+            // We need to decide if we want to use this variant. By default we will use all variants.
             bool variant_acceptable = true;
-            if (do_svs) {
-                variant_acceptable = vvar->canonicalize_sv(reference, insertions, true, -1);
-                // now called implicitly in canonicalize: vvar->set_insertion_sequences(insertions);
-               
-                if(vvar->is_sv() && vvar->alt.size() > 1) {
-                    // We can't handle multiallelic SVs yet.
-                    #pragma omp critical (cerr)
-                    cerr << "warning:[vg::Constructor] Unsupported multiallelic SV being skipped: " << *vvar << endl;
+            
+            if (vvar->is_sv()) {
+                if (do_svs) {
+                    // Canonicalize the variant and see if that disqualifies it.
+                    // This also takes care of setting the variant's insertion sequences.
+                    variant_acceptable = vvar->canonicalize_sv(reference, insertions, true, -1);
+                    
+                    if (variant_acceptable) {
+                        // Worth checking for multiple alts.
+                        if (vvar->alt.size() > 1) {
+                            // We can't handle multiallelic SVs yet.
+                            #pragma omp critical (cerr)
+                            cerr << "warning:[vg::Constructor] Unsupported multiallelic SV being skipped: " << *vvar << endl;
+                            variant_acceptable = false;
+                        }
+                    }
+                    
+                    if (variant_acceptable) {
+                        // Worth checking for bounds problems.
+                        // We have seen VCFs where the variant positions are on GRCh38 but the END INFO tags are on GRCh37.
+                        auto bounds = get_bounds(*vvar, true);
+                        if (bounds.second < bounds.first) {
+                            #pragma omp critical (cerr)
+                            cerr << "warning:[vg::Constructor] SV with end position before start being skipped (check liftover?): "
+                                << *vvar << endl;
+                            variant_acceptable = false;
+                        }
+                    }
+                } else {
+                    // This is a structural variant and we are not doing those this time
                     variant_acceptable = false;
                 }
             }
-
+            
             for (string& alt : vvar->alt) {
                 // Validate each alt of the variant
 
