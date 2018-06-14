@@ -107,6 +107,7 @@ namespace vg {
         size_t rescue_only_anchor_max = 16;
         size_t order_length_repeat_hit_max = 0;
         int32_t secondary_rescue_subopt_diff = 10;
+        size_t min_median_mem_coverage_for_split = 2;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -276,12 +277,9 @@ namespace vg {
         /// multipath alignments
         bool share_terminal_positions(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
-        /// Returns the median coverage of bases in the reads by bases in the cluster, attempts to remove apparent
-        /// redundant sub-MEMs
-        size_t median_mem_coverage(const memcluster_t& mem_hits, const Alignment& aln) const;
         
         /// Get a thread_local RRMemo with these parameters
-        haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;
+        haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;;
         
         /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also
         /// inverts the distances in the cluster pairs vector according to the strand

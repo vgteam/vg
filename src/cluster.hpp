@@ -357,6 +357,10 @@ private:
     /// Perform dynamic programming and store scores in nodes
     void perform_dp();
     
+    /// Returns the median coverage of bases in the reads by bases in the cluster, attempts to remove apparent
+    /// redundant sub-MEMs
+    size_t median_mem_coverage(const vector<size_t>& component, const Alignment& aln) const;
+    
     vector<ODNode> nodes;
     
     const Aligner* aligner;
