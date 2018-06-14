@@ -147,17 +147,6 @@ namespace vg {
         }
     }
 
-    pair<int64_t, int64_t> Constructor::get_bounds(vcflib::Variant var, bool use_flat_alts){
-        int64_t start = numeric_limits<int64_t>::max();
-        int64_t end = -1;
-        if (var.is_sv()){
-            start = min(start, (int64_t) var.position);
-            end = max(end, (int64_t) var.get_sv_end(0));
-            return std::make_pair( start, end);
-        } else {
-            throw runtime_error("get_bounds(Variant, bool) not implemented for non-SV variants!");
-        }
-    }
 
     pair<int64_t, int64_t> Constructor::get_bounds(const vector<list<vcflib::VariantAllele>>& trimmed_variant) {
 
@@ -386,7 +375,7 @@ namespace vg {
                 // overlaps the clump. It belongs in the clump
                 clump.push_back(&(*next_variant));
                 // It may make the clump longer and necessitate adding more variants.
-                if (!next_variant->is_sv()){
+                if (!next_variant->is_symbolic_sv()){
                     clump_end = max(clump_end, next_variant->position + next_variant->ref.size() - chunk_offset);
                 }
                 else{
@@ -433,7 +422,7 @@ namespace vg {
 
                     // Check the variant's reference sequence to catch bad VCF/FASTA pairings
 
-                    if (!variant->is_sv()){
+                    if (!variant->is_symbolic_sv()){
                         auto expected_ref = reference_sequence.substr(variant->position - chunk_offset, variant->ref.size());
 
                         if(variant->ref != expected_ref) {
@@ -474,7 +463,7 @@ namespace vg {
                     // reference allele of the variant won't appear here.
                     map<string, vector<vcflib::VariantAllele>> alternates = flat ? variant->flatAlternates() :
                         variant->parsedAlternates();
-                    if (!variant->is_sv()){
+                    if (!variant->is_symbolic_sv()){
                         //map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
                         //auto alternates = use_flat_alts ? variant.flatAlternates() : variant.parsedAlternates();
                         for (auto &kv : alternates){
@@ -596,7 +585,7 @@ namespace vg {
                         }
 
                         // SV HAX
-                        if (variant->is_sv() && this->do_svs){
+                        if (variant->is_symbolic_sv() && this->do_svs){
                             // Get SV start and end
                             // and the SV tag
                             vector<string> tags = variant->sv_tags();
@@ -1430,29 +1419,34 @@ namespace vg {
             for (string& alt : vvar->alt) {
                 // Validate each alt of the variant
 
-                if(!allATGC(alt)) {
-                    // It may be a symbolic allele or something. Skip this variant.
+                if(!vcflib::allATGCN(alt)) {
+                    // It may be a symbolic allele or something.
+                    // Try to normalize it, otherwise warn the user and move on.
                     variant_acceptable = false;
-                    #pragma omp critical (cerr)
-                    {
-                        bool warn = true;
-                        if (!alt.empty() && alt[0] == '<' && alt[alt.size()-1] == '>') {
-                            if (symbolic_allele_warnings.find(alt) != symbolic_allele_warnings.end()) {
-                                warn = false;
-                            } else {
-                                symbolic_allele_warnings.insert(alt);
+                    if (vvar->is_symbolic_sv() && vvar->canonicalizable() && this->do_svs){
+                        variant_acceptable = vvar->canonicalize(reference, insertions, true);
+                    }
+                    else{
+                        variant_acceptable = false;
+                        #pragma omp critical (cerr)
+                        {
+                            bool warn = true;
+                            if (!alt.empty() && alt[0] == '<' && alt[alt.size()-1] == '>') {
+                                if (symbolic_allele_warnings.find(alt) != symbolic_allele_warnings.end()) {
+                                    warn = false;
+                                } else {
+                                    symbolic_allele_warnings.insert(alt);
+                                }
+                            }
+                            if (warn) {
+                                cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant(s) " << *vvar <<" !" << endl;
                             }
                         }
-                        if (warn) {
-                            cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant(s) " << *vvar <<" !" << endl;
-                        }
+                        break;
                     }
-                    break;
+                    
                 }
             }
-
-
-
 
 
             if (!variant_acceptable) {
