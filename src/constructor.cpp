@@ -526,13 +526,8 @@ namespace vg {
                     // Get the variable bounds in VCF space for all the trimmed alts of this variant
                     // Note: we still want bounds for SVs, we just have to get them differently
                     std::pair<int64_t, int64_t> bounds;
-                    if (variant->is_sv()){
-                        bounds = get_bounds(*variant, true);
-                    }
-                    else{
-                        bounds = get_bounds(parsed_clump[variant]);
+                    bounds = get_bounds(parsed_clump[variant]);
 
-                    }
 
                     if (bounds.first != numeric_limits<int64_t>::max() || bounds.second != -1) {
                         // There's a (possibly 0-length) variable region
@@ -601,7 +596,7 @@ namespace vg {
                         }
 
                         // SV HAX
-                        if (variant->is_sv()){
+                        if (variant->is_sv() && this->do_svs){
                             // Get SV start and end
                             // and the SV tag
                             vector<string> tags = variant->sv_tags();
@@ -1430,13 +1425,7 @@ namespace vg {
             // While we have variants we want to include
             auto vvar = variant_source.get();
 
-            //bool variant_acceptable = !vvar->is_sv();
             bool variant_acceptable = true;
-            if (do_svs) {
-                variant_acceptable = vvar->canonicalize_sv(reference, insertions, true, -1);
-               // now called implicitly in canonicalize: vvar->set_insertion_sequences(insertions);
-                
-            }
 
             for (string& alt : vvar->alt) {
                 // Validate each alt of the variant
@@ -1461,6 +1450,11 @@ namespace vg {
                     break;
                 }
             }
+
+
+
+
+
             if (!variant_acceptable) {
                 // Skip variants that have symbolic alleles or other nonsense we can't parse.
                 variant_source.handle_buffer();
