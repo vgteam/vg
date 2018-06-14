@@ -1996,7 +1996,8 @@ namespace vg {
         // We populate this with all the cluster graphs.
         vector<clustergraph_t> cluster_graphs_out;
         
-        // we will ensure that nodes are in only one cluster, use this to record which one
+        // unless suppressing cluster merging, we will ensure that nodes are in only one
+        // cluster and we use this to record which one
         unordered_map<id_t, size_t> node_id_to_cluster;
         
         // to hold the clusters as they are (possibly) merged
@@ -2048,13 +2049,16 @@ namespace vg {
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
             unordered_set<size_t> overlapping_graphs;
-            for (size_t j = 0; j < graph.node_size(); j++) {
-                id_t node_id = graph.node(j).id();
-                if (node_id_to_cluster.count(node_id)) {
-                    overlapping_graphs.insert(node_id_to_cluster[node_id]);
-                }
-                else {
-                    node_id_to_cluster[node_id] = i;
+            
+            if (!suppress_cluster_merging) {
+                for (size_t j = 0; j < graph.node_size(); j++) {
+                    id_t node_id = graph.node(j).id();
+                    if (node_id_to_cluster.count(node_id)) {
+                        overlapping_graphs.insert(node_id_to_cluster[node_id]);
+                    }
+                    else {
+                        node_id_to_cluster[node_id] = i;
+                    }
                 }
             }
             
@@ -2163,11 +2167,14 @@ namespace vg {
                 for (size_t j = 0; j < multicomponent_graph.second.size(); j++) {
                     if (multicomponent_graph.second[j].count(node.id())) {
                         cluster_graphs[max_graph_idx + j]->add_node(node);
-                        node_id_to_cluster[node.id()] = max_graph_idx + j;
-                        break;
+                        // if we're suppressing cluster merging, we don't maintain this index
+                        if (!suppress_cluster_merging) {
+                            node_id_to_cluster[node.id()] = max_graph_idx + j;
                         }
+                        break;
                     }
                 }
+            }
             
             // divvy up the edges
             for (size_t i = 0; i < joined_graph.edge_size(); i++) {
@@ -2211,16 +2218,44 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "computing MEM assignments to cluster graphs" << endl;
 #endif
-        // which MEMs are in play for which cluster?
-        for (const MaximalExactMatch& mem : mems) {
-            for (gcsa::node_type hit : mem.nodes) {
-                id_t node_id = gcsa::Node::id(hit);
-                if (node_id_to_cluster.count(node_id)) {
-                    size_t cluster_idx = cluster_to_idx[node_id_to_cluster[node_id]];
-                    get<1>(cluster_graphs_out[cluster_idx]).push_back(make_pair(&mem, make_pos_t(hit)));
+        if (!suppress_cluster_merging) {
+            // which MEMs are in play for which cluster?
+            for (const MaximalExactMatch& mem : mems) {
+                for (gcsa::node_type hit : mem.nodes) {
+                    id_t node_id = gcsa::Node::id(hit);
+                    if (node_id_to_cluster.count(node_id)) {
+                        size_t cluster_idx = cluster_to_idx[node_id_to_cluster[node_id]];
+                        get<1>(cluster_graphs_out[cluster_idx]).push_back(make_pair(&mem, make_pos_t(hit)));
 #ifdef debug_multipath_mapper
-                    cerr << "\tMEM " << mem.sequence() << " at " << make_pos_t(hit) << " found in cluster " << node_id_to_cluster[node_id] << " at index " << cluster_idx << endl;
+                        cerr << "\tMEM " << mem.sequence() << " at " << make_pos_t(hit) << " found in cluster " << node_id_to_cluster[node_id] << " at index " << cluster_idx << endl;
 #endif
+                    }
+                }
+            }
+        }
+        else {
+            // we haven't been maintaining the node ID to cluster index (since are not enforcing
+            // that each node is in on cluster), so we do something analogous here
+            
+            unordered_map<id_t, vector<size_t>> node_id_to_cluster_idxs;
+            for (size_t i = 0; i < cluster_graphs_out.size(); i++) {
+                Graph& graph = get<0>(cluster_graphs_out[i])->graph;
+                for (size_t j = 0; j < graph.node_size(); j++) {
+                    node_id_to_cluster_idxs[graph.node(j).id()].push_back(i);
+                }
+            }
+            
+            for (const MaximalExactMatch& mem : mems) {
+                for (gcsa::node_type hit : mem.nodes) {
+                    id_t node_id = gcsa::Node::id(hit);
+                    if (node_id_to_cluster.count(node_id)) {
+                        for (size_t cluster_idx : node_id_to_cluster_idxs[node_id]) {
+                            get<1>(cluster_graphs_out[cluster_idx]).push_back(make_pair(&mem, make_pos_t(hit)));
+#ifdef debug_multipath_mapper
+                            cerr << "\tMEM " << mem.sequence() << " at " << make_pos_t(hit) << " found in cluster at index " << cluster_idx << endl;
+#endif
+                        }
+                    }
                 }
             }
         }

@@ -166,6 +166,7 @@ int main_mpmap(int argc, char** argv) {
     int max_map_attempts_arg = 0;
     int secondary_rescue_subopt_diff = 25;
     int min_median_mem_coverage_for_split = 2;
+    bool suppress_cluster_merging = true;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -823,6 +824,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.num_mapping_attempts = max_map_attempts;
     multipath_mapper.unstranded_clustering = unstranded_clustering;
     multipath_mapper.min_median_mem_coverage_for_split = min_median_mem_coverage_for_split;
+    multipath_mapper.suppress_cluster_merging = suppress_cluster_merging;
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;

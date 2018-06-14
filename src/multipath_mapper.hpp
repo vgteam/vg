@@ -108,6 +108,7 @@ namespace vg {
         size_t order_length_repeat_hit_max = 0;
         int32_t secondary_rescue_subopt_diff = 10;
         size_t min_median_mem_coverage_for_split = 2;
+        bool suppress_cluster_merging = false;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
