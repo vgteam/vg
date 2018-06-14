@@ -486,7 +486,7 @@ namespace vg {
                             }
                         }
                     } else {
-                        variant->parsedAlternates();
+                        alternates = variant->parsedAlternates();
                     }
                     if (!variant->is_sv()){
                         //map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
