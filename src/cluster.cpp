@@ -1614,6 +1614,41 @@ void OrientedDistanceClusterer::topological_order(vector<size_t>& order_out) {
         }
     }
 }
+    
+void OrientedDistanceClusterer::component_topological_order(const vector<size_t>& component,
+                                                            vector<size_t>& order_out) const {
+    // initialize return value
+    order_out.clear();
+    order_out.resize(component.size());
+    
+    vector<size_t> in_degree(component.size());
+    vector<size_t> stack;
+    unordered_map<size_t, size_t> node_idx_to_component_idx;
+    for (size_t i = 0; i < component.size(); i++) {
+        in_degree[i] = nodes[component[i]].edges_to.size();
+        if (in_degree[i] == 0) {
+            stack.push_back(i);
+        }
+        node_idx_to_component_idx[component[i]] = i;
+    }
+    
+    size_t order_idx = 0;
+    while (!stack.empty()) {
+        size_t i = stack.back();
+        stack.pop_back();
+        
+        order_out[order_idx] = i;
+        order_idx++;
+        
+        for (const ODEdge& edge : nodes[component[i]].edges_from) {
+            size_t j = node_idx_to_component_idx[edge.to_idx];
+            in_degree[j]--;
+            if (in_degree[j] == 0) {
+                stack.push_back(j);
+            }
+        }
+    }
+}
 
 void OrientedDistanceClusterer::identify_sources_and_sinks(vector<size_t>& sources_out,
                                                            vector<size_t>& sinks_out) {
@@ -1720,8 +1755,11 @@ void OrientedDistanceClusterer::perform_dp() {
     }
 }
 
-vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters(int32_t max_qual_score,
-                                                                                 int32_t log_likelihood_approx_factor) {
+vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters(const Alignment& alignment,
+                                                                                 int32_t max_qual_score,
+                                                                                 int32_t log_likelihood_approx_factor,
+                                                                                 size_t min_median_mem_coverage_for_split,
+                                                                                 double suboptimal_edge_pruning_factor) {
     
     vector<vector<pair<const MaximalExactMatch*, pos_t>>> to_return;
     if (nodes.size() == 0) {
@@ -1756,6 +1794,13 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     }
 #endif
     
+    if (min_median_mem_coverage_for_split) {
+        for (size_t i = 0; i < components.size(); i++) {
+            if (median_mem_coverage(components[i], alignment) >= min_median_mem_coverage_for_split) {
+                prune_low_scoring_edges(components, i, suboptimal_edge_pruning_factor);
+            }
+        }
+    }
     
     
     // find the node with the highest DP score in each connected component
@@ -2000,7 +2045,120 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     
     return to_return;
 }
+ 
+void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& components, size_t component_idx, double score_factor) {
     
+    vector<size_t>& component = components[component_idx];
+    
+    // get the topological order within this component (expressed in indexes into the component vector)
+    vector<size_t> component_order;
+    component_topological_order(component, component_order);
+    
+    vector<int32_t> backwards_dp_score(component.size());
+    unordered_map<size_t, size_t> node_idx_to_component_idx;
+    for (size_t i = 0; i < component.size(); i++) {
+        backwards_dp_score[i] = nodes[component[i]].score;
+        node_idx_to_component_idx[component[i]] = i;
+    }
+    
+    // do dynamic programming backwards within this component
+    for (int64_t i = component_order.size() - 1; i >= 0; i--) {
+        size_t idx = component_order[i];
+        size_t node_idx = component[idx];
+        for (ODEdge& edge : nodes[node_idx].edges_to) {
+            size_t local_to_idx = node_idx_to_component_idx[edge.to_idx];
+            int32_t dp_score = backwards_dp_score[idx] + edge.weight;
+            if (dp_score > backwards_dp_score[local_to_idx]) {
+                backwards_dp_score[local_to_idx] = dp_score;
+            }
+        }
+    }
+    
+    // the minimum score we will require each edge to be a part of
+    int32_t min_score = *max_element(backwards_dp_score.begin(), backwards_dp_score.end()) * score_factor;
+    
+    for (size_t i = 0; i < component.size(); i++) {
+        size_t node_idx = component[i];
+        ODNode& node = nodes[node_idx];
+        for (size_t j = 0; j < node.edges_from.size(); ) {
+            ODEdge& edge = node.edges_from[j];
+            // the forward-backward score of this edge
+            int32_t edge_score = node.dp_score + edge.weight + backwards_dp_score[node_idx_to_component_idx[edge.to_idx]];
+            if (edge_score < min_score) {
+                // remove the edge
+                node.edges_from[j] = node.edges_from.back();
+                node.edges_from.pop_back();
+                // remove it's reverse counterpart
+                ODNode& dest_node = nodes[edge.to_idx];
+                for (size_t k = 0; k < dest_node.edges_to.size(); k++) {
+                    if (dest_node.edges_to[k].to_idx == node_idx) {
+                        dest_node.edges_to[k] = dest_node.edges_to.back();
+                        dest_node.edges_to.pop_back();
+                        break;
+                    }
+                }
+            }
+            else {
+                j++;
+            }
+        }
+    }
+    
+    // use DFS to identify the connected components again
+    vector<vector<size_t>> new_components;
+    
+    vector<bool> enqueued(component.size(), false);
+    for (size_t i = 0; i < component.size(); i++) {
+        if (enqueued[i]) {
+            continue;
+        }
+        new_components.emplace_back();
+        vector<size_t> stack(1, component[i]);
+        while (!stack.empty()) {
+            size_t node_idx = stack.back();
+            stack.pop_back();
+            
+            new_components.back().push_back(node_idx);
+            
+            for (ODEdge& edge : nodes[node_idx].edges_from) {
+                size_t local_idx = node_idx_to_component_idx[edge.to_idx];
+                if (!enqueued[local_idx]) {
+                    stack.push_back(component[local_idx]);
+                    enqueued[local_idx] = true;
+                }
+            }
+            
+            for (ODEdge& edge : nodes[node_idx].edges_to) {
+                size_t local_idx = node_idx_to_component_idx[edge.to_idx];
+                if (!enqueued[local_idx]) {
+                    stack.push_back(component[local_idx]);
+                    enqueued[local_idx] = true;
+                }
+            }
+        }
+    }
+    
+    // did we break this connected component into multiple connected components?
+    if (new_components.size() > 1) {
+#ifdef debug_od_clusterer
+        stringstream strm;
+        strm << "splitting cluster:" << endl;
+        for (auto& comp : new_components) {
+            for (size_t i : comp) {
+                strm << "\t" << i << " " << nodes[comp[i]].mem->sequence() << " " << nodes[comp[i]].start_pos << endl;
+            }
+            strm << endl;
+        }
+        cerr << strm.str();
+#endif
+        // replace the original component
+        components[component_idx] = move(new_components[0]);
+        // add the remaining to the end
+        for (size_t i = 1; i < new_components.size(); i++) {
+            components.emplace_back(move(new_components[i]));
+        }
+    }
+}
     
 size_t OrientedDistanceClusterer::median_mem_coverage(const vector<size_t>& component, const Alignment& aln) const {
     

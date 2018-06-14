@@ -75,12 +75,12 @@ namespace vg {
         if (adjust_alignments_for_base_quality) {
             OrientedDistanceClusterer clusterer(alignment, mems, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error,
                                                 min_clustering_mem_length, unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-            clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            clusters = clusterer.clusters(alignment, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
         else {
             OrientedDistanceClusterer clusterer(alignment, mems, *get_regular_aligner(), xindex, max_expected_dist_approx_error,
                                                 min_clustering_mem_length, unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-            clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            clusters = clusterer.clusters(alignment, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
         
         
@@ -1243,12 +1243,12 @@ namespace vg {
                 if (adjust_alignments_for_base_quality) {
                     OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                          unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                    clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                    clusters2 = clusterer2.clusters(alignment2, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
                 }
                 else {
                     OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                          unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                    clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                    clusters2 = clusterer2.clusters(alignment2, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
                 }
                 
                 cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
@@ -1272,12 +1272,12 @@ namespace vg {
                 if (adjust_alignments_for_base_quality) {
                     OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                          unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                    clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                    clusters1 = clusterer1.clusters(alignment1, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
                 }
                 else {
                     OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                          unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                    clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                    clusters1 = clusterer1.clusters(alignment1, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
                 }
                 
                 cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
@@ -1305,18 +1305,18 @@ namespace vg {
             if (adjust_alignments_for_base_quality) {
                 OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters1 = clusterer1.clusters(alignment1, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
                 OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters2 = clusterer2.clusters(alignment2, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
             }
             else {
                 OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters1 = clusterer1.clusters(alignment1, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
                 OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters2 = clusterer2.clusters(alignment2, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
             }
             
             // extract graphs around the clusters and get the assignments of MEMs to these graphs
@@ -1650,12 +1650,12 @@ namespace vg {
             if (adjust_alignments_for_base_quality) {
                 OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, paths_of_node_memo, oriented_occurences_memo, handle_memo);
-                clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters1 = clusterer1.clusters(alignment1, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
             }
             else {
                 OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, paths_of_node_memo, oriented_occurences_memo, handle_memo);
-                clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters1 = clusterer1.clusters(alignment1, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
             }
             
             // extract the graphs around the clusters
@@ -1694,12 +1694,12 @@ namespace vg {
             if (adjust_alignments_for_base_quality) {
                 OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, paths_of_node_memo, oriented_occurences_memo, handle_memo);
-                clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters2 = clusterer2.clusters(alignment2, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
             }
             else {
                 OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, paths_of_node_memo, oriented_occurences_memo, handle_memo);
-                clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters2 = clusterer2.clusters(alignment2, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
             }
             
             // extract the graphs around the clusters
@@ -2236,6 +2236,8 @@ namespace vg {
         else {
             // we haven't been maintaining the node ID to cluster index (since are not enforcing
             // that each node is in on cluster), so we do something analogous here
+            
+            // TODO: kinda dumb redundant code
             
             unordered_map<id_t, vector<size_t>> node_id_to_cluster_idxs;
             for (size_t i = 0; i < cluster_graphs_out.size(); i++) {
