@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <getopt.h>
 
+#include <random>
 #include <string>
 #include <vector>
 
@@ -43,13 +44,12 @@ void help_index(char** argv) {
          << "    -G, --gbwt-name FILE   store the threads as GBWT in FILE" << endl
          << "    -H, --write-haps FILE  store the threads as sequences in FILE" << endl
          << "    -F, --thread-db FILE   write thread database to FILE" << endl
+         << "    -P, --force-phasing    replace unphased genotypes with randomly phased ones" << endl
          << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -I, --region C:S-E     operate on only the given 1-based region of the given VCF contig (may repeat)" << endl
          << "    -E, --exclude SAMPLE   exclude any samples with the given name from haplotype indexing" << endl
-         << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants," << endl
-         << "                           call all but the first one as ref" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
          << "    -i, --dbg-in FILE      use kmers from FILE instead of input VG (may repeat)" << endl
@@ -137,12 +137,12 @@ int main_index(int argc, char** argv) {
     // GBWT
     bool index_haplotypes = false, index_paths = false, index_gam = false;
     vector<string> gam_file_names;
+    bool force_phasing = false;
     size_t samples_in_batch = 200; // Samples per batch.
     std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
     map<string, string> path_to_vcf; // Path name conversion from --rename.
     map<string, pair<size_t, size_t>> regions; // Region restrictions for contigs, in VCF name space, as 0-based exclusive-end ranges.
     unordered_set<string> excluded_samples; // Excluded sample names from --exclude.
-    bool discard_overlaps = false;
 
     // GCSA
     gcsa::size_type kmer_size = gcsa::Key::MAX_LENGTH;
@@ -179,12 +179,12 @@ int main_index(int argc, char** argv) {
             {"store-gam", required_argument, 0, 'M'},
             {"gbwt-name", required_argument, 0, 'G'},
             {"write-haps", required_argument, 0, 'H'},
+            {"force-phasing", no_argument, 0, 'P'},
             {"batch-size", required_argument, 0, 'B'},
             {"range", required_argument, 0, 'R'},
             {"rename", required_argument, 0, 'r'},
             {"region", required_argument, 0, 'I'},
             {"exclude", required_argument, 0, 'E'},
-            {"discard-overlaps", no_argument, 0, 'o'},
 
             // GCSA
             {"gcsa-name", required_argument, 0, 'g'},
@@ -207,7 +207,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:TG:H:B:R:r:I:Eo:g:i:f:k:X:Z:Vd:maANDP:CM:h",
+        c = getopt_long (argc, argv, "b:t:px:F:v:TG:H:PB:R:r:I:E:g:i:f:k:X:Z:Vd:maANDP:CM:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -259,6 +259,9 @@ int main_index(int argc, char** argv) {
             write_threads = true;
             threads_name = optarg;
             break;
+        case 'P':
+            force_phasing = true;
+            break;
         case 'B':
             samples_in_batch = std::max(std::stoul(optarg), 1ul);
             break;
@@ -309,9 +312,6 @@ int main_index(int argc, char** argv) {
             break;
         case 'E':
             excluded_samples.insert(optarg);
-            break;
-        case 'o':
-            discard_overlaps = true;
             break;
 
         // GCSA
@@ -544,6 +544,8 @@ int main_index(int argc, char** argv) {
             } else if (show_progress) {
                 cerr << "Opened variant file " << vcf_name << endl;
             }
+            std::mt19937 rng(0xDEADBEEF);
+            std::uniform_int_distribution<std::mt19937::result_type> random_bit(0, 1);
 
             // How many samples are there?
             size_t num_samples = variant_file.sampleNames.size();
@@ -675,6 +677,11 @@ int main_index(int argc, char** argv) {
                             string& sample_name = variant_file.sampleNames[sample];
                             current_phasings.emplace_back(var.getGenotype(sample_name), was_diploid[sample]);
                             was_diploid[sample] = current_phasings.back().diploid;
+                            if(force_phasing) {
+                                current_phasings.back().forcePhased([&]() {
+                                   return random_bit(rng);
+                                });
+                            }
                         }
                         phasings[batch].append(current_phasings);
                     }
