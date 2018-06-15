@@ -182,6 +182,7 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
     size_t total_paths = this->xg_index.max_path_rank() + this->gbwt_index.sequences(), verified = 0, failures = 0;
     std::set<vg::id_t> failed_threads;
     ProgressBar* progress = nullptr;
+    size_t progress_step = std::max(total_paths / 100, static_cast<size_t>(32));
     if (show_progress) {
         progress = new ProgressBar(total_paths, "Verifying paths");
         progress->Progressed(verified);
@@ -206,7 +207,7 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
                 }
             }
             verified++;
-            if (show_progress && (verified % 1000 == 0 || verified >= total_paths)) {
+            if (show_progress && (verified % progress_step == 0 || verified >= total_paths)) {
                 progress->Progressed(verified);
             }
         }

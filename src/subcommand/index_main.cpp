@@ -934,8 +934,10 @@ int main_index(int argc, char** argv) {
 
     }
 
+    if (show_progress) {
+        cerr << "Memory usage: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    }
     return 0;
-
 }
 
 void write_thread_db(const std::string& filename, const std::vector<std::string>& thread_names, size_t haplotype_count) {
