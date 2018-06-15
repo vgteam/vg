@@ -154,9 +154,8 @@ namespace vg {
             start = min(start, (int64_t) var.position);
             end = max(end, (int64_t) var.get_sv_end(0));
             return std::make_pair( start, end);
-        }
-        else{
-            
+        } else {
+            throw runtime_error("get_bounds(Variant, bool) not implemented for non-SV variants!");
         }
     }
 
@@ -1431,7 +1430,8 @@ namespace vg {
             // While we have variants we want to include
             auto vvar = variant_source.get();
 
-            bool variant_acceptable = !vvar->is_sv();
+            //bool variant_acceptable = !vvar->is_sv();
+            bool variant_acceptable = true;
             if (do_svs) {
                 variant_acceptable = vvar->canonicalize_sv(reference, insertions, true, -1);
                // now called implicitly in canonicalize: vvar->set_insertion_sequences(insertions);
