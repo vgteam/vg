@@ -442,6 +442,26 @@ string random_sequence(size_t length);
 /// Escape "%" to "%25"
 string percent_url_encode(const string& seq);
 string replace_in_string(string subject, const string& search, const string& replace);
+
+/// Given a pair of random access iterators defining a range, deterministically
+/// shuffle the contents of the range based on the given string seed.
+template<typename iter>
+void deterministic_shuffle(iter begin, iter end, const string& seed) {
+    // Turn the string into a 32-bit number.
+    uint32_t seedNumber;
+    for (uint8_t byte : seed) {
+        // Sum up with primes and overflow.
+        // TODO: this is a bit of a bad hash function but it should be good enough.
+        seedNumber = seedNumber * 13 + byte;
+    }
+
+    // Make an RNG from the string
+    minstd_rand rng(seedNumber);
+    
+    // Shuffle with it
+    std::shuffle(begin, end, rng);
+    
+}
     
 }
 

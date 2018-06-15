@@ -2772,6 +2772,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
     apply_haplotype_consistency_scores(flat_alns);
 
+    // Before the final sort, shuffle everything to avoid bias to one strand/contig/etc.
+    deterministic_shuffle(aln_ptrs.begin(), aln_ptrs.end(), first_mate.sequence() + second_mate.sequence()); 
+
     sort_and_dedup();
     show_alignments("mixed");
 
@@ -3259,6 +3262,9 @@ Mapper::align_mem_multi(const Alignment& aln,
     
     // Apply haplotype consistency scoring if possible
     apply_haplotype_consistency_scores(aln_ptrs);
+    
+    // Shuffle alignments deterministically to prevent bias towards one strand/contig/etc.
+    deterministic_shuffle(aln_ptrs.begin(), aln_ptrs.end(), aln.sequence()); 
     
     // sort alignments by score
     std::sort(aln_ptrs.begin(), aln_ptrs.end(),

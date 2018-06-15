@@ -196,6 +196,11 @@ namespace vg {
         }
         
 #ifdef debug_multipath_mapper
+        cerr << "deterministically shuffling mappings" << endl;
+#endif
+        deterministic_shuffle(multipath_alns_out.begin(), multipath_alns_out.end(), alignment.sequence());
+        
+#ifdef debug_multipath_mapper
         cerr << "computing mapping quality and sorting mappings" << endl;
 #endif
         sort_and_compute_mapping_quality(multipath_alns_out, mapq_method);
@@ -870,6 +875,10 @@ namespace vg {
         }
         
         if (found_consistent) {
+            // shuffle to get rid of any strand or contig bias
+            deterministic_shuffle(multipath_aln_pairs_out.begin(), multipath_aln_pairs_out.end(),
+                alignment1.sequence() + alignment2.sequence());
+            
             // compute the paired mapping quality
             sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
         }
@@ -1010,6 +1019,10 @@ namespace vg {
                 
                 // if we split it up, move the best one to the front
                 if (cluster_multipath_alns.size() > 1) {
+                    // shuffle to get rid of any strand or contig bias
+                    deterministic_shuffle(cluster_multipath_alns.begin(), cluster_multipath_alns.end(),
+                        alignment1.sequence() + alignment2.sequence());
+                        
                     sort_and_compute_mapping_quality(cluster_multipath_alns, None);
                 }
                 
@@ -1708,6 +1721,9 @@ namespace vg {
         
         // re-sort the rescued alignments if we actually did it from both sides
         if (rescue_succeeded_from_1 && rescue_succeeded_from_2) {
+            deterministic_shuffle(multipath_aln_pairs_out.begin(), multipath_aln_pairs_out.end(),
+                alignment1.sequence() + alignment2.sequence());
+                        
             sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
         }
     }
@@ -1746,6 +1762,9 @@ namespace vg {
                 multipath_aln_pairs_out.emplace_back(move(rescued_multipath_aln_pairs[j]));
             }
         }
+        
+        // TODO: it might make sense to shuffle here to avoid bias between rescue and non-rescue alignments.
+        // But we don't have easy access to the read sequence for a deterministic shuffle.
         
         sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs);
     }
@@ -1942,6 +1961,10 @@ namespace vg {
         if (unstranded_clustering) {
             establish_strand_consistency(multipath_aln_pairs_out, cluster_pairs, paths_of_node_memo, oriented_occurences_memo, handle_memo);
         }
+        
+        // shuffle to avoid strand or contig bias
+        deterministic_shuffle(multipath_aln_pairs_out.begin(), multipath_aln_pairs_out.end(),
+            alignment1.sequence() + alignment2.sequence());
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score
         sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs);
