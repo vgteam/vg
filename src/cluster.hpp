@@ -198,7 +198,7 @@ public:
                                int32_t max_qual_score = 60,
                                int32_t log_likelihood_approx_factor = 0,
                                size_t min_median_mem_coverage_for_split = 0,
-                               double suboptimal_edge_pruning_factor = .67);
+                               double suboptimal_edge_pruning_factor = .75);
     
     /**
      * Given two vectors of clusters, an xg index, an bounds on the distance between clusters,

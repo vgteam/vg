@@ -1795,8 +1795,17 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
 #endif
     
     if (min_median_mem_coverage_for_split) {
+#ifdef debug_od_clusterer
+        cerr << "looking for high coverage clusters to split" << endl;
+#endif
         for (size_t i = 0; i < components.size(); i++) {
+#ifdef debug_od_clusterer
+            cerr << "component " << i << " has median coverage " << median_mem_coverage(components[i], alignment) << endl;
+#endif
             if (median_mem_coverage(components[i], alignment) >= min_median_mem_coverage_for_split) {
+#ifdef debug_od_clusterer
+                cerr << "attempting to prune and split cluster" << endl;
+#endif
                 prune_low_scoring_edges(components, i, suboptimal_edge_pruning_factor);
             }
         }
@@ -2054,6 +2063,10 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
     vector<size_t> component_order;
     component_topological_order(component, component_order);
     
+#ifdef debug_od_clusterer
+    cerr << "doing backwards DP" << endl;
+#endif
+    
     vector<int32_t> backwards_dp_score(component.size());
     unordered_map<size_t, size_t> node_idx_to_component_idx;
     for (size_t i = 0; i < component.size(); i++) {
@@ -2074,8 +2087,16 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
         }
     }
     
+#ifdef debug_od_clusterer
+    cerr << "backwards dp scores " << min_score << endl;
+#endif
+    
     // the minimum score we will require each edge to be a part of
     int32_t min_score = *max_element(backwards_dp_score.begin(), backwards_dp_score.end()) * score_factor;
+    
+#ifdef debug_od_clusterer
+    cerr << "looking for edges with max score less than " << min_score << endl;
+#endif
     
     for (size_t i = 0; i < component.size(); i++) {
         size_t node_idx = component[i];
@@ -2085,24 +2106,37 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
             // the forward-backward score of this edge
             int32_t edge_score = node.dp_score + edge.weight + backwards_dp_score[node_idx_to_component_idx[edge.to_idx]];
             if (edge_score < min_score) {
-                // remove the edge
-                node.edges_from[j] = node.edges_from.back();
-                node.edges_from.pop_back();
+                
+#ifdef debug_od_clusterer
+                cerr << "removing edge " << node_idx << "->" << edge.to_idx << " with weight " << edge.weight << " and max score " << edge_score << endl;
+#endif
+                
                 // remove it's reverse counterpart
                 ODNode& dest_node = nodes[edge.to_idx];
                 for (size_t k = 0; k < dest_node.edges_to.size(); k++) {
                     if (dest_node.edges_to[k].to_idx == node_idx) {
+#ifdef debug_od_clusterer
+                        cerr << "removing bwd edge " << edge.to_idx << "->" << dest_node.edges_to[k].to_idx << " with weight " << dest_node.edges_to[k].weight << " and max score " << edge_score << endl;
+#endif
                         dest_node.edges_to[k] = dest_node.edges_to.back();
                         dest_node.edges_to.pop_back();
                         break;
                     }
                 }
+                
+                // remove the edge
+                node.edges_from[j] = node.edges_from.back();
+                node.edges_from.pop_back();
             }
             else {
                 j++;
             }
         }
     }
+    
+#ifdef debug_od_clusterer
+    cerr << "reidentifying connected components" << endl;
+#endif
     
     // use DFS to identify the connected components again
     vector<vector<size_t>> new_components;
@@ -2112,26 +2146,34 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
         if (enqueued[i]) {
             continue;
         }
+        //cerr << "new cmp at " << component[i] << endl;
         new_components.emplace_back();
         vector<size_t> stack(1, component[i]);
+        enqueued[node_idx_to_component_idx[i]] = true;
         while (!stack.empty()) {
             size_t node_idx = stack.back();
             stack.pop_back();
+            
+            //cerr << "trav at " << node_idx << endl;
             
             new_components.back().push_back(node_idx);
             
             for (ODEdge& edge : nodes[node_idx].edges_from) {
                 size_t local_idx = node_idx_to_component_idx[edge.to_idx];
+                //cerr << "edge fwd to " << edge.to_idx << ", local " << local_idx << endl;
                 if (!enqueued[local_idx]) {
-                    stack.push_back(component[local_idx]);
+                    //cerr << "enqueuing" << endl;
+                    stack.push_back(edge.to_idx);
                     enqueued[local_idx] = true;
                 }
             }
             
             for (ODEdge& edge : nodes[node_idx].edges_to) {
                 size_t local_idx = node_idx_to_component_idx[edge.to_idx];
+                //cerr << "edge bwd to " << edge.to_idx << ", local " << local_idx << endl;
                 if (!enqueued[local_idx]) {
-                    stack.push_back(component[local_idx]);
+                    //cerr << "enqueuing" << endl;
+                    stack.push_back(edge.to_idx);
                     enqueued[local_idx] = true;
                 }
             }
@@ -2145,13 +2187,13 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
         strm << "splitting cluster:" << endl;
         for (auto& comp : new_components) {
             for (size_t i : comp) {
-                strm << "\t" << i << " " << nodes[comp[i]].mem->sequence() << " " << nodes[comp[i]].start_pos << endl;
+                strm << "\t" << i << " " << nodes[i].mem->sequence() << " " << nodes[i].start_pos << endl;
             }
             strm << endl;
         }
         cerr << strm.str();
 #endif
-        // replace the original component
+        // the the original component
         components[component_idx] = move(new_components[0]);
         // add the remaining to the end
         for (size_t i = 1; i < new_components.size(); i++) {

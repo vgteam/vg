@@ -681,11 +681,6 @@ int main_mpmap(int argc, char** argv) {
             cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
         }
         num_alt_alns = 1;
-        
-        // soft-merging parameters that make the MAPQs more appropriate for single path alignments
-        // (avoids overclustering MEMs around tandem repeats)
-        suppress_cluster_merging = true;
-        min_median_mem_coverage_for_split = 2;
     }
     
     // ensure required parameters are provided

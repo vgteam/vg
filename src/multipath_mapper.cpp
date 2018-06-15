@@ -87,7 +87,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "obtained clusters:" << endl;
         for (int i = 0; i < clusters.size(); i++) {
-            cerr << "\tcluster " << i << " with median read coverage " << median_mem_coverage(clusters[i], alignment) << endl;
+            cerr << "\tcluster " << i << endl;
             for (pair<const MaximalExactMatch*, pos_t>  hit : clusters[i]) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
@@ -1135,7 +1135,7 @@ namespace vg {
                                                vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
                                                size_t max_alt_mappings) {
-        
+                
 #ifdef debug_multipath_mapper
         cerr << "multipath mapping paired reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
 #endif
@@ -1328,14 +1328,14 @@ namespace vg {
         cerr << "obtained independent clusters:" << endl;
         cerr << "read 1" << endl;
         for (int i = 0; i < cluster_graphs1.size(); i++) {
-            cerr << "\tcluster " << i << " with median read coverage " << median_mem_coverage(get<1>(cluster_graphs1[i]), alignment1) << endl;
+            cerr << "\tcluster " << i << endl;
             for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[i])) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
         }
         cerr << "read 2" << endl;
         for (int i = 0; i < cluster_graphs2.size(); i++) {
-            cerr << "\tcluster " << i << " with median read coverage " << median_mem_coverage(get<1>(cluster_graphs2[i]), alignment2) << endl;
+            cerr << "\tcluster " << i << endl;
             for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs2[i])) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
@@ -2239,6 +2239,10 @@ namespace vg {
             
             // TODO: kinda dumb redundant code
             
+#ifdef debug_multipath_mapper
+            cerr << "suppressed merging path, creating index to identify nodes with cluster graphs" << endl;
+#endif
+            
             unordered_map<id_t, vector<size_t>> node_id_to_cluster_idxs;
             for (size_t i = 0; i < cluster_graphs_out.size(); i++) {
                 Graph& graph = get<0>(cluster_graphs_out[i])->graph;
@@ -2250,8 +2254,9 @@ namespace vg {
             for (const MaximalExactMatch& mem : mems) {
                 for (gcsa::node_type hit : mem.nodes) {
                     id_t node_id = gcsa::Node::id(hit);
-                    if (node_id_to_cluster.count(node_id)) {
-                        for (size_t cluster_idx : node_id_to_cluster_idxs[node_id]) {
+                    auto iter = node_id_to_cluster_idxs.find(node_id);
+                    if (iter != node_id_to_cluster_idxs.end()) {
+                        for (size_t cluster_idx : iter->second) {
                             get<1>(cluster_graphs_out[cluster_idx]).push_back(make_pair(&mem, make_pos_t(hit)));
 #ifdef debug_multipath_mapper
                             cerr << "\tMEM " << mem.sequence() << " at " << make_pos_t(hit) << " found in cluster at index " << cluster_idx << endl;
