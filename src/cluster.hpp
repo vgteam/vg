@@ -209,6 +209,8 @@ public:
                                                                      const Alignment& alignment_2,
                                                                      const vector<cluster_t*>& left_clusters,
                                                                      const vector<cluster_t*>& right_clusters,
+                                                                     const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                                     const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
                                                                      xg::XG* xgindex,
                                                                      int64_t min_inter_cluster_distance,
                                                                      int64_t max_inter_cluster_distance,

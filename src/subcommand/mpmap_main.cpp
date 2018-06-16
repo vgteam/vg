@@ -165,8 +165,8 @@ int main_mpmap(int argc, char** argv) {
     int max_sub_mem_recursion_depth = 1;
     int max_map_attempts_arg = 0;
     int secondary_rescue_subopt_diff = 25;
-    int min_median_mem_coverage_for_split = 2;
-    bool suppress_cluster_merging = true;
+    int min_median_mem_coverage_for_split = 0;
+    bool suppress_cluster_merging = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -680,7 +680,14 @@ int main_mpmap(int argc, char** argv) {
         if (num_alt_alns != 4) {
             cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
         }
+        
         num_alt_alns = 1;
+        
+        // we get better performance by splitting up clusters a bit more when looking paired clusters
+        if (interleaved_input && !fastq_name_2.empty()) {
+            min_median_mem_coverage_for_split = 2;
+            suppress_cluster_merging = true;
+        }
     }
     
     // ensure required parameters are provided

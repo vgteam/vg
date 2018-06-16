@@ -1135,7 +1135,7 @@ namespace vg {
                                                vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
                                                size_t max_alt_mappings) {
-                
+        
 #ifdef debug_multipath_mapper
         cerr << "multipath mapping paired reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
 #endif
@@ -1367,18 +1367,43 @@ namespace vg {
                 min_separation = (int64_t) fragment_length_distr.mean() - 10.0 * fragment_length_distr.stdev();
             }
             
+            // Find the clusters that have a tie for the longest MEM, and create alternate anchor points for those clusters
+            vector<pair<size_t, size_t>> alt_anchors_1, alt_anchors_2;
+            for (size_t i = 0; i < cluster_mems_1.size(); i++) {
+                auto& mem_cluster = *cluster_mems_1[i];
+                for (size_t j = 1; j < mem_cluster.size(); j++) {
+                    if (mem_cluster[j].first->length() == mem_cluster.front().first->length()) {
+                        alt_anchors_1.emplace_back(i, j);
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+            for (size_t i = 0; i < cluster_mems_2.size(); i++) {
+                auto& mem_cluster = *cluster_mems_2[i];
+                for (size_t j = 1; j < mem_cluster.size(); j++) {
+                    if (mem_cluster[j].first->length() == mem_cluster.front().first->length()) {
+                        alt_anchors_2.emplace_back(i, j);
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+            
             // Compute the pairs of cluster graphs and their approximate distances from each other
-            cluster_pairs = OrientedDistanceClusterer::pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
-                                                                     xindex, min_separation, max_separation, unstranded_clustering,
+            cluster_pairs = OrientedDistanceClusterer::pair_clusters(alignment1, alignment2,
+                                                                     cluster_mems_1, cluster_mems_2,
+                                                                     alt_anchors_1, alt_anchors_2,
+                                                                     xindex,
+                                                                     min_separation, max_separation,
+                                                                     unstranded_clustering,
                                                                      &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
 #ifdef debug_multipath_mapper
             cerr << "obtained cluster pairs:" << endl;
             for (int i = 0; i < cluster_pairs.size(); i++) {
-                pos_t pos_1 = get<1>(cluster_graphs1[cluster_pairs[i].first.first]).front().second;
-                pos_t pos_2 = get<1>(cluster_graphs2[cluster_pairs[i].first.second]).back().second;
-                int64_t dist = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                             id(pos_2), offset(pos_2), is_rev(pos_2));
-                cerr << "\tpair "  << i << " at distance " << dist << endl;
+                cerr << "\tpair "  << i << " at distance " << cluster_pairs[i].second << endl;
                 cerr << "\t\t read 1 (cluster " << cluster_pairs[i].first.first <<  ")" << endl;
                 for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[cluster_pairs[i].first.first])) {
                     cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
