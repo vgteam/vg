@@ -1,5 +1,5 @@
-#ifndef VG_SIMULATOR_HPP_INCLUDED
-#define VG_SIMULATOR_HPP_INCLUDED
+#ifndef VG_VIZ_HPP_INCLUDED
+#define VG_VIZ_HPP_INCLUDED
 
 #include <vector>
 #include <cairo.h>

@@ -238,18 +238,6 @@ void variant_recall(VG* graph,
         return ( (double) matches / (double) tot_len) > 0.85;
     };
 
-    std::function<bool(const Mapping& m)> perfect_matches = [&](const Mapping& m){
-
-        for (int i = 0; i < m.edit_size(); i++){
-            Edit e = m.edit(i);
-            if (e.to_length() != e.from_length() || !e.sequence().empty()){
-                return false;
-            }
-            return true;
-        }
-    };
-
-
     std::function<void(Alignment&)> incr = [&](const Alignment& a){
         bool anchored = false;
         bool contained = false;
