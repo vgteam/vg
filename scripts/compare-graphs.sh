@@ -4,10 +4,10 @@
 set -ex
 
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@1d439b2d678e163a35edd5143bc4d1e9ce31990e"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@bf1006b4932ce48d1bd742691619808285582c4c"
 
 # What Toil should we use?
-TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:3.11.0
+TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:3.16.0a1.dev2281-c7d77b028064a739e897f7b1eb158c902b530475
 
 # What vg should we use?
 VG_DOCKER_OPTS=()
@@ -38,6 +38,12 @@ READ_STEM="comparison"
 # Should we look for .bam reads (instead of .gam)?
 USE_BAM_READS=0
 
+# Should we look for .fq.gz reads (instead of .gam)?
+USE_FQ_READS=0
+
+# Should we add --ignore_quals
+IGNORE_QUALS=""
+
 # Should we restart?
 RESTART_ARG=""
 
@@ -52,14 +58,16 @@ usage() {
     printf "\t-v DOCKER\tUse the given Docker image specifier for vg.\n"
     printf "\t-r READS\tUse the given read set stem (default: ${READ_STEM}).\n"
     printf "\t-b BAM-READS\tUse BAM input reads (in READ_STEM).\n"
+    printf "\t-f FASTQ-READS\tUse .fq.gz input reads (in READ_STEM). Much faster than GAM/BAM.\n"	 
     printf "\t-R RUN_ID\tUse or restart the given run ID.\n"
     printf "\t-k \tKeep the out store and job store in case of error.\n"
     printf "\t-s \tRestart a failed run.\n"
     printf "\t-3 \tUse S3 instead of HTTP (much faster)\n"
+    printf "\t-i \tIgnore base qualities (needed if not running on trained sim or bam data)\n"
     exit 1
 }
 
-while getopts "hp:t:c:v:r:bR:ks3" o; do
+while getopts "hp:t:c:v:r:bfR:ks3i" o; do
     case "${o}" in
         p)
             TOIL_VG_PACKAGE="${OPTARG}"
@@ -79,7 +87,10 @@ while getopts "hp:t:c:v:r:bR:ks3" o; do
             ;;
         b)
             USE_BAM_READS=1
-            ;;        
+            ;;
+        f)
+            USE_FQ_READS=1
+            ;;        		  
         R)
             # This doesn't change the cluster name, which will still be the old run ID if not manually set.
             # That's probably fine.
@@ -93,6 +104,9 @@ while getopts "hp:t:c:v:r:bR:ks3" o; do
             ;;
         3)
             USE_S3=1
+            ;;
+        i)
+            IGNORE_QUALS="--ignore-quals"
             ;;
         *)
             usage
@@ -220,6 +234,8 @@ READ_SET="${READ_STEM}-${REGION_NAME}"
 # Toggle BAM Reads
 if [[ "${USE_BAM_READS}" -eq "1" ]]; then
     INPUT_OPTS="--bam_input_reads $(get_input_url ${READ_SET}.bam)"
+elif [[ "${USE_FQ_READS}" -eq "1" ]]; then
+    INPUT_OPTS="--truth $(get_input_url ${READ_SET}.pos) --fastq $(get_input_url ${READ_SET}.fq.gz)" 	 
 else
     INPUT_OPTS="--truth $(get_input_url ${READ_SET}.pos) --gam_input_reads $(get_input_url ${READ_SET}.gam)" 
 fi
@@ -233,14 +249,13 @@ $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin
     --index-bases "${GRAPH_URLS[@]}" \
     --gam-names "${GRAPH_NAMES[@]}" \
     --bwa \
-    --multipath --ignore-quals \
+    --multipath ${IGNORE_QUALS} \
     --mapeval-threshold 200 \
     --realTimeLogging --logInfo \
     "${JOB_TREE}" \
     "${OUTPUT_STORE}" \
     --batchSystem mesos --provisioner=aws "--mesosMaster=${MASTER_IP}:5050" \
-    --nodeTypes=r3.8xlarge:0.85 --defaultPreemptable --maxNodes=${MAX_NODES}\
-    --alphaPacking 2.0
+    --nodeTypes=r3.8xlarge:0.70 --defaultPreemptable --maxNodes=${MAX_NODES} --retryCount=3
 TOIL_ERROR="$?"
     
 # Make sure the output is public
