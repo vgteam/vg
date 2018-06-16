@@ -684,7 +684,7 @@ int main_mpmap(int argc, char** argv) {
         num_alt_alns = 1;
         
         // we get better performance by splitting up clusters a bit more when looking paired clusters
-        if (interleaved_input && !fastq_name_2.empty()) {
+        if (interleaved_input || !fastq_name_2.empty()) {
             min_median_mem_coverage_for_split = 2;
             suppress_cluster_merging = true;
         }
