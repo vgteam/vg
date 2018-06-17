@@ -158,8 +158,8 @@ namespace vg {
             // For every variable core of an alt (which may be empty)
             if (!trimmed_parts.empty()) {
                 // We have at least one valid non-match edit on this alt. Expand the range.
-                variable_start = min(variable_start, (int64_t) trimmed_parts.front().position);
-                variable_stop = max(variable_stop, (int64_t) (trimmed_parts.back().position + trimmed_parts.back().ref.size() - 1));
+                variable_start = min(variable_start, (int64_t) trimmed_parts.front().position - 1);
+                variable_stop = max(variable_stop, (int64_t) (trimmed_parts.back().position - 1 + trimmed_parts.back().ref.size() - 1));
             }
         }
 
@@ -369,18 +369,13 @@ namespace vg {
 
             // Group variants into clumps of overlapping variants.
             if (clump.empty() || 
-                    (next_variant != variants.end() && clump_end > next_variant->position - chunk_offset)) {
+                    (next_variant != variants.end() && clump_end > next_variant->zeroBasedPosition() - chunk_offset)) {
 
                 // Either there are no variants in the clump, or this variant
                 // overlaps the clump. It belongs in the clump
                 clump.push_back(&(*next_variant));
                 // It may make the clump longer and necessitate adding more variants.
-                if (!next_variant->is_symbolic_sv()){
-                    clump_end = max(clump_end, next_variant->position + next_variant->ref.size() - chunk_offset);
-                }
-                else{
-                    clump_end = max(clump_end, next_variant->position + (long) next_variant->get_sv_len(0) - chunk_offset);
-                }
+                clump_end = max(clump_end, next_variant->zeroBasedPosition() + next_variant->ref.size() - chunk_offset);
 
                 // Try the variant after that
                 next_variant++;
@@ -423,7 +418,7 @@ namespace vg {
                     // Check the variant's reference sequence to catch bad VCF/FASTA pairings
 
                     if (!variant->is_symbolic_sv()){
-                        auto expected_ref = reference_sequence.substr(variant->position - chunk_offset, variant->ref.size());
+                        auto expected_ref = reference_sequence.substr(variant->zeroBasedPosition() - chunk_offset, variant->ref.size());
 
                         if(variant->ref != expected_ref) {
                         // TODO: report error to caller somehow
@@ -431,6 +426,7 @@ namespace vg {
                             cerr << "error:[vg::Constructor] Variant/reference sequence mismatch: " << variant->ref
                                 << " vs pos: " << variant->position << ": " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl
                                 << "Variant: " << *variant << endl;
+                                cerr << "zero ind: " << variant->zeroBasedPosition() << " 1-indexed: " << variant->position << endl;
                             exit(1);
                         }
                     }
@@ -585,29 +581,23 @@ namespace vg {
                         }
 
                         // SV HAX
-                        if (variant->is_symbolic_sv() && this->do_svs){
-                            // Get SV start and end
-                            // and the SV tag
-                            vector<string> tags = variant->sv_tags();
-                            vector<string> svtypes = variant->get_sv_type();
-                            vector<string> ins_seqs = variant->get_insertion_sequences();
+                        if (this->do_svs && variant->is_symbolic_sv() && variant->canonical){
 
-
-
-                                auto e_start = variant->position - chunk_offset;
-                                auto e_end = variant->position + variant->get_sv_len(alt_index) - chunk_offset - 1;
+                                auto e_start = variant->zeroBasedPosition() - chunk_offset;
+                                // TODO check index here, may or may not need to subtract 1
+                                auto e_end = variant->zeroBasedPosition() + std::stol(variant->info.at("SVLEN")[0]) - chunk_offset - 1;
 
                                 // Make in between nodes by grabbing our sequence from the fasta(s),
                                 // either from the reference (deletions) or from insertion sequences.
-                                auto key = make_tuple(variant->position - chunk_offset, tags[alt_index], "");
+                                auto key = make_tuple(variant->zeroBasedPosition() - chunk_offset, variant->info.at("SVTYPE")[0], "");
 
-                                string sv_type = svtypes[alt_index];
+                                string sv_type = variant->info.at("SVTYPE")[0];
 
-                                if (sv_type == "INS"){
+                                if (variant->info.at("SVTYPE")[0] == "INS"){
 
                                     // Create insertion sequence nodes
-                                    if (created_nodes.count(key) == 0 && ins_seqs[alt_index] != ""){
-                                        vector<Node*> node_run = create_nodes(ins_seqs[alt_index]);
+                                    if (created_nodes.count(key) == 0){
+                                        vector<Node*> node_run = create_nodes(variant->info.at("SEQ")[0]);
 
                                         nodes_starting_at[e_start].insert(node_run.front()->id());
                                         nodes_ending_at[e_end].insert(node_run.back()->id());
@@ -630,8 +620,8 @@ namespace vg {
                                 else if (sv_type == "DEL"){
                                     if (created_nodes.count(key) == 0){
 
-                                        size_t arc_end = variant->position - chunk_offset + variant->get_sv_len(alt_index)+1;
-                                        int64_t arc_start = (int64_t) variant->position - chunk_offset; 
+                                        size_t arc_end = variant->zeroBasedPosition() - chunk_offset + std::stol(variant->info.at("SVLEN")[0]);
+                                        int64_t arc_start = (int64_t) variant->zeroBasedPosition() - chunk_offset; 
 
                                         deletions_ending_at[arc_end].insert(arc_start);
                                         deletion_starts.insert(arc_start);
@@ -654,8 +644,8 @@ namespace vg {
                                     // one from the end of the sequence preceding the inversion to the back 
                                     // of the inverted sequence's last node.
                                     
-                                    size_t inv_end = variant->position - chunk_offset + variant->get_sv_len(alt_index);
-                                    int64_t inv_start = (int64_t) variant->position - chunk_offset;
+                                    size_t inv_end = variant->zeroBasedPosition() - chunk_offset + std::stol(variant->info.at("SVLEN")[0]);
+                                    int64_t inv_start = (int64_t) variant->zeroBasedPosition() - chunk_offset;
                                     // inversion_starts[inv_start - 1].insert(inv_end);
                                     // inversion_ends[inv_end + 1].insert(inv_start);
 
@@ -679,15 +669,15 @@ namespace vg {
                                 // This is a visit to a node for the alt
 
                                 // We need a key to see if a node has been made for this edit already
-                                auto key = make_tuple(edit.position - chunk_offset, edit.ref, edit.alt);
+                                auto key = make_tuple(edit.position - 1 - chunk_offset, edit.ref, edit.alt);
 
                                 if (created_nodes.count(key) == 0) {
                                     // We don't have a run of nodes for this edit, so make one.
                                     vector<Node*> node_run = create_nodes(edit.alt);
 
                                     // Compute where the edit starts and ends in local chunk coordinates
-                                    auto edit_start = edit.position - chunk_offset;
-                                    auto edit_end = edit.position - chunk_offset + edit.ref.size() - 1;
+                                    auto edit_start = edit.position - 1 - chunk_offset;
+                                    auto edit_end = edit.position - 1 - chunk_offset + edit.ref.size() - 1;
 
                                     #ifdef debug
                                     cerr << "Created nodes running " << edit_start << " to " << edit_end << endl;
@@ -732,9 +722,9 @@ namespace vg {
                                 // Add an entry to the deletion arcs
 
                                 // What is the past-the-end position (first non-deleted)
-                                size_t arc_end = edit.position - chunk_offset + edit.ref.size();
+                                size_t arc_end = edit.position - 1 - chunk_offset + edit.ref.size();
                                 // What is the before-the-beginning position (last non-deleted, may be -1)
-                                int64_t arc_start = (int64_t) edit.position - chunk_offset - 1;
+                                int64_t arc_start = (int64_t) edit.position - 1 - chunk_offset - 1;
 
                                 #ifdef debug
                                 cerr << "Ensure deletion arc " << arc_start << " to " << arc_end << endl;
@@ -1142,8 +1132,8 @@ namespace vg {
         // If we're using an index, we ought to already be at the right place.
         variant_source.fill_buffer();
         while(variant_source.get() && (variant_source.get()->sequenceName != vcf_contig ||
-                    variant_source.get()->position < leading_offset ||
-                    variant_source.get()->position + variant_source.get()->ref.size() > reference_end)) {
+                    variant_source.get()->zeroBasedPosition() < leading_offset ||
+                    variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() > reference_end)) {
             // This variant comes before our region
 
             // Discard variants that come out that are before our region
@@ -1408,8 +1398,8 @@ namespace vg {
         }
 
         while (variant_source.get() && variant_source.get()->sequenceName == vcf_contig &&
-                variant_source.get()->position >= leading_offset &&
-                variant_source.get()->position + variant_source.get()->ref.size() <= reference_end) {
+                variant_source.get()->zeroBasedPosition() >= leading_offset &&
+                variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() <= reference_end) {
 
             // While we have variants we want to include
             auto vvar = variant_source.get();
@@ -1423,11 +1413,13 @@ namespace vg {
                     // It may be a symbolic allele or something.
                     // Try to normalize it, otherwise warn the user and move on.
                     variant_acceptable = false;
-                    if (vvar->is_symbolic_sv() && vvar->canonicalizable() && this->do_svs){
+                    if (this->do_svs && vvar->is_symbolic_sv() && vvar->canonicalizable()){
+                        // Only try to normalize SVs if we want to handle SVs,
+                        // the variant is symbolic (i.e. no ref/alts) and the variant
+                        // can be canonicalized (it has at least a type and a length)
                         variant_acceptable = vvar->canonicalize(reference, insertions, true);
                     }
                     else{
-                        variant_acceptable = false;
                         #pragma omp critical (cerr)
                         {
                             bool warn = true;
@@ -1453,20 +1445,20 @@ namespace vg {
                 // Skip variants that have symbolic alleles or other nonsense we can't parse.
                 variant_source.handle_buffer();
                 variant_source.fill_buffer();
-            } else if (!chunk_variants.empty() && chunk_end > vvar->position) {
+            } else if (!chunk_variants.empty() && chunk_end > vvar->zeroBasedPosition()) {
                 // If the chunk is nonempty and this variant overlaps what's in there, put it in too and try the next.
                 // TODO: this is a lot like the clumping code...
 
                 // Add it in
                 chunk_variants.push_back(*(vvar));
                 // Expand out how big the chunk needs to be, so we can get other overlapping variants.
-                chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
+                chunk_end = max(chunk_end, chunk_variants.back().zeroBasedPosition() + chunk_variants.back().ref.size());
 
                 // Try the next variant
                 variant_source.handle_buffer();
                 variant_source.fill_buffer();
 
-            } else if(chunk_variants.size() < vars_per_chunk && variant_source.get()->position < chunk_start + bases_per_chunk) {
+            } else if(chunk_variants.size() < vars_per_chunk && variant_source.get()->zeroBasedPosition() < chunk_start + bases_per_chunk) {
                 // Otherwise if this variant is close enough and the chunk isn't too big yet, put it in and try the next.
 
                 // TODO: unify with above code?
@@ -1474,7 +1466,7 @@ namespace vg {
                 // Add it in
                 chunk_variants.push_back(*(vvar));
                 // Expand out how big the chunk needs to be, so we can get other overlapping variants.
-                chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
+                chunk_end = max(chunk_end, chunk_variants.back().zeroBasedPosition() + chunk_variants.back().ref.size());
 
                 // Try the next variant
                 variant_source.handle_buffer();
@@ -1487,7 +1479,7 @@ namespace vg {
                 // end of the reference, before the max chunk size, and after the
                 // last variant the chunk contains.
                 chunk_end = max(chunk_end,
-                        min((size_t ) vvar->position,
+                        min((size_t ) vvar->zeroBasedPosition(),
                             min((size_t) reference_end,
                                 (size_t) (chunk_start + bases_per_chunk))));
 

@@ -215,7 +215,7 @@ ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, stri
     vcflib::Variant var;
     while (vcf.getNextVariant(var)) {
         // Make sure to correct each variant's position to 0-based
-        var.position -= 1;
+        //var.position -= 1;
         variants.push_back(var);
     }
 
@@ -805,7 +805,7 @@ ref	5	rs1337	A	G	29	PASS	.	GT
     vcflib::Variant var;
     while (vcf.getNextVariant(var)) {
         // Make sure to correct each variant's position to 0-based
-        var.position -= 1;
+        //var.position -= 1;
         variants.push_back(var);
     }
 
