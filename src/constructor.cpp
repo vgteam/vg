@@ -1710,9 +1710,9 @@ namespace vg {
                 FastaReference* reference = reference_for[fasta_name];
 
                 // We'll set this to true if we actually find the VCF that contains
-                // the variants for this sequence.
-                bool found_region = false;
-
+                // the variants for this sequence and successfully build the graph for it.
+                bool built_region = false;
+                
                 for (auto& buffer : buffers) {
                     // For each VCF we are going to read
                     if(!buffer->has_tabix()) {
@@ -1723,25 +1723,43 @@ namespace vg {
                         exit(1);
                     }
 
+                    // We set this to true if this VCF contains this region.
+                    bool in_this_vcf = false;
+
                     // Try seeking to the right contig/region
                     if (allowed_vcf_regions.count(vcf_name)) {
                         // Seek to just that region (0-based)
-                        found_region = buffer->set_region(vcf_name, allowed_vcf_regions[vcf_name].first,
+                        in_this_vcf = buffer->set_region(vcf_name, allowed_vcf_regions[vcf_name].first,
                                 allowed_vcf_regions[vcf_name].second);
                     } else {
                         // Seek to just the whole contig
-                        found_region = buffer->set_region(vcf_name);
+                        in_this_vcf = buffer->set_region(vcf_name);
                     }
 
-                    if (found_region) {
-                        // This buffer is the one!
-                        // Construct the graph for this contig with the FASTA and the VCF.
-                        construct_graph(vcf_name, *reference, *buffer, insertions, callback);
-                        break;
+                    if (in_this_vcf) {
+                        // This VCF covers the region
+                        
+                        if (built_region) {
+                            // The region has already been built; we are checking for conflicting VCFs and we found one.
+                            // TODO: Use them all with some kind of on-the-fly merging version of the variant buffer.
+#pragma omp critical (cerr)
+                            cerr << "[vg::Constructor] Error: multiple VCFs cover selected region in " << vcf_name
+                                << "; merge them before constructing the graph" << endl;
+                            exit(1);
+                        } else {
+                            // This buffer is the one!
+                            // Construct the graph for this contig with the FASTA and the VCF.
+                            construct_graph(vcf_name, *reference, *buffer, insertions, callback);
+                            
+                            // Record that we built the region but check the
+                            // other VCFs still so we can complain if the user
+                            // gave us overlapping VCFs we can't use.
+                            built_region = true;
+                        }
                     }
                 }
 
-                if (!found_region) {
+                if (!built_region) {
                     // None of the VCFs include variants on this sequence.
                     // Just build the graph for this sequence with no varaints.
                     VcfBuffer empty(nullptr);
@@ -1764,6 +1782,15 @@ namespace vg {
                     // While there are still variants in the file
                     // See what contig the next varianmt is on.
                     string vcf_contig = buffer->get()->sequenceName;
+                    
+                    if (constructed.count(vcf_contig)) {
+                        // We already did this contig. The user must have
+                        // passed us overlapping, unmerged VCFs which we can't
+                        // support yet.
+                        cerr << "[vg::Constructor] Error: multiple VCFs cover " << vcf_contig
+                            << "; merge them before constructing the graph" << endl;
+                        exit(1);
+                    }
 
                     // Decide what FASTA contig that is and make sure we have it
                     string fasta_contig = vcf_to_fasta(vcf_contig);
