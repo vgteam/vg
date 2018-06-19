@@ -945,10 +945,6 @@ namespace vg {
         }
 #endif
         
-        if (multipath_aln_pairs_out.size() > max_alt_mappings) {
-            multipath_aln_pairs_out.resize(max_alt_mappings);
-        }
-        
         if (mapping_quality_method == None) {
             for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
                 multipath_aln_pair.first.clear_mapping_quality();
