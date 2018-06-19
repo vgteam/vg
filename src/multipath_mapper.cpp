@@ -1372,7 +1372,7 @@ namespace vg {
             for (size_t i = 0; i < cluster_mems_1.size(); i++) {
                 auto& mem_cluster = *cluster_mems_1[i];
                 for (size_t j = 1; j < mem_cluster.size(); j++) {
-                    if (mem_cluster[j].first->length() == mem_cluster.front().first->length()) {
+                    if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
                         alt_anchors_1.emplace_back(i, j);
                     }
                     else {
@@ -1383,7 +1383,7 @@ namespace vg {
             for (size_t i = 0; i < cluster_mems_2.size(); i++) {
                 auto& mem_cluster = *cluster_mems_2[i];
                 for (size_t j = 1; j < mem_cluster.size(); j++) {
-                    if (mem_cluster[j].first->length() == mem_cluster.front().first->length()) {
+                    if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
                         alt_anchors_2.emplace_back(i, j);
                     }
                     else {
