@@ -405,6 +405,7 @@ ostream& Packer::as_table(ostream& out, bool show_edits) {
         }
         out << endl;
     }
+    return out;
 }
 
 ostream& Packer::show_structure(ostream& out) {
@@ -415,6 +416,10 @@ ostream& Packer::show_structure(ostream& out) {
     //out << " i SA ISA PSI LF BWT    T[SA[i]..SA[i]-1]" << endl;
     //csXprintf(cout, "%2I %2S %3s %3P %2p %3B   %:3T", edit_csa);
     return out;
+}
+
+size_t Packer::coverage_size(void) {
+    return coverage_civ.size();
 }
 
 }

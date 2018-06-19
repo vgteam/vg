@@ -20,13 +20,13 @@ This model is similar to a number of sequence graphs that have been used in asse
 ## Usage
 
 ### building
-e
+
 Before you begin, you'll need to install some basic tools if they are not already installed. You'll need the protobuf and jansson development libraries installed on your server. Additionally, to run the tests, you will need `jq`, `bc` and `rs`.
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
                          jq bc rs curl unzip redland-utils librdf-dev bison flex gawk \
-                         lzma-dev liblzma-dev liblz4-dev  
+                         lzma-dev liblzma-dev liblz4-dev libffi-dev
 
 You can also run `make get-deps`.
 
@@ -48,7 +48,7 @@ Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
 
 VG won't build with XCode's compiler (clang), but it should work with GCC >= 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc7 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen clang-3.8
+    sudo port install gcc7 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo clang-3.8
 
 To make GCC 7 the default compiler, run (use `none` instead of `mp-gcc7` to revert back):
 

@@ -7,8 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 48
-
+plan tests 51
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -53,6 +52,15 @@ rm -f x.threads
 rm -f x.xg x.gbwtx.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
 
+# Subregion graph with haplotypes
+vg construct -r small/x.fa -v small/x.vcf.gz -a --region x:100-200 > x.part.vg
+
+vg index -x x.part.xg -G x.part.gbwt --region x:100-200 -v small/x.vcf.gz x.part.vg 2>log.txt
+is $? 0 "building GBWT index for a regional graph"
+
+is "$(cat log.txt | wc -c)" "0" "no warnings about missing variants produced"
+
+rm -f x.part.vg x.part.xg x.part.gbwt log.txt
 
 # Multiple graphs without haplotypes
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C > x.vg 2> /dev/null
@@ -111,9 +119,15 @@ is $? 0 "GBWT can be built for paths"
 vg index -G x_both.gbwt -T -v small/xy2.vcf.gz x.vg
 is $? 0 "GBWT can be built for both paths and haplotypes"
 
-rm -f x.vg
 rm -f x_ref.gbwt x_both.gbwt
 
+vg index -x x.xg x.vg
+vg sim -s 2384259 -n 100 -l 100 -x x.xg -a >sim.gam
+vg index -G x_gam.gbwt -M sim.gam -x x_gam.xg x.vg
+
+is $(vg paths -g x_gam.gbwt -T -x x_gam.xg -V | vg view -c - | jq -cr '.path[].name'  | sort | md5sum | cut -f 1 -d\ ) $(vg view -a sim.gam | jq -r .name | sort | md5sum | cut -f 1 -d\ ) "we can build a GBWT from alignments and index it by name with xg thread naming"
+
+rm -f x.vg x.xg sim.gam x_gam.gbwt
 
 # Other tests
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg

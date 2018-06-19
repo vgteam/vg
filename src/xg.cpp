@@ -145,11 +145,12 @@ void XG::load(istream& in) {
         case 5: // Fall through
         case 6:
         case 7:
+        case 8:
             cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. "
                  << "For better performance over repeated loads, consider recreating this XG with 'vg index' "
                  << "or upgrading it with 'vg xg'." << endl;
             // Fall through
-        case 8:
+        case 9:
             {
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
@@ -160,7 +161,7 @@ void XG::load(istream& in) {
                 sdsl::read_member(min_id, in);
                 sdsl::read_member(max_id, in);
                 
-                if (file_version <= 7) {
+                if (file_version <= 8) {
                     // Load the old id int vector to skip
                     int_vector<> i_iv;
                     i_iv.load(in);
@@ -1329,7 +1330,10 @@ Node XG::node(int64_t id) const {
 
 string XG::node_sequence(int64_t id) const {
     size_t rank = id_to_rank(id);
-    assert(rank != 0); // We can crash if we try to look up rank 0.
+    if (rank == 0) {
+        // Node isn't there
+        throw runtime_error("xg cannot get sequence for nonexistent node " + to_string(id));
+    }
     size_t start = s_bv_select(rank);
     size_t end = rank == node_count ? s_bv.size() : s_bv_select(rank+1);
     string s; s.resize(end-start);
@@ -2048,7 +2052,11 @@ bool XG::path_contains_node(const string& name, int64_t id) const {
 }
 
 vector<size_t> XG::paths_of_node(int64_t id) const {
-    size_t off = np_bv_select(id_to_rank(id));
+    auto rank = id_to_rank(id);
+    if (rank == 0) {
+        throw runtime_error("Tried to get paths of nonexistent node " + to_string(id));
+    }
+    size_t off = np_bv_select(rank);
     assert(np_bv[off++]);
     vector<size_t> path_ranks;
     while (off < np_bv.size() ? np_bv[off] == 0 : false) {
@@ -3768,26 +3776,6 @@ Mapping new_mapping(const string& name, int64_t id, size_t rank, bool is_reverse
     m.mutable_position()->set_is_reverse(is_reverse);
     m.set_rank(rank);
     return m;
-}
-
-void parse_region(const string& target, string& name, int64_t& start, int64_t& end) {
-    start = -1;
-    end = -1;
-    size_t foundFirstColon = target.find(":");
-    // we only have a single string, use the whole sequence as the target
-    if (foundFirstColon == string::npos) {
-        name = target;
-    } else {
-        name = target.substr(0, foundFirstColon);
-	    size_t foundRangeDash = target.find("-", foundFirstColon);
-        if (foundRangeDash == string::npos) {
-            start = atoi(target.substr(foundFirstColon + 1).c_str());
-            end = start;
-        } else {
-            start = atoi(target.substr(foundFirstColon + 1, foundRangeDash - foundRangeDash - 1).c_str());
-            end = atoi(target.substr(foundRangeDash + 1).c_str());
-        }
-    }
 }
 
 void to_text(ostream& out, Graph& graph) {

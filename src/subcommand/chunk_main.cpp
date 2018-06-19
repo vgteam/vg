@@ -24,6 +24,9 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace xg;
 
+static int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix,
+                     size_t gam_buffer_size = 100);
+
 void help_chunk(char** argv) {
     cerr << "usage: " << argv[0] << " chunk [options] > [chunk.vg]" << endl
          << "Splits a graph and/or alignment into smaller chunks" << endl
@@ -48,6 +51,8 @@ void help_chunk(char** argv) {
          << "    -r, --node-range N:M     write the chunk for the specified node range to standard output\n"
          << "    -R, --node-ranges FILE   write the chunk for each node range in (newline or whitespace separated) file" << endl
          << "    -n, --n-chunks N         generate this many id-range chunks, which are determined using the xg index" << endl
+         << "simple gam chunking:" << endl
+         << "    -m, --gam-split-size N   split gam (specified with -a, index not required) up into chunks with at most N reads each" << endl
          << "general:" << endl
          << "    -s, --chunk-size N       create chunks spanning N bases (or nodes with -r/-R) for all input regions." << endl
          << "    -o, --overlap N          overlap between chunks when using -s [0]" << endl        
@@ -92,6 +97,7 @@ int main_chunk(int argc, char** argv) {
     bool fully_contained = false;
     bool search_all_positions = false;
     int n_chunks = 0;
+    size_t gam_split_size = 0;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -119,11 +125,12 @@ int main_chunk(int argc, char** argv) {
             {"threads", required_argument, 0, 't'},
             {"n-chunks", required_argument, 0, 'n'},
             {"context-length", required_argument, 0, 'l'},
+            {"gam-split-size", required_argument, 0, 'm'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:TfAt:n:l:",
+        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:TfAt:n:l:m:",
                 long_options, &option_index);
 
 
@@ -202,6 +209,10 @@ int main_chunk(int argc, char** argv) {
             id_range = true;
             break;
 
+        case 'm':
+            gam_split_size = atoi(optarg);
+            break;
+
         case 'T':
             trace = true;
             break;
@@ -231,20 +242,20 @@ int main_chunk(int argc, char** argv) {
 
     omp_set_num_threads(threads);            
 
-    // need at most one of -n, -p, -P, -e, -r, -R,  as an input
+    // need at most one of -n, -p, -P, -e, -r, -R, -m  as an input
     if ((n_chunks == 0 ? 0 : 1) + (region_string.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
-        (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) > 1) {
-        cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R} required to specify input regions" << endl;
+        (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) + (gam_split_size == 0 ? 0 : 1) > 1) {
+        cerr << "error:[vg chunk] at most one of {-n, -p, -P, -e, -r, -R, m} required to specify input regions" << endl;
         return 1;
     }
     // need -a if using -f
-    if (fully_contained && gam_file.empty()) {
-        cerr << "error:[vg chunk] gam file must be specified with -a when using -f" << endl;
+    if ((gam_split_size != 0 || fully_contained) && gam_file.empty()) {
+        cerr << "error:[vg chunk] gam file must be specified with -a when using -f or -m" << endl;
         return 1;
     }
     // context steps default to 1 if using id_ranges.  otherwise, force user to specify to avoid
     // misunderstandings
-    if (context_steps < 0) {
+    if (context_steps < 0 && gam_split_size == 0) {
         if (id_range) {
             if (!context_length) {
                 context_steps = 1;
@@ -259,12 +270,12 @@ int main_chunk(int argc, char** argv) {
     // needs to be chunked, even if only gam output is requested,
     // because we use the graph to get the nodes we're looking for.
     // but we only write the subgraphs to disk if chunk_graph is true. 
-    bool chunk_gam = !gam_file.empty();
-    bool chunk_graph = gam_and_graph || !chunk_gam;
+    bool chunk_gam = !gam_file.empty() && gam_split_size == 0;
+    bool chunk_graph = gam_and_graph || (!chunk_gam && gam_split_size == 0);
 
     // Load our index
     xg::XG xindex;
-    if (chunk_graph || trace || context_steps > 0 || context_length > 0 || !id_range) {
+    if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && gam_split_size == 0)) {
         if (xg_file.empty()) {
             cerr << "error:[vg chunk] xg index (-x) required" << endl;
             return 1;
@@ -297,9 +308,19 @@ int main_chunk(int argc, char** argv) {
     }
 
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
-    Index gam_index;
+    Index gam_index; 
     if (chunk_gam) {
         gam_index.open_read_only(gam_file);
+    }
+    // Read the gam file directly if just splitting into simple chunks
+    ifstream gam_stream;
+    if (gam_split_size != 0) {
+        assert (!chunk_gam);
+        gam_stream.open(gam_file);
+        if (!gam_stream) {
+            cerr << "error[vg chunk]: unable to open input gam: " << gam_file << endl;
+            return 1;
+        }
     }
     
     // parse the regions into a list
@@ -428,6 +449,11 @@ int main_chunk(int argc, char** argv) {
     }
 
     // now ready to get our chunk on
+
+    if (gam_split_size != 0) {
+        // just chunk up every N reads in the gam without any path or id logic
+        return split_gam(gam_stream, gam_split_size, out_chunk_prefix);
+    }
 
     // what's the name of chunk i? 
     function<string(int, const Region&, string)> chunk_name =
@@ -584,4 +610,30 @@ int main_chunk(int argc, char** argv) {
 // Register subcommand
 static Subcommand vg_chunk("chunk", "split graph or alignment into chunks", main_chunk);
 
+// Split out every chunk_size reads into a different file
+int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, size_t gam_buffer_size) {
+    ofstream out_file;
+    size_t count = 0;
+    vector<Alignment> gam_buffer;
+    // Todo: try parallel stream.  The only snag is that we'd have to either know
+    // a-priori if it's interleaved or not, or else make a new stream function that handles
+    // the last element instead of throwing error (very trivial as for_each_parallel_impl supports this)
+    stream::for_each<Alignment>(gam_stream, [&](Alignment& alignment) {
+            if (count++ % chunk_size == 0) {
+                if (out_file.is_open()) {
+                    out_file.close();
+                }
+                stringstream out_name;
+                out_name << out_prefix << setfill('0') <<setw(6) << (count / chunk_size + 1) << ".gam";
+                out_file.open(out_name.str());
+                if (!out_file) {
+                    cerr << "error[vg chunk]: unable to open output gam: " << out_name.str() << endl;
+                    exit(1);
+                }
+            }
+            gam_buffer.push_back(alignment);
+            stream::write_buffered(out_file, gam_buffer, gam_buffer_size);
+        });
+    return 0;
+}
 

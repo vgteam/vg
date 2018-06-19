@@ -22,13 +22,12 @@ void help_construct(char** argv) {
          << "construct from a reference and variant calls:" << endl
          << "    -r, --reference FILE   input FASTA reference (may repeat)" << endl
          << "    -v, --vcf FILE         input VCF (may repeat)" << endl
-         << "                           Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
          << "    -n, --rename V=F       rename contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths        save paths for alts of variants by variant ID" << endl
          << "    -R, --region REGION    specify a particular chromosome or 1-based inclusive region" << endl
          << "    -C, --region-is-chrom  don't attempt to parse the region (use when the reference" << endl
          << "                           sequence name could be inadvertently parsed as a region)" << endl
-         << "    -z, --region-size N    variants per region to parallelize" << endl
+         << "    -z, --region-size N    variants per region to parallelize (default: 1024)" << endl
          << "    -t, --threads N        use N threads to construct graph (defaults to numCPUs)" << endl
          << "    -S, --handle-sv        include structural variants in construction of graph." << endl
          << "    -I, --insertions FILE  a FASTA file containing insertion sequences "<< endl
@@ -41,6 +40,7 @@ void help_construct(char** argv) {
          << "shared construction options:" << endl
          << "    -m, --node-max N       limit the maximum allowable node sequence size (defaults to 1000)" << endl
          << "                           nodes greater than this threshold will be divided" << endl
+         << "                           Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
          << "    -p, --progress         show progress" << endl;
 
 }
@@ -230,10 +230,10 @@ int main_construct(int argc, char** argv) {
                 // Break out sequence name and region bounds
                 string seq_name;
                 int64_t start_pos = -1, stop_pos = -1;
-                xg::parse_region(region,
-                                 seq_name,
-                                 start_pos,
-                                 stop_pos);
+                parse_region(region,
+                             seq_name,
+                             start_pos,
+                             stop_pos);
                 
                 if (start_pos > 0 && stop_pos > 0) {
                     // These are 0-based, so if both are nonzero we got a real set of coordinates

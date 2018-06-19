@@ -14,6 +14,7 @@
 #include "../stream.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
+#include "../region.hpp"
 #include "../path_index.hpp"
 
 #include <gcsa/gcsa.h>
@@ -38,12 +39,14 @@ void help_index(char** argv) {
          << "gbwt options:" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
          << "    -T, --store-threads    generate threads from the embedded paths" << endl
+         << "    -M, --store-gam FILE   generate threads from the alignments in FILE (many allowed)" << endl
          << "    -G, --gbwt-name FILE   store the threads as GBWT in FILE" << endl
          << "    -H, --write-haps FILE  store the threads as sequences in FILE" << endl
          << "    -F, --thread-db FILE   write thread database to FILE" << endl
          << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
+         << "    -I, --region C:S-E     operate on only the given 1-based region of the given VCF contig (may repeat)" << endl
          << "    -E, --exclude SAMPLE   exclude any samples with the given name from haplotype indexing" << endl
          << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants," << endl
          << "                           call all but the first one as ref" << endl
@@ -63,11 +66,6 @@ void help_index(char** argv) {
          << "    -N, --node-alignments  input is (ideally, sorted) .gam format," << endl
          << "                           cross reference nodes by alignment traversals" << endl
          << "    -D, --dump             print the contents of the db to stdout" << endl
-         << "these are probably unused:" << endl
-         << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
-         << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
-         << "    -L, --path-layout      describes the path layout of the graph" << endl
-         << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl;
 }
 
@@ -136,10 +134,12 @@ int main_index(int argc, char** argv) {
     bool show_progress = false;
 
     // GBWT
-    bool index_haplotypes = false, index_paths = false;
+    bool index_haplotypes = false, index_paths = false, index_gam = false;
+    vector<string> gam_file_names;
     size_t samples_in_batch = 200; // Samples per batch.
     std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
     map<string, string> path_to_vcf; // Path name conversion from --rename.
+    map<string, pair<size_t, size_t>> regions; // Region restrictions for contigs, in VCF name space, as 0-based exclusive-end ranges.
     unordered_set<string> excluded_samples; // Excluded sample names from --exclude.
     bool discard_overlaps = false;
 
@@ -156,10 +156,6 @@ int main_index(int argc, char** argv) {
     bool dump_alignments = false;
 
     // Unused?
-    int prune_kb = -1;
-    bool describe_index = false;
-    bool set_kmer_size = false;
-    bool path_layout = false;
     bool compact = false;
 
     int c;
@@ -179,11 +175,13 @@ int main_index(int argc, char** argv) {
             // GBWT
             {"vcf-phasing", required_argument, 0, 'v'},
             {"store-threads", no_argument, 0, 'T'},
+            {"store-gam", required_argument, 0, 'M'},
             {"gbwt-name", required_argument, 0, 'G'},
             {"write-haps", required_argument, 0, 'H'},
             {"batch-size", required_argument, 0, 'B'},
             {"range", required_argument, 0, 'R'},
             {"rename", required_argument, 0, 'r'},
+            {"region", required_argument, 0, 'I'},
             {"exclude", required_argument, 0, 'E'},
             {"discard-overlaps", no_argument, 0, 'o'},
 
@@ -203,18 +201,12 @@ int main_index(int argc, char** argv) {
             {"dump-alignments", no_argument, 0, 'A'},
             {"node-alignments", no_argument, 0, 'N'},
             {"dump", no_argument, 0, 'D'},
-
-            // Unused?
-            {"prune",  required_argument, 0, 'P'},
-            {"metadata", no_argument, 0, 'M'},
-            {"path-layout", no_argument, 0, 'L'},
-            {"set-kmer", no_argument, 0, 'S'},
             {"compact", no_argument, 0, 'C'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:TG:H:B:R:r:Eo:g:i:f:k:X:Z:Vd:maANDP:MLSCh",
+        c = getopt_long (argc, argv, "b:t:px:F:v:TG:H:B:R:r:I:Eo:g:i:f:k:X:Z:Vd:maANDP:CM:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -252,6 +244,11 @@ int main_index(int argc, char** argv) {
         case 'T':
             index_paths = true;
             build_xg = true;
+            break;
+        case 'M':
+            index_gam = true;
+            build_gbwt = true;
+            gam_file_names.push_back(optarg);
             break;
         case 'G':
             build_gbwt = true;
@@ -292,7 +289,23 @@ int main_index(int argc, char** argv) {
                 // Add the name mapping
                 path_to_vcf[graph_contig] = vcf_contig;
             }
-            break;            
+            break;
+        case 'I':
+            {
+                // We want to parse this region specifier
+                string region(optarg);
+                
+                Region parsed;
+                parse_region(region, parsed);
+                if (parsed.start <= 0 || parsed.end <= 0) {
+                    // We need both range bounds, and we can't accept 0 since input is 1-based.
+                    cerr << "error: [vg index] could not parse 1-based region " << optarg << endl;
+                }
+                
+                // Make sure to correct the coordinates to 0-based exclusive-end, from 1-based inclusive-end
+                regions[parsed.seq] = make_pair((size_t) (parsed.start - 1), (size_t) parsed.end);
+            }
+            break;
         case 'E':
             excluded_samples.insert(optarg);
             break;
@@ -345,19 +358,6 @@ int main_index(int argc, char** argv) {
             dump_index = true;
             break;
 
-        // Unused?
-        case 'P':
-            prune_kb = atoi(optarg);
-            break;
-        case 'M':
-            describe_index = true;
-            break;
-        case 'L':
-            path_layout = true;
-            break;
-        case 'S':
-            set_kmer_size = true;
-            break;
         case 'C':
             compact = true;
             break;
@@ -383,7 +383,7 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    if ((build_gbwt || write_threads) && !(index_haplotypes || index_paths)) {
+    if ((build_gbwt || write_threads) && !(index_haplotypes || index_paths || index_gam)) {
         cerr << "error: [vg index] cannot build GBWT without threads" << endl;
         return 1;
     }
@@ -414,21 +414,43 @@ int main_index(int argc, char** argv) {
         }
         VGset graphs(file_names);
         build_gpbwt = !build_gbwt & !write_threads;
-        graphs.to_xg(*xg_index, index_paths & build_gpbwt, Paths::is_alt, alt_paths);
+        graphs.to_xg(*xg_index, index_paths & build_gpbwt, Paths::is_alt, index_haplotypes ? &alt_paths : nullptr);
         if (show_progress) {
             cerr << "Built base XG index" << endl;
         }
     }
 
     // Generate threads
-    if (index_haplotypes || index_paths) {
+    if (index_haplotypes || index_paths || index_gam) {
 
         if (!build_gbwt && !write_threads && !build_gpbwt) {
             cerr << "error: [vg index] No output format specified for the threads" << endl;
             return 1;
         }
 
-        size_t id_width = gbwt::bit_length(gbwt::Node::encode(xg_index->get_max_id(), true));
+        // if we already made the xg index we can determine the
+        size_t id_width;
+        if (!index_gam) {
+            id_width = gbwt::bit_length(gbwt::Node::encode(xg_index->get_max_id(), true));
+        } else { // indexing a GAM
+            if (show_progress) {
+                cerr << "Finding maximum node id in GAM..." << endl;
+            }
+            vg::id_t max_id = 0;
+            function<void(Alignment&)> lambda = [&](Alignment& aln) {
+                std::vector<gbwt::node_type> buffer;
+                for (auto& m : aln.path().mapping()) {
+                    max_id = max(m.position().node_id(), max_id);
+                }
+            };
+            for (auto& file_name : gam_file_names) {
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each_parallel(in, lambda);
+                });
+            }
+            id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
+        }
+        
         if (show_progress) {
             cerr << "Node id width: " << id_width << endl;
         }
@@ -490,6 +512,25 @@ int main_index(int argc, char** argv) {
             haplotype_count++; // We assume that the XG index contains the reference paths.
         }
 
+        if (index_gam) {
+            if (show_progress) {
+                cerr << "Converting GAM to threads..." << endl;
+            }
+            function<void(Alignment&)> lambda = [&](Alignment& aln) {
+                std::vector<gbwt::node_type> buffer;
+                for (auto& m : aln.path().mapping()) {
+                    buffer.push_back(gbwt::Node::encode(m.position().node_id(), m.position().is_reverse()));
+                }
+                store_thread(buffer, aln.name());
+                haplotype_count++;
+            };
+            for (auto& file_name : gam_file_names) {
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each_parallel(in, lambda);
+                });
+            }
+        }
+
         // Generate haplotypes
         if (index_haplotypes) {
             vcflib::VariantCallFile variant_file;
@@ -542,8 +583,9 @@ int main_index(int argc, char** argv) {
 
                 // We're going to extract it and index it, so we don't keep
                 // making queries against it for every sample.
+                // Note that we don't extract the sequence.
                 PathIndex path_index(xg_index->path(path_name));
-
+                
                 // Process the samples in batches to save memory.
                 size_t batch_start = sample_range.first, batch_limit = std::min(batch_start + samples_in_batch, sample_range.second);
                 size_t first_phase = 2 * batch_start, phases_in_batch = 2 * samples_in_batch;
@@ -623,6 +665,16 @@ int main_index(int argc, char** argv) {
                     // the-end reference position.
                     size_t ref_pos = nonvariant_starts[phase_number - first_phase];
                     
+                    if (ref_pos >= end) {
+                        // For the case where the graph ends inside a variant,
+                        // the past-the-end position after the last variant may
+                        // actually be off the graph, which means it is also at
+                        // or past past our target end position. In those
+                        // cases, we should do nothing, as there is no sequence
+                        // that needs to be added.
+                        return;
+                    }
+                   
                     // Get an iterator to the next node visit to add
                     PathIndex::iterator next_to_add = path_index.find_position(ref_pos);
 
@@ -901,9 +953,21 @@ int main_index(int argc, char** argv) {
                 // Process the phases in batches.
                 while (batch_start < sample_range.second) {
 
+                    // We may need an offset on variant positions for progress bar purposes
+                    size_t progress_offset = 0;
+
                     // Look for variants only on this path; seek back if this
                     // is not the first batch.
-                    variant_file.setRegion(vcf_contig_name);
+                    if (regions.count(vcf_contig_name)) {
+                        // Look at only the specified region of this contig
+                        variant_file.setRegion(vcf_contig_name, regions[vcf_contig_name].first, regions[vcf_contig_name].second);
+                        
+                        // Remember where our region starts, for an accurate progress bar
+                        progress_offset = regions[vcf_contig_name].first;
+                    } else {
+                        // Look at the entire contig
+                        variant_file.setRegion(vcf_contig_name);
+                    }
 
                     // Set up progress bar
                     ProgressBar* progress = nullptr;
@@ -938,7 +1002,7 @@ int main_index(int argc, char** argv) {
 
                         if (variants_processed++ % 1000 == 0 && progress != nullptr) {
                             // Say we made progress
-                            progress->Progressed(var.position);
+                            progress->Progressed(var.position - progress_offset);
                         }
                     }
 
@@ -1184,54 +1248,12 @@ int main_index(int argc, char** argv) {
             index.close();
         }
 
-        if (prune_kb >= 0) {
-            if (show_progress) {
-                cerr << "pruning kmers > " << prune_kb << " on disk from " << rocksdb_name << endl;
-            }
-            index.open_for_write(rocksdb_name);
-            index.prune_kmers(prune_kb);
-            index.compact();
-            index.close();
-        }
-
-        if (set_kmer_size) {
-            assert(kmer_size != 0);
-            index.open_for_write(rocksdb_name);
-            index.remember_kmer_size(kmer_size);
-            index.close();
-        }
-
         if (dump_index) {
             index.open_read_only(rocksdb_name);
             index.dump(cout);
             index.close();
         }
 
-        if (describe_index) {
-            index.open_read_only(rocksdb_name);
-            set<int> kmer_sizes = index.stored_kmer_sizes();
-            cout << "kmer sizes: ";
-            for (auto kmer_size : kmer_sizes) {
-                cout << kmer_size << " ";
-            }
-            cout << endl;
-            index.close();
-        }
-
-        if (path_layout) {
-            index.open_read_only(rocksdb_name);
-            //index.path_layout();
-            map<string, int64_t> path_by_id = index.paths_by_id();
-            map<string, pair<pair<int64_t, bool>, pair<int64_t, bool>>> layout;
-            map<string, int64_t> length;
-            index.path_layout(layout, length);
-            for (auto& p : layout) {
-                // Negate IDs for backward nodes
-                cout << p.first << " " << p.second.first.first * (p.second.first.second ? -1 : 1) << " "
-                    << p.second.second.first * (p.second.second.second ? -1 : 1) << " " << length[p.first] << endl;
-            }
-            index.close();
-        }
     }
 
     return 0;

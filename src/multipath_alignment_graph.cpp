@@ -279,7 +279,6 @@ namespace vg {
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
-        
 #ifdef debug_multipath_alignment
         cerr << "walking out MEMs in graph" << endl;
 #endif
@@ -512,7 +511,7 @@ namespace vg {
     void MultipathAlignmentGraph::collapse_order_length_runs(VG& vg, gcsa::GCSA* gcsa) {
         
 #ifdef debug_multipath_alignment
-        cerr << "looking for runs of order length MEMs to collapse" << endl;
+        cerr << "looking for runs of order length MEMs to collapse with gcsa order "  << gcsa->order() << endl;
 #endif
         
         vector<vector<size_t>> merge_groups;
@@ -728,13 +727,16 @@ namespace vg {
                         }
                     }
                     
+#ifdef debug_multipath_alignment
+                    cerr << "the first mapping to merge is at index " << first_mapping_to_add_idx << " with " << -remaining << " remaining" << endl;
+#endif
+                    
                     // handle the first mapping we add as a special case
                     const Mapping& first_mapping_to_add = merge_from_node.path.mapping(first_mapping_to_add_idx);
                     Mapping* final_merging_mapping = merge_into_node.path.mutable_mapping(merge_into_node.path.mapping_size() - 1);
                     if (final_merging_mapping->position().node_id() == first_mapping_to_add.position().node_id() &&
                         final_merging_mapping->position().is_reverse() == first_mapping_to_add.position().is_reverse() &&
-                        final_merging_mapping->position().offset() == first_mapping_to_add.position().offset() &&
-                        mapping_from_length(*final_merging_mapping) == -remaining) {
+                        first_mapping_to_add.position().offset() - final_merging_mapping->position().offset() - remaining == mapping_from_length(*final_merging_mapping)) {
                         
                         // the mappings are on the same node, so they can be combined
                         int64_t mapping_to_add_length = mapping_from_length(first_mapping_to_add) + remaining;
@@ -742,6 +744,9 @@ namespace vg {
                         final_edit->set_from_length(final_edit->from_length() + mapping_to_add_length);
                         final_edit->set_to_length(final_edit->to_length() + mapping_to_add_length);
                         
+#ifdef debug_multipath_alignment
+                        cerr << "merged mapping is " << pb2json(*final_merging_mapping) << endl;
+#endif
                     }
                     else {
                         // we need to add this as a new mapping
@@ -749,6 +754,9 @@ namespace vg {
                         *new_mapping = first_mapping_to_add;
                         new_mapping->set_rank(final_merging_mapping->rank() + 1);
                         
+#ifdef debug_multipath_alignment
+                        cerr << "new adjacent mapping is " << pb2json(*new_mapping) << endl;
+#endif
                     }
                     
                     // add the remaining mappings as new mappings
@@ -756,13 +764,22 @@ namespace vg {
                         Mapping* new_mapping = merge_into_node.path.add_mapping();
                         *new_mapping = merge_from_node.path.mapping(j);
                         new_mapping->set_rank(merge_into_node.path.mapping(merge_into_node.path.mapping_size() - 2).rank() + 1);
+                        
+#ifdef debug_multipath_alignment
+                        cerr << "new transfer mapping is " << pb2json(*new_mapping) << endl;
+#endif
                     }
                     
                     // merge the substrings on the node
                     merge_into_node.end = merge_from_node.end;
                     
 #ifdef debug_multipath_alignment
-                    cerr << "merged path is " << pb2json(merge_from_node.path) << endl;
+                    cerr << "merged path is " << pb2json(merge_into_node.path) << endl;
+                    cerr << "merged substring is ";
+                    for (auto iter = merge_into_node.begin; iter != merge_into_node.end; iter++) {
+                        cerr << *iter;
+                    }
+                    cerr << endl;
 #endif
                 }
             }
@@ -775,11 +792,20 @@ namespace vg {
                 }
                 else if (removed_so_far > 0) {
                     path_nodes[i - removed_so_far] = move(path_nodes[i]);
+#ifdef debug_multipath_alignment
+                    cerr << "moving path node " << i << " into index " << i - removed_so_far << endl;
+#endif
                 }
+#ifdef debug_multipath_alignment
+                else {
+                    cerr << "moving path node " << i << " into index " << i << endl;
+                }
+#endif
             }
             
             path_nodes.resize(path_nodes.size() - to_remove.size());
         }
+        
     }
     
     void MultipathAlignmentGraph::resect_snarls_from_paths(SnarlManager* cutting_snarls,
@@ -789,11 +815,12 @@ namespace vg {
         cerr << "cutting with snarls" << endl;
 #endif
         
-        // Can only cut out snarls while reachability edges are not present.
-        // Because we are going to have to rebuild them after the nodes change.
-        assert(!has_reachability_edges);
-        
         size_t num_original_path_nodes = path_nodes.size();
+        
+        // we'll need to keep track of which nodes we trim the front off of to update edge lengths later
+        vector<size_t> trimmed_prefix_length(path_nodes.size());
+        bool trimmed_any_prefix = false;
+        
         for (size_t i = 0; i < num_original_path_nodes; i++) {
             
             // first compute the segments we want to cut out
@@ -908,72 +935,115 @@ namespace vg {
                     keep_segments.emplace_back(0, curr_keep_seg_end);
                 }
                 
-                // make a new node for all but one of the keep segments
+                // the keep segments are now stored last-to-first, let's reverse them to their more natural ordering
+                reverse(keep_segments.begin(), keep_segments.end());
+                
+                // record the data stored on the original path node
+                Path original_path = *path;
+                string::const_iterator original_begin = path_node->begin;
+                string::const_iterator original_end = path_node->end;
+                vector<pair<size_t, size_t>> forward_edges = move(path_node->edges);
+                
+                // and reinitialize the node
+                path_node->edges.clear();
+                path->clear_mapping();
+                
                 size_t prefix_length = 0;
                 size_t prefix_idx = 0;
-                for (auto iter = keep_segments.end() - 1; iter != keep_segments.begin(); iter--) {
+                while (prefix_idx < keep_segments.front().first) {
+                    prefix_length += mapping_from_length(original_path.mapping(prefix_idx));
+                    prefix_idx++;
+                }
+                
+                // keep track whether we trimmed a prefix off the left side of the priginal path
+                trimmed_prefix_length[i] = prefix_length;
+                trimmed_any_prefix = trimmed_any_prefix || (prefix_length > 0);
+                
 #ifdef debug_multipath_alignment
-                    cerr << "making path for keep segment " << iter->first << ":" << iter->second << " at idx " << path_nodes.size() << endl;
+                cerr << "making path for initial keep segment " << keep_segments.front().first << ":" << keep_segments.front().second << " at idx " << i << endl;
 #endif
-                    path_nodes.emplace_back();
+                
+                // place the first keep segment into the original node
+                path_node->begin = original_begin + prefix_length;
+                for (int32_t rank = 1; prefix_idx < keep_segments.front().second; prefix_idx++, rank++) {
+                    Mapping* mapping = path->add_mapping();
+                    *mapping = original_path.mapping(prefix_idx);
+                    mapping->set_rank(rank);
+                    prefix_length += mapping_from_length(*mapping);
+                }
+                path_node->end = original_begin + prefix_length;
+                
+                
+#ifdef debug_multipath_alignment
+                cerr << "new cut path: " << pb2json(path_node->path) << endl;
+#endif
+                
+                // keep track of the index in the node vector of the previous segment
+                size_t prev_segment_idx = i;
+                
+                for (size_t j = 1; j < keep_segments.size(); j++) {
                     
-                    // update pointers in case the vector reallocates
-                    path_node = &path_nodes[i];
-                    path = &path_node->path;
+                    auto& keep_segment = keep_segments[j];
                     
-                    // measure the length of path between this keep segment and the last one
-                    while (prefix_idx < iter->first) {
-                        prefix_length += mapping_from_length(path->mapping(prefix_idx));
+#ifdef debug_multipath_alignment
+                    cerr << "making path for initial keep segment " << keep_segments.front().first << ":" << keep_segments.front().second << " at idx " << i << endl;
+#endif
+                    
+                    // record the start of the intersegment section of the read
+                    size_t intersegment_start = prefix_length;
+                    
+                    // advance to the next keep segment
+                    while (prefix_idx < keep_segment.first) {
+                        prefix_length += mapping_from_length(original_path.mapping(prefix_idx));
                         prefix_idx++;
                     }
                     
-                    size_t keep_segment_length = 0;
+                    // create a new node for this keep segment
+                    path_nodes.emplace_back();
                     PathNode& cut_node = path_nodes.back();
                     Path& cut_path = cut_node.path;
-                    // transfer over the keep segment from the main path and measure the length
-                    int32_t rank = 1;
-                    for (size_t j = iter->first; j < iter->second; j++, rank++) {
+                    
+                    // add a connecting edge from the last keep segment
+                    path_nodes[prev_segment_idx].edges.emplace_back(path_nodes.size() - 1, prefix_length - intersegment_start);
+                    
+                    // transfer over the path and the read interval
+                    cut_node.begin = original_begin + prefix_length;
+                    for (int32_t rank = 1; prefix_idx < keep_segment.second; prefix_idx++, rank++) {
                         Mapping* mapping = cut_path.add_mapping();
-                        *mapping = path->mapping(j);
+                        *mapping = original_path.mapping(prefix_idx);
                         mapping->set_rank(rank);
-                        keep_segment_length += mapping_from_length(*mapping);
+                        prefix_length += mapping_from_length(*mapping);
                     }
+                    cut_node.end = original_begin + prefix_length;
                     
-                    // identify the substring of the MEM that stays on this node
-                    cut_node.begin = path_node->begin + prefix_length;
-                    cut_node.end = cut_node.begin + keep_segment_length;
-                    
-                    prefix_length += keep_segment_length;
-                    prefix_idx = iter->second;
 #ifdef debug_multipath_alignment
                     cerr << "new cut path: " << pb2json(cut_path) << endl;
 #endif
                     
+                    prev_segment_idx = path_nodes.size() - 1;
                 }
                 
-                while (prefix_idx < keep_segments.front().first) {
-                    prefix_length += mapping_from_length(path->mapping(prefix_idx));
-                    prefix_idx++;
-                }
+                // move the edges from the original node onto the last keep segment
+                path_nodes[prev_segment_idx].edges = move(forward_edges);
                 
-                // replace the path of the original node with the final keep segment
-                size_t keep_segment_length = 0;
-                Path new_path;
-                int32_t rank = 1;
-                for (size_t j = keep_segments.front().first; j < keep_segments.front().second; j++, rank++) {
-                    Mapping* mapping = new_path.add_mapping();
-                    *mapping = path->mapping(j);
-                    mapping->set_rank(rank);
-                    keep_segment_length += mapping_from_length(*mapping);
+                // add the length of the trimmed portion of the path to the edge length
+                size_t trimmed_suffix_length = (original_begin + prefix_length) - original_end;
+                if (trimmed_suffix_length) {
+                    for (pair<size_t, size_t>& edge : path_nodes[prev_segment_idx].edges) {
+                        edge.second += trimmed_suffix_length;
+                    }
                 }
-                *path = new_path;
-                
-                // update the substring of MEM to match the path
-                path_node->begin += prefix_length;
-                path_node->end = path_node->begin + keep_segment_length;
-#ifdef debug_multipath_alignment
-                cerr << "new in place cut path for keep segment " << keep_segments.front().first << ":" << keep_segments.front().second << " " << pb2json(new_path) << endl;
-#endif
+            }
+        }
+        
+        if (trimmed_any_prefix) {
+            // we need to add the length of the prefixes we trimmed off to the length of edges
+            for (PathNode& path_node : path_nodes) {
+                for (pair<size_t, size_t>& edge : path_node.edges) {
+                    if (edge.first < trimmed_prefix_length.size()) {
+                        edge.second += trimmed_prefix_length[edge.first];
+                    }
+                }
             }
         }
     }
@@ -1611,30 +1681,30 @@ namespace vg {
         cerr << "final reachability:" << endl;
         cerr << "\tstarts from starts" << endl;
         for (const auto& record : reachable_starts_from_start) {
-            cerr << "\t\tStart of M" << record.first << ":" << endl;
+            cerr << "\t\tstart of M" << record.first << " can reach:" << endl;
             for (const auto& endpoint : record.second) {
-                cerr << "\t\t\tFrom start of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
+                cerr << "\t\t\tstart of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
             }
         }
         cerr << "\tends from starts" << endl;
         for (const auto& record : reachable_ends_from_start) {
-            cerr << "\t\tEnd of M" << record.first << ":" << endl;
+            cerr << "\t\tstart of M" << record.first << " can reach:" << endl;
             for (const auto& endpoint : record.second) {
-                cerr << "\t\t\tFrom start of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
+                cerr << "\t\t\tend of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
             }
         }
         cerr << "\tstarts from ends" << endl;
         for (const auto& record : reachable_starts_from_end) {
-            cerr << "\t\tStart of M" << record.first << ":" << endl;
+            cerr << "\t\tend of M" << record.first << " can reach:" << endl;
             for (const auto& endpoint : record.second) {
-                cerr << "\t\t\tFrom end of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
+                cerr << "\t\t\tstart of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
             }
         }
         cerr << "\tends from ends" << endl;
         for (const auto& record : reachable_ends_from_end) {
-            cerr << "\t\tEnd of M" << record.first << ":" << endl;
+            cerr << "\t\tend of M" << record.first << " can reach:" << endl;
             for (const auto& endpoint : record.second) {
-                cerr << "\t\t\tFrom end of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
+                cerr << "\t\t\tend of M" << endpoint.first << " (dist " << endpoint.second << ")" << endl;
             }
         }
         cerr << "setting up structure of MEM graph" << endl;
@@ -2088,7 +2158,6 @@ namespace vg {
             int64_t mapping_idx = 0;
             int64_t mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
             while (remaining >= mapping_len) {
-                
                 *onto_node->path.add_mapping() = full_path.mapping(mapping_idx);
                 prefix_to_length += mapping_to_length(full_path.mapping(mapping_idx));
                 remaining -= mapping_len;
@@ -3128,6 +3197,47 @@ namespace vg {
             }
         }
         out << "}" << endl;
+    }
+    
+    vector<vector<id_t>> MultipathAlignmentGraph::get_connected_components() const {
+        // Brea all the path_nodes into components using this union-find
+        structures::UnionFind unionfind(path_nodes.size());
+        
+        for (size_t i = 0; i < path_nodes.size(); i++) {
+            // For each node
+            for (auto& edge : path_nodes[i].edges) {
+                // For each outgoing edge...
+                
+                // Union both ends into the same component.
+                unionfind.union_groups(unionfind.find_group(i), unionfind.find_group(edge.first));
+            }
+        }
+        
+        // Assemble the vectors of ids
+        vector<vector<id_t>> to_return;
+        
+        for (auto& component : unionfind.all_groups()) {
+            // For each connected component
+            
+            // Make a set of vg graph IDs in it
+            set<id_t> vg_ids;
+            
+            for (auto& path_node : component) {
+                // For each path in the vg graph used by the component
+                auto& path = path_nodes[path_node].path;
+                
+                for (auto& mapping : path.mapping()) {
+                    // For each mapping in the path, remember its vg graph node
+                    vg_ids.insert(mapping.position().node_id());
+                }
+            }
+            
+            // Copy the unique vg nodes used byt this component of PathNodes into the list of components to return
+            to_return.emplace_back(vg_ids.begin(), vg_ids.end());
+        }
+        
+        return to_return;
+        
     }
 }
 

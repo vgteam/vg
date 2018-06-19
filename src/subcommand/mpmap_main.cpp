@@ -61,14 +61,14 @@ void help_mpmap(char** argv) {
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - adaptive, 3 - exact [2]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
-    << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [48]" << endl
-    << "  -O, --max-paths INT       consider (up to) this many paths per alignment when scoring by population consistency [1]" << endl
+    << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [24 paired / 48 unpaired]" << endl
+    << "  -O, --max-paths INT       consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
     << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
     << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
     << "  -K, --clust-length INT    minimum MEM length form clusters [automatic]" << endl
-    << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [256]" << endl
+    << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [1024]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
     << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
@@ -113,12 +113,17 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus = default_full_length_bonus;
     bool interleaved_input = false;
     int snarl_cut_size = 5;
-    int max_map_attempts = 48;
-    int population_max_paths = 1;
+    int max_paired_end_map_attempts = 24;
+    int max_single_end_mappings_for_rescue = 64;
+    int max_single_end_map_attempts = 64;
     int max_rescue_attempts = 32;
+    int population_max_paths = 10;
+    // How many distinct single path alignments should we look for in a multipath, for MAPQ?
+    // TODO: create an option.
+    int localization_max_paths = 5;
     int max_num_mappings = 1;
     int buffer_size = 100;
-    int hit_max = 256;
+    int hit_max = 1024;
     int min_mem_length = 1;
     int min_clustering_mem_length = 0;
     int reseed_length = 28;
@@ -130,10 +135,10 @@ int main_mpmap(int argc, char** argv) {
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Adaptive;
     int band_padding = 2;
-    int max_dist_error = 8;
+    int max_dist_error = 12;
     int num_alt_alns = 4;
     double suboptimal_path_exponent = 1.25;
-    double likelihood_approx_exp = 6.5;
+    double likelihood_approx_exp = 10.0;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
     size_t frag_length_sample_size = 1000;
@@ -150,6 +155,7 @@ int main_mpmap(int argc, char** argv) {
     size_t sub_mem_count_thinning = 4;
     size_t sub_mem_thinning_burn_in = 16;
     double secondary_rescue_score_diff = 0.8;
+    size_t secondary_rescue_attempts = 4;
     size_t rescue_only_min = numeric_limits<size_t>::max(); // disabling this for now
     size_t rescue_only_anchor_max = 16;
     string sample_name = "";
@@ -157,6 +163,7 @@ int main_mpmap(int argc, char** argv) {
     bool prefilter_redundant_hits = true;
     bool precollapse_order_length_hits = true;
     int max_sub_mem_recursion_depth = 1;
+    int max_map_attempts_arg = 0;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -365,7 +372,7 @@ int main_mpmap(int argc, char** argv) {
                     mapq_method = Exact;
                 }
                 else {
-                    cerr << "error:[vg mpmap] Unrecognized mapping quality (-v) option: " << mapq_arg << ". Choose from {0, 1, 2}." << endl;
+                    cerr << "error:[vg mpmap] Unrecognized mapping quality (-v) option: " << mapq_arg << ". Choose from {0, 1, 2, 3}." << endl;
                     exit(1);
                 }
             }
@@ -380,7 +387,11 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'u':
-                max_map_attempts = atoi(optarg);
+                max_map_attempts_arg = atoi(optarg);
+                // let 0 be a sentinel for no limit and also a sentinel for not giving an arg
+                if (max_map_attempts_arg == 0) {
+                    max_map_attempts_arg == numeric_limits<int>::max();
+                }
                 break;
                 
             case 'O':
@@ -548,18 +559,20 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (max_map_attempts < 0) {
-        cerr << "error:[vg mpmap] Maximum number of mapping attempts (-u) set to " << max_map_attempts << ", must set to a positive integer or 0 for no maximum." << endl;
+    if (max_map_attempts_arg < 0) {
+        cerr << "error:[vg mpmap] Maximum number of mapping attempts (-u) set to " << max_map_attempts_arg << ", must set to a positive integer or 0 for no maximum." << endl;
         exit(1);
     }
     
-    if (population_max_paths < 1) {
-        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set to " << population_max_paths << ", must set to a positive integer." << endl;
+    if (population_max_paths < 0) {
+        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set to " << population_max_paths << ", must set to a nonnegative integer." << endl;
         exit(1);
     }
     
-    if (population_max_paths != 1 && gbwt_name.empty() && sublinearLS_name.empty()) {
-        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) set when population database (-H or --linear-index) not provided." << endl;
+    if (population_max_paths != 10 && population_max_paths != 0 && gbwt_name.empty() && sublinearLS_name.empty()) {
+        // Don't allow anything but the default or the "disabled" setting without an index.
+        // TODO: This restriction makes neat auto-generation of command line options for different conditions hard.
+        cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) is specified but population database (-H or --linear-index) was not provided." << endl;
         exit(1);
     }
     
@@ -578,6 +591,9 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    // choose either the user supplied max or the default for paired/unpaired
+    int max_map_attempts = max_map_attempts_arg ? max_map_attempts_arg : ((interleaved_input || !fastq_name_2.empty()) ?
+                                                                          max_paired_end_map_attempts : max_single_end_map_attempts);
     if (max_num_mappings > max_map_attempts && max_map_attempts != 0) {
         cerr << "warning:[vg mpmap] Reporting up to " << max_num_mappings << " mappings, but only computing up to " << max_map_attempts << " mappings." << endl;
     }
@@ -647,7 +663,7 @@ int main_mpmap(int argc, char** argv) {
     
     // adjust parameters that produce irrelevant extra work in single path mode
     
-    if (single_path_alignment_mode && population_max_paths == 1) {
+    if (single_path_alignment_mode && population_max_paths == 0) {
         // TODO: I don't like having these constants floating around in two different places, but it's not very risky, just a warning
         if (!snarls_name.empty()) {
             cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
@@ -794,19 +810,22 @@ int main_mpmap(int argc, char** argv) {
     // set mapping quality parameters
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
-    multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr);
+    // Use population MAPQs when we have the right option combination to make that sensible.
+    multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
     multipath_mapper.population_max_paths = population_max_paths;
     
     // set pruning and clustering parameters
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
-    multipath_mapper.num_mapping_attempts = max_map_attempts ? max_map_attempts : numeric_limits<int>::max();
+    multipath_mapper.num_mapping_attempts = max_map_attempts;
     multipath_mapper.unstranded_clustering = unstranded_clustering;
     
     // set pair rescue parameters
-    multipath_mapper.secondary_rescue_score_diff = secondary_rescue_score_diff;
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
+    multipath_mapper.max_single_end_mappings_for_rescue = max(max(max_single_end_mappings_for_rescue, max_rescue_attempts), max_num_mappings);
+    multipath_mapper.secondary_rescue_score_diff = secondary_rescue_score_diff;
+    multipath_mapper.secondary_rescue_attempts = secondary_rescue_attempts;
     multipath_mapper.rescue_only_min = rescue_only_min;
     multipath_mapper.rescue_only_anchor_max = rescue_only_anchor_max;
     
@@ -881,10 +900,22 @@ int main_mpmap(int argc, char** argv) {
         auto& output_buf = single_path_output_buffer[omp_get_thread_num()];
         // add optimal alignments to the output buffer
         for (MultipathAlignment& mp_aln : mp_alns) {
-            output_buf.emplace_back();
-            optimal_alignment(mp_aln, output_buf.back());
+            // For each multipath alignment, get the greedy nonoverlapping
+            // single-path alignments from the top k optimal single-path
+            // alignments.
+            vector<Alignment> options;
+            multipath_mapper.reduce_to_single_path(mp_aln, options, localization_max_paths);
+            
+            // There will always be at least one result. Use the optimal alignment.
+            output_buf.emplace_back(std::move(options.front()));
+            
             // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
+            
+            if (mp_aln.has_annotation()) {
+                // Move over annotations
+                output_buf.back().set_allocated_annotation(mp_aln.release_annotation());
+            }
             
             // label with read group and sample name
             if (!read_group.empty()) {
@@ -944,8 +975,18 @@ int main_mpmap(int argc, char** argv) {
         // add optimal alignments to the output buffer
         for (pair<MultipathAlignment, MultipathAlignment>& mp_aln_pair : mp_aln_pairs) {
             
-            output_buf.emplace_back();
-            optimal_alignment(mp_aln_pair.first, output_buf.back());
+            // Compute nonoverlapping single path alignments for each multipath alignment
+            vector<Alignment> options;
+            multipath_mapper.reduce_to_single_path(mp_aln_pair.first, options, localization_max_paths);
+            
+            // There will always be at least one result. Use the optimal alignment.
+            output_buf.emplace_back(std::move(options.front()));
+            
+            if (mp_aln_pair.first.has_annotation()) {
+                // Move over annotations
+                output_buf.back().set_allocated_annotation(mp_aln_pair.first.release_annotation());
+            }
+            
             // compute the Alignment identity to make vg call happy
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
@@ -959,8 +1000,16 @@ int main_mpmap(int argc, char** argv) {
             // arbitrarily decide that this is the "previous" fragment
             output_buf.back().mutable_fragment_next()->set_name(mp_aln_pair.second.name());
             
-            output_buf.emplace_back();
-            optimal_alignment(mp_aln_pair.second, output_buf.back());
+            // Now do the second read
+            options.clear();
+            multipath_mapper.reduce_to_single_path(mp_aln_pair.second, options, localization_max_paths);
+            output_buf.emplace_back(std::move(options.front()));
+            
+            if (mp_aln_pair.second.has_annotation()) {
+                // Move over annotations
+                output_buf.back().set_allocated_annotation(mp_aln_pair.second.release_annotation());
+            }
+            
             // compute identity again
             output_buf.back().set_identity(identity(output_buf.back().path()));
             
@@ -1018,6 +1067,47 @@ int main_mpmap(int argc, char** argv) {
                 
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
         multipath_mapper.multipath_map_paired(alignment_1, alignment_2, mp_aln_pairs, ambiguous_pair_buffer, max_num_mappings);
+        if (single_path_alignment_mode) {
+            output_single_path_paired_alignments(mp_aln_pairs);
+        }
+        else {
+            output_multipath_paired_alignments(mp_aln_pairs);
+        }
+#ifdef record_read_run_times
+        clock_t finish = clock();
+#pragma omp critical
+        read_time_file << alignment_1.name() << "\t" << alignment_2.name() << "\t" << double(finish - start) / CLOCKS_PER_SEC << endl;
+#endif
+    };
+    
+    // do unpaired, independent multipath alignment, and write to buffer as paired
+    function<void(Alignment&, Alignment&)> do_independent_paired_alignments = [&](Alignment& alignment_1, Alignment& alignment_2) {
+        // get reads on the same strand so that oriented distance estimation works correctly
+        // but if we're clearing the ambiguous buffer we already RC'd these on the first pass
+#ifdef record_read_run_times
+        clock_t start = clock();
+#endif
+        if (!same_strand) {
+            // TODO: the output functions undo this transformation, so we have to do it here.
+        
+            // remove the path so we won't try to RC it (the path may not refer to this graph)
+            alignment_2.clear_path();
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+        }
+        
+        // Align independently
+        vector<MultipathAlignment> mp_alns_1, mp_alns_2;
+        multipath_mapper.multipath_map(alignment_1, mp_alns_1, max_num_mappings);
+        multipath_mapper.multipath_map(alignment_2, mp_alns_2, max_num_mappings);
+               
+        vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
+        for (size_t i = 0; i < mp_alns_1.size() && i < mp_alns_2.size(); i++) {
+            // Pair arbitrarily. Stop when one side runs out of alignments.
+            mp_aln_pairs.emplace_back(mp_alns_1[i], mp_alns_2[i]);
+        }
+        
+        // TODO: Set a flag or annotation or something to say we don't really believe the pairing
+       
         if (single_path_alignment_mode) {
             output_single_path_paired_alignments(mp_aln_pairs);
         }
@@ -1100,8 +1190,7 @@ int main_mpmap(int argc, char** argv) {
                     reverse_complement_alignment_in_place(&aln_pair.second,
                                                           [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
                 }
-                do_unpaired_alignments(aln_pair.first);
-                do_unpaired_alignments(aln_pair.second);
+                do_independent_paired_alignments(aln_pair.first, aln_pair.second);
             }
         }
     }

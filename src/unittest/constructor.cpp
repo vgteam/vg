@@ -13,6 +13,7 @@
 #include <vector>
 #include <sstream>
 #include <iostream>
+#include <unordered_map>
 
 namespace vg {
 namespace unittest {
@@ -230,7 +231,8 @@ ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, stri
 /**
  * Testing wrapper to build a whole graph from a VCF string. Adds alt paths by default.
  */
-Graph construct_test_graph(string fasta_data, string vcf_data) {
+Graph construct_test_graph(string fasta_data, string vcf_data, size_t max_node_size,
+    bool do_svs) {
     
     // Merge all the graphs we get into this graph
     Graph built;
@@ -270,8 +272,9 @@ Graph construct_test_graph(string fasta_data, string vcf_data) {
     
     Constructor constructor;
     constructor.alt_paths = true;
+    constructor.do_svs = do_svs;
     // Make sure we can test the node splitting behavior at reasonable sizes
-    constructor.max_node_size = 50;
+    constructor.max_node_size = max_node_size;
 
     // Construct the graph    
     constructor.construct_graph(fasta_pointers, vcf_pointers, ins_pointers, callback);
@@ -1243,7 +1246,7 @@ GATTACACATTAG
 )";
 
     // Build the graph
-    auto result = construct_test_graph(fasta_data, vcf_data);
+    auto result = construct_test_graph(fasta_data, vcf_data, 50, false);
     
 #ifdef debug
     std::cerr << pb2json(result) << std::endl;
@@ -1264,5 +1267,47 @@ GATTACACATTAG
 
 }
 
+TEST_CASE( "A deletion is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAG"});
+        expected.insert({2, "G"});
+        expected.insert({3, "CTTGGAAATT"});
+        expected.insert({4, "TTCTGGAGTT"});
+        expected.insert({5, "CTATTATATT"});
+        expected.insert({6, "CCAACTCTCT"});
+        expected.insert({7, "G"});
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+
+}
 }
 }
