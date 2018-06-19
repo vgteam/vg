@@ -882,19 +882,19 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
             exit(1);
         }
     }
-    build(node_label, path_nodes, validate_graph, print_graph,
-        store_threads, is_sorted_dag, start_side, end_side, doubly_reversing_sides);
+    build(node_label, start_side, end_side, path_nodes, validate_graph, print_graph,
+        store_threads, is_sorted_dag, doubly_reversing_sides);
     
 }
 
 void XG::build(vector<pair<id_t, string> >& node_label,
+               unordered_map<side_t, vector<side_t> >& start_side,
+               unordered_map<side_t, vector<side_t> >& end_side,
                map<string, vector<trav_t> >& path_nodes,
                bool validate_graph,
                bool print_graph,
                bool store_threads,
                bool is_sorted_dag,
-               unordered_map<side_t, vector<side_t> >& start_side,
-               unordered_map<side_t, vector<side_t> >& end_side,
                int doubly_reversing_sides) {
 
     size_t entity_count = node_count + edge_count;

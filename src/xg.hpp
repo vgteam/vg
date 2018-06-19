@@ -102,13 +102,13 @@ public:
         bool validate_graph = false, bool print_graph = false,
         bool store_threads = false, bool is_sorted_dag = false); 
     void build(vector<pair<id_t, string> >& node_label,
+               unordered_map<side_t, vector<side_t> >& start_side,
+               unordered_map<side_t, vector<side_t> >& end_side,
                map<string, vector<trav_t> >& path_nodes,
                bool validate_graph,
                bool print_graph,
                bool store_threads,
                bool is_sorted_dag,
-               unordered_map<side_t, vector<side_t> >& start_side,
-               unordered_map<side_t, vector<side_t> >& end_side,
                int doubly_reversing_sides);
                
     // What's the maximum XG version number we can read with this code?
@@ -246,7 +246,7 @@ public:
 
     // expand by steps (original and default)
     void expand_context_by_steps(Graph& g, size_t steps, bool add_paths = true,
-                                 bool expand_forward = true, bool expand_start_side = true,
+                                 bool expand_end_side = true, bool expand_start_side = true,
                                  int64_t until_node = 0) const;
     // expand by length
     void expand_context_by_length(Graph& g, size_t length, bool add_paths = true,
