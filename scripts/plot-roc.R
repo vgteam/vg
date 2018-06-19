@@ -13,7 +13,7 @@
 # As such we do not ever achieve 100% sensitivity, as we have effectively scaled the y axis (TPR) by the total
 # sensitivity of each mapper.
 
-list.of.packages <- c("tidyverse", "ggrepel")
+list.of.packages <- c("tidyverse", "ggrepel", "svglite")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 require("tidyverse")
