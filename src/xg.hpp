@@ -122,6 +122,8 @@ public:
     size_t serialize(std::ostream& out,
                      sdsl::structure_tree_node* v = NULL,
                      std::string name = "");
+    
+    // If XG is not in current format, change to new format (edges in start/end format, not from/to format)
     void convert_old_edge_to_new(int_vector<> g_iv_old, bit_vector g_bv_old, rank_support_v<1> g_bv_rank_old, bit_vector::select_1_type g_bv_select_old);
     
     ////////////////////////////////////////////////////////////////////////////
