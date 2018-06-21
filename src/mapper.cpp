@@ -1598,7 +1598,7 @@ void BaseMapper::clear_aligners(void) {
     regular_aligner = nullptr;
 }
 
-void BaseMapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus) {
+void BaseMapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus, uint32_t max_gap_length) {
     // hacky, find max score so that scaling doesn't change score
     int8_t max_score = match;
     if (mismatch > max_score) max_score = mismatch;
@@ -1609,7 +1609,7 @@ void BaseMapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, in
     
     qual_adj_aligner = new QualAdjAligner(match, mismatch, gap_open, gap_extend, full_length_bonus,
                                           max_score, 255, gc_content);
-    regular_aligner = new Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
+    regular_aligner = new Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus, gc_content, max_gap_length);
 }
 
 void BaseMapper::load_scoring_matrix(std::ifstream& matrix_stream){
@@ -1747,15 +1747,15 @@ int BaseMapper::random_match_length(double chance_random) {
         return 0;
     }
 }
-    
+
 void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend,
-    int8_t full_length_bonus, double haplotype_consistency_exponent) {
+    int8_t full_length_bonus, double haplotype_consistency_exponent, uint32_t max_gap_length) {
     
     // clear the existing aligners and recreate them
     if (regular_aligner || qual_adj_aligner) {
         clear_aligners();
     }
-    init_aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
+    init_aligner(match, mismatch, gap_open, gap_extend, full_length_bonus, max_gap_length);
     
     // Save the consistency exponent
     this->haplotype_consistency_exponent = haplotype_consistency_exponent;
@@ -1805,15 +1805,24 @@ Mapper::Mapper(xg::XG* xidex,
     , pair_rescue_retry_threshold(0.5)
     , include_full_length_bonuses(true)
 {
-    
+    // bench_init(bench[0]); bench_init(bench[1]); bench_init(bench[2]); bench_init(bench[3]);
+    // counter[0] = 0; counter[1] = 0; counter[2] = 0; counter[3] = 0; counter[4] = 0; counter[5] = 0;
 }
 
 Mapper::Mapper(void) : BaseMapper() {
     // Nothing to do. Default constructed and can't really do anything.
+    // bench_init(bench[0]); bench_init(bench[1]); bench_init(bench[2]); bench_init(bench[3]);
+    // counter[0] = 0; counter[1] = 0; counter[2] = 0; counter[3] = 0; counter[4] = 0; counter[5] = 0;
 }
 
 Mapper::~Mapper(void) {
     //  Nothing to do, all managed memory handled in parent class
+    /*
+    fprintf(stderr, "mapper, time(%lu, %lu, %lu, %lu), cnt(%lu, %lu, %lu, %lu), counter(%lu, %lu, %lu, %lu)\n",
+        bench_get(bench[0]) / 1000, bench_get(bench[1]) / 1000, bench_get(bench[2]) / 1000, bench_get(bench[3]) / 1000,
+        bench_get_count(bench[0]), bench_get_count(bench[1]), bench_get_count(bench[2]), bench_get_count(bench[3]),
+        counter[0], counter[1], counter[2], counter[3]);
+    */
 }
 
 double Mapper::graph_entropy(void) {
@@ -1832,6 +1841,21 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool pin_left,
                                  bool banded_global,
                                  bool keep_bonuses) {
+    // do not use X-drop alignment when MEMs is not available
+    vector<MaximalExactMatch> mems;
+    align_to_graph(aln, graph, mems, max_query_graph_ratio, traceback, acyclic_and_sorted, pinned_alignment, pin_left, banded_global, false, keep_bonuses);
+}
+Alignment Mapper::align_to_graph(const Alignment& aln,
+                                 Graph& graph,
+                                 const vector<MaximalExactMatch>& mems,
+                                 size_t max_query_graph_ratio,
+                                 bool traceback,
+                                 bool acyclic_and_sorted,
+                                 bool pinned_alignment,
+                                 bool pin_left,
+                                 bool banded_global,
+                                 int xdrop_alignment,
+                                 bool keep_bonuses) {
     // check if we need to make a vg graph to handle this graph
     Alignment aligned;
     if (!acyclic_and_sorted) { //!is_id_sortable(graph) || has_inversion(graph)) {
@@ -1840,6 +1864,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
             aligned = vg.align(aln,
                                get_regular_aligner(),
+                               mems,
                                traceback,
                                acyclic_and_sorted,
                                max_query_graph_ratio,
@@ -1848,10 +1873,12 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                banded_global,
                                0, // band padding override
                                aln.sequence().size(),
-                               aln.sequence().size());
+                               0, // unroll_length
+                               xdrop_alignment);
         } else {
             aligned = vg.align_qual_adjusted(aln,
                                              get_qual_adj_aligner(),
+                                             mems,
                                              traceback,
                                              acyclic_and_sorted,
                                              max_query_graph_ratio,
@@ -1859,8 +1886,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                              pin_left,
                                              banded_global,
                                              0, // band padding override
-                                             aln.sequence().size(),
                                              aln.sequence().size());
+                                             // 0, // unroll_length
+                                             // xdrop_alignment*/);
         }
     } else {
         // we've got an id-sortable graph and we can directly align with gssw
@@ -1873,6 +1901,10 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             get_aligner(!aln.quality().empty())->align_global_banded(aligned, graph, band_padding, false);
         } else if (pinned_alignment) {
             get_aligner(!aln.quality().empty())->align_pinned(aligned, graph, pin_left);
+        } else if (xdrop_alignment) {
+            // directly call alignment function without node translation
+            // cerr << "X-drop alignment, (" << xdrop_alignment << "), rev(" << ((xdrop_alignment == 1) ? false : true) << ")" << endl;
+            get_aligner(!aln.quality().empty())->align_xdrop(aligned, graph, mems, (xdrop_alignment == 1) ? false : true);
         } else {
             get_aligner(!aln.quality().empty())->align(aligned, graph, traceback, false);
         }
@@ -1883,10 +1915,10 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
     return aligned;
 }
 
-Alignment Mapper::align(const string& seq, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap) {
+Alignment Mapper::align(const string& seq, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap, bool xdrop_alignment) {
     Alignment aln;
     aln.set_sequence(seq);
-    return align(aln, kmer_size, stride, max_mem_length, band_width, band_overlap);
+    return align(aln, kmer_size, stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
 }
 
 pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
@@ -2246,7 +2278,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     bool& queued_resolve_later,
     int max_mem_length,
     bool only_top_scoring_pair,
-    bool retrying) {
+    bool retrying,
+    bool xdrop_alignment) {
 
     chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
 
@@ -2559,7 +2592,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         if (cluster1.size()
             && (filled1 < min_multimaps
                 || !to_drop1.count(&cluster1))) {
-            p.first = align_cluster(read1, cluster1, true);
+            p.first = align_cluster(read1, cluster1, true, xdrop_alignment);
             ++filled1;
         } else {
             p.first = read1;
@@ -2571,7 +2604,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         if (cluster2.size()
             && (filled2 < min_multimaps
                 || !to_drop2.count(&cluster2))) {
-            p.second = align_cluster(read2, cluster2, true);
+            p.second = align_cluster(read2, cluster2, true, xdrop_alignment);
             ++filled2;
         } else {
             p.second = read2;
@@ -3067,7 +3100,8 @@ Mapper::align_mem_multi(const Alignment& aln,
                         double fraction_filtered,
                         int max_mem_length,
                         int keep_multimaps,
-                        int additional_multimaps) {
+                        int additional_multimaps,
+                        bool xdrop_alignment) {
 
     if (debug) cerr << "mems for read " << mems_to_json(mems) << endl;
     
@@ -3215,7 +3249,7 @@ Mapper::align_mem_multi(const Alignment& aln,
             continue;
         }
         ++filled;
-        Alignment candidate = align_cluster(aln, cluster, true);
+        Alignment candidate = align_cluster(aln, cluster, true, xdrop_alignment);
         string sig = signature(candidate);
 
 #ifdef debug_mapper
@@ -3239,7 +3273,7 @@ Mapper::align_mem_multi(const Alignment& aln,
 #ifdef debug_mapper
 #pragma omp critical
     if (debug) {
-        cerr << "alignments" << endl;
+        cerr << "alignments(" << alns.size() << ")" << endl;
         for (auto& aln : alns) {
             cerr << aln.score();
             if (aln.score()) cerr << " pos1 " << aln.path().mapping(0).position().node_id() << " ";
@@ -3309,8 +3343,15 @@ Mapper::align_mem_multi(const Alignment& aln,
 }
 
 Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global) {
+    // do not use X-drop alignment when seed position is not available
+    vector<MaximalExactMatch> mems;
+    return(align_maybe_flip(base, graph, mems, flip, traceback, acyclic_and_sorted, banded_global, false));
+}
+
+Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global, bool xdrop_alignment) {
     Alignment aln = base;
     map<id_t, int64_t> node_length;
+    // do not modify aln.sequence() in X-drop alignment so that seed position is calculated by mem.begin - aln.sequence().begin()
     if (flip) {
         for (auto& node : graph.node()) {
             node_length[node.id()] = node.sequence().size();
@@ -3332,12 +3373,14 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool fli
 
     aln = align_to_graph(aln,
                          graph,
+                         mems,
                          max_query_graph_ratio,
                          traceback,
                          acyclic_and_sorted,
                          pinned_alignment,
                          pinned_reverse,
                          banded_global,
+                         xdrop_alignment ? (flip ? 2 : 1) : 0,
                          include_full_length_bonuses);
 
     if (strip_bonuses && !banded_global && traceback) {
@@ -3372,7 +3415,7 @@ double Mapper::compute_uniqueness(const Alignment& aln, const vector<MaximalExac
     return repeated / aln.sequence().length();
 }
 
-Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback) {
+Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback, bool xdrop_alignment) {
     // check if we can just fill out the alignment with exact matches
     /*
     if (cluster_coverage(mems) == aln.sequence().size()) {
@@ -3399,10 +3442,10 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     Alignment aln_rev;
     // try both ways if we're not sure if we are acyclic
     if (count_fwd || !acyclic_and_sorted) {
-        aln_fwd = align_maybe_flip(aln, graph, false, traceback, acyclic_and_sorted);
+        aln_fwd = align_maybe_flip(aln, graph, mems, false, traceback, acyclic_and_sorted, false, xdrop_alignment);
     }
     if (count_rev || !acyclic_and_sorted) {
-        aln_rev = align_maybe_flip(aln, graph, true, traceback, acyclic_and_sorted);
+        aln_rev = align_maybe_flip(aln, graph, mems, true, traceback, acyclic_and_sorted, false, xdrop_alignment);
     }
     // TODO check if we have soft clipping on the end of the graph and if so try to expand the context
     if (aln_fwd.score() + aln_rev.score() == 0) {
@@ -3863,8 +3906,8 @@ vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, int 
     return bands;
 }
 
-vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap) {
-
+vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap, bool xdrop_alignment) {
+    // cerr << read.sequence() << endl;
     auto aligner = get_aligner(!read.quality().empty());
     int8_t match = aligner->match;
     int8_t gap_extension = aligner->gap_extension;
@@ -3907,10 +3950,10 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     multi_alns.resize(bands.size());
 
     auto do_band = [&](int i) {
-        //cerr << "aligning band " << i << endl;
+        // cerr << "aligning band " << i << endl;
         vector<Alignment>& malns = multi_alns[i];
         double cluster_mq = 0;
-        malns = align_multi_internal(true, bands[i], kmer_size, stride, max_mem_length, bands[i].sequence().size(), 0, cluster_mq, band_multimaps, extra_multimaps, nullptr);
+        malns = align_multi_internal(true, bands[i], kmer_size, stride, max_mem_length, bands[i].sequence().size(), 0, cluster_mq, band_multimaps, extra_multimaps, nullptr, xdrop_alignment);
         for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
             Alignment& aln = *a;
             int mapqual = aln.mapping_quality();
@@ -3961,6 +4004,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         auto aln2_begin = make_pos_t(path_start(aln2.path()));
         pair<int64_t, int64_t> distances = min_oriented_distances(pos1, pos2);
         // consider both the forward and inversion case
+        // counter[3]++; bench_t b; bench_init(b); bench_start(b);
         int64_t dist_fwd = distances.first;
         if (dist_fwd < aln2.sequence().size()) {
             int64_t graph_dist_fwd = graph_distance(aln1_end, aln2_begin, aln2.sequence().size());
@@ -3973,12 +4017,17 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
             dist_inv = min(graph_dist_inv, dist_inv);
         }
         dist_inv -= band_distance;
+        // bench_end(b);
+
         double fwd_score = -((double)gap_open + (double)dist_fwd * (double)gap_extension);
         double inv_score = -2.0*((double)gap_open + (double)dist_inv * (double)gap_extension);
         return max(fwd_score, inv_score);
     };
 
+    // counter[0] += multi_alns.size();
+    // bench_start(bench[0]);
     AlignmentChainModel chainer(multi_alns, this, transition_weight, max_band_jump, 64, max_band_jump*2);
+    // bench_end(bench[0]);
     if (debug) chainer.display(cerr);
     vector<Alignment> alignments = chainer.traceback(read, max_multimaps, false, debug);
     if (patch_alignments) {
@@ -4139,14 +4188,14 @@ void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_align
     }
 }
     
-vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap) {
+vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap, bool xdrop_alignment) {
     double cluster_mq = 0;
     Alignment clean_aln;
     clean_aln.set_name(aln.name());
     clean_aln.set_sequence(aln.sequence());
     clean_aln.set_quality(aln.quality());
     clean_aln.clear_refpos();
-    return align_multi_internal(true, clean_aln, kmer_size, stride, max_mem_length, band_width, band_overlap, cluster_mq, max_multimaps, extra_multimaps, nullptr);
+    return align_multi_internal(true, clean_aln, kmer_size, stride, max_mem_length, band_width, band_overlap, cluster_mq, max_multimaps, extra_multimaps, nullptr, xdrop_alignment);
 }
     
 vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
@@ -4158,7 +4207,8 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                double& cluster_mq,
                                                int keep_multimaps,
                                                int additional_multimaps,
-                                               vector<MaximalExactMatch>* restricted_mems) {
+                                               vector<MaximalExactMatch>* restricted_mems,
+                                               bool xdrop_alignment) {
     
     if(debug) {
 #pragma omp critical
@@ -4188,7 +4238,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
 #pragma omp critical
         if (debug) cerr << "switching to banded alignment" << endl;
 #endif
-        return vector<Alignment>{align_banded(aln, kmer_size, stride, max_mem_length, band_width, band_overlap)};
+        return vector<Alignment>{align_banded(aln, kmer_size, stride, max_mem_length, band_width, band_overlap, xdrop_alignment)};
     }
 
     chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
@@ -4208,7 +4258,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     // use pre-restricted mems for paired mapping or find mems here
     if (restricted_mems != nullptr) {
         // mem hits will already have been queried
-        alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
+        alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality, xdrop_alignment);
     }
     else {
         vector<MaximalExactMatch> mems = find_mems_deep(aln.sequence().begin(),
@@ -4220,7 +4270,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         mem_reseed_length,
                                                         false, true, true, false);
         // query mem hits
-        alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
+        alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality, xdrop_alignment);
     }
 
 #ifdef debug_mapper
@@ -4248,11 +4298,11 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     return alignments;
 }
 
-Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap) {
+Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int max_mem_length, int band_width, int band_overlap, bool xdrop_alignment) {
     // TODO computing mapping quality could be inefficient depending on the method chosen
     
     // Do the multi-mapping
-    vector<Alignment> best = align_multi(aln, kmer_size, stride, max_mem_length, band_width, band_overlap);
+    vector<Alignment> best = align_multi(aln, kmer_size, stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
 
     if(best.size() == 0) {
         // Spit back an alignment that says we failed, but make sure it has the right sequence in it.
@@ -4865,6 +4915,7 @@ AlignmentChainModel::AlignmentChainModel(
     // store the Alignments in the model
     int offset = 0;
     int idx = 0;
+    // bench_start(mapper->bench[1]);
     for (auto& band : bands) {
         for (auto& aln : band) {
             if (!aln.has_path() || aln.score() == 0) continue;
@@ -4878,6 +4929,7 @@ AlignmentChainModel::AlignmentChainModel(
             v.positions = mapper->alignment_path_offsets(aln);
             v.positions[""].push_back(make_pair(mapper->approx_alignment_position(aln), false));
             model.push_back(v);
+            // mapper->counter[1]++;
         }
         assert(!band.empty());
         // save an unaligned band to fill in later
@@ -4891,18 +4943,22 @@ AlignmentChainModel::AlignmentChainModel(
         for (auto u = v+1; u != model.end(); ++u) {
             if (v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
                 if (v->band_idx + vertex_band_width >= u->band_idx) {
+                    // bench_start(mapper->bench[2]);
                     double weight = transition_weight(*v->aln, *u->aln, v->positions, u->positions,
                                                       u->band_begin - v->band_begin+v->aln->sequence().size());
+                    // bench_end(mapper->bench[2]);
                     if (weight > -std::numeric_limits<double>::max()) {
                         v->next_cost.push_back(make_pair(&*u, weight));
                         u->prev_cost.push_back(make_pair(&*v, weight));
                     }
+                    // mapper->counter[2]++;
                 } else {
                     break;
                 }
             }
         }
     }
+    // bench_end(mapper->bench[1]);
 }
 
 void AlignmentChainModel::score(const unordered_set<AlignmentChainModelVertex*>& exclude) {
