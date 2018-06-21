@@ -6579,6 +6579,8 @@ Alignment VG::align(const Alignment& alignment,
     //cerr << pinned_alignment << " " << pin_left << " " << " " << banded_global << " " << band_padding_override << " "  << max_span << endl;
 #endif
 
+    vector<MaximalExactMatch> translated_mems;
+    
     // trans is only required in the X-drop aligner; can be nullptr
     auto do_align = [&](Graph& g) {
 #ifdef debug
@@ -6616,7 +6618,7 @@ Alignment VG::align(const Alignment& alignment,
         } else if(xdrop_alignment) {
             // cerr << "X-drop alignment, (" << xdrop_alignment << ")" << endl;
             if (aligner && !qual_adj_aligner) {
-                aligner->align_xdrop(aln, g, mems, (xdrop_alignment == 1) ? false : true);
+                aligner->align_xdrop(aln, g, (translated_mems.size()? translated_mems : mems), (xdrop_alignment == 1) ? false : true);
             } else {
                 /* qual_adj_aligner is not yet implemented, fallback */
                 qual_adj_aligner->align/*_xdrop*/(aln, g, traceback, print_score_matrices);
@@ -6659,6 +6661,10 @@ Alignment VG::align(const Alignment& alignment,
 
         // overlay the translations
         auto trans = overlay_node_translations(dagify_trans, unfold_trans);
+        if (xdrop_alignment) {
+            // translate the MEMs
+            translated_mems = translate_mems(mems, trans);
+        }
 
         // Join to a common root, so alignment covers the entire graph
         // Put the nodes in sort order within the graph
