@@ -178,8 +178,15 @@ struct graph_pos_s XdropAligner::calculate_seed_position(Graph const &graph, vec
 	 * GSSW aligner avoids such artifacts because it does not depends on any seed positions on
 	 * computing the DP matrix (it is true local alignment).
 	 */
+    struct graph_pos_s pos;
+    // bail out if we don't have any MEMs
+    if (mems.empty()) {
+        pos.node_index = 0;
+        pos.ref_offset = 0;
+        pos.query_offset = 0;
+        return pos;
+    }
 	MaximalExactMatch const &seed = mems[direction ? (mems.size() - 1) : 0];
-	struct graph_pos_s pos;
 
 	auto seed_pos = direction ? seed.nodes.front() : seed.nodes.back();
 	size_t node_id = gcsa::Node::id(seed_pos);

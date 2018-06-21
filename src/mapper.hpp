@@ -509,11 +509,8 @@ public:
                          double pval);
 
     /// use the fragment configuration statistics to rescue more precisely
-    pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, bool& tried1, bool& tried2, int match_score, int full_length_bonus, bool traceback);
+    pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, bool& tried1, bool& tried2, int match_score, int full_length_bonus, bool traceback, bool xdrop_alignment);
 
-    /// assuming the read has only been score-aligned, realign from the end position backwards
-    Alignment realign_from_start_position(const Alignment& aln, int extra, int iteration);
-    
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
                                                 vector<MaximalExactMatch>& mems2);
 
@@ -540,7 +537,7 @@ public:
     void remove_full_length_bonuses(Alignment& aln);
     
     // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
-    Alignment patch_alignment(const Alignment& aln, int max_patch_length, bool trim_internal_deletions = true);
+    Alignment patch_alignment(const Alignment& aln, int max_patch_length, bool trim_internal_deletions = true, bool xdrop_alignment = false);
     // Get the graph context of a particular cluster, not expanding beyond the middles of MEMs.
     VG cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // for aligning to a particular MEM cluster
@@ -548,7 +545,7 @@ public:
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global = false);
+    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global = false, bool xdrop_alignment = false);
     Alignment align_maybe_flip(const Alignment& base, Graph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global = false, bool xdrop_alignment = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
