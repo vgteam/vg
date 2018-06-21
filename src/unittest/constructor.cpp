@@ -1286,7 +1286,7 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 )";
 
     // Build the graph
-    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, true);
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
     
 #ifdef debug
     std::cerr << pb2json(result) << std::endl;
@@ -1296,13 +1296,21 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
         // Look at each node
 
         unordered_map<size_t, string> expected;
+        // expected.insert({1, "CAAATAAG"});
+        // expected.insert({2, "G"});
+        // expected.insert({3, "CTTGGAAATT"});
+        // expected.insert({4, "TTCTGGAGTT"});
+        // expected.insert({5, "CTATTATATT"});
+        // expected.insert({6, "CCAACTCTCT"});
+        // expected.insert({7, "G"});
+
         expected.insert({1, "CAAATAAG"});
-        expected.insert({2, "G"});
-        expected.insert({3, "CTTGGAAATT"});
-        expected.insert({4, "TTCTGGAGTT"});
-        expected.insert({5, "CTATTATATT"});
-        expected.insert({6, "CCAACTCTCT"});
-        expected.insert({7, "G"});
+        expected.insert({3, "GCTTGGAAAT"});
+        expected.insert({4, "TTTCTGGAGT"});
+        expected.insert({5, "TCTATTATAT"});
+        expected.insert({6, "TCCAACTCTCT"});
+        expected.insert({7, "TG"});
+
         for (size_t i = 0; i < result.node_size(); i++) {
             auto& node = result.node(i);
             REQUIRE(node.sequence()==expected[node.id()]);

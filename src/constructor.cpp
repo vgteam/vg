@@ -679,7 +679,7 @@ namespace vg {
                             if (created_nodes.count(key) == 0){
 
                                 size_t arc_end = variant->zeroBasedPosition() - chunk_offset + std::stol(variant->info.at("SVLEN")[0]);
-                                int64_t arc_start = (int64_t) variant->zeroBasedPosition() - chunk_offset; 
+                                int64_t arc_start = (int64_t) variant->zeroBasedPosition() - 1 - chunk_offset; 
 
                                 deletions_ending_at[arc_end].insert(arc_start);
                                 deletion_starts.insert(arc_start);
