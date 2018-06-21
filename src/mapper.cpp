@@ -1843,7 +1843,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool keep_bonuses) {
     // do not use X-drop alignment when MEMs is not available
     vector<MaximalExactMatch> mems;
-    align_to_graph(aln, graph, mems, max_query_graph_ratio, traceback, acyclic_and_sorted, pinned_alignment, pin_left, banded_global, false, keep_bonuses);
+    return align_to_graph(aln, graph, mems, max_query_graph_ratio, traceback, acyclic_and_sorted, pinned_alignment, pin_left, banded_global, false, keep_bonuses);
 }
 Alignment Mapper::align_to_graph(const Alignment& aln,
                                  Graph& graph,
