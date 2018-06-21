@@ -287,7 +287,7 @@ class VGCITest(TestCase):
             opts += '--vcfeval_opts \'--ref-overlap --vcf-score-field GQ\' '
         # don't waste time sharding reads since we only run on one node
         opts += '--single_reads_chunk '
-        opts += '--gcsa_index_cores {} --kmers_cores {} \
+        opts += '--gcsa_index_cores {} \
         --alignment_cores {} --calling_cores {} --call_chunk_cores {} --vcfeval_cores {} '.format(
             self.cores, self.cores, self.cores, max(1, self.cores / 4),
             max(1, self.cores / 2), self.cores)
@@ -684,6 +684,7 @@ class VGCITest(TestCase):
                                      context, 
                                      mapeval_options, 
                                      plan.xg_file_ids,
+                                     [],
                                      plan.gcsa_file_ids,
                                      plan.gbwt_file_ids,
                                      plan.id_range_file_ids,
@@ -1125,7 +1126,7 @@ class VGCITest(TestCase):
         if self.container:
             cmd += ['--container', self.container]
         # run both gentoype and call
-        cmd += ['--call_and_genotype']
+        cmd += ['--call', '--genotype']
         # vg genotype needs this not to run out of ram
         cmd += ['--call_chunk_size', '500000']
         # turn off defray filter so genotype doesn't spend time xg-indexing chunks
@@ -1201,21 +1202,20 @@ class VGCITest(TestCase):
         assert not tag_ext or tag_ext.startswith('-')
         tag = 'call-{}-{}{}'.format(region, baseline_graph, tag_ext)
 
-        if True:
-            # compute the xg index from scratch
-            chrom, offset = self._bakeoff_coords(region)        
-            self._toil_vg_index(str(chrom), vg_path, None, "SKIP",
-                                None, tag, '{}-{}'.format(baseline_graph, region))
-            xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')        
+        # compute the xg index from scratch
+        chrom, offset = self._bakeoff_coords(region)
+        self._toil_vg_index(str(chrom), vg_path, None, "SKIP",
+                            None, tag, '{}-{}'.format(baseline_graph, region))
+        xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')
 
-            test_index_bases = []
+        test_index_bases = []
 
-            self._calleval_vg_run(xg_path, vg_path, fasta_path, gam_path, bam_path, 
-                                  vcf_path, bed_path, sample, chrom, offset, tag)
+        self._calleval_vg_run(xg_path, vg_path, fasta_path, gam_path, bam_path, 
+                              vcf_path, bed_path, sample, chrom, offset, tag)
 
         if self.verify:
             self._verify_calleval(tag=tag, threshold=f1_threshold)
-            
+
     #@skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(8000)            
     def test_call_chr21_snp1kg(self):

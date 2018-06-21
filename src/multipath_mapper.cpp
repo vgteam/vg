@@ -75,13 +75,14 @@ namespace vg {
         if (adjust_alignments_for_base_quality) {
             OrientedDistanceClusterer clusterer(alignment, mems, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error,
                                                 min_clustering_mem_length, unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-            clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            clusters = clusterer.clusters(alignment, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
         else {
             OrientedDistanceClusterer clusterer(alignment, mems, *get_regular_aligner(), xindex, max_expected_dist_approx_error,
                                                 min_clustering_mem_length, unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-            clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            clusters = clusterer.clusters(alignment, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
+        
         
 #ifdef debug_multipath_mapper
         cerr << "obtained clusters:" << endl;
@@ -98,7 +99,7 @@ namespace vg {
         auto cluster_graphs = query_cluster_graphs(alignment, mems, clusters);
         
         // actually perform the alignments and post-process to meeth MultipathAlignment invariants
-        align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, max_alt_mappings);
+        align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, num_mapping_attempts);
         
         if (multipath_alns_out.empty()) {
             // add a null alignment so we know it wasn't mapped
@@ -140,12 +141,7 @@ namespace vg {
                                                   MappingQualityMethod mapq_method,
                                                   vector<clustergraph_t>& cluster_graphs,
                                                   vector<MultipathAlignment>& multipath_alns_out,
-                                                  size_t max_alt_mappings) {
-    
-#ifdef debug_multipath_mapper
-        cerr << "sorting subgraphs by read coverage..." << endl;
-#endif
-        
+                                                  size_t num_mapping_attempts) {
         
         
 #ifdef debug_multipath_mapper
@@ -185,6 +181,10 @@ namespace vg {
             
             num_mappings++;
         }
+        
+#ifdef debug_multipath_mapper
+        cerr << "splitting multicomponent alignments..." << endl;
+#endif
         
         // split up any alignments that ended up being disconnected
         split_multicomponent_alignments(multipath_alns_out);
@@ -605,19 +605,42 @@ namespace vg {
         return is_consistent(distance_between(multipath_aln_1, multipath_aln_2, true));
     }
     
-    bool MultipathMapper::share_start_position(const MultipathAlignment& multipath_aln_1,
-                                               const MultipathAlignment& multipath_aln_2) const {
+    bool MultipathMapper::share_terminal_positions(const MultipathAlignment& multipath_aln_1,
+                                                   const MultipathAlignment& multipath_aln_2) const {
         
-        unordered_set<pos_t> starts;
+        unordered_set<pos_t> terminal_positions;
+        
+        // first look for matching starts
         for (size_t i = 0; i < multipath_aln_1.start_size(); i++) {
-            starts.insert(make_pos_t(multipath_aln_1.subpath(multipath_aln_1.start(i)).path().mapping(0).position()));
+            terminal_positions.insert(make_pos_t(multipath_aln_1.subpath(multipath_aln_1.start(i)).path().mapping(0).position()));
         }
         
         for (size_t i = 0; i < multipath_aln_2.start_size(); i++) {
-            if (starts.count(make_pos_t(multipath_aln_2.subpath(multipath_aln_2.start(i)).path().mapping(0).position()))) {
+            if (terminal_positions.count(make_pos_t(multipath_aln_2.subpath(multipath_aln_2.start(i)).path().mapping(0).position()))) {
                 return true;
             }
         }
+        
+        // remove the starts
+        terminal_positions.clear();
+        
+        // now look for matching ends
+        for (size_t i = 0; i < multipath_aln_1.subpath_size(); i++) {
+            const Subpath& subpath = multipath_aln_1.subpath(i);
+            if (subpath.next_size() == 0) {
+                terminal_positions.insert(final_position(subpath.path()));
+            }
+        }
+        
+        for (size_t i = 0; i < multipath_aln_2.subpath_size(); i++) {
+            const Subpath& subpath = multipath_aln_2.subpath(i);
+            if (subpath.next_size() == 0) {
+                if (terminal_positions.count(final_position(subpath.path()))) {
+                    return true;
+                }
+            }
+        }
+        
         return false;
     }
     
@@ -700,11 +723,11 @@ namespace vg {
         vector<MultipathAlignment> multipath_alns_1, multipath_alns_2;
         if (!block_rescue_from_1) {
             align_to_cluster_graphs(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                    cluster_graphs1, multipath_alns_1, max_alt_mappings);
+                                    cluster_graphs1, multipath_alns_1, max_single_end_mappings_for_rescue);
         }
         if (!block_rescue_from_2) {
             align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
-                                    cluster_graphs2, multipath_alns_2, max_alt_mappings);
+                                    cluster_graphs2, multipath_alns_2, max_single_end_mappings_for_rescue);
         }
         
         if (multipath_alns_1.empty() || multipath_alns_2.empty() ? false :
@@ -921,10 +944,6 @@ namespace vg {
             }
         }
 #endif
-        
-        if (multipath_aln_pairs_out.size() > max_alt_mappings) {
-            multipath_aln_pairs_out.resize(max_alt_mappings);
-        }
         
         if (mapping_quality_method == None) {
             for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
@@ -1224,12 +1243,12 @@ namespace vg {
                 if (adjust_alignments_for_base_quality) {
                     OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                          unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                    clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                    clusters2 = clusterer2.clusters(alignment2, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
                 }
                 else {
                     OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                          unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                    clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                    clusters2 = clusterer2.clusters(alignment2, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
                 }
                 
                 cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
@@ -1253,12 +1272,12 @@ namespace vg {
                 if (adjust_alignments_for_base_quality) {
                     OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                          unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                    clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                    clusters1 = clusterer1.clusters(alignment1, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
                 }
                 else {
                     OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                          unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                    clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                    clusters1 = clusterer1.clusters(alignment1, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
                 }
                 
                 cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
@@ -1286,18 +1305,18 @@ namespace vg {
             if (adjust_alignments_for_base_quality) {
                 OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters1 = clusterer1.clusters(alignment1, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
                 OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters2 = clusterer2.clusters(alignment2, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
             }
             else {
                 OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters1 = clusterer1.clusters(alignment1, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
                 OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
-                clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters2 = clusterer2.clusters(alignment2, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
             }
             
             // extract graphs around the clusters and get the assignments of MEMs to these graphs
@@ -1348,18 +1367,43 @@ namespace vg {
                 min_separation = (int64_t) fragment_length_distr.mean() - 10.0 * fragment_length_distr.stdev();
             }
             
+            // Find the clusters that have a tie for the longest MEM, and create alternate anchor points for those clusters
+            vector<pair<size_t, size_t>> alt_anchors_1, alt_anchors_2;
+            for (size_t i = 0; i < cluster_mems_1.size(); i++) {
+                auto& mem_cluster = *cluster_mems_1[i];
+                for (size_t j = 1; j < mem_cluster.size(); j++) {
+                    if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
+                        alt_anchors_1.emplace_back(i, j);
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+            for (size_t i = 0; i < cluster_mems_2.size(); i++) {
+                auto& mem_cluster = *cluster_mems_2[i];
+                for (size_t j = 1; j < mem_cluster.size(); j++) {
+                    if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
+                        alt_anchors_2.emplace_back(i, j);
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+            
             // Compute the pairs of cluster graphs and their approximate distances from each other
-            cluster_pairs = OrientedDistanceClusterer::pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
-                                                                     xindex, min_separation, max_separation, unstranded_clustering,
+            cluster_pairs = OrientedDistanceClusterer::pair_clusters(alignment1, alignment2,
+                                                                     cluster_mems_1, cluster_mems_2,
+                                                                     alt_anchors_1, alt_anchors_2,
+                                                                     xindex,
+                                                                     min_separation, max_separation,
+                                                                     unstranded_clustering,
                                                                      &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
 #ifdef debug_multipath_mapper
             cerr << "obtained cluster pairs:" << endl;
             for (int i = 0; i < cluster_pairs.size(); i++) {
-                pos_t pos_1 = get<1>(cluster_graphs1[cluster_pairs[i].first.first]).front().second;
-                pos_t pos_2 = get<1>(cluster_graphs2[cluster_pairs[i].first.second]).back().second;
-                int64_t dist = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                             id(pos_2), offset(pos_2), is_rev(pos_2));
-                cerr << "\tpair "  << i << " at distance " << dist << endl;
+                cerr << "\tpair "  << i << " at distance " << cluster_pairs[i].second << endl;
                 cerr << "\t\t read 1 (cluster " << cluster_pairs[i].first.first <<  ")" << endl;
                 for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[cluster_pairs[i].first.first])) {
                     cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
@@ -1376,8 +1420,7 @@ namespace vg {
                 // only perform the mappings that satisfy the expectations on distance
                 
                 align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
-                                             multipath_aln_pairs_out, max_alt_mappings, &paths_of_node_memo,
-                                             &oriented_occurences_memo, &handle_memo);
+                                             multipath_aln_pairs_out, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
                 
                 // do we produce at least one good looking pair alignments from the clustered clusters?
                 if (multipath_aln_pairs_out.empty() ? true : (likely_mismapping(multipath_aln_pairs_out.front().first) ||
@@ -1416,8 +1459,8 @@ namespace vg {
                         std::swap(multipath_aln_pairs_out, rescue_aln_pairs);
                     }
                 }
-                else if (multipath_aln_pairs_out.front().first.mapping_quality() == max_mapping_quality &&
-                         multipath_aln_pairs_out.front().second.mapping_quality() == max_mapping_quality) {
+                else if (multipath_aln_pairs_out.front().first.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff &&
+                         multipath_aln_pairs_out.front().second.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff) {
                     
                     // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
                     // so we use this routine to use rescue on other very good looking independent end clusters
@@ -1632,12 +1675,12 @@ namespace vg {
             if (adjust_alignments_for_base_quality) {
                 OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, paths_of_node_memo, oriented_occurences_memo, handle_memo);
-                clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters1 = clusterer1.clusters(alignment1, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
             }
             else {
                 OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, paths_of_node_memo, oriented_occurences_memo, handle_memo);
-                clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters1 = clusterer1.clusters(alignment1, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
             }
             
             // extract the graphs around the clusters
@@ -1676,12 +1719,12 @@ namespace vg {
             if (adjust_alignments_for_base_quality) {
                 OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, paths_of_node_memo, oriented_occurences_memo, handle_memo);
-                clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters2 = clusterer2.clusters(alignment2, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
             }
             else {
                 OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex, max_expected_dist_approx_error, min_clustering_mem_length,
                                                      unstranded_clustering, paths_of_node_memo, oriented_occurences_memo, handle_memo);
-                clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
+                clusters2 = clusterer2.clusters(alignment2, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
             }
             
             // extract the graphs around the clusters
@@ -1862,7 +1905,6 @@ namespace vg {
                                                        vector<clustergraph_t>& cluster_graphs2,
                                                        vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                        vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                       size_t max_alt_mappings,
                                                        OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
                                                        OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
                                                        OrientedDistanceClusterer::handle_memo_t* handle_memo) {
@@ -1979,7 +2021,8 @@ namespace vg {
         // We populate this with all the cluster graphs.
         vector<clustergraph_t> cluster_graphs_out;
         
-        // we will ensure that nodes are in only one cluster, use this to record which one
+        // unless suppressing cluster merging, we will ensure that nodes are in only one
+        // cluster and we use this to record which one
         unordered_map<id_t, size_t> node_id_to_cluster;
         
         // to hold the clusters as they are (possibly) merged
@@ -2031,13 +2074,16 @@ namespace vg {
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
             unordered_set<size_t> overlapping_graphs;
-            for (size_t j = 0; j < graph.node_size(); j++) {
-                id_t node_id = graph.node(j).id();
-                if (node_id_to_cluster.count(node_id)) {
-                    overlapping_graphs.insert(node_id_to_cluster[node_id]);
-                }
-                else {
-                    node_id_to_cluster[node_id] = i;
+            
+            if (!suppress_cluster_merging) {
+                for (size_t j = 0; j < graph.node_size(); j++) {
+                    id_t node_id = graph.node(j).id();
+                    if (node_id_to_cluster.count(node_id)) {
+                        overlapping_graphs.insert(node_id_to_cluster[node_id]);
+                    }
+                    else {
+                        node_id_to_cluster[node_id] = i;
+                    }
                 }
             }
             
@@ -2146,11 +2192,14 @@ namespace vg {
                 for (size_t j = 0; j < multicomponent_graph.second.size(); j++) {
                     if (multicomponent_graph.second[j].count(node.id())) {
                         cluster_graphs[max_graph_idx + j]->add_node(node);
-                        node_id_to_cluster[node.id()] = max_graph_idx + j;
-                        break;
+                        // if we're suppressing cluster merging, we don't maintain this index
+                        if (!suppress_cluster_merging) {
+                            node_id_to_cluster[node.id()] = max_graph_idx + j;
                         }
+                        break;
                     }
                 }
+            }
             
             // divvy up the edges
             for (size_t i = 0; i < joined_graph.edge_size(); i++) {
@@ -2194,16 +2243,51 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "computing MEM assignments to cluster graphs" << endl;
 #endif
-        // which MEMs are in play for which cluster?
-        for (const MaximalExactMatch& mem : mems) {
-            for (gcsa::node_type hit : mem.nodes) {
-                id_t node_id = gcsa::Node::id(hit);
-                if (node_id_to_cluster.count(node_id)) {
-                    size_t cluster_idx = cluster_to_idx[node_id_to_cluster[node_id]];
-                    get<1>(cluster_graphs_out[cluster_idx]).push_back(make_pair(&mem, make_pos_t(hit)));
+        if (!suppress_cluster_merging) {
+            // which MEMs are in play for which cluster?
+            for (const MaximalExactMatch& mem : mems) {
+                for (gcsa::node_type hit : mem.nodes) {
+                    id_t node_id = gcsa::Node::id(hit);
+                    if (node_id_to_cluster.count(node_id)) {
+                        size_t cluster_idx = cluster_to_idx[node_id_to_cluster[node_id]];
+                        get<1>(cluster_graphs_out[cluster_idx]).push_back(make_pair(&mem, make_pos_t(hit)));
 #ifdef debug_multipath_mapper
-                    cerr << "\tMEM " << mem.sequence() << " at " << make_pos_t(hit) << " found in cluster " << node_id_to_cluster[node_id] << " at index " << cluster_idx << endl;
+                        cerr << "\tMEM " << mem.sequence() << " at " << make_pos_t(hit) << " found in cluster " << node_id_to_cluster[node_id] << " at index " << cluster_idx << endl;
 #endif
+                    }
+                }
+            }
+        }
+        else {
+            // we haven't been maintaining the node ID to cluster index (since are not enforcing
+            // that each node is in on cluster), so we do something analogous here
+            
+            // TODO: kinda dumb redundant code
+            
+#ifdef debug_multipath_mapper
+            cerr << "suppressed merging path, creating index to identify nodes with cluster graphs" << endl;
+#endif
+            
+            unordered_map<id_t, vector<size_t>> node_id_to_cluster_idxs;
+            for (size_t i = 0; i < cluster_graphs_out.size(); i++) {
+                Graph& graph = get<0>(cluster_graphs_out[i])->graph;
+                for (size_t j = 0; j < graph.node_size(); j++) {
+                    node_id_to_cluster_idxs[graph.node(j).id()].push_back(i);
+                }
+            }
+            
+            for (const MaximalExactMatch& mem : mems) {
+                for (gcsa::node_type hit : mem.nodes) {
+                    id_t node_id = gcsa::Node::id(hit);
+                    auto iter = node_id_to_cluster_idxs.find(node_id);
+                    if (iter != node_id_to_cluster_idxs.end()) {
+                        for (size_t cluster_idx : iter->second) {
+                            get<1>(cluster_graphs_out[cluster_idx]).push_back(make_pair(&mem, make_pos_t(hit)));
+#ifdef debug_multipath_mapper
+                            cerr << "\tMEM " << mem.sequence() << " at " << make_pos_t(hit) << " found in cluster at index " << cluster_idx << endl;
+#endif
+                        }
+                    }
                 }
             }
         }
@@ -2788,8 +2872,8 @@ namespace vg {
                 vector<size_t> duplicates_2(1, 0);
                 vector<size_t> to_remove;
                 for (size_t i = 1; i < multipath_aln_pairs.size(); i++) {
-                    bool duplicate_1 = share_start_position(multipath_aln_pairs[0].first, multipath_aln_pairs[i].first);
-                    bool duplicate_2 = share_start_position(multipath_aln_pairs[0].second, multipath_aln_pairs[i].second);
+                    bool duplicate_1 = share_terminal_positions(multipath_aln_pairs[0].first, multipath_aln_pairs[i].first);
+                    bool duplicate_2 = share_terminal_positions(multipath_aln_pairs[0].second, multipath_aln_pairs[i].second);
                     if (duplicate_1 && duplicate_2) {
 #ifdef debug_multipath_mapper
                         cerr << "found double end duplication at index " << i << endl;

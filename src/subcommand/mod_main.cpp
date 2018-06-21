@@ -720,12 +720,17 @@ int main_mod(int argc, char** argv) {
     }
 
     if (!aln_file.empty()) {
-        // read in the alignments and save their paths
-        vector<Path> paths;
-        function<void(Alignment&)> lambda = [&graph, &paths](Alignment& aln) {
+        // read in the alignments and save their paths, concatenating them in order where they have the same name
+        map<string, Path> paths_map;
+        function<void(Alignment&)> lambda = [&graph, &paths_map](Alignment& aln) {
             Path path = simplify(aln.path());
             path.set_name(aln.name());
-            paths.push_back(path);
+            auto f = paths_map.find(path.name());
+            if (f != paths_map.end()) {
+                paths_map[path.name()] = concat_paths(f->second, path);
+            } else {
+                paths_map[path.name()] = path;
+            }
         };
         if (aln_file == "-") {
             stream::for_each(std::cin, lambda);
@@ -734,6 +739,11 @@ int main_mod(int argc, char** argv) {
             in.open(aln_file.c_str());
             stream::for_each(in, lambda);
         }
+        vector<Path> paths;
+        for (auto& p : paths_map) {
+            paths.push_back(p.second);
+        }
+        paths_map.clear();
         if (!label_paths) {
             // execute the edits
             auto translation = graph->edit(paths, true);

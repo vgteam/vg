@@ -22,7 +22,8 @@ using namespace std;
 
 /// A handle is 8 (assuming id_t is still int64_t) opaque bytes.
 /// A handle refers to an oriented node.
-/// Two handles are equal iff they refer to the same orientation of the same node in the same graph.
+/// Two handles are equal iff they refer to the same orientation of the same node.
+/// Only handles in the same graph may be compared.
 /// Handles have no ordering, but can be hashed.
 struct handle_t {
     char data[sizeof(id_t)];

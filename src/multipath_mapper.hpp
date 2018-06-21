@@ -86,13 +86,14 @@ namespace vg {
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
         double max_suboptimal_path_score_ratio = 2.0;
-        size_t num_mapping_attempts = 1;
+        size_t num_mapping_attempts = 48;
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
         double max_mapping_p_value = 0.00001;
         bool unstranded_clustering = true;
+        size_t max_single_end_mappings_for_rescue = 64;
         size_t max_rescue_attempts = 32;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
@@ -105,6 +106,10 @@ namespace vg {
         size_t rescue_only_min = 128;
         size_t rescue_only_anchor_max = 16;
         size_t order_length_repeat_hit_max = 0;
+        int32_t secondary_rescue_subopt_diff = 10;
+        size_t min_median_mem_coverage_for_split = 0;
+        bool suppress_cluster_merging = false;
+        size_t alt_anchor_max_length_diff = 5;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -149,7 +154,7 @@ namespace vg {
                                      MappingQualityMethod mapq_method,
                                      vector<clustergraph_t>& cluster_graphs,
                                      vector<MultipathAlignment>& multipath_alns_out,
-                                     size_t max_alt_mappings);
+                                     size_t num_mapping_attempts);
         
         /// After clustering MEMs, extracting graphs, assigning hits to cluster graphs, and determining
         /// which cluster graph pairs meet the fragment length distance constraints, perform multipath
@@ -159,7 +164,6 @@ namespace vg {
                                           vector<clustergraph_t>& cluster_graphs2,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                          size_t max_alt_mappings,
                                           OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
                                           OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
                                           OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
@@ -273,10 +277,11 @@ namespace vg {
         
         /// Return true if any of the initial positions of the source Subpaths are shared between the two
         /// multipath alignments
-        bool share_start_position(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
+        bool share_terminal_positions(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
+        
         
         /// Get a thread_local RRMemo with these parameters
-        haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;
+        haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;;
         
         /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also
         /// inverts the distances in the cluster pairs vector according to the strand

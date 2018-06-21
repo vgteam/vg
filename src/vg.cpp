@@ -544,6 +544,8 @@ id_t VG::get_node_at_nucleotide(string pathname, int nuc){
             throw std::out_of_range("Nucleotide position not found in path.");
         }
     }
+    
+    throw std::out_of_range("Nucleotide position not found in path.");
 
 }
 
@@ -6270,6 +6272,9 @@ void VG::to_dot(ostream& out,
 void VG::to_gfa(ostream& out) {
   GFAKluge gg;
   gg.set_version(1.0);
+  for (auto h : gg.get_header()){
+    out << h.second.to_string();
+  }
 
     // TODO moving to GFAKluge
     // problem: protobuf longs don't easily go to strings....
@@ -6279,7 +6284,8 @@ void VG::to_gfa(ostream& out) {
         // Fill seq element for a node
         s_elem.name = to_string(n->id());
         s_elem.sequence = n->sequence();
-        gg.add_sequence(s_elem);
+        out << s_elem.to_string_1() << endl;
+        //gg.add_sequence(s_elem);
     }
     
     auto& pathmap = this->paths._paths;
@@ -6295,7 +6301,8 @@ void VG::to_gfa(ostream& out) {
             cigaro << n->sequence().size() << (m.is_reverse() ? "M" : "M");
             p_elem.overlaps.push_back( cigaro.str() );
         }
-        gg.add_path(p_elem.name, p_elem);
+        out << p_elem.to_string() << endl;
+        //gg.add_path(p_elem.name, p_elem);
     }
 
     for (int i = 0; i < graph.edge_size(); ++i) {
@@ -6307,7 +6314,8 @@ void VG::to_gfa(ostream& out) {
         ee.source_orientation_forward = ! e->from_start();
         ee.sink_orientation_forward =  ! e->to_end();
         ee.alignment = std::to_string(e->overlap()) + "M";
-        gg.add_edge(ee.source_name, ee);
+        out << ee.to_string_1() << endl;;
+        //gg.add_edge(ee.source_name, ee);
         //link_elem l;
         //l.source_name = to_string(e->from());
         //l.sink_name = to_string(e->to());
@@ -6316,7 +6324,7 @@ void VG::to_gfa(ostream& out) {
         //l.cigar = std::to_string(e->overlap()) + "M";
         //gg.add_link(l.source_name, l);
     }
-    out << gg;
+    //gg.output_to_stream(cout);
 }
 
 void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {

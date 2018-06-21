@@ -115,11 +115,11 @@ int main_paths(int argc, char** argv) {
             as_seqs = true;
             break;
 
-        case 'Q':
+        case 'q':
             thread_prefix = optarg;
             break;
 
-        case 'q':
+        case 'Q':
             path_prefix = optarg;
             break;
 
@@ -178,6 +178,9 @@ int main_paths(int argc, char** argv) {
         } else if (!thread_prefix.empty() || extract_threads) {
             if (gbwt_file.empty()) {
                 cerr << "[vg paths] Error: thread extraction requires a GBWT" << endl;
+                assert(false);
+            } else if (extract_as_gam == extract_as_vg) {
+                cerr << "[vg paths] Error: thread extraction requires -V or -X to specifiy output format" << endl;
                 assert(false);
             }
             gbwt::GBWT index;
