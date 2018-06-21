@@ -7264,7 +7264,7 @@ VG VG::unfold(uint32_t max_length,
         }
         
         // let this node greedily induce an orientation on the entire component
-        Node* inducing_node = unfolded.create_node(node->sequence(), node->id());
+        Node* inducing_node = unfolded.create_node(node->sequence());
         main_orientation[node->id()] = make_pair(inducing_node->id(), false);
         
 #ifdef debug
@@ -7311,8 +7311,7 @@ VG VG::unfold(uint32_t max_length,
 #endif
                     // we've never seen this node before, so we induce the current orientation on it
                     Node* new_node = unfolded.create_node(next.backward ? reverse_complement(next.node->sequence())
-                                                          : next.node->sequence(),
-                                                          next.node->id());
+                                                          : next.node->sequence());
                     main_orientation[next.node->id()] = make_pair(new_node->id(), next.backward);
                     
                     // also copy the edge
@@ -7351,8 +7350,7 @@ VG VG::unfold(uint32_t max_length,
 #endif
                     // we've never seen this node before, so we induce the current orientation on it
                     Node* new_node = unfolded.create_node(prev.backward ? reverse_complement(prev.node->sequence())
-                                                          : prev.node->sequence(),
-                                                          prev.node->id());
+                                                          : prev.node->sequence());
                     
                     main_orientation[prev.node->id()] = make_pair(new_node->id(), prev.backward);
                     
@@ -7405,8 +7403,7 @@ VG VG::unfold(uint32_t max_length,
 #endif
             // we have not added this reverse node yet, so do it
             Node* rev_init_node = unfolded.create_node(main_orientation[init_next.node->id()].second ? init_next.node->sequence()
-                                                       : reverse_complement(init_next.node->sequence()),
-                                                       init_next.node->id());
+                                                       : reverse_complement(init_next.node->sequence()));
             reversed_nodes[init_next.node->id()] = rev_init_node->id();
         }
         
@@ -7463,8 +7460,7 @@ VG VG::unfold(uint32_t max_length,
                     // this is the first time we've encountered this node in any direction on the reverse strand
                     // so add the reverse node
                     Node* rev_node = unfolded.create_node(main_orientation[next.node->id()].second ? next.node->sequence()
-                                                          : reverse_complement(next.node->sequence()),
-                                                          next.node->id());
+                                                          : reverse_complement(next.node->sequence()));
                     reversed_nodes[next.node->id()] = rev_node->id();
                     
 #ifdef debug
