@@ -194,7 +194,11 @@ public:
     
     /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
     /// contains a pointer to the original MEM and the position of that particular hit in the graph.
-    vector<cluster_t> clusters(int32_t max_qual_score = 60, int32_t log_likelihood_approx_factor = 0);
+    vector<cluster_t> clusters(const Alignment& alignment,
+                               int32_t max_qual_score = 60,
+                               int32_t log_likelihood_approx_factor = 0,
+                               size_t min_median_mem_coverage_for_split = 0,
+                               double suboptimal_edge_pruning_factor = .75);
     
     /**
      * Given two vectors of clusters, an xg index, an bounds on the distance between clusters,
@@ -205,6 +209,8 @@ public:
                                                                      const Alignment& alignment_2,
                                                                      const vector<cluster_t*>& left_clusters,
                                                                      const vector<cluster_t*>& right_clusters,
+                                                                     const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                                     const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
                                                                      xg::XG* xgindex,
                                                                      int64_t min_inter_cluster_distance,
                                                                      int64_t max_inter_cluster_distance,
@@ -356,6 +362,17 @@ private:
     
     /// Perform dynamic programming and store scores in nodes
     void perform_dp();
+    
+    /// Returns the median coverage of bases in the reads by bases in the cluster, attempts to remove apparent
+    /// redundant sub-MEMs
+    size_t median_mem_coverage(const vector<size_t>& component, const Alignment& aln) const;
+    
+    /// Prune edges that are not on any traceback that scores highly compared to the best score in the component,
+    /// splits up the components (adding some to the end of the vector) if doing so splits a component
+    void prune_low_scoring_edges(vector<vector<size_t>>& components, size_t component_idx, double score_factor);
+    
+    /// Computes the topological order of
+    void component_topological_order(const vector<size_t>& component, vector<size_t>& order_out) const;
     
     vector<ODNode> nodes;
     

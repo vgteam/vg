@@ -164,6 +164,9 @@ int main_mpmap(int argc, char** argv) {
     bool precollapse_order_length_hits = true;
     int max_sub_mem_recursion_depth = 1;
     int max_map_attempts_arg = 0;
+    int secondary_rescue_subopt_diff = 25;
+    int min_median_mem_coverage_for_split = 0;
+    bool suppress_cluster_merging = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -677,8 +680,14 @@ int main_mpmap(int argc, char** argv) {
         if (num_alt_alns != 4) {
             cerr << "warning:[vg mpmap] Number of alternate alignments (-a) is ignored in single path mode (-S) without multipath population scoring (-O)." << endl;
         }
+        
         num_alt_alns = 1;
         
+        // we get better performance by splitting up clusters a bit more when looking paired clusters
+        if (interleaved_input || !fastq_name_2.empty()) {
+            min_median_mem_coverage_for_split = 2;
+            suppress_cluster_merging = true;
+        }
     }
     
     // ensure required parameters are provided
@@ -820,10 +829,13 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
     multipath_mapper.num_mapping_attempts = max_map_attempts;
     multipath_mapper.unstranded_clustering = unstranded_clustering;
+    multipath_mapper.min_median_mem_coverage_for_split = min_median_mem_coverage_for_split;
+    multipath_mapper.suppress_cluster_merging = suppress_cluster_merging;
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
     multipath_mapper.max_single_end_mappings_for_rescue = max(max(max_single_end_mappings_for_rescue, max_rescue_attempts), max_num_mappings);
+    multipath_mapper.secondary_rescue_subopt_diff = secondary_rescue_subopt_diff;
     multipath_mapper.secondary_rescue_score_diff = secondary_rescue_score_diff;
     multipath_mapper.secondary_rescue_attempts = secondary_rescue_attempts;
     multipath_mapper.rescue_only_min = rescue_only_min;
