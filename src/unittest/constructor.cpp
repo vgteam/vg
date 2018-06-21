@@ -232,7 +232,7 @@ ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, stri
  * Testing wrapper to build a whole graph from a VCF string. Adds alt paths by default.
  */
 Graph construct_test_graph(string fasta_data, string vcf_data, size_t max_node_size,
-    bool do_svs) {
+    bool do_svs, bool use_flat_alts = false) {
     
     // Merge all the graphs we get into this graph
     Graph built;
@@ -273,6 +273,7 @@ Graph construct_test_graph(string fasta_data, string vcf_data, size_t max_node_s
     Constructor constructor;
     constructor.alt_paths = true;
     constructor.do_svs = do_svs;
+    constructor.flat = use_flat_alts;
     // Make sure we can test the node splitting behavior at reasonable sizes
     constructor.max_node_size = max_node_size;
 
@@ -1285,7 +1286,7 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 )";
 
     // Build the graph
-    auto result = construct_test_graph(fasta_data, vcf_data, 10, true);
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, true);
     
 #ifdef debug
     std::cerr << pb2json(result) << std::endl;
