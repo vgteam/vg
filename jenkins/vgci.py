@@ -684,6 +684,7 @@ class VGCITest(TestCase):
                                      context, 
                                      mapeval_options, 
                                      plan.xg_file_ids,
+                                     [],
                                      plan.gcsa_file_ids,
                                      plan.gbwt_file_ids,
                                      plan.id_range_file_ids,
