@@ -2045,7 +2045,7 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
 
 pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
                                      bool& tried1, bool& tried2,
-                                     int match_score, int full_length_bonus, bool traceback) {
+                                     int match_score, int full_length_bonus, bool traceback, bool xdrop_alignment) {
     auto pair_sig = signature(mate1, mate2);
     // bail out if we can't figure out how far to go
     bool rescued1 = false;
@@ -2119,7 +2119,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
     int max_mate2_score = mate2.score();
     for (auto& orientation : orientations) {
         if (rescue_off_first) {
-            Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, acyclic_and_sorted);
+            Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, acyclic_and_sorted, false, xdrop_alignment);
             tried2 = true;
             //write_alignment_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
@@ -2128,7 +2128,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
 #endif
             if (aln2.score() > max_mate2_score && (double)aln2.score()/perfect_score > min_threshold && pair_consistent(mate1, aln2, accept_pval)) {
                 if (!traceback) { // now get the traceback
-                    aln2 = align_maybe_flip(mate2, graph, orientation, true, acyclic_and_sorted);
+                    aln2 = align_maybe_flip(mate2, graph, orientation, true, acyclic_and_sorted, false, xdrop_alignment);
                 }
 #ifdef debug_rescue
                 if (debug) cerr << "rescued aln2 " << pb2json(aln2) << endl;
@@ -2139,7 +2139,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
                 rescued2 = true;
             }
         } else if (rescue_off_second) {
-            Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, acyclic_and_sorted);
+            Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, acyclic_and_sorted, false, xdrop_alignment);
             tried1 = true;
             //write_alignment_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
@@ -2148,7 +2148,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
 #endif
             if (aln1.score() > max_mate1_score && (double)aln1.score()/perfect_score > min_threshold && pair_consistent(aln1, mate2, accept_pval)) {
                 if (!traceback) { // now get the traceback
-                    aln1 = align_maybe_flip(mate1, graph, orientation, true, acyclic_and_sorted);
+                    aln1 = align_maybe_flip(mate1, graph, orientation, true, acyclic_and_sorted, false, xdrop_alignment);
                 }
 #ifdef debug_rescue
                 if (debug) cerr << "rescued aln1 " << pb2json(aln1) << endl;
@@ -2163,24 +2163,6 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
     // if the new alignment is better
     // set the old alignment to it
     return make_pair(rescued1, rescued2);
-}
-
-Alignment Mapper::realign_from_start_position(const Alignment& aln, int extra, int iteration) {
-    if (!aln.path().mapping_size()) return aln;
-    if (iteration > 3) return aln;
-    int score = aln.score();
-    pos_t pos = make_pos_t(aln.path().mapping(0).position());
-    int get_at_least = 1.61803 * aln.sequence().size() + extra;
-    Graph graph = xindex->graph_context_id(pos, get_at_least/1.61803);
-    graph.MergeFrom(xindex->graph_context_id(reverse(pos, get_node_length(id(pos))), get_at_least*(1-1/1.61803)));
-    sort_by_id_dedup_and_clean(graph);
-    bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
-    Alignment result = align_maybe_flip(aln, graph, is_rev(pos), true, acyclic_and_sorted);
-    if (result.score() >= score) {
-        return result;
-    } else {
-        return realign_from_start_position(aln, 2*extra, ++iteration);
-    }
 }
 
 bool Mapper::alignments_consistent(const map<string, double>& pos1,
@@ -2741,7 +2723,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             int score1 = aln1.score();
             int score2 = aln2.score();
             bool tried1 = false; bool tried2 = false;
-            pair<bool, bool> rescues = pair_rescue(aln1, aln2, tried1, tried2, match, full_length_bonus, true);
+            pair<bool, bool> rescues = pair_rescue(aln1, aln2, tried1, tried2, match, full_length_bonus, true, xdrop_alignment);
             if (tried1) ++j;
             if (tried2) ++j;
             rescued_aln[&aln1] = rescues.first;
@@ -3342,10 +3324,10 @@ Mapper::align_mem_multi(const Alignment& aln,
     return alns;
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global, bool xdrop_alignment) {
     // do not use X-drop alignment when seed position is not available
     vector<MaximalExactMatch> mems;
-    return(align_maybe_flip(base, graph, mems, flip, traceback, acyclic_and_sorted, banded_global, false));
+    return(align_maybe_flip(base, graph, mems, flip, traceback, acyclic_and_sorted, banded_global, xdrop_alignment));
 }
 
 Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global, bool xdrop_alignment) {
@@ -4033,7 +4015,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     if (patch_alignments) {
         for (auto& aln : alignments) {
             // patch the alignment to deal with short unaligned regions
-            aln = patch_alignment(aln, band_width/2);
+            aln = patch_alignment(aln, band_width/2, true, false); // can't use xdrop_alignment here as it needs seeds to work correctly
         }
     }
     // sort the alignments by score
@@ -4559,7 +4541,7 @@ Position Mapper::alignment_end_position(const Alignment& aln) {
                    get_node_length(b.path().mapping(0).position().node_id()));
 }
 
-Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bool trim_internal_deletions) {
+Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bool trim_internal_deletions, bool xdrop_alignment) {
     //cerr << "top of patch_alignment" << endl;
     Alignment patched;
     // walk along the alignment and find the portions that are unaligned
@@ -4623,7 +4605,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                             graph.MergeFrom(xindex->graph_context_id(pos, band.sequence().size()*extend_rev));
                             sort_by_id_dedup_and_clean(graph);
                             bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, acyclic_and_sorted);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, acyclic_and_sorted, false, xdrop_alignment);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                         // TODO
@@ -4642,7 +4624,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                             sort_by_id_dedup_and_clean(graph);
                             //cerr << "on graph " << pb2json(graph) << endl;
                             bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, acyclic_and_sorted);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, acyclic_and_sorted, false, xdrop_alignment);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                     } else {
@@ -4656,7 +4638,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                             sort_by_id_dedup_and_clean(graph);
                             //cerr << "on graph " << pb2json(graph) << endl;
                             bool acyclic_and_sorted = is_id_sortable(graph) && !has_inversion(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, acyclic_and_sorted);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true, acyclic_and_sorted, false, xdrop_alignment);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                     }
@@ -4667,6 +4649,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length, bo
                     }
 #endif
                     assert(band.sequence().size() > to_strip[k].first + to_strip[k].second);
+                    if (band.path().mapping_size() == 0) { band.clear_path(); } // failed alignment
                     band = strip_from_start(band, to_strip[k].first);
                     band = strip_from_end(band, to_strip[k].second);
                     band = simplify(band);
