@@ -53,6 +53,8 @@ void help_msga(char** argv) {
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
+         << "    --xdrop-alignment       use X-drop heuristic (much faster for long-read alignment)" << endl
+         << "    --max-gap-length        maximum gap length allowed in each contiguous alignment (for X-drop alignment) [40]" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes [16]" << endl
         //<< "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
@@ -132,6 +134,8 @@ int main_msga(int argc, char** argv) {
     bool bigger_first = true;
     bool patch_alignments = true;
     int max_sub_mem_recursion_depth = 2;
+    bool xdrop_alignment = false;
+    uint32_t max_gap_length = 40;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -181,6 +185,8 @@ int main_msga(int argc, char** argv) {
                 {"align-progress", no_argument, 0, 'S'},
                 {"bigger-first", no_argument, 0, 'a'},
                 {"no-patch-aln", no_argument, 0, '8'},
+                {"max-gap-length", required_argument, 0, 1},
+                {"xdrop-alignment", no_argument, 0, 2},
                 {0, 0, 0, 0}
             };
 
@@ -359,6 +365,12 @@ int main_msga(int argc, char** argv) {
 
         case '8':
             patch_alignments = false;
+            break;
+
+        case 1:
+            max_gap_length = atoi(optarg);     // fall through
+        case 2:
+            xdrop_alignment = true;
             break;
 
         case 'h':
@@ -636,7 +648,7 @@ int main_msga(int argc, char** argv) {
                             << graph->length() << "bp "
                             << "n:" << graph->node_count() << " "
                             << "e:" << graph->edge_count() << endl;
-            Alignment aln = mapper->align(seq, 0, 0, 0, band_width, band_overlap);
+            Alignment aln = mapper->align(seq, 0, 0, 0, band_width, band_overlap, xdrop_alignment);
             aln.set_name(name);
             if (aln.path().mapping_size()) {
                 auto aln_seq = graph->path_string(aln.path());
