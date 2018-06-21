@@ -2,7 +2,7 @@
 
 # plot-qq.R <stats TSV> <destination image file> [<comma-separated "aligner" names to include> [title]]
 
-list.of.packages <- c("tidyverse", "ggrepel")
+list.of.packages <- c("tidyverse", "ggrepel", "svglite")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 require("tidyverse")
