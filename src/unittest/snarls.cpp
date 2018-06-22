@@ -2972,9 +2972,6 @@ namespace vg {
                     seen_out.insert(make_pair(net_graph.get_id(other), 
                                              net_graph.get_is_reverse(other)));
                 });
-                REQUIRE(seen_out.size() == 2);
-                REQUIRE(seen_out.find(make_pair(2, false)) != seen_out.end());
-                REQUIRE(seen_out.find(make_pair(3, false)) != seen_out.end());
 
                 unordered_set<pair<id_t, bool>> seen_out_rev;
                 net_graph.follow_edges(unode_out, true, [&](const handle_t& other) {
