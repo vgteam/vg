@@ -498,17 +498,34 @@ namespace vg {
                     // completely cover the alt, and some of them may be perfect
                     // matches to stretches of reference sequence. Note that the
                     // reference allele of the variant won't appear here.
-                    map<string, vector<vcflib::VariantAllele>> alternates = flat ? variant->flatAlternates() :
-                        variant->parsedAlternates();
-                    if (!variant->is_sv()) {
-                        for (auto &kv : alternates) {
-                            // For each alt in the variant
-
-                            if (kv.first == variant->ref) {
-                                // Skip the ref, because we can't make any ref nodes
-                                // until all the edits for the clump are known.
-                                continue;
+                    map<string, vector<vcflib::VariantAllele>> alternates;
+                    if (flat) {
+                        alternates = variant->flatAlternates();
+                        // if we can, remove the 1bp "standard" base that's added at the beginning of indels
+                        for (auto& v : alternates) {
+                            for (auto& a : v.second) {
+                                if (a.ref[0] == a.alt[0]) {
+                                    a.ref = a.ref.substr(1);
+                                    a.alt = a.alt.substr(1);
+                                    ++a.position;
+                                }
                             }
+                        }
+                    } else {
+                        alternates = variant->parsedAlternates();
+                    }
+                    if (!variant->is_sv()){
+                        //map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
+                        //auto alternates = use_flat_alts ? variant.flatAlternates() : variant.parsedAlternates();
+                        for (auto &kv : alternates){
+                     // For each alt in the variant
+
+                        if (kv.first == variant->ref)
+                        {
+                            // Skip the ref, because we can't make any ref nodes
+                            // until all the edits for the clump are known.
+                            continue;
+                        }
 
                             // With 0 being the first non-ref allele, which alt are we?
                             // Copy the string out of the map
@@ -1536,7 +1553,7 @@ namespace vg {
             for (string& alt : vvar->alt) {
                 // Validate each alt of the variant
 
-                if(!allATGC(alt)) {
+                if(!allATGCN(alt)) {
                     // It may be a symbolic allele or something. Skip this variant.
                     variant_acceptable = false;
                     #pragma omp critical (cerr)
