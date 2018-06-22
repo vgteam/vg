@@ -182,16 +182,15 @@ size_t VG::node_size() const {
 }
     
 path_handle_t VG::get_path_handle(const string& path_name) const {
-    return as_path_handle(reinterpret_cast<int64_t>(&paths._paths.at(path_name)));
+    return as_path_handle(paths.name_to_id.at(path_name));
 }
     
 string VG::get_path_name(const path_handle_t& path_handle) const {
-    // TODO: o fuk, this will break on an empty path won't it...
-    return paths.id_to_name.at(paths.mapping_itr.at(&reinterpret_cast<const list<mapping_t>*>(as_integer(path_handle))->front()).second);
+    return paths.id_to_name.at(as_integer(path_handle));
 }
 
 size_t VG::get_occurrence_count(const path_handle_t& path_handle) const {
-    return reinterpret_cast<const list<mapping_t>*>(as_integer(path_handle))->size();
+    return paths._paths.at(paths.id_to_name.at(as_integer(path_handle))).size();
 }
 
 size_t VG::get_path_count() const {
@@ -199,8 +198,8 @@ size_t VG::get_path_count() const {
 }
 
 void VG::for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const {
-    for (const pair< string, list<mapping_t>>& path_record : paths._paths) {
-        iteratee(as_path_handle(reinterpret_cast<int64_t>(&path_record.second)));
+    for (const pair<int64_t, string>& path_record : paths.id_to_name) {
+        iteratee(as_path_handle(path_record.first));
     }
 }
 
@@ -212,32 +211,32 @@ handle_t VG::get_occurrence(const occurrence_handle_t& occurrence_handle) const 
 occurrence_handle_t VG::get_first_occurrence(const path_handle_t& path_handle) const {
     occurrence_handle_t occurrence_handle;
     as_integers(occurrence_handle)[0] = as_integer(path_handle);
-    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&reinterpret_cast<const list<mapping_t>*>(as_integer(path_handle))->front());
+    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.id_to_name.at(as_integer(path_handle))).front());
     return occurrence_handle;
 }
 
 occurrence_handle_t VG::get_last_occurrence(const path_handle_t& path_handle) const {
     occurrence_handle_t occurrence_handle;
     as_integers(occurrence_handle)[0] = as_integer(path_handle);
-    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&reinterpret_cast<const list<mapping_t>*>(as_integer(path_handle))->back());
+    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.id_to_name.at(as_integer(path_handle))).back());
     return occurrence_handle;
 }
 
 bool VG::has_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
     list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
     iter++;
-    return iter != reinterpret_cast<list<mapping_t>*>(as_integers(occurrence_handle)[0])->end();
+    return iter != paths._paths.at(paths.id_to_name.at(as_integers(occurrence_handle)[0])).end();
 }
 
 bool VG::has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
     list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
-    return iter != reinterpret_cast<list<mapping_t>*>(as_integers(occurrence_handle)[0])->begin();
+    return iter != paths._paths.at(paths.id_to_name.at(as_integers(occurrence_handle)[0])).begin();
 }
 
 occurrence_handle_t VG::get_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
     occurrence_handle_t next_occurence_handle;
     as_integers(next_occurence_handle)[0] = as_integers(occurrence_handle)[0];
-    list<mapping_t>::const_iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
+    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
     iter++;
     as_integers(next_occurence_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
     return next_occurence_handle;
@@ -246,7 +245,7 @@ occurrence_handle_t VG::get_next_occurrence(const occurrence_handle_t& occurrenc
 occurrence_handle_t VG::get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
     occurrence_handle_t prev_occurence_handle;
     as_integers(prev_occurence_handle)[0] = as_integers(occurrence_handle)[0];
-    list<mapping_t>::const_iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
+    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
     iter--;
     as_integers(prev_occurence_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
     return prev_occurence_handle;

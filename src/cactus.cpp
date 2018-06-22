@@ -11,6 +11,8 @@ extern "C" {
 #include "stCactusGraphs.h"
 }
 
+//#define debug
+
 namespace vg {
 
 using namespace std;
@@ -74,6 +76,15 @@ static void compute_side_components(const HandleGraph& graph,
         add_handle(graph.flip(handle));
     });
     
+#ifdef debug
+    for (size_t i = 0; i < components.size(); i++) {
+        cerr << "Cactus component " << i << ":" << endl;
+        for (handle_t handle : components[i]) {
+            cerr << "\tNode " << graph.get_id(handle) << (graph.get_is_reverse(handle) ? " start" : " end") << endl;
+        }
+    }
+        
+#endif
 }
 
 void* mergeNodeObjects(void* a, void* b) {
@@ -253,8 +264,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
                 cac_side2->node = other_node_id;
                 cac_side2->is_end = other_is_end;
 #ifdef debug
-                cerr << "Creating cactus edge for sides " << pb2json(to_visit(side)) << " -- " << pb2json(to_visit(other_side)) << ": "
-                << i << " -> " << j << endl;
+                cerr << "Creating cactus edge for sides " << pb2json(graph.to_visit(side)) << " -- " << pb2json(graph.to_visit(other_side)) << ": " << i << " -> " << j << endl;
 #endif
                 
                 // We get the cactusEdgeEnd corresponding to the side stored in side.
@@ -333,6 +343,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
         occurrence_handle_t occurrence_handle = graph.get_first_occurrence(path_handle);
         
         auto component = node_to_component[graph.get_id(graph.get_occurrence(occurrence_handle))];
+        
         component_paths[component].push_back(name);
         
         
@@ -421,7 +432,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
                     //auto& path_mappings = graph.paths.get_path(path_name);
                     
 #ifdef debug
-                    cerr << "\tPath " << path_name << " has " << path_mappings.size() << " mappings" << endl;
+                    cerr << "\tPath " << path_name << " has " << graph.get_occurrence_count(path_handle) << " mappings" << endl;
 #endif
                     
                     // See if I can get two tips on its ends.
