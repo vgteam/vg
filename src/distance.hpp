@@ -14,9 +14,9 @@ namespace vg {
     //Get the distance between two positions
     int64_t distance( 
          const Snarl* snarl1, const Snarl* snarl2, pos_t& pos1, pos_t& pos2);
- 
+  
     protected:
-
+    void printSelf();
     class SnarlDistances {
         
         /* Stores distance information for nodes in a snarl.
@@ -36,7 +36,7 @@ namespace vg {
 
  
             //Distance between end of node start and beginning of node end
-            int64_t snarlDistanceShort(NetGraph* graph, SnarlManager* sm,
+            int64_t snarlDistanceShort(NetGraph* ng, SnarlManager* sm,
                      pair<id_t, bool> start, pair<id_t, bool> end); 
 
             //Add the distance from start to end
@@ -50,15 +50,15 @@ namespace vg {
               shortest distance from that position to the start and end nodes of
               the snarl
             */
-            pair<int64_t, int64_t> distToEnds(id_t node, int64_t distL,
+            pair<int64_t, int64_t> distToEnds(id_t node, bool rev, int64_t distL,
                                                                 int64_t distR);
 
             void printSelf();
         protected:
             unordered_map< pair<id_t, bool>, size_t> visitToIndex;
             vector<int64_t> distances;
-            pair<id_t, bool> snarlStart; 
-            pair<id_t, bool> snarlEnd;
+            pair<id_t, bool> snarlStart;  //Start facing into snarl 
+            pair<id_t, bool> snarlEnd;    //End facing out of snarl
                //ID of the first node in the snarl, also key for distance index
 
             //The index into distances for distance start->end

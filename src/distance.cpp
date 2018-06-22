@@ -1,4 +1,4 @@
-#define indexTraverse
+//#define indexTraverse
 //#define debug
 //#define printDistances
 
@@ -31,14 +31,18 @@ DistanceIndex::SnarlDistances::SnarlDistances(unordered_set<pair<id_t, bool>>&
 size_t DistanceIndex::SnarlDistances::index(pair<id_t, bool> start, 
                                             pair<id_t, bool> end) {
     /*Get the index of dist from start to end in a snarl distance matrix
-      given the node ids + direction */    
+      given the node ids + direction */
     size_t length = visitToIndex.size();
     size_t i1 = visitToIndex.at(start);
     size_t i2 = visitToIndex.at(end);
-    //return (length + 1) * (length / 2) + (i1+1)* (i1/2) + i2 - 1;
-    /*TODO Currently store entire distance matrix since it's simpler
-       dist from n1 -> n2 = -n2 -> -n1 - len(n1) + len(n2) */
     return i1 * length + i2;
+}
+
+void DistanceIndex::SnarlDistances::insertDistance(pair<id_t, bool> start, 
+                                           pair<id_t, bool> end, int64_t dist) {
+    //Assign distance between start and end
+    size_t i = index(start, end);
+    distances.at(i) = dist;
 }
    
 int64_t DistanceIndex::SnarlDistances::snarlDistance(pair<id_t, bool> start,
@@ -49,14 +53,7 @@ int64_t DistanceIndex::SnarlDistances::snarlDistance(pair<id_t, bool> start,
     return distances.at(i); 
 }
 
-void DistanceIndex::SnarlDistances::insertDistance(pair<id_t, bool> start, 
-                                           pair<id_t, bool> end, int64_t dist) {
-    //Assign distance between start and end
-    size_t i = index(start, end);
-    distances.at(i) = dist;
-}
-
-int64_t DistanceIndex::SnarlDistances::snarlDistanceShort(NetGraph* graph, 
+int64_t DistanceIndex::SnarlDistances::snarlDistanceShort(NetGraph* ng, 
                SnarlManager* sm, pair<id_t, bool> start, pair<id_t, bool> end) {
     /*Distance between end of node n1 and beginning of node n2 in snarl
     */
@@ -67,36 +64,32 @@ int64_t DistanceIndex::SnarlDistances::snarlDistanceShort(NetGraph* graph,
     #endif
 
     //If same node, return -1 since this distance will never be needed
-    if (start.first == end.first) { return -1; }
+    //if (start.first == end.first) { return -1; }
     size_t i = index(start, end);
     int64_t totalDist = distances.at(i); 
 
-    if (totalDist == -1) { //No path between two nodes
+    if (totalDist == -1 || totalDist == 0) { //No path between two nodes
         return -1;
 
     } else {
        /* If there is a path, return the distance between two nodes - length of
          first node */
-       handle_t handle = graph->get_handle(start.first, start.second);
-       const Snarl* childSnarl= sm->into_which_snarl(start.first, start.second); 
-       if (childSnarl != NULL && start.first != snarlStart.first) {
-           handle = graph->get_handle(childSnarl->end().node_id(), 
-                                         childSnarl->end().backward());
-       }
+       handle_t handle = ng->get_handle(start.first, start.second);
+
        vector<const handle_t*> nextNodes;//vector of next nodes
        auto addHandle = [&](const handle_t& h)-> bool {
            nextNodes.push_back(&h);
-           return true;
+           return false;
        };
-       graph->follow_edges(handle, false, addHandle);
+       ng->follow_edges(handle, false, addHandle);
        handle_t nextHandle = *nextNodes[0];
-     
-       size_t j = index(start, make_pair(graph->get_id(nextHandle), 
-                                         graph->get_is_reverse(nextHandle)));
+       size_t j = index(start, make_pair(ng->get_id(nextHandle), 
+                                         ng->get_is_reverse(nextHandle)));
 
        int64_t firstDist = distances.at(j);//Length of first node 
       
        return totalDist - firstDist;
+       
     }
 }
 
@@ -112,11 +105,18 @@ int64_t DistanceIndex::SnarlDistances::snarlLength(VG* graph,
 }
 
 pair<int64_t, int64_t> DistanceIndex::SnarlDistances::distToEnds(id_t node, 
-                                              int64_t distL, int64_t distR) {
+                                     bool rev, int64_t distL, int64_t distR) {
     /* Given the distances to either end of a node, find the distances to 
        either end of the snarl
+       Rev is true if the node is a snarl that starts reversed
     */
 
+    if (rev) {
+        int64_t temp = distL;
+        distL = distR;
+        distR = temp;
+    }
+    
     pair<id_t, bool> snarlEndRev = make_pair(snarlEnd.first, !snarlEnd.second);
     int64_t dsl = snarlDistance(snarlStart, make_pair(node, false)); 
 
@@ -125,7 +125,6 @@ pair<int64_t, int64_t> DistanceIndex::SnarlDistances::distToEnds(id_t node,
     int64_t der = snarlDistance( snarlEndRev, make_pair(node, true));
 
     int64_t del = snarlDistance( snarlEndRev, make_pair(node, false));
-
 
     dsl = dsl == -1 || distL == -1? -1 : distL + dsl; 
     dsr =  dsr == -1 || distR == -1? -1 : distR + dsr; 
@@ -147,7 +146,13 @@ pair<int64_t, int64_t> DistanceIndex::SnarlDistances::distToEnds(id_t node,
 void DistanceIndex::SnarlDistances::printSelf() {
     //Print the nodes contained in SnarlDistance
     cerr << endl;
-    cerr << "Snarl Distances for " << snarlStart.first << endl;
+     
+    cerr << "Snarl Distances for snarl starting at " << snarlStart.first;
+    if (snarlStart.second) {cerr << " reverse and ending at ";} 
+    else                   { cerr << " forward and ending at";}
+    cerr << snarlEnd.first;
+    if (snarlEnd.second) {cerr << " reverse";} 
+    else {cerr << " forward";}
     cerr << "Indices:" << endl;
     
     for (auto n : visitToIndex) {
@@ -295,7 +300,12 @@ pair<int64_t, int64_t> DistanceIndex::ChainDistances::distToEnds(
      
     size_t startI = snarlToIndex[start.first];
     pair<size_t, bool> startFd = make_pair(startI, start.second); 
-    pair<size_t, bool> startRev = make_pair(startI+1, !start.second); 
+    pair<size_t, bool> startRev;
+    if (start.second) {
+        startRev = make_pair(startI-1, !start.second); 
+    } else {
+        startRev = make_pair(startI+1, !start.second);
+    }
 
     int64_t dsl = chainDistanceHelper(make_pair(0,false), startFd);
     int64_t dsr = chainDistanceHelper(make_pair(0,false), startRev);
@@ -420,6 +430,7 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
                 cerr << "  Start Node: " << startID.first << "," 
                                                    << startID.second << endl;
             #endif
+
             while (reachable.size() > 0) {
                 pair<pair<id_t, bool>, int64_t> next = reachable.top();
                 reachable.pop();
@@ -443,22 +454,17 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
 
                     const handle_t currHandle = ng.get_handle(currID.first, 
                                                                currID.second);
-                    handle_t lastHandle;//To find next node in traversal
-                #ifdef indexTraverse
-                    if (ng.is_child(currHandle)) {
-                        cerr << "    At child snarl " << currID.first << ","
-                                                             << currID.second;
-                    } else {
-                        cerr << "    At node " << currID.first << "," 
-                                                           << currID.second;
-                    }
-                #endif           
 
                     
                     int64_t nodeLen; //length of the current node
+                       
+                    int64_t loopDist = -1;//Dist to exit and enter at curr node 
 
-                    const Snarl* currSnarl = sm->into_which_snarl(
+                    const Snarl* tempSnarl = sm->into_which_snarl(
                                               currID.first, currID.second);
+                    const Snarl* currSnarl = tempSnarl == NULL ? 
+                        sm->into_which_snarl(currID.first, !currID.second) :
+                        tempSnarl; 
                     //TODO:If is_child, then this shouldn't be null?????
                     // assert(currSnarl != NULL);
                     if (currID.first != snarl->start().node_id() &&
@@ -476,6 +482,22 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
                             if (chainDists != chainIndex.end()) {
                                 //Length of chain has already been found
                                 nodeLen =chainDists->second.chainLength();
+                                if (get_start_of(
+                                     *currChain).backward() == currID.second) {
+                                    loopDist = chainDists->second.loopFd[0];
+                                    if (loopDist != -1) {
+                                       loopDist = loopDist  + graph->get_node(
+                                       currID.first)->sequence().size();
+                                     }
+                                } else {
+                                    loopDist = chainDists->second.loopRev[
+                                           chainDists->second.loopRev.size()-1];
+                                    if (loopDist != -1) { 
+                                        loopDist = loopDist + 
+                                           graph->get_node(get_end_of(*currChain
+                                             ).node_id())->sequence().size();
+                                     }
+                                }
                                 //last element should be length of chain
 
                             } else {//haven't recursed on this chain yet
@@ -483,34 +505,59 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
                                     cerr << " recurse" << endl;
                                 #endif
                                 nodeLen = calculateIndex(currChain);
+                                ChainDistances& currChainDists = 
+                                         chainIndex.at( get_start_of(
+                                                    *currChain).node_id());
+                                if (get_start_of(
+                                     *currChain).backward() == currID.second) {
+                                    loopDist = currChainDists.loopFd[0];
+                                    if (loopDist != -1) {
+                                        loopDist = loopDist + graph->get_node(
+                                       currID.first)->sequence().size();
+                                    }
+                                } else {
+                                    loopDist = currChainDists.loopRev[
+                                            currChainDists.loopRev.size()-1];
+                                    if (loopDist != -1) { 
+                                        loopDist = loopDist +
+                                           graph->get_node(get_end_of(*currChain
+                                             ).node_id())->sequence().size();
+                                     }
+                                } 
                             }
-                            /*handle to last node of chain at the other end
-                              to find the next node in curr snarl*/
-                            if (currID.first == 
-                                            get_start_of(*currChain).node_id()
-                                     && currID.second == 
-                                         get_start_of(*currChain).backward()  ){
-
-                                lastHandle = ng.get_handle(get_end_of(
-                                          *currChain).node_id(), currID.second);
-                            } else if (currID.first == 
-                                               get_end_of(*currChain).node_id()
-                                       && currID.second != 
-                                          get_end_of(*currChain).backward()  ) {
- 
-                                lastHandle = ng.get_handle(get_start_of(
-                                          *currChain).node_id(), currID.second);
-                            } else {
-                                lastHandle = currHandle;
-                            } 
                         } else {//Snarl
+
+                                id_t snarlID = currSnarl->start().node_id();
+                                bool snarlRev = currSnarl->start().backward();
+                                id_t endID = currSnarl->end().node_id();
+                                bool endRev = currSnarl->end().backward();
+  
                             auto snarlDists = snarlIndex.find(make_pair(
-                                        currSnarl->start().node_id(),
-                                        currSnarl->start().backward()));
+                                        snarlID, snarlRev));
+
                             if (snarlDists != snarlIndex.end()) {//Already found
                                 nodeLen = snarlDists->second.snarlLength(
                                                          graph, currSnarl);
+                            
 
+                                if (currID.second == snarlRev) { 
+                                    loopDist = snarlDists->second.snarlDistance(
+                                       make_pair(snarlID, snarlRev), 
+                                        make_pair(snarlID, !snarlRev));
+                                     if (loopDist != -1) { 
+                                         loopDist = loopDist+ graph->get_node(
+                                           currID.first)->sequence().size();
+                                     }
+                                } else {
+                                    loopDist = snarlDists->second.snarlDistance(
+                                        make_pair(endID, !endRev), 
+                                        make_pair(endID, endRev));
+                                     if (loopDist != -1) { 
+                                         loopDist = loopDist + 
+                                              graph->get_node(currSnarl->end().
+                                                node_id())->sequence().size();
+                                     }
+                                }
                             } else {//Haven't recursed on snarl yet
                                 #ifdef indexTraverse
                                     cerr << " recurse" << endl;
@@ -518,60 +565,92 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
                                 Chain currChain;
                                 currChain.push_back(currSnarl);
                                 nodeLen = calculateIndex(&currChain);
-                            }
-                           //Handle to last node in snarl
-                            if (currID.first == currSnarl->start().node_id()
-                             && currID.second == currSnarl->start().backward()){
-                                lastHandle = ng.get_handle(
-                                        currSnarl->end().node_id(), 
-                                        currSnarl->end().backward());
-                            } else if (currID.first ==currSnarl->end().node_id()
-                                     &&
-                                 currID.second != currSnarl->end().backward()) {
 
-                                lastHandle = ng.get_handle(
-                                          currSnarl->start().node_id(), 
-                                          !currSnarl->start().backward());
-                            } else {
-                                lastHandle = currHandle;
+                                SnarlDistances& currSnarlDists = 
+                                     snarlIndex.at(make_pair(snarlID,snarlRev));
+                                if (currID.second == snarlRev) {
+                                    loopDist = currSnarlDists.snarlDistance(
+                                       make_pair(snarlID, snarlRev), 
+                                       make_pair(snarlID, !snarlRev));
+                                     if (loopDist != -1) { 
+                                         loopDist = loopDist + graph->get_node(
+                                       currID.first)->sequence().size();
+                                     }
+
+                                 } else {
+                                     loopDist = currSnarlDists.snarlDistance(
+                                        make_pair(endID, !endRev), 
+                                        make_pair(endID, endRev));
+                                     if (loopDist != -1) { 
+                                         loopDist = loopDist+ 
+                                             graph->get_node(currSnarl->end().
+                                                node_id())->sequence().size(); 
+                                      }
+                                 }
                             }
-                                                         
+                                        
                         }
                     } else { //Node is just a node
                         Node* n = graph->get_node(currID.first);
                         nodeLen = n->sequence().size();
-                        lastHandle = currHandle;
                     }
        
+                    if (loopDist != -1) {
+//TODO: I think this will add paths that exist but not in netgraph without having to use internal connectivity in netgraph
+                    //If there is a reversing path from within the current node
+                    //Add nodes reachable by reversing
+
+
+                        handle_t revHandle = ng.get_handle(
+                                          ng.get_id(currHandle), 
+                                          !ng.get_is_reverse(currHandle)); 
+                            
+
+                        auto addRevHandle = [&](const handle_t& h)-> bool {
+                            pair<id_t, bool> node = make_pair(
+                                        ng.get_id(h), ng.get_is_reverse(h));
+                            reachable.push(make_pair(node, 
+                                                     currDist + loopDist));
+ 
+
+                             return true;
+                        };
+
+                        ng.follow_edges(revHandle, false, addRevHandle);
+                    }
                     //Add reachable nodes to priority queue
-                    vector<pair<id_t, bool>> nextNodes;
                     auto addHandle = [&](const handle_t& h)-> bool {
-                         nextNodes.push_back(make_pair(
-                                    ng.get_id(h), ng.get_is_reverse(h)));
+                         pair<id_t, bool> node = make_pair(
+                                    ng.get_id(h), ng.get_is_reverse(h));
+                       reachable.push(make_pair(node, currDist + nodeLen));
+                       
                          #ifdef indexTraverse
-                             cerr << ng.get_id(h) << " ";
+                             cerr << ng.get_id(h) << " " << ng.get_is_reverse(h) << ", ";
                          #endif
                          return true;
                     };
 
                     #ifdef indexTraverse
-                         cerr << "    Adding next nodes: ";
+                         cerr << "    From start node " << startID.first << " " << startID.second<< " in snarl " << snarl->start().node_id() << " at " << ng.get_id(currHandle) << " " << ng.get_is_reverse(currHandle) << endl; 
+                         cerr << "        Adding next nodes:  ";
                     #endif
-                    ng.follow_edges(lastHandle, false, addHandle);
-                        
-                    #ifdef indexTraverse
-                         cerr << endl;
-                    #endif
-                    for (pair<id_t, bool> node : nextNodes) { 
-                       reachable.push(make_pair(node, currDist + nodeLen)); 
-                    }
-                    NodeSide nodeSide = NodeSide(ng.get_id(lastHandle), 
-                                               !ng.get_is_reverse(lastHandle));
+/* TODO: Hopefully won't need this once path past common ancestor is found
+         but might for a reversing edge at the end of a snarl???
+
+                    NodeSide nodeSide = NodeSide(ng.get_id(currHandle), 
+                                               !ng.get_is_reverse(currHandle));
                     if (graph->has_edge(nodeSide,nodeSide)) {
                         //If there is a loop - may not be in netgraph
                         reachable.push(make_pair(make_pair(currID.first,
                                           !currID.second), currDist + nodeLen));
+                     
                     }
+*/  
+                    ng.follow_edges(currHandle, false, addHandle);
+                        
+                    #ifdef indexTraverse
+                         cerr << "    prev dist: " << currDist << "+ new dist " << nodeLen << endl;
+                    #endif
                 } 
             }//End while loop
         }//End for loop over starting node/directions in a snarl
@@ -592,22 +671,27 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
        
         //Add reverse loop distances- from start node back to start node
         int64_t revLoopDist = sd.snarlDistance(
+              make_pair (snarl->end().node_id(), !snarl->end().backward()),
+             make_pair (snarl->end().node_id(), snarl->end().backward()));
+        if (chainLoopRev.size() == 0) { 
+            //if first snarl in chain, push dist for first node before
+            // last node in snarl
+            int64_t revDist = sd.snarlDistance(
               make_pair (snarl->start().node_id(), !snarl->start().backward()),
              make_pair (snarl->start().node_id(), snarl->start().backward()));
-        if (chainLoopRev.size() == 0) { //if first snarl in chain
+            chainLoopRev.push_back(revDist);
+        } 
+        int64_t lastLoop = chainLoopRev.back();
+        if (lastLoop == -1 || revLoopDist != -1) {
             chainLoopRev.push_back(revLoopDist);
-        } else { 
-            int64_t lastLoop = chainLoopRev.back();
-            if (lastLoop == -1 || revLoopDist != -1) {
-                chainLoopRev.push_back(revLoopDist);
-            } else {
-                //Push 2*length of prev snarl + loop dist of prev snarl
-                chainLoopRev.push_back(lastLoop +  
-                     (chainPrefixSum.at(chainPrefixSum.size()-1) -
-                             chainPrefixSum.at(chainPrefixSum.size()-3)) +
-                     (chainPrefixSum.at(chainPrefixSum.size()-2) -
-                           chainPrefixSum.at(chainPrefixSum.size()-4)) );
-            }
+        } else {
+            //Push 2*length of prev snarl + loop dist of prev snarl
+            chainLoopRev.push_back(lastLoop +  
+                 (chainPrefixSum.at(chainPrefixSum.size()-1) -
+                         chainPrefixSum.at(chainPrefixSum.size()-3)) +
+                 (chainPrefixSum.at(chainPrefixSum.size()-2) -
+                       chainPrefixSum.at(chainPrefixSum.size()-4)) );
+        
         }
 
     }//End for loop over snarls in chain
@@ -729,7 +813,7 @@ pair<pair<int64_t, int64_t>, const Snarl*> DistanceIndex::distToCommonAncestor(
 
     SnarlDistances& snarlDists = snarlIndex.at(make_pair(startID, startRev));
 
-    pair<int64_t, int64_t> endDists = snarlDists.distToEnds(nodeID, distL, 
+    pair<int64_t, int64_t> endDists = snarlDists.distToEnds(nodeID, false, distL, 
                                                                         distR);
     distL = endDists.first;
     distR = endDists.second;
@@ -742,14 +826,13 @@ pair<pair<int64_t, int64_t>, const Snarl*> DistanceIndex::distToCommonAncestor(
 
     while (sm->parent_of(snarl) != commonAncestor) {
         int64_t dsl; int64_t dsr; int64_t der; int64_t del;
-    assert(distL >= -1 && distR >= -1);//don't accumulate -1's
         if (sm->in_nontrivial_chain(snarl)) {//Get to ends of chain
             const Chain* chain = sm->chain_of(snarl);
             id_t chainStartID = get_start_of(*chain).node_id();
             ChainDistances& chainDists =  chainIndex.at(chainStartID);
 
             pair<int64_t, int64_t> endDists = chainDists.distToEnds(
-                          make_pair(nodeID, nodeRev), distL, distR);
+                          make_pair(nodeID, nodeRev!=get_start_of(*chain).backward()), distL, distR);
             distL = endDists.first;   
             distR = endDists.second;
 
@@ -767,7 +850,7 @@ pair<pair<int64_t, int64_t>, const Snarl*> DistanceIndex::distToCommonAncestor(
                             snarlIndex.at(make_pair(startNodeID, startNodeRev));
             
        pair<int64_t, int64_t> endDists = snarlDists.distToEnds(
-                                                      nodeID, distL, distR);
+                                                nodeID, nodeRev, distL, distR);
           
        distL = endDists.first;
        distR = endDists.second;
@@ -787,244 +870,371 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
     /*Actual distance function to get the distance between two positions
     */
     
-/*TODO: Assume given snarls - find a way to get snarl from just position*/
+    int64_t shortestDistance = -1; 
     if (get_id(pos1) == get_id(pos2)) { //if positions are on the same node
+        int64_t nodeSize = graph->get_node(get_id(pos1))->sequence().size();
         int64_t offset1;
         if (is_rev(pos1)) {
-            offset1 = graph->get_node(get_id(pos1))->sequence().size() -
-                      get_offset(pos1) - 1;//Len of node - offset 
+            offset1 = nodeSize -get_offset(pos1) - 1;//Len of node - offset 
         } else {
             offset1 = get_offset(pos1);
         }
         int64_t offset2;
         if (is_rev(pos2)) {
-            offset2 = graph->get_node(get_id(pos2))->sequence().size() - 
-                      get_offset(pos2) - 1;
+            offset2 = nodeSize - get_offset(pos2) - 1;
         } else {
             offset2 = get_offset(pos2);
         }
-        return abs(offset1-offset2)+1; //+1 to be consistent
+        if (graph->has_edge(node_start(get_id(pos1)), node_end(get_id(pos2)))){
+            shortestDistance = min(   abs(offset1-offset2)+1,
+                          nodeSize - abs(offset1-offset2) + 1  ); 
+        } else {
+            shortestDistance = abs(offset1-offset2)+1; //+1 to be consistent
 
-
-    } else { //Positions are on different nodes
-
-        id_t nodeID1 = get_id(pos1);
-        bool nodeRev1 = is_rev(pos1);
-        id_t nodeID2 = get_id(pos2); 
-        bool nodeRev2 = is_rev(pos2);
-    #ifdef printDistances
-        cerr << endl << "Start distance calculation from " << nodeID1 << "->" <<
-             nodeID2 << endl;
-    #endif
-        //const Snarl* snarl1 = sm->into_which_snarl(node1, is_rev(pos1));
-        //const Snarl* snarl2 = sm->into_which_snarl(node2, is_rev(pos2));
-        const Snarl* commonAncestor = NULL; 
-
-    #ifdef printDistances
-        cerr << "Find common ancestor";
-    #endif
-        //// Find common ancestor
-        unordered_set<const Snarl*> ancestors1;
-                      //set of all ancestor snarls of node1
-        const Snarl* ancestor1 = snarl1;
-
-        while (ancestor1 != NULL) {
-            ancestors1.emplace(ancestor1);
-            ancestor1 = sm->parent_of(ancestor1);
-        }
-
-    #ifdef printDistances
-        cerr << "Ancestors of 1: ";
-        for (auto ancestorSnarl : ancestors1) {
-
-            cerr << ancestorSnarl->start().node_id() << " ";
-        }
-        cerr << endl << "ancestors of 2: ";
-    #endif
-        const Snarl* ancestor2 = snarl2;
-        while (ancestor2 != NULL) {
-
-    #ifdef printDistances
-             cerr << ancestor2->start().node_id() << " ";
-    #endif
-
-            if (ancestors1.count(ancestor2) > 0) { 
-                commonAncestor = ancestor2;
-                break;
-            }
-            ancestor2 = sm->parent_of(ancestor2); 
-        }
-    #ifdef printDistances 
-        cerr << endl;
-        if (commonAncestor == NULL) {
-            cerr << "common ancestor found: NULL" << endl;
-        } else { 
-            cerr << "common ancestor found: " << 
-                               commonAncestor->start().node_id()<< endl;
-        }
-
-        cerr << "  Snarl1: " << snarl1->start().node_id() << " Snarl2: "
-                                           << snarl2->start().node_id() << endl;
-    #endif
-        //Find distances from pos1 and pos2 to ends of child snarls of ancestor
-        pair<pair<int64_t, int64_t>, const Snarl*> p1 = 
-        distToCommonAncestor(snarl1, commonAncestor, pos1);
-        pair<int64_t, int64_t> temp1 = p1.first; 
-        snarl1 = p1.second;
-        if (snarl1 != commonAncestor) {
-            nodeID1 = snarl1->start().node_id();
-            nodeRev1 = snarl1->start().backward();
-        }
-        int64_t distL1 = temp1.first; int64_t distR1 = temp1.second;
-        
-        pair<pair<int64_t, int64_t>, const Snarl*> p2 = 
-        distToCommonAncestor(snarl2, commonAncestor, pos2);
-        pair<int64_t, int64_t> temp3 = p2.first; 
-        snarl2 = p2.second;
-        if (snarl2 != commonAncestor) {
-            nodeID2 = snarl2->start().node_id();
-            nodeRev2 = snarl2->start().backward();
-        }
-        int64_t distL2 = temp3.first; int64_t distR2 = temp3.second;
-        
-        //Snarl1 and snarl2 are children of common ancestor or common ancestor
-
-    #ifdef printDistances
-        cerr << "Distances to snarl in common ancestor: " << distL1 << ", " <<
-             distR1 << "   " << distL2 << ", " << distR2 << endl;
-    #endif
-        int64_t chainDist = -1; 
-        //Find shortest distance between boundary nodes of snarls containing pos
-        if (snarl1 != commonAncestor && snarl2 != commonAncestor && 
-              sm->in_nontrivial_chain(snarl1) && sm->in_nontrivial_chain(snarl2)
-               && sm->chain_of(snarl1) == sm->chain_of(snarl2)) {
-            //If positions are in the same chain within common ancestor
-            const Chain* chain = sm->chain_of(snarl1);
-            id_t chainStartID = get_start_of(*chain).node_id();
-            bool chainStartRev = get_start_of(*chain).backward();
-
-            ChainDistances& chainDists = chainIndex.at( chainStartID); 
-
-            //Distance from left of s1 (reverse), left of s2 (forward)
-            int64_t d1 = chainDists.chainDistanceShort(graph,
-                   make_pair(nodeID1, nodeRev1==chainStartRev), 
-                   make_pair(nodeID2, nodeRev2!=chainStartRev));
-            d1 = (distL1 == -1 || distL2 == -1 || d1 == -1) ? -1 : 
-                                    distL1 + distL2 + d1; 
-            //Distance from left of s1 (reverse) to right of s2 (reverse)
-            int64_t d2 = chainDists.chainDistanceShort(graph,
-                   make_pair(nodeID1, nodeRev1==chainStartRev), 
-                   make_pair(snarl2->end().node_id(), nodeRev2==chainStartRev));
-            if (nodeID1 == snarl2->end().node_id()) {
-                d2 = distL1 + distR2 - d2; 
-            } else {
-                d2 = (distL1 == -1 || distR2 == -1 || d2 == -1) ? -1 : 
-                                       distL1 + distR2 + d2; 
-            }
-            //Distance from right of s1 (fd) to left of s2 (fd)
-            int64_t d3 = chainDists.chainDistanceShort(graph,
-                   make_pair(snarl1->end().node_id(),nodeRev1!=chainStartRev), 
-                           make_pair(nodeID2, nodeRev2!=chainStartRev));
-            if(snarl1->end().node_id() == nodeID2) {
-                d3 = (distR1 == -1 || distL2 == -1 || d3 == -1) ? -1 : 
-                                       distR1 + distL2 - d3; 
-            } else {
-                d3 = (distR1 == -1 || distL2 == -1 || d3 == -1) ? -1 : 
-                                       distR1 + distL2 + d3; 
-            }
-            //Distance from right of s1 (fd) to right of reverse (fd)
-            int64_t d4 =  chainDists.chainDistanceShort(graph,
-                  make_pair(snarl1->end().node_id(), nodeRev1!=chainStartRev),
-                  make_pair(snarl2->end().node_id(), nodeRev2==chainStartRev));
-            d4 = (distR1 == -1 || distR2 == -1 || d4 == -1) ? -1 : 
-                                       distR1 + distR2 + d4;
-            
-            vector<int64_t> valsv {d1, d2, d3, d4};
-                       
-            chainDist = minPos(valsv);
-    #ifdef printDistances
-            cerr << "    Possible distances within chain: " << d1 << " " << d2
-                 << " " << d3 << " " << d4 << endl;
-            cerr << "Chain distance in common ancestor: " << chainDist << endl;
-            
-    #endif
-
-        }
-        if (commonAncestor == NULL) {
-            return chainDist;
-        } else { 
-            //Get dist from pos1 to ends of chain 
-            if (snarl1 != commonAncestor && sm->in_nontrivial_chain(snarl1)) {
-                const Chain* chain = sm->chain_of(snarl1);
-
-                id_t chainStartID = get_start_of(*chain).node_id();
-                ChainDistances& chainDists = chainIndex.at( chainStartID);
-                pair<int64_t, int64_t> endDists = chainDists.distToEnds(
-                                make_pair(nodeID1, nodeRev1), distL1, distR1);
-
-                distL1 = endDists.first;
-                distR1 = endDists.second;
-
-                nodeID1 =  chainStartID;
-                nodeRev1 = get_start_of(*chain).backward();
-            }
-            //Get dist from pos2 to ends of its chain 
-            if (snarl2 != commonAncestor && sm->in_nontrivial_chain(snarl2)) {
-                const Chain* chain = sm->chain_of(snarl2);
-                id_t chainStartID = get_start_of(*chain).node_id();
-                ChainDistances& chainDists = chainIndex.at( chainStartID);
-
-                pair<int64_t, int64_t> endDists = chainDists.distToEnds(
-                           make_pair(nodeID2, nodeRev2), distL2, distR2);    
-                distL2 = endDists.first;
-                distR2 = endDists.second;
-
-                nodeID2 = chainStartID; 
-                nodeRev2 = get_start_of(*chain).backward();
-            }
-            
-    
- 
-        #ifdef printDistances
-            cerr << "Distances to common ancestor: " << distL1 << ", " << distR1
-                  << "   " << distL2 << ", " << distR2 << endl;
-        #endif
-            //Both nodes are nodes in common ancestor
-            //Get distance between end nodes in snarl
-            NetGraph ng = NetGraph(commonAncestor->start(), 
-                    commonAncestor->end(),sm->chains_of(commonAncestor), graph);
-            SnarlDistances& snarlDists = snarlIndex.at(make_pair(
-                               commonAncestor->start().node_id(),
-                                           commonAncestor->start().backward()));
-            int64_t d1 = snarlDists.snarlDistanceShort(&ng, sm,
-                    make_pair(nodeID1, nodeRev1), make_pair(nodeID2, nodeRev2));
-            d1 = (distR1 == -1 || distL2 == -1 || d1 == -1) ? -1 : 
-                                                   distR1 + distL2 + d1; 
-            int64_t d2 = snarlDists.snarlDistanceShort(&ng,sm,
-                   make_pair(nodeID1, nodeRev1), make_pair(nodeID2, !nodeRev2));
-
-            d2 = (distR1 == -1 || distR2 == -1 || d2 == -1) ? -1 :
-                                                   distR1 + distR2 + d2;
-            int64_t d3 = snarlDists.snarlDistanceShort(&ng,sm,
-                  make_pair(nodeID1, !nodeRev1), make_pair(nodeID2, nodeRev2));
-            d3 = (distL1 == -1 || distL2 == -1 || d3 == -1) ? -1 : 
-                                                  distL1 + distL2 + d3; 
-            int64_t d4 = snarlDists.snarlDistanceShort(&ng,sm,
-                  make_pair(nodeID1, !nodeRev1), make_pair(nodeID2, !nodeRev2));
-            d4 = (distL1 == -1 || distR2 == -1 || d4 == -1) ? -1 : 
-                                                  distL1 + distR2 + d4; 
-            vector<int64_t> vals {d1, d2, d3, d4, chainDist}; 
-
-        #ifdef printDistances
-            cerr << "Distances within common ancestor: " << d1 << ", " << d2
-                                            << ", " << d3 << ", " << d4 << endl;
-        #endif
-            return minPos(vals);
         }
     }
+    id_t nodeID1 = get_id(pos1);
+    bool nodeRev1 = is_rev(pos1);
+    id_t nodeID2 = get_id(pos2); 
+    bool nodeRev2 = is_rev(pos2);
+    #ifdef printDistances
+    cerr << endl << "Start distance calculation from " << nodeID1 << "->" <<
+         nodeID2 << endl;
+    #endif
+    //const Snarl* snarl1 = sm->into_which_snarl(node1, is_rev(pos1));
+    //const Snarl* snarl2 = sm->into_which_snarl(node2, is_rev(pos2));
+    const Snarl* commonAncestor = NULL; 
+
+    #ifdef printDistances
+    cerr << "Find common ancestor";
+    #endif
+    //// Find common ancestor
+    unordered_set<const Snarl*> ancestors1;
+                  //set of all ancestor snarls of node1
+    const Snarl* ancestor1 = snarl1;
+
+    while (ancestor1 != NULL) {
+        ancestors1.emplace(ancestor1);
+        ancestor1 = sm->parent_of(ancestor1);
+    }
+
+#ifdef printDistances
+    cerr << "Ancestors of 1: ";
+    for (auto ancestorSnarl : ancestors1) {
+
+         cerr << ancestorSnarl->start().node_id() << " ";
+     }
+      cerr << endl << "ancestors of 2: ";
+#endif
+    const Snarl* ancestor2 = snarl2;
+    while (ancestor2 != NULL) {
+
+#ifdef printDistances
+         cerr << ancestor2->start().node_id() << " ";
+#endif
+
+        if (ancestors1.count(ancestor2) > 0) { 
+            commonAncestor = ancestor2;
+            break;
+        }
+        ancestor2 = sm->parent_of(ancestor2); 
+    }
+#ifdef printDistances 
+    cerr << endl;
+    if (commonAncestor == NULL) {
+        cerr << "common ancestor found: NULL" << endl;
+    } else { 
+        cerr << "common ancestor found: " << 
+                           commonAncestor->start().node_id()<< endl;
+    }
+
+    cerr << "  Snarl1: " << snarl1->start().node_id() << " Snarl2: "
+                                           << snarl2->start().node_id() << endl;
+#endif
+    //Find distances from pos1 and pos2 to ends of child snarls of ancestor
+    pair<pair<int64_t, int64_t>, const Snarl*> p1 = 
+    distToCommonAncestor(snarl1, commonAncestor, pos1);
+    pair<int64_t, int64_t> temp1 = p1.first; 
+    snarl1 = p1.second;
+    if (snarl1 != commonAncestor) {
+        nodeID1 = snarl1->start().node_id();
+        nodeRev1 = snarl1->start().backward();
+    }
+    int64_t distL1 = temp1.first; int64_t distR1 = temp1.second;
+    
+    pair<pair<int64_t, int64_t>, const Snarl*> p2 = 
+    distToCommonAncestor(snarl2, commonAncestor, pos2);
+    pair<int64_t, int64_t> temp3 = p2.first; 
+    snarl2 = p2.second;
+    if (snarl2 != commonAncestor) {
+        nodeID2 = snarl2->start().node_id();
+        nodeRev2 = snarl2->start().backward();
+    }
+    int64_t distL2 = temp3.first; int64_t distR2 = temp3.second;
+    
+    //Snarl1 and snarl2 are children of common ancestor or common ancestor
+
+#ifdef printDistances
+    cerr << "Distances to snarl in common ancestor: " << distL1 << ", " <<
+         distR1 << "   " << distL2 << ", " << distR2 << endl;
+#endif
+    int64_t chainDist = -1; 
+    //Find shortest distance between boundary nodes of snarls containing pos
+    if (snarl1 != commonAncestor && snarl2 != commonAncestor && 
+          sm->in_nontrivial_chain(snarl1) && sm->in_nontrivial_chain(snarl2)
+           && sm->chain_of(snarl1) == sm->chain_of(snarl2)) {
+        //If positions are in the same chain within common ancestor
+        const Chain* chain = sm->chain_of(snarl1);
+        id_t chainStartID = get_start_of(*chain).node_id();
+        bool chainStartRev = get_start_of(*chain).backward();
+
+        ChainDistances& chainDists = chainIndex.at( chainStartID); 
+
+        //Distance from left of s1 (reverse), left of s2 (forward)
+        int64_t d1 = chainDists.chainDistanceShort(graph,
+               make_pair(nodeID1, nodeRev1==chainStartRev), 
+               make_pair(nodeID2, nodeRev2!=chainStartRev));
+        d1 = (distL1 == -1 || distL2 == -1 || d1 == -1) ? -1 : 
+                                distL1 + distL2 + d1; 
+        //Distance from left of s1 (reverse) to right of s2 (reverse)
+        int64_t d2 = chainDists.chainDistanceShort(graph,
+               make_pair(nodeID1, nodeRev1==chainStartRev), 
+               make_pair(snarl2->end().node_id(), nodeRev2==chainStartRev));
+        if (nodeID1 == snarl2->end().node_id()) {
+            d2 = distL1 + distR2 - d2; 
+        } else {
+            d2 = (distL1 == -1 || distR2 == -1 || d2 == -1) ? -1 : 
+                                   distL1 + distR2 + d2; 
+        }
+        //Distance from right of s1 (fd) to left of s2 (fd)
+        int64_t d3 = chainDists.chainDistanceShort(graph,
+               make_pair(snarl1->end().node_id(),nodeRev1!=chainStartRev), 
+                       make_pair(nodeID2, nodeRev2!=chainStartRev));
+        if(snarl1->end().node_id() == nodeID2) {
+            d3 = (distR1 == -1 || distL2 == -1 || d3 == -1) ? -1 : 
+                                   distR1 + distL2 - d3; 
+        } else {
+            d3 = (distR1 == -1 || distL2 == -1 || d3 == -1) ? -1 : 
+                                   distR1 + distL2 + d3; 
+        }
+        //Distance from right of s1 (fd) to right of s2 (rev)
+        int64_t d4 =  chainDists.chainDistanceShort(graph,
+              make_pair(snarl1->end().node_id(), nodeRev1!=chainStartRev),
+              make_pair(snarl2->end().node_id(), nodeRev2==chainStartRev));
+        d4 = (distR1 == -1 || distR2 == -1 || d4 == -1) ? -1 : 
+                                   distR1 + distR2 + d4;
+        
+                   
+        chainDist = minPos({d1, d2, d3, d4});
+#ifdef printDistances
+        cerr << "    Possible distances within chain: " << d1 << " " << d2
+             << " " << d3 << " " << d4 << endl;
+        cerr << "Chain distance in common ancestor: " << chainDist << endl;
+        
+#endif
+
+    }
+    if (commonAncestor == NULL) {
+        return minPos({chainDist, shortestDistance});
+    }  
+    //Get dist from pos1 to ends of chain 
+    if (snarl1 != commonAncestor && sm->in_nontrivial_chain(snarl1)) {
+        const Chain* chain = sm->chain_of(snarl1);
+
+        id_t chainStartID = get_start_of(*chain).node_id();
+        ChainDistances& chainDists = chainIndex.at( chainStartID);
+        pair<int64_t, int64_t> endDists = chainDists.distToEnds(
+                           make_pair(nodeID1, nodeRev1 != get_start_of(*chain).backward()), distL1, distR1);
+
+        distL1 = endDists.first;
+        distR1 = endDists.second;
+
+        nodeID1 =  chainStartID;
+        nodeRev1 = get_start_of(*chain).backward();
+    }
+    //Get dist from pos2 to ends of its chain 
+    if (snarl2 != commonAncestor && sm->in_nontrivial_chain(snarl2)) {
+        const Chain* chain = sm->chain_of(snarl2);
+        id_t chainStartID = get_start_of(*chain).node_id();
+        ChainDistances& chainDists = chainIndex.at( chainStartID);
+
+        pair<int64_t, int64_t> endDists = chainDists.distToEnds(
+                       make_pair(nodeID2, nodeRev2 != get_start_of(*chain).backward()), distL2, distR2);    
+        distL2 = endDists.first;
+        distR2 = endDists.second;
+
+        nodeID2 = chainStartID; 
+        nodeRev2 = get_start_of(*chain).backward();
+    }
+          
+   
+ 
+#ifdef printDistances
+    cerr << "Distances to common ancestor: " << distL1 << ", " << distR1
+              << "   " << distL2 << ", " << distR2 << endl;
+#endif
+    //Both nodes are nodes in common ancestor
+    //Get distance between end nodes in snarl
+    NetGraph ng = NetGraph(commonAncestor->start(), 
+                commonAncestor->end(),sm->chains_of(commonAncestor), graph);
+    SnarlDistances& snarlDists = snarlIndex.at(make_pair(
+                           commonAncestor->start().node_id(),
+                                       commonAncestor->start().backward()));
+    int64_t d1 = snarlDists.snarlDistanceShort(&ng, sm,
+                make_pair(nodeID1, nodeRev1), make_pair(nodeID2, nodeRev2));
+    d1 = (distR1 == -1 || distL2 == -1 || d1 == -1) ? -1 : 
+                                                  distR1 + distL2 + d1; 
+
+    int64_t d2 = snarlDists.snarlDistanceShort(&ng,sm,
+                   make_pair(nodeID1, nodeRev1), make_pair(nodeID2, !nodeRev2));
+
+    d2 = (distR1 == -1 || distR2 == -1 || d2 == -1) ? -1 :
+                                                   distR1 + distR2 + d2;
+    int64_t d3 = snarlDists.snarlDistanceShort(&ng,sm,
+                make_pair(nodeID1, !nodeRev1), make_pair(nodeID2, nodeRev2));
+    d3 = (distL1 == -1 || distL2 == -1 || d3 == -1) ? -1 : 
+                                              distL1 + distL2 + d3; 
+    int64_t d4 = snarlDists.snarlDistanceShort(&ng,sm,
+                make_pair(nodeID1, !nodeRev1), make_pair(nodeID2, !nodeRev2));
+    d4 = (distL1 == -1 || distR2 == -1 || d4 == -1) ? -1 : 
+                                                  distL1 + distR2 + d4; 
+
+#ifdef printDistances
+    cerr << "Distances within common ancestor: " << d1 << ", " << d2
+                                        << ", " << d3 << ", " << d4 << endl;
+#endif
+    shortestDistance =  minPos({d1, d2, d3, d4, chainDist, shortestDistance});
+
+#ifdef printDistances
+    cerr << "Shortest dist only up to  common ancestor: " << shortestDistance
+        << endl;
+#endif
+
+
+    /*shortestDistance is now the shortest distance only traversing up to the 
+      most recent common ancestor. 
+      node1 and node2 can be any node in the common ancestor
+      
+      Traverse up to root and check for path at each level
+    */
+    
+    
+    //Find distances to the ends of the common ancestor
+    pair<int64_t, int64_t> endDists = snarlDists.distToEnds(nodeID1, nodeRev1, distL1, 
+                                                                        distR1);
+    distL1 = endDists.first;
+    distR1 = endDists.second;
+
+    endDists = snarlDists.distToEnds(nodeID2, nodeRev2, distL2, distR2);
+    distL2 = endDists.first;
+    distR2 = endDists.second;
+     
+#ifdef printDistances
+    cerr << "Distances to ends of common ancestor: " << distL1 << " " << distR1
+         << " " << distL2 << " " << distR2 
+        << endl;
+#endif   
+    const Snarl* currSnarl = commonAncestor;
+    const Snarl* parentSnarl = sm->parent_of(currSnarl);
+    id_t startID = currSnarl->start().node_id();
+    id_t startRev = currSnarl->start().backward(); //pointing into snarl
+    id_t endID = currSnarl->end().node_id();
+    id_t endRev = currSnarl->end().backward();     //pointing out
+
+    NodeSide startSide = NodeSide(startID, !startRev); //start of start
+    NodeSide endSide = NodeSide(endID, !endRev);       //end of end
+    if (graph->has_edge(startSide,startSide)) {
+        shortestDistance = minPos({shortestDistance, distL1 + distL2});
+    } 
+    if (graph->has_edge(endSide, endSide)) {
+        shortestDistance = minPos({shortestDistance, distR1 + distR2});
+    }
+
+#ifdef printDistances
+    cerr << "Shortest distance at snarl " << currSnarl->start().node_id() <<
+         ": " << shortestDistance << endl;
+#endif   
+    
+    while ( parentSnarl != NULL) {
+
+            
+        if (sm->in_nontrivial_chain(currSnarl)) {
+            const Chain* currChain= sm->chain_of(currSnarl);
+            ChainDistances& chainDists = chainIndex.at(
+                                            get_start_of(*currChain).node_id());
+            //TODO: If too slow, this is done twice        
+            pair<int64_t, int64_t> chainEnd1 = chainDists.distToEnds(
+                          make_pair(startID, startRev!=get_start_of(*currChain).backward()), distL1, distR1);
+            distL1 = chainEnd1.first; distR1 = chainEnd1.second;
+            pair<int64_t, int64_t> chainEnd2 = chainDists.distToEnds(
+                          make_pair(startID, startRev!=get_start_of(*currChain).backward()), distL2, distR2);
+            distL2 = chainEnd2.first; distR2 = chainEnd2.second;
+
+            startID = get_start_of(*currChain).node_id();
+            startRev = get_start_of(*currChain).backward();
+            endID = get_end_of(*currChain).node_id();
+            endRev = get_end_of(*currChain).backward();
+
+            //If an edge connects ends of two paths, find shortest distance
+            NodeSide startSide = NodeSide(startID, !startRev); //start of start
+            NodeSide endSide = NodeSide(endID, !endRev);       //end of end
+            if (graph->has_edge(startSide,startSide)) {
+                shortestDistance = minPos({shortestDistance, distL1 + distL2});
+            } 
+            if (graph->has_edge(endSide, endSide)) {
+                shortestDistance = minPos({shortestDistance, distR1 + distR2});
+            }
+        }
+
+        startID = parentSnarl->start().node_id();
+        startRev = parentSnarl->start().backward();
+        endID = parentSnarl->end().node_id();
+        endRev = parentSnarl->end().backward();
+
+        SnarlDistances& snarlDists =snarlIndex.at(make_pair(parentSnarl->start().node_id(), parentSnarl->start().backward()));
+
+        pair<int64_t, int64_t> endDists1 = snarlDists.distToEnds(startID, startRev, distL1,
+                                                                       distR1);
+        distL1= endDists1.first; distR1= endDists1.second;
+
+        pair<int64_t, int64_t> endDists2 = snarlDists.distToEnds(startID, startRev, distL2,
+                                                                       distR2);
+        distL2= endDists2.first; distR2= endDists2.second;
+
+        startID = parentSnarl->start().node_id();
+        startRev = parentSnarl->start().backward();
+        endID = parentSnarl->end().node_id();
+        endRev = parentSnarl->end().backward();
+        //If an edge connects ends of two paths, find shortest distance
+        NodeSide startSide = NodeSide(startID, !startRev); //start of start
+        NodeSide endSide = NodeSide(endID, !endRev);       //end of end
+        if (graph->has_edge(startSide,startSide)) {
+            shortestDistance = minPos({shortestDistance, distL1 + distL2});
+        } 
+        if (graph->has_edge(endSide, endSide)) {
+            shortestDistance = minPos({shortestDistance, distR1 + distR2});
+        }
+        currSnarl = parentSnarl;
+        parentSnarl = sm->parent_of(currSnarl);
+    }
+
+
+
+
+
+
+    return shortestDistance;
+
 };
 
-
+void DistanceIndex::printSelf() {
+    for (auto snarls : snarlIndex) {
+        snarls.second.printSelf();
+    }
+    for (auto chains : chainIndex) {
+        chains.second.printSelf();
+    }
+}
 //Methods for testing
 int64_t DistanceIndex::checkChainDist(id_t snarl, size_t index) {
     return chainIndex.at(snarl).prefixSum[index];
