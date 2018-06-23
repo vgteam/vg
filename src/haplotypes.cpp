@@ -115,7 +115,7 @@ hDP_gbwt_graph_accessor
 gbwt_thread_t::gbwt_thread_t() {
 }
 
-gbwt_thread_t::gbwt_thread_t(const vector<gbwt::node_type>& nodes, const vector<size_t>& node_lengths) : nodes(nodes), node_lengths(node_lengths) {
+gbwt_thread_t::gbwt_thread_t(const gbwt::vector_type& nodes, const vector<size_t>& node_lengths) : nodes(nodes), node_lengths(node_lengths) {
 }
 
 void gbwt_thread_t::push_back(gbwt::node_type node, size_t node_length) {
@@ -123,19 +123,19 @@ void gbwt_thread_t::push_back(gbwt::node_type node, size_t node_length) {
   node_lengths.push_back(node_length);
 }
 
-gbwt::node_type& gbwt_thread_t::operator[](size_t i) {
+gbwt::vector_type::value_type& gbwt_thread_t::operator[](size_t i) {
   return nodes[i];  
 }
 
-const gbwt::node_type& gbwt_thread_t::operator[](size_t i) const {
+const gbwt::vector_type::value_type& gbwt_thread_t::operator[](size_t i) const {
   return nodes[i];  
 }
 
-gbwt::node_type& gbwt_thread_t::back() {
+gbwt::vector_type::value_type& gbwt_thread_t::back() {
   return nodes.back();
 }
 
-const gbwt::node_type& gbwt_thread_t::back() const {
+const gbwt::vector_type::value_type& gbwt_thread_t::back() const {
   return nodes.back();
 }
 
