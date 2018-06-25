@@ -3,6 +3,8 @@
 
 #include <signal.h>
 
+#define debug
+
 namespace vg {
 
 using namespace std;
@@ -555,7 +557,7 @@ ReplaceLocalHaplotypeCommand GenomeState::replace_snarl_haplotype(const ReplaceS
             auto& overall_lane = *it;
             
 #ifdef debug
-            cerr << "Delete " << overall_lane << " from " << kv.first->start() << " -> " << kv.first->end() << endl;
+            cerr << "Delete " << overall_lane << " from " << snarl->start().node_id() << " -> " << snarl->end().node_id() << endl;
 #endif
             
             // Remove the haplotype and save a copy
@@ -665,7 +667,7 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
                 skip_first = false;
                 return;
             }
-            
+                        
             if (net_graph.is_child(visit)) {
                 // If the visit enters a real child snarl, we have to do that
                 // child snarl and all the snarls in its chain.
