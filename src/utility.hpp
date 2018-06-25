@@ -529,7 +529,7 @@ template<class RandomIt, class Compare>
 void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp) {
     
     // Make the seed using the pre-defined seed making approaches
-    sort_shuffling_ties(begin, end, comp, [](const decltype (*begin)& item) {
+    sort_shuffling_ties(begin, end, comp, [](decltype (*begin)& item) {
         return make_shuffle_seed(item);
     });
 
