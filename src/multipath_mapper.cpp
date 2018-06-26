@@ -2697,7 +2697,9 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "scores obtained of multi-mappings:" << endl;
         for (size_t i = 0; i < scores.size(); i++) {
-            cerr << "\t" << scores[i] << endl;
+            Alignment aln;
+            optimal_alignment(multipath_alns[i], aln);
+            cerr << "\t" << scores[i] << " " << make_pos_t(aln.path().mapping(0).position()) << endl;
         }
 #endif
         
