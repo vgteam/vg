@@ -1916,12 +1916,14 @@ namespace vg {
         };
         
         // sort the pairs descending by total unique sequence coverage
-        std::sort(cluster_pairs.begin(), cluster_pairs.end(),
-                  [&](const pair<pair<size_t, size_t>, int64_t>& a, const pair<pair<size_t, size_t>, int64_t>& b) {
-                      // We need to be able to look up the coverage for the graph an input cluster went into.
-                      // Compute total coverage following all the redirects and see if
-                      // it's in the right order.
-                      return get_pair_coverage(a.first) > get_pair_coverage(b.first);
+        stable_sort(cluster_pairs.begin(), cluster_pairs.end(),
+                    [&](const pair<pair<size_t, size_t>, int64_t>& a, const pair<pair<size_t, size_t>, int64_t>& b) {
+                        // We need to be able to look up the coverage for the graph an input cluster went into.
+                        // Compute total coverage following all the redirects and see if
+                        // it's in the right order.
+                        // We also add a total ordering over the pair indexes to remove system dependencies
+                        size_t cov_1 = get_pair_coverage(a.first), cov_2 = get_pair_coverage(b.first);
+                        return (cov_1 > cov_2 || (cov_1 == cov_2 && a.first < b.first));
                   });
         
 #ifdef debug_multipath_mapper
