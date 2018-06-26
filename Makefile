@@ -193,7 +193,7 @@ ifneq ($(shell uname -s),Darwin)
 	LD_LIB_FLAGS += -ltcmalloc_minimal
 endif
 
-.PHONY: clean get-deps deps test set-path static docs .pre-build
+.PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment
 
 $(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
@@ -397,9 +397,24 @@ $(LIB_DIR)/libfml.a: $(FERMI_DIR)/*.h $(FERMI_DIR)/*.c
 $(LIB_DIR)/libsublinearLS.a: $(LINLS_DIR)/src/*.cpp $(LINLS_DIR)/src/*.hpp $(LIB_DIR)/libhts.a
 	cd $(LINLS_DIR) && INCLUDE_FLAGS="-I$(CWD)/$(INC_DIR)" $(MAKE) libs $(FILTER) && cp lib/libsublinearLS.a $(CWD)/$(LIB_DIR)/ && mkdir -p $(CWD)/$(INC_DIR)/sublinearLS && cp src/*.hpp $(CWD)/$(INC_DIR)/sublinearLS/
 
-# Auto-versioning
+# Auto-git-versioning
 $(INC_DIR)/vg_git_version.hpp: .git
-	echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags || echo unknown)\"" > $@
+	@echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags || echo unknown)\"" > $@
+
+# Build an environment version file with this phony target.
+# If it's not the same as the old one, replace the old one.
+# If it is the same, do nothing and don't rebuild dependent targets.
+.check-environment:
+	@echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version | head -n 1)\"" > $(INC_DIR)/vg_environment_version.hpp.tmp
+	@echo "#define VG_OS \"$(shell uname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
+	@echo "#define VG_BUILD_USER \"$(shell whoami)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
+	@echo "#define VG_BUILD_HOST \"$(shell hostname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
+	@diff $(INC_DIR)/vg_environment_version.hpp.tmp $(INC_DIR)/vg_environment_version.hpp >/dev/null || cp $(INC_DIR)/vg_environment_version.hpp.tmp $(INC_DIR)/vg_environment_version.hpp
+	@rm -f $(INC_DIR)/vg_environment_version.hpp.tmp
+
+# The way to get the actual file is to maybe replace it.
+$(INC_DIR)/vg_environment_version.hpp: .check-environment
+	
 
 # Not important if .git isn't real
 .git:
@@ -422,7 +437,7 @@ $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc $(SRC_DIR)/vg.proto
 	+. ./source_me.sh && ./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	+cp $@ $(INC_DIR)
 
-$(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(INC_DIR)/vg_git_version.hpp
+$(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_environment_version.hpp
 
 ########################
 ## Pattern Rules
@@ -464,14 +479,14 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 
 
 .pre-build:
-	if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi
-	if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
-	if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
-	if [ ! -d $(ALGORITHMS_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_OBJ_DIR); fi
-	if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
-	if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi
-	if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
-	if [ ! -d $(CPP_DIR) ]; then mkdir -p $(CPP_DIR); fi
+	@if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi
+	@if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
+	@if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
+	@if [ ! -d $(ALGORITHMS_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_OBJ_DIR); fi
+	@if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
+	@if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi
+	@if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
+	@if [ ! -d $(CPP_DIR) ]; then mkdir -p $(CPP_DIR); fi
 
 # run .pre-build before we make anything at all.
 -include .pre-build
@@ -483,6 +498,7 @@ clean-vg:
 	$(RM) -r $(SUBCOMMAND_OBJ_DIR)/*.o $(SUBCOMMAND_OBJ_DIR)/*.d
 	$(RM) -r $(OBJ_DIR)/*.o $(OBJ_DIR)/*.d
 	$(RM) -r $(CPP_DIR)/*.o $(CPP_DIR)/*.d $(CPP_DIR)/*.cc $(CPP_DIR)/*.h
+	$(RM) -f $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_system_version.hpp
 
 clean: clean-rocksdb clean-protobuf clean-vcflib
 	$(RM) -r $(BIN_DIR)
