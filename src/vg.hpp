@@ -254,7 +254,8 @@ public:
     /// populates the given Graph and returns a flag for whether it's valid).
     VG(function<bool(Graph&)>& get_next_graph, bool showp = false, bool warn_on_duplicates = true);
 
-    // To construct from a single Protobuf graph, make an empty VG and use .extend()
+    /// Construct from a single Protobuf graph. The same as making an empty VG and using extend().
+    VG(const Graph& from, bool showp = false);
 
     /// Construct from sets of nodes and edges. For example, from a subgraph of
     /// another graph.

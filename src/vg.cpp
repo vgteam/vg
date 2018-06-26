@@ -77,6 +77,17 @@ VG::VG(function<bool(Graph&)>& get_next_graph, bool showp, bool warn_on_duplicat
     paths.to_graph(graph);
 }
 
+// Construct from one giant graph
+VG::VG(const Graph& from, bool showp, bool warn_on_duplicates) {
+    // set up uninitialized values
+    init();
+    show_progress = showp;
+    
+    // Ingest the graph data
+    extend(from, warn_on_duplicates);
+}
+    
+
 handle_t VG::get_handle(const id_t& node_id, bool is_reverse) const {
     // Handle is ID in low bits and orientation in high bit
     
