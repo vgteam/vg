@@ -463,7 +463,7 @@ void deterministic_shuffle(RandomIt begin, RandomIt end, const uint32_t& seed) {
 template<class RandomIt>
 void deterministic_shuffle(RandomIt begin, RandomIt end, const string& seed) {
     // Turn the string into a 32-bit number.
-    uint32_t seedNumber;
+    uint32_t seedNumber = 0;
     for (uint8_t byte : seed) {
         // Sum up with primes and overflow.
         // TODO: this is a bit of a bad hash function but it should be good enough.
