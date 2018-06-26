@@ -40,7 +40,6 @@
 #include "colors.hpp"
 
 #include "types.hpp"
-#include "gfakluge.hpp"
 
 #include "nodetraversal.hpp"
 #include "nodeside.hpp"

@@ -1,4 +1,5 @@
 #include "gfa.hpp"
+#include <gfakluge.hpp>
 
 namespace vg {
 
