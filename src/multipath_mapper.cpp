@@ -2309,14 +2309,24 @@ namespace vg {
                          (hit_1.first->begin == hit_2.first->begin && hit_1.first->end < hit_2.first->end)));
             });
         }
-        
             
-        // sort the cluster graphs descending by unique sequence coverage
-        std::sort(cluster_graphs_out.begin(), cluster_graphs_out.end(),
-                  [](const clustergraph_t& cluster_graph_1,
-                     const clustergraph_t& cluster_graph_2) {
-                      return get<2>(cluster_graph_1) > get<2>(cluster_graph_2);
-                  });
+        // find the node ID range for the cluster graphs to help set up a stable, system-independent ordering
+        // note: technically this is not quite a total ordering, but it should be close to one
+        unordered_map<VG*, pair<id_t, id_t>> node_range;
+        node_range.reserve(cluster_graphs_out.size());
+        for (const auto& cluster_graph : cluster_graphs_out) {
+            node_range[get<0>(cluster_graph)] = make_pair(get<0>(cluster_graph)->min_node_id(),
+                                                          get<0>(cluster_graph)->max_node_id());
+        }
+        
+        // sort the cluster graphs descending by unique sequence coverage, breaking ties by scrambling according to a hash
+        stable_sort(cluster_graphs_out.begin(), cluster_graphs_out.end(),
+                    [&](const clustergraph_t& cluster_graph_1,
+                        const clustergraph_t& cluster_graph_2) {
+                        return (get<2>(cluster_graph_1) > get<2>(cluster_graph_2) ||
+                                (get<2>(cluster_graph_1) == get<2>(cluster_graph_2) &&
+                                 wang_hash<pair<id_t, id_t>>()(node_range[get<0>(cluster_graph_1)]) < wang_hash<pair<id_t, id_t>>()(node_range[get<0>(cluster_graph_2)])));
+                    });
         
         return move(cluster_graphs_out);
         
