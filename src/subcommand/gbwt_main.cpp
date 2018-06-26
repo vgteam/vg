@@ -230,7 +230,7 @@ int main_gbwt(int argc, char** argv)
         gbwt::size_type node_width = gbwt::bit_length(index.sigma() - 1);
         gbwt::text_buffer_type out(thread_output, std::ios::out, gbwt::MEGABYTE, node_width);
         for (gbwt::size_type id = 0; id < index.sequences(); id += 2) { // Ignore reverse complements.
-            vector<gbwt::node_type> sequence = index.extract(id);
+            gbwt::vector_type sequence = index.extract(id);
             for (auto node : sequence) {
                 out.push_back(node);
             }

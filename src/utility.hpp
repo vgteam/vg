@@ -41,6 +41,7 @@ const std::string sha1sum(const std::string& data);
 const std::string sha1head(const std::string& data, size_t head);
 
 bool allATGC(const string& s);
+bool allATGCN(const string& s);
 string nonATGCNtoN(const string& s);
 // Convert ASCII-encoded DNA to upper case
 string toUppercase(const string& s);

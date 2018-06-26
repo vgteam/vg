@@ -19,7 +19,7 @@
 namespace vg {
 namespace unittest {
 
-gbwt::GBWT get_gbwt(const std::vector<std::vector<gbwt::node_type>>& paths) {
+gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths) {
     gbwt::size_type node_width = 1, total_length = 0;
     for (auto& path : paths) {
         for (auto node : path) {
@@ -318,24 +318,24 @@ TEST_CASE("PhaseUnfolder can unfold GBWT threads", "[phaseunfolder][indexing]") 
     // Build a GBWT with three threads including a duplicate. We want to have
     // only one instance of short_path unfolded, but we want separate copies
     // of node 4, as it is on both alt_path and short_path.
-    std::vector<gbwt::node_type> alt_path {
-        gbwt::Node::encode(1, false),
-        gbwt::Node::encode(2, false),
-        gbwt::Node::encode(4, false),
-        gbwt::Node::encode(5, false),
-        gbwt::Node::encode(6, false),
-        gbwt::Node::encode(8, false),
-        gbwt::Node::encode(9, false)
+    gbwt::vector_type alt_path {
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(1, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(2, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(4, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(5, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(6, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(8, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(9, false))
     };
-    std::vector<gbwt::node_type> short_path {
-        gbwt::Node::encode(1, false),
-        gbwt::Node::encode(4, false),
-        gbwt::Node::encode(5, false),
-        gbwt::Node::encode(6, false),
-        gbwt::Node::encode(7, false),
-        gbwt::Node::encode(9, false)
+    gbwt::vector_type short_path {
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(1, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(4, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(5, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(6, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(7, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(9, false))
     };
-    std::vector<std::vector<gbwt::node_type>> gbwt_threads {
+    std::vector<gbwt::vector_type> gbwt_threads {
         short_path, alt_path, short_path
     };
     gbwt::GBWT gbwt_index = get_gbwt(gbwt_threads);
@@ -384,24 +384,24 @@ TEST_CASE("PhaseUnfolder can unfold both XG paths and GBWT threads", "[phaseunfo
     // Build a GBWT with three threads including a duplicate. We want to have
     // only one instance of short_path unfolded, but we want separate copies
     // of node 4, as it is on both alt_path and short_path.
-    std::vector<gbwt::node_type> alt_path {
-        gbwt::Node::encode(1, false),
-        gbwt::Node::encode(2, false),
-        gbwt::Node::encode(4, false),
-        gbwt::Node::encode(5, false),
-        gbwt::Node::encode(6, false),
-        gbwt::Node::encode(8, false),
-        gbwt::Node::encode(9, false)
+    gbwt::vector_type alt_path {
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(1, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(2, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(4, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(5, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(6, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(8, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(9, false))
     };
-    std::vector<gbwt::node_type> short_path {
-        gbwt::Node::encode(1, false),
-        gbwt::Node::encode(4, false),
-        gbwt::Node::encode(5, false),
-        gbwt::Node::encode(6, false),
-        gbwt::Node::encode(7, false),
-        gbwt::Node::encode(9, false)
+    gbwt::vector_type short_path {
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(1, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(4, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(5, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(6, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(7, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(9, false))
     };
-    std::vector<std::vector<gbwt::node_type>> gbwt_threads {
+    std::vector<gbwt::vector_type> gbwt_threads {
         short_path, alt_path, short_path
     };
     gbwt::GBWT gbwt_index = get_gbwt(gbwt_threads);
@@ -516,25 +516,25 @@ TEST_CASE("PhaseUnfolder can merge shared prefixes and suffixes", "[phaseunfolde
     xg::XG xg_index(simple_graph);
 
     // Build a GBWT with both possible threads.
-    std::vector<gbwt::node_type> upper_path {
-        gbwt::Node::encode(1, false),
-        gbwt::Node::encode(2, false),
-        gbwt::Node::encode(3, false),
-        gbwt::Node::encode(4, false),
-        gbwt::Node::encode(6, false),
-        gbwt::Node::encode(7, false),
-        gbwt::Node::encode(8, false)
+    gbwt::vector_type upper_path {
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(1, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(2, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(3, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(4, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(6, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(7, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(8, false))
     };
-    std::vector<gbwt::node_type> lower_path {
-        gbwt::Node::encode(1, false),
-        gbwt::Node::encode(2, false),
-        gbwt::Node::encode(3, false),
-        gbwt::Node::encode(5, false),
-        gbwt::Node::encode(6, false),
-        gbwt::Node::encode(7, false),
-        gbwt::Node::encode(8, false)
+    gbwt::vector_type lower_path {
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(1, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(2, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(3, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(5, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(6, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(7, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(8, false))
     };
-    std::vector<std::vector<gbwt::node_type>> gbwt_threads {
+    std::vector<gbwt::vector_type> gbwt_threads {
         upper_path, lower_path
     };
     gbwt::GBWT gbwt_index = get_gbwt(gbwt_threads);
@@ -580,12 +580,12 @@ TEST_CASE("PhaseUnfolder can extend short threads", "[phaseunfolder][indexing]")
     xg::XG xg_index(simple_graph_with_path);
 
     // Build a GBWT for the fragment that is different from the reference.
-    std::vector<gbwt::node_type> short_fragment {
-        gbwt::Node::encode(3, false),
-        gbwt::Node::encode(4, false),
-        gbwt::Node::encode(6, false)
+    gbwt::vector_type short_fragment {
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(3, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(4, false)),
+        static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(6, false))
     };
-    std::vector<std::vector<gbwt::node_type>> gbwt_threads { short_fragment };
+    std::vector<gbwt::vector_type> gbwt_threads { short_fragment };
     gbwt::GBWT gbwt_index = get_gbwt(gbwt_threads);
 
     // Build a PhaseUnfolder with duplicate node ids starting from 9.

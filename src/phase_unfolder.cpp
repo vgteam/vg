@@ -60,7 +60,7 @@ size_t path_size(const xg::XGPath& path) {
     return path.ids.size();
 }
 
-size_t path_size(const std::vector<gbwt::node_type>& path) {
+size_t path_size(const gbwt::vector_type& path) {
     return path.size();
 }
 
@@ -68,7 +68,7 @@ vg::id_t path_node(const xg::XGPath& path, size_t i) {
     return path.node(i);
 }
 
-vg::id_t path_node(const std::vector<gbwt::node_type>& path, size_t i) {
+vg::id_t path_node(const gbwt::vector_type& path, size_t i) {
     return gbwt::Node::id(path[i]);
 }
 
@@ -76,7 +76,7 @@ bool path_reverse(const xg::XGPath& path, size_t i) {
     return path.is_reverse(i);
 }
 
-bool path_reverse(const std::vector<gbwt::node_type>& path, size_t i) {
+bool path_reverse(const gbwt::vector_type& path, size_t i) {
     return gbwt::Node::is_reverse(path[i]);
 }
 
@@ -182,6 +182,7 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
     size_t total_paths = this->xg_index.max_path_rank() + this->gbwt_index.sequences(), verified = 0, failures = 0;
     std::set<vg::id_t> failed_threads;
     ProgressBar* progress = nullptr;
+    size_t progress_step = std::max(total_paths / 100, static_cast<size_t>(32));
     if (show_progress) {
         progress = new ProgressBar(total_paths, "Verifying paths");
         progress->Progressed(verified);
@@ -194,7 +195,7 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
             const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(i + 1));
             successful = verify_path(path, unfolded, reverse_mapping);
         } else {
-            std::vector<gbwt::node_type> path = this->gbwt_index.extract(i - this->xg_index.max_path_rank());
+            path_type path = this->gbwt_index.extract(i - this->xg_index.max_path_rank());
             successful = verify_path(path, unfolded, reverse_mapping);
         }
         #pragma omp critical
@@ -206,7 +207,7 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
                 }
             }
             verified++;
-            if (show_progress && (verified % 1000 == 0 || verified >= total_paths)) {
+            if (show_progress && (verified % progress_step == 0 || verified >= total_paths)) {
                 progress->Progressed(verified);
             }
         }
@@ -217,7 +218,7 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
         std::cerr << std::endl;
 
         for (vg::id_t thread_id : failed_threads) {
-            std::vector<gbwt::node_type> path = this->gbwt_index.extract(thread_id);
+            path_type path = this->gbwt_index.extract(thread_id);
             std::cerr << "Failed: "; printId<gbwt::Path>(thread_id);
             std::cerr << ": from "; printId<gbwt::Node>(path.front());
             std::cerr << ", to "; printId<gbwt::Node>(path.back());
@@ -370,7 +371,7 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
             // Forward.
             {
                 gbwt::node_type prev = gbwt::Node::encode(path.node(occurrence), path.is_reverse(occurrence));
-                path_type buffer { prev };
+                path_type buffer(1, prev);
                 for (size_t i = occurrence + 1; i < path.ids.size(); i++) {
                     gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
                     Edge candidate = make_edge(prev, curr);
@@ -391,7 +392,7 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
             // Backward.
             {
                 gbwt::node_type prev = gbwt::Node::encode(path.node(occurrence), !path.is_reverse(occurrence));
-                path_type buffer { prev };
+                path_type buffer(1, prev);
                 for (size_t i = occurrence; i > 0 ; i--) {
                     gbwt::node_type curr = gbwt::Node::encode(path.node(i - 1), !path.is_reverse(i - 1));
                     Edge candidate = make_edge(prev, curr);
@@ -453,7 +454,7 @@ void PhaseUnfolder::create_state(vg::id_t node, bool is_reverse, bool starting) 
     if (search.empty()) {
         return;
     }
-    this->states.push(std::make_pair(search, path_type {search.node}));
+    this->states.push(std::make_pair(search, path_type(1, search.node)));
 }
 
 bool PhaseUnfolder::extend_state(state_type state, vg::id_t node, bool is_reverse) {

@@ -171,16 +171,16 @@ public:
 
 struct gbwt_thread_t {
 private:
-  vector<gbwt::node_type> nodes;
+  gbwt::vector_type nodes;
   vector<size_t> node_lengths;
 public:
   gbwt_thread_t();
-  gbwt_thread_t(const vector<gbwt::node_type>& nodes, const vector<size_t>& node_lengths);
+  gbwt_thread_t(const gbwt::vector_type& nodes, const vector<size_t>& node_lengths);
   void push_back(gbwt::node_type node, size_t node_length);
-  gbwt::node_type& operator[](size_t i);
-  const gbwt::node_type& operator[](size_t i) const;
-  gbwt::node_type& back();
-  const gbwt::node_type& back() const;
+  gbwt::vector_type::value_type& operator[](size_t i);
+  const gbwt::vector_type::value_type& operator[](size_t i) const;
+  gbwt::vector_type::value_type& back();
+  const gbwt::vector_type::value_type& back() const;
   size_t nodelength(size_t i) const;
   size_t size() const;
 };
