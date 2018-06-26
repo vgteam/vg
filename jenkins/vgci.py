@@ -1439,7 +1439,7 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('MHC', 'primary', True, tag_ext='-genotype', genotype=True)
         
-    @timeout_decorator.timeout(1600)        
+    @timeout_decorator.timeout(1800)        
     def test_map_mhc_snp1kg_genotype(self):
         """ Mapping and calling (with vg genotype) bakeoff F1 test for MHC snp1kg graph 
         """

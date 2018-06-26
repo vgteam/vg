@@ -2627,18 +2627,18 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 1e-6));
         }
         // sort the aligned pairs by score
-        std::sort(aln_ptrs.begin(), aln_ptrs.end(),
-                  [&](pair<Alignment, Alignment>* pair1,
-                      pair<Alignment, Alignment>* pair2) {
-                      double weight1=0, weight2=0;
-                      if (frag_stats.fragment_size) {
-                          weight1 = pair1->first.fragment_score();
-                          weight2 = pair2->first.fragment_score();
-                      }
-                      double score1 = (pair1->first.score() + pair1->second.score());
-                      double score2 = (pair2->first.score() + pair2->second.score());
-                      return score1 + weight1 > score2 + weight2;
-                  });
+        sort_shuffling_ties(aln_ptrs.begin(), aln_ptrs.end(),
+                            [&](pair<Alignment, Alignment>* pair1,
+                                pair<Alignment, Alignment>* pair2) {
+                                double weight1=0, weight2=0;
+                                if (frag_stats.fragment_size) {
+                                    weight1 = pair1->first.fragment_score();
+                                    weight2 = pair2->first.fragment_score();
+                                }
+                                double score1 = (pair1->first.score() + pair1->second.score());
+                                double score2 = (pair2->first.score() + pair2->second.score());
+                                return score1 + weight1 > score2 + weight2;
+                            });
         seen_alignments.clear();
         // remove duplicates (same score and same start position of both pairs)
         aln_ptrs.erase(
@@ -3261,10 +3261,10 @@ Mapper::align_mem_multi(const Alignment& aln,
     apply_haplotype_consistency_scores(aln_ptrs);
     
     // sort alignments by score
-    std::sort(aln_ptrs.begin(), aln_ptrs.end(),
-              [&](Alignment* a1, Alignment* a2) {
-                  return a1->score() > a2->score();
-              });
+    sort_shuffling_ties(aln_ptrs.begin(), aln_ptrs.end(),
+                        [&](Alignment* a1, Alignment* a2) {
+                            return a1->score() > a2->score();
+                        });
     // remove likely perfect duplicates
     aln_ptrs.erase(
         std::unique(
@@ -4092,10 +4092,12 @@ vector<Alignment> Mapper::score_sort_and_deduplicate_alignments(vector<Alignment
         return all_alns;
     }
 
-    map<int, set<Alignment*> > alignment_by_score;
+    // Hold all the alignments bucketed by score.
+    // The buckets are vectors and not sets to avoild introducing a dependency on pointer value or unordered set order.
+    map<int, vector<Alignment*> > alignment_by_score;
     for (auto& ta : all_alns) {
         Alignment* aln = &ta;
-        alignment_by_score[aln->score()].insert(aln);
+        alignment_by_score[aln->score()].push_back(aln);
     }
     // TODO: Filter down subject to a minimum score per base or something?
     // Collect all the unique alignments (to compute mapping quality) and order by score
@@ -4122,6 +4124,13 @@ vector<Alignment> Mapper::score_sort_and_deduplicate_alignments(vector<Alignment
                 serializedAlignmentsUsed.insert(serialized);
             }
         }
+        
+        if (it == alignment_by_score.rbegin()) {
+            // We just did the top-scoring group of alignments.
+            // Shuffle them to avoid bias.
+            deterministic_shuffle(sorted_unique_alignments.begin(), sorted_unique_alignments.end());
+        }
+    
     }
     return sorted_unique_alignments;
 }
