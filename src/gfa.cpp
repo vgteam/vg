@@ -4,7 +4,7 @@ namespace vg {
 
 using namespace std;
 
-void VG::from_gfa(istream& in, bool showp) {
+void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // c++... split...
     // for line in stdin
     string line;
@@ -42,7 +42,7 @@ void VG::from_gfa(istream& in, bool showp) {
         n.set_sequence((it->second).sequence);
         n.set_id(source_id);
         n.set_name((it->second).name);
-        add_node(n);
+        graph->add_node(n);
         // Now some edges. Since they're placed in this map
         // by their from_node, it's no big deal to just iterate
         // over them.
@@ -61,7 +61,7 @@ void VG::from_gfa(istream& in, bool showp) {
                     reduce_overlaps = true;
                     e.set_overlap(cigar_elems.front().first);
             }
-            add_edge(e);
+            graph->add_edge(e);
         }
         // for (path_elem p: seq_to_paths[(it->second).name]){
         //     paths.append_mapping(p.name, source_id, p.rank ,p.is_reverse);
@@ -71,15 +71,15 @@ void VG::from_gfa(istream& in, bool showp) {
     map<string, path_elem> n_to_p = gg.get_name_to_path();
     for (auto name_path : n_to_p){
         for (int np = 0; np < name_path.second.segment_names.size(); np++){
-            paths.append_mapping(name_path.first, stol(name_path.second.segment_names[np]), np + 1, !name_path.second.orientations[np]);
+            graph->paths.append_mapping(name_path.first, stol(name_path.second.segment_names[np]), np + 1, !name_path.second.orientations[np]);
         }
     }
     if (reduce_overlaps) {
-        bluntify();
+        graph->bluntify();
     }
 }
 
-void VG::to_gfa(ostream& out) {
+void graph_to_gfa(const VG* graph, ostream& out) {
   GFAKluge gg;
   gg.set_version(1.0);
   for (auto h : gg.get_header()){
@@ -88,24 +88,24 @@ void VG::to_gfa(ostream& out) {
 
     // TODO moving to GFAKluge
     // problem: protobuf longs don't easily go to strings....
-    for (int i = 0; i < graph.node_size(); ++i){
+    
+    graph->for_each_node([&](const Node* n) {
         sequence_elem s_elem;
-        Node* n = graph.mutable_node(i);
         // Fill seq element for a node
         s_elem.name = to_string(n->id());
         s_elem.sequence = n->sequence();
         out << s_elem.to_string_1() << endl;
         //gg.add_sequence(s_elem);
-    }
+    });
     
-    auto& pathmap = this->paths._paths;
+    auto& pathmap = graph->paths._paths;
     for (auto p : pathmap){
         path_elem p_elem;
         p_elem.name = p.first;
         for (auto m : p.second){
             p_elem.segment_names.push_back( std::to_string(m.node_id()) );
             p_elem.orientations.push_back( !m.is_reverse() );
-            Node* n = get_node( m.node_id() );
+            const Node* n = graph->get_node( m.node_id() );
             stringstream cigaro;
             //cigaro << n->sequence().size() << (p.mapping(m_ind.position().is_reverse()) ? "M" : "M");
             cigaro << n->sequence().size() << (m.is_reverse() ? "M" : "M");
@@ -115,8 +115,7 @@ void VG::to_gfa(ostream& out) {
         //gg.add_path(p_elem.name, p_elem);
     }
 
-    for (int i = 0; i < graph.edge_size(); ++i) {
-        Edge* e = graph.mutable_edge(i);
+    graph->for_each_edge([&](const Edge* e) {
         edge_elem ee;
         ee.type = 1;
         ee.source_name = to_string(e->from());
@@ -133,7 +132,7 @@ void VG::to_gfa(ostream& out) {
         //l.sink_orientation_forward =  ! e->to_end();
         //l.cigar = std::to_string(e->overlap()) + "M";
         //gg.add_link(l.source_name, l);
-    }
+    });
     //gg.output_to_stream(cout);
 }
 

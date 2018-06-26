@@ -2190,19 +2190,19 @@ void VG::rebuild_edge_indexes(void) {
     build_edge_indexes_no_init_size();
 }
 
-bool VG::empty(void) {
+bool VG::empty(void) const {
     return graph.node_size() == 0 && graph.edge_size() == 0;
 }
 
-bool VG::has_node(Node* node) {
+bool VG::has_node(const Node* node) const {
     return node && has_node(node->id());
 }
 
-bool VG::has_node(const Node& node) {
+bool VG::has_node(const Node& node) const {
     return has_node(node.id());
 }
 
-bool VG::has_node(id_t id) {
+bool VG::has_node(id_t id) const {
     return node_by_id.find(id) != node_by_id.end();
 }
 
@@ -3654,6 +3654,12 @@ void VG::for_each_edge(function<void(Edge*)> lambda) {
     }
 }
 
+void VG::for_each_edge(function<void(const Edge*)> lambda) const {
+    for (id_t i = 0; i < graph.edge_size(); ++i) {
+        lambda(&graph.edge(i));
+    }
+}
+
 void VG::destroy_edge(const NodeSide& side1, const NodeSide& side2) {
     destroy_edge(get_edge(side1, side2));
 }
@@ -3812,7 +3818,16 @@ Node* VG::get_node(id_t id) {
     if (n != node_by_id.end()) {
         return n->second;
     } else {
-        serialize_to_file("wtf.vg");
+        throw runtime_error("No node " + to_string(id) + " in graph");
+    }
+}
+
+// TODO: Is there an elegant way to have const and non-const versions of this?
+const Node* VG::get_node(id_t id) const {
+    hash_map<id_t, Node*>::iterator n = node_by_id.find(id);
+    if (n != node_by_id.end()) {
+        return n->second;
+    } else {
         throw runtime_error("No node " + to_string(id) + " in graph");
     }
 }
@@ -3859,6 +3874,12 @@ void VG::for_each_node_parallel(function<void(Node*)> lambda) {
 void VG::for_each_node(function<void(Node*)> lambda) {
     for (id_t i = 0; i < graph.node_size(); ++i) {
         lambda(graph.mutable_node(i));
+    }
+}
+
+void VG::for_each_node(function<void(const Node*)> lambda) const {
+    for (id_t i = 0; i < graph.node_size(); ++i) {
+        lambda(&graph.node(i));
     }
 }
 
