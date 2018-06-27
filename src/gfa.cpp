@@ -6,6 +6,14 @@ namespace vg {
 using namespace std;
 using namespace gfak;
 
+// We augment the pinch graph API with functions that can work as if segments are in blocks even when they aren't.
+
+/// Get the segment's orientation in its block (false=backward, true=forward), or true (forward) if there is no block
+bool stPinchSegment_getBlockOrientationSafe(stPinchSegment* segment) {
+    stPinchBlock* block = stPinchSegment_getBlock(segment);
+    return (block != nullptr) ? stPinchSegment_getBlockOrientation(segment) : true;
+}
+
 /// Represents a translation from GFA node name string to pinch thread name number.
 /// Tries to translate numerical node names as themselves, to the extent possible.
 class GFAToPinchTranslator {
@@ -68,22 +76,29 @@ const string& GFAToPinchTranslator::untranslate(const int64_t& name) {
     return backward.at(name);
 }
 
-/// Represents a translation from pinch thread block pointer to vg node ID.
+/// Represents a translation from pinch thread segments' blocks to vg node IDs.
 /// Tries to use pinch thread name numbers as IDs for single-thread blocks, and otherwise assigns IDs.
 class PinchToVGTranslator {
 private:
-    /// Map from block pointer to node ID
-    unordered_map<stPinchBlock*, id_t> block_to_id;
+    /// Map from block or segment pointer to node ID
+    unordered_map<void*, id_t> block_to_id;
     /// Track assigned numeric names
     unordered_set<id_t> used;
     /// What is the next unused name we can assign?
     id_t next_unused = 1;
 public:
-    /// Translate from pinch thread block to node ID
-    id_t translate(stPinchBlock* block);
+    /// Translate from pinch thread segment's block to node ID
+    id_t translate(stPinchSegment* segment);
 }
 
-id_t PinchToVGTranslator::translate(stPinchBlock* block) {
+id_t PinchToVGTranslator::translate(stPinchSegment* segment) {
+    // Work out what pointer will represent the segment's block
+    void* block = (void*) stPinchSegment_getBlock(segment);
+    if (block == nullptr) {
+        // No block was found. The segment represents itself
+        block = (void*) segment;
+    }
+    
     // Look up the block
     auto found = block_to_id.find(block);
     
@@ -92,22 +107,12 @@ id_t PinchToVGTranslator::translate(stPinchBlock* block) {
         return found->second;
     }
     
-    // Otherwise we need to make a translation.
-    // Try to find an unused number to use.
-    // To start with, we have no clue what to use (0).
-    id_t assigned = 0;
-    
-    // Try to get the first thread in the block
-    auto iter = stPinchBlock_getSegmentIterator(block);
-    stPinchSegment* first_segment = stPinchBlockIt_getNext(&iter);
-    
-    if (first_segment != nullptr) {
-        // We found a segment. Try its name as the ID. If it is the only
-        // segment in the block, and the block the only block for it, then it
-        // is the right hint. Otherwise, it doesn't matter what we hint,
-        // because we get to assign IDs arbitrarily.
-        assigned = (id_t) stPinchSegment_getName(first_segment);
-    }
+    // Otherwise we need to make a translation. Try to find an unused number to
+    // use. To start with, we will use the segment's thread number. If it is
+    // the only segment in the block, and the block the only block for it, then
+    // it is the right hint. Otherwise, it doesn't matter what we hint, because
+    // we get to assign IDs arbitrarily.
+    id_t assigned = (id_t) stPinchSegment_getName(segment);
     
     if (assigned <= 0 || used.count(assigned)) {
          // We need to find an unused number.
@@ -438,14 +443,19 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // We use this translator to translate block pointers to node IDs
     PinchToVGTranslator pinch_to_vg;
     
-    for (auto iter = stPinchThreadSet_getBlockIt(threads), stPinchBlock* block = stPinchThreadSetBlockIt_getNext(&iter);
-        block != nullptr;
-        block = stPinchThreadSetBlockIt_getNext(&iter)) {
+    for (auto iter = stPinchThreadSet_getSegmentIt(threads), stPinchSegment* segment = stPinchThreadSetSegmentIt_getNext(&iter);
+        segment != nullptr;
+        segment = stPinchThreadSetSegmentIt_getNext(&iter)) {
         
-        // For each block in the pinch set
+        // For each segment in the pinch set (including those not in blocks)
         
-        // Generate a node ID
-        id_t node_id = pinch_to_vg.translate(block);
+        // Generate or assign the node ID for its block or itself
+        id_t node_id = pinch_to_vg.translate(segment);
+        
+        if (graph->has_node(node_id)) {
+            // We already did this graph node, from another segment in the block.
+            continue;
+        }
         
         // Find the first segment
         auto segment_iter = stPinchBlock_getSegmentIterator(block);
@@ -457,7 +467,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         auto segment_thread_name = stPinchSegment_getName(first_segment);
         auto segment_start = stPinchSegment_getStart(first_segment);
         auto segment_length = stPinchSegment_getLength(first_segment);
-        auto segment_backward = !stPinchSegment_getBlockOrientation(segment);
+        auto segment_backward = !stPinchSegment_getBlockOrientationSafe(segment);
         
         // Go find the source DNA for the GFA sequence that created the thread
         const string& thread_sequence = gfa_sequences[gfa_to_pinch.untranslate(segment_thread_name)].sequence;
@@ -490,12 +500,12 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // For each pinch graph connection from here to next
             
             // Get the nodes we are connecting
-            id_t here_id = pinch_to_vg.translate(stPinchSegment_getBlock(here));
-            id_t next_id = pinch_to_vg.translate(stPinchSegment_getBlock(next));
+            id_t here_id = pinch_to_vg.translate(here);
+            id_t next_id = pinch_to_vg.translate(next);
             
             // Get their orientations
-            bool here_backward = !stPinchSegment_getBlockOrientation(here);
-            bool next_backward = !stPinchSegment_getBlockOrientation(next);
+            bool here_backward = !stPinchSegment_getBlockOrientationSafe(here);
+            bool next_backward = !stPinchSegment_getBlockOrientationSafe(next);
             
             // Make the edge if not present already
             graph->create_edge(here_id, next_id, here_backward, next_backward); 
@@ -525,14 +535,14 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         stPinchSegment* sink_segment = sink_backward ? stPinchThread_getLast(sink_thread) : stPinchThread_getFirst(sink_thread);
     
         // Get the node IDs to connect
-        id_t from_id = pinch_to_vg.translate(stPinchSegment_getBlock(source_segment));
-        id_t to_id = pinch_to_vg.translate(stPinchSegment_getBlock(sink_segment));
+        id_t from_id = pinch_to_vg.translate(stPinchSegment_getBlockOrSegment(source_segment));
+        id_t to_id = pinch_to_vg.translate(stPinchSegment_getBlockOrSegment(sink_segment));
         
-        // Figure out the orientation of each node. We take the node's
-        // orientation relative to the segment, and flip it if the segment
-        // itself is visited backward.
-        bool from_start = (stPinchSegment_getBlockOrientation(source_segment) != source_backward);
-        bool to_end = (stPinchSegment_getBlockOrientation(sink_segment) != sink_backward);
+        // Figure out the orientation of each node. We take whether the segemnt
+        // is backward in its node, and flip it if the segment itself is
+        // visited backward.
+        bool from_start = (!stPinchSegment_getBlockOrientationSafe(source_segment) != source_backward);
+        bool to_end = (!stPinchSegment_getBlockOrientationSafe(sink_segment) != sink_backward);
         
         // Make the edge
         graph->create_edge(from_id, to_id, from_start, to_end); 
