@@ -196,19 +196,9 @@ int main_construct(int argc, char** argv) {
     
     // We need a callback to handle pieces of graph as they are produced.
     auto callback = [&](Graph& big_chunk) {
-        // TODO: these chunks may be too big to (de)serialize directly. For now,
-        // just serialize them directly anyway.
-        bool sent = false;
-        function<bool(Graph&)> get_graph = [&](Graph& graph){
-            if (sent) {
-                return false;
-            }
-            graph = Graph();
-            graph = big_chunk;
-            sent = true;
-            return true;
-        };
-        VG* g = new VG(get_graph, false, true);
+        // Wrap the chunk in a vg object that can properly divide it into
+        // reasonably sized serialized chunks.
+        VG* g = new VG(big_chunk, false, true);
 #pragma omp critical (cout)
         g->serialize_to_ostream(cout);
     };
