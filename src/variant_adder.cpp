@@ -64,7 +64,8 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         
         // Where is it?
         auto variant_path_name = vcf_to_fasta(variant->sequenceName);
-        auto& variant_path_offset = variant->position; // Already made 0-based by the buffer
+        
+        auto variant_path_offset = (variant->zeroBasedPosition()); // No longer made 0-based by variant buffer!
         
         if (!path_names.count(variant_path_name)) {
             // This variant isn't on a path we have.
@@ -135,9 +136,9 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
 #endif
         
         // Where does the group of nearby variants start?
-        size_t group_start = local_variants.front()->position;
+        size_t group_start = local_variants.front()->zeroBasedPosition();
         // And where does it end (exclusive)? This is the latest ending point of any variant in the group...
-        size_t group_end = local_variants.back()->position + local_variants.back()->ref.size();
+        size_t group_end = local_variants.back()->zeroBasedPosition() + local_variants.back()->ref.size();
         
         // We need to make sure we also grab this much extra graph context,
         // since we count 2 radiuses + flank out from the ends of the group.
@@ -1067,10 +1068,10 @@ size_t VariantAdder::get_radius(const vcflib::Variant& variant) {
 
 size_t VariantAdder::get_center(const vcflib::Variant& variant) {
     // Where is the end of the variant in the reference?
-    size_t path_last = variant.position + variant.ref.size() - 1;
+    size_t path_last = variant.zeroBasedPosition() + variant.ref.size() - 1;
     
     // Where is the center of the variant in the reference?
-    return (variant.position + path_last) / 2;
+    return (variant.zeroBasedPosition() + path_last) / 2;
 }
 
 
