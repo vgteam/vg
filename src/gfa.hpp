@@ -21,7 +21,7 @@ using namespace std;
 /// only_perfect_match is set, only completely-M-operation CIGARs for edge
 /// overlaps will be used, and sequence differences will be resolved
 /// arbitrarily. Otherwise, CIGAR strings will be respected, and mismatches in
-/// CIGAR-M sequences will for bubbles.
+/// CIGAR-M sequences will form bubbles.
 void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match = false);
 
 /// Export the given VG graph to the given GFA file.
