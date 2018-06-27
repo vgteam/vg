@@ -451,8 +451,11 @@ void deterministic_shuffle(RandomIt begin, RandomIt end, const uint32_t& seed) {
     // Make an RNG from the string
     minstd_rand rng(seed);
     
-    // Shuffle with it
-    std::shuffle(begin, end, rng);
+    // Perform Knuth shuffle algorithm using RNG
+    int64_t width = end - begin;
+    for (int64_t i = 1; i < width; i++) {
+        std::swap(*(begin + (rng() % (i + 1))), *(begin + i));
+    }
 }
 
 /// Given a pair of random access iterators defining a range, deterministically
@@ -460,7 +463,7 @@ void deterministic_shuffle(RandomIt begin, RandomIt end, const uint32_t& seed) {
 template<class RandomIt>
 void deterministic_shuffle(RandomIt begin, RandomIt end, const string& seed) {
     // Turn the string into a 32-bit number.
-    uint32_t seedNumber;
+    uint32_t seedNumber = 0;
     for (uint8_t byte : seed) {
         // Sum up with primes and overflow.
         // TODO: this is a bit of a bad hash function but it should be good enough.
@@ -500,7 +503,7 @@ template<class RandomIt, class Compare, class MakeSeed>
 void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp, MakeSeed seed) {
     
     // Sort everything
-    std::sort(begin, end, comp);
+    std::stable_sort(begin, end, comp);
     
     // Comparison returns true if first argument must come before second, and
     // false otherwise. So the ties will be a run where the top thing doesn't
