@@ -25,7 +25,7 @@ void help_help(char** argv){
 
 int main_help(int argc, char** argv){
 
-    cerr << "vg: variation graph tool, version " << VG_VERSION_STRING << endl
+    cerr << "vg: variation graph tool, version " << Version::get_short() << endl
          << endl
          << "usage: " << argv[0] << " <command> [options]" << endl
          << endl;
