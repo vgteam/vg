@@ -1028,9 +1028,9 @@ string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vec
         
         // Do the intervening sequence.
         // Where does that sequence start?
-        size_t sep_start = last_variant->position + last_variant->ref.size();
+        size_t sep_start = last_variant->zeroBasedPosition() + last_variant->ref.size();
         // And how long does it run?
-        size_t sep_length = variant->position - sep_start;
+        size_t sep_length = variant->zeroBasedPosition() - sep_start;
         
         // Find the sequence to pull from
         auto& ref = sync.get_path_sequence(vcf_to_fasta(variant->sequenceName));
