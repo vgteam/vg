@@ -14,8 +14,6 @@
 namespace vg {
 
 using namespace std;
-using namespace gfak;
-
 
 // construct from a stream of protobufs
 VG::VG(istream& in, bool showp, bool warn_on_duplicates) {

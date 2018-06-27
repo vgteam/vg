@@ -4,6 +4,7 @@
 namespace vg {
 
 using namespace std;
+using namespace gfak;
 
 void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // c++... split...
