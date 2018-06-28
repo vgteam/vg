@@ -77,6 +77,20 @@ VG::VG(function<bool(Graph&)>& get_next_graph, bool showp, bool warn_on_duplicat
     paths.to_graph(graph);
 }
 
+// Construct from one giant graph
+VG::VG(const Graph& from, bool showp, bool warn_on_duplicates) {
+    // set up uninitialized values
+    init();
+    show_progress = showp;
+    
+    // Ingest the graph data
+    extend(from, warn_on_duplicates);
+    
+    // Store paths in graph
+    paths.to_graph(graph);
+}
+    
+
 handle_t VG::get_handle(const id_t& node_id, bool is_reverse) const {
     // Handle is ID in low bits and orientation in high bit
     
@@ -2362,24 +2376,24 @@ void VG::merge(Graph& g) {
 }
 
 // iterates over nodes and edges, adding them in when they don't already exist
-void VG::extend(VG& g, bool warn_on_duplicates) {
+void VG::extend(const VG& g, bool warn_on_duplicates) {
     for (id_t i = 0; i < g.graph.node_size(); ++i) {
-        Node* n = g.graph.mutable_node(i);
-        if(n->id() == 0) {
+        const Node& n = g.graph.node(i);
+        if(n.id() == 0) {
             cerr << "[vg] warning: node ID 0 is not allowed. Skipping." << endl;
         } else if (!has_node(n)) {
-            add_node(*n);
+            add_node(n);
         } else if(warn_on_duplicates) {
-            cerr << "[vg] warning: node ID " << n->id() << " appears multiple times. Skipping." << endl;
+            cerr << "[vg] warning: node ID " << n.id() << " appears multiple times. Skipping." << endl;
         }
     }
     for (id_t i = 0; i < g.graph.edge_size(); ++i) {
-        Edge* e = g.graph.mutable_edge(i);
+        const Edge& e = g.graph.edge(i);
         if (!has_edge(e)) {
-            add_edge(*e);
+            add_edge(e);
         } else if(warn_on_duplicates) {
-            cerr << "[vg] warning: edge " << e->from() << (e->from_start() ? " start" : " end") << " <-> "
-                 << e->to() << (e->to_end() ? " end" : " start") << " appears multiple times. Skipping." << endl;
+            cerr << "[vg] warning: edge " << e.from() << (e.from_start() ? " start" : " end") << " <-> "
+                 << e.to() << (e.to_end() ? " end" : " start") << " appears multiple times. Skipping." << endl;
         }
     }
     // Append the path mappings from this graph, and sort based on rank.
@@ -2387,24 +2401,24 @@ void VG::extend(VG& g, bool warn_on_duplicates) {
 }
 
 // TODO: unify with above. The only difference is what's done with the paths.
-void VG::extend(Graph& graph, bool warn_on_duplicates) {
+void VG::extend(const Graph& graph, bool warn_on_duplicates) {
     for (id_t i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        if(n->id() == 0) {
+        const Node& n = graph.node(i);
+        if(n.id() == 0) {
             cerr << "[vg] warning: node ID 0 is not allowed. Skipping." << endl;
         } else if (!has_node(n)) {
-            add_node(*n);
+            add_node(n);
         } else if(warn_on_duplicates) {
-            cerr << "[vg] warning: node ID " << n->id() << " appears multiple times. Skipping." << endl;
+            cerr << "[vg] warning: node ID " << n.id() << " appears multiple times. Skipping." << endl;
         }
     }
     for (id_t i = 0; i < graph.edge_size(); ++i) {
-        Edge* e = graph.mutable_edge(i);
+        const Edge& e = graph.edge(i);
         if (!has_edge(e)) {
-            add_edge(*e);
+            add_edge(e);
         } else if(warn_on_duplicates) {
-            cerr << "[vg] warning: edge " << e->from() << (e->from_start() ? " start" : " end") << " <-> "
-                 << e->to() << (e->to_end() ? " end" : " start") << " appears multiple times. Skipping." << endl;
+            cerr << "[vg] warning: edge " << e.from() << (e.from_start() ? " start" : " end") << " <-> "
+                 << e.to() << (e.to_end() ? " end" : " start") << " appears multiple times. Skipping." << endl;
         }
     }
     // Append the path mappings from this graph, but don't sort by rank

@@ -1916,12 +1916,14 @@ namespace vg {
         };
         
         // sort the pairs descending by total unique sequence coverage
-        std::sort(cluster_pairs.begin(), cluster_pairs.end(),
-                  [&](const pair<pair<size_t, size_t>, int64_t>& a, const pair<pair<size_t, size_t>, int64_t>& b) {
-                      // We need to be able to look up the coverage for the graph an input cluster went into.
-                      // Compute total coverage following all the redirects and see if
-                      // it's in the right order.
-                      return get_pair_coverage(a.first) > get_pair_coverage(b.first);
+        stable_sort(cluster_pairs.begin(), cluster_pairs.end(),
+                    [&](const pair<pair<size_t, size_t>, int64_t>& a, const pair<pair<size_t, size_t>, int64_t>& b) {
+                        // We need to be able to look up the coverage for the graph an input cluster went into.
+                        // Compute total coverage following all the redirects and see if
+                        // it's in the right order.
+                        // We also add a total ordering over the pair indexes to remove system dependencies
+                        size_t cov_1 = get_pair_coverage(a.first), cov_2 = get_pair_coverage(b.first);
+                        return (cov_1 > cov_2 || (cov_1 == cov_2 && a.first < b.first));
                   });
         
 #ifdef debug_multipath_mapper
@@ -2309,14 +2311,24 @@ namespace vg {
                          (hit_1.first->begin == hit_2.first->begin && hit_1.first->end < hit_2.first->end)));
             });
         }
-        
             
-        // sort the cluster graphs descending by unique sequence coverage
-        std::sort(cluster_graphs_out.begin(), cluster_graphs_out.end(),
-                  [](const clustergraph_t& cluster_graph_1,
-                     const clustergraph_t& cluster_graph_2) {
-                      return get<2>(cluster_graph_1) > get<2>(cluster_graph_2);
-                  });
+        // find the node ID range for the cluster graphs to help set up a stable, system-independent ordering
+        // note: technically this is not quite a total ordering, but it should be close to one
+        unordered_map<VG*, pair<id_t, id_t>> node_range;
+        node_range.reserve(cluster_graphs_out.size());
+        for (const auto& cluster_graph : cluster_graphs_out) {
+            node_range[get<0>(cluster_graph)] = make_pair(get<0>(cluster_graph)->min_node_id(),
+                                                          get<0>(cluster_graph)->max_node_id());
+        }
+        
+        // sort the cluster graphs descending by unique sequence coverage, breaking ties by scrambling according to a hash
+        stable_sort(cluster_graphs_out.begin(), cluster_graphs_out.end(),
+                    [&](const clustergraph_t& cluster_graph_1,
+                        const clustergraph_t& cluster_graph_2) {
+                        return (get<2>(cluster_graph_1) > get<2>(cluster_graph_2) ||
+                                (get<2>(cluster_graph_1) == get<2>(cluster_graph_2) &&
+                                 wang_hash<pair<id_t, id_t>>()(node_range[get<0>(cluster_graph_1)]) < wang_hash<pair<id_t, id_t>>()(node_range[get<0>(cluster_graph_2)])));
+                    });
         
         return move(cluster_graphs_out);
         
@@ -2687,7 +2699,9 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "scores obtained of multi-mappings:" << endl;
         for (size_t i = 0; i < scores.size(); i++) {
-            cerr << "\t" << scores[i] << endl;
+            Alignment aln;
+            optimal_alignment(multipath_alns[i], aln);
+            cerr << "\t" << scores[i] << " " << make_pos_t(aln.path().mapping(0).position()) << endl;
         }
 #endif
         
