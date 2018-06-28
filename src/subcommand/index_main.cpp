@@ -616,7 +616,8 @@ int main_index(int argc, char** argv) {
 
                     // Determine the reference nodes for the current variant and create a variant site.
                     // If the variant is not an insertion, there should be a path for the ref allele.
-                    var.position--; // Use a 0-based position to get the correct var_name.
+                    //var.position--; // Use a 0-based position to get the correct var_name.
+                    // UPDATE: Don't use a zero-based position!! 
                     std::string var_name = make_variant_id(var);
                     std::string ref_path_name = "_alt_" + var_name + "_0";
                     auto ref_path_iter = alt_paths.find(ref_path_name);
