@@ -198,6 +198,8 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     map<string, sequence_elem, custom_key> gfa_sequences = gg.get_name_to_seq();
     // This maps from GFA sequence name to the GFA links for which it is the source
     map<string, vector<edge_elem> > gfa_links = gg.get_seq_to_edges();
+    // This maps from path name to GFA path record
+    map<string, path_elem> gfa_paths = gg.get_name_to_path();
     
     // Make a pinch thread set
     auto* pinch = stPinchThreadSet_construct();
@@ -322,6 +324,11 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // And sequence length
             auto sink_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch, sink_pinch_name));
             
+            // TODO: Right now we can only work with sequences that have at least some non-overlapped bases.
+            // We should be able to handle fully contained sequences too.
+            assert(source_alignment_length < source_sequence_length);
+            assert(sink_alignment_length < sink_sequence_length);
+            
             // Set up some cursors in each node's sequence that go the right
             // direction, based on orientations. Cursors start at the first
             // base in the CIGAR, which may be past the end/before the
@@ -335,6 +342,12 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             bool pinch_same_strand = (source_backward == sink_backward);
             
             // Interpret the CIGAR string and perform pinches.
+            
+            // We can't allow dangling sink sequence in the first subelement, or dangling source in the last.
+            // Otherwise we create tips.
+            // TODO: Allow this and wire the tips that are created back into the graph somehow.
+            bool is_first_subelement = true;
+            bool last_subelement_dangled_source = false;
             
             for (auto& elem : cigar) {
                 // For each cigar operation
@@ -397,6 +410,8 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                             // Advance both cursors
                             sink_cursor += sink_motion * length;
                             source_cursor += source_motion * length;
+                            // The source segment's end is attached
+                            last_subelement_dangled_source = false;
                         } else {
                             // If we aren't in always_perfect_match mode this should have become =/X
                             throw runtime_error("Encountered unparsed M operation");
@@ -409,11 +424,22 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                         // Advance both cursors
                         sink_cursor += sink_motion * length;
                         source_cursor += source_motion * length;
+                        // The source segment's end is attached
+                        last_subelement_dangled_source = false;
                         break;
                     case 'X':
                         // Only pinch if we are forcing matches (in which case this was X originally)
                         if (only_perfect_match) {
                             stPinchThread_pinch(source_thread, sink_thread, source_region_start, sink_region_start, length, pinch_same_strand);
+                            // The source segment's end is attached
+                            last_subelement_dangled_source = false;
+                        } else {
+                            if (is_first_subelement) {
+                                // We dangled the sink and we can't, because that would create a tip we can't deal with (yet)
+                                throw runtime_error("CIGAR " + link.alignment + " dangled sink at left");
+                            }
+                            // We also dangled the source
+                            last_subelement_dangled_source = true;
                         }
                         // Advance both cursors
                         sink_cursor += sink_motion * length;
@@ -422,16 +448,30 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                     case 'I':
                         // We don't need to do any pinching, just advance the sink cursor.
                         sink_cursor += sink_motion * length;
+                        if (is_first_subelement) {
+                            // We dangled the sink and we can't, because that would create a tip we can't deal with (yet)
+                            throw runtime_error("CIGAR " + link.alignment + " dangled sink at left");
+                        }
                         break;
                     case 'D':
                         // We don't need to do any pinching, just advance the source cursor.
                         source_cursor += source_motion * length;
+                        // We dangled a source segment; its end isn't attached.
+                        last_subelement_dangled_source = true;
                         break;
                     default:
                         // We should ahve already checked for weird operations.
                         throw runtime_error("Invalid operation " + subelem.second + " in pre-screened CIGAR");
                     }
+                    
+                    // Only the first subelement was first.
+                    is_first_subelement = false;
                 }
+            }
+            
+            if (last_subelement_dangled_source) {
+                // TODO: Work out a way to find this tip and attach it to what the real next node should be.
+                throw runtime_error("CIGAR " + link.alignment + " dangled source at right");
             }
         }
     }
@@ -457,16 +497,10 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             continue;
         }
         
-        // Find the first segment
-        auto segment_iter = stPinchBlock_getSegmentIterator(block);
-        stPinchSegment* first_segment = stPinchBlockIt_getNext(&segment_iter);
-        
-        assert(first_segment != nullptr);
-        
-        // Get its thread name, + strand offset, length, and orientation
-        auto segment_thread_name = stPinchSegment_getName(first_segment);
-        auto segment_start = stPinchSegment_getStart(first_segment);
-        auto segment_length = stPinchSegment_getLength(first_segment);
+        // Get the segment's thread name, + strand offset, length, and orientation
+        auto segment_thread_name = stPinchSegment_getName(segment);
+        auto segment_start = stPinchSegment_getStart(segment);
+        auto segment_length = stPinchSegment_getLength(segment);
         auto segment_backward = !stPinchSegment_getBlockOrientationSafe(segment);
         
         // Go find the source DNA for the GFA sequence that created the thread
@@ -549,6 +583,39 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     }
     
     // Process the GFA paths
+    
+    for (auto& name_and_path : gfa_paths) {
+        // For each path record by name
+        auto& name = name_and_path.first;
+        auto& path = name_and_path.second;
+        
+        // Start the path with visits to the entirety of the first thread it traces
+        
+        // Then, for each subsequent thread
+        
+        // Work out how much of this thread the previous thread ate, by looking at the overlaps on the links
+        
+        // If the link in question was discarded, or the last thread ends in something other than a 
+        
+        for (size_t i = 0; i < path.segment_names.size(); i++) {
+            // For each visit in the path
+            
+            // Find the thread to visit
+            int64_t thread_name = gfa_to_pinch.translate(path.segment_names[i]);
+            // Determine if it is visited backward
+            bool thread_backward = !path.segment_orientations[i];
+            
+            // For each segment in the thread, going the right way around
+            
+        }
+    }
+    
+    
+    for (auto name_path : n_to_p){
+        for (int np = 0; np < name_path.second.segment_names.size(); np++){
+            graph->paths.append_mapping(name_path.first, stol(name_path.second.segment_names[np]), np + 1, !name_path.second.orientations[np]);
+        }
+    }
 
 
     // Clean up the pinch thread set
