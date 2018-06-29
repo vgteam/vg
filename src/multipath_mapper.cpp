@@ -1905,7 +1905,7 @@ namespace vg {
                 // we missed the mapping just because of the subset of rescues we attempted
                 
                 double fraction_considered = double(max_rescues_attempted_idx) / double(plausible_clusters_end_idx);
-                int32_t rescue_mapq = round(prob_to_phred(fraction_considered));
+                int32_t rescue_mapq = round(prob_to_phred(1.0 - fraction_considered));
                 
 #ifdef debug_multipath_mapper
                 cerr << "capping mapping quality at " << rescue_mapq << endl;
