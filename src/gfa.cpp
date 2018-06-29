@@ -1,6 +1,9 @@
 #include "gfa.hpp"
 #include <gfakluge.hpp>
 
+// Use sonLib pinch graphs
+#include <stPinchGraphs.h>
+
 namespace vg {
 
 using namespace std;
@@ -29,7 +32,7 @@ public:
     int64_t translate(const string& name);
     /// Translate back from pinch thread name to GFA name
     const string& untranslate(const int64_t& name);
-}
+};
 
 int64_t GFAToPinchTranslator::translate(const string& name) {
     // Look up the name
@@ -89,7 +92,7 @@ private:
 public:
     /// Translate from pinch thread segment's block to node ID
     id_t translate(stPinchSegment* segment);
-}
+};
 
 id_t PinchToVGTranslator::translate(stPinchSegment* segment) {
     // Work out what pointer will represent the segment's block
@@ -221,8 +224,17 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     
     // As we go through the links, we need to remmeber links which are straight abutments of sequences.
     // These won't be processed by the pinch graph; we need to store them and process them later.
-    // We store them in pinch thread name terms, as source, sink, source reverse, sink reverse
+    // We store them in pinch thread name terms, as source, sink, source reverse, sink reverse.
     vector<tuple<int64_t, int64_t, bool, bool>> abut_links;
+    
+    // We also need to remember how much of the destination segment you should
+    // skip due to overlap when reading across each edge in each direction. We
+    // need this for interpreting GFA path records. We measure out to the end
+    // of the alignment from the GFA edge, and don't "fix" things like terminal
+    // insert/leading delete operations where the alignment really could just
+    // be shorter. We keep entries for all non-discarded edges, even those with
+    // no overlap.
+    unordered_map<tuple<int64_t, int64_t, bool, bool>, size_t> link_skips;
     
     for (auto& name_and_links : gfa_links) {
         // For each set of links, by source node name
@@ -308,12 +320,18 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             
             // Get the orientations
             bool source_backward = !link.source_orientation_forward;
-            bool sink_backward = !link.sink_orientation_backward;
+            bool sink_backward = !link.sink_orientation_forward;
             
-            if (source_alignment_length == 0 && sing_alignment_length == 0) {
+            // Record the link skip distances from the alignment, for interpreting paths.
+            // When traversion source to sink, skip the alignment's length in the sink
+            link_skips[make_tuple(source_pinch_name, sink_pinch_name, source_backward, sink_backward)] = sink_alignment_length;
+            // When traversing sink to source, skip the alignment's length in the source.
+            link_skips[make_tuple(sink_pinch_name, source_pinch_name, !sink_backward, !source_backward)] = source_alignment_length;
+            
+            if (source_alignment_length == 0 && sink_alignment_length == 0) {
                 // This link is just an end-to-end abutment with no overlap.
                 // It can't be sent through the pinch graph; we store it separately.
-                abut_links.insert(tie(source_pinch_name, sink_pinch_name, source_backward, sink_backward));
+                abut_links.push_back(make_tuple(source_pinch_name, sink_pinch_name, source_backward, sink_backward));
                 
                 // Skip the link CIGAR execution
                 continue;
@@ -352,7 +370,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             for (auto& elem : cigar) {
                 // For each cigar operation
                 
-                if (length == 0) {
+                if (elem.first == 0) {
                     // Skip 0-length operations
                     continue;
                 }
@@ -483,80 +501,83 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // We use this translator to translate block pointers to node IDs
     PinchToVGTranslator pinch_to_vg;
     
-    for (auto iter = stPinchThreadSet_getSegmentIt(threads), stPinchSegment* segment = stPinchThreadSetSegmentIt_getNext(&iter);
-        segment != nullptr;
-        segment = stPinchThreadSetSegmentIt_getNext(&iter)) {
-        
-        // For each segment in the pinch set (including those not in blocks)
-        
-        // Generate or assign the node ID for its block or itself
-        id_t node_id = pinch_to_vg.translate(segment);
-        
-        if (graph->has_node(node_id)) {
-            // We already did this graph node, from another segment in the block.
-            continue;
+    {
+        auto segment_iter = stPinchThreadSet_getSegmentIt(pinch);
+        stPinchSegment* segment = stPinchThreadSetSegmentIt_getNext(&segment_iter);
+        for (; segment != nullptr; segment = stPinchThreadSetSegmentIt_getNext(&segment_iter)) {
+            
+            // For each segment in the pinch set (including those not in blocks)
+            
+            // Generate or assign the node ID for its block or itself
+            id_t node_id = pinch_to_vg.translate(segment);
+            
+            if (graph->has_node(node_id)) {
+                // We already did this graph node, from another segment in the block.
+                continue;
+            }
+            
+            // Get the segment's thread name, + strand offset, length, and orientation
+            auto segment_thread_name = stPinchSegment_getName(segment);
+            auto segment_start = stPinchSegment_getStart(segment);
+            auto segment_length = stPinchSegment_getLength(segment);
+            auto segment_backward = !stPinchSegment_getBlockOrientationSafe(segment);
+            
+            // Go find the source DNA for the GFA sequence that created the thread
+            const string& thread_sequence = gfa_sequences[gfa_to_pinch.untranslate(segment_thread_name)].sequence;
+            
+            // Compute the sequence for the vg node we will make
+            string node_sequence = thread_sequence.substr(segment_start, segment_length);
+            if (segment_backward) {
+                node_sequence = reverse_complement(node_sequence);
+            }
+            
+            // Make the node in the graph
+            graph->create_node(node_sequence, node_id);
         }
-        
-        // Get the segment's thread name, + strand offset, length, and orientation
-        auto segment_thread_name = stPinchSegment_getName(segment);
-        auto segment_start = stPinchSegment_getStart(segment);
-        auto segment_length = stPinchSegment_getLength(segment);
-        auto segment_backward = !stPinchSegment_getBlockOrientationSafe(segment);
-        
-        // Go find the source DNA for the GFA sequence that created the thread
-        const string& thread_sequence = gfa_sequences[gfa_to_pinch.untranslate(segment_thread_name)].sequence;
-        
-        // Compute the sequence for the vg node we will make
-        string node_sequence = thread_sequence.substr(segment_start, segment_length);
-        if (segment_backward) {
-            node_sequence = reverse_complement(node_sequence);
-        }
-        
-        // Make the node in the graph
-        graph->create_node(node_sequence, node_id);
     }
     
-    // Add edges from pinch graph adjacencies
-    
-    for (auto iter = stPinchThreadSet_getIt(pinch), stPinchThread* thread = stPinchThreadSetIt_getNext(&iter);
-        thread != nullptr;
-        thread = stPinchThreadSetIt_getNext(&iter)) {
-    
-        // For each thread in the pinch thread set
-        // Start at the beginning
-        stPinchSegment* here = stPinchThread_getFirst(thread);
-        assert(here != nullptr);
+    {
+        // Add edges from pinch graph adjacencies
+        auto thread_iter = stPinchThreadSet_getIt(pinch);
+        stPinchThread* thread = stPinchThreadSetIt_getNext(&thread_iter);
+        for (; thread != nullptr; thread = stPinchThreadSetIt_getNext(&thread_iter)) {
         
-        // Look one segment ahead
-        stPinchSegment* next = stPinchSegment_get3Prime(here);
-        
-        while (next != nullptr) {
-            // For each pinch graph connection from here to next
+            // For each thread in the pinch thread set
+            // Start at the beginning
+            stPinchSegment* here = stPinchThread_getFirst(thread);
+            assert(here != nullptr);
             
-            // Get the nodes we are connecting
-            id_t here_id = pinch_to_vg.translate(here);
-            id_t next_id = pinch_to_vg.translate(next);
+            // Look one segment ahead
+            stPinchSegment* next = stPinchSegment_get3Prime(here);
             
-            // Get their orientations
-            bool here_backward = !stPinchSegment_getBlockOrientationSafe(here);
-            bool next_backward = !stPinchSegment_getBlockOrientationSafe(next);
-            
-            // Make the edge if not present already
-            graph->create_edge(here_id, next_id, here_backward, next_backward); 
-            
-            // Advance right
-            here = next;
-            next = stPinchSegment_get3Prime(here);
+            while (next != nullptr) {
+                // For each pinch graph connection from here to next
+                
+                // Get the nodes we are connecting
+                id_t here_id = pinch_to_vg.translate(here);
+                id_t next_id = pinch_to_vg.translate(next);
+                
+                // Get their orientations
+                bool here_backward = !stPinchSegment_getBlockOrientationSafe(here);
+                bool next_backward = !stPinchSegment_getBlockOrientationSafe(next);
+                
+                // Make the edge if not present already
+                graph->create_edge(here_id, next_id, here_backward, next_backward); 
+                
+                // Advance right
+                here = next;
+                next = stPinchSegment_get3Prime(here);
+            }
         }
     }
     
     // Add edges from abut_links
     for (auto& abutment : abut_links) {
         // Unpack each abutment record
-        auto& source_name = abutment.get<0>();
-        auto& sink_name = abutment.get<1>();
-        auto& source_backward = abutment.get<2>();
-        auto& sink_backward = abutment.get<3>();
+        auto& source_name = get<0>(abutment);
+        auto& sink_name = get<1>(abutment);
+        auto& source_backward = get<2>(abutment);
+        auto& sink_backward = get<3>(abutment);
         
         // Get the threads by name
         stPinchThread* source_thread = stPinchThreadSet_getThread(pinch, source_name);
@@ -569,8 +590,8 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         stPinchSegment* sink_segment = sink_backward ? stPinchThread_getLast(sink_thread) : stPinchThread_getFirst(sink_thread);
     
         // Get the node IDs to connect
-        id_t from_id = pinch_to_vg.translate(stPinchSegment_getBlockOrSegment(source_segment));
-        id_t to_id = pinch_to_vg.translate(stPinchSegment_getBlockOrSegment(sink_segment));
+        id_t from_id = pinch_to_vg.translate(source_segment);
+        id_t to_id = pinch_to_vg.translate(sink_segment);
         
         // Figure out the orientation of each node. We take whether the segemnt
         // is backward in its node, and flip it if the segment itself is
@@ -589,107 +610,105 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         auto& name = name_and_path.first;
         auto& path = name_and_path.second;
         
+        // Create each path
+        graph->paths.create_path(name);
+        
+        if (path.segment_names.size() == 0) {
+            // Empty paths need nothing else.
+            continue;
+        }
+        
         // Start the path with visits to the entirety of the first thread it traces
+        {
+            // Find the thread to visit
+            int64_t thread_name = gfa_to_pinch.translate(path.segment_names[0]);
+            // Determine if it is visited backward
+            bool thread_backward = !path.orientations[0];
+            
+            // Get the actual thread
+            stPinchThread* thread = stPinchThreadSet_getThread(pinch, thread_name);
+            
+            // Get the starting end appropriate to the orientation
+            stPinchSegment* segment = thread_backward ? stPinchThread_getLast(thread) : stPinchThread_getFirst(thread);
+            
+            while (segment != nullptr) {
+                // Look up the node
+                id_t node = pinch_to_vg.translate(segment);
+                // Compute its visit orientation
+                bool node_backward = (!stPinchSegment_getBlockOrientationSafe(segment) != thread_backward);
+                // Visit it
+                graph->paths.append_mapping(name, node, 0, node_backward);
+                // Advance to the next segment
+                segment = thread_backward ? stPinchSegment_get5Prime(segment) : stPinchSegment_get3Prime(segment);
+            }
+        }
         
-        // Then, for each subsequent thread
-        
-        // Work out how much of this thread the previous thread ate, by looking at the overlaps on the links
-        
-        // If the link in question was discarded, or the last thread ends in something other than a 
-        
-        for (size_t i = 0; i < path.segment_names.size(); i++) {
-            // For each visit in the path
+        // If we find a nonexistent/skipped link we need to abort the entire path.
+        bool abort_path = false;
+        for (size_t i = 1; i < path.segment_names.size() && !abort_path; i++) {
+            // For each subsequent GFA path visit (which becomes a thread)
             
             // Find the thread to visit
             int64_t thread_name = gfa_to_pinch.translate(path.segment_names[i]);
             // Determine if it is visited backward
-            bool thread_backward = !path.segment_orientations[i];
+            bool thread_backward = !path.orientations[i];
             
-            // For each segment in the thread, going the right way around
+            // And the previous thread
+            int64_t prev_thread_name = gfa_to_pinch.translate(path.segment_names[i - 1]);
+            bool prev_thread_backward = !path.orientations[i - 1];
             
+            // Work out how much of this thread the previous thread ate, by looking at the overlaps on the links
+            auto overlap_to = link_skips.find(tie(prev_thread_name, thread_name, prev_thread_backward, thread_backward));
+            if (overlap_to == link_skips.end()) {
+                // This thread crosses an edge that was removed for having a bad alignment.
+                // That can only ever happen in perfect match mode.
+                assert(only_perfect_match);
+                
+                // We want to get rid of the path entirely since we can't represent it.
+                cerr << "warning [gfa_to_graph]: path " << name << " edge " << path.segment_names[i - 1]
+                    << " to " << path.segment_names[i] << " was removed. Discarding path!" << endl;
+                    
+                // Remove the path and skip out on adding the rest of it
+                graph->paths.remove_path(name);
+                abort_path = true;
+                break;
+            }
+        
+            // Start at the near end of the next thread
+            stPinchThread* thread = stPinchThreadSet_getThread(pinch, thread_name);
+            stPinchSegment* segment = thread_backward ? stPinchThread_getLast(thread) : stPinchThread_getFirst(thread);
+            
+            // Skip segments until we have accounted for the overlap.
+            size_t overlap_skipped = 0;
+            while (overlap_skipped < overlap_to->second && segment != nullptr) {
+                overlap_skipped += stPinchSegment_getLength(segment);
+                segment = thread_backward ? stPinchSegment_get5Prime(segment) : stPinchSegment_get3Prime(segment);
+            }
+            
+            // We should always reach the overlap at a segment boundary
+            assert(overlap_skipped == overlap_to->second);
+            
+            // Continue adding segments to the path as nodes from there until the end of the thread.
+            while (segment != nullptr) {
+                // Look up the node
+                id_t node = pinch_to_vg.translate(segment);
+                // Compute its visit orientation
+                bool node_backward = (!stPinchSegment_getBlockOrientationSafe(segment) != thread_backward);
+                // Visit it
+                graph->paths.append_mapping(name, node, 0, node_backward);
+                // Advance to the next segment
+                segment = thread_backward ? stPinchSegment_get5Prime(segment) : stPinchSegment_get3Prime(segment);
+            }
         }
     }
     
+    // Now the graph is done!
+    // TODO: validate graph and paths and assign path mapping ranks
     
-    for (auto name_path : n_to_p){
-        for (int np = 0; np < name_path.second.segment_names.size(); np++){
-            graph->paths.append_mapping(name_path.first, stol(name_path.second.segment_names[np]), np + 1, !name_path.second.orientations[np]);
-        }
-    }
-
-
     // Clean up the pinch thread set
     stPinchThreadSet_destruct(pinch);
     pinch = nullptr;
-
-
-
-
-
-    bool reduce_overlaps = false;
-    GFAKluge gg;
-    gg.parse_gfa_file(in);
-
-    map<string, sequence_elem, custom_key> name_to_seq = gg.get_name_to_seq();
-    map<std::string, vector<edge_elem> > seq_to_edges = gg.get_seq_to_edges();
-    map<string, sequence_elem>::iterator it;
-    id_t curr_id = 1;
-    map<string, id_t> id_names;
-    std::function<id_t(const string&)> get_add_id = [&](const string& name) -> id_t {
-        if (is_number(name)) {
-            return std::stol(name);
-        } else {
-            auto id = id_names.find(name);
-            if (id == id_names.end()) {
-                id_names[name] = curr_id;
-                return curr_id++;
-            } else {
-                return id->second;
-            }
-        }
-    };
-    for (it = name_to_seq.begin(); it != name_to_seq.end(); it++){
-        auto source_id = get_add_id((it->second).name);
-        //Make us some nodes
-        Node n;
-        n.set_sequence((it->second).sequence);
-        n.set_id(source_id);
-        n.set_name((it->second).name);
-        graph->add_node(n);
-        // Now some edges. Since they're placed in this map
-        // by their from_node, it's no big deal to just iterate
-        // over them.
-        for (edge_elem l : seq_to_edges[(it->second).name]){
-            auto sink_id = get_add_id(l.sink_name);
-            Edge e;
-            e.set_from(source_id);
-            e.set_to(sink_id);
-            e.set_from_start(!l.source_orientation_forward);
-            e.set_to_end(!l.sink_orientation_forward);
-            // get the cigar
-            auto cigar_elems = vcflib::splitCigar(l.alignment);
-            if (cigar_elems.size() == 1
-                && cigar_elems.front().first > 0
-                && cigar_elems.front().second == "M") {
-                    reduce_overlaps = true;
-                    e.set_overlap(cigar_elems.front().first);
-            }
-            graph->add_edge(e);
-        }
-        // for (path_elem p: seq_to_paths[(it->second).name]){
-        //     paths.append_mapping(p.name, source_id, p.rank ,p.is_reverse);
-        // }
-        // remove overlapping sequences from the graph
-    }
-    map<string, path_elem> n_to_p = gg.get_name_to_path();
-    for (auto name_path : n_to_p){
-        for (int np = 0; np < name_path.second.segment_names.size(); np++){
-            graph->paths.append_mapping(name_path.first, stol(name_path.second.segment_names[np]), np + 1, !name_path.second.orientations[np]);
-        }
-    }
-    if (reduce_overlaps) {
-        graph->bluntify();
-    }
+    
 }
 
 void graph_to_gfa(const VG* graph, ostream& out) {
