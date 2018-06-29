@@ -45,6 +45,7 @@ void help_index(char** argv) {
          << "    -H, --write-haps FILE  store the threads as sequences in FILE" << endl
          << "    -F, --thread-db FILE   write thread database to FILE" << endl
          << "    -P, --force-phasing    replace unphased genotypes with randomly phased ones" << endl
+         << "    -o, --discard-overlaps skip overlapping alternate alleles if the overlap cannot be resolved" << endl
          << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
@@ -137,7 +138,7 @@ int main_index(int argc, char** argv) {
     // GBWT
     bool index_haplotypes = false, index_paths = false, index_gam = false;
     vector<string> gam_file_names;
-    bool force_phasing = false;
+    bool force_phasing = false, discard_overlaps = false;
     size_t samples_in_batch = 200; // Samples per batch.
     std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
     map<string, string> path_to_vcf; // Path name conversion from --rename.
@@ -180,6 +181,7 @@ int main_index(int argc, char** argv) {
             {"gbwt-name", required_argument, 0, 'G'},
             {"write-haps", required_argument, 0, 'H'},
             {"force-phasing", no_argument, 0, 'P'},
+            {"discard-overlaps", no_argument, 0, 'o'},
             {"batch-size", required_argument, 0, 'B'},
             {"range", required_argument, 0, 'R'},
             {"rename", required_argument, 0, 'r'},
@@ -207,7 +209,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:TG:H:PB:R:r:I:E:g:i:f:k:X:Z:Vd:maANDP:CM:h",
+        c = getopt_long (argc, argv, "b:t:px:F:v:TM:G:H:PoB:R:r:I:E:g:i:f:k:X:Z:Vd:maANDCh",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -261,6 +263,9 @@ int main_index(int argc, char** argv) {
             break;
         case 'P':
             force_phasing = true;
+            break;
+        case 'o':
+            discard_overlaps = true;
             break;
         case 'B':
             samples_in_batch = std::max(std::stoul(optarg), 1ul);
@@ -713,7 +718,7 @@ int main_index(int argc, char** argv) {
 
                 // Generate the haplotypes.
                 for (size_t batch = 0; batch < phasings.size(); batch++) {
-                    gbwt::generateHaplotypes(variants, phasings[batch],
+                    gbwt::generateHaplotypes(variants, phasings[batch], discard_overlaps,
                         [&](gbwt::size_type sample) -> bool {
                             return (excluded_samples.find(sample_names[sample]) == excluded_samples.end());
                         },
