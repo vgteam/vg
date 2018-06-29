@@ -348,10 +348,12 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // And sequence length
             auto sink_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch, sink_pinch_name));
             
-            // TODO: Right now we can only work with sequences that have at least some non-overlapped bases.
-            // We should be able to handle fully contained sequences too.
-            assert(source_alignment_length < source_sequence_length);
-            assert(sink_alignment_length < sink_sequence_length);
+            // TODO: Right now we can only work with sequences that at least
+            // reach the end they are supposed to come in on. If any of the
+            // other sequence would dangle over the "overlapped" end, we have a
+            // problem.
+            assert(source_alignment_length <= source_sequence_length);
+            assert(sink_alignment_length <= sink_sequence_length);
             
             // Set up some cursors in each node's sequence that go the right
             // direction, based on orientations. Cursors start at the first
@@ -637,7 +639,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // Find the thread to visit
             int64_t thread_name = gfa_to_pinch.translate(path.segment_names[0]);
             // Determine if it is visited backward
-            bool thread_backward = !path.orientations[0];
+            bool thread_backward = path.orientations[0];
             
             // Get the actual thread
             stPinchThread* thread = stPinchThreadSet_getThread(pinch, thread_name);
@@ -651,7 +653,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 // Compute its visit orientation
                 bool node_backward = (!stPinchSegment_getBlockOrientationSafe(segment) != thread_backward);
                 // Visit it
-                graph->paths.append_mapping(name, node, 0, node_backward);
+                graph->paths.append_mapping(name, node, node_backward, stPinchSegment_getLength(segment), 0);
                 // Advance to the next segment
                 segment = thread_backward ? stPinchSegment_get5Prime(segment) : stPinchSegment_get3Prime(segment);
             }
@@ -712,12 +714,16 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 // Compute its visit orientation
                 bool node_backward = (!stPinchSegment_getBlockOrientationSafe(segment) != thread_backward);
                 // Visit it
-                graph->paths.append_mapping(name, node, 0, node_backward);
+                graph->paths.append_mapping(name, node, node_backward, stPinchSegment_getLength(segment), 0);
                 // Advance to the next segment
                 segment = thread_backward ? stPinchSegment_get5Prime(segment) : stPinchSegment_get3Prime(segment);
             }
         }
     }
+    
+    // Save the paths to the graph
+    graph->paths.rebuild_mapping_aux();
+    graph->paths.to_graph(graph->graph);
     
     // Now the graph is done!
     // TODO: validate graph and paths and assign path mapping ranks

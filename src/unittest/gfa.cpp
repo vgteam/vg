@@ -250,6 +250,65 @@ P	21	path12	3	+	1M)";
     REQUIRE(vg.length() == 35);
 }
 
+TEST_CASE("Can import graphs with merges from GFA", "[gfa]") {
+
+    SECTION("A graph that merges the ends of two nodes works") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATTAC
+S	2	ATTACA
+L	1	+	2	+	5M
+P	1	ref	1	+	6M
+P	2	ref	2	+	6M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        
+        // We expect 3 nodes: unique to 1, unique to 2, and shared
+        // It should be 1 base, 5 bases, 1 base
+        // Also there's no reason to reverse anything
+        
+        REQUIRE(vg.node_count() == 3);
+        REQUIRE(vg.edge_count() == 2);
+        
+        REQUIRE(vg.paths.has_path("ref"));
+        auto path = vg.paths.path("ref");
+        REQUIRE(path.mapping_size() == 3);
+        REQUIRE(mapping_from_length(path.mapping(0)) == 1);
+        REQUIRE(mapping_is_match(path.mapping(0)));
+        REQUIRE(path.mapping(0).position().is_reverse() == false);
+        
+        REQUIRE(mapping_from_length(path.mapping(1)) == 5);
+        REQUIRE(mapping_is_match(path.mapping(1)));
+        REQUIRE(path.mapping(1).position().is_reverse() == false);
+        
+        REQUIRE(mapping_from_length(path.mapping(2)) == 1);
+        REQUIRE(mapping_is_match(path.mapping(2)));
+        REQUIRE(path.mapping(2).position().is_reverse() == false);
+    }
+
+    SECTION("A graph that merges the entirety of two nodes works") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATTACA
+S	2	GATTACA
+L	1	+	2	+	7M
+P	1	ref	1	+	7M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        
+        // We should see just one merged node
+        
+        REQUIRE(vg.node_count() == 1);
+        REQUIRE(vg.edge_count() == 0);
+        REQUIRE(vg.paths.path("ref").mapping_size() == 1);
+    }
+    
+}
+
 
         
 }

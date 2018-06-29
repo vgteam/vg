@@ -309,20 +309,24 @@ const string& Paths::get_path_name(int64_t id) {
     return id_to_name[id];
 }
 
-void Paths::append_mapping(const string& name, id_t id, size_t rank, bool is_reverse) {
-    Mapping m;
-    m.mutable_position()->set_node_id(id);
-    m.mutable_position()->set_is_reverse(is_reverse);
+void Paths::append_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank) {
+    mapping_t m;
+    m.set_node_id(id);
+    m.set_is_reverse(is_reverse);
+    m.length = length;
+    
     // If the rank passed in is 0, it will get filled in by the other version of
     // append_mapping.
-    m.set_rank(rank);
+    m.rank = rank;
+    
     append_mapping(name, m);
 }
 
 void Paths::prepend_mapping(const string& name, const Mapping& m) {
     // get or create the path with this name
     list<mapping_t>& pt = get_create_path(name);
-    
+   
+    // TODO: Implement dealing with no rank.
     // We can't prepend a mapping that doesn't have a rank set. We would like to
     // generate ranks, but we can't keep decrementing the first rank
     // indefinitely, and that might not be correct. Also, what rank would we use
@@ -349,16 +353,14 @@ void Paths::prepend_mapping(const string& name, const Mapping& m) {
     }
 }
 
-void Paths::prepend_mapping(const string& name, id_t id, size_t rank, bool is_reverse) {
-    Mapping m;
-    m.mutable_position()->set_node_id(id);
-    m.mutable_position()->set_is_reverse(is_reverse);
-    if (rank) {
-        m.set_rank(rank);
-    } else {
-        m.set_rank(get_path(name).size()+1); // rank is 1-based
-    }
-    prepend_mapping(name, m);
+void Paths::prepend_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank) {
+    mapping_t m;
+    m.set_node_id(id);
+    m.set_is_reverse(is_reverse);
+    m.length = length;
+    m.rank = rank;
+    
+    prepend_mapping(name, m.to_mapping());
 }
 
 size_t Paths::get_next_rank(const string& name) {
