@@ -1920,6 +1920,90 @@ namespace vg {
         }
     }
     
+    double MultipathMapper::prob_equivalent_clusters_hits_missed(const memcluster_t& cluster) const {
+        double prob_of_seeing_all = 1.0;
+        for (const pair<const MaximalExactMatch*, pos_t>& hit : cluster) {
+            // is this an SMEM with sub-sampled hits?
+            if (hit.first->primary && hit.first->nodes.size() < hit.first->match_count){
+                // what fraction of these did we sample?
+                prob_of_seeing_all *= double(hit.first->nodes.size()) / double(hit.first->match_count);
+            }
+        }
+        return 1.0 - prob_of_seeing_all;
+    }
+    
+    void MultipathMapper::cap_mapping_quality_by_hit_sampling_probability(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                                          vector<clustergraph_t>& cluster_graphs1,
+                                                                          vector<clustergraph_t>& cluster_graphs2,
+                                                                          bool did_secondary_rescue) const {
+        
+        // did we use an out-of-bounds cluster index to flag either end as coming from a rescue?
+        bool opt_aln_1_is_rescued = cluster_pairs.front().first.first >= cluster_graphs1.size();
+        bool opt_aln_2_is_rescued = cluster_pairs.front().first.second >= cluster_graphs2.size();
+        
+        // what is the chance that we would have missed a cluster with the same MEMs because of hit sub-sampling
+        double prob_missing_equiv_cluster_1 = 0.0, prob_missing_equiv_cluster_2 = 0.0;
+        if (!opt_aln_1_is_rescued) {
+            prob_missing_equiv_cluster_1 = prob_equivalent_clusters_hits_missed(get<1>(cluster_graphs1[cluster_pairs.front().first.first]))
+        }
+        if (!opt_aln_2_is_rescued) {
+            prob_missing_equiv_cluster_2 = prob_equivalent_clusters_hits_missed(get<1>(cluster_graphs2[cluster_pairs.front().first.second]))
+        }
+        
+        // what is the chance that we would have missed a pair?
+        double prob_missing_pair = 0.0;
+        if (opt_aln_1_is_rescued) {
+            prob_missing_pair = prob_missing_equiv_cluster_2;
+        }
+        else if (opt_aln_2_is_rescued) {
+            prob_missing_pair = prob_missing_equiv_cluster_1;
+        }
+        else if (!did_secondary_rescue) {
+            // in this case we are assured that there was no rescue (except perhaps a failed rescue
+            // that was trying to improve over this likely mismapping--a rare case where we won't mind
+            // being pessimistic about the mapping quality)
+            
+            prob_missing_pair = 1.0 - (1.0 - prob_missing_equiv_cluster_1) * (1.0 - prob_missing_equiv_cluster_2);
+        }
+        else {
+            // this is the complicated case:
+            // we did secondary rescue, so now we must account for the fact that we *could* have recovered a cluster that we missed
+            // because of MEM sub-sampling through the secondary rescue code path. I take the approach of choosing whichever is smaller
+            // as the estimate of missing the correct cluster: 1) the probability missing the cluster because of its hit sub-sampling
+            // and 2) the probability of missing the cluster because of our selection of clusters to do secondary rescue from the other
+            // read end
+        }
+        
+        if (prob_missing_pair > 0.0) {
+            int32_t hit_sampling_mapq = round(prob_to_phred(prob_missing_pair));
+            
+            // cap the mapping quality at this value
+            multipath_aln_pairs_out.front().first.set_mapping_quality(min(multipath_aln_pairs_out.front().first.mapping_quality(),
+                                                                          hit_sampling_mapq));
+            multipath_aln_pairs_out.front().second.set_mapping_quality(min(multipath_aln_pairs_out.front().second.mapping_quality(),
+                                                                           hit_sampling_mapq));
+        }
+    }
+    
+    void MultipathMapper::cap_mapping_quality_by_hit_sampling_probability(vector<MultipathAlignment>& multipath_alns_out,
+                                                                          vector<size_t>& cluster_idxs,
+                                                                          vector<clustergraph_t>& cluster_graphs) const {
+        
+        clustergraph_t& opt_cluster = cluster_graphs[cluster_idxs.front()];
+        
+        // what is the chance that we would have missed a cluster with the same MEMs because of hit sub-sampling
+        double prob_missing_equiv_cluster = prob_equivalent_clusters_hits_missed(get<1>(opt_cluster));
+        
+        if (prob_missing_equiv_cluster > 0.0) {
+            int32_t hit_sampling_mapq = round(prob_to_phred(prob_missing_equiv_cluster));
+            
+            // cap the mapping quality at this value
+            multipath_alns_out.front().set_mapping_quality(min(multipath_alns_out.front().mapping_quality(),
+                                                               hit_sampling_mapq));
+        }
+    }
+    
     void MultipathMapper::split_multicomponent_alignments(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const {
         
