@@ -227,7 +227,8 @@ namespace vg {
         
         /// If there are any MultipathAlignments with multiple connected components, split them
         /// up and add them to the return vector
-        void split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out) const;
+        void split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out,
+                                             vector<size_t>* cluster_idxs = nullptr) const;
         
         /// If there are any MultipathAlignments with multiple connected components, split them
         /// up and add them to the return vector, also measure the distance between them and add

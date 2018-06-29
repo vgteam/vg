@@ -183,12 +183,19 @@ namespace vg {
             num_mappings++;
         }
         
+        // if we didn't end up performing all of the cluster alignments, re-sync the list
+        if (cluster_idxs) {
+            if (cluster_idxs->size() > multipath_alns_out.size()) {
+                cluster_idxs->resize(multipath_alns_out.size());
+            }
+        }
+        
 #ifdef debug_multipath_mapper
         cerr << "splitting multicomponent alignments..." << endl;
 #endif
         
         // split up any alignments that ended up being disconnected
-        split_multicomponent_alignments(multipath_alns_out);
+        split_multicomponent_alignments(multipath_alns_out, cluster_idxs);
         
 #ifdef debug_multipath_mapper
         cerr << "topologically ordering " << multipath_alns_out.size() << " multipath alignments" << endl;
@@ -724,7 +731,6 @@ namespace vg {
         vector<MultipathAlignment> multipath_alns_1, multipath_alns_2;
         vector<size_t> cluster_idxs_1, cluster_idxs_2;
         if (!block_rescue_from_1) {
-            // make vectors to
             cluster_idxs_1.resize(cluster_graphs1.size());
             for (size_t i = 0; i < cluster_idxs_1.size(); i++) {
                 cluster_idxs_1[i] = i;
@@ -1650,7 +1656,8 @@ namespace vg {
         }
     }
     
-    void MultipathMapper::split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out) const {
+    void MultipathMapper::split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out,
+                                                          vector<size_t>* cluster_idxs) const {
         
         size_t num_original_alns = multipath_alns_out.size();
         for (size_t i = 0; i < num_original_alns; i++) {
@@ -1665,7 +1672,11 @@ namespace vg {
                 for (size_t j = 1; j < comps.size(); j++) {
                     multipath_alns_out.emplace_back();
                     extract_sub_multipath_alignment(multipath_alns_out[i], comps[j],
-                                                    multipath_alns_out.back());;
+                                                    multipath_alns_out.back());
+                    // also label the split alignment with its cluster of origin, if we're keeping track of that
+                    if (cluster_idxs) {
+                        cluster_idxs->emplace_back(cluster_idxs->at(i));
+                    }
                 }
                 // put the first component into the original location
                 MultipathAlignment last_component;
@@ -2807,7 +2818,7 @@ namespace vg {
                 std::swap(scores[index[i]], scores[i]);
                 std::swap(multipath_alns[index[i]], multipath_alns[i]);
                 if (cluster_idxs) {
-                    std::swap(cluster_idxs[index[i]], cluster_idxs[i]);
+                    std::swap((*cluster_idxs)[index[i]], (*cluster_idxs)[i]);
                 }
                 std::swap(index[index[i]], index[i]);
                 
