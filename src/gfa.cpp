@@ -328,6 +328,12 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // When traversing sink to source, skip the alignment's length in the source.
             link_skips[make_tuple(sink_pinch_name, source_pinch_name, !sink_backward, !source_backward)] = source_alignment_length;
             
+#ifdef debug
+            cerr << "Found edge " << link.source_name << " = " << source_pinch_name << (source_backward ? 'L' : 'R')
+                << " -> " << link.sink_name << " = " << sink_pinch_name << (sink_backward ? 'R' : 'L') << endl;
+            cerr << "Skips: " << sink_alignment_length << " forward, " << source_alignment_length << " reverse" << endl; 
+#endif
+            
             if (source_alignment_length == 0 && sink_alignment_length == 0) {
                 // This link is just an end-to-end abutment with no overlap.
                 // It can't be sent through the pinch graph; we store it separately.
@@ -562,7 +568,11 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 bool next_backward = !stPinchSegment_getBlockOrientationSafe(next);
                 
                 // Make the edge if not present already
-                graph->create_edge(here_id, next_id, here_backward, next_backward); 
+                Edge* e = graph->create_edge(here_id, next_id, here_backward, next_backward);
+                
+#ifdef debug
+                cerr << "Created pinch graph edge " << pb2json(*e) << endl;
+#endif
                 
                 // Advance right
                 here = next;
@@ -600,7 +610,11 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         bool to_end = (!stPinchSegment_getBlockOrientationSafe(sink_segment) != sink_backward);
         
         // Make the edge
-        graph->create_edge(from_id, to_id, from_start, to_end); 
+        Edge* e = graph->create_edge(from_id, to_id, from_start, to_end);
+        
+#ifdef debug
+        cerr << "Created abutment edge " << pb2json(*e) << endl;
+#endif
     }
     
     // Process the GFA paths
@@ -651,22 +665,25 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // Find the thread to visit
             int64_t thread_name = gfa_to_pinch.translate(path.segment_names[i]);
             // Determine if it is visited backward
-            bool thread_backward = !path.orientations[i];
+            bool thread_backward = path.orientations[i];
             
             // And the previous thread
             int64_t prev_thread_name = gfa_to_pinch.translate(path.segment_names[i - 1]);
-            bool prev_thread_backward = !path.orientations[i - 1];
+            bool prev_thread_backward = path.orientations[i - 1];
             
             // Work out how much of this thread the previous thread ate, by looking at the overlaps on the links
             auto overlap_to = link_skips.find(tie(prev_thread_name, thread_name, prev_thread_backward, thread_backward));
             if (overlap_to == link_skips.end()) {
                 // This thread crosses an edge that was removed for having a bad alignment.
-                // That can only ever happen in perfect match mode.
-                assert(only_perfect_match);
-                
                 // We want to get rid of the path entirely since we can't represent it.
-                cerr << "warning [gfa_to_graph]: path " << name << " edge " << path.segment_names[i - 1]
-                    << " to " << path.segment_names[i] << " was removed. Discarding path!" << endl;
+                cerr << "warning [gfa_to_graph]: path " << name << ": edge " << path.segment_names[i - 1]
+                    << " = " << prev_thread_name << (prev_thread_backward ? 'L' : 'R') 
+                    << " to " << path.segment_names[i] << " = " << thread_name << (thread_backward ? 'R' : 'L')
+                    << " was removed. Discarding path!" << endl;
+                    
+                // This should only ever happen in perfect match mode.
+                // Otherwise the graph is bad.
+                assert(only_perfect_match);
                     
                 // Remove the path and skip out on adding the rest of it
                 graph->paths.remove_path(name);
