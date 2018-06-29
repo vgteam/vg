@@ -522,8 +522,6 @@ int main_mod(int argc, char** argv) {
                 continue;
             }
 
-            var.position -= 1; // convert to 0-based
-
             // Handle the variant
             handle_variant(var);
         }
