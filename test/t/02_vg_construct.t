@@ -76,8 +76,10 @@ rm -f fail.vg
 # check that we produce a full graph
 
 # build deps
-cd ../deps/vcflib && make vcf2tsv && cd -
-cd ../deps/fastahack && make && cd -
+cd ../deps/vcflib && make bin/vcf2tsv
+cd -
+cd ../deps/fastahack && make
+cd -
 
 refbp=$(../deps/fastahack/fastahack -r x small/x.fa | tr -d '\n' | wc -c)
 variantbp=$(zcat < small/x.vcf.gz | ../deps/vcflib/bin/vcf2tsv \
