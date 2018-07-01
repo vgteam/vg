@@ -63,7 +63,15 @@ namespace vg {
                                        bool print_score_matrices = false);
         string graph_cigar(gssw_graph_mapping* gm);
         
+        /// Given a nonempty vector of nonnegative scaled alignment scores,
+        /// compute the mapping quality of the maximal score in the vector.
+        /// Sets max_idx_out to the index of that score in the vector. May
+        /// modify the input vector.
         double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out);
+        /// Given a nonempty vector of nonnegative scaled alignment scores,
+        /// approximate the mapping quality of the maximal score in the vector.
+        /// Sets max_idx_out to the index of that score in the vector. May
+        /// modify the input vector.
         double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out);
         double group_mapping_quality_exact(vector<double>& scaled_scores, vector<size_t>& group);
         double estimate_next_best_score(int length, double min_diffs);

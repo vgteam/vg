@@ -2918,12 +2918,10 @@ namespace vg {
             }
             
         }
-        TEST_CASE( "NetGraph can traverse unary snarl",
+
+        TEST_CASE( "NetGraph can traverse unary snarls",
                   "[snarls][netgraph]" ) {
         
-        
-            // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
-            // and a snarl from 3 to 5, all nested in each other.
             VG graph;
                 
             Node* n1 = graph.create_node("GCA");
@@ -2944,21 +2942,23 @@ namespace vg {
             Edge* e8 = graph.create_edge(n6, n7);
             Edge* e9 = graph.create_edge(n1, n1, true, false);
             
+            // Define the snarls for the top level
+           
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls();
 
-            const vector<const Snarl*> top_snarls = snarl_manager.top_level_snarls();
-            const Snarl* snarl = snarl_manager.into_which_snarl(3, true);
-
-            // Make a net graph
+            const Snarl* snarl = snarl_manager.into_which_snarl(3, true); 
+            
             
             SECTION( "Traverse unary snarl in netgraph with internal connectivity" ) {
-                
+
+                // Make a net graph
                 NetGraph net_graph(snarl->start(), snarl->end(), snarl_manager.chains_of(snarl), &graph, true);
-                handle_t unode_in = net_graph.get_handle(1, true);
-                handle_t unode_out = net_graph.get_handle(1, false);
+                handle_t node_in = net_graph.get_handle(1, true);
+                handle_t node_out = net_graph.get_handle(1, false);
+            
                 unordered_set<pair<id_t, bool>> seen_in;
-                net_graph.follow_edges(unode_in, false, [&](const handle_t& other) {
+                net_graph.follow_edges(node_in, false, [&](const handle_t& other) {
                     seen_in.insert(make_pair(net_graph.get_id(other), 
                                              net_graph.get_is_reverse(other)));
                 });
@@ -2968,38 +2968,38 @@ namespace vg {
                 REQUIRE(seen_in.find(make_pair(3, false)) != seen_in.end());
 
                 unordered_set<pair<id_t, bool>> seen_out;
-                net_graph.follow_edges(unode_out, false, [&](const handle_t& other) {
+                net_graph.follow_edges(node_out, false, [&](const handle_t& other) {
                     seen_out.insert(make_pair(net_graph.get_id(other), 
                                              net_graph.get_is_reverse(other)));
                 });
 
                 unordered_set<pair<id_t, bool>> seen_out_rev;
-                net_graph.follow_edges(unode_out, true, [&](const handle_t& other) {
+                net_graph.follow_edges(node_out, true, [&](const handle_t& other) {
                     seen_out_rev.insert(make_pair(net_graph.get_id(other), 
                                              net_graph.get_is_reverse(other)));
-                });
-                
-                
+});
                 //Predecessors
                 REQUIRE(seen_out_rev.size() == 2);
                 REQUIRE(seen_out_rev.find(make_pair(2, true)) != seen_out_rev.end());
                 REQUIRE(seen_out_rev.find(make_pair(3, true)) != seen_out_rev.end());
                 
                 unordered_set<pair<id_t, bool>> seen_in_rev;
-                net_graph.follow_edges(unode_in, true, [&](const handle_t& other) {
+                net_graph.follow_edges(node_in, true, [&](const handle_t& other) {
                     seen_in_rev.insert(make_pair(net_graph.get_id(other), 
                                              net_graph.get_is_reverse(other)));
                 });
                 REQUIRE(seen_in_rev.size() == 0);
             }
+
             
-            SECTION( "Traverse unary snarl in netgraph without internal connectivity" ) {
+            
+             SECTION( "Traverse unary snarl in netgraph without internal connectivity" ) {
                 
                 NetGraph net_graph(snarl->start(), snarl->end(), snarl_manager.chains_of(snarl), &graph);
-                handle_t unode_in = net_graph.get_handle(1, true);
-                handle_t unode_out = net_graph.get_handle(1, false);
+                handle_t node_in = net_graph.get_handle(1, true);
+                handle_t node_out = net_graph.get_handle(1, false);
                 unordered_set<pair<id_t, bool>> seen_in;
-                net_graph.follow_edges(unode_in, false, [&](const handle_t& other) {
+                net_graph.follow_edges(node_in, false, [&](const handle_t& other) {
                     seen_in.insert(make_pair(net_graph.get_id(other), 
                                              net_graph.get_is_reverse(other)));
                 });
@@ -3007,7 +3007,7 @@ namespace vg {
                 REQUIRE(seen_in.size() == 0);
 
                 unordered_set<pair<id_t, bool>> seen_out;
-                net_graph.follow_edges(unode_out, false, [&](const handle_t& other) {
+                net_graph.follow_edges(node_out, false, [&](const handle_t& other) {
                     seen_out.insert(make_pair(net_graph.get_id(other), 
                                              net_graph.get_is_reverse(other)));
                 });
@@ -3017,7 +3017,7 @@ namespace vg {
 
                 //Predecessors
                 unordered_set<pair<id_t, bool>> seen_out_rev;
-                net_graph.follow_edges(unode_out, true, [&](const handle_t& other) {
+                net_graph.follow_edges(node_out, true, [&](const handle_t& other) {
                     seen_out_rev.insert(make_pair(net_graph.get_id(other), 
                                              net_graph.get_is_reverse(other)));
                 });
@@ -3025,18 +3025,15 @@ namespace vg {
                 REQUIRE(seen_out_rev.size() == 0);
                 
                 unordered_set<pair<id_t, bool>> seen_in_rev;
-                net_graph.follow_edges(unode_in, true, [&](const handle_t& other) {
+                net_graph.follow_edges(node_in, true, [&](const handle_t& other) {
                     seen_in_rev.insert(make_pair(net_graph.get_id(other), 
                                              net_graph.get_is_reverse(other)));
                 });
                 REQUIRE(seen_in_rev.size() == 2);
                 REQUIRE(seen_in_rev.find(make_pair(2, true)) != seen_in_rev.end());
                 REQUIRE(seen_in_rev.find(make_pair(3, true)) != seen_in_rev.end());
-            }
-        
-        }
-        
-        
+             }
+        } 
         
     }
 }

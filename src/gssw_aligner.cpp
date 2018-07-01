@@ -344,8 +344,10 @@ int32_t BaseAligner::score_gap(size_t gap_length) {
 double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out) {
     
     // if necessary, assume a null alignment of 0.0 for comparison since this is local
+    bool padded = false;
     if (scaled_scores.size() == 1) {
         scaled_scores.push_back(0.0);
+        padded = true;
     }
     
     // work in log transformed values to avoid risk of overflow
@@ -354,11 +356,16 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
     // go in reverse order because this has fewer numerical problems when the scores are sorted (as usual)
     for (int64_t i = scaled_scores.size() - 1; i >= 0; i--) {
         log_sum_exp = add_log(log_sum_exp, scaled_scores[i]);
-        if (scaled_scores[i] > max_score) {
+        if (scaled_scores[i] >= max_score) {
+            // Since we are going in reverse order, make sure to break ties in favor of the earlier item.
             *max_idx_out = i;
             max_score = scaled_scores[i];
         }
     }
+    
+    // We should never try to return an injected 0 score as the winner.
+    assert(!(padded && *max_idx_out == 1));
+    
     double direct_mapq = -quality_scale_factor * subtract_log(0.0, max_score - log_sum_exp);
     return std::isinf(direct_mapq) ? (double) numeric_limits<int32_t>::max() : direct_mapq;
 }
@@ -401,8 +408,10 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
 double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out) {
     
     // if necessary, assume a null alignment of 0.0 for comparison since this is local
+    bool padded = false;
     if (scaled_scores.size() == 1) {
         scaled_scores.push_back(0.0);
+        padded = true;
     }
     
     double max_score = scaled_scores[0];
@@ -432,7 +441,12 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
             next_count++;
         }
     }
-    
+   
+    // Since we loop through from start to end, all the numbers should be
+    // nonnegative, and we break ties in favor of the old max, we should never
+    // try to return an injected 0 score as the winner.
+    assert(!(padded && max_idx == 1));
+   
     *max_idx_out = max_idx;
 
     return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0)));
@@ -506,7 +520,7 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality -= quality_scale_factor * log(overlap_count);
     }
 
-    auto& max_aln = alignments[max_idx];
+    auto& max_aln = alignments.at(max_idx);
     int l = max(alignment_to_length(max_aln), alignment_from_length(max_aln));
     double identity = 1. - (double)(l * match - max_aln.score()) / (match + mismatch) / l;
 
@@ -616,10 +630,10 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
         mapping_quality2 -= quality_scale_factor * log(overlap_count2);
     }
 
-    auto& max_aln1 = alignment_pairs.first[max_idx];
+    auto& max_aln1 = alignment_pairs.first.at(max_idx);
     int len1 = max(alignment_to_length(max_aln1), alignment_from_length(max_aln1));
     double identity1 = 1. - (double)(len1 * match - max_aln1.score()) / (match + mismatch) / len1;
-    auto& max_aln2 = alignment_pairs.second[max_idx];
+    auto& max_aln2 = alignment_pairs.second.at(max_idx);
     int len2 = max(alignment_to_length(max_aln2), alignment_from_length(max_aln2));
     double identity2 = 1. - (double)(len2 * match - max_aln2.score()) / (match + mismatch) / len2;
 

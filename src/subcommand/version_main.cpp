@@ -31,7 +31,7 @@ int main_version(int argc, char** argv){
         return 1;
     }
 
-    cout << VG_VERSION_STRING << endl;
+    cout << Version::get_long() << endl;
     return 0;
 }
 // Register subcommand

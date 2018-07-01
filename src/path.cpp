@@ -171,7 +171,7 @@ void Paths::extend(const Path& p) {
 }
 
 // one of these should go away
-void Paths::extend(Paths& p) {
+void Paths::extend(const Paths& p) {
     for (auto& l : p._paths) {
         const string& name = l.first;
         auto& path = l.second;
@@ -188,7 +188,7 @@ void Paths::extend(Paths& p) {
     rebuild_mapping_aux();
 }
 
-void Paths::append(Paths& paths) {
+void Paths::append(const Paths& paths) {
     for (auto& p : paths._paths) {
         const string& name = p.first;
         auto& path = p.second;
@@ -205,7 +205,7 @@ void Paths::append(Paths& paths) {
     rebuild_mapping_aux();
 }
 
-void Paths::append(Graph& g) {
+void Paths::append(const Graph& g) {
     for (int i = 0; i < g.path_size(); ++i) {
         const Path& p = g.path(i);
         // Make sure we preserve empty paths

@@ -196,14 +196,11 @@ int main_construct(int argc, char** argv) {
     
     // We need a callback to handle pieces of graph as they are produced.
     auto callback = [&](Graph& big_chunk) {
-        // TODO: these chunks may be too big to (de)serialize directly. For now,
-        // just serialize them directly anyway.
+        // Wrap the chunk in a vg object that can properly divide it into
+        // reasonably sized serialized chunks.
+        VG* g = new VG(big_chunk, false, true);
 #pragma omp critical (cout)
-        stream::write(cout, 1, std::function<Graph(uint64_t)>([&](uint64_t chunk_number) -> Graph {
-            assert(chunk_number == 0);
-            // Just spit out our one chunk
-            return big_chunk;
-        }));
+        g->serialize_to_ostream(cout);
     };
     
     constructor.max_node_size = max_node_size;

@@ -170,7 +170,7 @@ int main_benchmark(int argc, char** argv) {
     // Do the control against itself
     results.push_back(run_benchmark("control", 1000, benchmark_control));
 
-    cout << "# Benchmark results for vg " << VG_VERSION_STRING << endl;
+    cout << "# Benchmark results for vg " << Version::get_short() << endl;
     cout << "# runs\ttest(us)\tstddev(us)\tcontrol(us)\tstddev(us)\tscore\terr\tname" << endl;
     for (auto& result : results) {
         cout << result << endl;

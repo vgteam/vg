@@ -1945,10 +1945,8 @@ bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function
                 if (!use_internal_connectivity) {
 
                     if (!graph->follow_edges(handle, false, handle_edge)) {
-
-                    // Iteratee is done
-                    return false;
-
+                        // Iteratee is done
+                        return false;
                     }
                 }
                 
