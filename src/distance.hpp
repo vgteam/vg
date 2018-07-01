@@ -36,15 +36,18 @@ namespace vg {
 
  
             //Distance between end of node start and beginning of node end
-            int64_t snarlDistanceShort(NetGraph* ng, SnarlManager* sm,
+            int64_t snarlDistanceShort(VG* graph,NetGraph* ng,
                      pair<id_t, bool> start, pair<id_t, bool> end); 
 
             //Add the distance from start to end
             void insertDistance(pair<id_t, bool> start, pair<id_t, bool> curr, 
                      int64_t dist);
+             
+            //Length of a node
+            int64_t nodeLength(VG*graph, NetGraph* ng,  pair<id_t, bool> node);
         
             //Total length of the snarl
-            int64_t snarlLength(VG* graph, const Snarl* currSnarl);
+            int64_t snarlLength();
 
             /*Given distances from a position to either end of a node, find the
               shortest distance from that position to the start and end nodes of
@@ -57,12 +60,19 @@ namespace vg {
         protected:
             unordered_map< pair<id_t, bool>, size_t> visitToIndex;
             vector<int64_t> distances;
-            pair<id_t, bool> snarlStart;  //Start facing into snarl 
+            pair<id_t, bool> snarlStart;  //Start facing into snarl
+               //ID of the first node in the snarl, also key for distance index 
             pair<id_t, bool> snarlEnd;    //End facing out of snarl
-               //ID of the first node in the snarl, also key for distance index
+       
+            int64_t length; //Total length of the snarl
 
             //The index into distances for distance start->end
             size_t index(pair<id_t, bool> start, pair<id_t, bool> end);
+        private: 
+            int64_t snarlDistanceShortHelp(VG* graph,NetGraph* ng,
+                     pair<id_t, bool> start, pair<id_t, bool> end); 
+
+
         friend class DistanceIndex;
         friend class TestDistanceIndex;
         };

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <iostream>
 #include <set>
 #include "json2pb.h"
@@ -8,11 +9,321 @@
 #include "distance.hpp"
 #include "genotypekit.hpp"
 #include <fstream>
- 
-#define print
+#include <random>
+#include <time.h> 
+//#define print
 namespace vg {
 namespace unittest {
 
+int64_t distanceHelp(VG* graph, pos_t pos1, pos_t pos2,
+                       bool rev){
+    //Distance using djikstras algorithm
+
+    auto cmp = [] (pair<pair<id_t, bool> , int64_t> x, 
+                   pair<pair<id_t, bool>, int64_t> y ) {
+        return (x.second > y.second);
+    };
+ 
+    int64_t shortestDistance = -1;
+    if (get_id(pos1) == get_id(pos2)) { //if positions are on the same node
+        int64_t nodeSize = graph->get_node(get_id(pos1))->sequence().size();
+        int64_t offset1;
+        if (is_rev(pos1)) {
+            offset1 = nodeSize -get_offset(pos1) - 1;//Len of node - offset 
+        } else {
+            offset1 = get_offset(pos1);
+        }
+
+        int64_t offset2;
+        if (is_rev(pos2)) {
+            offset2 = nodeSize - get_offset(pos2) - 1;
+        } else {
+            offset2 = get_offset(pos2);
+        }
+
+        if (graph->has_edge(node_start(get_id(pos1)), node_end(get_id(pos2)))){
+            //If there is an edge from start to end of node
+
+            shortestDistance = min(   abs(offset1-offset2)+1,
+                          nodeSize - abs(offset1-offset2) + 1  );
+
+        } else {
+
+            shortestDistance = abs(offset1-offset2)+1; //+1 to be consistent
+
+        }
+    }
+
+
+    priority_queue< pair<pair<id_t, bool> , int64_t>, 
+                    vector<pair<pair<id_t, bool>, int64_t>>,
+                          decltype(cmp)> reachable(cmp); 
+    handle_t currHandle = graph->get_handle(get_id(pos1), rev);
+
+    int64_t dist;
+    if (is_rev(pos1) != rev) { 
+        dist = get_offset(pos1) + 1;
+    } else {
+        dist = graph->get_length(currHandle) - get_offset(pos1);
+    }
+
+    auto addFirst = [&](const handle_t& h) -> bool {
+        pair<id_t, bool> node = make_pair(graph->get_id(h), 
+                                          graph->get_is_reverse(h));
+        reachable.push(make_pair(node, dist));
+        return true;
+    };
+  
+    graph->follow_edges(currHandle, false, addFirst);
+    unordered_set<pair<id_t, bool>> seen;
+    seen.insert(make_pair(get_id(pos1), is_rev(pos1)));
+    while (reachable.size() > 0) {
+    
+        pair<pair<id_t, bool>, int64_t> next = reachable.top();
+        reachable.pop();
+        pair<id_t, bool> currID = next.first;
+        dist = next.second;
+        if (seen.count(currID) == 0) {
+ 
+            seen.insert(currID);
+            currHandle = graph->get_handle(currID.first, currID.second);
+            int64_t currDist = graph->get_length(currHandle); 
+        
+            auto addNext = [&](const handle_t& h) -> bool {
+                pair<id_t, bool> node = make_pair(graph->get_id(h), 
+                                                graph->get_is_reverse(h));
+                reachable.push(make_pair(node, currDist + dist));
+                return true;
+            };
+            graph->follow_edges(currHandle, false, addNext);
+        
+        }
+
+        if (currID.first == get_id(pos2)){
+        //Dist is distance to beginning or end of node containing pos2
+        
+            if (is_rev(pos2) == currID.second) { 
+                dist = dist + get_offset(pos2) + 1;
+            } else {
+                dist = dist +  graph->get_node(get_id(pos2))->sequence().size() - 
+                            get_offset(pos2);
+            }
+            if (shortestDistance == -1) {shortestDistance = dist;}
+            else {shortestDistance = min(dist, shortestDistance);}
+        }
+
+    }
+    return shortestDistance;
+};
+
+int64_t distance(VG* graph, pos_t pos1, pos_t pos2){
+    //Find the distance between two positions
+    int64_t d1 = distanceHelp(graph, pos1, pos2, true);
+    int64_t d2 = distanceHelp(graph, pos1, pos2, false);
+   
+    if (d1 == -1) {return d2;}
+    else if (d2 == -1) {return d1;}
+    else {return min(d1, d2);}
+};
+
+VG makeRandomGraph(int64_t seqSize = 1000, int64_t variantLen = 20, 
+                    int64_t variantCount = 100){
+    //Create a random graph for a sequence of length seqSize
+    VG graph;  
+    map<size_t, id_t> indexToNode; 
+                  //Index of original sequence to node that starts at that index
+    string seq(seqSize, 'A'); 
+    Node* n = graph.create_node(seq);
+    indexToNode.insert(make_pair(0, n->id()));
+     
+    //Get random number generator for lengths and variation types
+    poisson_distribution<size_t> lengthDistribution(variantLen);
+    uniform_int_distribution<int> variantDistribution(0, 4);
+    uniform_int_distribution<int> indexDistribution(0, seqSize-1);
+    default_random_engine generator(time(NULL));
+
+    auto splitNode = [&] (size_t index) -> pair<Node, Node> {
+        //Split graph at index. Split the node with the original sequence into
+        //the original node and a new node and connect the two
+
+        auto n = --indexToNode.upper_bound(index);//orig node containing pos
+        size_t firstIndex = n->first;           //Index of first node
+        size_t firstNodeID = n->second;         //Node ID of first node
+        
+        Node* firstNode = graph.get_node(firstNodeID);
+        string origSeq = firstNode->sequence();
+        if (index > firstIndex) {
+            size_t nodeLength = index - firstIndex;
+         
+            firstNode->set_sequence(origSeq.substr(0, nodeLength));//replace seq
+            Node* newNode = graph.create_node(origSeq.substr(nodeLength));
+            indexToNode.insert(make_pair(index, newNode->id()));
+
+
+            //Transfer outgoing edges from fist node to second node
+
+            handle_t startFd = graph.get_handle(firstNodeID, false);
+            handle_t endFd = graph.get_handle(newNode->id(), false); 
+
+
+            unordered_set<handle_t> nextHandles;
+            auto addHandle = [&](const handle_t& h) ->bool {
+                nextHandles.insert(h);
+                return true;
+            };
+            graph.follow_edges(startFd, false, addHandle);
+
+            for (handle_t h : nextHandles) {
+                //for each edge from start node, delete and add to new node
+                graph.destroy_edge(startFd, h);
+                graph.create_edge(endFd, h);
+            }
+            graph.create_edge(firstNode, newNode);
+            return make_pair(*firstNode, *newNode);
+        } else {
+ 
+            auto n = --indexToNode.lower_bound(index);          
+            Node* prevNode = graph.get_node(n->second);  
+            return make_pair(*prevNode, *firstNode);
+        }
+        
+    };           
+
+    for (int j = 0; j < variantCount; j++) {
+        //add variants
+        int startIndex = indexDistribution(generator); 
+        int variationType = variantDistribution(generator);  
+
+        if (variationType == 0) {
+            //SNP
+            if (startIndex == 0) {
+            
+                pair<Node, Node> endNodes = splitNode(startIndex+1);
+                Node end = endNodes.second;
+                Node* newNode = graph.create_node("G");
+                graph.create_edge(newNode, &end); 
+
+            } else if (startIndex < seqSize-2) {
+
+                pair<Node, Node> startNodes = splitNode(startIndex);
+                pair<Node, Node> endNodes = splitNode(startIndex+1);
+                
+                Node start = startNodes.first;
+                Node end = endNodes.second;
+                Node* newNode = graph.create_node("G");
+                graph.create_edge(&start, newNode);
+                graph.create_edge(newNode, &end); 
+                    
+            } else if (startIndex == seqSize -2) {
+
+                pair<Node, Node> startNodes = splitNode(startIndex);
+                
+                Node start = startNodes.first;
+                Node* newNode = graph.create_node("G");
+                graph.create_edge(&start, newNode);
+             
+            }
+        } else if (variationType == 1) {
+           //Short indel - deletion of original
+            
+            if (startIndex > 0 && startIndex < seqSize-1) {
+                pair<Node, Node> startNodes = splitNode(startIndex);
+                pair<Node, Node> endNodes = splitNode(startIndex+1);
+                
+                Node start = startNodes.first;
+                Node end = endNodes.second;
+                graph.create_edge(&start, &end); 
+                    
+            }
+        } else if (variationType == 2) {
+           //long indel
+           size_t length = lengthDistribution(generator); 
+
+           if (length > 0 && startIndex > 0 &&  length + startIndex < seqSize-1) {
+                pair<Node, Node> startNodes = splitNode(startIndex);
+                pair<Node, Node> endNodes = splitNode(startIndex+length);
+                
+                Node start = startNodes.first;
+                Node end = endNodes.second;
+                graph.create_edge(&start, &end); 
+               
+           }
+        } else if (variationType == 3) {
+            //Copy number variation
+           size_t length = lengthDistribution(generator); 
+
+           if (length > 0 ) {
+                if (startIndex == 0) {
+                    pair<Node, Node> endNodes = splitNode(startIndex+length);
+                    Node n = endNodes.first;
+
+                    auto nodePair = --indexToNode.upper_bound(0);//first node
+                    size_t firstNodeID = nodePair->second;
+ 
+                    Node* firstNode = graph.get_node(firstNodeID);       
+
+                    graph.create_edge(&n, firstNode); 
+
+                } else if ( length + startIndex < seqSize-1) {
+
+                    pair<Node, Node> startNodes = splitNode(startIndex);
+                    pair<Node, Node> endNodes = splitNode(startIndex+length);
+
+                    Node n1 = startNodes.second;
+                    Node n2 = endNodes.first;
+                    graph.create_edge(&n2, &n1); 
+
+                } else  if ( length + startIndex == seqSize -1) { 
+                    pair<Node, Node> startNodes = splitNode(startIndex);
+
+                    auto nodePair = --indexToNode.upper_bound(seqSize);//last node
+                    size_t lastNodeID = nodePair->second;
+ 
+                    Node* lastNode = graph.get_node(lastNodeID);       
+
+                    Node n = startNodes.second;
+                    graph.create_edge(lastNode, &n); 
+                }
+           } 
+        } else {
+            //Inversion
+           size_t length = lengthDistribution(generator); 
+           if (length > 0) {
+                if (startIndex == 0) {
+
+                    pair<Node, Node> endNodes = splitNode(startIndex+length);
+
+                    Node end = endNodes.second;
+                    Node n = endNodes.first;
+                    graph.create_edge(&n, &end, true, false); 
+
+
+                } else if ( length + startIndex < seqSize-1) {
+                    pair<Node, Node> startNodes = splitNode(startIndex);
+                    pair<Node, Node> endNodes = splitNode(startIndex+length);
+
+                    Node start = startNodes.first;
+                    Node end = endNodes.second;
+                    Node n1 = startNodes.second;
+                    Node n2 = endNodes.first;
+                    graph.create_edge(&start, &n2, false, true);
+                    graph.create_edge(&n1, &end, true, false); 
+
+               } else if (length + startIndex == seqSize - 1) {
+
+                    pair<Node, Node> startNodes = splitNode(startIndex);
+
+                    Node start = startNodes.first;
+                    Node n = startNodes.second;
+                    graph.create_edge(&start, &n, false, true);
+
+
+               }
+           } 
+        }
+    }
+    return graph;
+};
 class TestDistanceIndex : public DistanceIndex {
 
     public:
@@ -98,8 +409,10 @@ class TestDistanceIndex : public DistanceIndex {
 
             REQUIRE(sd1.snarlDistance(start1, make_pair(2, false)) == 3); 
             REQUIRE(sd1.snarlDistance(start1, make_pair(2, true)) == -1); 
-            REQUIRE(sd1.snarlDistanceShort(&ng, &snarl_manager, start1, make_pair(2, false)) == 0); 
-            REQUIRE(sd1.snarlDistance(start2r, make_pair(1,true)) == 3);         
+            REQUIRE(sd1.snarlDistanceShort(&graph , &ng, start1, make_pair(2, false)) == 0); 
+            REQUIRE(sd1.snarlDistance(start2r, make_pair(1,true)) == 3); 
+            REQUIRE(sd1.snarlDistanceShort(&graph , &ng, make_pair(8, true), make_pair(1, true)) == 0); 
+            REQUIRE(sd1.snarlDistanceShort(&graph , &ng, make_pair(1, false), make_pair(8, false)) == 0); 
  
 
              //REQUIRE(sd2.snarlDistance(make_pair(3, false), make_pair(7, false)) == 4);          
@@ -142,6 +455,7 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos5 = make_pos_t(2, false, 0);
             pos_t pos6 = make_pos_t(2, true, 0);
             pos_t pos7 = make_pos_t(1, true, 1);
+            pos_t pos8r = make_pos_t(8, false, 2);
             pos_t pos8 = make_pos_t(8, true, 1);
             pos_t pos9 = make_pos_t(6, true, 0);
 
@@ -161,11 +475,22 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.distance(snarl2, snarl3, pos5,pos2) == 5);
             REQUIRE(di.distance(snarl2, snarl3, pos6,pos2) == 5);
             REQUIRE(di.distance(snarl3, snarl2, pos2, pos5) == 5);
-            REQUIRE(di.distance(snarl1, snarl1, pos7, pos8) == 4);
+            REQUIRE(di.distance(snarl1, snarl1, pos7, pos8r) == 5);
+            REQUIRE(di.distance(snarl1, snarl1, pos7, pos8) == 5);
             REQUIRE(di.distance(snarl3, snarl2, pos4, pos9) == -1);
 
+            REQUIRE(distance(&graph, pos3, pos2) == 2);
+            REQUIRE(distance(&graph, pos1,pos2) == 6);
+            REQUIRE(distance(&graph, pos5,pos2) == 5);
+            REQUIRE(distance(&graph, pos6,pos2) == 5);
+            REQUIRE(distance(&graph, pos2, pos5) == 5);
+            REQUIRE(distance(&graph, pos7, pos8r) == 5);
+            REQUIRE(distance(&graph, pos7, pos8) == 5);
+            REQUIRE(distance(&graph, pos4, pos9) == -1);
+
+
         }
-        }//End test case
+    }//End test case
 
     TEST_CASE("Simple chain", "[dist]") {
         VG graph;
@@ -276,9 +601,19 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.distance(snarl2, snarl5, pos3, pos2) == 6);
             REQUIRE(di.distance(snarl2, snarl5, pos3, pos4) == 6);
             REQUIRE(di.distance(snarl1, snarl5, pos5, pos2) == 9);
-            REQUIRE(di.distance(snarl1, snarl1, pos5, pos6) == 4);
+            REQUIRE(di.distance(snarl1, snarl1, pos5, pos6) == 7);
+
+            REQUIRE(distance(&graph, pos1, pos2) == 7);
+            REQUIRE(distance(&graph, pos2, pos1) == 7);
+            REQUIRE(distance(&graph, pos3, pos1) == 3);
+            REQUIRE(distance(&graph, pos1, pos3) == 3);
+            REQUIRE(distance(&graph, pos3, pos2) == 6);
+            REQUIRE(distance(&graph, pos3, pos4) == 6);
+            REQUIRE(distance(&graph, pos5, pos2) == 9);
+            REQUIRE(distance(&graph, pos5, pos6) == 7);
+
         }
-        }//end test case
+    }//end test case
 
     TEST_CASE("Chain with reversing edge", "[dist]") {
         VG graph;
@@ -377,9 +712,9 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(sd5.snarlDistance(make_pair(6, false), make_pair(6, true))
                                                                         == 12);
             REQUIRE(sd5.snarlDistance(make_pair(5, false), make_pair(6, true))
-                                                                        == 15);
+                                                                        == 5);
             REQUIRE(sd2.snarlDistance(make_pair(3, false), make_pair(4, true))
-                                                                         == -1);
+                                                                         == 7);
             REQUIRE(di.chainIndex.size() == 1);
             REQUIRE(cd.chainDistance(make_pair(2, false), make_pair(5, false)) == 2);
             REQUIRE(cd.chainDistance(make_pair(5, true), make_pair(2, true)) == 4);
@@ -406,11 +741,24 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.distance(snarl2, snarl5, pos3, pos2) == 6);
             REQUIRE(di.distance(snarl2, snarl5, pos3, pos4) == 6);
             REQUIRE(di.distance(snarl1, snarl5, pos5, pos2) == 9);
-            REQUIRE(di.distance(snarl1, snarl1, pos5, pos6) == 4);
+            REQUIRE(di.distance(snarl5, snarl1, pos2, pos5) == 9);
+            REQUIRE(di.distance(snarl1, snarl1, pos5, pos6) == 7);
             REQUIRE(di.distance(snarl2, snarl5, pos1, pos7) == 10);
             REQUIRE(di.distance(snarl2, snarl2, pos1, pos8) == 10);
+
+            REQUIRE(distance(&graph, pos1, pos2) == 7);
+            REQUIRE(distance(&graph, pos2, pos1) == 7);
+            REQUIRE(distance(&graph, pos3, pos1) == 3);
+            REQUIRE(distance(&graph, pos1, pos3) == 3);
+            REQUIRE(distance(&graph, pos3, pos2) == 6);
+            REQUIRE(distance(&graph, pos3, pos4) == 6);
+            REQUIRE(distance(&graph, pos5, pos2) == 9);
+            REQUIRE(distance(&graph, pos2, pos5) == 9);
+            REQUIRE(distance(&graph, pos5, pos6) == 7);
+            REQUIRE(distance(&graph, pos1, pos7) == 10);
+            REQUIRE(distance(&graph, pos1, pos8) == 10);
         }
-        }//end test case
+    }//end test case
 
     TEST_CASE("Top level chain", "[dist]") {
         VG graph;
@@ -505,6 +853,8 @@ class TestDistanceIndex : public DistanceIndex {
                                                                          == 3);
             REQUIRE(sd1.snarlDistance(make_pair(8, true), make_pair(1, true))
                                                                           == 4);
+            REQUIRE(sd5.snarlDistance(make_pair(6, true), make_pair(6, false))
+                                                                          == 7);
             REQUIRE(di.chainIndex.size() == 2);
     
             TestDistanceIndex::ChainDistances& cd = di.chainIndex.at(get_start_of(*chain).node_id());
@@ -537,10 +887,20 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.distance(snarl2, snarl5, pos3, pos2) == 6);
             REQUIRE(di.distance(snarl2, snarl5, pos3, pos4) == 6);
             REQUIRE(di.distance(snarl1, snarl5, pos5, pos2) == 9);
-            REQUIRE(di.distance(snarl1, snarl1, pos5, pos6) == 4);
+            REQUIRE(di.distance(snarl1, snarl1, pos5, pos6) == 7);
             REQUIRE(di.distance(snarl2, snarl8, pos3, pos7) == 11);
+
+            REQUIRE(distance(&graph, pos1, pos2) == 7);
+            REQUIRE(distance(&graph, pos2, pos1) == 7);
+            REQUIRE(distance(&graph, pos3, pos1) == 3);
+            REQUIRE(distance(&graph, pos1, pos3) == 3);
+            REQUIRE(distance(&graph, pos3, pos2) == 6);
+            REQUIRE(distance(&graph, pos3, pos4) == 6);
+            REQUIRE(distance(&graph, pos5, pos2) == 9);
+            REQUIRE(distance(&graph, pos5, pos6) == 7);
+            REQUIRE(distance(&graph, pos3, pos7) == 11);
         }
-        }//end test case
+    }//end test case
     TEST_CASE("Interior chain", "[dist]") {
         VG graph;
 
@@ -629,6 +989,7 @@ class TestDistanceIndex : public DistanceIndex {
             #ifdef print
             di.printSelf();
             #endif
+
             REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 0) == 0);
             REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 1) == 1);
             REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 2) == 1);
@@ -658,7 +1019,10 @@ class TestDistanceIndex : public DistanceIndex {
             const Snarl* snarl7 = snarl_manager.into_which_snarl(7, false);
 
             pos_t pos1 = make_pos_t(1, false, 0);
+            pos_t pos2 = make_pos_t(2, false, 0);
             pos_t pos4 = make_pos_t(4, false, 1);
+            pos_t pos5 = make_pos_t(5, false, 0);
+            pos_t pos6 = make_pos_t(6, false, 0);
             pos_t pos7 = make_pos_t(7, false, 0);
             pos_t pos8 = make_pos_t(8, false, 0);
             pos_t pos8r = make_pos_t(8, true, 0);
@@ -673,10 +1037,22 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.distance(snarl7, snarl7, pos7, pos8r) == 2);
             REQUIRE(di.distance(snarl7, snarl7, pos7, pos8) == 2);
             REQUIRE(di.distance(snarl7, snarl7, pos8r, pos7) == 2);
-            REQUIRE(di.distance(snarl7, snarl7, pos7, pos9) == 6);
- 
+            REQUIRE(di.distance(snarl2, snarl7, pos2, pos8) == 7);
+            REQUIRE(di.distance(snarl4, snarl4, pos6, pos5) == 10);
+
+            REQUIRE(distance(&graph, pos4, pos8) == 5);
+            REQUIRE(distance(&graph, pos4, pos8) == 5);
+            REQUIRE(distance(&graph, pos8, pos4) == 5);
+            REQUIRE(distance(&graph, pos1, pos4) == 6);
+            REQUIRE(distance(&graph, pos1, pos4) == 6);
+            REQUIRE(distance(&graph, pos8, pos8r) == 4);
+            REQUIRE(distance(&graph, pos7, pos8r) == 2);
+            REQUIRE(distance(&graph, pos7, pos8) == 2);
+            REQUIRE(distance(&graph, pos8r, pos7) == 2);
+            REQUIRE(distance(&graph, pos2, pos8) == 7);
+            REQUIRE(distance(&graph, pos6, pos5) == 10);
         }
-        }//end test case
+    }//end test case
     TEST_CASE("Top level loop creates unary snarl", "[dist]") {
         VG graph;
 
@@ -799,10 +1175,15 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.distance(snarl2, snarl2, pos2, pos3) == 8);
             REQUIRE(di.distance(snarl6, snarl7, pos4, pos7) == 6);
             REQUIRE(di.distance(snarl1, snarl6, pos1, pos5) == 5);
- 
+
+            REQUIRE(distance(&graph, pos1, pos7) == 5);
+            REQUIRE(distance(&graph, pos2, pos3) == 8);
+            REQUIRE(distance(&graph, pos2, pos3) == 8);
+            REQUIRE(distance(&graph, pos4, pos7) == 6);
+            REQUIRE(distance(&graph, pos1, pos5) == 5);
         }
-        }//end test case
-    TEST_CASE( "Shortest path exits chain or snarl","[dist]" ) {
+    }//end test case
+    TEST_CASE( "Shortest path exits common ancestor","[dist]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -873,12 +1254,15 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos5r = make_pos_t(5, false, 11);
             pos_t pos7 = make_pos_t(7, false, 0);
 
-            //REQUIRE(di.distance(snarl3, snarl3, pos4, pos5) == 4);
+            REQUIRE(di.distance(snarl3, snarl3, pos4, pos5) == 6);
             REQUIRE(di.distance(snarl3, snarl3, pos5, pos5r) == 2);
-            //REQUIRE(di.distance(snarl3, snarl6, pos5, pos7) == 11);
+            REQUIRE(di.distance(snarl3, snarl6, pos5, pos7) == 11);
 
+            REQUIRE(distance(&graph, pos4, pos5) == 6);
+            REQUIRE(distance(&graph, pos5, pos5r) == 2);
+            REQUIRE(distance(&graph, pos5, pos7) == 11);
         }
-        }//End test case
+    }//End test case
     TEST_CASE( "Simple nested snarl with loop",
                    "[dist]" ) {
         VG graph;
@@ -934,7 +1318,7 @@ class TestDistanceIndex : public DistanceIndex {
 
             REQUIRE(sd1.snarlDistance(make_pair(1, false), make_pair(2, false)) == 3); 
             REQUIRE(sd1.snarlDistance(make_pair(1, false), make_pair(2, true)) == 6); 
-            REQUIRE(sd1.snarlDistanceShort(&ng, &snarl_manager, make_pair(1, false), make_pair(2, false)) == 0); 
+            REQUIRE(sd1.snarlDistanceShort(&graph , &ng, make_pair(1, false), make_pair(2, false)) == 0); 
             REQUIRE(sd1.snarlDistance(make_pair(2, true), make_pair(1,true)) == 3); 
 
         }
@@ -972,13 +1356,22 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.distance(snarl2, snarl3, pos5,pos2) == 5);
             REQUIRE(di.distance(snarl2, snarl3, pos6,pos2) == 5);
             REQUIRE(di.distance(snarl3, snarl2, pos2, pos5) == 5);
-            REQUIRE(di.distance(snarl1, snarl1, pos7, pos8) == 4);
+            REQUIRE(di.distance(snarl1, snarl1, pos7, pos8) == 5);
             REQUIRE(di.distance(snarl3, snarl2, pos4, pos9) == 8);
             REQUIRE(di.distance(snarl3, snarl2, pos10, pos9) == 9);
             REQUIRE(di.distance(snarl2, snarl3, pos9, pos10) == 9);
 
+            REQUIRE(distance(&graph,pos3, pos2) == 2);
+            REQUIRE(distance(&graph, pos1,pos2) == 6);
+            REQUIRE(distance(&graph, pos5,pos2) == 5);
+            REQUIRE(distance(&graph, pos6,pos2) == 5);
+            REQUIRE(distance(&graph, pos2, pos5) == 5);
+            REQUIRE(distance(&graph, pos7, pos8) == 5);
+            REQUIRE(distance(&graph, pos4, pos9) == 8);
+            REQUIRE(distance(&graph, pos10, pos9) == 9);
+            REQUIRE(distance(&graph, pos9, pos10) == 9);
         }
-        }//End test case
+    }//End test case
 
 
     TEST_CASE( "More loops",
@@ -1053,9 +1446,13 @@ class TestDistanceIndex : public DistanceIndex {
 
             REQUIRE(di.distance(snarl1, snarl2, pos1, pos4) == 5);
             REQUIRE(di.distance(snarl1, snarl1, pos5, pos6) == 12);
+            REQUIRE(di.distance(snarl2, snarl1, pos2, pos7) == 7);
 
+            REQUIRE(distance(&graph, pos1, pos4) == 5);
+            REQUIRE(distance(&graph, pos5, pos6) == 12);
+            REQUIRE(distance(&graph, pos2, pos7) == 7);
         }
-        }//End test case
+    }//End test case
     TEST_CASE("Nested unary snarls", "[dist]") {
         VG graph;
         Node* n1 = graph.create_node("GCA");
@@ -1130,11 +1527,428 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.distance(snarl1, snarl5, pos1, pos5) == 8);
             REQUIRE(di.distance(snarl3, snarl5, pos3, pos5) == -1);
             REQUIRE(di.distance(snarl3, snarl2, pos3, pos8) == 3);
+
+            REQUIRE(distance(&graph, pos1, pos1) == 1);
+            REQUIRE(distance(&graph, pos1, pos2) == 4);
+            REQUIRE(distance(&graph, pos1, pos8) == 4);
+            REQUIRE(distance(&graph, pos1, pos5) == 8);
+            REQUIRE(distance(&graph, pos3, pos5) == -1);
+            REQUIRE(distance(&graph, pos3, pos8) == 3);
  
         }
-        }//end test case
+    }//end test case
+
+    TEST_CASE( "Exit common ancestor","[dist]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GGGGGGGGGGGG");//12 Gs
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("CTGA");
+        Node* n9 = graph.create_node("AA");
+        Node* n10 = graph.create_node("G");
+        Node* n11 = graph.create_node("G");
+        Node* n12 = graph.create_node("G");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n10);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n11);
+        Edge* e5 = graph.create_edge(n11, n9);
+        Edge* e6 = graph.create_edge(n3, n4);
+        Edge* e7 = graph.create_edge(n3, n5);
+        Edge* e8 = graph.create_edge(n4, n6);
+        Edge* e9 = graph.create_edge(n5, n6);
+        Edge* e10 = graph.create_edge(n6, n7);
+        Edge* e11 = graph.create_edge(n6, n12);
+        Edge* e12 = graph.create_edge(n12, n8);
+        Edge* e13 = graph.create_edge(n7, n8);
+        Edge* e14 = graph.create_edge(n8, n9);
+        Edge* e15 = graph.create_edge(n9, n10);
+        Edge* e16 = graph.create_edge(n2, n2, true, false);
+        Edge* e17 = graph.create_edge(n9, n9, false, true);
+        Edge* e18 = graph.create_edge(n2, n9, true, true);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+        TestDistanceIndex di (&graph, &snarl_manager);
+        
+        SECTION( "Create distance index" ) {
+            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
+            TestDistanceIndex::SnarlDistances& sd1 = di.snarlIndex.at(make_pair(
+                  snarl1->start().node_id(),snarl1->start().backward()));
+
+            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
+            TestDistanceIndex::SnarlDistances& sd2 = di.snarlIndex.at(make_pair(
+                       snarl2->start().node_id(),snarl2->start().backward()));
+
+            const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
+            TestDistanceIndex::SnarlDistances& sd3 = di.snarlIndex.at(make_pair(
+                       snarl3->start().node_id(),snarl3->start().backward()));
+
+            const Snarl* snarl6 = snarl_manager.into_which_snarl(6, false);
+            TestDistanceIndex::SnarlDistances& sd6 = di.snarlIndex.at(make_pair(
+                       snarl6->start().node_id(),snarl6->start().backward()));
+
+#ifdef print
+            di.printSelf();
+#endif
+        }
 
 
-    }
+        SECTION ("Distance functions") {
+            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
+            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
+            const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
+            const Snarl* snarl6 = snarl_manager.into_which_snarl(6, false);
+
+            pos_t pos1 = make_pos_t(1, false, 0);
+            pos_t pos2 = make_pos_t(2, false, 0);
+            pos_t pos3 = make_pos_t(3, false, 0);
+            pos_t pos4 = make_pos_t(4, false, 0);
+            pos_t pos5 = make_pos_t(5, false, 0);
+            pos_t pos5r = make_pos_t(5, false, 11);
+            pos_t pos7 = make_pos_t(7, false, 0);
+            pos_t pos8 = make_pos_t(8, false, 0);
+            pos_t pos9 = make_pos_t(9, false, 0);
+            pos_t pos9r = make_pos_t(9, false, 1);
+            pos_t pos11 = make_pos_t(11, false, 0);
+            pos_t pos12 = make_pos_t(12, false, 0);
+
+            REQUIRE(di.distance(snarl2, snarl2, pos2, pos9r) == 2);
+            REQUIRE(di.distance(snarl3, snarl2, pos3, pos9) == 4);
+            REQUIRE(di.distance(snarl3, snarl3, pos4, pos5) == 6);
+            REQUIRE(di.distance(snarl3, snarl3, pos4, pos5) == 6);
+            REQUIRE(di.distance(snarl6, snarl6, pos7, pos12) == 14);
+            REQUIRE(di.distance(snarl6, snarl2, pos8, pos11) == 8);
+
+
+            REQUIRE(distance(&graph, pos2, pos9r) == 2);
+            REQUIRE(distance(&graph, pos3, pos9) == 4);
+            REQUIRE(distance(&graph, pos4, pos5) == 6);
+            REQUIRE(distance(&graph, pos4, pos5) == 6);
+            REQUIRE(distance(&graph, pos7, pos12) == 14);
+            REQUIRE(distance(&graph, pos8, pos11) == 8);
+
+        }
+    }//End test case
+
+    TEST_CASE( "Exit common ancestor chain","[dist]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GGGGGGGGGGGG");//12 Gs
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("G");
+        Node* n9 = graph.create_node("AA");
+        Node* n10 = graph.create_node("G");
+        Node* n11 = graph.create_node("G");
+        Node* n12 = graph.create_node("G");
+        Node* n13 = graph.create_node("GA");
+        Node* n14 = graph.create_node("G");
+        Node* n15 = graph.create_node("G");
+        Node* n16 = graph.create_node("G");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n13);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n16);
+        Edge* e27 = graph.create_edge(n16, n9);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n3, n5);
+        Edge* e7 = graph.create_edge(n4, n6);
+        Edge* e8 = graph.create_edge(n5, n6);
+        Edge* e9 = graph.create_edge(n6, n7);
+        Edge* e10 = graph.create_edge(n6, n8);
+        Edge* e11 = graph.create_edge(n7, n8);
+        Edge* e12 = graph.create_edge(n8, n9);
+        Edge* e13 = graph.create_edge(n9, n10);
+        Edge* e14 = graph.create_edge(n9, n11);
+        Edge* e15 = graph.create_edge(n10, n11);
+        Edge* e16 = graph.create_edge(n11, n12);
+        Edge* e17 = graph.create_edge(n11, n2);
+        Edge* e18 = graph.create_edge(n12, n1);
+        Edge* e19 = graph.create_edge(n13, n14);
+        Edge* e20 = graph.create_edge(n13, n15);
+        Edge* e21 = graph.create_edge(n14, n15);
+        Edge* e22 = graph.create_edge(n15, n12);
+        Edge* e23 = graph.create_edge(n2, n2, true, false);
+        Edge* e24 = graph.create_edge(n11, n11, false, true);
+        Edge* e25 = graph.create_edge(n1, n1, true, false);
+        Edge* e26 = graph.create_edge(n12, n12, false, true);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+        TestDistanceIndex di (&graph, &snarl_manager);
+        
+        SECTION( "Create distance index" ) {
+            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
+            TestDistanceIndex::SnarlDistances& sd1 = di.snarlIndex.at(make_pair(
+                  snarl1->start().node_id(),snarl1->start().backward()));
+
+            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
+            TestDistanceIndex::SnarlDistances& sd2 = di.snarlIndex.at(make_pair(
+                       snarl2->start().node_id(),snarl2->start().backward()));
+
+            const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
+            TestDistanceIndex::SnarlDistances& sd3 = di.snarlIndex.at(make_pair(
+                       snarl3->start().node_id(),snarl3->start().backward()));
+
+            const Snarl* snarl6 = snarl_manager.into_which_snarl(6, false);
+            TestDistanceIndex::SnarlDistances& sd6 = di.snarlIndex.at(make_pair(
+                       snarl6->start().node_id(),snarl6->start().backward()));
+
+#ifdef print
+            di.printSelf();
+#endif
+        }
+
+
+        SECTION ("Distance functions") {
+            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
+            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
+            const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
+            const Snarl* snarl6 = snarl_manager.into_which_snarl(6, false);
+            const Snarl* snarl9 = snarl_manager.into_which_snarl(9, false);
+            const Snarl* snarl13 = snarl_manager.into_which_snarl(13, false);
+
+            pos_t pos1 = make_pos_t(1, false, 0);
+            pos_t pos2 = make_pos_t(2, false, 0);
+            pos_t pos3 = make_pos_t(3, false, 0);
+            pos_t pos4 = make_pos_t(4, false, 0);
+            pos_t pos4r = make_pos_t(4, false, 3);
+            pos_t pos5 = make_pos_t(5, false, 0);
+            pos_t pos5r = make_pos_t(5, false, 11);
+            pos_t pos7 = make_pos_t(7, false, 0);
+            pos_t pos8 = make_pos_t(8, false, 0);
+            pos_t pos9 = make_pos_t(9, false, 0);
+            pos_t pos9r = make_pos_t(9, false, 1);
+            pos_t pos10 = make_pos_t(10, false, 0);
+            pos_t pos11 = make_pos_t(11, false, 0);
+            pos_t pos12 = make_pos_t(12, false, 0);
+            pos_t pos14 = make_pos_t(14, false, 0);
+            pos_t pos16 = make_pos_t(16, false, 0);
+
+            REQUIRE(di.distance(snarl2, snarl9, pos2, pos10) == 3);
+            REQUIRE(di.distance(snarl3, snarl3, pos4, pos5) == 6);
+            REQUIRE(di.distance(snarl3, snarl3, pos4r, pos5r) == 12);
+            REQUIRE(di.distance(snarl13, snarl9, pos14, pos10) == 6);
+            REQUIRE(di.distance(snarl13, snarl3, pos14, pos3) == 8);
+            REQUIRE(di.distance(snarl2, snarl3, pos16, pos3) == 4);
+
+            REQUIRE(distance(&graph, pos2, pos10) == 3);
+            REQUIRE(distance(&graph, pos4, pos5) == 6);
+            REQUIRE(distance(&graph, pos4r, pos5r) == 12);
+            REQUIRE(distance(&graph, pos14, pos10) == 6);
+            REQUIRE(distance(&graph, pos14, pos3) == 8);
+            REQUIRE(distance(&graph, pos16, pos3) == 4);
+        }
+    }//End test case
+
+    TEST_CASE("Top level loops", "[dist]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("G");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGAAAAAAAAAAAA"); //15
+        Node* n5 = graph.create_node("GCAA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("A");
+        Node* n9 = graph.create_node("T");
+        Node* n10 = graph.create_node("G");
+
+        Edge* e1 = graph.create_edge(n9, n1);
+        Edge* e2 = graph.create_edge(n9, n10);
+        Edge* e3 = graph.create_edge(n1, n2);
+        Edge* e4 = graph.create_edge(n1, n8);
+        Edge* e5 = graph.create_edge(n2, n3);
+        Edge* e6 = graph.create_edge(n2, n4);
+        Edge* e7 = graph.create_edge(n3, n5);
+        Edge* e8 = graph.create_edge(n4, n5);
+        Edge* e9 = graph.create_edge(n5, n6);
+        Edge* e10 = graph.create_edge(n5, n7);
+        Edge* e11 = graph.create_edge(n6, n7);
+        Edge* e12 = graph.create_edge(n7, n8);
+        Edge* e13 = graph.create_edge(n8, n10);
+        Edge* e14 = graph.create_edge(n10, n10, false, true);
+        Edge* e15 = graph.create_edge(n9, n9, true, false);
+        Edge* e16 = graph.create_edge(n10, n9);
+        Edge* e17 = graph.create_edge(n2, n2, true, false);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+        TestDistanceIndex di (&graph, &snarl_manager);
+
+
+        SECTION("Create distance index") {
+
+            #ifdef print
+                di.printSelf();
+            #endif
+ 
+            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
+            const Chain* chain = snarl_manager.chain_of(snarl1);
+            TestDistanceIndex::ChainDistances& cd = di.chainIndex.at(get_start_of(*chain).node_id());
+            REQUIRE(cd.chainDistance(make_pair(1, true), make_pair(8, true)) == 3);
+            REQUIRE(cd.chainDistance(make_pair(8, false), make_pair(1, false)) == 3);
+            REQUIRE(cd.chainDistanceShort(&graph, make_pair(8, false), make_pair(1, false)) == 2);
+          
+        }
+        SECTION ("Distance functions") {
+            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
+            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
+            const Snarl* snarl5 = snarl_manager.into_which_snarl(5, false);
+            const Snarl* snarl9 = snarl_manager.into_which_snarl(9, false);
+
+            pos_t pos1 = make_pos_t(1, false, 1);
+            pos_t pos2 = make_pos_t(2, false, 0);
+            pos_t pos3 = make_pos_t(3, false, 0);
+            pos_t pos4 = make_pos_t(4, false, 0);
+            pos_t pos5 = make_pos_t(5, false, 0);
+            pos_t pos6 = make_pos_t(6, true, 0);
+            pos_t pos7 = make_pos_t(7, true, 0);
+
+            REQUIRE(di.distance(snarl2, snarl5, pos4, pos6) == 8);
+            REQUIRE(di.distance(snarl2, snarl5, pos2, pos7) == 6);
+
+            REQUIRE(distance(&graph, pos4, pos6) == 8);
+            REQUIRE(distance(&graph, pos2, pos7) == 6);
+        }
+    }//end test case
+
+    TEST_CASE("Two tip start", "[dist]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("G");
+        Node* n2 = graph.create_node("TA");
+        Node* n3 = graph.create_node("GGG");
+
+        Edge* e1 = graph.create_edge(n1, n3);
+        Edge* e2 = graph.create_edge(n2, n3);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+        TestDistanceIndex di (&graph, &snarl_manager);
+
+
+       SECTION ("Distance functions") {
+            #ifdef print
+                di.printSelf();
+            #endif
+            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, true);
+            const Snarl* snarl3 = snarl_manager.into_which_snarl(2, false);
+
+            pos_t pos1 = make_pos_t(1, false, 0);
+            pos_t pos2 = make_pos_t(2, false, 0);
+            pos_t pos3 = make_pos_t(3, false, 0);
+
+            REQUIRE(di.distance(snarl1, snarl3, pos1, pos3) == 2);
+
+        }
+    }//end test case
+    TEST_CASE("Random test", "[dist]") {
+        for (int i = 0; i < 1000000; i++) {
+            //1000 different graphs
+            VG graph = makeRandomGraph(); 
+
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+            TestDistanceIndex di (&graph, &snarl_manager);
+            #ifdef print        
+                di.printSelf();
+            #endif
+        
+            vector<const Snarl*> allSnarls;
+            auto addSnarl = [&] (const Snarl* s) {
+                allSnarls.push_back(s);
+            };
+            snarl_manager.for_each_snarl_preorder(addSnarl);
+
+            uniform_int_distribution<int> randSnarlIndex(0, allSnarls.size()-1);
+            default_random_engine generator(time(NULL));
+            for (int j = 0; j < 1000; j++) {
+                //Check distances for 100 random pairs of positions 
+                const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
+                const Snarl* snarl2 = allSnarls[randSnarlIndex(generator)];
+                 
+                pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 = 
+                           snarl_manager.shallow_contents(snarl1, graph, true);
+                pair<unordered_set<Node*>, unordered_set<Edge*>> contents2 = 
+                           snarl_manager.shallow_contents(snarl2, graph, true);
+ 
+                vector<Node*> nodes1 (contents1.first.begin(), contents1.first.end());
+                vector<Node*> nodes2 (contents2.first.begin(), contents2.first.end());
+
+                
+                uniform_int_distribution<int> randNodeIndex2(0,nodes2.size()-1);
+                uniform_int_distribution<int> randNodeIndex1(0,nodes1.size()-1);
+ 
+                Node* node1 = nodes1[randNodeIndex1(generator)];
+                Node* node2 = nodes2[randNodeIndex2(generator)];
+                id_t nodeID1 = node1->id();
+                id_t nodeID2 = node2->id();
+ 
+                off_t offset1 = rand() % node1->sequence().size();
+                off_t offset2 = rand() % node2->sequence().size();
+
+                pos_t pos1 = make_pos_t(nodeID1, rand()%2 == 0, offset1 );
+                pos_t pos2 = make_pos_t(nodeID2, rand()%2 == 0, offset2 );
+ 
+                if (!(nodeID1 != snarl1->start().node_id() && 
+                    (snarl_manager.into_which_snarl(nodeID1, false) != NULL ||
+                      snarl_manager.into_which_snarl(nodeID1, true) != NULL)) &&
+                    ! (nodeID2 != snarl2->start().node_id() &&
+                        (snarl_manager.into_which_snarl(nodeID2, false) != NULL
+                       || snarl_manager.into_which_snarl(nodeID2, true) != NULL
+                  ))){
+                    //If the nodes aren't child snarls
+
+                        graph.serialize_to_file("testGraph");
+                        cerr << "Position 1 on snarl " << 
+                               snarl1->start().node_id() << " " << " Node " <<
+                               nodeID1 << " is rev? " << is_rev(pos1) << 
+                               " offset: " << offset1 << endl;
+                        cerr << "Position 2 on snarl " << 
+                              snarl2->start().node_id() << " Node " << nodeID2 
+                              << " is rev? " << is_rev(pos2) << " offset: " 
+                              << offset2 << endl;
+                    int64_t myDist = di.distance(snarl1, snarl2,pos1, pos2);
+                    int64_t actDist = distance(&graph, pos1, pos2);
+                    bool passed = myDist == actDist;
+
+                    if (!passed) { 
+                        graph.serialize_to_file("testGraph");
+                        di.printSelf();
+                        cerr << "Failed on random test: " << endl;
+                        
+                        cerr << "Position 1 on snarl " << 
+                               snarl1->start().node_id() << " " << " Node " <<
+                               nodeID1 << " is rev? " << is_rev(pos1) << 
+                               " offset: " << offset1 << endl;
+                        cerr << "Position 2 on snarl " << 
+                              snarl2->start().node_id() << " Node " << nodeID2 
+                              << " is rev? " << is_rev(pos2) << " offset: " 
+                              << offset2 << endl;
+
+                        cerr << "Actual distance: " << actDist << "    " <<
+                                "Guessed distance: " << myDist << endl;
+                    }
+                    REQUIRE(passed);
+                }
+            }
+             
+        }
+    } //end test case
+}
 
 }
