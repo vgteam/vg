@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 14
+plan tests 17
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 505 "view produces the expected number of lines of dot output"
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l) 503 "view produces the expected number of lines of GFA output"
@@ -44,5 +44,14 @@ is $(cat x.vg x.vg x.vg x.vg | vg view -c - | wc -l) 4 "streaming JSON output pr
 is "$(cat x.vg x.vg | vg view -vD - 2>&1 > /dev/null | wc -l)" 0 "duplicate warnings can be suppressed"
 
 rm x.vg
+
+is "$(vg view -Fv overlaps/two_snvs_assembly1.gfa | vg stats -l - | cut -f2)" "315" "gfa graphs are imported pre-bluntified"
+
+is "$(vg view -Fv overlaps/two_snvs_assembly1.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "315" "bluntifying has no effect"
+
+is "$(vg view -Fv overlaps/two_snvs_assembly4.gfa | vg stats -l - | cut -f2)" "335" "a more complex GFA can be imported"
+
+vg view -Fv overlaps/incorrect_overlap.gfa >/dev/null
+is "$?" "0" "GFA import doesn't crash even when overlap alignments ignore mismatches"
 
 

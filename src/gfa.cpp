@@ -462,7 +462,8 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                         } else {
                             if (is_first_subelement) {
                                 // We dangled the sink and we can't, because that would create a tip we can't deal with (yet)
-                                throw runtime_error("CIGAR " + link.alignment + " dangled sink at left");
+                                throw runtime_error("CIGAR " + link.alignment + " subelement " + to_string(subelem.first) + subelem.second +
+                                    " between " + name + " and " + link.sink_name + " dangled sink at left");
                             }
                             // We also dangled the source
                             last_subelement_dangled_source = true;
@@ -476,7 +477,8 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                         sink_cursor += sink_motion * length;
                         if (is_first_subelement) {
                             // We dangled the sink and we can't, because that would create a tip we can't deal with (yet)
-                            throw runtime_error("CIGAR " + link.alignment + " dangled sink at left");
+                            throw runtime_error("CIGAR " + link.alignment + " subelement " + to_string(subelem.first) + subelem.second +
+                                " between " + name + " and " + link.sink_name + " dangled sink at left");
                         }
                         break;
                     case 'D':
@@ -497,7 +499,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             
             if (last_subelement_dangled_source) {
                 // TODO: Work out a way to find this tip and attach it to what the real next node should be.
-                throw runtime_error("CIGAR " + link.alignment + " dangled source at right");
+                throw runtime_error("CIGAR " + link.alignment + " between " + name + " and " + link.sink_name + " dangled source at right");
             }
         }
     }
