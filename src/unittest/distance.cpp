@@ -1857,7 +1857,7 @@ class TestDistanceIndex : public DistanceIndex {
         }
     }//end test case
     TEST_CASE("Random test", "[dist]") {
-        for (int i = 0; i < 1000000; i++) {
+        for (int i = 0; i < 10000; i++) {
             //1000 different graphs
             VG graph = makeRandomGraph(); 
 
@@ -1867,7 +1867,7 @@ class TestDistanceIndex : public DistanceIndex {
             #ifdef print        
                 di.printSelf();
             #endif
-        
+ 
             vector<const Snarl*> allSnarls;
             auto addSnarl = [&] (const Snarl* s) {
                 allSnarls.push_back(s);
@@ -1911,17 +1911,9 @@ class TestDistanceIndex : public DistanceIndex {
                         (snarl_manager.into_which_snarl(nodeID2, false) != NULL
                        || snarl_manager.into_which_snarl(nodeID2, true) != NULL
                   ))){
+
                     //If the nodes aren't child snarls
 
-                        graph.serialize_to_file("testGraph");
-                        cerr << "Position 1 on snarl " << 
-                               snarl1->start().node_id() << " " << " Node " <<
-                               nodeID1 << " is rev? " << is_rev(pos1) << 
-                               " offset: " << offset1 << endl;
-                        cerr << "Position 2 on snarl " << 
-                              snarl2->start().node_id() << " Node " << nodeID2 
-                              << " is rev? " << is_rev(pos2) << " offset: " 
-                              << offset2 << endl;
                     int64_t myDist = di.distance(snarl1, snarl2,pos1, pos2);
                     int64_t actDist = distance(&graph, pos1, pos2);
                     bool passed = myDist == actDist;

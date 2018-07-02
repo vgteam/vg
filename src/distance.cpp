@@ -1,6 +1,6 @@
 //#define indexTraverse
 //#define debug
-#define printDistances
+//#define printDistances
 
 #include "distance.hpp"
 
@@ -512,6 +512,7 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
                 cerr << "  Start Node: " << startID.first << "," 
                                                    << startID.second << endl;
             #endif
+            bool firstLoop = true;
 
             while (reachable.size() > 0) {
                 pair<pair<id_t, bool>, int64_t> next = reachable.top();
@@ -641,10 +642,11 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
                                 #endif
                                 Chain currChain;
                                 currChain.push_back(currSnarl);
-                                nodeLen = calculateIndex(&currChain);
+                                calculateIndex(&currChain);
 
                                 SnarlDistances& currSnarlDists = 
                                      snarlIndex.at(make_pair(snarlID,snarlRev));
+                                nodeLen = currSnarlDists.snarlLength(); 
                                 if (currID.second == snarlRev) {
                                     loopDist = currSnarlDists.snarlDistance(
                                        make_pair(snarlID, snarlRev), 
@@ -672,7 +674,7 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
                         nodeLen = n->sequence().size();
                     }
        
-                    if (loopDist != -1 && startID != currID) {
+                    if (loopDist != -1 && !firstLoop) {
 //TODO: I think this will add paths that exist but not in netgraph without having to use internal connectivity in netgraph
                     //If there is a reversing path from within the current node
                     //Add nodes reachable by reversing - leaving snarl at node entered
@@ -724,6 +726,7 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
                     }
 */  
                     if (nodeLen != -1) {
+
                         ng.follow_edges(currHandle, false, addHandle);
                     }
                         
@@ -778,6 +781,7 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
                          cerr << "    prev dist: " << currDist << "+ new dist " << nodeLen << endl;
                     #endif
                 } 
+                firstLoop = false;
             }//End while loop
         }//End for loop over starting node/directions in a snarl
 
@@ -826,20 +830,23 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
 
         int64_t lastLoop = chainLoopRev.back();
 
-        if (lastLoop == -1 || revLoopDist != -1) {
+        if (lastLoop == -1) {
 
             chainLoopRev.push_back(revLoopDist);
 
         } else {
 
             //Push 2*length of prev snarl + loop dist of prev snarl
-            chainLoopRev.push_back(lastLoop +  
+            int64_t loopDistance = minPos({revLoopDist, lastLoop +  
                  sd.snarlDistance(
-              make_pair (snarl->end().node_id(), !snarl->end().backward()),
-               make_pair (snarl->start().node_id(), !snarl->start().backward())) + 
+                make_pair (snarl->end().node_id(), !snarl->end().backward()),
+               make_pair (snarl->start().node_id(), !snarl->start().backward()))
+            + 
                  sd.snarlDistance(
-              make_pair (snarl->start().node_id(), snarl->start().backward()),
-               make_pair (snarl->end().node_id(), snarl->end().backward())));
+                make_pair (snarl->start().node_id(), snarl->start().backward()),
+                 make_pair (snarl->end().node_id(), snarl->end().backward()))});
+
+            chainLoopRev.push_back(loopDistance);
 /* TODO: Fix chain loop distance
                  (chainPrefixSum.at(chainPrefixSum.size()-1) -
                          chainPrefixSum.at(chainPrefixSum.size()-3)) +
@@ -872,14 +879,15 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
               make_pair (snarl->start().node_id(), snarl->start().backward()),
               make_pair (snarl->start().node_id(), !snarl->start().backward()));
         int64_t lastLoop = chainLoopFd.back();
-        if (lastLoop == -1 || fdLoopDist != -1) {
+        if (lastLoop == -1) {
             chainLoopFd.push_back(fdLoopDist);
         } else {
         //push dist to end of snarl + loop dist + dist to start of snarl 
 
-            chainLoopFd.push_back(lastLoop + 
+            int64_t loopDistance = minPos({fdLoopDist, lastLoop + 
                    (chainPrefixSum.at(2*i+2) - chainPrefixSum.at(2*i)) + 
-                       (chainPrefixSum.at(2*i+3) - chainPrefixSum.at(2*i+1))); 
+                       (chainPrefixSum.at(2*i+3) - chainPrefixSum.at(2*i+1))});
+            chainLoopFd.push_back(loopDistance); 
         }           
       
     }
