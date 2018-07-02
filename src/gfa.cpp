@@ -698,17 +698,25 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // Work out how much of this thread the previous thread ate, by looking at the overlaps on the links
             auto overlap_to = link_skips.find(tie(prev_thread_name, thread_name, prev_thread_backward, thread_backward));
             if (overlap_to == link_skips.end()) {
-                // This thread crosses an edge that was removed for having a bad alignment.
+                // This thread crosses an edge that isn't there.
                 // We want to get rid of the path entirely since we can't represent it.
-                cerr << "warning [gfa_to_graph]: path " << name << ": edge " << path.segment_names[i - 1]
-                    << " = " << prev_thread_name << (prev_thread_backward ? 'L' : 'R') 
-                    << " to " << path.segment_names[i] << " = " << thread_name << (thread_backward ? 'R' : 'L')
-                    << " was removed. Discarding path!" << endl;
-                    
-                // This should only ever happen in perfect match mode.
-                // Otherwise the graph is bad.
-                assert(only_perfect_match);
-                    
+                
+                if (only_perfect_match) {
+                    // Edge may have been removed for having a bad alignment.
+                    cerr << "warning [gfa_to_graph]: path " << name << ": edge " << path.segment_names[i - 1]
+                        << " = " << prev_thread_name << (prev_thread_backward ? 'L' : 'R') 
+                        << " to " << path.segment_names[i] << " = " << thread_name << (thread_backward ? 'R' : 'L')
+                        << " is not present. It may have been removed due to having a bad alignment. Discarding path!" << endl;
+                } else {
+                    // All the edges should be there. This is an error in the GFA.
+                    stringstream msg;
+                    msg << "error [gfa_to_graph]: path " << name << ": edge " << path.segment_names[i - 1]
+                        << " = " << prev_thread_name << (prev_thread_backward ? 'L' : 'R') 
+                        << " to " << path.segment_names[i] << " = " << thread_name << (thread_backward ? 'R' : 'L')
+                        << " is not present. The GFA file is malformed!";
+                    throw runtime_error(msg.str());
+                }
+                
                 // Remove the path and skip out on adding the rest of it
                 graph->paths.remove_path(name);
                 abort_path = true;
