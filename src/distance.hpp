@@ -11,6 +11,7 @@ namespace vg {
     //Constructor 
     DistanceIndex (VG* vg, SnarlManager* snarlManager);
 
+
     //Get the distance between two positions
     int64_t distance( 
          const Snarl* snarl1, const Snarl* snarl2, pos_t& pos1, pos_t& pos2);
@@ -30,6 +31,7 @@ namespace vg {
             //Constructor
             SnarlDistances(unordered_set<pair<id_t, bool>>& allNodes, 
                           pair<id_t, bool> start, pair<id_t, bool> end);
+           
 
             //Distance between beginning of node start and beginning of node end
             int64_t snarlDistance(pair<id_t, bool> start, pair<id_t, bool> end);
@@ -39,7 +41,7 @@ namespace vg {
             int64_t snarlDistanceShort(VG* graph,NetGraph* ng,
                      pair<id_t, bool> start, pair<id_t, bool> end); 
 
-            //Add the distance from start to end
+            //Add the distance from start to end to the index
             void insertDistance(pair<id_t, bool> start, pair<id_t, bool> curr, 
                      int64_t dist);
              
@@ -57,18 +59,32 @@ namespace vg {
                                                                 int64_t distR);
 
             void printSelf();
+
         protected:
+
+            //Maps node to index to get its distance
             unordered_map< pair<id_t, bool>, size_t> visitToIndex;
+ 
+             //Store the distance between every pair nodes, -1 indicates no path
+             //For child snarls that are unary or only connected to one node
+             //in the snarl, distances between that node leaving the snarl
+             //and any other node is -1
             vector<int64_t> distances;
-            pair<id_t, bool> snarlStart;  //Start facing into snarl
-               //ID of the first node in the snarl, also key for distance index 
-            pair<id_t, bool> snarlEnd;    //End facing out of snarl
-       
-            int64_t length; //Total length of the snarl
+
+            //ID of the first node in the snarl, also key for distance index 
+            pair<id_t, bool> snarlStart;
+ 
+           //End facing out of snarl
+            pair<id_t, bool> snarlEnd;           
+
+            //Total length of the snarl- start to end plus length of end
+            int64_t length; 
 
             //The index into distances for distance start->end
             size_t index(pair<id_t, bool> start, pair<id_t, bool> end);
+
         private: 
+
             int64_t snarlDistanceShortHelp(VG* graph,NetGraph* ng,
                      pair<id_t, bool> start, pair<id_t, bool> end); 
 
@@ -78,7 +94,8 @@ namespace vg {
         };
 
     class ChainDistances {
-        /*Stores distances between the boundary nodes of two snarls in a chain*/
+        /*Stores distances between snarls in a chain*/
+
         public:
         
             //Constructor
@@ -86,7 +103,9 @@ namespace vg {
                         vector<int64_t> fd, vector<int64_t> rev );
        
             /*Distance between two snarls starting from the beginning of the 
-              start node to the beginning of the end node */
+              start node to the beginning of the end node.
+              bool is true if traversing reverse relative to the start of 
+              the chain */
             int64_t chainDistance(pair<id_t, bool> start, pair<id_t, bool> end);
 
             /*Distance between two snarls starting from the beginning of 
@@ -111,10 +130,14 @@ namespace vg {
               all snarls in the chain*/
             vector<int64_t> prefixSum;
 
-            /*Dist from the end of each node back to iteslf*/
+            /*For each boundary node of snarls in the chain, the distance
+               from the start of the node traversing forward to the end of 
+               the same node traversing backwards*/
             vector<int64_t> loopFd;
     
-            /*Dist from the beginning of each node back to itself*/
+            /*For each boundary node of snarls in the chain, the distance
+               from the end of the node traversing backward to the start of 
+               the same node traversing forward*/
             vector<int64_t> loopRev;
         
             /*Helper function for finding distances*/
@@ -125,13 +148,15 @@ namespace vg {
         }; 
 
 
-        //map from start node to index for a snarl
+        //map from start node of a snarl to its index
         unordered_map<pair<id_t, bool>, SnarlDistances> snarlIndex;
-        //map from node id of first node in snarl
+
+        //map from node id of first node in snarl to that chain's index
         unordered_map<id_t, ChainDistances> chainIndex;
   
         //Graph and snarl manager for this index
         VG* graph;
+
         SnarlManager* sm;
  
         //Helper function for constructor
