@@ -250,6 +250,51 @@ P	21	path12	3	+	1M)";
     REQUIRE(vg.length() == 35);
 }
 
+
+TEST_CASE("Can import paths in GFA 0.1 and in GFA 1.0", "[gfa]") {
+
+    const string graph_gfa_oneline = R"(H	VN:Z:1.0
+S	1	CAAATAAG
+S	2	A
+S	3	G
+P	x	1+,3+	8M,1M
+L	1	+	2	+	0M
+L	1	+	3	+	0M)";
+
+    const string graph_gfa_multiline = R"(H	VN:Z:0.1
+S	1	CAAATAAG
+S	2	A
+S	3	G
+P	1	x	1	+	8M
+P	3	x	2	+	1M
+L	1	+	2	+	0M
+L	1	+	3	+	0M)";
+
+    // Both these GFA files say the same thing.
+    for (auto& graph_gfa : {graph_gfa_oneline, graph_gfa_multiline}) {
+
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        
+        REQUIRE(vg.node_count() == 3);
+        REQUIRE(vg.edge_count() == 2);
+        
+        REQUIRE(vg.paths.has_path("x"));
+        auto path = vg.paths.path("x");
+        REQUIRE(path.mapping_size() == 2);
+        
+        REQUIRE(mapping_from_length(path.mapping(0)) == 8);
+        REQUIRE(mapping_is_match(path.mapping(0)));
+        REQUIRE(path.mapping(0).position().is_reverse() == false);
+        
+        REQUIRE(mapping_from_length(path.mapping(1)) == 1);
+        REQUIRE(mapping_is_match(path.mapping(1)));
+        REQUIRE(path.mapping(1).position().is_reverse() == false);
+        
+    }
+}
+
 TEST_CASE("Can import graphs with merges from GFA", "[gfa]") {
 
     SECTION("A graph that merges the ends of two nodes works") {

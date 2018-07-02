@@ -626,6 +626,11 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         auto& name = name_and_path.first;
         auto& path = name_and_path.second;
         
+#ifdef debug
+        cerr << "Import path " << name << endl;
+        cerr << path.to_string() << endl;
+#endif
+        
         // Create each path
         graph->paths.create_path(name);
         
@@ -639,7 +644,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // Find the thread to visit
             int64_t thread_name = gfa_to_pinch.translate(path.segment_names[0]);
             // Determine if it is visited backward
-            bool thread_backward = path.orientations[0];
+            bool thread_backward = !path.orientations[0];
             
             // Get the actual thread
             stPinchThread* thread = stPinchThreadSet_getThread(pinch, thread_name);
@@ -647,11 +652,22 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // Get the starting end appropriate to the orientation
             stPinchSegment* segment = thread_backward ? stPinchThread_getLast(thread) : stPinchThread_getFirst(thread);
             
+#ifdef debug
+            cerr << "\tBegin at " << path.segment_names[0]
+                << " = " << thread_name << (thread_backward ? 'L' : 'R') << endl;
+#endif
+            
             while (segment != nullptr) {
                 // Look up the node
                 id_t node = pinch_to_vg.translate(segment);
                 // Compute its visit orientation
                 bool node_backward = (!stPinchSegment_getBlockOrientationSafe(segment) != thread_backward);
+                
+#ifdef debug 
+                cerr << "\t\tPath starts with " << stPinchSegment_getLength(segment)
+                    << " bases on node " << node << " orientation " << (node_backward ? "rev" : "fwd") << endl;
+#endif
+                
                 // Visit it
                 graph->paths.append_mapping(name, node, node_backward, stPinchSegment_getLength(segment), 0);
                 // Advance to the next segment
@@ -667,11 +683,17 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // Find the thread to visit
             int64_t thread_name = gfa_to_pinch.translate(path.segment_names[i]);
             // Determine if it is visited backward
-            bool thread_backward = path.orientations[i];
+            bool thread_backward = !path.orientations[i];
             
             // And the previous thread
             int64_t prev_thread_name = gfa_to_pinch.translate(path.segment_names[i - 1]);
-            bool prev_thread_backward = path.orientations[i - 1];
+            bool prev_thread_backward = !path.orientations[i - 1];
+            
+#ifdef debug
+            cerr << "\tCross edge " << path.segment_names[i - 1]
+                << " = " << prev_thread_name << (prev_thread_backward ? 'L' : 'R') 
+                << " to " << path.segment_names[i] << " = " << thread_name << (thread_backward ? 'R' : 'L') << endl;
+#endif
             
             // Work out how much of this thread the previous thread ate, by looking at the overlaps on the links
             auto overlap_to = link_skips.find(tie(prev_thread_name, thread_name, prev_thread_backward, thread_backward));
@@ -701,6 +723,10 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             size_t overlap_skipped = 0;
             while (overlap_skipped < overlap_to->second && segment != nullptr) {
                 overlap_skipped += stPinchSegment_getLength(segment);
+#ifdef debug 
+                cerr << "\t\tSkip overlap of " << stPinchSegment_getLength(segment)
+                    << " from segment for node " << pinch_to_vg.translate(segment) << endl;
+#endif
                 segment = thread_backward ? stPinchSegment_get5Prime(segment) : stPinchSegment_get3Prime(segment);
             }
             
@@ -713,6 +739,12 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 id_t node = pinch_to_vg.translate(segment);
                 // Compute its visit orientation
                 bool node_backward = (!stPinchSegment_getBlockOrientationSafe(segment) != thread_backward);
+                
+#ifdef debug 
+                cerr << "\t\tPath follows " << stPinchSegment_getLength(segment)
+                    << " bases on node " << node << " orientation " << (node_backward ? "rev" : "fwd") << endl;
+#endif
+                
                 // Visit it
                 graph->paths.append_mapping(name, node, node_backward, stPinchSegment_getLength(segment), 0);
                 // Advance to the next segment
