@@ -1500,12 +1500,14 @@ namespace vg {
 #ifdef debug_multipath_mapper
                 cerr << "could not find a consistent pair, reverting to single ended mapping" << endl;
 #endif
-                align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2, do_repeat_rescue_from_1,
-                                                    do_repeat_rescue_from_2, multipath_aln_pairs_out, cluster_pairs, max_alt_mappings);
+                bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2, do_repeat_rescue_from_1,
+                                                                   do_repeat_rescue_from_2, multipath_aln_pairs_out, cluster_pairs, max_alt_mappings);
                 
-                // also account for the possiblity that we selected the wrong ends to rescue with
-                cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
-                                                          cluster_graphs1, cluster_graphs2, false);
+                if (rescued) {
+                    // also account for the possiblity that we selected the wrong ends to rescue with
+                    cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
+                                                              cluster_graphs1, cluster_graphs2, false);
+                }
             }
         }
         
@@ -1839,9 +1841,15 @@ namespace vg {
                                                                     vector<clustergraph_t>& cluster_graphs2,
                                                                     bool from_secondary_rescue) const {
         
+#ifdef debug_multipath_mapper
+        cerr << "checking whether we should enter rescue mapping quality capping routine" << endl;
+#endif
+        
         // did we use an out-of-bounds cluster index to flag either end as coming from a rescue?
         bool opt_aln_1_is_rescued = cluster_pairs.front().first.first >= cluster_graphs1.size();
         bool opt_aln_2_is_rescued = cluster_pairs.front().first.second >= cluster_graphs2.size();
+        
+        cerr << "checked" << endl;
         
         // was the optimal cluster pair obtained by rescue?
         if (opt_aln_1_is_rescued || opt_aln_2_is_rescued) {
