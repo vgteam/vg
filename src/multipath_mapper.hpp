@@ -106,6 +106,10 @@ namespace vg {
         size_t rescue_only_min = 128;
         size_t rescue_only_anchor_max = 16;
         size_t order_length_repeat_hit_max = 0;
+        int32_t secondary_rescue_subopt_diff = 10;
+        size_t min_median_mem_coverage_for_split = 0;
+        bool suppress_cluster_merging = false;
+        size_t alt_anchor_max_length_diff = 5;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -273,10 +277,11 @@ namespace vg {
         
         /// Return true if any of the initial positions of the source Subpaths are shared between the two
         /// multipath alignments
-        bool share_start_position(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
+        bool share_terminal_positions(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
+        
         
         /// Get a thread_local RRMemo with these parameters
-        haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;
+        haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;;
         
         /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also
         /// inverts the distances in the cluster pairs vector according to the strand

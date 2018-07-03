@@ -12,6 +12,7 @@
 #define _XOPEN_SOURCE 1
 
 #include "crash.hpp"
+#include "version.hpp"
 
 // iostream wants this on Travis on Mac
 #include <pthread.h>
@@ -147,6 +148,8 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
         tempStream.open(dirName+ "/stacktrace.txt");
         out = &tempStream;
     }
+    
+    *out << "Crash report for vg " << Version::get_short() << endl;
    
     // This holds the context that the signal came from, including registers and stuff
     ucontext_t* context = (ucontext_t*) signalContext;

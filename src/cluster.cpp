@@ -481,8 +481,14 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
 #ifdef debug_od_clusterer
     for (const auto& strand : strand_relative_position) {
         cerr << "strand reconstruction: "  << endl;
+        vector<size_t> order;
         for (const auto& record : strand) {
-            cerr << "\t" << record.first << ": " << record.second << "\t" << nodes[record.first].mem->sequence() << endl;
+            order.push_back(record.first);
+        }
+        sort(order.begin(), order.end(), [&](size_t a, size_t b) {return strand.at(a) < strand.at(b);});
+        for (const auto i : order) {
+            int64_t strand_pos = strand.at(i);
+            cerr << "\t" << i << ":\t" << strand_pos << "\t" << nodes[i].mem->sequence() << endl;
         }
     }
 #endif
@@ -1380,7 +1386,10 @@ vector<unordered_map<size_t, int64_t>> OrientedDistanceClusterer::flatten_distan
                                                                                         const unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists) {
     
 #ifdef debug_od_clusterer
-    cerr << "constructing strand distance tree" << endl;
+    cerr << "constructing strand distance tree from " << num_items << " distances records:" << endl;
+    for (const auto& record : recorded_finite_dists) {
+        cerr << "\t" << record.first.first << "->" << record.first.second << ": " << record.second << endl;
+    }
 #endif
     
     // build the graph of relative distances in adjacency list representation
@@ -1401,7 +1410,7 @@ vector<unordered_map<size_t, int64_t>> OrientedDistanceClusterer::flatten_distan
         }
         
 #ifdef debug_od_clusterer
-        cerr << "beginning a distance tree traversal at MEM " << i << endl;
+        cerr << "beginning a distance tree traversal at item " << i << endl;
 #endif
         strand_relative_position.emplace_back();
         unordered_map<size_t, int64_t>& relative_pos = strand_relative_position.back();
@@ -1608,6 +1617,41 @@ void OrientedDistanceClusterer::topological_order(vector<size_t>& order_out) {
         }
     }
 }
+    
+void OrientedDistanceClusterer::component_topological_order(const vector<size_t>& component,
+                                                            vector<size_t>& order_out) const {
+    // initialize return value
+    order_out.clear();
+    order_out.resize(component.size());
+    
+    vector<size_t> in_degree(component.size());
+    vector<size_t> stack;
+    unordered_map<size_t, size_t> node_idx_to_component_idx;
+    for (size_t i = 0; i < component.size(); i++) {
+        in_degree[i] = nodes[component[i]].edges_to.size();
+        if (in_degree[i] == 0) {
+            stack.push_back(i);
+        }
+        node_idx_to_component_idx[component[i]] = i;
+    }
+    
+    size_t order_idx = 0;
+    while (!stack.empty()) {
+        size_t i = stack.back();
+        stack.pop_back();
+        
+        order_out[order_idx] = i;
+        order_idx++;
+        
+        for (const ODEdge& edge : nodes[component[i]].edges_from) {
+            size_t j = node_idx_to_component_idx[edge.to_idx];
+            in_degree[j]--;
+            if (in_degree[j] == 0) {
+                stack.push_back(j);
+            }
+        }
+    }
+}
 
 void OrientedDistanceClusterer::identify_sources_and_sinks(vector<size_t>& sources_out,
                                                            vector<size_t>& sinks_out) {
@@ -1714,8 +1758,11 @@ void OrientedDistanceClusterer::perform_dp() {
     }
 }
 
-vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters(int32_t max_qual_score,
-                                                                                 int32_t log_likelihood_approx_factor) {
+vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters(const Alignment& alignment,
+                                                                                 int32_t max_qual_score,
+                                                                                 int32_t log_likelihood_approx_factor,
+                                                                                 size_t min_median_mem_coverage_for_split,
+                                                                                 double suboptimal_edge_pruning_factor) {
     
     vector<vector<pair<const MaximalExactMatch*, pos_t>>> to_return;
     if (nodes.size() == 0) {
@@ -1749,6 +1796,24 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         }
     }
 #endif
+    
+    if (min_median_mem_coverage_for_split) {
+#ifdef debug_od_clusterer
+        cerr << "looking for high coverage clusters to split" << endl;
+#endif
+        for (size_t i = 0; i < components.size(); i++) {
+#ifdef debug_od_clusterer
+            cerr << "component " << i << " has median coverage " << median_mem_coverage(components[i], alignment) << endl;
+#endif
+            if (median_mem_coverage(components[i], alignment) >= min_median_mem_coverage_for_split) {
+#ifdef debug_od_clusterer
+                cerr << "attempting to prune and split cluster" << endl;
+#endif
+                prune_low_scoring_edges(components, i, suboptimal_edge_pruning_factor);
+            }
+        }
+    }
+    
     
     // find the node with the highest DP score in each connected component
     // each record is a pair of (score lower bound, node index)
@@ -1855,6 +1920,8 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
                                                                                      const Alignment& alignment_2,
                                                                                      const vector<cluster_t*>& left_clusters,
                                                                                      const vector<cluster_t*>& right_clusters,
+                                                                                     const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                                                     const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
                                                                                      xg::XG* xgindex,
                                                                                      int64_t min_inter_cluster_distance,
                                                                                      int64_t max_inter_cluster_distance,
@@ -1865,6 +1932,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     
 #ifdef debug_od_clusterer
     cerr << "beginning clustering of MEM cluster pairs for " << left_clusters.size() << " left clusters and " << right_clusters.size() << " right clusters" << endl;
+    cerr << "looking for pairs in the distance range of " << min_inter_cluster_distance << " to " << max_inter_cluster_distance << endl;
 #endif
     
     // We will fill this in with all sufficiently close pairs of clusters from different reads.
@@ -1873,30 +1941,57 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     // We think of the clusters as a single linear ordering, with our clusters coming first.
     size_t total_clusters = left_clusters.size() + right_clusters.size();
     
+    // We also allow for different MEM hits to serve as the position we assign the cluster to
+    size_t total_alt_anchors = left_alt_cluster_anchors.size() + right_alt_cluster_anchors.size();
+    
+    // The total number of positions we will allow for clustering
+    size_t total_cluster_positions = total_clusters + total_alt_anchors;
+    
     // Compute distance trees for sets of clusters that are distance-able on consistent strands.
-    unordered_map<pair<size_t, size_t>, int64_t> distance_tree = get_on_strand_distance_tree(total_clusters, unstranded, xgindex,
+    unordered_map<pair<size_t, size_t>, int64_t> distance_tree = get_on_strand_distance_tree(total_cluster_positions, unstranded, xgindex,
          [&](size_t cluster_num) {
              // Assumes the clusters are nonempty.
              if (cluster_num < left_clusters.size()) {
                  // Grab the pos_t for the first hit in the cluster, which is sorted to be the largest one.
                  return left_clusters[cluster_num]->front().second;
-             } else {
+             }
+             else if (cluster_num < total_clusters) {
                  // Grab the pos_t for the largest hit from the other cluster
                  return right_clusters[cluster_num - left_clusters.size()]->front().second;
              }
+             else if (cluster_num < total_clusters + left_alt_cluster_anchors.size()) {
+                 // Grab a lower pos_t in the list of hits according to the alt anchor
+                 const pair<size_t, size_t>& alt_anchor = left_alt_cluster_anchors[cluster_num - total_clusters];
+                 return left_clusters[alt_anchor.first]->at(alt_anchor.second).second;
+             }
+             else {
+                 // Grab an alternate pos_t for a right cluster
+                 const pair<size_t, size_t>& alt_anchor = right_alt_cluster_anchors[cluster_num - total_clusters - left_alt_cluster_anchors.size()];
+                 return right_clusters[alt_anchor.first]->at(alt_anchor.second).second;
+             }
+             
          },
          [&](size_t cluster_num) {
              // Give the offset of the position we chose to either the start or end of the read
              if (cluster_num < left_clusters.size()) {
                  return alignment_1.sequence().begin() - left_clusters[cluster_num]->front().first->begin;
-             } else {
+             }
+             else if (cluster_num < total_clusters) {
                  return alignment_2.sequence().end() - right_clusters[cluster_num - left_clusters.size()]->front().first->begin;
+             }
+             else if (cluster_num < total_clusters + left_alt_cluster_anchors.size()) {
+                 const pair<size_t, size_t>& alt_anchor = left_alt_cluster_anchors[cluster_num - total_clusters];
+                 return alignment_1.sequence().begin() - left_clusters[alt_anchor.first]->at(alt_anchor.second).first->begin;
+             }
+             else {
+                 const pair<size_t, size_t>& alt_anchor = right_alt_cluster_anchors[cluster_num - total_clusters - left_alt_cluster_anchors.size()];
+                 return alignment_2.sequence().end() - right_clusters[alt_anchor.first]->at(alt_anchor.second).first->begin;
              }
          },
          paths_of_node_memo, oriented_occurences_memo, handle_memo);
     
     // Flatten the distance tree to a set of linear spaces, one per tree.
-    vector<unordered_map<size_t, int64_t>> linear_spaces = flatten_distance_tree(total_clusters, distance_tree);
+    vector<unordered_map<size_t, int64_t>> linear_spaces = flatten_distance_tree(total_cluster_positions, distance_tree);
     
 #ifdef debug_od_clusterer
     for (const auto& strand : linear_spaces) {
@@ -1905,8 +2000,16 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
             if (record.first < left_clusters.size()) {
                 cerr << "\t" << record.first << " left: " << record.second << "\t" << left_clusters[record.first]->front().second << endl;
             }
-            else {
+            else if (record.first < total_clusters) {
                 cerr << "\t" << record.first - left_clusters.size() << " right: " << record.second << "\t" << right_clusters[record.first - left_clusters.size()]->front().second << endl;
+            }
+            else if (record.first < total_clusters + left_alt_cluster_anchors.size()) {
+                const pair<size_t, size_t>& alt_anchor = left_alt_cluster_anchors[record.first - total_clusters];
+                cerr << "\t" << alt_anchor.first << "(alt " << alt_anchor.second << ") left: " << record.second << "\t" << left_clusters[alt_anchor.first]->front().second << endl;
+            }
+            else {
+                const pair<size_t, size_t>& alt_anchor = right_alt_cluster_anchors[record.first - total_clusters - left_alt_cluster_anchors.size()];
+                cerr << "\t" << alt_anchor.first << "(alt " << alt_anchor.second << ") right: " << record.second << "\t" << right_clusters[alt_anchor.first]->front().second << endl;
             }
 
         }
@@ -1940,16 +2043,26 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
         
         for (size_t i = 0; i < sorted_pos.size(); i++) {
             // we're looking for left to right connections, so don't start from the right
-            if (sorted_pos[i].second >= left_clusters.size()) {
+            if ((sorted_pos[i].second >= left_clusters.size() && sorted_pos[i].second < total_clusters)
+                || (sorted_pos[i].second >= total_clusters + left_alt_cluster_anchors.size())) {
                 continue;
             }
+            
+            size_t left_idx = (sorted_pos[i].second < total_clusters ?
+                               sorted_pos[i].second : left_alt_cluster_anchors[sorted_pos[i].second - total_clusters].first);
             
             // the interval of linearized coordinates we want to form pairs to
             int64_t coord_interval_start = sorted_pos[i].first + min_inter_cluster_distance;
             int64_t coord_interval_end = sorted_pos[i].first + max_inter_cluster_distance;
             
 #ifdef debug_od_clusterer
-            cerr << "looking for clusters consistent with cluster that starts with " << left_clusters[sorted_pos[i].second]->front().second << " at relative position " << sorted_pos[i].first << " in coordinate window " << coord_interval_start << ":" << coord_interval_end << endl;
+            if (sorted_pos[i].second < total_clusters) {
+                cerr << "looking for clusters consistent with cluster that starts with " << left_clusters[sorted_pos[i].second]->front().second << " at relative position " << sorted_pos[i].first << " in coordinate window " << coord_interval_start << ":" << coord_interval_end << endl;
+            }
+            else {
+                const pair<size_t, size_t>& alt_anchor = left_alt_cluster_anchors[sorted_pos[i].second - total_clusters];
+                cerr << "looking for clusters consistent with (alt) cluster that starts with " << left_clusters[alt_anchor.first]->front().second << " at relative position " << sorted_pos[i].first << " in coordinate window " << coord_interval_start << ":" << coord_interval_end << endl;
+            }
 #endif
             
             // move the window bounds forward until it's inside the coordinate interval
@@ -1973,25 +2086,392 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
             
             // add each pair of clusters that's from the two read ends to the return value
             for (size_t j = window_start; j <= window_last; j++) {
-                if (sorted_pos[j].second >= left_clusters.size()) {
+                if (sorted_pos[j].second < left_clusters.size()
+                    || (sorted_pos[j].second >= total_clusters && sorted_pos[j].second < total_clusters + left_alt_cluster_anchors.size())) {
 #ifdef debug_od_clusterer
-                    cerr << "adding pair with cluster relative position " << sorted_pos[j].first << " starting with " << right_clusters[sorted_pos[j].second - left_clusters.size()]->front().second << endl;
+                    size_t idx = sorted_pos[j].second < total_clusters ? sorted_pos[j].second : sorted_pos[j].second - total_clusters;
+                    cerr << "cluster at relative position " << sorted_pos[idx].first << " is from the same end, skipping" << endl;
 #endif
-                    to_return.emplace_back(make_pair(sorted_pos[i].second,
-                                                     sorted_pos[j].second - left_clusters.size()),
-                                           sorted_pos[j].first - sorted_pos[i].first);
+                    continue;
                 }
-#ifdef debug_od_clusterer
+                
+                size_t right_idx;
+                if (sorted_pos[j].second < total_clusters) {
+                    right_idx = sorted_pos[j].second - left_clusters.size();
+                }
                 else {
-                    cerr << "cluster at relative position " << sorted_pos[j].first << " is from the same end, skipping" << endl;
+                    right_idx = right_alt_cluster_anchors[sorted_pos[j].second - total_clusters - left_alt_cluster_anchors.size()].first;
                 }
+                
+#ifdef debug_od_clusterer
+                cerr << "adding pair (" << left_idx << ", " << right_idx << ") with cluster relative position " << sorted_pos[j].first << " starting with " << right_clusters[right_idx]->front().second << endl;
 #endif
+                
+                to_return.emplace_back(make_pair(left_idx, right_idx),
+                                       sorted_pos[j].first - sorted_pos[i].first);
             }
         }
     }
     
+    if (!left_alt_cluster_anchors.empty() || !right_alt_cluster_anchors.empty()) {
+        // We assume that we're looking for the middle of the distances
+        int64_t target_separation = (max_inter_cluster_distance + min_inter_cluster_distance) / 2;
+        
+        // sort so that pairs with same clusters are adjacent
+        sort(to_return.begin(), to_return.end());
+        
+#ifdef debug_od_clusterer
+        cerr << "pairs before deduplicating:" << endl;
+        for (const auto& pair_record : to_return) {
+            cerr << pair_record.first.first << ", " << pair_record.first.second << ": " << pair_record.second << endl;
+        }
+        cerr << "target separation " << target_separation << endl;
+#endif
+        
+        size_t removed_so_far = 0;
+        
+        for (size_t i = 0; i < to_return.size();) {
+            // find the range of values that have the same pair of indices
+            size_t range_end = i + 1;
+            while (range_end < to_return.size() ? to_return[i].first == to_return[range_end].first : false) {
+                range_end++;
+            }
+            
+            // find the pair that is closest to the middle of the target interval
+            int64_t best_separation = to_return[i].second;
+            size_t best_idx = i;
+            for (size_t j = i + 1; j < range_end; j++) {
+                if (abs(to_return[j].second - target_separation) < abs(best_separation - target_separation)) {
+                    best_separation = to_return[j].second;
+                    best_idx = j;
+                }
+            }
+            
+            // move the best pair with these indices into the part of the vector we will keep
+            to_return[i - removed_so_far] = to_return[best_idx];
+            
+            // we remove the entire interval except for one
+            removed_so_far += range_end - i - 1;
+            i = range_end;
+        }
+        
+        // trim off the end of the vector, which now contains arbitrary values
+        to_return.resize(to_return.size() - removed_so_far);
+        
+#ifdef debug_od_clusterer
+        cerr << "pairs after deduplicating:" << endl;
+        for (const auto& pair_record : to_return) {
+            cerr << pair_record.first.first << ", " << pair_record.first.second << ": " << pair_record.second << endl;
+        }
+#endif
+    }
+    
     return to_return;
 }
+ 
+void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& components, size_t component_idx, double score_factor) {
+    
+    vector<size_t>& component = components[component_idx];
+    
+    // get the topological order within this component (expressed in indexes into the component vector)
+    vector<size_t> component_order;
+    component_topological_order(component, component_order);
+    
+#ifdef debug_od_clusterer
+    cerr << "doing backwards DP" << endl;
+#endif
+    
+    vector<int32_t> backwards_dp_score(component.size());
+    unordered_map<size_t, size_t> node_idx_to_component_idx;
+    for (size_t i = 0; i < component.size(); i++) {
+        backwards_dp_score[i] = nodes[component[i]].score;
+        node_idx_to_component_idx[component[i]] = i;
+    }
+    
+    // do dynamic programming backwards within this component
+    for (int64_t i = component_order.size() - 1; i >= 0; i--) {
+        size_t idx = component_order[i];
+        size_t node_idx = component[idx];
+        for (ODEdge& edge : nodes[node_idx].edges_to) {
+            size_t local_to_idx = node_idx_to_component_idx[edge.to_idx];
+            int32_t dp_score = backwards_dp_score[idx] + edge.weight;
+            if (dp_score > backwards_dp_score[local_to_idx]) {
+                backwards_dp_score[local_to_idx] = dp_score;
+            }
+        }
+    }
+    
+#ifdef debug_od_clusterer
+    cerr << "backwards dp scores:" << endl;
+    for (size_t i = 0; i < component.size(); i++) {
+        cerr << "\t" << component[i] << ": " << backwards_dp_score[i] << endl;
+    }
+#endif
+    
+    // the minimum score we will require each edge to be a part of
+    int32_t min_score = *max_element(backwards_dp_score.begin(), backwards_dp_score.end()) * score_factor;
+    
+#ifdef debug_od_clusterer
+    cerr << "looking for edges with max score less than " << min_score << endl;
+#endif
+    
+    for (size_t i = 0; i < component.size(); i++) {
+        size_t node_idx = component[i];
+        ODNode& node = nodes[node_idx];
+        for (size_t j = 0; j < node.edges_from.size(); ) {
+            ODEdge& edge = node.edges_from[j];
+            // the forward-backward score of this edge
+            int32_t edge_score = node.dp_score + edge.weight + backwards_dp_score[node_idx_to_component_idx[edge.to_idx]];
+            if (edge_score < min_score) {
+                
+#ifdef debug_od_clusterer
+                cerr << "removing edge " << node_idx << "->" << edge.to_idx << " with weight " << edge.weight << " and max score " << edge_score << endl;
+#endif
+                
+                // remove it's reverse counterpart
+                ODNode& dest_node = nodes[edge.to_idx];
+                for (size_t k = 0; k < dest_node.edges_to.size(); k++) {
+                    if (dest_node.edges_to[k].to_idx == node_idx) {
+#ifdef debug_od_clusterer
+                        cerr << "removing bwd edge " << edge.to_idx << "->" << dest_node.edges_to[k].to_idx << " with weight " << dest_node.edges_to[k].weight << " and max score " << edge_score << endl;
+#endif
+                        dest_node.edges_to[k] = dest_node.edges_to.back();
+                        dest_node.edges_to.pop_back();
+                        break;
+                    }
+                }
+                
+                // remove the edge
+                node.edges_from[j] = node.edges_from.back();
+                node.edges_from.pop_back();
+            }
+            else {
+                j++;
+            }
+        }
+    }
+    
+#ifdef debug_od_clusterer
+    cerr << "reidentifying connected components" << endl;
+#endif
+    
+    // use DFS to identify the connected components again
+    vector<vector<size_t>> new_components;
+    
+    vector<bool> enqueued(component.size(), false);
+    for (size_t i = 0; i < component.size(); i++) {
+        if (enqueued[i]) {
+            continue;
+        }
+        //cerr << "new cmp at " << component[i] << endl;
+        new_components.emplace_back();
+        vector<size_t> stack(1, component[i]);
+        enqueued[node_idx_to_component_idx[i]] = true;
+        while (!stack.empty()) {
+            size_t node_idx = stack.back();
+            stack.pop_back();
+            
+            //cerr << "trav at " << node_idx << endl;
+            
+            new_components.back().push_back(node_idx);
+            
+            for (ODEdge& edge : nodes[node_idx].edges_from) {
+                size_t local_idx = node_idx_to_component_idx[edge.to_idx];
+                //cerr << "edge fwd to " << edge.to_idx << ", local " << local_idx << endl;
+                if (!enqueued[local_idx]) {
+                    //cerr << "enqueuing" << endl;
+                    stack.push_back(edge.to_idx);
+                    enqueued[local_idx] = true;
+                }
+            }
+            
+            for (ODEdge& edge : nodes[node_idx].edges_to) {
+                size_t local_idx = node_idx_to_component_idx[edge.to_idx];
+                //cerr << "edge bwd to " << edge.to_idx << ", local " << local_idx << endl;
+                if (!enqueued[local_idx]) {
+                    //cerr << "enqueuing" << endl;
+                    stack.push_back(edge.to_idx);
+                    enqueued[local_idx] = true;
+                }
+            }
+        }
+    }
+    
+    // did we break this connected component into multiple connected components?
+    if (new_components.size() > 1) {
+#ifdef debug_od_clusterer
+        stringstream strm;
+        strm << "splitting cluster:" << endl;
+        for (auto& comp : new_components) {
+            for (size_t i : comp) {
+                strm << "\t" << i << " " << nodes[i].mem->sequence() << " " << nodes[i].start_pos << endl;
+            }
+            strm << endl;
+        }
+        cerr << strm.str();
+#endif
+        // the the original component
+        components[component_idx] = move(new_components[0]);
+        // add the remaining to the end
+        for (size_t i = 1; i < new_components.size(); i++) {
+            components.emplace_back(move(new_components[i]));
+        }
+    }
+}
+    
+size_t OrientedDistanceClusterer::median_mem_coverage(const vector<size_t>& component, const Alignment& aln) const {
+    
+    // express the MEMs as intervals along the read sequence
+    vector<pair<int64_t, int64_t>> mem_intervals;
+    for (size_t node_idx : component) {
+        mem_intervals.emplace_back(nodes[node_idx].mem->begin - aln.sequence().begin(), nodes[node_idx].mem->end - aln.sequence().begin());
+    }
+    
+    // put the intervals in order by starting index and then descending by length
+    sort(mem_intervals.begin(), mem_intervals.end(), [](const pair<int64_t, int64_t>& a, const pair<int64_t, int64_t>& b) {
+        return a.first < b.first || (a.first == b.first && a.second > b.second);
+    });
+    
+#ifdef debug_median_algorithm
+    cerr << "intervals:" << endl;
+    for (const auto& interval : mem_intervals) {
+        cerr << "\t[" << interval.first << ", " << interval.second << ")" << endl;
+    }
+#endif
+    
+    unordered_map<int64_t, int64_t> coverage_count;
+    
+    // a pointer to the read index we're currently at
+    int64_t at = 0;
+    // to keep track of how many intervals cover the current segment
+    int64_t depth = 0;
+    
+    // we can keep track of the SMEM we're in by checking whether we've passed its final index
+    pair<int64_t, int64_t> curr_smem(0, 0);
+    // and the number of hits of this SMEM we've seen
+    int64_t curr_smem_hit_count = 0;
+    // we will skip one copy of each sub-MEM (heurstically assuming it's redundant with the parent)
+    // per copy of the SMEM
+    unordered_map<pair<int64_t, int64_t>, int64_t> skipped_sub_mems;
+    
+    // the sort order ensures we will encounter the interval starts in order, we use a priority queue
+    // to also ensure that we will encounter their ends in order
+    priority_queue<int64_t, vector<int64_t>, greater<int64_t>> ends;
+    
+    for (size_t i = 0; i < mem_intervals.size(); i++) {
+        pair<int64_t, int64_t>& interval = mem_intervals[i];
+        
+#ifdef debug_median_algorithm
+        cerr << "iter for interval [" << interval.first << ", " << interval.second << "), starting at " << at << endl;
+#endif
+        
+        if (interval.second > curr_smem.second) {
+            // we're in a MEM that covers distinct sequence from the current SMEM, so this is
+            // a new SMEM (because of sort order)
+            curr_smem = interval;
+            curr_smem_hit_count = 1;
+#ifdef debug_median_algorithm
+            cerr << "\tthis is a new SMEM" << endl;
+#endif
+        }
+        else if (interval == curr_smem) {
+            // this is another hit of the same SMEM, increase the count
+            curr_smem_hit_count++;
+#ifdef debug_median_algorithm
+            cerr << "\tthis is a repeat of the current SMEM" << endl;
+#endif
+        }
+        else if (skipped_sub_mems[interval] < curr_smem_hit_count) {
+            // we're in a MEM that covers a strict subinterval of the current SMEM, so skip
+            // one sub-MEM per hit of the SMEM on the assumption that it's redundant
+            skipped_sub_mems[interval]++;
+#ifdef debug_median_algorithm
+            cerr << "\tthis is a sub-MEM we must skip" << endl;
+#endif
+            continue;
+        }
+        
+        // add the coverage of any segments that come before the start of this interval
+        while (ends.empty() ? false : ends.top() <= interval.first) {
+#ifdef debug_median_algorithm
+            cerr << "\ttraversing interval end at " << ends.top() << " adding " << ends.top() - at << " to depth " << depth << endl;
+#endif
+            coverage_count[depth] += ends.top() - at;
+            at = ends.top();
+            ends.pop();
+            
+            // an interval is leaving scope, decrement the depth
+            depth--;
+        }
+#ifdef debug_median_algorithm
+        cerr << "\ttraversing pre-interval segment staring from " << at << " adding " << interval.first - at << " to depth " << depth << endl;
+#endif
+        coverage_count[depth] += interval.first - at;
+        
+        at = interval.first;
+        // an interval is entering scope, increment the depth
+        depth++;
+        ends.push(interval.second);
+    }
+    
+    // run through the rest of the ends
+    while (!ends.empty()) {
+#ifdef debug_median_algorithm
+        cerr << "\ttraversing interval end at " << ends.top() << " adding " << ends.top() - at << " to depth " << depth << endl;
+#endif
+        coverage_count[depth] += ends.top() - at;
+        at = ends.top();
+        ends.pop();
+        
+        // an interval is leaving scope, decrement the depth
+        depth--;
+    }
+    // add the final segment, which necessarily has 0 coverage
+    coverage_count[0] += aln.sequence().size() - at;
+    
+    // convert it into a CDF over read coverage
+    vector<pair<int64_t, int64_t>> cumul_coverage_count(coverage_count.begin(), coverage_count.end());
+    sort(cumul_coverage_count.begin(), cumul_coverage_count.end());
+    
+#ifdef debug_median_algorithm
+    cerr << "\tcoverage distr is: " ;
+    for (const auto& record : cumul_coverage_count) {
+        cerr << record.first << ":" << record.second << "  ";
+    }
+    cerr << endl;
+#endif
+    
+    int64_t cumul = 0;
+    for (pair<int64_t, int64_t>& coverage_record : cumul_coverage_count) {
+        coverage_record.second += cumul;
+        cumul = coverage_record.second;
+    }
+    
+    // bisect to find the median
+    int64_t target = aln.sequence().size() / 2;
+    if (target <= cumul_coverage_count[0].second) {
+        return cumul_coverage_count[0].first;
+    }
+    int64_t low = 0;
+    int64_t hi = cumul_coverage_count.size() - 1;
+    int64_t mid;
+    while (hi > low + 1) {
+        mid = (hi + low) / 2;
+        
+        if (target <= cumul_coverage_count[mid].second) {
+            hi = mid;
+        }
+        else {
+            low = mid;
+        }
+    }
+#ifdef debug_median_algorithm
+    cerr << "\tmedian is " << cumul_coverage_count[hi].first << endl;
+#endif
+    return cumul_coverage_count[hi].first;
+}
+    
+    
 // collect node starts to build out graph
 vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem) {
     // walk the match, getting all the nodes that it touches

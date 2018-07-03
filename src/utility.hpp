@@ -443,6 +443,103 @@ string random_sequence(size_t length);
 /// Escape "%" to "%25"
 string percent_url_encode(const string& seq);
 string replace_in_string(string subject, const string& search, const string& replace);
+
+/// Given a pair of random access iterators defining a range, deterministically
+/// shuffle the contents of the range based on the given integer seed.
+template<class RandomIt>
+void deterministic_shuffle(RandomIt begin, RandomIt end, const uint32_t& seed) {
+    // Make an RNG from the string
+    minstd_rand rng(seed);
+    
+    // Perform Knuth shuffle algorithm using RNG
+    int64_t width = end - begin;
+    for (int64_t i = 1; i < width; i++) {
+        std::swap(*(begin + (rng() % (i + 1))), *(begin + i));
+    }
+}
+
+/// Given a pair of random access iterators defining a range, deterministically
+/// shuffle the contents of the range based on the given string seed.
+template<class RandomIt>
+void deterministic_shuffle(RandomIt begin, RandomIt end, const string& seed) {
+    // Turn the string into a 32-bit number.
+    uint32_t seedNumber = 0;
+    for (uint8_t byte : seed) {
+        // Sum up with primes and overflow.
+        // TODO: this is a bit of a bad hash function but it should be good enough.
+        seedNumber = seedNumber * 13 + byte;
+    }
+
+    // Shuffle with the derived integer seed
+    deterministic_shuffle(begin, end, seedNumber);
+}
+
+/// Make seeds for Alignments based on their sequences.
+inline string make_shuffle_seed(const Alignment& aln) {
+    return aln.sequence();
+}
+
+/// Make seeds for Alignments based on their sequences.
+inline string make_shuffle_seed(const Alignment* aln) {
+    return aln->sequence();
+}
+
+/// Make seeds for pairs of Alignments based on their concatenated sequences
+inline string make_shuffle_seed(const pair<Alignment, Alignment>* alns) {
+    return alns->first.sequence() + alns->second.sequence();
+}
+
+/// Do a deterministic shuffle with automatic seed determination.
+template<class RandomIt>
+void deterministic_shuffle(RandomIt begin, RandomIt end) {
+    deterministic_shuffle(begin, end, make_shuffle_seed(*begin));
+}
+
+/**
+ * Sort the items between the two given random-access iterators, as with std::sort.
+ * Deterministically shuffle the ties, if any, at the top end, using the given seed generator function.
+ */
+template<class RandomIt, class Compare, class MakeSeed>
+void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp, MakeSeed seed) {
+    
+    // Sort everything
+    std::stable_sort(begin, end, comp);
+    
+    // Comparison returns true if first argument must come before second, and
+    // false otherwise. So the ties will be a run where the top thing doesn't
+    // necessarily come before each other thing (i.e. comparison returns
+    // false).
+    
+    // Count the ties at the top
+    RandomIt ties_end = begin;
+    while (ties_end != end && !comp(*begin, *ties_end)) {
+        // We haven't hit the end of the list, and the top thing isn't strictly better than this thing.
+        // So mark it as a tie and advance.
+        ++ties_end;
+    }
+    
+    if (begin != ties_end) {
+        // Shuffle the ties.
+        deterministic_shuffle(begin, ties_end, seed(*begin));
+    }
+
+}
+
+/**
+ * Sort the items between the two given random-access iterators, as with std::sort.
+ * Deterministically shuffle the ties, if any, at the top end, using automatic seed determination.
+ */
+template<class RandomIt, class Compare>
+void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp) {
+    
+    // Make the seed using the pre-defined seed making approaches
+    sort_shuffling_ties(begin, end, comp, [](decltype (*begin)& item) {
+        return make_shuffle_seed(item);
+    });
+
+}
+
+
     
 }
 

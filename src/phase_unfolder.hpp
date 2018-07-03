@@ -33,7 +33,7 @@ namespace vg {
 class PhaseUnfolder {
 public:
     typedef gbwt::SearchState                 search_type;
-    typedef std::vector<gbwt::node_type>      path_type;
+    typedef gbwt::vector_type                 path_type;
     typedef std::pair<search_type, path_type> state_type;
 
     /**
