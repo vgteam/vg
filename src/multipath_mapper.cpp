@@ -1999,8 +1999,16 @@ namespace vg {
             prob_missing_pair = min(prob_missing_equiv_cluster_1, prob_missing_equiv_cluster_2);
         }
         
+#ifdef debug_multipath_mapper
+        cerr << "estimate probability that hit sampling caused us to miss correct cluster pair at " << prob_missing_pair << endl;
+#endif
+        
         if (prob_missing_pair > 0.0) {
             int32_t hit_sampling_mapq = round(prob_to_phred(prob_missing_pair));
+            
+#ifdef debug_multipath_mapper
+            cerr << "capping mapping quality to " << hit_sampling_mapq << endl;
+#endif
             
             // cap the mapping quality at this value
             multipath_aln_pairs_out.front().first.set_mapping_quality(min(multipath_aln_pairs_out.front().first.mapping_quality(),
@@ -2019,8 +2027,17 @@ namespace vg {
         // what is the chance that we would have missed a cluster with the same MEMs because of hit sub-sampling
         double prob_missing_equiv_cluster = prob_equivalent_clusters_hits_missed(get<1>(opt_cluster));
         
+        
+#ifdef debug_multipath_mapper
+        cerr << "estimate probability that hit sampling caused us to miss correct cluster at " << prob_missing_pair << endl;
+#endif
+        
         if (prob_missing_equiv_cluster > 0.0) {
             int32_t hit_sampling_mapq = round(prob_to_phred(prob_missing_equiv_cluster));
+            
+#ifdef debug_multipath_mapper
+            cerr << "capping mapping quality to " << hit_sampling_mapq << endl;
+#endif
             
             // cap the mapping quality at this value
             multipath_alns_out.front().set_mapping_quality(min(multipath_alns_out.front().mapping_quality(),
