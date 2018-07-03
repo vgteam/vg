@@ -99,7 +99,8 @@ namespace vg {
         auto cluster_graphs = query_cluster_graphs(alignment, mems, clusters);
         
         // actually perform the alignments and post-process to meeth MultipathAlignment invariants
-        align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, num_mapping_attempts);
+        vector<size_t> cluster_idxs = range_vector(cluster_graphs.size());
+        align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, num_mapping_attempts, &cluster_idxs);
         
         if (multipath_alns_out.empty()) {
             // add a null alignment so we know it wasn't mapped
@@ -118,6 +119,11 @@ namespace vg {
 #endif
             
             multipath_alns_out.front().set_mapping_quality(0);
+        }
+        else {
+            // account for the possiblity that we missed the correct cluster due to sub-sampling MEM hits
+            // within the cluster
+            cap_mapping_quality_by_hit_sampling_probability(multipath_alns_out, cluster_idxs, cluster_graphs);
         }
         
         // if we computed extra alignments to get a mapping quality, remove them
@@ -731,18 +737,12 @@ namespace vg {
         vector<MultipathAlignment> multipath_alns_1, multipath_alns_2;
         vector<size_t> cluster_idxs_1, cluster_idxs_2;
         if (!block_rescue_from_1) {
-            cluster_idxs_1.resize(cluster_graphs1.size());
-            for (size_t i = 0; i < cluster_idxs_1.size(); i++) {
-                cluster_idxs_1[i] = i;
-            }
+            cluster_idxs_1 = range_vector(cluster_graphs1.size());
             align_to_cluster_graphs(alignment1, mapping_quality_method == None ? Approx : mapping_quality_method,
                                     cluster_graphs1, multipath_alns_1, max_single_end_mappings_for_rescue, &cluster_idxs_1);
         }
         if (!block_rescue_from_2) {
-            cluster_idxs_2.resize(cluster_graphs2.size());
-            for (size_t i = 0; i < cluster_idxs_2.size(); i++) {
-                cluster_idxs_2[i] = i;
-            }
+            cluster_idxs_2 = range_vector(cluster_graphs2.size());
             align_to_cluster_graphs(alignment2, mapping_quality_method == None ? Approx : mapping_quality_method,
                                     cluster_graphs2, multipath_alns_2, max_single_end_mappings_for_rescue, &cluster_idxs_2);
         }
@@ -1474,6 +1474,11 @@ namespace vg {
                             // also account for the possiblity that we selected the wrong ends to rescue with
                             cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
                                                                       cluster_graphs1, cluster_graphs2, false);
+                            
+                            // and for the possibility that we missed the correct cluster because of hit sub-sampling
+                            // within the MEMs of the cluster
+                            cap_mapping_quality_by_hit_sampling_probability(multipath_aln_pairs_out, cluster_pairs,
+                                                                            cluster_graphs1, cluster_graphs2, false);
                         }
                     }
                     else {
@@ -1481,17 +1486,28 @@ namespace vg {
                         std::swap(multipath_aln_pairs_out, rescue_aln_pairs);
                     }
                 }
-                else if (multipath_aln_pairs_out.front().first.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff &&
-                         multipath_aln_pairs_out.front().second.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff) {
+                else {
                     
-                    // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
-                    // so we use this routine to use rescue on other very good looking independent end clusters
-                    attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                   multipath_aln_pairs_out, cluster_pairs);
+                    // does it look like we might be overconfident about this pair because of our clustering strategy
+                    bool do_secondary_rescue = (multipath_aln_pairs_out.front().first.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff &&
+                                                multipath_aln_pairs_out.front().second.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff);
                     
-                    // also account for the possiblity that we selected the wrong ends to rescue with
-                    cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
-                                                              cluster_graphs1, cluster_graphs2, true);
+                    if (do_secondary_rescue) {
+                        // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
+                        // so we use this routine to use rescue on other very good looking independent end clusters
+                        attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
+                                                       multipath_aln_pairs_out, cluster_pairs);
+                        
+                        // account for the possiblity that we selected the wrong ends to rescue with
+                        cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
+                                                                  cluster_graphs1, cluster_graphs2, true);
+                    }
+                    
+                    // account for the possibility that we missed the correct cluster because of hit sub-sampling
+                    // within the MEMs of the cluster
+                    cap_mapping_quality_by_hit_sampling_probability(multipath_aln_pairs_out, cluster_pairs,
+                                                                    cluster_graphs1, cluster_graphs2, do_secondary_rescue);
+                    
                 }
             }
             else {
@@ -1500,11 +1516,12 @@ namespace vg {
 #ifdef debug_multipath_mapper
                 cerr << "could not find a consistent pair, reverting to single ended mapping" << endl;
 #endif
+                
                 bool rescued = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2, do_repeat_rescue_from_1,
                                                                    do_repeat_rescue_from_2, multipath_aln_pairs_out, cluster_pairs, max_alt_mappings);
                 
                 if (rescued) {
-                    // also account for the possiblity that we selected the wrong ends to rescue with
+                    // account for the possiblity that we selected the wrong ends to rescue with
                     cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
                                                               cluster_graphs1, cluster_graphs2, false);
                 }
@@ -1848,9 +1865,7 @@ namespace vg {
         // did we use an out-of-bounds cluster index to flag either end as coming from a rescue?
         bool opt_aln_1_is_rescued = cluster_pairs.front().first.first >= cluster_graphs1.size();
         bool opt_aln_2_is_rescued = cluster_pairs.front().first.second >= cluster_graphs2.size();
-        
-        cerr << "checked" << endl;
-        
+                
         // was the optimal cluster pair obtained by rescue?
         if (opt_aln_1_is_rescued || opt_aln_2_is_rescued) {
             // let's figure out if we should reduce its mapping quality to reflect the fact that we may not have selected the
@@ -1929,15 +1944,14 @@ namespace vg {
     }
     
     double MultipathMapper::prob_equivalent_clusters_hits_missed(const memcluster_t& cluster) const {
-        double prob_of_seeing_all = 1.0;
+        // we will approximate the probability of missing a cluster with the same MEMs as this one due to hit sampling
+        // by the probability of missing the correct hit for all of the MEMs in this one
+        double prob_of_missing_all = 1.0;
         for (const pair<const MaximalExactMatch*, pos_t>& hit : cluster) {
-            // is this an SMEM with sub-sampled hits?
-            if (hit.first->primary && hit.first->nodes.size() < hit.first->match_count){
-                // what fraction of these did we sample?
-                prob_of_seeing_all *= double(hit.first->nodes.size()) / double(hit.first->match_count);
-            }
+            const MaximalExactMatch& mem = *hit.first;
+            prob_of_missing_all *= (mem.queried_count >= mem.match_count ? 0.0 : 1.0 - double(mem.queried_count) / double(mem.match_count));
         }
-        return 1.0 - prob_of_seeing_all;
+        return prob_of_missing_all;
     }
     
     void MultipathMapper::cap_mapping_quality_by_hit_sampling_probability(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
@@ -1953,10 +1967,10 @@ namespace vg {
         // what is the chance that we would have missed a cluster with the same MEMs because of hit sub-sampling
         double prob_missing_equiv_cluster_1 = 0.0, prob_missing_equiv_cluster_2 = 0.0;
         if (!opt_aln_1_is_rescued) {
-            prob_missing_equiv_cluster_1 = prob_equivalent_clusters_hits_missed(get<1>(cluster_graphs1[cluster_pairs.front().first.first]))
+            prob_missing_equiv_cluster_1 = prob_equivalent_clusters_hits_missed(get<1>(cluster_graphs1[cluster_pairs.front().first.first]));
         }
         if (!opt_aln_2_is_rescued) {
-            prob_missing_equiv_cluster_2 = prob_equivalent_clusters_hits_missed(get<1>(cluster_graphs2[cluster_pairs.front().first.second]))
+            prob_missing_equiv_cluster_2 = prob_equivalent_clusters_hits_missed(get<1>(cluster_graphs2[cluster_pairs.front().first.second]));
         }
         
         // what is the chance that we would have missed a pair?
@@ -1969,18 +1983,20 @@ namespace vg {
         }
         else if (!did_secondary_rescue) {
             // in this case we are assured that there was no rescue (except perhaps a failed rescue
-            // that was trying to improve over this likely mismapping--a rare case where we won't mind
+            // that was trying to improve over a likely mismapping--a rare case where we won't mind
             // being pessimistic about the mapping quality)
             
             prob_missing_pair = 1.0 - (1.0 - prob_missing_equiv_cluster_1) * (1.0 - prob_missing_equiv_cluster_2);
         }
         else {
-            // this is the complicated case:
             // we did secondary rescue, so now we must account for the fact that we *could* have recovered a cluster that we missed
-            // because of MEM sub-sampling through the secondary rescue code path. I take the approach of choosing whichever is smaller
-            // as the estimate of missing the correct cluster: 1) the probability missing the cluster because of its hit sub-sampling
-            // and 2) the probability of missing the cluster because of our selection of clusters to do secondary rescue from the other
-            // read end
+            // because of MEM sub-sampling through the secondary rescue code path.
+            
+            // we will conversatively assume that we definitely would find the correct cluster through rescue (ignoring issues
+            // of sampling which clusters to rescue from) as long as we obtained the correct cluster on one or the other
+            // read pair
+            
+            prob_missing_pair = min(prob_missing_equiv_cluster_1, prob_missing_equiv_cluster_2);
         }
         
         if (prob_missing_pair > 0.0) {

@@ -260,15 +260,19 @@ namespace vg {
                                                        vector<clustergraph_t>& cluster_graphs2,
                                                        bool from_secondary_rescue) const;
         
+        /// Estimates the probability that the correct cluster was not identified because of sub-sampling MEM hits and
+        /// caps the mapping quality to this probability (in Phred scale)
         void cap_mapping_quality_by_hit_sampling_probability(vector<MultipathAlignment>& multipath_alns_out,
                                                              vector<size_t>& cluster_idxs,
                                                              vector<clustergraph_t>& cluster_graphs) const;
         
-        /// Estimates the probabiity that the correct cluster was not selected by 
+        /// Estimates the probability that the correct cluster pair was not identified because of sub-sampling MEM hits and
+        /// caps the mapping quality to this probability (in Phred scale)
         void cap_mapping_quality_by_hit_sampling_probability(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                              vector<clustergraph_t>& cluster_graphs1,
-                                                             vector<clustergraph_t>& cluster_graphs2) const;
+                                                             vector<clustergraph_t>& cluster_graphs2,
+                                                             bool did_secondary_rescue) const;
         
         /// Estimates the probability that a cluster with the same hits would have been missed because of
         /// subsampling high-count SMEMs

@@ -365,8 +365,14 @@ struct Tree {
     }
 
 };
-    
+
+// vector containing positive integer values in [begin, end)
 vector<size_t> range_vector(size_t begin, size_t end);
+    
+// vector containing positive integer values in [0, end)
+inline vector<size_t> range_vector(size_t end) {
+    return range_vector(0, end);
+}
 
 struct IncrementIter {
 public:

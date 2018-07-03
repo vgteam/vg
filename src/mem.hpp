@@ -31,6 +31,7 @@ public:
     string::const_iterator end;
     gcsa::range_type range;
     size_t match_count;
+    size_t queried_count;
     int fragment;
     bool primary; // if not a sub-MEM
     std::vector<gcsa::node_type> nodes;
