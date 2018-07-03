@@ -1848,9 +1848,7 @@ namespace vg {
         // did we use an out-of-bounds cluster index to flag either end as coming from a rescue?
         bool opt_aln_1_is_rescued = cluster_pairs.front().first.first >= cluster_graphs1.size();
         bool opt_aln_2_is_rescued = cluster_pairs.front().first.second >= cluster_graphs2.size();
-        
-        cerr << "checked" << endl;
-        
+                
         // was the optimal cluster pair obtained by rescue?
         if (opt_aln_1_is_rescued || opt_aln_2_is_rescued) {
             // let's figure out if we should reduce its mapping quality to reflect the fact that we may not have selected the
