@@ -346,6 +346,11 @@ void XdropAligner::calculate_and_save_alignment(
 	struct dz_alignment_s const *aln = dz_trace(dz, forefronts[tail_node_index]);
 	if(aln == nullptr || aln->path_length == 0) { return; }
 	assert(aln->span[aln->span_length - 1].id == tail_node_index);
+    if (aln->query_length > alignment.sequence().size()) {
+        cerr << "[vg xdrop_aligner.cpp] Error: dozeu alignment query_length longer than sequence" << endl;
+        alignment.set_score(0);
+        return;
+    }
 
 	#define _push_mapping(_id) ({ \
 		Node const &n = graph.node((_id)); \
