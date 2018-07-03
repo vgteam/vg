@@ -8,10 +8,7 @@
 #include <string>
 #include "../json2pb.h"
 #include "../vg.pb.h"
-// Undefined behavior hack!
-#define protected public
 #include "../gssw_aligner.hpp"
-#undef protected
 #include "catch.hpp"
 
 namespace vg {
@@ -319,9 +316,7 @@ TEST_CASE("Full-length bonus is applied to both ends by rescoring", "[aligner][a
     REQUIRE(aligner1.score_ungapped_alignment(aln) == 139);
 }
 
-TEST_CASE("Aligner mapping quality estimation is robust", "[aligner][alignment][mapping][mapq]") {
-    
-    Aligner aligner(1, 4, 6, 1, 0);
+TEST_CASE("BaseAligner mapping quality estimation is robust", "[aligner][alignment][mapping][mapq]") {
     
     vector<double> scaled_scores;
     size_t max_idx;
@@ -332,25 +327,25 @@ TEST_CASE("Aligner mapping quality estimation is robust", "[aligner][alignment][
         
         SECTION("a 1-element positive vector has its element chosen") {
             scaled_scores = {10};
-            aligner.maximum_mapping_quality_exact(scaled_scores, &max_idx);
+            BaseAligner::maximum_mapping_quality_exact(scaled_scores, &max_idx);
             REQUIRE(max_idx == 0);
         }
         
         SECTION("a 1-element zero vector has its element chosen") {
             scaled_scores = {0};
-            aligner.maximum_mapping_quality_exact(scaled_scores, &max_idx);
+            BaseAligner::maximum_mapping_quality_exact(scaled_scores, &max_idx);
             REQUIRE(max_idx == 0);
         }
         
         SECTION("a 1-element negative vector has its element chosen") {
             scaled_scores = {-10};
-            aligner.maximum_mapping_quality_exact(scaled_scores, &max_idx);
+            BaseAligner::maximum_mapping_quality_exact(scaled_scores, &max_idx);
             REQUIRE(max_idx == 0);
         }
         
         SECTION("a multi-element vector has a maximal element chosen") {
             scaled_scores = {1, 5, 2, 5, 4};
-            aligner.maximum_mapping_quality_exact(scaled_scores, &max_idx);
+            BaseAligner::maximum_mapping_quality_exact(scaled_scores, &max_idx);
             REQUIRE(max_idx >= 1);
             REQUIRE(max_idx != 2);
             REQUIRE(max_idx <= 3);
@@ -363,25 +358,25 @@ TEST_CASE("Aligner mapping quality estimation is robust", "[aligner][alignment][
 
         SECTION("a 1-element positive vector has its element chosen") {
             scaled_scores = {10};
-            aligner.maximum_mapping_quality_approx(scaled_scores, &max_idx);
+            BaseAligner::maximum_mapping_quality_approx(scaled_scores, &max_idx);
             REQUIRE(max_idx == 0);
         }
         
         SECTION("a 1-element zero vector has its element chosen") {
             scaled_scores = {0};
-            aligner.maximum_mapping_quality_approx(scaled_scores, &max_idx);
+            BaseAligner::maximum_mapping_quality_approx(scaled_scores, &max_idx);
             REQUIRE(max_idx == 0);
         }
         
         SECTION("a 1-element negative vector has its element chosen") {
             scaled_scores = {-10};
-            aligner.maximum_mapping_quality_approx(scaled_scores, &max_idx);
+            BaseAligner::maximum_mapping_quality_approx(scaled_scores, &max_idx);
             REQUIRE(max_idx == 0);
         }
         
         SECTION("a multi-element vector has a maximal element chosen") {
             scaled_scores = {1, 5, 2, 5, 4};
-            aligner.maximum_mapping_quality_approx(scaled_scores, &max_idx);
+            BaseAligner::maximum_mapping_quality_approx(scaled_scores, &max_idx);
             REQUIRE(max_idx >= 1);
             REQUIRE(max_idx != 2);
             REQUIRE(max_idx <= 3);
