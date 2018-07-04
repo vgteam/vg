@@ -46,6 +46,7 @@ void help_index(char** argv) {
          << "    -F, --thread-db FILE   write thread database to FILE" << endl
          << "    -P, --force-phasing    replace unphased genotypes with randomly phased ones" << endl
          << "    -o, --discard-overlaps skip overlapping alternate alleles if the overlap cannot be resolved" << endl
+         << "    -O, --check-overlaps   print information on overlapping variants to stderr" << endl
          << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
@@ -138,12 +139,13 @@ int main_index(int argc, char** argv) {
     // GBWT
     bool index_haplotypes = false, index_paths = false, index_gam = false;
     vector<string> gam_file_names;
-    bool force_phasing = false, discard_overlaps = false;
+    bool force_phasing = false, discard_overlaps = false, check_overlaps = false;
     size_t samples_in_batch = 200; // Samples per batch.
     std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
     map<string, string> path_to_vcf; // Path name conversion from --rename.
     map<string, pair<size_t, size_t>> regions; // Region restrictions for contigs, in VCF name space, as 0-based exclusive-end ranges.
     unordered_set<string> excluded_samples; // Excluded sample names from --exclude.
+    std::set<std::pair<gbwt::size_type, gbwt::size_type>> overlaps; // Unresolved overlaps in the haplotypes.
 
     // GCSA
     gcsa::size_type kmer_size = gcsa::Key::MAX_LENGTH;
@@ -182,6 +184,7 @@ int main_index(int argc, char** argv) {
             {"write-haps", required_argument, 0, 'H'},
             {"force-phasing", no_argument, 0, 'P'},
             {"discard-overlaps", no_argument, 0, 'o'},
+            {"check-overlaps", no_argument, 0, 'O'},
             {"batch-size", required_argument, 0, 'B'},
             {"range", required_argument, 0, 'R'},
             {"rename", required_argument, 0, 'r'},
@@ -209,7 +212,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:TM:G:H:PoB:R:r:I:E:g:i:f:k:X:Z:Vd:maANDCh",
+        c = getopt_long (argc, argv, "b:t:px:F:v:TM:G:H:PoOB:R:r:I:E:g:i:f:k:X:Z:Vd:maANDCh",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -266,6 +269,9 @@ int main_index(int argc, char** argv) {
             break;
         case 'o':
             discard_overlaps = true;
+            break;
+        case 'O':
+            check_overlaps = true;
             break;
         case 'B':
             samples_in_batch = std::max(std::stoul(optarg), 1ul);
@@ -621,6 +627,9 @@ int main_index(int argc, char** argv) {
 
                     // Determine the reference nodes for the current variant and create a variant site.
                     // If the variant is not an insertion, there should be a path for the ref allele.
+                    // Otherwise the reference position can be determined from the predecessors of the
+                    // alternate alleles.
+                    // TODO: What if the reference visits the same node several times?
                     var.position--; // Use a 0-based position to get the correct var_name.
                     std::string var_name = make_variant_id(var);
                     std::string ref_path_name = "_alt_" + var_name + "_0";
@@ -639,19 +648,24 @@ int main_index(int argc, char** argv) {
                         bool found = false;
                         for (size_t alt_index = 1; alt_index < var.alleles.size(); alt_index++) {
                             std::string alt_path_name = "_alt_" + var_name + "_" + to_string(alt_index);
+                            size_t candidate_pos = 0;
+                            bool candidate_found = false;
                             auto alt_path_iter = alt_paths.find(alt_path_name);
                             if (alt_path_iter != alt_paths.end()) {
                                 gbwt::vector_type pred_nodes = predecessors(*xg_index, alt_path_iter->second);
                                 for (auto node : pred_nodes) {
                                     size_t pred_pos = variants.firstOccurrence(node);
                                     if (pred_pos != variants.invalid_position()) {
-                                        ref_pos = pred_pos + 1;
+                                        candidate_pos = std::max(candidate_pos, pred_pos + 1);
+                                        candidate_found = true;
                                         found = true;
-                                        break;
                                     }
                                 }
-                                if (found) {
-                                    break;
+                                // For each alternate allele, find the rightmost reference node among
+                                // its predecessors. If multiple alleles have candidates for the
+                                // reference position, choose the leftmost one.
+                                if (candidate_found) {
+                                    ref_pos = std::min(ref_pos, candidate_pos);
                                 }
                             }
                         }
@@ -700,6 +714,9 @@ int main_index(int argc, char** argv) {
                     }
                     cerr << "- Phasing information: " << gbwt::inMegabytes(phasing_bytes) << " MB" << endl;
                 }
+                if (check_overlaps) {
+                    gbwt::checkOverlaps(variants, cerr, true);
+                }
 
                 // Save memory:
                 // - Delete the alt paths if we no longer need them.
@@ -718,7 +735,7 @@ int main_index(int argc, char** argv) {
 
                 // Generate the haplotypes.
                 for (size_t batch = 0; batch < phasings.size(); batch++) {
-                    gbwt::generateHaplotypes(variants, phasings[batch], discard_overlaps,
+                    gbwt::generateHaplotypes(variants, phasings[batch],
                         [&](gbwt::size_type sample) -> bool {
                             return (excluded_samples.find(sample_names[sample]) == excluded_samples.end());
                         },
@@ -729,12 +746,25 @@ int main_index(int argc, char** argv) {
                                 << "_" << haplotype.phase
                                 << "_" << haplotype.count;
                             store_thread(haplotype.path, sn.str());
+                        },
+                        [&](gbwt::size_type site, gbwt::size_type allele) -> bool {
+                            if (check_overlaps) {
+                                overlaps.insert(std::make_pair(site, allele));
+                            }
+                            return discard_overlaps;
                         });
                     if (show_progress) {
                         cerr << "- Processed samples " << phasings[batch].offset() << " to " << (phasings[batch].offset() + phasings[batch].size() - 1) << endl;
                     }
                 }
-            } // End of contig.
+                if (check_overlaps && !overlaps.empty()) {
+                    cerr << overlaps.size() << " unresolved overlaps:" << endl;
+                    for (auto overlap : overlaps) {
+                        cerr << "- site " << overlap.first << ", allele " << overlap.second << endl;
+                    }
+                    overlaps.clear();
+                }
+            } // End of contigs.
         } // End of haplotypes.
 
         // Store the thread database. Write it to disk if a filename is given,
