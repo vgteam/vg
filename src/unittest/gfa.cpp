@@ -39,6 +39,7 @@ P	3	path2	5	+	1M)";
     VG vg;
     stringstream in(graph_gfa);
     gfa_to_graph(in, &vg);
+    REQUIRE(vg.is_valid());
     REQUIRE(vg.length() == 6);
 }
    
@@ -106,6 +107,7 @@ P	13	path4	5	+	1M)";
     VG vg;
     stringstream in(graph_gfa);
     gfa_to_graph(in, &vg);
+    REQUIRE(vg.is_valid());
     REQUIRE(vg.length() == 17);
 }
 
@@ -246,7 +248,8 @@ P	21	path12	3	+	1M)";
         
     VG vg;
     stringstream in(graph_gfa);
-    gfa_to_graph(in, &vg); 
+    gfa_to_graph(in, &vg);
+    REQUIRE(vg.is_valid());
     REQUIRE(vg.length() == 35);
 }
 
@@ -277,6 +280,8 @@ L	1	+	3	+	0M)";
         stringstream in(graph_gfa);
         gfa_to_graph(in, &vg);
         
+        REQUIRE(vg.is_valid());
+        
         REQUIRE(vg.node_count() == 3);
         REQUIRE(vg.edge_count() == 2);
         
@@ -295,7 +300,7 @@ L	1	+	3	+	0M)";
     }
 }
 
-TEST_CASE("Can import graphs with merges from GFA", "[gfa]") {
+TEST_CASE("Can import graphs with perfect match merges from GFA", "[gfa]") {
 
     SECTION("A graph that merges the ends of two nodes works") {
 
@@ -309,6 +314,8 @@ P	2	ref	2	+	6M)";
         VG vg;
         stringstream in(graph_gfa);
         gfa_to_graph(in, &vg);
+        
+        REQUIRE(vg.is_valid());
         
         // We expect 3 nodes: unique to 1, unique to 2, and shared
         // It should be 1 base, 5 bases, 1 base
@@ -344,12 +351,245 @@ P	1	ref	1	+	7M)";
         VG vg;
         stringstream in(graph_gfa);
         gfa_to_graph(in, &vg);
+        REQUIRE(vg.is_valid());
         
         // We should see just one merged node
         
         REQUIRE(vg.node_count() == 1);
         REQUIRE(vg.edge_count() == 0);
         REQUIRE(vg.paths.path("ref").mapping_size() == 1);
+    }
+
+}
+
+TEST_CASE("Can import graphs with merges with leading/trailing mismatches/indels from GFA", "[gfa]") {
+
+    SECTION("A graph where the merge starts with a mismatch works and the start is tucked") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATTAC
+S	2	GTTACA
+L	1	+	2	+	5M
+P	1	ref	1	+	6M
+P	2	ref	2	+	6M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        REQUIRE(vg.is_valid());
+        
+        // We should see one head and one tail, despite the danging
+        REQUIRE(vg.head_nodes().size() == 1);
+        REQUIRE(vg.tail_nodes().size() == 1);
+        
+    }
+    
+    SECTION("A graph where the merge starts with a multibase mismatch works and the start is tucked") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATTAC
+S	2	GGGACA
+L	1	+	2	+	3X2=
+P	1	ref	1	+	6M
+P	2	ref	2	+	6M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        REQUIRE(vg.is_valid());
+        
+        // We should see one head and one tail, despite the danging
+        REQUIRE(vg.head_nodes().size() == 1);
+        REQUIRE(vg.tail_nodes().size() == 1);
+        
+    }
+    
+    SECTION("A graph where the merge ends with a mismatch works and the end is tucked") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATTAA
+S	2	ATTACA
+L	1	+	2	+	5M
+P	1	ref	1	+	6M
+P	2	ref	2	+	6M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        REQUIRE(vg.is_valid());
+        
+        // We should see one head and one tail, despite the danging
+        REQUIRE(vg.head_nodes().size() == 1);
+        REQUIRE(vg.tail_nodes().size() == 1);
+        
+    }
+    
+    SECTION("A graph where the merge ends with a multibase mismatch works and the end is tucked") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATTGA
+S	2	ATTACA
+L	1	+	2	+	3=2X
+P	1	ref	1	+	6M
+P	2	ref	2	+	6M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        REQUIRE(vg.is_valid());
+        
+        // We should see one head and one tail, despite the danging
+        REQUIRE(vg.head_nodes().size() == 1);
+        REQUIRE(vg.tail_nodes().size() == 1);
+        
+    }
+    
+    SECTION("A graph where the merge is entirely a mismatch works") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GCCCCC
+S	2	TTTTTA
+L	1	+	2	+	5M
+P	1	ref	1	+	6M
+P	2	ref	2	+	6M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        REQUIRE(vg.is_valid());
+        
+        // We should see one head and one tail, despite the danging
+        REQUIRE(vg.head_nodes().size() == 1);
+        REQUIRE(vg.tail_nodes().size() == 1);
+        
+    }
+    
+    SECTION("A graph where the merge starts with an insert works and the start is tucked") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATTAC
+S	2	CCATTACA
+L	1	+	2	+	2I5M
+P	1	ref	1	+	6M
+P	2	ref	2	+	8M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        REQUIRE(vg.is_valid());
+        
+        // We should see one head and one tail, despite the danging
+        REQUIRE(vg.head_nodes().size() == 1);
+        REQUIRE(vg.tail_nodes().size() == 1);
+        
+    }
+    
+    SECTION("A graph where the merge ends with an insert works") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATT
+S	2	ATTACA
+L	1	+	2	+	3M3I
+P	1	ref	1	+	4M
+P	2	ref	2	+	6M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        REQUIRE(vg.is_valid());
+        
+        // No dangling should happen, but we should still have one head/tail
+        REQUIRE(vg.head_nodes().size() == 1);
+        REQUIRE(vg.tail_nodes().size() == 1);
+        
+        // The graph should be a stick
+        REQUIRE(vg.node_count() == vg.edge_count() + 1);
+    }
+    
+    SECTION("A graph where the merge is entirely an insert works") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATT
+S	2	ACA
+L	1	+	2	+	3I
+P	1	ref	1	+	4M
+P	2	ref	2	+	3M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        REQUIRE(vg.is_valid());
+        
+        // No dangling should happen, but we should still have one head/tail
+        REQUIRE(vg.head_nodes().size() == 1);
+        REQUIRE(vg.tail_nodes().size() == 1);
+        
+        // The graph should be a stick
+        REQUIRE(vg.node_count() == vg.edge_count() + 1);
+    }
+    
+    SECTION("A graph where the merge ends with a deletion works and the end is tucked") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATTACCC
+S	2	ATTACA
+L	1	+	2	+	5M2D
+P	1	ref	1	+	8M
+P	2	ref	2	+	6M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        REQUIRE(vg.is_valid());
+        
+        // We should see one head and one tail, despite the danging
+        REQUIRE(vg.head_nodes().size() == 1);
+        REQUIRE(vg.tail_nodes().size() == 1);
+        
+    }
+    
+    SECTION("A graph where the merge starts with an deletion works") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATTAC
+S	2	ACA
+L	1	+	2	+	4D2M
+P	1	ref	1	+	6M
+P	2	ref	2	+	3M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        REQUIRE(vg.is_valid());
+        
+        // No dangling should happen, but we should still have one head/tail
+        REQUIRE(vg.head_nodes().size() == 1);
+        REQUIRE(vg.tail_nodes().size() == 1);
+        
+        // The graph should be a stick
+        REQUIRE(vg.node_count() == vg.edge_count() + 1);
+    }
+    
+    SECTION("A graph where the merge is entirely a deletion works") {
+
+        const string graph_gfa = R"(H	VN:Z:0.1
+S	1	GATT
+S	2	ACA
+L	1	+	2	+	4D
+P	1	ref	1	+	4M
+P	2	ref	2	+	3M)";
+        
+        VG vg;
+        stringstream in(graph_gfa);
+        gfa_to_graph(in, &vg);
+        REQUIRE(vg.is_valid());
+        
+        // No dangling should happen, but we should still have one head/tail
+        REQUIRE(vg.head_nodes().size() == 1);
+        REQUIRE(vg.tail_nodes().size() == 1);
+        
+        // The graph should be a stick
+        REQUIRE(vg.node_count() == vg.edge_count() + 1);
     }
     
 }

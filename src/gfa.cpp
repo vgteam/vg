@@ -236,6 +236,21 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // no overlap.
     unordered_map<tuple<int64_t, int64_t, bool, bool>, size_t> link_skips;
     
+    // Finally, we need to keep track of the dangling ends of alignments, which
+    // need to be "tucked in". If an overlapping block starts or ends with
+    // something other than a match, there will be a dangling node. It is in
+    // correspondence with a position in the other sequence, but it doesn't get
+    // pinched into it. We want to link it to the right next/previous node,
+    // without actually pinching it in.
+    
+    // This stores, for each thread end (left = false) that is dangling, a
+    // vector of equivalent positions. Each equivalent position holds the
+    // thread name, base, and orientation (reverse = true) that the end base
+    // would have been pinched into, whose connectivity we should copy. Note
+    // that we will have to recursively look for equivalent positions of the
+    // equivalent positions if they are themselves ends.
+    unordered_map<pair<int64_t, bool>, vector<tuple<int64_t, size_t, bool>>> tucks;
+    
     for (auto& name_and_links : gfa_links) {
         // For each set of links, by source node name
         auto& name = name_and_links.first;
@@ -334,10 +349,15 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             cerr << "Skips: " << sink_alignment_length << " forward, " << source_alignment_length << " reverse" << endl; 
 #endif
             
-            if (source_alignment_length == 0 && sink_alignment_length == 0) {
+            if (source_alignment_length == 0 || sink_alignment_length == 0) {
                 // This link is just an end-to-end abutment with no overlap.
                 // It can't be sent through the pinch graph; we store it separately.
+                // We also have no need to do any tucks.
                 abut_links.push_back(make_tuple(source_pinch_name, sink_pinch_name, source_backward, sink_backward));
+                
+                // TODO: What exactly are the semantics on e.g. an all-insert
+                // alignment? Is it really just that the ends abut? Or do we
+                // connect in to the end of the insert?
                 
                 // Skip the link CIGAR execution
                 continue;
@@ -369,18 +389,22 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             
             // Interpret the CIGAR string and perform pinches.
             
-            // We can't allow dangling sink sequence in the first subelement, or dangling source in the last.
-            // Otherwise we create tips.
-            // TODO: Allow this and wire the tips that are created back into the graph somehow.
-            bool is_first_subelement = true;
-            bool last_subelement_dangled_source = false;
-            
-            for (auto& elem : cigar) {
+            for (size_t cigar_index = 0; cigar_index < cigar.size(); cigar_index++) {
                 // For each cigar operation
+                auto& elem = cigar[cigar_index];
                 
                 if (elem.first == 0) {
                     // Skip 0-length operations
                     continue;
+                }
+                
+                if (cigar_index != 0 && (elem.second == "D" && cigar[cigar_index - 1].second == "I" ||
+                    elem.second == "I" && cigar[cigar_index - 1].second == "D")) {
+                    // We found adjacent inserts and deletions, which throws
+                    // off our dangling tip tucking algorithm and which
+                    // shouldn't happen anyway in a well-behaved alignment.
+                    // TODO: accomodate this somehow.
+                    throw runtime_error("GFA link alignment contains adjacent insertion and deletion");
                 }
                 
                 // Decompose each operation into a series of suboperations.
@@ -419,13 +443,51 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                     suboperations.push_back(elem);
                 }
                
-                for (auto& subelem : suboperations) {
-                    // For each suboperation, get its length
+                for (auto subelem_index = 0; subelem_index < suboperations.size(); subelem_index++) {
+                    // For each suboperation
+                    auto& subelem = suboperations[subelem_index];
+                    
+                    // Get its length
                     auto& length = subelem.first;
                     
+                    // Compute source and sink lengths
+                    size_t source_length = 0;
+                    size_t sink_length = 0;
+                    assert(!subelem.second.empty());
+                    switch(subelem.second[0]) {
+                    case 'M':
+                    case '=':
+                    case 'X':
+                        source_length = length;
+                        // Fall through
+                    case 'I':
+                        sink_length = length;
+                        break;
+                    case 'D':
+                        source_length = length;
+                        break;
+                    default:
+                        // We should have already checked for weird operations.
+                        throw runtime_error("Invalid operation " + subelem.second + " in pre-screened CIGAR");
+                    }
+                    
                     // Work out the sequence-local start of the region in each sequence that it may apply to, which depends on orientation.
-                    int64_t source_region_start = source_backward ? (source_cursor - length + 1) : source_cursor;
-                    int64_t sink_region_start = sink_backward ? (sink_cursor - length + 1) : sink_cursor;
+                    int64_t source_region_start = source_backward ? (source_cursor - source_length + 1) : source_cursor;
+                    int64_t sink_region_start = sink_backward ? (sink_cursor - sink_length + 1) : sink_cursor;
+                    
+                    // And also the end positions (last in region, on the other side of the start if the region is empty)
+                    int64_t source_region_last = source_backward ? source_cursor : (source_cursor + source_length - 1);
+                    int64_t sink_region_last = sink_backward ? sink_cursor : (sink_cursor + sink_length - 1);
+                    
+#ifdef debug
+                    cerr << "Suboperation " << subelem.first << subelem.second << " runs "
+                        << source_region_start << " through " << source_region_last << " in " << source_pinch_name
+                        << " and " << sink_region_start << " through " << sink_region_last << " in " << sink_pinch_name << endl;
+#endif
+                    
+                    // We need to know when to wire in dangling source/sink bits. 
+                    bool is_first_subelement = (cigar_index == 0 && subelem_index == 0);
+                    bool is_last_subelement = (cigar_index == cigar.size() - 1 && subelem_index == suboperations.size() - 1);
                     
                     assert(!subelem.second.empty());
                     switch(subelem.second[0]) {
@@ -433,11 +495,6 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                         if (only_perfect_match) {
                             // The whole match can be merged
                             stPinchThread_pinch(source_thread, sink_thread, source_region_start, sink_region_start, length, pinch_same_strand);
-                            // Advance both cursors
-                            sink_cursor += sink_motion * length;
-                            source_cursor += source_motion * length;
-                            // The source segment's end is attached
-                            last_subelement_dangled_source = false;
                         } else {
                             // If we aren't in always_perfect_match mode this should have become =/X
                             throw runtime_error("Encountered unparsed M operation");
@@ -447,64 +504,122 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                         // Always pinch.
                         // TODO: should we check sequence equality?
                         stPinchThread_pinch(source_thread, sink_thread, source_region_start, sink_region_start, length, pinch_same_strand);
-                        // Advance both cursors
-                        sink_cursor += sink_motion * length;
-                        source_cursor += source_motion * length;
-                        // The source segment's end is attached
-                        last_subelement_dangled_source = false;
                         break;
                     case 'X':
                         // Only pinch if we are forcing matches (in which case this was X originally)
                         if (only_perfect_match) {
                             stPinchThread_pinch(source_thread, sink_thread, source_region_start, sink_region_start, length, pinch_same_strand);
-                            // The source segment's end is attached
-                            last_subelement_dangled_source = false;
                         } else {
                             if (is_first_subelement) {
-                                // We dangled the sink and we can't, because that would create a tip we can't deal with (yet)
-                                throw runtime_error("CIGAR " + link.alignment + " subelement " + to_string(subelem.first) + subelem.second +
-                                    " between " + name + " and " + link.sink_name + " dangled sink at left");
+                                // We dangled the sink and created a tip. We
+                                // need to remember the pinch we would have
+                                // made, so we can wire up the dangling end to
+                                // what we would have wired it to if we had
+                                // pinched it.
+                                
+                                // Describe the end that is dangling.
+                                // If the flag is false, it is the left end, and we are looking at it as the reverse strand.
+                                // Here, usually it should be the left end (false flag).
+                                pair<int64_t, bool> dangling_end = make_pair(sink_pinch_name, sink_backward);
+                                // Describe what it would have merged with.
+                                // Make sure it is also in the same orientation.
+                                tucks[dangling_end].emplace_back(source_pinch_name, source_region_start, !source_backward);
+                                
+#ifdef debug
+                                cerr << "Tuck " << sink_pinch_name << (sink_backward ? 'R' : 'L') << " in with "
+                                    << source_pinch_name << ":" << source_region_start << " " << (!source_backward ? "rev" : "fwd") << endl;
+#endif
+                                
+                                if (source_region_start != 0) {
+                                    // Force the thread we want to attach to to break there
+                                    stPinchThread_split(source_thread, source_region_start - 1);
+                                }
                             }
-                            // We also dangled the source
-                            last_subelement_dangled_source = true;
+                            
+                            if (is_last_subelement) {
+                                // We dangled the source as well, on the right of the overlap
+                                
+                                // Describe the end that is dangling.
+                                // Here, usually it should be the right end (true flag).
+                                pair<int64_t, bool> dangling_end = make_pair(source_pinch_name, !source_backward);
+                                // And what would it have merged with?
+                                tucks[dangling_end].emplace_back(sink_pinch_name, sink_region_last, sink_backward);
+                                
+#ifdef debug
+                                cerr << "Tuck " << source_pinch_name << (!source_backward ? 'R' : 'L') << " in with "
+                                    << sink_pinch_name << ":" << sink_region_last << " " << (sink_backward ? "rev" : "fwd") << endl;
+#endif
+                                
+                                // Force the thread we want to attach to to break there
+                                stPinchThread_split(sink_thread, sink_region_last);
+                            }
                         }
-                        // Advance both cursors
-                        sink_cursor += sink_motion * length;
-                        source_cursor += source_motion * length;
                         break;
                     case 'I':
-                        // We don't need to do any pinching, just advance the sink cursor.
-                        sink_cursor += sink_motion * length;
+                        // We don't need to do any pinching
                         if (is_first_subelement) {
-                            // We dangled the sink and we can't, because that would create a tip we can't deal with (yet)
-                            throw runtime_error("CIGAR " + link.alignment + " subelement " + to_string(subelem.first) + subelem.second +
-                                " between " + name + " and " + link.sink_name + " dangled sink at left");
+                            // We dangled the sink on the left of the overlap
+                            pair<int64_t, bool> dangling_end = make_pair(sink_pinch_name, sink_backward);
+                            tucks[dangling_end].emplace_back(source_pinch_name, source_region_start, !source_backward);
+                            
+#ifdef debug
+                            cerr << "Tuck " << sink_pinch_name << (sink_backward ? 'R' : 'L') << " in with "
+                                << source_pinch_name << ":" << source_region_start << " " << (!source_backward ? "rev" : "fwd") << endl;
+#endif
+                            
+                            if (source_region_start != 0) {
+                                // Force the thread we want to attach to to break there
+                                stPinchThread_split(source_thread, source_region_start - 1);
+                            }
                         }
                         break;
                     case 'D':
-                        // We don't need to do any pinching, just advance the source cursor.
-                        source_cursor += source_motion * length;
-                        // We dangled a source segment; its end isn't attached.
-                        last_subelement_dangled_source = true;
+                        // No pinching
+                        if (is_last_subelement) {
+                            // We dangled the source on the right of the overlap
+                            
+                            // Describe the end that is dangling.
+                            // Here, usually it should be the right end (true flag).
+                            pair<int64_t, bool> dangling_end = make_pair(source_pinch_name, !source_backward);
+                            // And what would it have merged with?
+                            tucks[dangling_end].emplace_back(sink_pinch_name, sink_region_last, sink_backward);
+                            
+#ifdef debug
+                            cerr << "Tuck " << source_pinch_name << (!source_backward ? 'R' : 'L') << " in with "
+                                << sink_pinch_name << ":" << sink_region_last << " " << (sink_backward ? "rev" : "fwd") << endl;
+#endif
+                            
+                            // Force the thread we want to attach to to break there
+                            stPinchThread_split(sink_thread, sink_region_last);
+                        }
                         break;
                     default:
-                        // We should ahve already checked for weird operations.
+                        // We should have already checked for weird operations twice now.
                         throw runtime_error("Invalid operation " + subelem.second + " in pre-screened CIGAR");
                     }
                     
-                    // Only the first subelement was first.
-                    is_first_subelement = false;
+                    // Advance the cursors
+                    sink_cursor += sink_motion * sink_length;
+                    source_cursor += source_motion * source_length;
                 }
-            }
-            
-            if (last_subelement_dangled_source) {
-                // TODO: Work out a way to find this tip and attach it to what the real next node should be.
-                throw runtime_error("CIGAR " + link.alignment + " between " + name + " and " + link.sink_name + " dangled source at right");
             }
         }
     }
 
     // Now all the pinches have been made
+    
+#ifdef debug
+    {
+        size_t segment_count = 0;
+        auto segment_iter = stPinchThreadSet_getSegmentIt(pinch);
+        stPinchSegment* segment = stPinchThreadSetSegmentIt_getNext(&segment_iter);
+        for (; segment != nullptr; segment = stPinchThreadSetSegmentIt_getNext(&segment_iter)) {
+            segment_count++;
+        }
+        
+        cerr << "Total pinch segments: " << segment_count << endl;
+    }
+#endif
 
     // Convert the pinch blocks into vg nodes
     
@@ -621,6 +736,84 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
 #endif
     }
     
+    // Copy edges to equivalent nodes caused by tucking
+    
+#ifdef debug
+    cerr << "Before tucks:" << endl;
+    cerr << pb2json(graph->graph) << endl;
+#endif
+    
+    for (auto& kv : tucks) {
+        // For each end that needs tucking
+        const int64_t& thread_name = kv.first.first;
+        const bool& right_end = kv.first.second;
+        
+        // Find the thread
+        stPinchThread* thread = stPinchThreadSet_getThread(pinch, thread_name);
+        
+        // Find the segment
+        stPinchSegment* thread_end_segment = right_end ? stPinchThread_getLast(thread) : stPinchThread_getFirst(thread);
+        
+        // Find the vg node that it produced
+        id_t node = pinch_to_vg.translate(thread_end_segment);
+        
+        // And the end of the node we want
+        bool node_reverse = !right_end != !stPinchSegment_getBlockOrientationSafe(thread_end_segment);
+        
+        // Get a handle to be on the start of an edge
+        handle_t handle = graph->get_handle(node, node_reverse);
+        
+        for (auto& tuck_to : kv.second) {
+            // For each place we are supposed to tuck it to
+            const int64_t& dest_thread_name = get<0>(tuck_to);
+            const size_t& dest_thread_pos = get<1>(tuck_to);
+            const bool& dest_is_reverse = get<2>(tuck_to);
+            
+#ifdef debug
+            cerr << "Tucking thread " << thread_name << (right_end ? 'R' : 'L') << " into "
+                << dest_thread_name << ":" << dest_thread_pos << " " << (dest_is_reverse ? "rev" : "fwd") << endl;
+#endif
+            
+            // Find the thread
+            stPinchThread* dest_thread = stPinchThreadSet_getThread(pinch, dest_thread_name);
+            
+            // Find the pinch segment owning this position
+            stPinchSegment* dest_segment = stPinchThread_getSegment(dest_thread, dest_thread_pos);
+            
+            // Assert this position is on the end of the segment
+            if (dest_is_reverse) {
+                assert(stPinchSegment_getStart(dest_segment) == dest_thread_pos);
+            } else {
+                assert(stPinchSegment_getStart(dest_segment) + stPinchSegment_getLength(dest_segment) - 1 == dest_thread_pos);
+            }
+            
+            // Find the vg node that it produced
+            id_t dest_node = pinch_to_vg.translate(dest_segment);
+            
+            // And its orientation
+            bool dest_node_reverse = dest_is_reverse != !stPinchSegment_getBlockOrientationSafe(dest_segment);
+            
+            // Get a handle to be the left side of an edge
+            handle_t dest_handle = graph->get_handle(dest_node, dest_node_reverse);
+            
+            graph->follow_edges(dest_handle, false, [&](const handle_t& edge_to) {
+                // For each edge on that handle
+
+#ifdef debug
+                cerr << "\tMake edge " << graph->get_id(handle) << (graph->get_is_reverse(handle) ? 'L' : 'R') << " to "
+                    << graph->get_id(edge_to) << (graph->get_is_reverse(edge_to) ? 'R' : 'L')  << " to mimic "
+                    << graph->get_id(dest_handle) << (graph->get_is_reverse(dest_handle) ? 'L' : 'R') << endl;
+#endif
+                // Create an edge on the tucked node
+                graph->create_edge(handle, edge_to);
+                
+                // TODO: Will we run into trouble mutating the handle graph while iterating over it?
+            });
+        }
+    }
+    // TODO: Do we really want to do transitive tucks?
+    // TODO: Do we need to do multiple passes for tuck-to-tuck edges?
+    
     // Process the GFA paths
     
     for (auto& name_and_path : gfa_paths) {
@@ -700,7 +893,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // Work out how much of this thread the previous thread ate, by looking at the overlaps on the links
             auto overlap_to = link_skips.find(tie(prev_thread_name, thread_name, prev_thread_backward, thread_backward));
             if (overlap_to == link_skips.end()) {
-                // This thread crosses an edge that isn't there.
+                // This thread crosses a link that isn't there.
                 // We want to get rid of the path entirely since we can't represent it.
                 
                 if (only_perfect_match) {
@@ -724,6 +917,8 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                 abort_path = true;
                 break;
             }
+            
+            // TODO: We don't check for *vg graph edges* that aren't present, only *links*.
         
             // Start at the near end of the next thread
             stPinchThread* thread = stPinchThreadSet_getThread(pinch, thread_name);
