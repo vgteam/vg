@@ -254,7 +254,8 @@ public:
     /// populates the given Graph and returns a flag for whether it's valid).
     VG(function<bool(Graph&)>& get_next_graph, bool showp = false, bool warn_on_duplicates = true);
 
-    // To construct from a single Protobuf graph, make an empty VG and use .extend()
+    /// Construct from a single Protobuf graph. The same as making an empty VG and using extend().
+    VG(const Graph& from, bool showp = false, bool warn_on_duplicates = true);
 
     /// Construct from sets of nodes and edges. For example, from a subgraph of
     /// another graph.
@@ -486,12 +487,12 @@ public:
     /// merge instead.
     /// This version sorts paths on rank after adding in the path mappings from
     /// the other graph.
-    void extend(VG& g, bool warn_on_duplicates = false);
+    void extend(const VG& g, bool warn_on_duplicates = false);
     /// This version does not sort path mappings by rank. In order to preserve
     /// paths, call Paths::sort_by_mapping_rank() and
     /// Paths::rebuild_mapping_aux() after you are done adding in graphs to this
     /// graph.
-    void extend(Graph& graph, bool warn_on_duplicates = false);
+    void extend(const Graph& graph, bool warn_on_duplicates = false);
     // TODO: Do a member group for these overloads
 
     /// Add another graph into this graph, attaching tails to heads.

@@ -1934,7 +1934,7 @@ bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function
             // Reverse of above. Sort of.
             if (go_left) {
                 if (connected_start_start || connected_end_end || connected_start_end) {
-                    if (!graph->follow_edges(handle, false, handle_edge)) {
+                    if (!graph->follow_edges(handle, false, flip_and_handle_edge)) {
                         // Iteratee is done
                         return false;
                     }
@@ -1943,7 +1943,7 @@ bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function
                     
             } else {
                 if (!use_internal_connectivity) {
-                    if (!graph->follow_edges(handle, false, flip_and_handle_edge)) {
+                    if (!graph->follow_edges(handle, false, handle_edge)) {
                         // Iteratee is done
                         return false;
                     }

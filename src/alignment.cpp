@@ -1481,6 +1481,7 @@ void parse_gff_regions(istream& gffstream,
     string seq;
     string source;
     string type;
+    string buf;
     size_t sbuf;
     size_t ebuf;
     string name = "";
@@ -1494,19 +1495,21 @@ void parse_gff_regions(istream& gffstream,
             continue;
         }
         istringstream ss(row);
-        ss >> seq;
-        ss >> source;
-        ss >> type;
-        ss >> sbuf;
-        ss >> ebuf;
+        getline(ss, seq, '\t');
+        getline(ss, source, '\t');
+        getline(ss, type, '\t');
+        getline(ss, buf, '\t');
+        sbuf = atoi(buf.c_str());
+        getline(ss, buf, '\t');
+        ebuf = atoi(buf.c_str());
 
         if (ss.fail() || !(sbuf < ebuf)) {
             cerr << "Error parsing gtf/gff line " << line << ": " << row << endl;
         } else {
-            ss >> score;
-            ss >> strand;
-            ss >> num;
-            ss >> annotations;
+            getline(ss, score, '\t');
+            getline(ss, strand, '\t');
+            getline(ss, num, '\t');
+            getline(ss, annotations, '\t');
             vector<string> vals = split(annotations, ";");
             for (auto& s : vals) {
                 if (s.find("Name=") == 0) {
