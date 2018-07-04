@@ -1376,5 +1376,31 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
     }
 
 }
+
+
+/**
+TEST_CASE("VG handles insertions and inversions", "[constructor"){
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INV>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INV;SVLEN=20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+
+}
+
+**/
+
+
 }
 }
