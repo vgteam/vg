@@ -1874,7 +1874,8 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                0, // band padding override
                                aln.sequence().size(),
                                0, // unroll_length
-                               xdrop_alignment);
+                               xdrop_alignment,
+                               xdrop_alignment && alignment_threads > 1);
         } else {
             aligned = vg.align_qual_adjusted(aln,
                                              get_qual_adj_aligner(),
@@ -1904,7 +1905,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         } else if (xdrop_alignment) {
             // directly call alignment function without node translation
             // cerr << "X-drop alignment, (" << xdrop_alignment << "), rev(" << ((xdrop_alignment == 1) ? false : true) << ")" << endl;
-            get_aligner(!aln.quality().empty())->align_xdrop(aligned, graph, mems, (xdrop_alignment == 1) ? false : true);
+            get_aligner(!aln.quality().empty())->align_xdrop(aligned, graph, mems, (xdrop_alignment == 1) ? false : true, alignment_threads > 1);
         } else {
             get_aligner(!aln.quality().empty())->align(aligned, graph, traceback, false);
         }
@@ -3912,7 +3913,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
 
     // scan across the read choosing bands
-    // these bands are hard coded to overlap by 50%
+    // these bands are hard coded to overlap by band_overlap
     // the second and next-to-last bands begin or end remander/2 into the read
     // the last band is guaranteed to be segment_size long
     // overlap scheme example

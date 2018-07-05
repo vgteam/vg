@@ -974,6 +974,7 @@ public:
                     size_t max_span = 0,
                     size_t unroll_length = 0,
                     int xdrop_alignment = 0,                // 1 for forward, >1 for reverse, see constructor for the X-drop threshold
+                    bool multithreaded_xdrop = false,
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
     /// Align to the graph.
@@ -992,6 +993,7 @@ public:
                     size_t max_span = 0,
                     size_t unroll_length = 0,
                     int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
+                    bool multithreaded_xdrop = false,
                     bool print_score_matrices = false);
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
@@ -1005,6 +1007,7 @@ public:
                     size_t max_span = 0,
                     size_t unroll_length = 0,
                     int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
+                    bool multithreaded_xdrop = false,
                     bool print_score_matrices = false);
     
     /// Align with default Aligner.
@@ -1022,6 +1025,7 @@ public:
                     size_t max_span = 0,
                     size_t unroll_length = 0,
                     int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
+                    bool multithreaded_xdrop = false,
                     bool print_score_matrices = false);
     /// Align with default Aligner.
     /// Align to the graph.
@@ -1038,6 +1042,7 @@ public:
                     size_t max_span = 0,
                     size_t unroll_length = 0,
                     int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
+                    bool multithreaded_xdrop = false,
                     bool print_score_matrices = false);
     
     /// Align with base quality adjusted scores.
@@ -1057,6 +1062,7 @@ public:
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
                                   int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
+                                  bool multithreaded_xdrop = false,
                                   bool print_score_matrices = false);
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner* qual_adj_aligner,
@@ -1070,6 +1076,7 @@ public:
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
                                   int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
+                                  bool multithreaded_xdrop = false,
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
     /// Align to the graph.
@@ -1087,6 +1094,7 @@ public:
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
                                   int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
+                                  bool multithreaded_xdrop = false,
                                   bool print_score_matrices = false);
     
     
@@ -1207,6 +1215,7 @@ private:
                     size_t max_span = 0,
                     size_t unroll_length = 0,
                     int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
+                    bool multithreaded_xdrop = false,
                     bool print_score_matrices = false);
 
 

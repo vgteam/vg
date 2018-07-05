@@ -131,7 +131,7 @@ namespace vg {
                                                Graph& g, int32_t max_alt_alns, int32_t band_padding = 0,
                                                bool permissive_banding = true) = 0;
         // xdrop aligner
-        virtual void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) = 0;
+        virtual void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded) = 0;
         virtual void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) = 0;
 
         /// Compute the score of an exact match in the given alignment, from the
@@ -311,7 +311,7 @@ namespace vg {
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
 
         // xdrop aligner
-        void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented);
+        void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded);
         void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns);
 
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
@@ -352,7 +352,7 @@ namespace vg {
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
                                 bool pin_left, int32_t max_alt_alns);
         // xdrop aligner
-        void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented);
+        void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded);
         void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns);
 
         void init_mapping_quality(double gc_content);
