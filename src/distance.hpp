@@ -3,7 +3,7 @@
 
 namespace vg { 
 
-    class DistanceIndex {
+class DistanceIndex {
 
     /*The distance index*/
 
@@ -12,10 +12,17 @@ namespace vg {
     DistanceIndex (VG* vg, SnarlManager* snarlManager);
 
 
-    //Get the distance between two positions
+    /*Get the distance between two positions
+      pos1 must be on a node contained in snarl1 and not on any children of
+      snarl1. The same for pos2 and snarl2
+    */
     int64_t distance( 
          const Snarl* snarl1, const Snarl* snarl2, pos_t& pos1, pos_t& pos2);
   
+    //Helper function to find the minimum value that is not -1
+    static int64_t minPos(vector<int64_t> vals);
+
+
     protected:
     void printSelf();
     class SnarlDistances {
@@ -55,8 +62,8 @@ namespace vg {
               shortest distance from that position to the start and end nodes of
               the snarl
             */
-            pair<int64_t, int64_t> distToEnds(id_t node, bool rev, int64_t distL,
-                                                                int64_t distR);
+            pair<int64_t, int64_t> distToEnds(id_t node, bool rev, 
+                                                 int64_t distL, int64_t distR);
 
             void printSelf();
 
@@ -91,7 +98,7 @@ namespace vg {
 
         friend class DistanceIndex;
         friend class TestDistanceIndex;
-        };
+    };
 
     class ChainDistances {
         /*Stores distances between snarls in a chain*/
@@ -145,41 +152,41 @@ namespace vg {
                                        pair<size_t, bool> end     );
         friend class DistanceIndex;   
         friend class TestDistanceIndex;
-        }; 
+    }; 
 
 
-        //map from start node of a snarl to its index
-        unordered_map<pair<id_t, bool>, SnarlDistances> snarlIndex;
+    //map from start node of a snarl to its index
+    unordered_map<pair<id_t, bool>, SnarlDistances> snarlIndex;
 
-        //map from node id of first node in snarl to that chain's index
-        unordered_map<id_t, ChainDistances> chainIndex;
-  
-        //Graph and snarl manager for this index
-        VG* graph;
+    //map from node id of first node in snarl to that chain's index
+    unordered_map<id_t, ChainDistances> chainIndex;
 
-        SnarlManager* sm;
+    //Graph and snarl manager for this index
+    VG* graph;
+
+    SnarlManager* sm;
  
-        //Helper function for constructor
-        int64_t calculateIndex(const Chain* chain); 
+    //Helper function for constructor
+    int64_t calculateIndex(const Chain* chain); 
 
-        /*Helper function for distance calculation
-          Returns the distance to the start of and end of the child snarl of
-             common ancestor containing snarl, commonAncestor if snarl is
-             the common ancestor
-        */
-        pair<pair<int64_t, int64_t>, const Snarl*> distToCommonAncestor(
+    /*Helper function for distance calculation
+      Returns the distance to the start of and end of the child snarl of
+      common ancestor containing snarl, commonAncestor if snarl is
+      the common ancestor
+    */
+    pair<pair<int64_t, int64_t>, const Snarl*> distToCommonAncestor(
                 const Snarl* snarl, const Snarl* commonAncestor, pos_t& pos); 
 
 
 
-        // Methods for testing
-        int64_t checkChainDist(id_t snarl, size_t index);
-        int64_t checkChainLoopFd(id_t snarl, size_t index);
-        int64_t checkChainLoopRev(id_t snarl, size_t index);
-        friend class SnarlDistances;
-        friend class ChainDistances;
+    // Methods for testing
+    int64_t checkChainDist(id_t snarl, size_t index);
+    int64_t checkChainLoopFd(id_t snarl, size_t index);
+    int64_t checkChainLoopRev(id_t snarl, size_t index);
+    friend class SnarlDistances;
+    friend class ChainDistances;
 
 
-    };
+};
  
 }

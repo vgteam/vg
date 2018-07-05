@@ -6,19 +6,6 @@
 using namespace std;
 namespace vg {
 
-int64_t minPos (vector<int64_t> vals) {
-//TODO: Move this somewhere else
-    /*return the minimum value in vals that is not -1, returns -1 if all
-     values are -1 */
-    return accumulate(vals.begin(), vals.end(), -1, 
-          [](int x, int y) {if (x==-1) {return y;} 
-                            else if (y == -1) {return x;}
-                            else {return min(x, y);}} 
-          ); 
-   
-};
-
-
 DistanceIndex::DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager){
     /*Constructor for the distance index given a VG and snarl manager
     */
@@ -1020,7 +1007,8 @@ pair<pair<int64_t, int64_t>, const Snarl*> DistanceIndex::distToCommonAncestor(
     id_t startID = snarl->start().node_id(); 
     bool startRev = snarl->start().backward();
 
-    SnarlDistances& snarlDists = snarlIndex.at(make_pair(startID, startRev));    
+    SnarlDistances& snarlDists = snarlIndex.at(make_pair(startID, startRev));
+ 
     pair<int64_t, int64_t> endDists = snarlDists.distToEnds(nodeID, false, 
                                                                  distL, distR);
     distL = endDists.first;
@@ -1079,6 +1067,20 @@ pair<pair<int64_t, int64_t>, const Snarl*> DistanceIndex::distToCommonAncestor(
     }
     return make_pair(make_pair(distL, distR), snarl);
 };
+
+int64_t DistanceIndex::minPos (vector<int64_t> vals) {
+//TODO: Move this somewhere else
+    /*return the minimum value in vals that is not -1, returns -1 if all
+     values are -1 */
+    return accumulate(vals.begin(), vals.end(), -1, 
+          [](int x, int y) {if (x==-1) {return y;} 
+                            else if (y == -1) {return x;}
+                            else {return min(x, y);}} 
+          ); 
+   
+};
+
+
 
 void DistanceIndex::printSelf() {
     for (auto snarls : snarlIndex) {

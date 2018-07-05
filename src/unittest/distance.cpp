@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <fstream>
 #include <set>
 #include "json2pb.h"
 #include "vg.hpp"
@@ -140,6 +141,60 @@ class TestDistanceIndex : public DistanceIndex {
         using DistanceIndex::checkChainLoopRev;
         using DistanceIndex::printSelf;
 };
+
+
+    TEST_CASE( "Test from file",
+                   "[dist][buggy]" ) {
+        ifstream file ("testGraph", ifstream::in);
+        VG graph (file);
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+        
+        SECTION( "Create distance index" ) {
+            const vector<const Snarl*>& topSnarls = snarl_manager.top_level_snarls();
+            for (const Snarl* s : topSnarls) {
+                cerr << "Top level snarl: " << endl;
+                cerr << s->start().node_id() << " " << s->start().backward() << endl;
+                const vector<const Snarl*>& children = snarl_manager.children_of(s);
+                cerr << "Children: ";
+                for (const Snarl* c : children) {
+                    cerr <<  " " << c->start().node_id() << " " << c->start().backward() << endl;
+                }
+
+
+              NetGraph ng = snarl_manager.net_graph_of(s, &graph);
+
+              unordered_set<pair<id_t, bool>> allNodes;
+              auto addNode = [&](const handle_t& h) -> bool {
+                 allNodes.insert(make_pair(ng.get_id(h), ng.get_is_reverse(h)));
+                 return true;
+               };
+cerr << endl << endl << " STARTING FOR EACH HANDLE " << endl;
+               ng.for_each_handle(addNode);
+
+               cerr << "Nodes in netgraph: " << endl;
+               for (pair<id_t, bool> p : allNodes) {
+                   cerr << p.first << " " << p.second << endl;
+               }
+                auto printNode = [&] (const handle_t& h) -> bool {
+                    cerr << ng.get_id(h) << " " << ng.get_is_reverse(h) << endl;
+                    return true;
+                };
+                handle_t firstHandleR = ng.get_handle(s->start().node_id(), !s->start().backward());
+                handle_t firstHandle = ng.get_handle(s->start().node_id(), s->start().backward());
+               cerr << endl << endl << "STARTING FOLLOW EDGES" << endl;
+               ng.follow_edges(firstHandleR, false, printNode);
+               ng.follow_edges(firstHandle, false, printNode);
+            }
+            
+            TestDistanceIndex di (&graph, &snarl_manager);
+            di.printSelf();
+        }
+
+    }//End test case
+
+
+
     TEST_CASE( "Create distance index for simple nested snarl",
                    "[dist]" ) {
         VG graph;
@@ -1668,6 +1723,8 @@ class TestDistanceIndex : public DistanceIndex {
             TestDistanceIndex di (&graph, &snarl_manager);
             #ifdef print        
                 di.printSelf();
+
+                        graph.serialize_to_file("testGraph");
             #endif
  
             vector<const Snarl*> allSnarls;
@@ -1700,11 +1757,13 @@ class TestDistanceIndex : public DistanceIndex {
                 id_t nodeID1 = node1->id();
                 id_t nodeID2 = node2->id();
  
-                off_t offset1 = rand() % node1->sequence().size();
-                off_t offset2 = rand() % node2->sequence().size();
+                off_t offset1 = uniform_int_distribution<int>(0,node1->sequence().size() - 1)(generator);
+                off_t offset2 = uniform_int_distribution<int>(0,node2->sequence().size() - 1)(generator);
 
-                pos_t pos1 = make_pos_t(nodeID1, rand()%2 == 0, offset1 );
-                pos_t pos2 = make_pos_t(nodeID2, rand()%2 == 0, offset2 );
+                pos_t pos1 = make_pos_t(nodeID1, 
+                  uniform_int_distribution<int>(0,1)(generator) == 0,offset1 );
+                pos_t pos2 = make_pos_t(nodeID2, 
+                  uniform_int_distribution<int>(0,1)(generator) == 0, offset2 );
  
                 if (!(nodeID1 != snarl1->start().node_id() && 
                     (snarl_manager.into_which_snarl(nodeID1, false) != NULL ||

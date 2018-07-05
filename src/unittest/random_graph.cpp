@@ -21,7 +21,8 @@ VG randomGraph(int64_t seqSize, int64_t variantLen,
     poisson_distribution<size_t> lengthDistribution(variantLen);
     uniform_int_distribution<int> variantDistribution(0, 4);
     uniform_int_distribution<int> indexDistribution(0, seqSize-1);
-    default_random_engine generator(time(NULL));
+    random_device seed_source;
+    default_random_engine generator(seed_source());
 
     auto splitNode = [&] (size_t index) -> pair<Node, Node> {
         //Split graph at index. Split the node with the original sequence into
@@ -70,13 +71,17 @@ VG randomGraph(int64_t seqSize, int64_t variantLen,
 
     };
 
+    enum VariationType {SNP = 0, POINT_INDEL = 1, STRUCTURAL_INDEL = 2,
+                        CNV = 3, INVERSION = 4};
+
     for (int j = 0; j < variantCount; j++) {
         //add variants
         int startIndex = indexDistribution(generator);
-        int variationType = variantDistribution(generator);
+        VariationType variationType = 
+                                 (VariationType) variantDistribution(generator);
 
-        if (variationType == 0) {
-            //SNP
+        if (variationType == SNP) {
+
             if (startIndex == 0) {
 
                 pair<Node, Node> endNodes = splitNode(startIndex+1);
@@ -104,7 +109,7 @@ VG randomGraph(int64_t seqSize, int64_t variantLen,
                 graph.create_edge(&start, newNode);
 
             }
-        } else if (variationType == 1) {
+        } else if (variationType == POINT_INDEL) {
             //Short indel - deletion of original
 
             if (startIndex > 0 && startIndex < seqSize-1) {
@@ -116,7 +121,7 @@ VG randomGraph(int64_t seqSize, int64_t variantLen,
                 graph.create_edge(&start, &end);
 
             }
-        } else if (variationType == 2) {
+        } else if (variationType == STRUCTURAL_INDEL) {
             //long indel
             size_t length = lengthDistribution(generator);
 
@@ -131,7 +136,7 @@ VG randomGraph(int64_t seqSize, int64_t variantLen,
                 graph.create_edge(&start, &end);
 
             }
-        } else if (variationType == 3) {
+        } else if (variationType == CNV) {
             //Copy number variation
             size_t length = lengthDistribution(generator);
 
@@ -169,7 +174,7 @@ VG randomGraph(int64_t seqSize, int64_t variantLen,
                     graph.create_edge(lastNode, &n);
                 }
             }
-        } else {
+        } else if (variationType == INVERSION){
             //Inversion
             size_t length = lengthDistribution(generator);
             if (length > 0) {
