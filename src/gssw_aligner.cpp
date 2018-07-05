@@ -1177,10 +1177,15 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
 }
 
 // X-drop aligner
-void Aligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented)
+void Aligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded)
 {
     // cerr << "X-drop aligner" << endl;
-    xdrop.align(alignment, g, mems, reverse_complemented);
+    if (multithreaded) {
+        auto xdrop_copy = xdrop; // make thread safe
+        xdrop_copy.align(alignment, g, mems, reverse_complemented);
+    } else {
+        xdrop.align(alignment, g, mems, reverse_complemented);
+    }
 }
 
 void Aligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns)
@@ -1513,7 +1518,7 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
 }
 
 // X-drop aligner
-void QualAdjAligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented)
+void QualAdjAligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded)
 {
 }
 
