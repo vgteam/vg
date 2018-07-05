@@ -95,6 +95,7 @@ namespace vg {
         bool unstranded_clustering = true;
         size_t max_single_end_mappings_for_rescue = 64;
         size_t max_rescue_attempts = 32;
+        size_t plausible_rescue_cluster_coverage_diff = 5;
         size_t secondary_rescue_attempts = 4;
         double secondary_rescue_score_diff = 1.0;
         double mapq_scaling_factor = 1.0 / 4.0;
@@ -154,7 +155,8 @@ namespace vg {
                                      MappingQualityMethod mapq_method,
                                      vector<clustergraph_t>& cluster_graphs,
                                      vector<MultipathAlignment>& multipath_alns_out,
-                                     size_t num_mapping_attempts);
+                                     size_t num_mapping_attempts,
+                                     vector<size_t>* cluster_idxs = nullptr);
         
         /// After clustering MEMs, extracting graphs, assigning hits to cluster graphs, and determining
         /// which cluster graph pairs meet the fragment length distance constraints, perform multipath
@@ -204,6 +206,14 @@ namespace vg {
                                     vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) const;
         
+        /// Estimates the probability that the correct cluster was chosen as a cluster to rescue from and caps the
+        /// mapping quality to the minimum of the current mapping quality and this probability (in Phred scale)
+        void cap_mapping_quality_by_rescue_probability(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                       vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                       vector<clustergraph_t>& cluster_graphs1,
+                                                       vector<clustergraph_t>& cluster_graphs2,
+                                                       bool from_secondary_rescue) const;
+        
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable (according to the Mapper's aligner) with
         /// local alignment anchored at the MEMs. If any subgraphs overlap, they
@@ -217,7 +227,8 @@ namespace vg {
         
         /// If there are any MultipathAlignments with multiple connected components, split them
         /// up and add them to the return vector
-        void split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out) const;
+        void split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out,
+                                             vector<size_t>* cluster_idxs = nullptr) const;
         
         /// If there are any MultipathAlignments with multiple connected components, split them
         /// up and add them to the return vector, also measure the distance between them and add
@@ -239,7 +250,9 @@ namespace vg {
         int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
-        void sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns, MappingQualityMethod mapq_method) const;
+        /// Optionally also sorts a vector of indexes to keep track of the cluster-of-origin
+        void sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns, MappingQualityMethod mapq_method,
+                                              vector<size_t>* cluster_idxs = nullptr) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
         /// If there are ties between scores, breaks them by the expected distance between pairs as computed by the
@@ -278,7 +291,6 @@ namespace vg {
         /// Return true if any of the initial positions of the source Subpaths are shared between the two
         /// multipath alignments
         bool share_terminal_positions(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
-        
         
         /// Get a thread_local RRMemo with these parameters
         haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;;
