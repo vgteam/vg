@@ -6,8 +6,6 @@
 
 #include <structures/union_find.hpp>
 
-#define debug
-
 namespace vg {
 
 using namespace std;
