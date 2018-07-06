@@ -43,6 +43,8 @@ public:
     int defray_count = 99999;
     // Should we drop split reads that follow edges not in the graph?
     bool drop_split = false;
+    // We can also pseudorandomly drop reads. What's the probability that we keep a read?
+    double downsample_probability = 1.0;
     // default to 1 thread (as opposed to all)
     int threads = 1;
 
@@ -58,9 +60,10 @@ public:
         vector<size_t> split;
         vector<size_t> repeat;
         vector<size_t> defray;
+        vector<size_t> random;
         Counts() : read(2, 0), filtered(2, 0), wrong_name(2, 0), min_score(2, 0),
                    max_overhang(2, 0), min_end_matches(2, 0), min_mapq(2, 0),
-                   split(2, 0), repeat(2, 0), defray(2, 0) {}
+                   split(2, 0), repeat(2, 0), defray(2, 0), random(2, 0) {}
         Counts& operator+=(const Counts& other) {
             for (int i = 0; i < 2; ++i) {
                 read[i] += other.read[i];
@@ -73,6 +76,7 @@ public:
                 split[i] += other.split[i];
                 repeat[i] += other.repeat[i];
                 defray[i] += other.defray[i];
+                random[i] += other.random[i];
             }
             return *this;
         }
@@ -134,6 +138,12 @@ private:
      * Throws an error if no XG index is specified.
      */
     bool is_split(xg::XG* index, Alignment& alignment);
+    
+    /**
+     * Return true with the given probability, and false otherwise.
+     * Thread safe. May or may not be deterministic within or between threads.
+     */
+    static bool sample_bool(double probability);
     
 };
 }
