@@ -4,6 +4,10 @@
 // Use sonLib pinch graphs
 #include <stPinchGraphs.h>
 
+#include <structures/union_find.hpp>
+
+#define debug
+
 namespace vg {
 
 using namespace std;
@@ -243,13 +247,14 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // pinched into it. We want to link it to the right next/previous node,
     // without actually pinching it in.
     
-    // This stores, for each thread end (left = false) that is dangling, a
-    // vector of equivalent positions. Each equivalent position holds the
-    // thread name, base, and orientation (reverse = true) that the end base
-    // would have been pinched into, whose connectivity we should copy. Note
-    // that we will have to recursively look for equivalent positions of the
-    // equivalent positions if they are themselves ends.
-    unordered_map<pair<int64_t, bool>, vector<tuple<int64_t, size_t, bool>>> tucks;
+    // Because tucks can result in transative collapses and the creation of a
+    // bunch of edges that would be hard to predict, we're going to use a
+    // union-find over tucked sides and he sides they tuck into (i.e. have the
+    // sme edges as). We can't make that union-find until we know everything
+    // that needs to be involved, so we're going to store a list of pairs of
+    // (thread name, base, is_left) tripples that get merged.
+    using tuck_side_t = tuple<int64_t, size_t, bool>;
+    vector<pair<tuck_side_t, tuck_side_t>> tucks;
     
     for (auto& name_and_links : gfa_links) {
         // For each set of links, by source node name
@@ -479,6 +484,10 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                     int64_t source_region_last = source_backward ? source_cursor : (source_cursor + source_length - 1);
                     int64_t sink_region_last = sink_backward ? sink_cursor : (sink_cursor + sink_length - 1);
                     
+                    // Note thatb these are just lowest/highest coordinate in
+                    // thread space, not corresponding to each other to to the
+                    // start/end of the operation.
+                    
 #ifdef debug
                     cerr << "Suboperation " << subelem.first << subelem.second << " runs "
                         << source_region_start << " through " << source_region_last << " in " << source_pinch_name
@@ -511,47 +520,47 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                             stPinchThread_pinch(source_thread, sink_thread, source_region_start, sink_region_start, length, pinch_same_strand);
                         } else {
                             if (is_first_subelement) {
-                                // We dangled the sink and created a tip. We
-                                // need to remember the pinch we would have
-                                // made, so we can wire up the dangling end to
-                                // what we would have wired it to if we had
-                                // pinched it.
+                                // We dangled the sink and potentially created
+                                // a tip. We need to remember the pinch we
+                                // would have made, so we can wire up the
+                                // dangling end to what we would have wired it
+                                // to if we had pinched it.
                                 
-                                // Describe the end that is dangling.
-                                // If the flag is false, it is the left end, and we are looking at it as the reverse strand.
-                                // Here, usually it should be the left end (false flag).
-                                pair<int64_t, bool> dangling_end = make_pair(sink_pinch_name, sink_backward);
+                                // Describe the end that is dangling as (thread name, base, is_left)
+                                tuck_side_t dangling_end = make_tuple(sink_pinch_name,
+                                    sink_backward ? stPinchThread_getLength(sink_thread) - 1 : 0, !sink_backward);
                                 // Describe what it would have merged with.
-                                // Make sure it is also in the same orientation.
-                                tucks[dangling_end].emplace_back(source_pinch_name, source_region_start, !source_backward);
+                                tuck_side_t tuck_into = make_tuple(source_pinch_name, source_cursor, !source_backward);
+                                // Queue up the edge exchange
+                                tucks.emplace_back(dangling_end, tuck_into);
                                 
-#ifdef debug
-                                cerr << "Tuck " << sink_pinch_name << (sink_backward ? 'R' : 'L') << " in with "
-                                    << source_pinch_name << ":" << source_region_start << " " << (!source_backward ? "rev" : "fwd") << endl;
+#ifdef debug    
+                                cerr << "\tSuboperation requires tucking "
+                                    << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
+                                    << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
 #endif
                                 
-                                if (source_region_start != 0) {
-                                    // Force the thread we want to attach to to break there
-                                    stPinchThread_split(source_thread, source_region_start - 1);
-                                }
+                                // Splits to allow tucks will be done later.
                             }
                             
                             if (is_last_subelement) {
                                 // We dangled the source as well, on the right of the overlap
                                 
-                                // Describe the end that is dangling.
-                                // Here, usually it should be the right end (true flag).
-                                pair<int64_t, bool> dangling_end = make_pair(source_pinch_name, !source_backward);
-                                // And what would it have merged with?
-                                tucks[dangling_end].emplace_back(sink_pinch_name, sink_region_last, sink_backward);
+                                // Describe the end that is dangling as (thread name, base, is_left)
+                                tuck_side_t dangling_end = make_tuple(source_pinch_name,
+                                    source_backward ? 0 : stPinchThread_getLength(source_thread) - 1, source_backward);
+                                // Describe what it would have merged with.
+                                tuck_side_t tuck_into = make_tuple(sink_pinch_name, sink_cursor + sink_motion * (sink_length - 1), sink_backward);
+                                // Queue up the edge exchange
+                                tucks.emplace_back(dangling_end, tuck_into);
                                 
-#ifdef debug
-                                cerr << "Tuck " << source_pinch_name << (!source_backward ? 'R' : 'L') << " in with "
-                                    << sink_pinch_name << ":" << sink_region_last << " " << (sink_backward ? "rev" : "fwd") << endl;
+#ifdef debug    
+                                cerr << "\tSuboperation requires tucking "
+                                    << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
+                                    << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
 #endif
                                 
-                                // Force the thread we want to attach to to break there
-                                stPinchThread_split(sink_thread, sink_region_last);
+                                // Splits to allow tucks will be done later.
                             }
                         }
                         break;
@@ -559,18 +568,22 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                         // We don't need to do any pinching
                         if (is_first_subelement) {
                             // We dangled the sink on the left of the overlap
-                            pair<int64_t, bool> dangling_end = make_pair(sink_pinch_name, sink_backward);
-                            tucks[dangling_end].emplace_back(source_pinch_name, source_region_start, !source_backward);
                             
-#ifdef debug
-                            cerr << "Tuck " << sink_pinch_name << (sink_backward ? 'R' : 'L') << " in with "
-                                << source_pinch_name << ":" << source_region_start << " " << (!source_backward ? "rev" : "fwd") << endl;
+                            // Describe the end that is dangling as (thread name, base, is_left)
+                            tuck_side_t dangling_end = make_tuple(sink_pinch_name,
+                                sink_backward ? stPinchThread_getLength(sink_thread) - 1 : 0, !sink_backward);
+                            // Describe what it would have merged with.
+                            tuck_side_t tuck_into = make_tuple(source_pinch_name, source_cursor, !source_backward);
+                            // Queue up the edge exchange
+                            tucks.emplace_back(dangling_end, tuck_into);
+                            
+#ifdef debug    
+                            cerr << "\tSuboperation requires tucking "
+                                << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
+                                << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
 #endif
                             
-                            if (source_region_start != 0) {
-                                // Force the thread we want to attach to to break there
-                                stPinchThread_split(source_thread, source_region_start - 1);
-                            }
+                            // Splits to allow tucks will be done later.
                         }
                         break;
                     case 'D':
@@ -578,19 +591,21 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                         if (is_last_subelement) {
                             // We dangled the source on the right of the overlap
                             
-                            // Describe the end that is dangling.
-                            // Here, usually it should be the right end (true flag).
-                            pair<int64_t, bool> dangling_end = make_pair(source_pinch_name, !source_backward);
-                            // And what would it have merged with?
-                            tucks[dangling_end].emplace_back(sink_pinch_name, sink_region_last, sink_backward);
+                            // Describe the end that is dangling as (thread name, base, is_left)
+                            tuck_side_t dangling_end = make_tuple(source_pinch_name,
+                                source_backward ? 0 : stPinchThread_getLength(source_thread) - 1, source_backward);
+                            // Describe what it would have merged with.
+                            // We have to back out sink motion since the cursor is right now at the after-the-deletion position.
+                            tuck_side_t tuck_into = make_tuple(sink_pinch_name, sink_cursor - sink_motion, sink_backward);
+                            // Queue up the edge exchange
+                            tucks.emplace_back(dangling_end, tuck_into);
                             
-#ifdef debug
-                            cerr << "Tuck " << source_pinch_name << (!source_backward ? 'R' : 'L') << " in with "
-                                << sink_pinch_name << ":" << sink_region_last << " " << (sink_backward ? "rev" : "fwd") << endl;
+#ifdef debug    
+                            cerr << "\tSuboperation requires tucking "
+                                << get<0>(dangling_end) << ":" << get<1>(dangling_end) << (get<2>(dangling_end) ? 'L' : 'R')
+                                << " in with " <<  get<0>(tuck_into) << ":" << get<1>(tuck_into) << (get<2>(tuck_into) ? 'L' : 'R') << endl;
 #endif
                             
-                            // Force the thread we want to attach to to break there
-                            stPinchThread_split(sink_thread, sink_region_last);
                         }
                         break;
                     default:
@@ -607,6 +622,39 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     }
 
     // Now all the pinches have been made
+    
+    // Also we know all the tucks that need to be union-finded.
+    
+    // Make a set of them
+    unordered_set<tuck_side_t> tuck_side_set;
+    for (auto& to_union : tucks) {
+        tuck_side_set.insert(to_union.first);
+        tuck_side_set.insert(to_union.second);
+    }
+    
+    for (auto& side : tuck_side_set) {
+        // Don't forget to split the threads to expose the sides we need to copy edges between
+        auto& thread_name = get<0>(side);
+        auto& position = get<1>(side);
+        auto& is_left = get<2>(side);
+        
+#ifdef debug
+        cerr << "Need to expose thread " << thread_name << ":" << position << " side " << (is_left ? 'L' : 'R') << endl;
+#endif
+        
+        // Find the thread
+        stPinchThread* thread = stPinchThreadSet_getThread(pinch, thread_name);
+        
+        if (is_left && position == 0) {
+            // Don't try and ask to split at -1; this side is already exposed
+            continue;
+        }
+        
+        // Split the thread to expose this side
+        stPinchThread_split(thread, is_left ? position - 1 : position);
+    }
+    
+    // Everything else should wait until after graph nodes are made
     
 #ifdef debug
     {
@@ -742,77 +790,110 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     cerr << "Before tucks:" << endl;
     cerr << pb2json(graph->graph) << endl;
 #endif
+
+
+    // OK now we need to do the tucking
     
-    for (auto& kv : tucks) {
-        // For each end that needs tucking
-        const int64_t& thread_name = kv.first.first;
-        const bool& right_end = kv.first.second;
+    // Make a vector of tuck sides to give them all indexes
+    vector<tuck_side_t> tuck_side_vector(tuck_side_set.begin(), tuck_side_set.end());
+    tuck_side_set.clear();
+    
+    // Get a map to invert the vector
+    unordered_map<tuck_side_t, size_t> tuck_side_to_index;
+    for (size_t i = 0; i < tuck_side_vector.size(); i++) {
+        tuck_side_to_index[tuck_side_vector[i]] = i;
+    }
+    
+    // Create the union-find
+    structures::UnionFind tuck_merger(tuck_side_vector.size());
+    
+    for (auto& to_union : tucks) {
+        // Do all the unioning
+        auto side1 = tuck_side_to_index[to_union.first];
+        auto side2 = tuck_side_to_index[to_union.second];
+        tuck_merger.union_groups(side1, side2);
+    }
+    // We don't need these anymore now that we have the union-find filled in.
+    tuck_side_to_index.clear();
+    tucks.clear();
+    
+    // Convert all the tuck sides to outward-pointing handles
+    vector<handle_t> tuck_handles(tuck_side_vector.size());
+    // Also invert the handle vector so we can get handle indexes
+    unordered_map<handle_t, size_t> handle_to_index;
+    for (size_t i = 0; i < tuck_side_vector.size(); i++) {
+        // Unpack each side
+        auto& side = tuck_side_vector[i];
+        auto& thread_name = get<0>(side);
+        auto& position = get<1>(side);
+        auto& is_left = get<2>(side);
         
         // Find the thread
         stPinchThread* thread = stPinchThreadSet_getThread(pinch, thread_name);
         
         // Find the segment
-        stPinchSegment* thread_end_segment = right_end ? stPinchThread_getLast(thread) : stPinchThread_getFirst(thread);
+        stPinchSegment* segment = stPinchThread_getSegment(thread, position);
         
-        // Find the vg node that it produced
-        id_t node = pinch_to_vg.translate(thread_end_segment);
+        // Find the node and segment-relative orientation
+        id_t node = pinch_to_vg.translate(segment);
+        bool segment_reverse_in_node = !stPinchSegment_getBlockOrientationSafe(segment);
         
-        // And the end of the node we want
-        bool node_reverse = !right_end != !stPinchSegment_getBlockOrientationSafe(thread_end_segment);
-        
-        // Get a handle to be on the start of an edge
-        handle_t handle = graph->get_handle(node, node_reverse);
-        
-        for (auto& tuck_to : kv.second) {
-            // For each place we are supposed to tuck it to
-            const int64_t& dest_thread_name = get<0>(tuck_to);
-            const size_t& dest_thread_pos = get<1>(tuck_to);
-            const bool& dest_is_reverse = get<2>(tuck_to);
-            
-#ifdef debug
-            cerr << "Tucking thread " << thread_name << (right_end ? 'R' : 'L') << " into "
-                << dest_thread_name << ":" << dest_thread_pos << " " << (dest_is_reverse ? "rev" : "fwd") << endl;
-#endif
-            
-            // Find the thread
-            stPinchThread* dest_thread = stPinchThreadSet_getThread(pinch, dest_thread_name);
-            
-            // Find the pinch segment owning this position
-            stPinchSegment* dest_segment = stPinchThread_getSegment(dest_thread, dest_thread_pos);
-            
-            // Assert this position is on the end of the segment
-            if (dest_is_reverse) {
-                assert(stPinchSegment_getStart(dest_segment) == dest_thread_pos);
-            } else {
-                assert(stPinchSegment_getStart(dest_segment) + stPinchSegment_getLength(dest_segment) - 1 == dest_thread_pos);
-            }
-            
-            // Find the vg node that it produced
-            id_t dest_node = pinch_to_vg.translate(dest_segment);
-            
-            // And its orientation
-            bool dest_node_reverse = dest_is_reverse != !stPinchSegment_getBlockOrientationSafe(dest_segment);
-            
-            // Get a handle to be the left side of an edge
-            handle_t dest_handle = graph->get_handle(dest_node, dest_node_reverse);
-            
-            graph->follow_edges(dest_handle, false, [&](const handle_t& edge_to) {
-                // For each edge on that handle
-
-#ifdef debug
-                cerr << "\tMake edge " << graph->get_id(handle) << (graph->get_is_reverse(handle) ? 'L' : 'R') << " to "
-                    << graph->get_id(edge_to) << (graph->get_is_reverse(edge_to) ? 'R' : 'L')  << " to mimic "
-                    << graph->get_id(dest_handle) << (graph->get_is_reverse(dest_handle) ? 'L' : 'R') << endl;
-#endif
-                // Create an edge on the tucked node
-                graph->create_edge(handle, edge_to);
-                
-                // TODO: Will we run into trouble mutating the handle graph while iterating over it?
-            });
-        }
+        // Make the handle
+        tuck_handles[i] = graph->get_handle(node, is_left != segment_reverse_in_node);
+        // And store its index under it
+        handle_to_index[tuck_handles[i]] = i;
     }
-    // TODO: Do we really want to do transitive tucks?
-    // TODO: Do we need to do multiple passes for tuck-to-tuck edges?
+    tuck_side_vector.clear();
+    
+    // Keep a set, for each union-find group, of all the destination handles
+    // that everything in the group has to have an edge to.
+    unordered_map<size_t, unordered_set<handle_t>> destinations;
+    
+    for (size_t i = 0; i < tuck_handles.size(); i++) {
+        // For each tuck side handle
+        auto& handle = tuck_handles[i];
+        
+        // Find the destination set for the union-find group this tuck side handle belongs to
+        auto& my_destinations = destinations[tuck_merger.find_group(i)];
+        
+        graph->follow_edges(handle, false, [&](const handle_t& next) {
+            // Loop over every handle it goes to (facing inward)
+        
+            // Add each handle to the destinations set for the union-find group that owns this tuck side
+            my_destinations.insert(next);
+            
+            // Check and see if this place we go itself belongs to a union-find
+            // group (making sure to make it face us first)
+            auto found = handle_to_index.find(graph->flip(next));
+            
+            if (found != handle_to_index.end()) {
+                // It does, so we have to pretend it is also all the other things in its group
+                for(size_t other_index : tuck_merger.group(found->second)) {
+                    // Go get all the handles that tuck in with it
+                    handle_t& also_tucked = tuck_handles.at(other_index);
+                
+                    // And add them all as destinations too
+                    my_destinations.insert(graph->flip(also_tucked));
+                }
+            }
+        });
+    }
+    
+    for (size_t i = 0; i < tuck_handles.size(); i++) {
+        // For each tuck side handle again
+        auto& handle = tuck_handles[i];
+        
+        // Look up all the destinations for its union-find group
+        auto& my_destinations = destinations[tuck_merger.find_group(i)];
+        
+        for (auto& destination : my_destinations) {
+            // Connect it to each of them
+            graph->create_edge(handle, destination);
+        }
+        
+    }
+    
+    // Now all the nodes and edges exist.
     
     // Process the GFA paths
     
