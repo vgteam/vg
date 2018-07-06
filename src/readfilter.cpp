@@ -445,6 +445,19 @@ bool ReadFilter::is_split(xg::XG* index, Alignment& alignment) {
     return false;
 }
 
+
+bool ReadFilter::sample_bool(double probability) {
+    // Have a per-thread RNG
+    static thread_local minstd_rand rng;
+    
+    // Have a distribution with the given success probability
+    bernoulli_distribution dist(probability);
+    
+    // Sample from the distribution, backed by the RNG
+    return dist(rng);
+}
+
+
 int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
 
     // name helper for output
@@ -728,6 +741,10 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
             ++counts.defray[co];
             // We keep these, because the alignments get modified.
         }
+        if ((keep || verbose) && downsample_probability != 1.0 && !sample_bool(downsample_probability)) {
+            ++counts.random[co];
+            keep = false;
+        }
         if (!keep) {
             ++counts.filtered[co];
         }
@@ -773,7 +790,9 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
              << "Repeat Ends Filter (primary):      " << counts.repeat[0] << endl
              << "Repeat Ends Filter (secondary):    " << counts.repeat[1] << endl
              << "Min Quality Filter (primary):      " << counts.min_mapq[0] << endl
-             << "Min Quality  Filter (secondary):   " << counts.min_mapq[1] << endl
+             << "Min Quality Filter (secondary):   " << counts.min_mapq[1] << endl
+             << "Random Filter (primary):      " << counts.random[0] << endl
+             << "Random Filter (secondary):   " << counts.random[1] << endl
                         
             
              << endl;
