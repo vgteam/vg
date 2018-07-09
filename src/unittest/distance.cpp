@@ -143,57 +143,6 @@ class TestDistanceIndex : public DistanceIndex {
 };
 
 
-    TEST_CASE( "Test from file",
-                   "[dist][buggy]" ) {
-        ifstream file ("testGraph", ifstream::in);
-        VG graph (file);
-        CactusSnarlFinder bubble_finder(graph);
-        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        
-        SECTION( "Create distance index" ) {
-            const vector<const Snarl*>& topSnarls = snarl_manager.top_level_snarls();
-            for (const Snarl* s : topSnarls) {
-                cerr << "Top level snarl: " << endl;
-                cerr << s->start().node_id() << " " << s->start().backward() << endl;
-                const vector<const Snarl*>& children = snarl_manager.children_of(s);
-                cerr << "Children: ";
-                for (const Snarl* c : children) {
-                    cerr <<  " " << c->start().node_id() << " " << c->start().backward() << endl;
-                }
-
-
-              NetGraph ng = snarl_manager.net_graph_of(s, &graph);
-
-              unordered_set<pair<id_t, bool>> allNodes;
-              auto addNode = [&](const handle_t& h) -> bool {
-                 allNodes.insert(make_pair(ng.get_id(h), ng.get_is_reverse(h)));
-                 return true;
-               };
-cerr << endl << endl << " STARTING FOR EACH HANDLE " << endl;
-               ng.for_each_handle(addNode);
-
-               cerr << "Nodes in netgraph: " << endl;
-               for (pair<id_t, bool> p : allNodes) {
-                   cerr << p.first << " " << p.second << endl;
-               }
-                auto printNode = [&] (const handle_t& h) -> bool {
-                    cerr << ng.get_id(h) << " " << ng.get_is_reverse(h) << endl;
-                    return true;
-                };
-                handle_t firstHandleR = ng.get_handle(s->start().node_id(), !s->start().backward());
-                handle_t firstHandle = ng.get_handle(s->start().node_id(), s->start().backward());
-               cerr << endl << endl << "STARTING FOLLOW EDGES" << endl;
-               ng.follow_edges(firstHandleR, false, printNode);
-               ng.follow_edges(firstHandle, false, printNode);
-            }
-            
-            TestDistanceIndex di (&graph, &snarl_manager);
-            di.printSelf();
-        }
-
-    }//End test case
-
-
 
     TEST_CASE( "Create distance index for simple nested snarl",
                    "[dist]" ) {
@@ -1346,23 +1295,7 @@ cerr << endl << endl << " STARTING FOR EACH HANDLE " << endl;
             #endif
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
             const Snarl* snarl2 = snarl_manager.into_which_snarl(2, true);
-/*            const Snarl* snarl4 = snarl_manager.into_which_snarl(4, false);
 
-            TestDistanceIndex::SnarlDistances& sd1 = 
-                     di.snarlIndex.at(make_pair(snarl1->start().node_id(),
-                                              snarl1->start().backward()));
- 
-            TestDistanceIndex::SnarlDistances& sd2 = 
-                     di.snarlIndex.at(make_pair(snarl2->start().node_id(),
-                                              snarl2->start().backward()));
-            TestDistanceIndex::SnarlDistances& sd4 = 
-                     di.snarlIndex.at(make_pair(snarl4->start().node_id(),
-                                              snarl4->start().backward()));
-           REQUIRE(sd1.snarlDistance(make_pair(1, false), make_pair(1, true))
-                                                                       == 15);
-           REQUIRE(sd1.snarlDistance(make_pair(1, true), make_pair(1, false))
-                                                                       == -1);
-*/
             }
         SECTION ("Distance functions") {
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, true);
@@ -1610,7 +1543,7 @@ cerr << endl << endl << " STARTING FOR EACH HANDLE " << endl;
         }
     }//End test case
 
-    TEST_CASE("Top level loops", "[dist]") {
+    TEST_CASE("Top level loops", "[dist][help]") {
         VG graph;
 
         Node* n1 = graph.create_node("G");
@@ -1713,6 +1646,50 @@ cerr << endl << endl << " STARTING FOR EACH HANDLE " << endl;
 
         }
     }//end test case
+
+    TEST_CASE( "Snarl that loops on itself",
+                  "[dist]" ) {
+        
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n2, true, false);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n3, n4);
+            Edge* e5 = graph.create_edge(n3, n5);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n5, n3, false, true);
+            
+            // Define the snarls for the top level
+           
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls();
+
+
+       SECTION ("Distance functions") {
+            TestDistanceIndex di (&graph, &snarl_manager);
+            #ifdef print
+                di.printSelf();
+            #endif
+            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, true);
+            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
+
+            pos_t pos1 = make_pos_t(1, false, 0);
+            pos_t pos2 = make_pos_t(2, false, 0);
+
+            REQUIRE(di.distance(snarl1, snarl2, pos1, pos2) == distance(&graph, pos1, pos2));
+
+
+
+        }
+ 
+    }
     TEST_CASE("Random test", "[dist]") {
         for (int i = 0; i < 100; i++) {
             //1000 different graphs
@@ -1720,11 +1697,12 @@ cerr << endl << endl << " STARTING FOR EACH HANDLE " << endl;
 
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+
+                        graph.serialize_to_file("testGraph");
             TestDistanceIndex di (&graph, &snarl_manager);
             #ifdef print        
                 di.printSelf();
 
-                        graph.serialize_to_file("testGraph");
             #endif
  
             vector<const Snarl*> allSnarls;
@@ -1802,6 +1780,7 @@ cerr << endl << endl << " STARTING FOR EACH HANDLE " << endl;
              
         }
     } //end test case
+
 }
 
 }

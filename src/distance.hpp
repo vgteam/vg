@@ -150,6 +150,10 @@ class DistanceIndex {
             /*Helper function for finding distances*/
             int64_t chainDistanceHelper(pair<size_t, bool> start, 
                                        pair<size_t, bool> end     );
+
+            /*Returns true if the snarl is reversed in the chain*/
+            bool isReverse(const Snarl* snarl, SnarlManager* sm);
+
         friend class DistanceIndex;   
         friend class TestDistanceIndex;
     }; 
