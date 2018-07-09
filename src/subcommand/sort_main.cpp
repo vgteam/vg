@@ -99,7 +99,10 @@ int main_sort(int argc, char *argv[]) {
         in.open(file_name.c_str());        
         if (gfa_input) {
             graph.reset(new VG());
-            gfa_to_graph(in, graph.get());
+            if (!gfa_to_graph(in, graph.get())) {
+                // GFA loading has failed because the file is invalid
+                exit(1);
+            }
         } else {
             graph.reset(new VG(in));
         }

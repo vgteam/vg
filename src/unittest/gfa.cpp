@@ -38,7 +38,7 @@ P	3	path2	5	+	1M)";
         
     VG vg;
     stringstream in(graph_gfa);
-    gfa_to_graph(in, &vg);
+    REQUIRE(gfa_to_graph(in, &vg));
     REQUIRE(vg.is_valid());
     REQUIRE(vg.length() == 6);
 }
@@ -106,7 +106,7 @@ P	13	path4	5	+	1M)";
         
     VG vg;
     stringstream in(graph_gfa);
-    gfa_to_graph(in, &vg);
+    REQUIRE(gfa_to_graph(in, &vg));
     REQUIRE(vg.is_valid());
     REQUIRE(vg.length() == 17);
 }
@@ -248,7 +248,7 @@ P	21	path12	3	+	1M)";
         
     VG vg;
     stringstream in(graph_gfa);
-    gfa_to_graph(in, &vg);
+    REQUIRE(gfa_to_graph(in, &vg));
     REQUIRE(vg.is_valid());
     REQUIRE(vg.length() == 35);
 }
@@ -278,7 +278,7 @@ L	1	+	3	+	0M)";
 
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         
         REQUIRE(vg.is_valid());
         
@@ -313,7 +313,7 @@ P	2	ref	2	+	6M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         
         REQUIRE(vg.is_valid());
         
@@ -350,7 +350,7 @@ P	1	ref	1	+	7M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.is_valid());
         
         // We should see just one merged node
@@ -375,7 +375,7 @@ P	2	ref	2	+	6M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.is_valid());
         
         // We should see one head and one tail, despite the danging
@@ -395,7 +395,7 @@ P	2	ref	2	+	6M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.is_valid());
         
         // We should see one head and one tail, despite the danging
@@ -415,7 +415,7 @@ P	2	ref	2	+	6M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.is_valid());
         
         // We should see one head and one tail, despite the danging
@@ -435,7 +435,7 @@ P	2	ref	2	+	6M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.is_valid());
         
         // We should see one head and one tail, despite the danging
@@ -455,7 +455,7 @@ P	2	ref	2	+	6M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.is_valid());
         
         // We should see one head and one tail, despite the danging
@@ -475,7 +475,7 @@ P	2	ref	2	+	8M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.is_valid());
         
         // We should see one head and one tail, despite the danging
@@ -495,7 +495,7 @@ P	2	ref	2	+	6M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.is_valid());
         
         // No dangling should happen, but we should still have one head/tail
@@ -517,7 +517,7 @@ P	2	ref	2	+	3M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.is_valid());
         
         // No dangling should happen, but we should still have one head/tail
@@ -539,7 +539,7 @@ P	2	ref	2	+	6M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.is_valid());
         
         // We should see one head and one tail, despite the danging
@@ -559,7 +559,7 @@ P	2	ref	2	+	3M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.is_valid());
         
         // No dangling should happen, but we should still have one head/tail
@@ -581,7 +581,7 @@ P	2	ref	2	+	3M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        gfa_to_graph(in, &vg);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.is_valid());
         
         // No dangling should happen, but we should still have one head/tail

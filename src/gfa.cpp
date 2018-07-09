@@ -140,7 +140,7 @@ id_t PinchToVGTranslator::translate(stPinchSegment* segment) {
     return assigned;
 }
 
-void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
+bool gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
 
     // Things That Are Things
     // The GFA has "sequences" and "links" and "paths"
@@ -207,7 +207,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     map<string, path_elem> gfa_paths = gg.get_name_to_path();
     
     // Make a pinch thread set
-    auto* pinch = stPinchThreadSet_construct();
+    unique_ptr<stPinchThreadSet, decltype(&stPinchThreadSet_destruct)> pinch(stPinchThreadSet_construct(), &stPinchThreadSet_destruct);
 
     // Make a translator to convert from GFA string names to numeric pinch thread names
     GFAToPinchTranslator gfa_to_pinch;
@@ -221,7 +221,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         auto pinch_name = gfa_to_pinch.translate(name);
         
         // Add the thread to the pinch thread set
-        stPinchThreadSet_addThread(pinch, pinch_name, 0, record.sequence.size());
+        stPinchThreadSet_addThread(pinch.get(), pinch_name, 0, record.sequence.size());
     }
     
     // As we go through the links, we need to remmeber links which are straight abutments of sequences.
@@ -261,12 +261,12 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         
         // Find the source pinch thread
         auto source_pinch_name = gfa_to_pinch.translate(name);
-        auto source_thread = stPinchThreadSet_getThread(pinch, source_pinch_name);
+        auto source_thread = stPinchThreadSet_getThread(pinch.get(), source_pinch_name);
         
         // And the source sequence string
         auto& source_string = gfa_sequences[name].sequence;
         // And sequence length
-        auto source_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch, source_pinch_name));
+        auto source_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch.get(), source_pinch_name));
         
         for (auto& link : links) {
             // For each link on this source node
@@ -327,14 +327,15 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                     throw runtime_error("GFA CIGAR contains a hard-clip operation; semantics unclear");
                     break;
                 default:
-                    // This is an invalid operation
-                    throw runtime_error("GFA CIGAR invalid: " + elem.second + " operation in " + link.alignment);
+                    // This is an invalid operation; the GFA is invalid.
+                    cerr << "error:[gfa_to_graph]: GFA CIGAR invalid: " << elem.second << " operation in " << link.to_string_2() << endl;
+                    return false;
                 }
             }
             
             // Work out what thread the link is to
             auto sink_pinch_name = gfa_to_pinch.translate(link.sink_name);
-            auto sink_thread = stPinchThreadSet_getThread(pinch, sink_pinch_name);
+            auto sink_thread = stPinchThreadSet_getThread(pinch.get(), sink_pinch_name);
             
             // Get the orientations
             bool source_backward = !link.source_orientation_forward;
@@ -369,14 +370,39 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // Find the sink sequence data
             auto& sink_string = gfa_sequences[link.sink_name].sequence;
             // And sequence length
-            auto sink_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch, sink_pinch_name));
+            auto sink_sequence_length = stPinchThread_getLength(stPinchThreadSet_getThread(pinch.get(), sink_pinch_name));
             
-            // TODO: Right now we can only work with sequences that at least
-            // reach the end they are supposed to come in on. If any of the
-            // other sequence would dangle over the "overlapped" end, we have a
-            // problem.
-            assert(source_alignment_length <= source_sequence_length);
-            assert(sink_alignment_length <= sink_sequence_length);
+            if (source_alignment_length > source_sequence_length) {
+                // The GFA file is invalid and specifies using more bases than are present.
+                if (only_perfect_match) {
+                    // Be tolerant and reject just this edge.
+                    continue;
+                }
+                
+                // Otherwise complain to the user
+                cerr << "error:[gfa_to_graph]: GFA file contains a link " << link.source_name << " " << (source_backward ? 'L' : 'R')
+                    << " to " << link.sink_name  << " " << (sink_backward ? 'R' : 'L')
+                    << " that tries to consume more source sequence (" << source_alignment_length
+                    << ") than is present (" << source_sequence_length << ")" << endl;
+                    
+                return false;
+            }
+            
+            if (sink_alignment_length > sink_sequence_length) {
+                // The GFA file is invalid and specifies using more bases than are present.
+                if (only_perfect_match) {
+                    // Be tolerant and reject just this edge.
+                    continue;
+                }
+                
+                // Otherwise complain to the user
+                cerr << "error:[gfa_to_graph]: GFA file contains a link " << link.source_name << " " << (source_backward ? 'L' : 'R')
+                    << " to " << link.sink_name  << " " << (sink_backward ? 'R' : 'L')
+                    << " that tries to consume more sink sequence (" << sink_alignment_length
+                    << ") than is present (" << sink_sequence_length << ")" << endl;
+                    
+                return false;
+            }
             
             // Set up some cursors in each node's sequence that go the right
             // direction, based on orientations. Cursors start at the first
@@ -407,7 +433,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
                     // off our dangling tip tucking algorithm and which
                     // shouldn't happen anyway in a well-behaved alignment.
                     // TODO: accomodate this somehow.
-                    throw runtime_error("GFA link alignment contains adjacent insertion and deletion");
+                    throw runtime_error("GFA importer cannot (yet) handle adjacent insertions and deletions.");
                 }
                 
                 // Decompose each operation into a series of suboperations.
@@ -641,7 +667,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
 #endif
         
         // Find the thread
-        stPinchThread* thread = stPinchThreadSet_getThread(pinch, thread_name);
+        stPinchThread* thread = stPinchThreadSet_getThread(pinch.get(), thread_name);
         
         if (is_left && position == 0) {
             // Don't try and ask to split at -1; this side is already exposed
@@ -657,7 +683,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
 #ifdef debug
     {
         size_t segment_count = 0;
-        auto segment_iter = stPinchThreadSet_getSegmentIt(pinch);
+        auto segment_iter = stPinchThreadSet_getSegmentIt(pinch.get());
         stPinchSegment* segment = stPinchThreadSetSegmentIt_getNext(&segment_iter);
         for (; segment != nullptr; segment = stPinchThreadSetSegmentIt_getNext(&segment_iter)) {
             segment_count++;
@@ -673,7 +699,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     PinchToVGTranslator pinch_to_vg;
     
     {
-        auto segment_iter = stPinchThreadSet_getSegmentIt(pinch);
+        auto segment_iter = stPinchThreadSet_getSegmentIt(pinch.get());
         stPinchSegment* segment = stPinchThreadSetSegmentIt_getNext(&segment_iter);
         for (; segment != nullptr; segment = stPinchThreadSetSegmentIt_getNext(&segment_iter)) {
             
@@ -709,7 +735,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     
     {
         // Add edges from pinch graph adjacencies
-        auto thread_iter = stPinchThreadSet_getIt(pinch);
+        auto thread_iter = stPinchThreadSet_getIt(pinch.get());
         stPinchThread* thread = stPinchThreadSetIt_getNext(&thread_iter);
         for (; thread != nullptr; thread = stPinchThreadSetIt_getNext(&thread_iter)) {
         
@@ -755,8 +781,8 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         auto& sink_backward = get<3>(abutment);
         
         // Get the threads by name
-        stPinchThread* source_thread = stPinchThreadSet_getThread(pinch, source_name);
-        stPinchThread* sink_thread = stPinchThreadSet_getThread(pinch, sink_name);
+        stPinchThread* source_thread = stPinchThreadSet_getThread(pinch.get(), source_name);
+        stPinchThread* sink_thread = stPinchThreadSet_getThread(pinch.get(), sink_name);
         
         // Find the segment of the source that is relevant.
         // If the source sequence is forward, it is the last one, but if it is backward, it is the first one.
@@ -827,7 +853,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
         auto& is_left = get<2>(side);
         
         // Find the thread
-        stPinchThread* thread = stPinchThreadSet_getThread(pinch, thread_name);
+        stPinchThread* thread = stPinchThreadSet_getThread(pinch.get(), thread_name);
         
         // Find the segment
         stPinchSegment* segment = stPinchThread_getSegment(thread, position);
@@ -921,7 +947,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             bool thread_backward = !path.orientations[0];
             
             // Get the actual thread
-            stPinchThread* thread = stPinchThreadSet_getThread(pinch, thread_name);
+            stPinchThread* thread = stPinchThreadSet_getThread(pinch.get(), thread_name);
             
             // Get the starting end appropriate to the orientation
             stPinchSegment* segment = thread_backward ? stPinchThread_getLast(thread) : stPinchThread_getFirst(thread);
@@ -1000,7 +1026,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
             // TODO: We don't check for *vg graph edges* that aren't present, only *links*.
         
             // Start at the near end of the next thread
-            stPinchThread* thread = stPinchThreadSet_getThread(pinch, thread_name);
+            stPinchThread* thread = stPinchThreadSet_getThread(pinch.get(), thread_name);
             stPinchSegment* segment = thread_backward ? stPinchThread_getLast(thread) : stPinchThread_getFirst(thread);
             
             // Skip segments until we have accounted for the overlap.
@@ -1044,9 +1070,7 @@ void gfa_to_graph(istream& in, VG* graph, bool only_perfect_match) {
     // Now the graph is done!
     // TODO: validate graph and paths and assign path mapping ranks
     
-    // Clean up the pinch thread set
-    stPinchThreadSet_destruct(pinch);
-    pinch = nullptr;
+    return true;
     
 }
 

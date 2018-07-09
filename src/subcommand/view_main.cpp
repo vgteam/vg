@@ -449,7 +449,10 @@ int main_view(int argc, char** argv) {
     } else if (input_type == "gfa") {
         get_input_file(file_name, [&](istream& in) {
             graph = new VG;
-            gfa_to_graph(in, graph);
+            if (!gfa_to_graph(in, graph)) {
+                // GFA loading has failed because the file is invalid
+                exit(1);
+            }
         });
         // GFA can convert to any of the graph formats, so keep going
     } else if(input_type == "json") {
