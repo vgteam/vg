@@ -2918,6 +2918,7 @@ namespace vg {
             }
             
         }
+
         TEST_CASE( "NetGraph can traverse unary snarls",
                   "[snarls][netgraph]" ) {
         
@@ -3032,6 +3033,270 @@ namespace vg {
                 REQUIRE(seen_in_rev.find(make_pair(2, true)) != seen_in_rev.end());
                 REQUIRE(seen_in_rev.find(make_pair(3, true)) != seen_in_rev.end());
              }
+        }
+
+        TEST_CASE( "NetGraph can traverse looping snarls",
+                  "[snarls][netgraph]" ) {
+        
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n2, true, false);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n3, n4);
+            Edge* e5 = graph.create_edge(n3, n5);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n5, n3, false, true);
+            
+            // Define the snarls for the top level
+           
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls();
+
+            const vector<const Snarl*>& snarls = snarl_manager.top_level_snarls();
+            
+            const Snarl* topSnarl = snarls[0];
+            //top level snarl starting and ending at node 1 in reverse - 
+            //Not a unary snarl but starts and ends at opposite sides of the same node  
+            
+            
+            SECTION( "Traverse unary snarl in netgraph with internal connectivity" ) {
+
+                /* Make a net graph - contains two nodes - node1 and the unary 
+                   snarl at node2. node1 has two edges to the beginning of node2
+                   Top snarl starts at node1 pointing left and ends at node1 
+                   pointing left
+                */ 
+
+                NetGraph ng(topSnarl->start(), topSnarl->end(), snarl_manager.chains_of(topSnarl), &graph, true);
+  
+                handle_t startHandle = ng.get_handle(topSnarl->start().node_id()
+                          , topSnarl->start().backward());
+                handle_t startHandleR = ng.get_handle(
+                    topSnarl->start().node_id(), !topSnarl->start().backward());
+
+
+                const vector<const Snarl*>& children= snarl_manager.children_of(
+                                                                   topSnarl);
+                //One child snarl starting at node 2 forward
+                const Snarl* childSnarl = children[0];
+                pair<id_t, bool> childNode (childSnarl->start().node_id(),
+                                            childSnarl->start().backward());
+
+ 
+                pair<id_t, bool> nextFd;
+                auto getNextFd = [&](const handle_t& h) -> bool {
+                    nextFd.first =  ng.get_id(h); 
+                    nextFd.second = ng.get_is_reverse(h);
+                    return true;
+                };          
+
+                ng.follow_edges(startHandle, false, getNextFd);
+              
+                //Following edges going forward from start will find child node
+                REQUIRE(nextFd == childNode);
+
+                pair<id_t, bool> nextRev;
+                auto getNextRev = [&](const handle_t& h) -> bool {
+                    nextRev.first =  ng.get_id(h);
+                    nextRev.second = ng.get_is_reverse(h);
+                    return true;
+                };          
+
+                //Following edges going backward from start will find child node
+                ng.follow_edges(startHandleR, false, getNextRev);
+                REQUIRE(nextRev == childNode);
+
+ 
+                unordered_set<id_t> allHandles;
+                auto addHandle = [&](const handle_t& h) -> bool {
+                    allHandles.insert(ng.get_id(h));
+                    return true;
+                };          
+                ng.for_each_handle(addHandle);                   
+
+
+                //for_each_handle finds both nodes in net graph
+                REQUIRE(allHandles.size() == 2);
+                REQUIRE(allHandles.count(childSnarl->start().node_id()) == 1);
+
+
+                //Check following edges from child snarl
+                handle_t childFd = ng.get_handle(childNode.first, childNode.second);
+                handle_t childRev = ng.get_handle(childNode.first, !childNode.second);
+
+                //Following edges going fd from child node will find start
+                unordered_set<pair<id_t, bool>> seenFd;
+
+                auto childNextFd = [&](const handle_t& h) -> bool {
+                    seenFd.insert(make_pair( ng.get_id(h), 
+                                             ng.get_is_reverse(h)));
+                    return true;
+                };          
+                ng.follow_edges(childFd, false, childNextFd);
+                REQUIRE(seenFd.size() == 2);
+                REQUIRE(seenFd.count(make_pair(topSnarl->start().node_id(),
+                                           topSnarl->start().backward())) == 1);
+                REQUIRE(seenFd.count(make_pair(topSnarl->start().node_id(),
+                                          !topSnarl->start().backward())) == 1);
+                
+                //Following edges going back from child node will find nothing
+                unordered_set<pair<id_t, bool>> seenRev;
+
+                auto childNextRev = [&](const handle_t& h) -> bool {
+                    seenRev.insert(make_pair( ng.get_id(h), 
+                                             ng.get_is_reverse(h)));
+                    return true;
+                };          
+                ng.follow_edges(childRev, false, childNextRev);
+                REQUIRE(seenRev.size() == 0);
+                
+    
+                //Following edges fd from child going left (predecessors) finds nothing 
+                unordered_set<pair<id_t, bool>> seenFdPred;
+                ng.follow_edges(childFd, true, [&](const handle_t& other) {
+                    seenFdPred.insert(make_pair(ng.get_id(other), 
+                                             ng.get_is_reverse(other)));
+                });
+                REQUIRE(seenFdPred.size() == 0);
+
+                //Following edges rev from child going left (predecessors) finds nothing 
+                unordered_set<pair<id_t, bool>> seenRevPred;
+                ng.follow_edges(childRev, true, [&](const handle_t& other) {
+                    seenRevPred.insert(make_pair(ng.get_id(other), 
+                                             ng.get_is_reverse(other)));
+                });
+                REQUIRE(seenRevPred.size() == 2);
+                REQUIRE(seenRevPred.count(make_pair(topSnarl->start().node_id(),
+                                           topSnarl->start().backward())) == 1);
+                REQUIRE(seenRevPred.count(make_pair(topSnarl->start().node_id(),
+                                          !topSnarl->start().backward())) == 1);
+
+            }
+            SECTION( "Traverse unary snarl in netgraph without internal connectivity" ) {
+
+                /* Make a net graph - contains two nodes - node1 and the unary 
+                   snarl at node2. node1 has two edges to the beginning of node2
+                   Top snarl starts at node1 pointing left and ends at node1 
+                   pointing left
+                */ 
+
+                NetGraph ng(topSnarl->start(), topSnarl->end(), snarl_manager.chains_of(topSnarl), &graph);
+  
+                handle_t startHandle = ng.get_handle(topSnarl->start().node_id()
+                          , topSnarl->start().backward());
+                handle_t startHandleR = ng.get_handle(
+                    topSnarl->start().node_id(), !topSnarl->start().backward());
+
+
+                const vector<const Snarl*>& children= snarl_manager.children_of(
+                                                                   topSnarl);
+                //One child snarl starting at node 2 forward
+                const Snarl* childSnarl = children[0];
+                pair<id_t, bool> childNode (childSnarl->start().node_id(),
+                                            childSnarl->start().backward());
+
+ 
+                pair<id_t, bool> nextFd;
+                auto getNextFd = [&](const handle_t& h) -> bool {
+                    nextFd.first =  ng.get_id(h); 
+                    nextFd.second = ng.get_is_reverse(h);
+                    return true;
+                };          
+
+                ng.follow_edges(startHandle, false, getNextFd);
+              
+                //Following edges going forward from start will find child node
+                REQUIRE(nextFd == childNode);
+
+                pair<id_t, bool> nextRev;
+                auto getNextRev = [&](const handle_t& h) -> bool {
+                    nextRev.first =  ng.get_id(h);
+                    nextRev.second = ng.get_is_reverse(h);
+                    return true;
+                };          
+
+                //Following edges going backward from start will find child node
+                ng.follow_edges(startHandleR, false, getNextRev);
+                REQUIRE(nextRev == childNode);
+
+ 
+                unordered_set<id_t> allHandles;
+                auto addHandle = [&](const handle_t& h) -> bool {
+                    allHandles.insert(ng.get_id(h));
+                    return true;
+                };          
+                ng.for_each_handle(addHandle);                   
+
+
+                //for_each_handle finds both nodes in net graph
+                REQUIRE(allHandles.size() == 2);
+                REQUIRE(allHandles.count(childSnarl->start().node_id()) == 1);
+
+
+                //Check following edges from child snarl
+                handle_t childFd = ng.get_handle(childNode.first, childNode.second);
+                handle_t childRev = ng.get_handle(childNode.first, !childNode.second);
+
+
+                //Following edges going fd from child node will find start
+                unordered_set<pair<id_t, bool>> seenFd;
+
+                auto childNextFd = [&](const handle_t& h) -> bool {
+                    seenFd.insert(make_pair( ng.get_id(h), 
+                                             ng.get_is_reverse(h)));
+                    return true;
+                };          
+                ng.follow_edges(childFd, false, childNextFd);
+                REQUIRE(seenFd.size() == 0);
+                
+                //Following edges going back from child node will find start
+                unordered_set<pair<id_t, bool>> seenRev;
+
+                auto childNextRev = [&](const handle_t& h) -> bool {
+                    seenRev.insert(make_pair( ng.get_id(h), 
+                                             ng.get_is_reverse(h)));
+                    return true;
+                };          
+                ng.follow_edges(childRev, false, childNextRev);
+                REQUIRE(seenRev.size() == 2);
+                REQUIRE(seenRev.count(make_pair(topSnarl->start().node_id(),
+                                           topSnarl->start().backward())) == 1);
+                REQUIRE(seenRev.count(make_pair(topSnarl->start().node_id(),
+                                          !topSnarl->start().backward())) == 1);
+    
+                //Following edges fd from child going left (predecessors) finds start 
+                unordered_set<pair<id_t, bool>> seenFdPred;
+                ng.follow_edges(childFd, true, [&](const handle_t& other) {
+                    seenFdPred.insert(make_pair(ng.get_id(other), 
+                                             ng.get_is_reverse(other)));
+                });
+                REQUIRE(seenFdPred.size() == 2);
+                REQUIRE(seenFdPred.count(make_pair(topSnarl->start().node_id(),
+                                           topSnarl->start().backward())) == 1);
+                REQUIRE(seenFdPred.count(make_pair(topSnarl->start().node_id(),
+                                          !topSnarl->start().backward())) == 1);
+
+
+
+                //Following edges rev from child going left (predecessors) finds nothing 
+                unordered_set<pair<id_t, bool>> seenRevPred;
+                ng.follow_edges(childRev, true, [&](const handle_t& other) {
+                    seenRevPred.insert(make_pair(ng.get_id(other), 
+                                             ng.get_is_reverse(other)));
+                });
+                REQUIRE(seenRevPred.size() == 0);
+            }
+
+            
+            
+             
         } 
         
     }

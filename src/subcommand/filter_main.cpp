@@ -44,6 +44,7 @@ void help_filter(char** argv) {
          << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
          << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
          << "    -C, --defray-count N    stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
+         << "    -d, --downsample P      filter out all but the given portion P of the reads, at random" << endl
          << "    -t, --threads N         number of threads [1]" << endl;
 }
 
@@ -87,12 +88,13 @@ int main_filter(int argc, char** argv) {
                 {"repeat-ends", required_argument, 0, 'E'},
                 {"defray-ends", required_argument, 0, 'D'},
                 {"defray-count", required_argument, 0, 'C'},
+                {"downsample", required_argument, 0, 'd'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:s:r:Od:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:t:",
+        c = getopt_long (argc, argv, "n:s:r:Od:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:d:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -156,7 +158,10 @@ int main_filter(int argc, char** argv) {
             break;
         case 'C':
             filter.defray_count = atoi(optarg);
-            break;          
+            break;
+        case 'd':
+            filter.downsample_probability = atof(optarg);
+            break;
         case 't':
             filter.threads = atoi(optarg);
             break;
@@ -171,6 +176,11 @@ int main_filter(int argc, char** argv) {
         default:
             abort ();
         }
+    }
+
+    if (filter.threads < 1) {
+        cerr << "error:[vg filter]: Cannot use " << filter.threads << " threads." << endl;
+        exit(1);
     }
 
     omp_set_num_threads(filter.threads);
