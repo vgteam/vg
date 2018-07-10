@@ -1443,11 +1443,10 @@ void parse_bed_regions(istream& bedstream,
         ss >> sbuf;
         ss >> ebuf;
 
-        if (ss.fail()) {
+        if (ss.fail() || !(sbuf < ebuf)) {
             cerr << "Error parsing bed line " << line << ": " << row << endl;
         } else {
             ss >> name;
-            assert(sbuf < ebuf);
             ss >> score;
             ss >> strand;
 
