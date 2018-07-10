@@ -1973,6 +1973,11 @@ namespace vg {
             prob_missing_equiv_cluster_2 = prob_equivalent_clusters_hits_missed(get<1>(cluster_graphs2[cluster_pairs.front().first.second]));
         }
         
+        if (prob_missing_equiv_cluster_1 == 0.0 && prob_missing_equiv_cluster_2 == 0.0) {
+            // we can bail out now if we don't think hit sub-sampling was a factor
+            return;
+        }
+        
         // what is the chance that we would have missed a pair?
         double prob_missing_pair = 0.0;
         if (opt_aln_1_is_rescued) {
@@ -1989,14 +1994,85 @@ namespace vg {
             prob_missing_pair = 1.0 - (1.0 - prob_missing_equiv_cluster_1) * (1.0 - prob_missing_equiv_cluster_2);
         }
         else {
+            // the complicated case:
+            
             // we did secondary rescue, so now we must account for the fact that we *could* have recovered a cluster that we missed
             // because of MEM sub-sampling through the secondary rescue code path.
             
-            // we will conversatively assume that we definitely would find the correct cluster through rescue (ignoring issues
-            // of sampling which clusters to rescue from) as long as we obtained the correct cluster on one or the other
-            // read pair
+            // we will first cap the estimate of the probability of missing an equivalent cluster by the probability of rescuing
+            // from the other read's cluster (assuming the other cluster is correct)
             
-            prob_missing_pair = min(prob_missing_equiv_cluster_1, prob_missing_equiv_cluster_2);
+            // checks if the clusters involve the same MEMs (although possibly different hits of that MEM)
+            auto clusters_equivalent = [](const memcluster_t& cluster_1, const memcluster_t& cluster_2) {
+                bool equivalent = cluster_1.size() == cluster_2.size();
+                if (equivalent) {
+                    // query_cluster_graphs sorts the cluster hits so that they are ordered by length
+                    // and then lexicographically by read interval
+                    for (size_t i = 0; i < cluster_1.size(); i++) {
+                        if (cluster_1[i].first != cluster_2[i].first) {
+                            equivalent = false;
+                            break;
+                        }
+                    }
+                }
+                return equivalent;
+            };
+            
+            // TODO: figuring out which clusters we rescued from requires me to duplicate the secondary rescue code...
+            
+            // keep track of which clusters already have consistent pairs (so we wouldn't have rescued from them)
+            unordered_set<size_t> paired_clusters_1, paired_clusters_2;
+            for (size_t i = 0; i < multipath_aln_pairs_out.size(); i++) {
+                paired_clusters_1.insert(cluster_pairs[i].first.first);
+                paired_clusters_2.insert(cluster_pairs[i].first.second);
+            }
+            
+            // the score parameters from the secondary rescue code that we use to decide which clusters to rescue from
+            int32_t cluster_score_1 = get_aligner()->match * get<2>(cluster_graphs1[cluster_pairs.front().first.first]);
+            int32_t cluster_score_2 = get_aligner()->match * get<2>(cluster_graphs2[cluster_pairs.front().first.second]);
+            int32_t max_score_diff = secondary_rescue_score_diff * get_aligner()->mapping_quality_score_diff(max_mapping_quality);
+            
+            // we'll count up how many of the equivalent clusters we would have done secondary rescue from
+            size_t num_equivalent_1 = 0;
+            size_t num_equivalent_2 = 0;
+            size_t num_rescued_equivalent_1 = 0;
+            size_t num_rescued_equivalent_2 = 0;
+            
+            size_t num_rescues_1 = 0;
+            for (size_t i = 0; i < cluster_graphs1.size(); i++) {
+                // is this an equivalent cluster?
+                bool equiv = clusters_equivalent(get<1>(cluster_graphs1[cluster_pairs.front().first.first]), get<1>(cluster_graphs1[i]));
+                // and would we have done used it for a secondary rescue?
+                bool did_rescue = (!paired_clusters_1.count(i) && num_rescues_1 < secondary_rescue_attempts
+                                   && get<2>(cluster_graphs1[i]) * get_aligner()->match >= cluster_score_1 - max_score_diff);
+                // keep track of the counts
+                num_rescues_1 += did_rescue;
+                num_equivalent_1 += equiv;
+                num_rescued_equivalent_1 += did_rescue && equiv;
+            }
+            
+            size_t num_rescues_2 = 0;
+            for (size_t i = 0; i < cluster_graphs2.size(); i++) {
+                // is this an equivalent cluster?
+                bool equiv = clusters_equivalent(get<1>(cluster_graphs2[cluster_pairs.front().first.second]), get<1>(cluster_graphs2[i]));
+                // and would we have done used it for a secondary rescue?
+                bool did_rescue = (!paired_clusters_2.count(i) && num_rescues_2 < secondary_rescue_attempts
+                                   && get<2>(cluster_graphs2[i]) * get_aligner()->match >= cluster_score_2 - max_score_diff);
+                // keep track of the counts
+                num_rescues_2 += did_rescue;
+                num_equivalent_2 += equiv;
+                num_rescued_equivalent_2 += did_rescue && equiv;
+            }
+            // compute the probability that we failed to rescue each of the clusters from the other
+            double prob_missed_rescue_of_cluster_1 = 1.0 - (1.0 - prob_missing_equiv_cluster_2) * double(num_rescued_equivalent_2) / double(num_equivalent_2);
+            double prob_missed_rescue_of_cluster_2 = 1.0 - (1.0 - prob_missing_equiv_cluster_1) * double(num_rescued_equivalent_1) / double(num_equivalent_1);
+            
+            // possibly lower our estimate of the probabilty of missing a cluster if there was a high probabilty
+            // that we would have found it during secondary rescue
+            prob_missing_equiv_cluster_1 = min(prob_missed_rescue_of_cluster_1, prob_missing_equiv_cluster_1);
+            prob_missing_equiv_cluster_2 = min(prob_missed_rescue_of_cluster_2, prob_missing_equiv_cluster_2);
+            
+            prob_missing_pair = 1.0 - (1.0 - prob_missing_equiv_cluster_1) * (1.0 - prob_missing_equiv_cluster_2);
         }
         
 #ifdef debug_multipath_mapper
