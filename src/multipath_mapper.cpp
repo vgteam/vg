@@ -2063,6 +2063,10 @@ namespace vg {
                 num_equivalent_2 += equiv;
                 num_rescued_equivalent_2 += did_rescue && equiv;
             }
+#ifdef debug_multipath_mapper
+            cerr << "did secondary rescue from " << num_rescued_equivalent_1 << " of " << num_equivalent_1 << " equivalent clusters on read 1 and " << num_rescued_equivalent_2 << " of " << num_equivalent_2 << " equivalent clusters on read 2" << endl;
+#endif
+            
             // compute the probability that we failed to rescue each of the clusters from the other
             double prob_missed_rescue_of_cluster_1 = 1.0 - (1.0 - prob_missing_equiv_cluster_2) * double(num_rescued_equivalent_2) / double(num_equivalent_2);
             double prob_missed_rescue_of_cluster_2 = 1.0 - (1.0 - prob_missing_equiv_cluster_1) * double(num_rescued_equivalent_1) / double(num_equivalent_1);
@@ -2105,7 +2109,7 @@ namespace vg {
         
         
 #ifdef debug_multipath_mapper
-        cerr << "estimate probability that hit sampling caused us to miss correct cluster at " << prob_missing_pair << endl;
+        cerr << "estimate probability that hit sampling caused us to miss correct cluster at " << prob_missing_equiv_cluster << endl;
 #endif
         
         if (prob_missing_equiv_cluster > 0.0) {
