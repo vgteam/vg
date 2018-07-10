@@ -140,7 +140,7 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
                 // For each node
                 for (bool orientation : {false, true}) {
                     // In each orientation
-            
+                
                     handle_t node_handle = g->get_handle(node->id(), orientation);
                     
                     vector<handle_t> next_handles;

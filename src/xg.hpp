@@ -102,18 +102,19 @@ public:
         bool validate_graph = false, bool print_graph = false,
         bool store_threads = false, bool is_sorted_dag = false); 
     void build(vector<pair<id_t, string> >& node_label,
-               unordered_map<side_t, vector<side_t> >& from_to,
-               unordered_map<side_t, vector<side_t> >& to_from,
+               unordered_map<side_t, vector<side_t> >& start_side,
+               unordered_map<side_t, vector<side_t> >& end_side,
                map<string, vector<trav_t> >& path_nodes,
                bool validate_graph,
                bool print_graph,
                bool store_threads,
-               bool is_sorted_dag);
+               bool is_sorted_dag,
+               int doubly_reversing_sides);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 9;
+    const static uint32_t MAX_INPUT_VERSION = 10;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 9;
+    const static uint32_t OUTPUT_VERSION = 10;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -121,7 +122,9 @@ public:
     size_t serialize(std::ostream& out,
                      sdsl::structure_tree_node* v = NULL,
                      std::string name = "");
-                     
+    
+    // If XG is not in current format, change to new format (edges in start/end format, not from/to format)
+    void convert_old_edge_to_new(int_vector<> g_iv_old, bit_vector g_bv_old, rank_support_v<1> g_bv_rank_old, bit_vector::select_1_type g_bv_select_old);
     
     ////////////////////////////////////////////////////////////////////////////
     // Basic API
@@ -193,12 +196,8 @@ public:
     /// 2: end to end
     /// 3: start to start
     /// 4: start to end
-    Edge edge_from_encoding(int64_t from, int64_t to, int type) const;
+    Edge edge_from_encoding(int64_t from, int64_t to, int type, bool on_start_side) const;
     void idify_graph(Graph& graph) const;
-    
-    /// a numerical code for the edge type (based on the two reversal flags)
-    int edge_type(bool from_start, bool to_end) const;
-    int edge_type(const Edge& edge) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Here is the handle graph API
@@ -249,11 +248,11 @@ public:
 
     // expand by steps (original and default)
     void expand_context_by_steps(Graph& g, size_t steps, bool add_paths = true,
-                                 bool expand_forward = true, bool expand_backward = true,
+                                 bool expand_end_side = true, bool expand_start_side = true,
                                  int64_t until_node = 0) const;
     // expand by length
     void expand_context_by_length(Graph& g, size_t length, bool add_paths = true,
-                                  bool expand_forward = true, bool expand_backward = true,
+                                  bool expand_end_side = true, bool expand_start_side = true,
                                   int64_t until_node = 0) const;
     // get the nodes one step from the graph
     void get_connected_nodes(Graph& g) const;
@@ -610,12 +609,6 @@ private:
     // And some masks
     const static size_t HIGH_BIT = (size_t)1 << 63;
     const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
-    
-    /// This is a utility function for the edge exploration. It says whether we
-    /// want to visit an edge depending on its type, whether we're the to or
-    /// from node, whether we want to look left or right, and whether we're
-    /// forward or reverse on the node.
-    bool edge_filter(int type, bool is_to, bool want_left, bool is_reverse) const;
     
     // This loops over the given number of edge records for the given g node,
     // starting at the given start g vector position. For all the edges that are
