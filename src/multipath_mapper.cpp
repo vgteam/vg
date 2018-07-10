@@ -1960,6 +1960,10 @@ namespace vg {
                                                                           vector<clustergraph_t>& cluster_graphs2,
                                                                           bool did_secondary_rescue) const {
         
+#ifdef debug_multipath_mapper
+        cerr << "checking whether to cap mapping quality based on hit sub-sampling" << endl;
+#endif
+        
         // did we use an out-of-bounds cluster index to flag either end as coming from a rescue?
         bool opt_aln_1_is_rescued = cluster_pairs.front().first.first >= cluster_graphs1.size();
         bool opt_aln_2_is_rescued = cluster_pairs.front().first.second >= cluster_graphs2.size();
@@ -1973,6 +1977,10 @@ namespace vg {
             prob_missing_equiv_cluster_2 = prob_equivalent_clusters_hits_missed(get<1>(cluster_graphs2[cluster_pairs.front().first.second]));
         }
         
+#ifdef debug_multipath_mapper
+        cerr << "estimate probability of missing correct cluster from hit sampling for read 1 as " << prob_missing_equiv_cluster_1 << " and read 2 as " << prob_missing_equiv_cluster_2 << endl;
+#endif
+        
         if (prob_missing_equiv_cluster_1 == 0.0 && prob_missing_equiv_cluster_2 == 0.0) {
             // we can bail out now if we don't think hit sub-sampling was a factor
             return;
@@ -1981,9 +1989,17 @@ namespace vg {
         // what is the chance that we would have missed a pair?
         double prob_missing_pair = 0.0;
         if (opt_aln_1_is_rescued) {
+#ifdef debug_multipath_mapper
+            cerr << "optimal mapping is a rescue on read 1, sampling error only applies to read 2" << endl;
+#endif
+            
             prob_missing_pair = prob_missing_equiv_cluster_2;
         }
         else if (opt_aln_2_is_rescued) {
+#ifdef debug_multipath_mapper
+            cerr << "optimal mapping is a rescue on read 2, sampling error only applies to read 1" << endl;
+#endif
+            
             prob_missing_pair = prob_missing_equiv_cluster_1;
         }
         else if (!did_secondary_rescue) {
@@ -2001,6 +2017,10 @@ namespace vg {
             
             // we will first cap the estimate of the probability of missing an equivalent cluster by the probability of rescuing
             // from the other read's cluster (assuming the other cluster is correct)
+            
+#ifdef debug_multipath_mapper
+            cerr << "we did secondary rescue, so we must also account for the ability to rescue a sub-sampled cluster" << endl;
+#endif
             
             // checks if the clusters involve the same MEMs (although possibly different hits of that MEM)
             auto clusters_equivalent = [](const memcluster_t& cluster_1, const memcluster_t& cluster_2) {
@@ -2070,6 +2090,10 @@ namespace vg {
             // compute the probability that we failed to rescue each of the clusters from the other
             double prob_missed_rescue_of_cluster_1 = 1.0 - (1.0 - prob_missing_equiv_cluster_2) * double(num_rescued_equivalent_2) / double(num_equivalent_2);
             double prob_missed_rescue_of_cluster_2 = 1.0 - (1.0 - prob_missing_equiv_cluster_1) * double(num_rescued_equivalent_1) / double(num_equivalent_1);
+            
+#ifdef debug_multipath_mapper
+            cerr << "estimate the probability we missed rescue of cluster 1 at " << prob_missed_rescue_of_cluster_1 << " and cluster 2 at " << prob_missed_rescue_of_cluster_2 << endl;
+#endif
             
             // possibly lower our estimate of the probabilty of missing a cluster if there was a high probabilty
             // that we would have found it during secondary rescue
