@@ -363,8 +363,14 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
         }
     }
     
-    // We should never try to return an injected 0 score as the winner.
-    assert(!(padded && *max_idx_out == 1));
+    if (padded && *max_idx_out == 1) {
+        // Force us not to try to return the injected 0 as the winner.
+        // TODO: doesn't this mean the score is negative?
+        cerr << "warning:[BaseAligner::maximum_mapping_quality_exact]: Max score of " << max_score
+            << " is the padding score; changing to " << scaled_scores[0] << endl;
+        max_score = scaled_scores[0];
+        *max_idx_out = 0;
+    }
     
     double direct_mapq = -quality_scale_factor * subtract_log(0.0, max_score - log_sum_exp);
     return std::isinf(direct_mapq) ? (double) numeric_limits<int32_t>::max() : direct_mapq;
@@ -442,10 +448,14 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
         }
     }
    
-    // Since we loop through from start to end, all the numbers should be
-    // nonnegative, and we break ties in favor of the old max, we should never
-    // try to return an injected 0 score as the winner.
-    assert(!(padded && max_idx == 1));
+    if (padded && max_idx == 1) {
+        // Force us not to try to return the injected 0 as the winner.
+        // TODO: doesn't this mean the score is negative?
+        cerr << "warning:[BaseAligner::maximum_mapping_quality_approx]: Max score of " << max_score
+            << " is the padding score; changing to " << scaled_scores[0] << endl;
+        max_score = scaled_scores[0];
+        max_idx = 0;
+    }
    
     *max_idx_out = max_idx;
 

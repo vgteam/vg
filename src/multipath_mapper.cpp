@@ -2758,6 +2758,20 @@ namespace vg {
                    
                     alignment_pop_scores[j] = pop_score.first / log_base;
                     
+                    if (std::isnan(alignment_pop_scores[i]) && pop_score.second) {
+                        // This shouldn't happen. Bail out on haplotype adjustment for this read and warn.
+                        cerr << "warning:[vg::MultipathMapper]: NAN population score obtained for read "
+                            << alignments[j].name() << " with ostensibly successful query. Changing to failure." << endl;
+                        pop_score.second = false;
+                    }
+                    
+                    if (std::isnan(alignments[j].score())) {
+                        // This is even worse! The alignment score itself is somehow NAN.
+                        cerr << "warning:[vg::MultipathMapper]: NAN alignment score obtained in alignment being considered for read "
+                            << alignments[j].name() << ". This should never happen! Bailing out on population scoring." << endl;
+                        pop_score.second = false;
+                    }
+
                     all_paths_pop_consistent &= pop_score.second;
                 }
                 
@@ -2774,8 +2788,6 @@ namespace vg {
                 for (size_t j = 0; j < alignments.size(); j++) {
                     // Compute the adjusted score for each alignment
                     auto adjusted_score = alignments[j].score() + alignment_pop_scores[j];
-                   
-                    assert(!std::isnan(adjusted_score));
                    
                     if (adjusted_score > pop_adjusted_scores[i]) {
                         // It is the best, so use it.
@@ -2923,6 +2935,14 @@ namespace vg {
                     // Pop score the first alignments
                     auto pop_score = haplo_score_provider->score(alignments1[j].path(), memo);
                     base_pop_scores1[j] = alignments1[j].score() + pop_score.first / log_base;
+                    
+                    if (std::isnan(base_pop_scores1[i]) && pop_score.second) {
+                        // This shouldn't happen. Bail out on haplotype adjustment for this read and warn.
+                        cerr << "warning:[vg::MultipathMapper]: NAN population adjusted score obtained for paired read "
+                            << alignments1[j].name() << " with ostensibly successful query. Changing to failure." << endl;
+                        pop_score.second = false;
+                    }
+                    
                     all_paths_pop_consistent &= pop_score.second;
                 }
                 
@@ -2930,6 +2950,14 @@ namespace vg {
                     // Pop score the second alignments
                     auto pop_score = haplo_score_provider->score(alignments2[j].path(), memo);
                     base_pop_scores2[j] = alignments2[j].score() + pop_score.first / log_base;
+                    
+                    if (std::isnan(base_pop_scores2[i]) && pop_score.second) {
+                        // This shouldn't happen. Bail out on haplotype adjustment for this read and warn.
+                        cerr << "warning:[vg::MultipathMapper]: NAN population adjusted score obtained for paired read "
+                            << alignments2[j].name() << " with ostensibly successful query. Changing to failure." << endl;
+                        pop_score.second = false;
+                    }
+                    
                     all_paths_pop_consistent &= pop_score.second;
                 }
                 
