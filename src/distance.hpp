@@ -11,6 +11,16 @@ class DistanceIndex {
     //Constructor 
     DistanceIndex (VG* vg, SnarlManager* snarlManager);
 
+    //Constructor given vector of ints from serialization 
+    DistanceIndex (VG* vg, SnarlManager* snarlManager, 
+                     vector<int64_t>& snarlNodes, vector<int64_t>& snarlVector,
+                     vector<int64_t>& chainNodes, vector<int64_t>& chainVector);
+   
+    //Convert contents of object into vector of ints for serialization
+    void toVector(vector<int64_t>& snarlNodes, vector<int64_t>& snarlVector,
+                  vector<int64_t>& chainNodes, vector<int64_t>& chainVector);
+
+
 
     /*Get the distance between two positions
       pos1 must be on a node contained in snarl1 and not on any children of
@@ -39,7 +49,12 @@ class DistanceIndex {
             SnarlDistances(unordered_set<pair<id_t, bool>>& allNodes, 
                           pair<id_t, bool> start, pair<id_t, bool> end);
            
+            //Construct from vector - inverse of toVector
+            SnarlDistances(vector<int64_t> v);
 
+            //Store contents of object as a vector of ints for serialization
+            vector<int64_t> toVector();
+            
             //Distance between beginning of node start and beginning of node end
             int64_t snarlDistance(pair<id_t, bool> start, pair<id_t, bool> end);
 
@@ -108,6 +123,12 @@ class DistanceIndex {
             //Constructor
             ChainDistances(unordered_map<id_t, size_t> s, vector<int64_t> p,
                         vector<int64_t> fd, vector<int64_t> rev );
+
+            //Constructor from vector of ints after serialization
+            ChainDistances(vector<int64_t> v);
+
+            //Convert contents into vector of ints for serialization
+            vector<int64_t> toVector();
        
             /*Distance between two snarls starting from the beginning of the 
               start node to the beginning of the end node.

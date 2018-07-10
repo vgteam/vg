@@ -1690,6 +1690,7 @@ class TestDistanceIndex : public DistanceIndex {
         }
  
     }
+
     TEST_CASE("Random test", "[dist]") {
         for (int i = 0; i < 100; i++) {
             //1000 different graphs
@@ -1772,6 +1773,104 @@ class TestDistanceIndex : public DistanceIndex {
                               << offset2 << endl;
 
                         cerr << "Actual distance: " << actDist << "    " <<
+                                "Guessed distance: " << myDist << endl;
+                    }
+                    REQUIRE(passed);
+                }
+            }
+             
+        }
+    } //end test case
+
+    TEST_CASE("Serialize distance index", "[dist][serial]") {
+        for (int i = 0; i < 100; i++) {
+            //1000 different graphs
+            VG graph = randomGraph(1000, 20, 100); 
+
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+
+                        graph.serialize_to_file("testGraph");
+            TestDistanceIndex di (&graph, &snarl_manager);
+            vector<int64_t> d1;
+            vector<int64_t> d2;
+            vector<int64_t> d3;
+            vector<int64_t> d4;
+            di.toVector(d1, d2, d3, d4);
+            TestDistanceIndex sdi (&graph, &snarl_manager, d1, d2, d3, d4);
+            #ifdef print        
+                di.printSelf();
+                sdi.printSelf();
+
+            #endif
+ 
+            vector<const Snarl*> allSnarls;
+            auto addSnarl = [&] (const Snarl* s) {
+                allSnarls.push_back(s);
+            };
+            snarl_manager.for_each_snarl_preorder(addSnarl);
+
+            uniform_int_distribution<int> randSnarlIndex(0, allSnarls.size()-1);
+            default_random_engine generator(time(NULL));
+            for (int j = 0; j < 100; j++) {
+                //Check distances for random pairs of positions 
+                const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
+                const Snarl* snarl2 = allSnarls[randSnarlIndex(generator)];
+                 
+                pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 = 
+                           snarl_manager.shallow_contents(snarl1, graph, true);
+                pair<unordered_set<Node*>, unordered_set<Edge*>> contents2 = 
+                           snarl_manager.shallow_contents(snarl2, graph, true);
+ 
+                vector<Node*> nodes1 (contents1.first.begin(), contents1.first.end());
+                vector<Node*> nodes2 (contents2.first.begin(), contents2.first.end());
+
+                
+                uniform_int_distribution<int> randNodeIndex2(0,nodes2.size()-1);
+                uniform_int_distribution<int> randNodeIndex1(0,nodes1.size()-1);
+ 
+                Node* node1 = nodes1[randNodeIndex1(generator)];
+                Node* node2 = nodes2[randNodeIndex2(generator)];
+                id_t nodeID1 = node1->id();
+                id_t nodeID2 = node2->id();
+ 
+                off_t offset1 = uniform_int_distribution<int>(0,node1->sequence().size() - 1)(generator);
+                off_t offset2 = uniform_int_distribution<int>(0,node2->sequence().size() - 1)(generator);
+
+                pos_t pos1 = make_pos_t(nodeID1, 
+                  uniform_int_distribution<int>(0,1)(generator) == 0,offset1 );
+                pos_t pos2 = make_pos_t(nodeID2, 
+                  uniform_int_distribution<int>(0,1)(generator) == 0, offset2 );
+ 
+                if (!(nodeID1 != snarl1->start().node_id() && 
+                    (snarl_manager.into_which_snarl(nodeID1, false) != NULL ||
+                      snarl_manager.into_which_snarl(nodeID1, true) != NULL)) &&
+                    ! (nodeID2 != snarl2->start().node_id() &&
+                        (snarl_manager.into_which_snarl(nodeID2, false) != NULL
+                       || snarl_manager.into_which_snarl(nodeID2, true) != NULL
+                  ))){
+
+                    //If the nodes aren't child snarls
+
+                    int64_t myDist = di.distance(snarl1, snarl2,pos1, pos2);
+                    int64_t serialDist = sdi.distance(snarl1, snarl2,pos1, pos2);
+                    bool passed = myDist == serialDist;
+
+                    if (!passed) { 
+                        graph.serialize_to_file("testGraph");
+                        di.printSelf();
+                        cerr << "Failed on random test: " << endl;
+                        
+                        cerr << "Position 1 on snarl " << 
+                               snarl1->start().node_id() << " " << " Node " <<
+                               nodeID1 << " is rev? " << is_rev(pos1) << 
+                               " offset: " << offset1 << endl;
+                        cerr << "Position 2 on snarl " << 
+                              snarl2->start().node_id() << " Node " << nodeID2 
+                              << " is rev? " << is_rev(pos2) << " offset: " 
+                              << offset2 << endl;
+
+                        cerr << "Serial distance: " << serialDist << "    " <<
                                 "Guessed distance: " << myDist << endl;
                     }
                     REQUIRE(passed);

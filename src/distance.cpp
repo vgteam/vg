@@ -6,7 +6,7 @@
 using namespace std;
 namespace vg {
 
-DistanceIndex::DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager){
+DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager){
     /*Constructor for the distance index given a VG and snarl manager
     */
     graph = vg;
@@ -17,6 +17,87 @@ DistanceIndex::DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager){
     const vector<const Snarl*> topSnarls = sm->top_level_snarls();
     calculateIndex(&topSnarls);
 };
+
+
+DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager,
+                 vector<int64_t>& snarlNodes, vector<int64_t>& snarlVector,
+                 vector<int64_t>& chainNodes, vector<int64_t>& chainVector) {
+
+    /*Constructor for the distance index given a VG, snarl manager, and a vector
+      of ints from serialization
+    */
+    graph = vg;
+    sm = snarlManager;
+   
+    //Construct snarl index
+    size_t snarlI = 0;//Index into snarlVector
+    for (size_t i = 0; i < snarlNodes.size()/2; i++) {
+        int64_t snarlInt = snarlNodes[2*i];
+  
+        pair<id_t, bool> node = snarlInt < 0 ? 
+                                     make_pair( (id_t) abs(snarlInt), true) :
+                                     make_pair( (id_t) abs(snarlInt), false);
+        size_t nextIndex = snarlI + snarlNodes[2*i+1];
+
+        vector<int64_t> snarlv(snarlVector.begin() + snarlI, 
+                               snarlVector.begin() + nextIndex);//get subvector
+         
+        //Create SnarlDistances object from vector and assign
+        snarlIndex.insert(make_pair(node, SnarlDistances (snarlv)));
+
+        snarlI = nextIndex; 
+      
+    }
+    
+    
+    size_t chainI = 0; //Index into chainVector
+    //Construct chain index
+    for (size_t i = 0; i < chainNodes.size()/2; i++) {
+        id_t chainID = (id_t) chainNodes[2*i];
+        
+        size_t nextIndex = chainI + chainNodes[2*i + 1];
+   
+        vector<int64_t> chainv (chainVector.begin() + chainI, 
+                                chainVector.begin() + nextIndex);
+ 
+        //Create chaindistances object and assign in index
+        chainIndex.insert(make_pair(chainID, ChainDistances(chainv)));
+
+        chainI = nextIndex;
+
+    }
+};
+
+void DistanceIndex::toVector(
+                    vector<int64_t>& snarlNodes, vector<int64_t>& snarlVector,
+                    vector<int64_t>& chainNodes, vector<int64_t>& chainVector){
+    //Convert contents of object into vectors for serialization
+  
+    //Serialize snarls
+    for (pair<pair<id_t, bool>, SnarlDistances> snarlPair : snarlIndex) {
+        int64_t nodeInt = snarlPair.first.second ? 
+            - (int64_t) snarlPair.first.first : (int64_t) snarlPair.first.first;
+        vector<int64_t> currVector = snarlPair.second.toVector();
+        
+        snarlNodes.push_back(nodeInt);
+        snarlNodes.push_back((int64_t) currVector.size());
+    
+        //Concatenate new vector onto whole snarl vector
+        snarlVector.insert(snarlVector.end(), currVector.begin(), 
+                                                             currVector.end());
+    }
+
+    //Serialize chains
+    for (pair<id_t, ChainDistances> chainP: chainIndex) {
+        vector<int64_t> currVector = chainP.second.toVector();
+        
+        chainNodes.push_back((int64_t) chainP.first);
+        chainNodes.push_back((int64_t) currVector.size());
+        chainVector.insert(chainVector.end(), currVector.begin(), 
+                                                            currVector.end());
+    }
+
+}
 
 
 int64_t DistanceIndex::calculateIndex(const Chain* chain) {
@@ -1269,6 +1350,72 @@ DistanceIndex::SnarlDistances::SnarlDistances(unordered_set<pair<id_t, bool>>&
 
 }
 
+DistanceIndex::SnarlDistances::SnarlDistances(vector<int64_t> v) {
+    /*Constructor for SnarlDistances object given vector from serialization */
+
+    int64_t numNodes = v[0];
+    int64_t start = v[1];
+    snarlStart = (start < 0) ? make_pair( (id_t) abs(start), true) : 
+                               make_pair( (id_t) abs(start), false);
+
+    int64_t end = v[2];
+    snarlEnd = (end < 0) ? make_pair( (id_t) abs(end), true) : 
+                               make_pair( (id_t) abs(end), false);
+
+    length = v[3];
+    
+    //Get visitToIndex
+    for (size_t i = 4; i < numNodes*2 + 4; i += 2 ) {
+
+        int64_t n = v[i];
+        pair<id_t, bool> node = (n < 0) ? make_pair( (id_t) abs(n), true) : 
+                               make_pair( (id_t) abs(n), false);
+       visitToIndex[node] = v[i+1]; 
+    }
+
+    //Get distance vector
+    distances.resize(numNodes * numNodes);
+    size_t di = 0;
+    for (size_t i = numNodes*2 + 4; i < v.size(); i++) {
+
+        distances[di++] = v[i];
+
+    }
+
+}
+
+vector<int64_t> DistanceIndex::SnarlDistances::toVector() {
+    /*Convert contents of object to vector for serialization
+      Vector contains a header of four ints: #nodes, start node, end node,length
+                  a vector representing visitToIndex [node1, i1, node2, i2,,,,]
+                  a vector representing distances*/
+
+    vector<int64_t> v;
+    size_t numNodes = visitToIndex.size();//number of node+directions
+    v.resize(numNodes*2 + numNodes*numNodes + 4); //store map, distances, header
+
+    v[0] = (int64_t) numNodes;
+    v[1] = snarlStart.second ? -(int64_t) snarlStart.first :
+                                                 (int64_t) snarlStart.first;
+    v[2] =  snarlEnd.second ? -(int64_t) snarlEnd.first :
+                                                 (int64_t) snarlEnd.first;
+    v[3] = length;
+
+    size_t i = 4;
+    for (pair<pair<id_t, bool>, size_t> p : visitToIndex) {
+        pair<id_t, bool> node = p.first;
+        int64_t index = (int64_t) p.second;
+        v[i++] = node.second ? -(int64_t) node.first : (int64_t) node.first;
+        v[i++] = index; 
+    }
+   
+    for (int64_t d : distances) {
+        v[i++] = d;
+    }
+    return v;
+
+}
+
 
 size_t DistanceIndex::SnarlDistances::index(pair<id_t, bool> start, 
                                             pair<id_t, bool> end) {
@@ -1483,6 +1630,56 @@ DistanceIndex::ChainDistances::ChainDistances(unordered_map<id_t, size_t> s,
     loopRev = (rev);
 }
 
+DistanceIndex::ChainDistances::ChainDistances(vector<int64_t> v) {
+    //Constructor given vector of ints from serialization 
+    
+    size_t numNodes = v.size() / 5;
+
+    prefixSum.resize(numNodes * 2);
+    loopFd.resize(numNodes);
+    loopRev.resize(numNodes);
+
+    for (size_t i = 0; i <  numNodes; i ++ ) {
+        id_t node = (id_t) v[i*5];
+        if (snarlToIndex.find(node) == snarlToIndex.end()) {
+            snarlToIndex[node] = i;
+        } 
+        
+        prefixSum[2*i] = v[i*5 + 1];
+        prefixSum[2*i+1] = v[i*5 + 2 ];
+        loopFd[i] = v[i*5 + 3];
+        loopRev[i] = v[i*5 + 4];
+   
+    }
+}
+
+vector<int64_t> DistanceIndex::ChainDistances::toVector() {
+    /*Convert contents into vector of ints for serialization
+     Stored as [node_id, prefix sum1, prefix sum2, loopfd,loop rev, node_id2...]
+     */
+   
+    int64_t numNodes = snarlToIndex.size();
+    bool loops = numNodes == prefixSum.size() / 2 - 1;
+    if (loops) { numNodes = numNodes + 1; } 
+
+    vector<int64_t> v;
+    v.resize(numNodes * 5);
+
+    for (int i = 0 ; i < numNodes ; i++) {
+        v[5*i + 1] = prefixSum[2*i];
+        v[5*i + 2] = prefixSum[2*i + 1];
+        v[5*i + 3] = loopFd[i];
+        v[5*i + 4] = loopRev[i];
+    }
+   
+    for (pair<id_t, size_t> p : snarlToIndex) {
+        v[p.second * 5] = (int64_t) p.first; 
+    }
+    if (loops) {v[(numNodes-1) * 5] = v[0];} //Last node id is first
+   
+    return v;
+
+}
 int64_t DistanceIndex::ChainDistances::chainDistance(pair<id_t, bool> start, 
                                                       pair<id_t, bool> end) {
     /*Returns the distance between start of start and start of end in a chain
