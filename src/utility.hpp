@@ -408,26 +408,6 @@ private:
     
 size_t integer_power(size_t x, size_t power);
 
-// Get a callback with an istream& to an open file if a file name argument is
-// present after the parsed options, or print an error message and exit if one
-// is not. Handles "-" as a filename as indicating standard input. The reference
-// passed is guaranteed to be valid only until the callback returns. Bumps up
-// optind to the next argument if a filename is found.
-void get_input_file(int& optind, int argc, char** argv, function<void(istream&)> callback);
-
-// Parse out the name of an input file (i.e. the next positional argument), or
-// throw an error. File name must be nonempty, but may be "-" or may not exist.
-string get_input_file_name(int& optind, int argc, char** argv);
-
-// Parse out the name of an output file (i.e. the next positional argument), or
-// throw an error. File name must be nonempty.
-string get_output_file_name(int& optind, int argc, char** argv);
-
-// Get a callback with an istream& to an open file. Handles "-" as a filename as
-// indicating standard input. The reference passed is guaranteed to be valid
-// only until the callback returns.
-void get_input_file(const string& file_name, function<void(istream&)> callback);
-
 double slope(const std::vector<double>& x, const std::vector<double>& y);
 double fit_zipf(const vector<double>& y);
 
@@ -539,8 +519,84 @@ void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp) {
 
 }
 
+/// Get a callback with an istream& to an open file if a file name argument is
+/// present after the parsed options, or print an error message and exit if one
+/// is not. Handles "-" as a filename as indicating standard input. The reference
+/// passed is guaranteed to be valid only until the callback returns. Bumps up
+/// optind to the next argument if a filename is found.
+void get_input_file(int& optind, int argc, char** argv, function<void(istream&)> callback);
 
-    
+/// Parse out the name of an input file (i.e. the next positional argument), or
+/// throw an error. File name must be nonempty, but may be "-" or may not exist.
+string get_input_file_name(int& optind, int argc, char** argv);
+
+/// Parse out the name of an output file (i.e. the next positional argument), or
+/// throw an error. File name must be nonempty.
+string get_output_file_name(int& optind, int argc, char** argv);
+
+/// Get a callback with an istream& to an open file. Handles "-" as a filename as
+/// indicating standard input. The reference passed is guaranteed to be valid
+/// only until the callback returns.
+void get_input_file(const string& file_name, function<void(istream&)> callback);
+
+/// Parse a command-line argument string. Exits with an error if the string
+/// does not contain exactly an item fo the appropriate type.
+template<typename Result>
+Result parse(const string& arg);
+
+/// Parse the appropriate type from the string to the destination value.
+/// Return true if parsing is successful and false (or throw something) otherwise.
+/// Does not throw.
+template<typename Result>
+bool parse(const string& arg, Result& dest);
+
+// Define specializations of the second version
+template<>
+bool parse(const string& arg, int& dest) {
+    // This will hold the next character after the number parsed
+    size_t after;
+    dest = std::stoi(arg, &after);
+    return(after == arg.size());
+    if (after != arg.size()) {
+        return false;
+    }
+    return true;
+}
+
+template<>
+bool parse(const string& arg, size_t& dest) {
+    size_t after;
+    dest = std::stoull(arg, &after);
+    return(after == arg.size());
+}
+
+template<>
+bool parse(const string& arg, double& dest) {
+    size_t after;
+    dest = std::stod(arg, &after);
+    return(after == arg.size());
+}
+
+// Implement the first version in terms of the second, for any type
+template<typename Result>
+Result parse(const string& arg) {
+    Result to_return;
+    bool success;
+    try {
+        success = parse<Result>(arg, to_return);
+    } catch(exception& e) {
+        success = false;
+    }
+    if (success) {
+        // Parsing worked
+        return to_return;
+    } else {
+        // Parsing failed
+        cerr << "error: could not parse " << typeid(to_return).name() << " from argument \"" << arg << "\"" << endl;
+        exit(1);
+    }
+}
+ 
 }
 
 #endif
