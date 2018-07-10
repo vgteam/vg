@@ -1,5 +1,5 @@
 #include "catch.hpp"
-#include "converter.hpp"
+#include "../handle_to_vg.hpp"
 #include "../handle.hpp"
 #include "../vg.hpp"
 #include "../xg.hpp"
@@ -9,13 +9,13 @@ namespace vg {
 
 		using namespace std;
 
-		TEST_CASE("Converter works on empty graph", "[handle][vg][xg]") {
+		TEST_CASE("Handle-to-vg converter works on empty graph", "[handle][vg][xg]") {
 		    xg::XG xg;
-			VG vg = converter(&xg);
+			VG vg = handle_to_vg(&xg);
 			REQUIRE(vg.node_count() == 0);
 			REQUIRE(vg.edge_count() == 0);
 		}
-		TEST_CASE("Converter works on graphs with one node", "[handle][vg][xg]") {
+		TEST_CASE("Handle-to-vg converter works on graphs with one node", "[handle][vg][xg]") {
 			string graph_json = R"(
 				{
 					"node": [
@@ -27,12 +27,12 @@ namespace vg {
 				json2pb(proto_graph, graph_json.c_str(), graph_json.size());
 
 				xg::XG xg(proto_graph);
-				VG vg = converter(&xg);
+				VG vg = handle_to_vg(&xg);
 
 				REQUIRE(xg.node_size() == 1);
 				REQUIRE(vg.node_size() == 1);
 		}
-		TEST_CASE("Converter works on graphs with one reversing edge", "[handle][vg][xg]") {
+		TEST_CASE("Handle-to-vg converter works on graphs with one reversing edge", "[handle][vg][xg]") {
 			string graph_json = R"(
 				{
 					"node": [
@@ -53,7 +53,7 @@ namespace vg {
 				json2pb(proto_graph, graph_json.c_str(), graph_json.size());
 
 				xg::XG xg(proto_graph);
-				VG vg = converter(&xg);
+				VG vg = handle_to_vg(&xg);
 
 				REQUIRE(xg.node_size() == 4);
 				REQUIRE(vg.node_size() == 4);
@@ -61,7 +61,7 @@ namespace vg {
 				REQUIRE(vg.length() == 16);
 
 		}
-		TEST_CASE("Converter works on graphs with reversing edges and loops", "[handle][vg][xg]") {
+		TEST_CASE("Handle-to-vg converter works on graphs with reversing edges and loops", "[handle][vg][xg]") {
 			string graph_json = R"(
 				{
 					"node": [
@@ -85,7 +85,7 @@ namespace vg {
 				json2pb(proto_graph, graph_json.c_str(), graph_json.size());
 
 				xg::XG xg(proto_graph);
-				VG vg = converter(&xg);
+				VG vg = handle_to_vg(&xg);
 
 				REQUIRE(xg.node_sequence(1) == "GATT");
 				REQUIRE(xg.node_sequence(3) == "CGAT");

@@ -19,7 +19,7 @@
 #include "../cpp/vg.pb.h"
 #include "../xg.hpp"
 #include "../region.hpp"
-#include "../converter.hpp"
+#include "../handle_to_vg.hpp"
 
 using namespace std;
 using namespace vg;
@@ -282,9 +282,9 @@ int main_xg(int argc, char** argv) {
              return 1;
         }
         if (vg_out == "-") {
-            converter(graph).serialize_to_ostream(std::cout);
+            handle_to_vg(graph).serialize_to_ostream(std::cout);
         } else {
-            converter(graph).serialize_to_file(vg_out);
+            handle_to_vg(graph).serialize_to_file(vg_out);
         }
     }
 

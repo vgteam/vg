@@ -1,9 +1,9 @@
-#include "converter.hpp"
+#include "handle_to_vg.hpp"
 
 namespace vg {
 	using namespace std;
 	
-	VG converter(const HandleGraph* xg) {
+	VG handle_to_vg(const HandleGraph* xg) {
 		// If xg is a null pointer, throw a runtime error
 		if (xg == nullptr) {
 			throw runtime_error("There is no xg to convert"); 
