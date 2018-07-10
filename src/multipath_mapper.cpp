@@ -2022,20 +2022,28 @@ namespace vg {
             cerr << "we did secondary rescue, so we must also account for the ability to rescue a sub-sampled cluster" << endl;
 #endif
             
-            // checks if the clusters involve the same MEMs (although possibly different hits of that MEM)
-            auto clusters_equivalent = [](const memcluster_t& cluster_1, const memcluster_t& cluster_2) {
-                bool equivalent = cluster_1.size() == cluster_2.size();
-                if (equivalent) {
+            // checks if one cluster is a subset of another
+            auto cluster_contained_in = [](const memcluster_t& sub, const memcluster_t& super) {
+                size_t i = 0;
+                if (sub.size() <= super.size()) {
                     // query_cluster_graphs sorts the cluster hits so that they are ordered by length
                     // and then lexicographically by read interval
-                    for (size_t i = 0; i < cluster_1.size(); i++) {
-                        if (cluster_1[i].first != cluster_2[i].first) {
-                            equivalent = false;
+                    for (size_t j = 0; i < sub.size() && j < super.size(); j++) {
+                        const MaximalExactMatch* mem_sub = sub[i].first;
+                        const MaximalExactMatch* mem_super = super[j].first;
+                        if (mem_sub == mem_super) {
+                            i++;
+                        }
+                        else if (mem_sub->length() > mem_super->length() || (mem_sub->length() == mem_super->length() &&
+                                                                             make_pair(mem_sub->begin, mem_sub->end) > make_pair(mem_super->begin, mem_super->end))) {
+                            // we've passed the place in the vector where this hit should have occurred
                             break;
                         }
+                                 
                     }
                 }
-                return equivalent;
+                // did we find all of the MEMs in the superset?
+                return i == sub.size();;
             };
             
             // TODO: figuring out which clusters we rescued from requires me to duplicate the secondary rescue code...
@@ -2061,7 +2069,7 @@ namespace vg {
             size_t num_rescues_1 = 0;
             for (size_t i = 0; i < cluster_graphs1.size(); i++) {
                 // is this an equivalent cluster?
-                bool equiv = clusters_equivalent(get<1>(cluster_graphs1[cluster_pairs.front().first.first]), get<1>(cluster_graphs1[i]));
+                bool equiv = cluster_contained_in(get<1>(cluster_graphs1[cluster_pairs.front().first.first]), get<1>(cluster_graphs1[i]));
                 // and would we have done used it for a secondary rescue?
                 bool did_rescue = (!paired_clusters_1.count(i) && num_rescues_1 < secondary_rescue_attempts
                                    && get<2>(cluster_graphs1[i]) * get_aligner()->match >= cluster_score_1 - max_score_diff);
@@ -2074,7 +2082,7 @@ namespace vg {
             size_t num_rescues_2 = 0;
             for (size_t i = 0; i < cluster_graphs2.size(); i++) {
                 // is this an equivalent cluster?
-                bool equiv = clusters_equivalent(get<1>(cluster_graphs2[cluster_pairs.front().first.second]), get<1>(cluster_graphs2[i]));
+                bool equiv = cluster_contained_in(get<1>(cluster_graphs2[cluster_pairs.front().first.second]), get<1>(cluster_graphs2[i]));
                 // and would we have done used it for a secondary rescue?
                 bool did_rescue = (!paired_clusters_2.count(i) && num_rescues_2 < secondary_rescue_attempts
                                    && get<2>(cluster_graphs2[i]) * get_aligner()->match >= cluster_score_2 - max_score_diff);
