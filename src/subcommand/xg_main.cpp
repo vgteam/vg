@@ -281,10 +281,29 @@ int main_xg(int argc, char** argv) {
              cerr << "error [vg xg] no xg graph exists to convert; Try: vg xg -i graph.xg -X graph.vg" << endl;
              return 1;
         }
+        
+        // Convert the xg graph to vg format
+        VG converted = handle_to_vg(graph);
+        
+        // TODO: The converter doesn't copy paths yet. When it does, we can
+        // remove all this path copying code.
+        
+        // Make a raw Proto Graph to hold Path objects
+        Graph path_graph;
+        
+        // Since paths are not copied, copy the paths.
+        for (size_t rank = 1; rank <= graph->max_path_rank(); rank++) {
+            // Extract each path into the path graph
+            *path_graph.add_path() = graph->path(graph->path_name(rank));
+        }
+        
+        // Merge in all the paths
+        converted.extend(path_graph);
+        
         if (vg_out == "-") {
-            handle_to_vg(graph).serialize_to_ostream(std::cout);
+            converted.serialize_to_ostream(std::cout);
         } else {
-            handle_to_vg(graph).serialize_to_file(vg_out);
+            converted.serialize_to_file(vg_out);
         }
     }
 
