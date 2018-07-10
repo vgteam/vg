@@ -50,9 +50,8 @@ namespace vg {
     
         // query MEMs using GCSA2
         double dummy1; double dummy2;
-        vector<MaximalExactMatch> mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(),
-                                                        dummy1, dummy2, 0, min_mem_length, mem_reseed_length,
-                                                        false, true, true, false);
+        vector<MaximalExactMatch> mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(), dummy1, dummy2,
+                                                        0, min_mem_length, mem_reseed_length, false, true, true, false);
         
 #ifdef debug_multipath_mapper
         cerr << "obtained MEMs:" << endl;
@@ -3059,6 +3058,28 @@ namespace vg {
                 }
                 std::swap(index[index[i]], index[i]);
                 
+            }
+        }
+        
+        // identify and remove duplicates
+        size_t removed_so_far = 0;
+        for (size_t i = 1; i < multipath_alns.size(); i++) {
+            if (share_terminal_positions(multipath_alns.front(), multipath_alns[i])) {
+                removed_so_far++;
+            }
+            else if (removed_so_far) {
+                multipath_alns[i - removed_so_far] = move(multipath_alns[i]);
+                scores[i - removed_so_far] = scores[i];
+                if (cluster_idxs) {
+                    (*cluster_idxs)[i - removed_so_far] = (*cluster_idxs)[i];
+                }
+            }
+        }
+        if (removed_so_far) {
+            multipath_alns.resize(multipath_alns.size() - removed_so_far);
+            scores.resize(scores.size() - removed_so_far);
+            if (cluster_idxs) {
+                cluster_idxs->resize(cluster_idxs->size() - removed_so_far);
             }
         }
         

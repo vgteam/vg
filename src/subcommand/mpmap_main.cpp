@@ -684,10 +684,8 @@ int main_mpmap(int argc, char** argv) {
         num_alt_alns = 1;
     }
     
-    // we get better performance by splitting up clusters a bit more when looking paired clusters
-    // TODO: I think I would also get better performance on single ended if I ported over the improved
-    // deduplication code from the paired end method
-    if (single_path_alignment_mode && (interleaved_input || !fastq_name_2.empty())) {
+    // we get better performance by splitting up clusters a bit more when we're forcing alignments to go to only one place
+    if (single_path_alignment_mode) {
         min_median_mem_coverage_for_split = 2;
         suppress_cluster_merging = true;
     }
