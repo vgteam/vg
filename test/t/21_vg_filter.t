@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 5
+plan tests 6
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
@@ -30,5 +30,18 @@ is $(vg view -a filter_chunk-3.gam | jq -c '.path.mapping[].position' | jq 'sele
 
 # check that chunk 5 is everything
 is $(vg view -a filter_chunk-4.gam | jq . | grep mapping | wc -l) 5000 "vg filter big chunk has everything"
+
+# Downsampling works
+SAMPLED_COUNT=$(vg filter x.gam --downsample 0.5 | vg view -a - | jq . | grep mapping | wc -l)
+OUT_OF_RANGE=0
+if [[ "${SAMPLED_COUNT}" -lt 2000 || "${SAMPLED_COUNT}" -gt 3000 ]]; then
+    # Make sure it's in a reasonable range for targeting 50%.
+    # We won't get 50% always because it is random sampling.
+    # Sometimes it might even be outside this range!
+    # But my binomial calculator said the probability of that was NaN so I bet it won't happen
+    OUT_OF_RANGE=1
+fi
+
+is "${OUT_OF_RANGE}" "0" "vg filter downsamples correctly"
 
 rm -f x.vg x.xg x.gam x.gam.json filter_chunk*.gam chunks.bed
