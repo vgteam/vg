@@ -1416,6 +1416,8 @@ namespace vg {
                                                                      min_separation, max_separation,
                                                                      unstranded_clustering,
                                                                      &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+            
+            
 #ifdef debug_multipath_mapper
             cerr << "obtained cluster pairs:" << endl;
             for (int i = 0; i < cluster_pairs.size(); i++) {
@@ -2276,6 +2278,8 @@ namespace vg {
             return get<2>(cluster_graphs1[cluster_pair.first]) + get<2>(cluster_graphs2[cluster_pair.second]);
         };
         
+        int64_t optimal_separation = fragment_length_distr.mean();
+        
         // sort the pairs descending by total unique sequence coverage
         stable_sort(cluster_pairs.begin(), cluster_pairs.end(),
                     [&](const pair<pair<size_t, size_t>, int64_t>& a, const pair<pair<size_t, size_t>, int64_t>& b) {
@@ -2283,8 +2287,15 @@ namespace vg {
                         // Compute total coverage following all the redirects and see if
                         // it's in the right order.
                         // We also add a total ordering over the pair indexes to remove system dependencies
-                        size_t cov_1 = get_pair_coverage(a.first), cov_2 = get_pair_coverage(b.first);
-                        return (cov_1 > cov_2 || (cov_1 == cov_2 && a.first < b.first));
+                        size_t cov_1 = get_pair_coverage(a.first);
+                        size_t cov_2 = get_pair_coverage(b.first);
+                        int64_t dev_1 = abs(a.second - optimal_separation);
+                        int64_t dev_2 = abs(b.second - optimal_separation);
+                        size_t hash_1 = wang_hash<pair<pair<size_t, size_t>, int64_t>>()(a);
+                        size_t hash_2 = wang_hash<pair<pair<size_t, size_t>, int64_t>>()(b);
+                        return (cov_1 > cov_2 ||
+                                (cov_1 == cov_2 && (dev_1 < dev_2 ||
+                                                    (dev_1 == dev_2 && hash_1 < hash_2))));
                   });
         
 #ifdef debug_multipath_mapper
