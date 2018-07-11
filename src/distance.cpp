@@ -19,16 +19,52 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager){
 };
 
 
-DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager,
-                 vector<int64_t>& snarlNodes, vector<int64_t>& snarlVector,
-                 vector<int64_t>& chainNodes, vector<int64_t>& chainVector) {
+DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager, istream& in) {
 
     /*Constructor for the distance index given a VG, snarl manager, and a vector
       of ints from serialization
     */
+    auto toInt = [] (uint64_t uval) {
+        /*convert unsigned representation of signed int back to int64_t*/
+        int64_t val = uval / 2;
+        if (uval % 2 == 1) {val = -val;}
+        return val;
+    };
     graph = vg;
     sm = snarlManager;
-   
+
+    int_vector<> d1;
+    int_vector<> d2;
+    int_vector<> d3;
+    int_vector<> d4;   
+  
+    d1.load(in);
+    d2.load(in);
+    d3.load(in);
+    d4.load(in);
+
+    vector<int64_t> snarlNodes(d1.size(), 0); 
+    vector<int64_t> snarlVector(d2.size(), 0);
+    vector<int64_t> chainNodes(d3.size(), 0);
+    vector<int64_t> chainVector(d4.size(), 0);
+ 
+    for (size_t i = 0; i < d1.size(); i++) {
+        uint64_t uval = d1[i];
+        int64_t val = toInt(uval);
+        snarlNodes[i] = val;
+    }
+
+    for (size_t i = 0; i < d2.size(); i++) {
+        snarlVector[i] = toInt(d2[i]);
+    }
+    for (size_t i = 0; i < d3.size(); i++) {
+        chainNodes[i] = toInt(d3[i]);
+    }
+    for (size_t i = 0; i < d4.size(); i++) {
+        chainVector[i] = toInt(d4[i]);
+    }
+
+  
     //Construct snarl index
     size_t snarlI = 0;//Index into snarlVector
     for (size_t i = 0; i < snarlNodes.size()/2; i++) {
@@ -39,9 +75,14 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager,
                                      make_pair( (id_t) abs(snarlInt), false);
         size_t nextIndex = snarlI + snarlNodes[2*i+1];
 
-        vector<int64_t> snarlv(snarlVector.begin() + snarlI, 
-                               snarlVector.begin() + nextIndex);//get subvector
+
+        vector<int64_t> snarlv;//get subvector
+        snarlv.resize(nextIndex - snarlI);
+        for (size_t j = 0; j < nextIndex-snarlI; j++) {
+            snarlv[j] = snarlVector[snarlI + j]; 
+        }
          
+
         //Create SnarlDistances object from vector and assign
         snarlIndex.insert(make_pair(node, SnarlDistances (snarlv)));
 
@@ -57,9 +98,13 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager,
         
         size_t nextIndex = chainI + chainNodes[2*i + 1];
    
-        vector<int64_t> chainv (chainVector.begin() + chainI, 
-                                chainVector.begin() + nextIndex);
- 
+        vector<int64_t> chainv;
+        chainv.resize(nextIndex - chainI);
+        for ( size_t j = 0; j < nextIndex - chainI; j++) {
+
+            chainv[j] = chainVector[chainI + j];
+        }
+
         //Create chaindistances object and assign in index
         chainIndex.insert(make_pair(chainID, ChainDistances(chainv)));
 
@@ -73,30 +118,96 @@ void DistanceIndex::toVector(
                     vector<int64_t>& chainNodes, vector<int64_t>& chainVector){
     //Convert contents of object into vectors for serialization
   
+    size_t snarlNodesI = 0;
+    size_t snarlVectorI = 0;
     //Serialize snarls
+    snarlNodes.resize(2*snarlIndex.size());
+
     for (pair<pair<id_t, bool>, SnarlDistances> snarlPair : snarlIndex) {
         int64_t nodeInt = snarlPair.first.second ? 
             - (int64_t) snarlPair.first.first : (int64_t) snarlPair.first.first;
         vector<int64_t> currVector = snarlPair.second.toVector();
         
-        snarlNodes.push_back(nodeInt);
-        snarlNodes.push_back((int64_t) currVector.size());
+        snarlNodes[snarlNodesI++] = nodeInt;
+        snarlNodes[snarlNodesI++] = (int64_t) currVector.size();
     
+        snarlVector.resize(snarlVector.size() + currVector.size());
         //Concatenate new vector onto whole snarl vector
-        snarlVector.insert(snarlVector.end(), currVector.begin(), 
-                                                             currVector.end());
+        for (auto x : currVector) {
+            snarlVector[snarlVectorI++] = x;
+        }
     }
 
+    size_t chainNodesI = 0;
+    size_t chainVectorI = 0;
     //Serialize chains
     for (pair<id_t, ChainDistances> chainP: chainIndex) {
         vector<int64_t> currVector = chainP.second.toVector();
         
-        chainNodes.push_back((int64_t) chainP.first);
-        chainNodes.push_back((int64_t) currVector.size());
-        chainVector.insert(chainVector.end(), currVector.begin(), 
-                                                            currVector.end());
+        chainNodes.resize(chainNodes.size() + 2 );
+        chainNodes[chainNodesI++] = (int64_t) chainP.first;
+        chainNodes[chainNodesI++] = (int64_t) currVector.size();
+        
+        chainVector.resize(chainVector.size() + currVector.size()); 
+        for (auto x : currVector) {
+            chainVector[chainVectorI ++ ] = x;
+        } 
     }
 
+}
+
+void DistanceIndex::serialize(ostream& out) {
+
+    auto toUint = [](int64_t val) {
+        /* convert signed integer into unsigned representation where last bit 
+           represents sign*/ 
+        uint64_t uval= abs(val) * 2;
+        if (val < 0) { uval += 1; }
+        return uval;
+    };
+    vector<int64_t> d1;
+    vector<int64_t> d2;
+    vector<int64_t> d3;
+    vector<int64_t> d4;
+    toVector(d1, d2, d3, d4);
+
+    
+    int_vector<> snarlNodes;
+    int_vector<> snarlVector;
+    int_vector<> chainNodes;
+    int_vector<> chainVector;
+
+    util::assign(snarlNodes, int_vector<>(d1.size()));
+    util::assign(snarlVector, int_vector<>(d2.size()));
+    util::assign(chainNodes, int_vector<>(d3.size()));
+    util::assign(chainVector, int_vector<>(d4.size()));
+
+    //Copy vector<int64_t> into int_vector
+    for (size_t i = 0; i < d1.size(); i++) {
+        snarlNodes[i] = toUint(d1[i]);
+    }
+
+    for (size_t i = 0; i < d2.size(); i++) {
+        snarlVector[i] = toUint(d2[i]);
+    }
+    for (size_t i = 0; i < d3.size(); i++) {
+        chainNodes[i] = toUint(d3[i]);
+    }
+    for (size_t i = 0; i < d4.size(); i++) {
+        chainVector[i] = toUint(d4[i]);
+    }
+        
+    util::bit_compress(snarlNodes);
+    util::bit_compress(snarlVector);
+    util::bit_compress(chainNodes);
+    util::bit_compress(chainVector);
+
+    //Serialize
+    
+    snarlNodes.serialize(out, NULL, "snarl_nodes");
+    snarlVector.serialize(out, NULL, "snarl_vector");
+    chainNodes.serialize(out, NULL, "chain_nodes");
+    chainVector.serialize(out, NULL, "chain_vector");
 }
 
 
@@ -119,7 +230,7 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
     Node* firstNode = graph->get_node(get_start_of(*chain).node_id());
 
     chainPrefixSum.push_back(firstNode->sequence().size());
-    unordered_map<id_t, size_t> snarlToIndex;
+    hash_map<id_t, size_t> snarlToIndex;
     snarlToIndex[get_start_of(*chain).node_id()] = 0;
 
     ChainIterator chainEnd = chain_end(*chain);
@@ -135,7 +246,6 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
         bool snarlEndRev = snarl->end().backward();   //pointing out
 
         if (snarlToIndex.find(snarlEndID) == snarlToIndex.end()){
-//TODO Chain shouldn't loop
             //Store the index of the start of the snarl only if it hasn't
             //already been seen (if the chain loops)
             snarlToIndex[snarlEndID] = snarlToIndex.size()-1;
@@ -230,8 +340,7 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
                            //The node is a chain
 
                             const Chain* currChain= sm->chain_of(currSnarl);
-                            unordered_map<id_t, ChainDistances>::iterator 
-                                 chainDists = chainIndex.find( get_start_of(
+                            auto chainDists = chainIndex.find( get_start_of(
                                      *currChain).node_id());
 
                             if (chainDists != chainIndex.end()) {
@@ -729,14 +838,6 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
     }
     reverse(chainLoopFd.begin(), chainLoopFd.end()); 
  
-/*TODO
-
-    if (snarlToIndex.size() == (chainPrefixSum.size()/2) -1) {
-        //If the chain loops
-        chainLoopFd[chainLoopFd.size()-1] = chainLoopFd[0];
-        chainLoopRev[0] = chainLoopRev[chainLoopRev.size()-1];
-    } 
-*/
     if (chainPrefixSum.size() > 4) { //If chain and not just one snarl
         chainIndex.insert(make_pair(get_start_of(*chain).node_id(), 
                  ChainDistances(snarlToIndex, chainPrefixSum, chainLoopFd,
@@ -1138,7 +1239,7 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
 #endif  
         }
    
-        if (parentSnarl == NULL) {break;} //TODO: Make this cleaner
+        if (parentSnarl == NULL) {break;}
 
         SnarlDistances& snarlDists =snarlIndex.at(
                                    make_pair(parentSnarl->start().node_id(),
@@ -1365,18 +1466,18 @@ DistanceIndex::SnarlDistances::SnarlDistances(vector<int64_t> v) {
     length = v[3];
     
     //Get visitToIndex
-    for (size_t i = 4; i < numNodes*2 + 4; i += 2 ) {
+    for (size_t i = 0; i < numNodes; i ++ ) {
 
-        int64_t n = v[i];
+        int64_t n = v[i + 4]; //Node
         pair<id_t, bool> node = (n < 0) ? make_pair( (id_t) abs(n), true) : 
                                make_pair( (id_t) abs(n), false);
-       visitToIndex[node] = v[i+1]; 
+       visitToIndex[node] = i; 
     }
 
     //Get distance vector
     distances.resize(numNodes * numNodes);
     size_t di = 0;
-    for (size_t i = numNodes*2 + 4; i < v.size(); i++) {
+    for (size_t i = numNodes + 4; i < v.size(); i++) {
 
         distances[di++] = v[i];
 
@@ -1384,15 +1485,15 @@ DistanceIndex::SnarlDistances::SnarlDistances(vector<int64_t> v) {
 
 }
 
-vector<int64_t> DistanceIndex::SnarlDistances::toVector() {
+ vector<int64_t>DistanceIndex::SnarlDistances::toVector() {
     /*Convert contents of object to vector for serialization
       Vector contains a header of four ints: #nodes, start node, end node,length
-                  a vector representing visitToIndex [node1, i1, node2, i2,,,,]
+                  a vector representing visitToIndex [node1, node2, ...] where                          the nodes are ordered by the index they map to
                   a vector representing distances*/
 
-    vector<int64_t> v;
+    vector<int64_t> v;// v (1, 0, sizeof(int64_t));
     size_t numNodes = visitToIndex.size();//number of node+directions
-    v.resize(numNodes*2 + numNodes*numNodes + 4); //store map, distances, header
+    v.resize(numNodes + numNodes*numNodes + 4); //store map, distances, header
 
     v[0] = (int64_t) numNodes;
     v[1] = snarlStart.second ? -(int64_t) snarlStart.first :
@@ -1401,14 +1502,15 @@ vector<int64_t> DistanceIndex::SnarlDistances::toVector() {
                                                  (int64_t) snarlEnd.first;
     v[3] = length;
 
-    size_t i = 4;
     for (pair<pair<id_t, bool>, size_t> p : visitToIndex) {
         pair<id_t, bool> node = p.first;
         int64_t index = (int64_t) p.second;
-        v[i++] = node.second ? -(int64_t) node.first : (int64_t) node.first;
-        v[i++] = index; 
+        v[4 + index] = node.second ? -(int64_t) node.first : 
+                                      (int64_t) node.first;
     }
    
+ 
+    size_t i = 4 + numNodes;   
     for (int64_t d : distances) {
         v[i++] = d;
     }
@@ -1621,7 +1723,7 @@ void DistanceIndex::SnarlDistances::printSelf() {
 }
 
 //ChainDistance methods
-DistanceIndex::ChainDistances::ChainDistances(unordered_map<id_t, size_t> s, 
+DistanceIndex::ChainDistances::ChainDistances(hash_map<id_t, size_t> s, 
                  vector<int64_t> p, vector<int64_t> fd, vector<int64_t> rev) {
     
     snarlToIndex = move(s);
@@ -1662,7 +1764,7 @@ vector<int64_t> DistanceIndex::ChainDistances::toVector() {
     bool loops = numNodes == prefixSum.size() / 2 - 1;
     if (loops) { numNodes = numNodes + 1; } 
 
-    vector<int64_t> v;
+    vector<int64_t> v;// int_vector<> v (1, 0, sizeof(int64_t));
     v.resize(numNodes * 5);
 
     for (int i = 0 ; i < numNodes ; i++) {
@@ -1795,11 +1897,13 @@ int64_t DistanceIndex::ChainDistances::chainDistanceShort(VG* graph,
     }
 }
 bool DistanceIndex::ChainDistances::isReverse(const Snarl* snarl, SnarlManager* sm) {
+    //Return true if the snarl is reversed in the chain
+
     id_t start = snarl->start().node_id();
     id_t end = snarl->end().node_id();
     if (snarlToIndex.size() == (prefixSum.size()/2) -1 ){
         //If the chain loops
-        //TODO there must be a better way of doing this 
+
         bool startRev = snarl->start().backward();
         bool endRev = snarl->end().backward();
         const Chain* chain = sm->chain_of(snarl);
@@ -1813,7 +1917,6 @@ bool DistanceIndex::ChainDistances::isReverse(const Snarl* snarl, SnarlManager* 
             
         }
          
-cerr << " Shouldn't ever reach here" << endl;
         return true; //Should never reach here
         
     } else {

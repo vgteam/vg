@@ -1792,12 +1792,19 @@ class TestDistanceIndex : public DistanceIndex {
 
                         graph.serialize_to_file("testGraph");
             TestDistanceIndex di (&graph, &snarl_manager);
-            vector<int64_t> d1;
-            vector<int64_t> d2;
-            vector<int64_t> d3;
-            vector<int64_t> d4;
-            di.toVector(d1, d2, d3, d4);
-            TestDistanceIndex sdi (&graph, &snarl_manager, d1, d2, d3, d4);
+  
+            filebuf buf;
+            buf.open("distanceIndex", ios::out);
+            ostream out(&buf);
+           
+            di.serialize(out);
+
+            buf.close();
+
+            buf.open("distanceIndex", ios::in);
+            istream in(&buf);
+            TestDistanceIndex sdi (&graph, &snarl_manager, in);
+            buf.close();
             #ifdef print        
                 di.printSelf();
                 sdi.printSelf();

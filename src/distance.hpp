@@ -1,6 +1,7 @@
 #include "snarls.hpp"
+#include "hash_map.hpp"
 
-
+using namespace sdsl;
 namespace vg { 
 
 class DistanceIndex {
@@ -11,14 +12,15 @@ class DistanceIndex {
     //Constructor 
     DistanceIndex (VG* vg, SnarlManager* snarlManager);
 
-    //Constructor given vector of ints from serialization 
-    DistanceIndex (VG* vg, SnarlManager* snarlManager, 
-                     vector<int64_t>& snarlNodes, vector<int64_t>& snarlVector,
-                     vector<int64_t>& chainNodes, vector<int64_t>& chainVector);
-   
-    //Convert contents of object into vector of ints for serialization
-    void toVector(vector<int64_t>& snarlNodes, vector<int64_t>& snarlVector,
-                  vector<int64_t>& chainNodes, vector<int64_t>& chainVector);
+    //Constructor to load index from serialization 
+    DistanceIndex (VG* vg, SnarlManager* snarlManager, istream& in);
+     //Convert contents of object into vector of ints for serialization
+    void toVector(vector<int64_t> & snarlNodes, vector<int64_t> & snarlVector,
+                  vector<int64_t> & chainNodes, vector<int64_t> & chainVector);
+
+  
+    //Serialize object into out
+    void serialize(ostream& out);
 
 
 
@@ -52,8 +54,12 @@ class DistanceIndex {
             //Construct from vector - inverse of toVector
             SnarlDistances(vector<int64_t> v);
 
-            //Store contents of object as a vector of ints for serialization
-            vector<int64_t> toVector();
+            /*Store contents of object as a vector of ints for serialization
+              Stored as [# nodes, start node id, end node id, snarl length] + 
+                        [visit to index as list of node ids in order of index] +
+                        [distances]
+            */
+            vector<int64_t>  toVector();
             
             //Distance between beginning of node start and beginning of node end
             int64_t snarlDistance(pair<id_t, bool> start, pair<id_t, bool> end);
@@ -85,7 +91,7 @@ class DistanceIndex {
         protected:
 
             //Maps node to index to get its distance
-            unordered_map< pair<id_t, bool>, size_t> visitToIndex;
+            hash_map< pair<id_t, bool>, size_t> visitToIndex;
  
              //Store the distance between every pair nodes, -1 indicates no path
              //For child snarls that are unary or only connected to one node
@@ -121,13 +127,16 @@ class DistanceIndex {
         public:
         
             //Constructor
-            ChainDistances(unordered_map<id_t, size_t> s, vector<int64_t> p,
+            ChainDistances(hash_map<id_t, size_t> s, vector<int64_t> p,
                         vector<int64_t> fd, vector<int64_t> rev );
 
             //Constructor from vector of ints after serialization
             ChainDistances(vector<int64_t> v);
 
-            //Convert contents into vector of ints for serialization
+            /*Convert contents into vector of ints for serialization
+               stored as [node_id1, prefixsum1 start, prefixsum1 end,
+                                            loopfd1, loopfd2, node_id2, ...]
+            */
             vector<int64_t> toVector();
        
             /*Distance between two snarls starting from the beginning of the 
@@ -152,7 +161,7 @@ class DistanceIndex {
             void printSelf();
 
         protected:
-            unordered_map<id_t, size_t> snarlToIndex; 
+            hash_map<id_t, size_t> snarlToIndex; 
 
             /*Dist from start of chain to start and end of each boundary node of
               all snarls in the chain*/
@@ -184,7 +193,7 @@ class DistanceIndex {
     unordered_map<pair<id_t, bool>, SnarlDistances> snarlIndex;
 
     //map from node id of first node in snarl to that chain's index
-    unordered_map<id_t, ChainDistances> chainIndex;
+    hash_map<id_t, ChainDistances> chainIndex;
 
     //Graph and snarl manager for this index
     VG* graph;
