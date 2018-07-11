@@ -100,11 +100,14 @@ public:
     // is faster.
     void from_callback(function<void(function<void(Graph&)>)> get_chunks,
         bool validate_graph = false, bool print_graph = false,
-        bool store_threads = false, bool is_sorted_dag = false); 
+        bool store_threads = false, bool is_sorted_dag = false);
+        
+    /// Actually build the graph
+    /// Note that path_nodes is a map to make the output deterministic in path order.
     void build(vector<pair<id_t, string> >& node_label,
                unordered_map<side_t, vector<side_t> >& from_to,
                unordered_map<side_t, vector<side_t> >& to_from,
-               unordered_map<string, vector<trav_t> >& path_nodes,
+               map<string, vector<trav_t> >& path_nodes,
                unordered_set<string>& circular_paths,
                bool validate_graph,
                bool print_graph,

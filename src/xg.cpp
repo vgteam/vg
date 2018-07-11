@@ -601,7 +601,7 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
     unordered_map<side_t, vector<side_t> > from_to;
     unordered_map<side_t, vector<side_t> > to_from;
     // And the nodes on each path
-    unordered_map<string, vector<trav_t> > path_nodes;
+    map<string, vector<trav_t> > path_nodes;
     // And which paths are circular
     unordered_set<string> circular_paths;
 
@@ -711,7 +711,7 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
 void XG::build(vector<pair<id_t, string> >& node_label,
                unordered_map<side_t, vector<side_t> >& from_to,
                unordered_map<side_t, vector<side_t> >& to_from,
-               unordered_map<string, vector<trav_t> >& path_nodes,
+               map<string, vector<trav_t> >& path_nodes,
                unordered_set<string>& circular_paths,
                bool validate_graph,
                bool print_graph,
