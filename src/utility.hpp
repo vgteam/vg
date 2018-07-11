@@ -551,36 +551,45 @@ Result parse(const char* arg);
 
 /// Parse the appropriate type from the string to the destination value.
 /// Return true if parsing is successful and false (or throw something) otherwise.
-/// Does not throw.
 template<typename Result>
 bool parse(const string& arg, Result& dest);
 
-// Define specializations of the second version
-template<>
-inline bool parse(const string& arg, int& dest) {
+// Do one generic implementation for signed integers that fit in a long long.
+// Cram the constraint into the type of the output parameter.
+template<typename Result>
+inline bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof(long long) &&
+    is_integral<Result>::value &&
+    is_signed<Result>::value, Result>::type& dest) {
+    
     // This will hold the next character after the number parsed
     size_t after;
-    dest = std::stoi(arg, &after);
-    return(after == arg.size());
+    long long buffer = std::stoll(arg, &after);
+    if (buffer > numeric_limits<Result>::max() || buffer < numeric_limits<Result>::min()) {
+        // Out of range
+        return false;
+    }
+    dest = (Result) buffer;
+    return(after == arg.size());    
 }
 
-template<>
-inline bool parse(const string& arg, long& dest) {
+// Do another generic implementation for unsigned integers
+template<typename Result>
+inline bool parse(const string& arg, typename enable_if<sizeof(Result) <= sizeof(unsigned long long) &&
+    is_integral<Result>::value &&
+    !is_signed<Result>::value, Result>::type& dest) {
+    
+    // This will hold the next character after the number parsed
     size_t after;
-    dest = std::stol(arg, &after);
-    return(after == arg.size());
-}
+    unsigned long long buffer = std::stoull(arg, &after);
+    if (buffer > numeric_limits<Result>::max() || buffer < numeric_limits<Result>::min()) {
+        // Out of range
+        return false;
+    }
+    dest = (Result) buffer;
+    return(after == arg.size());    
+}              
 
-// TODO: We assume long == int64_t. We can't define both in case it is true,
-// but if it isn't true we will be missing one.
-
-template<>
-inline bool parse(const string& arg, size_t& dest) {
-    size_t after;
-    dest = std::stoull(arg, &after);
-    return(after == arg.size());
-}
-
+// We also have an implementation for doubles
 template<>
 inline bool parse(const string& arg, double& dest) {
     size_t after;
