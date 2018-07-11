@@ -116,7 +116,7 @@ int main_mpmap(int argc, char** argv) {
     int max_paired_end_map_attempts = 24;
     int max_single_end_mappings_for_rescue = 64;
     int max_single_end_map_attempts = 64;
-    int max_rescue_attempts = 32;
+    int max_rescue_attempts = 10;
     int population_max_paths = 10;
     // How many distinct single path alignments should we look for in a multipath, for MAPQ?
     // TODO: create an option.
@@ -164,7 +164,7 @@ int main_mpmap(int argc, char** argv) {
     bool precollapse_order_length_hits = true;
     int max_sub_mem_recursion_depth = 1;
     int max_map_attempts_arg = 0;
-    int secondary_rescue_subopt_diff = 25;
+    int secondary_rescue_subopt_diff = 35;
     int min_median_mem_coverage_for_split = 0;
     bool suppress_cluster_merging = false;
     

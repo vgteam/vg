@@ -853,11 +853,11 @@ namespace vg {
                 
                 // if we haven't already moved the pair and marked it as a duplicate, move the rescued pair into the output vector
                 if (!duplicate) {
-#ifdef debug_multipath_mapper
-                    cerr << "adding read1 and rescued read2 " << i << " to output vector" << endl;
-#endif
                     int64_t dist = distance_between(multipath_alns_1[i], rescue_multipath_alns_2[i], true);
                     if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
+#ifdef debug_multipath_mapper
+                        cerr << "adding read1 and rescued read2 " << i << " to output vector" << endl;
+#endif
                         multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(rescue_multipath_alns_2[i]));
                         pair_distances.emplace_back(make_pair(cluster_idxs_1[i], cluster_graphs2.size()), dist);
                         found_consistent = true;
@@ -871,11 +871,11 @@ namespace vg {
                     // we already moved it as part of a duplicate pair
                     continue;
                 }
-#ifdef debug_multipath_mapper
-                cerr << "adding rescued read1 and read2 " << j << " to output vector" << endl;
-#endif
                 int64_t dist = distance_between(rescue_multipath_alns_1[j], multipath_alns_2[j], true);
                 if (dist != numeric_limits<int64_t>::max() && dist >= 0) {
+#ifdef debug_multipath_mapper
+                    cerr << "adding rescued read1 and read2 " << j << " to output vector" << endl;
+#endif
                     multipath_aln_pairs_out.emplace_back(move(rescue_multipath_alns_1[j]), move(multipath_alns_2[j]));
                     pair_distances.emplace_back(make_pair(cluster_graphs1.size(), cluster_idxs_2[j]), dist);
                     found_consistent = true;
