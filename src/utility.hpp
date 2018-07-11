@@ -552,7 +552,7 @@ bool parse(const string& arg, Result& dest);
 
 // Define specializations of the second version
 template<>
-bool parse(const string& arg, int& dest) {
+inline bool parse(const string& arg, int& dest) {
     // This will hold the next character after the number parsed
     size_t after;
     dest = std::stoi(arg, &after);
@@ -564,14 +564,14 @@ bool parse(const string& arg, int& dest) {
 }
 
 template<>
-bool parse(const string& arg, size_t& dest) {
+inline bool parse(const string& arg, size_t& dest) {
     size_t after;
     dest = std::stoull(arg, &after);
     return(after == arg.size());
 }
 
 template<>
-bool parse(const string& arg, double& dest) {
+inline bool parse(const string& arg, double& dest) {
     size_t after;
     dest = std::stod(arg, &after);
     return(after == arg.size());
