@@ -18,7 +18,7 @@
 namespace vg {
     
     //size_t MultipathMapper::PRUNE_COUNTER = 0;
-    //size_t MultipathMapper::SUBGRAPH_TOTAL = 0;
+    //size_t MultipathMapper::SUBGRAPH_TOTAL = 0; 
     
     MultipathMapper::MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                                      haplo::ScoreProvider* haplo_score_provider, SnarlManager* snarl_manager) :
