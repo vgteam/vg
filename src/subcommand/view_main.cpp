@@ -235,7 +235,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case 's':
-            seed_val = atoi(optarg);
+            seed_val = parse<int>(optarg);
             break;
 
         case 'g':
@@ -386,7 +386,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case '7':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'h':

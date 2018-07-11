@@ -544,6 +544,11 @@ void get_input_file(const string& file_name, function<void(istream&)> callback);
 template<typename Result>
 Result parse(const string& arg);
 
+/// Parse a command-line argument C string. Exits with an error if the string
+/// does not contain exactly an item fo the appropriate type.
+template<typename Result>
+Result parse(const char* arg);
+
 /// Parse the appropriate type from the string to the destination value.
 /// Return true if parsing is successful and false (or throw something) otherwise.
 /// Does not throw.
@@ -557,11 +562,17 @@ inline bool parse(const string& arg, int& dest) {
     size_t after;
     dest = std::stoi(arg, &after);
     return(after == arg.size());
-    if (after != arg.size()) {
-        return false;
-    }
-    return true;
 }
+
+template<>
+inline bool parse(const string& arg, long& dest) {
+    size_t after;
+    dest = std::stol(arg, &after);
+    return(after == arg.size());
+}
+
+// TODO: We assume long == int64_t. We can't define both in case it is true,
+// but if it isn't true we will be missing one.
 
 template<>
 inline bool parse(const string& arg, size_t& dest) {
@@ -595,6 +606,12 @@ Result parse(const string& arg) {
         cerr << "error: could not parse " << typeid(to_return).name() << " from argument \"" << arg << "\"" << endl;
         exit(1);
     }
+}
+
+// Implement the C string version in terms of that
+template<typename Result>
+Result parse(const char* arg) {
+    return parse<Result>(string(arg));
 }
  
 }

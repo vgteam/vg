@@ -152,7 +152,7 @@ int main_vectorize(int argc, char** argv){
             mem_positions = true;
             break;
         case 'H':
-            mem_hit_max = atoi(optarg);
+            mem_hit_max = parse<int>(optarg);
             break;
         case 'a':
             a_hot = true;

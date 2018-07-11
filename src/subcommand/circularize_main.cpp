@@ -68,10 +68,10 @@ int main_circularize(int argc, char** argv){
 
         switch(c){
             case 'a':
-                head = atoi(optarg);
+                head = parse<int>(optarg);
                 break;
             case 'z':
-                tail = atoi(optarg);
+                tail = parse<int>(optarg);
                 break;
             case 'p':
                 path = optarg;
