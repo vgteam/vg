@@ -183,7 +183,7 @@ int main_genotype(int argc, char** argv) {
             break;
         case 'd':
             // Set heterozygous genotype prior denominator
-            het_prior_denominator = std::stod(optarg);
+            het_prior_denominator = parse<double>(optarg);
             break;
         case 'P':
             // Set min consistent reads per strand required to keep an allele
