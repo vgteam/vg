@@ -140,7 +140,7 @@ int main_paths(int argc, char** argv) {
 
     if (!vg_file.empty() && !xg_file.empty()) {
         cerr << "[vg paths] Error: both vg and xg index given" << endl;
-        assert(false);
+        exit(1);
     }
 
     if (!vg_file.empty()) {
@@ -160,10 +160,10 @@ int main_paths(int argc, char** argv) {
             write_alignments(cout, alns);
         } else if (extract_as_vg) {
             cerr << "[vg paths] Error: vg extraction is only defined for prefix queries against a XG/GBWT index pair" << endl;
-            assert(false);
+            exit(1);
         } else if (!thread_prefix.empty()) {
             cerr << "[vg paths] Error: a thread prefix query requires a XG/GBWT index pair" << endl;
-            assert(false);
+            exit(1);
         }
         
     } else if (!xg_file.empty()) {
@@ -178,10 +178,10 @@ int main_paths(int argc, char** argv) {
         } else if (!thread_prefix.empty() || extract_threads) {
             if (gbwt_file.empty()) {
                 cerr << "[vg paths] Error: thread extraction requires a GBWT" << endl;
-                assert(false);
+                exit(1);
             } else if (extract_as_gam == extract_as_vg) {
                 cerr << "[vg paths] Error: thread extraction requires -V or -X to specifiy output format" << endl;
-                assert(false);
+                exit(1);
             }
             gbwt::GBWT index;
             sdsl::load_from_file(index, gbwt_file);
@@ -242,8 +242,8 @@ int main_paths(int argc, char** argv) {
             }
         }
     } else {
-        cerr << "[vg paths] Error: a xg or vg file is required" << endl;
-        assert(false);
+        cerr << "[vg paths] Error: a xg (-x) or vg (-v) file is required" << endl;
+        exit(1);
     }
     
     return 0;

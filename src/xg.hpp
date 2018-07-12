@@ -100,20 +100,24 @@ public:
     // is faster.
     void from_callback(function<void(function<void(Graph&)>)> get_chunks,
         bool validate_graph = false, bool print_graph = false,
-        bool store_threads = false, bool is_sorted_dag = false); 
+        bool store_threads = false, bool is_sorted_dag = false);
+        
+    /// Actually build the graph
+    /// Note that path_nodes is a map to make the output deterministic in path order.
     void build(vector<pair<id_t, string> >& node_label,
                unordered_map<side_t, vector<side_t> >& from_to,
                unordered_map<side_t, vector<side_t> >& to_from,
                map<string, vector<trav_t> >& path_nodes,
+               unordered_set<string>& circular_paths,
                bool validate_graph,
                bool print_graph,
                bool store_threads,
                bool is_sorted_dag);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 9;
+    const static uint32_t MAX_INPUT_VERSION = 10;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 9;
+    const static uint32_t OUTPUT_VERSION = 10;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -317,10 +321,20 @@ public:
     size_t node_start_at_path_position(const string& name, size_t pos) const;
     /// Get the graph position at the given 0-based path position
     pos_t graph_pos_at_path_position(const string& name, size_t pos) const;
+    /// Make an Alignment corresponding to a subregion of a stored path.
+    /// Positions are 0-based, and pos2 is excluded.
+    /// Respects path circularity, so pos2 < pos1 is not a problem.
+    /// If pos1 == pos2, returns an empty alignment.
     Alignment target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse) const;
+    /// Same as above, but uses the given Mapping, translated directly form a CIGAR string, as a source of edits.
+    /// The edits are inserted into the generated Alignment, cut as necessary to fit into the Alignment's Mappings.
     Alignment target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse, Mapping& cigar_mapping) const;
     size_t path_length(const string& name) const;
     size_t path_length(size_t rank) const;
+    /// Return true if the path with the given name is circular, and false if it is not. The path must exist.
+    bool path_is_circular(const string& name) const;
+    /// Return true if the path with the given rank is circular, and false if it is not. The path must exist.
+    bool path_is_circular(size_t rank) const;
     // nearest node (in steps) that is in a path, and the paths
     pair<int64_t, vector<size_t> > nearest_path_node(int64_t id, int max_steps = 16) const;
     int64_t min_approx_path_distance(int64_t id1, int64_t id2) const;
@@ -805,6 +819,7 @@ public:
     // because in here is the most efficient place to count them.
     XGPath(const string& path_name,
            const vector<trav_t>& path,
+           bool is_circular,
            size_t node_count,
            XG& graph,
            size_t* unique_member_count_out = nullptr);
@@ -825,6 +840,7 @@ public:
     bit_vector offsets;
     rank_support_v<1> offsets_rank;
     bit_vector::select_1_type offsets_select;
+    bool is_circular = false;
     void load(istream& in, uint32_t file_version, const function<int64_t(size_t)>& rank_to_id);
     size_t serialize(std::ostream& out,
                      sdsl::structure_tree_node* v = NULL,

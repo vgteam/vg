@@ -1428,7 +1428,9 @@ void parse_bed_regions(istream& bedstream,
     }
     string row;
     string seq;
+    // Record start position
     size_t sbuf;
+    // Record end position
     size_t ebuf;
     string name;
     size_t score;
@@ -1440,32 +1442,45 @@ void parse_bed_regions(istream& bedstream,
         }
         istringstream ss(row);
         ss >> seq;
+        
+        if (xgindex->path_rank(seq) == 0) {
+            // This path doesn't exist, and we'll get a segfault or worse if
+            // we go look for positions in it.
+            cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
+            continue;
+        }
+        
         ss >> sbuf;
         ss >> ebuf;
 
         if (ss.fail()) {
+            // Skip lines that can't be parsed
             cerr << "Error parsing bed line " << line << ": " << row << endl;
-        } else {
-            ss >> name;
-            assert(sbuf < ebuf);
-            ss >> score;
-            ss >> strand;
-
-            bool is_reverse = false;
-            if(!ss.fail() && strand.compare("-") == 0) {
-                is_reverse = true;
-            }
-
-            if (xgindex->path_rank(seq) == 0) {
-                // This path doesn't exist, and we'll get a segfault or worse if
-                // we go look for positions in it.
-                cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
-            } else {
-                Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name, is_reverse);
-
-                out_alignments->push_back(alignment);
-            }
+            continue;
+        } 
+        
+        if (sbuf >= ebuf && !xgindex->path_is_circular(seq)) {
+            // The start of the region can be after the end of the region only if the underlying path is circular.
+            // That's not the case, so complain and skip the region.
+            cerr << "warning: path \"" << seq << "\" is not circular, skipping end-spanning region on line "
+                << line << ": " << row << endl;
+            continue;
         }
+        
+        // Try parsing the optional fields. If they fail, ignore the problem, because they're optional.
+        ss >> name;
+        ss >> score;
+        ss >> strand;
+
+        bool is_reverse = false;
+        if(!ss.fail() && strand.compare("-") == 0) {
+            is_reverse = true;
+        }
+
+        // Make the Alignment
+        Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name, is_reverse);
+
+        out_alignments->push_back(alignment);
     }
 }
 
