@@ -44,7 +44,7 @@ void help_filter(char** argv) {
          << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
          << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
          << "    -C, --defray-count N    stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
-         << "    -d, --downsample P      filter out all but the given portion P of the reads, at random" << endl
+         << "    -d, --downsample S.P    filter out all but the given portion 0.P of the reads. S may be an integer seed as in SAMtools" << endl
          << "    -t, --threads N         number of threads [1]" << endl;
 }
 
@@ -160,7 +160,36 @@ int main_filter(int argc, char** argv) {
             filter.defray_count = parse<int>(optarg);
             break;
         case 'd':
-            filter.downsample_probability = parse<double>(optarg);
+            {
+                // We need to split out the seed and the probability in S.P
+                string opt_string(optarg);
+                
+                if (opt_string != "1") {
+                    // We need to parse
+                    auto point = opt_string.find('.');
+                    
+                    if (point == -1) {
+                        cerr << "error: no decimal point in seed/probability " << opt_string << endl;
+                        exit(1);
+                    }
+                    
+                    // Everything including and after the decimal point is the probability
+                    auto prob_string = opt_string.substr(point);
+                    filter.downsample_probability = parse<double>(prob_string);
+                    
+                    // Everything before that is the seed
+                    auto seed_string = opt_string.substr(0, point);
+                    if (seed_string != "") {
+                        // If there was a seed (even 0), parse it
+                        int32_t seed = parse<int32_t>(seed_string);
+                        
+                        // Use the C rng like Samtools does to get a mask.
+                        // See https://github.com/samtools/samtools/blob/60138c42cf04c5c473dc151f3b9ca7530286fb1b/sam_view.c#L298-L299
+                        srand(seed);
+                        filter.downsample_seed_mask = rand();
+                    }
+                }
+            }
             break;
         case 't':
             filter.threads = parse<int>(optarg);

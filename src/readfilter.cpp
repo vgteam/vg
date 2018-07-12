@@ -4,6 +4,8 @@
 #include <fstream>
 #include <sstream>
 
+#include <htslib/khash.h>
+
 namespace vg {
 
 using namespace std;
@@ -446,15 +448,38 @@ bool ReadFilter::is_split(xg::XG* index, Alignment& alignment) {
 }
 
 
-bool ReadFilter::sample_bool(double probability) {
-    // Have a per-thread RNG
-    static thread_local minstd_rand rng;
+bool ReadFilter::sample_read(const Alignment& aln) {
+    // Decide if the alignment is paired.
+    // It is paired if fragment_next or fragment_prev point to something.
+    bool is_paired = (!aln.fragment_prev().name().empty() || aln.fragment_prev().path().mapping_size() != 0 ||
+        !aln.fragment_next().name().empty() || aln.fragment_next().path().mapping_size() != 0);
+
+    // Compute the QNAME that samtools would use
+    string qname;
+    if (is_paired) {
+        // Strip pair end identifiers like _1 or /2 that vg uses at the end of the name.    
+        qname = regex_replace(aln.name(), regex("[/_][12]$"), "");
+    } else {
+        // Any _1 in the name is part of the actual read name.
+        qname = aln.name();
+    }
     
-    // Have a distribution with the given success probability
-    bernoulli_distribution dist(probability);
+    // Now treat it as samtools would.
+    // See https://github.com/samtools/samtools/blob/60138c42cf04c5c473dc151f3b9ca7530286fb1b/sam_view.c#L101-L104
     
-    // Sample from the distribution, backed by the RNG
-    return dist(rng);
+    // Hash that with __ac_X31_hash_string from htslib and XOR against the seed mask
+    auto masked_hash = __ac_X31_hash_string(qname.c_str()) ^ downsample_seed_mask;
+    
+    // Hash that again with __ac_Wang_hash from htslib, apparently to mix the bits.
+    uint32_t mixed_hash = __ac_Wang_hash(masked_hash);
+    
+    // Take the low 24 bits and compute a double from 0 to 1
+    const int32_t LOW_24_BITS = 0xffffff;
+    double sample = ((double)(mixed_hash & LOW_24_BITS)) / (LOW_24_BITS + 1);
+    
+    // If the result is >= the portion to downsample to, discard the read.
+    // Otherwise, keep it.
+    return (sample < downsample_probability);
 }
 
 
@@ -741,7 +766,7 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
             ++counts.defray[co];
             // We keep these, because the alignments get modified.
         }
-        if ((keep || verbose) && downsample_probability != 1.0 && !sample_bool(downsample_probability)) {
+        if ((keep || verbose) && downsample_probability != 1.0 && !sample_read(aln)) {
             ++counts.random[co];
             keep = false;
         }
