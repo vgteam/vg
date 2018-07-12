@@ -52,7 +52,7 @@ vg sim -l 100 -n 100 -p 50 -x x.xg -s 1 -a > sim.gam
 vg surject -x x.xg -s -i sim.gam > sim.sam
 
 vg filter -d 123.5 -t 10 sim.gam > filtered.gam
-samtools view -s 123.5 sim.sam > filtered.sam
+samtools view -s 123.5 -S sim.sam > filtered.sam
 
 is "$(vg view -aj filtered.gam | jq -rc '.name' | sed 's/_[12]//g' | sort | md5sum)" "$(cat filtered.sam | grep -v "^@" | cut -f1 | sort | md5sum)" "samtools and vg filter agree on how to select downsampled paired reads"
 
@@ -60,7 +60,7 @@ vg sim -l 100 -n 100 -x x.xg -s 1 -a > sim.gam
 vg surject -x x.xg -s sim.gam > sim.sam
 
 vg filter -d 456.2 -t 10 sim.gam > filtered.gam
-samtools view -s 456.2 sim.sam > filtered.sam
+samtools view -s 456.2 -S sim.sam > filtered.sam
 
 is "$(vg view -aj filtered.gam | jq -rc '.name' | sort | md5sum)" "$(cat filtered.sam | grep -v "^@" | cut -f1 | sort | md5sum)" "samtools and vg filter agree on how to select downsampled unpaired reads"   
 
