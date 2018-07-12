@@ -179,7 +179,7 @@ int main_prune(int argc, char** argv) {
             edge_max_set = true;
             break;
         case 's':
-            subgraph_min = stoul(optarg);
+            subgraph_min = parse<size_t>(optarg);
             subgraph_min_set = true;
             break;
         case 'P':
