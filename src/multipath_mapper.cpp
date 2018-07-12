@@ -2614,7 +2614,7 @@ namespace vg {
                    
                     alignment_pop_scores[j] = pop_score.first / log_base;
                     
-                    if (std::isnan(alignment_pop_scores[i]) && pop_score.second) {
+                    if (std::isnan(alignment_pop_scores[j]) && pop_score.second) {
                         // This shouldn't happen. Bail out on haplotype adjustment for this read and warn.
                         cerr << "warning:[vg::MultipathMapper]: NAN population score obtained for read "
                             << alignments[j].name() << " with ostensibly successful query. Changing to failure." << endl;
@@ -2787,7 +2787,7 @@ namespace vg {
                     auto pop_score = haplo_score_provider->score(alignments1[j].path(), memo);
                     base_pop_scores1[j] = alignments1[j].score() + pop_score.first / log_base;
                     
-                    if (std::isnan(base_pop_scores1[i]) && pop_score.second) {
+                    if (std::isnan(base_pop_scores1[j]) && pop_score.second) {
                         // This shouldn't happen. Bail out on haplotype adjustment for this read and warn.
                         cerr << "warning:[vg::MultipathMapper]: NAN population adjusted score obtained for paired read "
                             << alignments1[j].name() << " with ostensibly successful query. Changing to failure." << endl;
@@ -2802,7 +2802,7 @@ namespace vg {
                     auto pop_score = haplo_score_provider->score(alignments2[j].path(), memo);
                     base_pop_scores2[j] = alignments2[j].score() + pop_score.first / log_base;
                     
-                    if (std::isnan(base_pop_scores2[i]) && pop_score.second) {
+                    if (std::isnan(base_pop_scores2[j]) && pop_score.second) {
                         // This shouldn't happen. Bail out on haplotype adjustment for this read and warn.
                         cerr << "warning:[vg::MultipathMapper]: NAN population adjusted score obtained for paired read "
                             << alignments2[j].name() << " with ostensibly successful query. Changing to failure." << endl;
