@@ -83,11 +83,11 @@ int main_trace(int argc, char** argv) {
         break;
 
     case 'n':
-        start_node = atoi(optarg);
+        start_node = parse<int>(optarg);
         break;
 
     case 'd':
-        extend_distance = atoi(optarg);
+        extend_distance = parse<int>(optarg);
         break;
 
     case 'j':

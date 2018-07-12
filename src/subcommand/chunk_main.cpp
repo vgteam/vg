@@ -166,11 +166,11 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 's':
-            chunk_size = atoi(optarg);
+            chunk_size = parse<int>(optarg);
             break;
 
         case 'o':
-            overlap = atoi(optarg);
+            overlap = parse<int>(optarg);
             break;
 
         case 'e':
@@ -186,11 +186,11 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case'c':
-            context_steps = atoi(optarg);
+            context_steps = parse<int>(optarg);
             break;
 
         case 'l':
-            context_length = atoi(optarg);
+            context_length = parse<int>(optarg);
             context_steps = (context_steps > 0 ? context_steps : -1);
             break;
 
@@ -205,12 +205,12 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 'n':
-            n_chunks = atoi(optarg);
+            n_chunks = parse<int>(optarg);
             id_range = true;
             break;
 
         case 'm':
-            gam_split_size = atoi(optarg);
+            gam_split_size = parse<int>(optarg);
             break;
 
         case 'T':
@@ -226,7 +226,7 @@ int main_chunk(int argc, char** argv) {
             break;
             
         case 't':
-            threads = atoi(optarg);
+            threads = parse<int>(optarg);
             break;
 
         case 'h':

@@ -174,41 +174,41 @@ int main_xg(int argc, char** argv) {
             break;
 
         case 'n':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             node_context = true;
             break;
 
         case 'c':
-            context_steps = atoi(optarg);
+            context_steps = parse<int>(optarg);
             break;
 
         case 'f':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             edges_from = true;
             break;
             
         case 't':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             edges_to = true;
             break;
 
         case 'O':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             edges_of = true;
             break;
 
         case 'S':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             edges_on_start = true;
             break;
 
         case 'E':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             edges_on_end = true;
             break;
 
         case 's':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             node_sequence = true;
             break;
 

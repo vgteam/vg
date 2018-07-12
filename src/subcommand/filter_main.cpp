@@ -107,10 +107,10 @@ int main_filter(int argc, char** argv) {
             filter.name_prefix = optarg;
             break;
         case 's':
-            filter.min_secondary = atof(optarg);
+            filter.min_secondary = parse<double>(optarg);
             break;
         case 'r':
-            filter.min_primary = atof(optarg);
+            filter.min_primary = parse<double>(optarg);
             break;
         case 'O':
             filter.rescore = true;
@@ -122,10 +122,10 @@ int main_filter(int argc, char** argv) {
             filter.sub_score = true;
             break;
         case 'o':
-            filter.max_overhang = atoi(optarg);
+            filter.max_overhang = parse<int>(optarg);
             break;
         case 'm':
-            filter.min_end_matches = atoi(optarg);
+            filter.min_end_matches = parse<int>(optarg);
             break;            
         case 'S':
             filter.drop_split = true;
@@ -142,28 +142,28 @@ int main_filter(int argc, char** argv) {
             filter.append_regions = true;
             break;
         case 'c':
-            filter.context_size = atoi(optarg);
+            filter.context_size = parse<int>(optarg);
             break;
         case 'q':
-            filter.min_mapq = atof(optarg);
+            filter.min_mapq = parse<double>(optarg);
             break;
         case 'v':
             filter.verbose = true;
             break;
         case 'E':
-            filter.repeat_size = atoi(optarg);
+            filter.repeat_size = parse<int>(optarg);
             break;
         case 'D':
-            filter.defray_length = atoi(optarg);
+            filter.defray_length = parse<int>(optarg);
             break;
         case 'C':
-            filter.defray_count = atoi(optarg);
+            filter.defray_count = parse<int>(optarg);
             break;
         case 'd':
-            filter.downsample_probability = atof(optarg);
+            filter.downsample_probability = parse<double>(optarg);
             break;
         case 't':
-            filter.threads = atoi(optarg);
+            filter.threads = parse<int>(optarg);
             break;
 
         case 'h':

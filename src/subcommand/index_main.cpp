@@ -221,7 +221,7 @@ int main_index(int argc, char** argv) {
             temp_file::set_dir(optarg);
             break;
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
         case 'p':
             show_progress = true;

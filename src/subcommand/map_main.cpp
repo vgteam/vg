@@ -277,27 +277,27 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'c':
-            hit_max = atoi(optarg);
+            hit_max = parse<int>(optarg);
             break;
 
         case 'M':
-            max_multimaps = atoi(optarg);
+            max_multimaps = parse<int>(optarg);
             break;
 
         case '7':
-            identity_weight = atof(optarg);
+            identity_weight = parse<double>(optarg);
             break;
 
         case 'Q':
-            max_mapping_quality = atoi(optarg);
+            max_mapping_quality = parse<int>(optarg);
             break;
 
         case 'E':
-            maybe_mq_threshold = atof(optarg);
+            maybe_mq_threshold = parse<double>(optarg);
             break;
 
         case 'L':
-            full_length_bonus = atoi(optarg);
+            full_length_bonus = parse<int>(optarg);
             break;
 
         case '2':
@@ -305,7 +305,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'a':
-            haplotype_consistency_exponent = atof(optarg);
+            haplotype_consistency_exponent = parse<double>(optarg);
             break;
         
         case 'm':
@@ -347,7 +347,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'D':
@@ -355,19 +355,19 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'e':
-            chance_match = atof(optarg);
+            chance_match = parse<double>(optarg);
             break;
 
         case 'C':
-            drop_chain = atof(optarg);
+            drop_chain = parse<double>(optarg);
             break;
 
         case 'l':
-            min_multimaps = atoi(optarg);
+            min_multimaps = parse<int>(optarg);
             break;
 
         case 'n':
-            mq_overlap = atof(optarg);
+            mq_overlap = parse<double>(optarg);
             break;
 
         case 'G':
@@ -379,59 +379,59 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'w':
-            band_width = atoi(optarg);
+            band_width = parse<int>(optarg);
             break;
 
         case 'O':
-            band_overlap = atoi(optarg);
+            band_overlap = parse<int>(optarg);
             break;
 
         case 'B':
-            band_multimaps = atoi(optarg);
+            band_multimaps = parse<int>(optarg);
             break;
 
         case 'J':
-            max_band_jump = atoi(optarg);
+            max_band_jump = parse<int>(optarg);
             break;
 
         case 'Z':
-            min_banded_mq = atoi(optarg);
+            min_banded_mq = parse<int>(optarg);
             break;
 
         case 'P':
-            min_score = atof(optarg);
+            min_score = parse<double>(optarg);
             break;
 
         case 'k':
-            min_mem_length = atoi(optarg);
+            min_mem_length = parse<int>(optarg);
             break;
 
         case 'Y':
-            max_mem_length = atoi(optarg);
+            max_mem_length = parse<int>(optarg);
             break;
 
         case 'r':
-            mem_reseed_factor = atof(optarg);
+            mem_reseed_factor = parse<double>(optarg);
             break;
 
         case 'W':
-            min_cluster_length = atoi(optarg);
+            min_cluster_length = parse<int>(optarg);
             break;
 
         case 'H':
-            max_target_factor = atoi(optarg);
+            max_target_factor = parse<int>(optarg);
             break;
 
         case '9':
-            buffer_size = atoi(optarg);
+            buffer_size = parse<int>(optarg);
             break;
 
         case 'q':
-            match = atoi(optarg);
+            match = parse<int>(optarg);
             break;
 
         case 'z':
-            mismatch = atoi(optarg);
+            mismatch = parse<int>(optarg);
             break;
 
         case OPT_SCORE_MATRIX:
@@ -443,11 +443,11 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'o':
-            gap_open = atoi(optarg);
+            gap_open = parse<int>(optarg);
             break;
 
         case 'y':
-            gap_extend = atoi(optarg);
+            gap_extend = parse<int>(optarg);
             break;
 
         case 'A':
@@ -455,7 +455,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'u':
-            extra_multimaps = atoi(optarg);
+            extra_multimaps = parse<int>(optarg);
             break;
 
         case 'X':
@@ -494,15 +494,15 @@ int main_map(int argc, char** argv) {
         break;
 
         case '3':
-            fragment_sigma = atof(optarg);
+            fragment_sigma = parse<double>(optarg);
             break;
 
         case 'S':
-            unpaired_penalty = atoi(optarg);
+            unpaired_penalty = parse<int>(optarg);
             break;
 
         case '0':
-            mate_rescues = atoi(optarg);
+            mate_rescues = parse<int>(optarg);
             break;
 
         case 'U':
@@ -514,7 +514,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case '4':
-            fragment_model_update = atoi(optarg);
+            fragment_model_update = parse<int>(optarg);
             break;
 
         case 'h':

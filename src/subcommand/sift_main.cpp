@@ -131,7 +131,7 @@ int main_sift(int argc, char** argv){
                 help_sift(argv);
                 return 1;
             case 't':
-                threads = atoi(optarg);
+                threads = parse<int>(optarg);
                 break;
             case 'G':
                 graph_name = optarg;
@@ -143,12 +143,12 @@ int main_sift(int argc, char** argv){
             case 'c':
                 do_softclip = true;
                 do_all = false;
-                softclip_max = atoi(optarg);
+                softclip_max = parse<int>(optarg);
                 ff.set_soft_clip_limit(softclip_max);
                 break;
             case 's':
                 do_split_read = true;
-                split_read_limit = atoi(optarg);
+                split_read_limit = parse<int>(optarg);
                 if (softclip_max < 0){
                     softclip_max = 15;
                     ff.set_soft_clip_limit(15);
@@ -158,12 +158,12 @@ int main_sift(int argc, char** argv){
             case 'q':
                 do_quality = true;
                 do_all = false;
-                quality = atof(optarg);
+                quality = parse<double>(optarg);
                 break;
             case 'd':
                 do_depth = true;
                 do_all = false;
-                depth = atof(optarg);
+                depth = parse<double>(optarg);
                 break;
             case 'R':
                 remap = true;
@@ -181,13 +181,13 @@ int main_sift(int argc, char** argv){
                 do_all = false;
                 break;
             case 'I':
-                insert_size = atof(optarg);
+                insert_size = parse<double>(optarg);
                 ff.insert_mean = insert_size;
                 do_all = false;
                 do_insert_size = true;
                 break;
             case 'W':
-                insert_size_sigma = atof(optarg);
+                insert_size_sigma = parse<double>(optarg);
                 ff.insert_sd = insert_size_sigma;
                 do_all = false;
                 break;

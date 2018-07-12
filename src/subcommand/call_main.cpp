@@ -86,7 +86,7 @@ int main_call(int argc, char** argv) {
             support_caller.verbose = true;
             break;
         case 't':
-            thread_count = atoi(optarg);
+            thread_count = parse<int>(optarg);
             break;
         case 'h':
         case '?':
