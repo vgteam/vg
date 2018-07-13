@@ -46,23 +46,33 @@ is "${OUT_OF_RANGE}" "0" "vg filter downsamples correctly"
 
 rm -f x.gam x.gam.json filter_chunk*.gam chunks.bed
 
-# Check downsampling against samtools
+vg sim -l 100 -n 100 -p 50 -x x.xg -s 1 -a > paired.gam
+vg sim -l 100 -n 100 -x x.xg -s 1 -a > single.gam
 
-vg sim -l 100 -n 100 -p 50 -x x.xg -s 1 -a > sim.gam
-vg surject -x x.xg -s -i sim.gam > sim.sam
+# Check downsampling against samtools 1.0+
+# If the installed samtools isn't new enough, fall back on precalculated hashes
+PAIRED_HASH=a31e81e05f86224b5aec73f6f8e2d9a9
+SINGLE_HASH=028711c7ec6189442095698cfbeab356
+if samtools 2>&1 | grep "Version" | grep -v ": 0" >/dev/null; then
+    # We can calculate hashes ourselves
+    vg surject -x x.xg -s -i paired.gam > paired.sam
+    samtools view -s 123.5 -S paired.sam > filtered.sam
+    
+    PAIRED_HASH="$(cat filtered.sam | grep -v "^@" | cut -f1 | sort | md5sum | cut -f1 -d' ')"
+    
+    vg surject -x x.xg -s single.gam > single.sam
+    samtools view -s 456.2 -S single.sam > filtered.sam
+    
+    SINGLE_HASH="$(cat filtered.sam | grep -v "^@" | cut -f1 | sort | md5sum | cut -f1 -d' ')"
+fi
 
-vg filter -d 123.5 -t 10 sim.gam > filtered.gam
-samtools view -s 123.5 -S sim.sam > filtered.sam
+vg filter -d 123.5 -t 10 paired.gam > filtered.gam
 
-is "$(vg view -aj filtered.gam | jq -rc '.name' | sed 's/_[12]//g' | sort | md5sum)" "$(cat filtered.sam | grep -v "^@" | cut -f1 | sort | md5sum)" "samtools and vg filter agree on how to select downsampled paired reads"
+is "$(vg view -aj filtered.gam | jq -rc '.name' | sed 's/_[12]//g' | sort | md5sum | cut -f1 -d' ')" "${PAIRED_HASH}"  "samtools 1.0+ and vg filter agree on how to select downsampled paired reads"
 
-vg sim -l 100 -n 100 -x x.xg -s 1 -a > sim.gam
-vg surject -x x.xg -s sim.gam > sim.sam
+vg filter -d 456.2 -t 10 single.gam > filtered.gam
 
-vg filter -d 456.2 -t 10 sim.gam > filtered.gam
-samtools view -s 456.2 -S sim.sam > filtered.sam
+is "$(vg view -aj filtered.gam | jq -rc '.name' | sort | md5sum | cut -f1 -d' ')" "${SINGLE_HASH}" "samtools 1.0+ and vg filter agree on how to select downsampled unpaired reads"   
 
-is "$(vg view -aj filtered.gam | jq -rc '.name' | sort | md5sum)" "$(cat filtered.sam | grep -v "^@" | cut -f1 | sort | md5sum)" "samtools and vg filter agree on how to select downsampled unpaired reads"   
-
-rm -f x.vg x.xg sim.gam sim.sam filtered.gam filtered.sam
+rm -f x.vg x.xg paired.gam paired.sam single.gam single.sam filtered.gam filtered.sam
                                                                
