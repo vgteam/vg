@@ -199,9 +199,9 @@ public:
     // called clear_mapping_ranks before appending, mappings_by_rank may be
     // incorrect until rebuild_mapping_aux() is called.
     void append_mapping(const string& name, const mapping_t& m);
-    void append_mapping(const string& name, id_t id, size_t rank = 0, bool is_reverse = false);
+    void append_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank = 0);
     void prepend_mapping(const string& name, const Mapping& m);
-    void prepend_mapping(const string& name, id_t id, size_t rank = 0, bool is_reverse = false);
+    void prepend_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank);
     size_t get_next_rank(const string& name);
     void append(const Paths& p);
     void append(const Graph& g);

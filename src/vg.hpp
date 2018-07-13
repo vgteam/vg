@@ -40,7 +40,6 @@
 #include "colors.hpp"
 
 #include "types.hpp"
-#include "gfakluge.hpp"
 
 #include "nodetraversal.hpp"
 #include "nodeside.hpp"
@@ -367,8 +366,6 @@ public:
     /// Convert edges that are both from_start and to_end to "regular" ones from end to start.
     void flip_doubly_reversed_edges(void);
 
-    /// Build a graph from a GFA stream.
-    void from_gfa(istream& in, bool showp = false);
     /// Build a graph from a Turtle stream.
     void from_turtle(string filename, string baseuri, bool showp = false);
 
@@ -703,6 +700,7 @@ public:
     Node* create_node(const string& seq, id_t id);
     /// Find a particular node.
     Node* get_node(id_t id);
+    const Node* get_node(id_t id) const;
     /// Get the subgraph of a node and all the edges it is responsible for
     /// (where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
@@ -723,15 +721,16 @@ public:
     /// Destroy the node with the given ID.
     void destroy_node(id_t id);
     /// Determine if the graph has a node with the given ID.
-    bool has_node(id_t id);
+    bool has_node(id_t id) const;
     /// Determine if the graph contains the given node.
-    bool has_node(Node* node);
+    bool has_node(const Node* node) const;
     /// Determine if the graph contains the given node.
-    bool has_node(const Node& node);
+    bool has_node(const Node& node) const;
     /// Find a node with the given name, or create a new one if none is found.
     Node* find_node_by_name_or_add_new(string name);
     /// Run the given function on every node.
     void for_each_node(function<void(Node*)> lambda);
+    void for_each_node(function<void(const Node*)> lambda) const;
     /// Run the given function on every node in parallel.
     void for_each_node_parallel(function<void(Node*)> lambda);
     /// Go through all the nodes in the same connected component as the given node. Ignores relative orientation.
@@ -777,7 +776,7 @@ public:
              const function<bool(void)>& break_fn);
 
     /// Is the graph empty?
-    bool empty(void);
+    bool empty(void) const;
 
     /// Generate a digest of the serialized graph.
     const string hash(void);
@@ -886,6 +885,7 @@ public:
     bool has_inverting_edge_to(Node* n);
     /// Run the given function for each edge.
     void for_each_edge(function<void(Edge*)> lambda);
+    void for_each_edge(function<void(const Edge*)> lambda) const;
     /// Run the given function for each edge, in parallel.
     void for_each_edge_parallel(function<void(Edge*)> lambda);
 
@@ -940,8 +940,6 @@ public:
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
                 bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0,
                 bool color_variants = false);
-    /// Convert the graph to GFA format.
-    void to_gfa(ostream& out);
     /// Convert the graph to Turtle format.
     void to_turtle(ostream& out, const string& rdf_base_uri, bool precompress);
     /// Determine if the graph is valid or not, according to the specified criteria.
