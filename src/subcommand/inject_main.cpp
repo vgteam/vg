@@ -60,7 +60,7 @@ int main_inject(int argc, char** argv) {
             break;
 
         case 't':
-          threads = atoi(optarg);
+          threads = parse<int>(optarg);
           omp_set_num_threads(threads);
           break;
 

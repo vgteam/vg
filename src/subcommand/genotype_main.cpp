@@ -156,11 +156,11 @@ int main_genotype(int argc, char** argv) {
             break;
         case 'o':
             // Offset variants
-            variant_offset = std::stoll(optarg);
+            variant_offset = parse<int64_t>(optarg);
             break;
         case 'l':
             // Set a length override
-            length_override = std::stoll(optarg);
+            length_override = parse<int64_t>(optarg);
             break;
         case 'a':
             // Dump augmented graph
@@ -183,17 +183,17 @@ int main_genotype(int argc, char** argv) {
             break;
         case 'd':
             // Set heterozygous genotype prior denominator
-            het_prior_denominator = std::stod(optarg);
+            het_prior_denominator = parse<double>(optarg);
             break;
         case 'P':
             // Set min consistent reads per strand required to keep an allele
-            min_unique_per_strand = std::stoll(optarg);
+            min_unique_per_strand = parse<int64_t>(optarg);
             break;
         case 'p':
             show_progress = true;
             break;
         case 't':
-            thread_count = atoi(optarg);
+            thread_count = parse<int>(optarg);
             break;
         case 'V':
             recall_vcf = optarg;

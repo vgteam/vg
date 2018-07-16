@@ -87,13 +87,13 @@ int main_viz(int argc, char** argv) {
             image_out = optarg;
             break;
         case 'X':
-            image_width = atoi(optarg);
+            image_width = parse<int>(optarg);
             break;
         case 'Y':
-            image_height = atoi(optarg);
+            image_height = parse<int>(optarg);
             break;
         case 's':
-            scale_factor = atof(optarg);
+            scale_factor = parse<double>(optarg);
             break;
         case 'C':
             show_cnv = true;

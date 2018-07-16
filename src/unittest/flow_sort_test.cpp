@@ -1,8 +1,8 @@
 #include "catch.hpp"
-#include "vg.hpp"
-#include "xg.hpp"
-#include "vg.pb.h"
-#include "flow_sort.hpp"
+#include "../vg.hpp"
+#include "../xg.hpp"
+#include "../flow_sort.hpp"
+#include "../gfa.hpp"
 
 namespace vg {
 namespace unittest {
@@ -40,7 +40,7 @@ P	3	path2	5	+	1M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        vg.from_gfa(in);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.length() == 6);
         
         FlowSort flow_sort(vg);
@@ -120,7 +120,7 @@ P	13	path4	5	+	1M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        vg.from_gfa(in);
+        REQUIRE(gfa_to_graph(in, &vg));
         REQUIRE(vg.length() == 17);
         
         FlowSort flow_sort(vg);
@@ -273,7 +273,7 @@ P	21	path12	3	+	1M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        vg.from_gfa(in);
+        REQUIRE(gfa_to_graph(in, &vg)); 
         REQUIRE(vg.length() == 35);
         
         FlowSort flow_sort(vg);

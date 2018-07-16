@@ -43,6 +43,11 @@ public:
     int defray_count = 99999;
     // Should we drop split reads that follow edges not in the graph?
     bool drop_split = false;
+    // We can also pseudorandomly drop reads. What's the probability that we keep a read?
+    double downsample_probability = 1.0;
+    // Samtools-compatible internal seed mask, for deciding which read pairs to keep.
+    // To be generated with rand() after srand() from the user-visible seed.
+    uint32_t downsample_seed_mask = 0;        
     // default to 1 thread (as opposed to all)
     int threads = 1;
 
@@ -58,9 +63,10 @@ public:
         vector<size_t> split;
         vector<size_t> repeat;
         vector<size_t> defray;
+        vector<size_t> random;
         Counts() : read(2, 0), filtered(2, 0), wrong_name(2, 0), min_score(2, 0),
                    max_overhang(2, 0), min_end_matches(2, 0), min_mapq(2, 0),
-                   split(2, 0), repeat(2, 0), defray(2, 0) {}
+                   split(2, 0), repeat(2, 0), defray(2, 0), random(2, 0) {}
         Counts& operator+=(const Counts& other) {
             for (int i = 0; i < 2; ++i) {
                 read[i] += other.read[i];
@@ -73,6 +79,7 @@ public:
                 split[i] += other.split[i];
                 repeat[i] += other.repeat[i];
                 defray[i] += other.defray[i];
+                random[i] += other.random[i];
             }
             return *this;
         }
@@ -134,6 +141,15 @@ private:
      * Throws an error if no XG index is specified.
      */
     bool is_split(xg::XG* index, Alignment& alignment);
+    
+    /**
+     * Based on the read name and paired-ness, compute the SAM-style QNAME and
+     * use that and the configured sampling probability and seed in the
+     * Samtools read sampling algorithm, to determine if the read should be
+     * kept. Returns true if the read should stay, and false if it should be
+     * removed. Always accepts or rejects paired reads together.
+     */
+    bool sample_read(const Alignment& read); 
     
 };
 }

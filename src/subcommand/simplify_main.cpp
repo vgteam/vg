@@ -73,11 +73,11 @@ int main_simplify(int argc, char** argv) {
         {
 
         case 'm':
-            min_size = atoi(optarg);
+            min_size = parse<int>(optarg);
             break;
             
         case 'i':
-            max_iterations = atoi(optarg);
+            max_iterations = parse<int>(optarg);
             break;
 
         case 'p':
@@ -93,7 +93,7 @@ int main_simplify(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'h':

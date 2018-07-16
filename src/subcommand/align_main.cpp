@@ -13,6 +13,7 @@
 
 #include "subcommand.hpp"
 
+#include "../utility.hpp"
 #include "../vg.hpp"
 
 using namespace std;
@@ -110,23 +111,23 @@ int main_align(int argc, char** argv) {
             break;
 
         case 'm':
-            match = atoi(optarg);
+            match = parse<int>(optarg);
             break;
 
         case 'M':
-            mismatch = atoi(optarg);
+            mismatch = parse<int>(optarg);
             break;
 
         case 'g':
-            gap_open = atoi(optarg);
+            gap_open = parse<int>(optarg);
             break;
 
         case 'e':
-            gap_extend = atoi(optarg);
+            gap_extend = parse<int>(optarg);
             break;
 
         case 'T':
-            full_length_bonus = atoi(optarg);
+            full_length_bonus = parse<int>(optarg);
             break;
 
         case OPT_SCORE_MATRIX:

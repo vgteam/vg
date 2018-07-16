@@ -13,6 +13,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../gfa.hpp"
 #include "../flow_sort.hpp"
 
 
@@ -98,7 +99,10 @@ int main_sort(int argc, char *argv[]) {
         in.open(file_name.c_str());        
         if (gfa_input) {
             graph.reset(new VG());
-            graph->from_gfa(in);
+            if (!gfa_to_graph(in, graph.get())) {
+                // GFA loading has failed because the file is invalid
+                exit(1);
+            }
         } else {
             graph.reset(new VG(in));
         }

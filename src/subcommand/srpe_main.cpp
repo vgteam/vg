@@ -110,11 +110,11 @@ int main_srpe(int argc, char** argv){
                 remap = true;
                 break;
             case 'm':
-                max_iter = atoi(optarg);
+                max_iter = parse<int>(optarg);
                 break;
 
             case 't':
-                threads = atoi(optarg);
+                threads = parse<int>(optarg);
                 break;
 
             case 'R':

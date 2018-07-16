@@ -146,11 +146,12 @@ void XG::load(istream& in) {
         case 6:
         case 7:
         case 8:
+        case 9:
             cerr << "warning:[XG] Loading an out-of-date XG format. In-memory conversion between versions can be time-consuming. "
                  << "For better performance over repeated loads, consider recreating this XG with 'vg index' "
                  << "or upgrading it with 'vg xg'." << endl;
             // Fall through
-        case 9:
+        case 10:
             {
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
@@ -312,6 +313,14 @@ void XGPath::load(istream& in, uint32_t file_version, const function<int64_t(siz
     offsets.load(in);
     offsets_rank.load(in, &offsets);
     offsets_select.load(in, &offsets);
+    
+    if (file_version >= 10) {
+        // As of v10 we support the is_circular flag
+        sdsl::read_member(is_circular, in);
+    } else {
+        // Previous versions are interpreted as not circular
+        is_circular = false;
+    }
 }
 
 size_t XGPath::serialize(std::ostream& out,
@@ -327,6 +336,7 @@ size_t XGPath::serialize(std::ostream& out,
     written += offsets.serialize(out, child, "path_node_starts_" + name);
     written += offsets_rank.serialize(out, child, "path_node_starts_rank_" + name);
     written += offsets_select.serialize(out, child, "path_node_starts_select_" + name);
+    written += sdsl::write_member(is_circular, out, child, "is_circular_" + name);
     
     sdsl::structure_tree::add_size(child, written);
     
@@ -335,9 +345,13 @@ size_t XGPath::serialize(std::ostream& out,
 
 XGPath::XGPath(const string& path_name,
                const vector<trav_t>& path,
+               bool is_circular,
                size_t node_count,
                XG& graph,
                size_t* unique_member_count_out) {
+
+    // The circularity flag is just a normal bool
+    this->is_circular = is_circular;
 
     // node ids, the literal path
     int_vector<> ids_iv;
@@ -586,14 +600,18 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
     // need to store node sides
     unordered_map<side_t, vector<side_t> > from_to;
     unordered_map<side_t, vector<side_t> > to_from;
+    // And the nodes on each path
     map<string, vector<trav_t> > path_nodes;
+    // And which paths are circular
+    unordered_set<string> circular_paths;
 
     // This takes in graph chunks and adds them into our temporary storage.
     function<void(Graph&)> lambda = [this,
                                      &node_label,
                                      &from_to,
                                      &to_from,
-                                     &path_nodes](Graph& graph) {
+                                     &path_nodes,
+                                     &circular_paths](Graph& graph) {
 
         for (int64_t i = 0; i < graph.node_size(); ++i) {
             const Node& n = graph.node(i);
@@ -617,13 +635,19 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
             }
         }
 
-        // Print out all the paths in the graph we are loading
         for (int64_t i = 0; i < graph.path_size(); ++i) {
             const Path& p = graph.path(i);
             const string& name = p.name();
 #ifdef VERBOSE_DEBUG
+            // Print out all the paths in the graph we are loading
             cerr << "Path " << name << ": ";
 #endif
+            
+            if (p.is_circular()) {
+                // Remember the circular paths
+                circular_paths.insert(name);
+            }
+
             vector<trav_t>& path = path_nodes[name];
             for (int64_t j = 0; j < p.mapping_size(); ++j) {
                 const Mapping& m = p.mapping(j);
@@ -679,8 +703,8 @@ void XG::from_callback(function<void(function<void(Graph&)>)> get_chunks,
         }
     }
 
-    build(node_label, from_to, to_from, path_nodes, validate_graph, print_graph,
-        store_threads, is_sorted_dag);
+    build(node_label, from_to, to_from, path_nodes, circular_paths, validate_graph,
+        print_graph, store_threads, is_sorted_dag);
     
 }
 
@@ -688,6 +712,7 @@ void XG::build(vector<pair<id_t, string> >& node_label,
                unordered_map<side_t, vector<side_t> >& from_to,
                unordered_map<side_t, vector<side_t> >& to_from,
                map<string, vector<trav_t> >& path_nodes,
+               unordered_set<string>& circular_paths,
                bool validate_graph,
                bool print_graph,
                bool store_threads,
@@ -837,7 +862,8 @@ void XG::build(vector<pair<id_t, string> >& node_label,
         path_names += start_marker + path_name + end_marker;
         // The path constructor helpfully counts unique path members for us
         size_t unique_member_count;
-        XGPath* path = new XGPath(path_name, pathpair.second, node_count, *this, &unique_member_count);
+        XGPath* path = new XGPath(path_name, pathpair.second, circular_paths.count(path_name),
+            node_count, *this, &unique_member_count);
         paths.push_back(path);
         path_node_count += unique_member_count;
     }
@@ -1944,6 +1970,8 @@ Path XG::path(const string& name) const {
     Path to_return;
     // Fill in the name
     to_return.set_name(name);
+    // And the circularity flag
+    to_return.set_is_circular(xgpath.is_circular);
     
     // There's one ID entry per node visit    
     size_t total_nodes = xgpath.ids.size();
@@ -2447,6 +2475,19 @@ size_t XG::path_length(const string& name) const {
 
 size_t XG::path_length(size_t rank) const {
     return paths[rank-1]->offsets.size();
+}
+
+bool XG::path_is_circular(const string& name) const {
+    auto rank = path_rank(name);
+    if (rank == 0) {
+        // Existence checking might be slightly slower but it will be worth it in saved head scratching
+        throw runtime_error("Path \"" + name + "\" not found in xg index");
+    }
+    return paths[rank-1]->is_circular;
+}
+
+bool XG::path_is_circular(size_t rank) const {
+    return paths[rank-1]->is_circular;
 }
 
 pair<pos_t, int64_t> XG::next_path_position(pos_t pos, int64_t max_search) const {
@@ -3629,6 +3670,50 @@ pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const 
 Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse, Mapping& cigar_mapping) const {
     Alignment aln;
     const XGPath& path = *paths[path_rank(name)-1];
+    
+    if (pos2 < pos1) {
+        // Looks like we want to span the origin of a circular path
+        if (!path.is_circular) {
+            // But the path isn't circular, which is a problem
+            throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
+                " to " + to_string(pos2) + " across the junction of non-circular path " + name);
+        }
+        
+        // How long is the path?
+        auto path_len = path_length(name);
+        
+        if (pos1 >= path_len) {
+            // We want to start off the end of the path, which is no good.
+            throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
+                " which is past end " + to_string(path_len) + " of path " + name);
+        }
+        
+        if (pos2 > path_len) {
+            // We want to end off the end of the path, which is no good either.
+            throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
+                " which is past end " + to_string(path_len) + " of path " + name);
+        }
+        
+        // Split the proivided Mapping of edits at the path end/start junction
+        auto part_mappings = cut_mapping_offset(cigar_mapping, path_len - pos1);
+        
+        // We extract from pos1 to the end
+        Alignment aln1 = target_alignment(name, pos1, path_len, feature, is_reverse, part_mappings.first); 
+        
+        // And then from the start to pos2
+        Alignment aln2 = target_alignment(name, 0, pos2, feature, is_reverse, part_mappings.second); 
+        
+        if (is_reverse) {
+            // The alignments were flipped, so the second has to be first
+            return merge_alignments(aln2, aln1);
+        } else {
+            // The alignments get merged in the same order
+            return merge_alignments(aln1, aln2);
+        }
+    }
+    
+    // Otherwise, the base case is that we don't go over the circular path junction
+    
     size_t first_node_start = path.offsets_select(path.offsets_rank(pos1+1));
     int64_t trim_start = pos1 - first_node_start;
     {
@@ -3743,6 +3828,47 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, con
 Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature, bool is_reverse) const {
     Alignment aln;
     const XGPath& path = *paths[path_rank(name)-1];
+    
+    if (pos2 < pos1) {
+        // Looks like we want to span the origin of a circular path
+        if (!path.is_circular) {
+            // But the path isn't circular, which is a problem
+            throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
+                " to " + to_string(pos2) + " across the junction of non-circular path " + name);
+        }
+        
+        // How long is the path?
+        auto path_len = path_length(name);
+        
+        if (pos1 >= path_len) {
+            // We want to start off the end of the path, which is no good.
+            throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
+                " which is past end " + to_string(path_len) + " of path " + name);
+        }
+        
+        if (pos2 > path_len) {
+            // We want to end off the end of the path, which is no good either.
+            throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
+                " which is past end " + to_string(path_len) + " of path " + name);
+        }
+        
+        // We extract from pos1 to the end
+        Alignment aln1 = target_alignment(name, pos1, path_len, feature, is_reverse); 
+        
+        // And then from the start to pos2
+        Alignment aln2 = target_alignment(name, 0, pos2, feature, is_reverse); 
+        
+        if (is_reverse) {
+            // The alignments were flipped, so the second has to be first
+            return merge_alignments(aln2, aln1);
+        } else {
+            // The alignments get merged in the same order
+            return merge_alignments(aln1, aln2);
+        }
+    }
+   
+    // If we get here, we do the normal non-circular path case.
+    
     size_t first_node_start = path.offsets_select(path.offsets_rank(pos1+1));
     int64_t trim_start = pos1 - first_node_start;
     {

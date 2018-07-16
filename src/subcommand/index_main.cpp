@@ -226,7 +226,7 @@ int main_index(int argc, char** argv) {
             temp_file::set_dir(optarg);
             break;
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
         case 'p':
             show_progress = true;
@@ -274,7 +274,7 @@ int main_index(int argc, char** argv) {
             check_overlaps = true;
             break;
         case 'B':
-            samples_in_batch = std::max(std::stoul(optarg), 1ul);
+            samples_in_batch = std::max(parse<size_t>(optarg), 1ul);
             break;
         case 'R':
             {
@@ -285,8 +285,8 @@ int main_index(int argc, char** argv) {
                     cerr << "error: [vg index] could not parse range " << temp << endl;
                     exit(1);
                 }
-                sample_range.first = std::stoul(temp.substr(0, found));
-                sample_range.second = std::stoul(temp.substr(found + 2)) + 1;
+                sample_range.first = parse<size_t>(temp.substr(0, found));
+                sample_range.second = parse<size_t>(temp.substr(found + 2)) + 1;
             }
             break;
         case 'r':
@@ -337,13 +337,13 @@ int main_index(int argc, char** argv) {
             mapping_name = optarg;
             break;
         case 'k':
-            kmer_size = std::max(std::stoul(optarg), 1ul);
+            kmer_size = std::max(parse<size_t>(optarg), 1ul);
             break;
         case 'X':
-            params.setSteps(std::stoul(optarg));
+            params.setSteps(parse<size_t>(optarg));
             break;
         case 'Z':
-            params.setLimit(std::stoul(optarg));
+            params.setLimit(parse<size_t>(optarg));
             break;
         case 'V':
             verify_gcsa = true;

@@ -89,7 +89,7 @@ int main_gbwt(int argc, char** argv)
             gbwt_output = optarg;
             break;
         case 'b':
-            batch_size = stoul(optarg);
+            batch_size = parse<size_t>(optarg);
             break;
         case 'f':
             fast_merging = true;

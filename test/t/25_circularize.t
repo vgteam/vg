@@ -5,6 +5,16 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 1
+plan tests 2
 
-is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg circularize -p x - | vg view -j - | grep is_circular | wc -l) 1 "a path may be circularized"
+vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg circularize -p x - > circular.vg
+
+is $(vg view -j circular.vg | jq -c '.path[] | select(.is_circular)' | wc -l) 1 "a path may be circularized"
+
+vg index -x circular.xg circular.vg
+vg xg -i circular.xg -X extracted.vg
+
+is $(vg view -j extracted.vg | jq -c '.path[] | select(.is_circular)' | wc -l) 1 "a circular path survives a round trip to/from xg"
+
+rm -f circular.vg circular.xg extracted.vg
+

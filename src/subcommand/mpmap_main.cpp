@@ -328,11 +328,11 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'X':
-                snarl_cut_size = atoi(optarg);
+                snarl_cut_size = parse<int>(optarg);
                 break;
                 
             case 'a':
-                num_alt_alns = atoi(optarg);
+                num_alt_alns = parse<int>(optarg);
                 break;
                 
             case 'n':
@@ -340,15 +340,15 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'b':
-                frag_length_sample_size = atoi(optarg);
+                frag_length_sample_size = parse<int>(optarg);
                 break;
                 
             case 'I':
-                frag_length_mean = atof(optarg);
+                frag_length_mean = parse<double>(optarg);
                 break;
                 
             case 'D':
-                frag_length_stddev = atof(optarg);
+                frag_length_stddev = parse<double>(optarg);
                 break;
                 
             case 'B':
@@ -356,12 +356,12 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'P':
-                max_mapping_p_value = atof(optarg);
+                max_mapping_p_value = parse<double>(optarg);
                 break;
                 
             case 'v':
             {
-                int mapq_arg = atoi(optarg);
+                int mapq_arg = parse<int>(optarg);
                 if (mapq_arg == 0) {
                     mapq_method = None;
                 }
@@ -382,15 +382,15 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'Q':
-                max_mapq = atoi(optarg);
+                max_mapq = parse<int>(optarg);
                 break;
                 
             case 'p':
-                band_padding = atoi(optarg);
+                band_padding = parse<int>(optarg);
                 break;
                 
             case 'u':
-                max_map_attempts_arg = atoi(optarg);
+                max_map_attempts_arg = parse<int>(optarg);
                 // let 0 be a sentinel for no limit and also a sentinel for not giving an arg
                 if (max_map_attempts_arg == 0) {
                     max_map_attempts_arg == numeric_limits<int>::max();
@@ -398,55 +398,55 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'O':
-                population_max_paths = atoi(optarg);
+                population_max_paths = parse<int>(optarg);
                 break;
                 
             case 'M':
-                max_num_mappings = atoi(optarg);
+                max_num_mappings = parse<int>(optarg);
                 break;
                 
             case 'r':
-                reseed_length = atoi(optarg);
+                reseed_length = parse<int>(optarg);
                 break;
                 
             case 'W':
-                reseed_diff = atof(optarg);
+                reseed_diff = parse<double>(optarg);
                 break;
                 
             case 'k':
-                min_mem_length = atoi(optarg);
+                min_mem_length = parse<int>(optarg);
                 break;
                 
             case 'K':
-                min_clustering_mem_length = atoi(optarg);
+                min_clustering_mem_length = parse<int>(optarg);
                 break;
                 
             case 'c':
-                hit_max = atoi(optarg);
+                hit_max = parse<int>(optarg);
                 break;
                 
             case 'd':
-                max_dist_error = atoi(optarg);
+                max_dist_error = parse<int>(optarg);
                 break;
                 
             case 'w':
-                likelihood_approx_exp = atof(optarg);
+                likelihood_approx_exp = parse<double>(optarg);
                 break;
                 
             case 'C':
-                cluster_ratio = atof(optarg);
+                cluster_ratio = parse<double>(optarg);
                 break;
                 
             case 'U':
-                suboptimal_path_exponent = atof(optarg);
+                suboptimal_path_exponent = parse<double>(optarg);
                 break;
                 
             case 'q':
-                match_score = atoi(optarg);
+                match_score = parse<int>(optarg);
                 break;
                 
             case 'z':
-                mismatch_score = atoi(optarg);
+                mismatch_score = parse<int>(optarg);
                 break;
                 
             case OPT_SCORE_MATRIX:
@@ -458,11 +458,11 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'o':
-                gap_open_score = atoi(optarg);
+                gap_open_score = parse<int>(optarg);
                 break;
                 
             case 'y':
-                gap_extension_score = atoi(optarg);
+                gap_extension_score = parse<int>(optarg);
                 break;
                 
             case 'm':
@@ -470,7 +470,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'L':
-                full_length_bonus = atoi(optarg);
+                full_length_bonus = parse<int>(optarg);
                 break;
                 
             case 'A':
@@ -479,7 +479,7 @@ int main_mpmap(int argc, char** argv) {
                 
             case 't':
             {
-                int num_threads = atoi(optarg);
+                int num_threads = parse<int>(optarg);
                 if (num_threads <= 0) {
                     cerr << "error:[vg mpmap] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
                     exit(1);
@@ -489,7 +489,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'Z':
-                buffer_size = atoi(optarg);
+                buffer_size = parse<int>(optarg);
                 break;
                 
             case 'h':

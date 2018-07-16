@@ -100,19 +100,19 @@ int main_kmers(int argc, char** argv) {
         {
 
             case 'k':
-                kmer_size = atoi(optarg);
+                kmer_size = parse<int>(optarg);
                 break;
 
             case 'j':
-                kmer_stride = atoi(optarg);
+                kmer_stride = parse<int>(optarg);
                 break;
 
             case 'e':
-                edge_max = atoi(optarg);
+                edge_max = parse<int>(optarg);
                 break;
 
             case 't':
-                omp_set_num_threads(atoi(optarg));
+                omp_set_num_threads(parse<int>(optarg));
                 break;
 
             case 'g':
@@ -141,11 +141,11 @@ int main_kmers(int argc, char** argv) {
                 break;
 
             case 'H':
-                head_id = atoi(optarg);
+                head_id = parse<int>(optarg);
                 break;
 
             case 'T':
-                tail_id = atoi(optarg);
+                tail_id = parse<int>(optarg);
                 break;
 
             case 'B':

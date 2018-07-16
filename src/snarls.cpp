@@ -1663,7 +1663,9 @@ bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function
                 
             return iteratee(real_handle);
         } else {
+#ifdef debug
             cerr << "Edge has been seen" << endl;
+#endif
             return true;
         }
     };
@@ -1696,16 +1698,20 @@ bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function
                 
             return iteratee(real_handle);
         } else {
+#ifdef debug
             cerr << "Edge has been seen" << endl;
+#endif
             return true;
         }
     };
         
     // Each way of doing things needs to support going either left or right
         
-    if ((handle == end && !go_left) || (handle == graph->flip(end) && go_left) ||
-        (handle == graph->flip(start) && !go_left) || (handle == start && go_left)) {
+    if (end != start &&
+      ((handle == end && !go_left) || (handle == graph->flip(end) && go_left) ||
+        (handle == graph->flip(start) && !go_left) || (handle == start && go_left))) {
         // If we're looking outside of the snarl this is the net graph for, don't admit to having any edges.
+        //If start and end are the same, all edges are within the net graph
             
 #ifdef debug
         cerr << "We are at the bound of the graph so don't say anything" << endl;
@@ -1943,11 +1949,13 @@ bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function
                     
             } else {
                 if (!use_internal_connectivity) {
+
                     if (!graph->follow_edges(handle, false, handle_edge)) {
                         // Iteratee is done
                         return false;
                     }
                 }
+                
             }
             
         }
@@ -2028,14 +2036,17 @@ void NetGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee, 
         // we don't need to check if the backward version of us is in
         // anything.
             
-        if (here != end && here != graph->flip(start) && !unary_boundaries.count(here) &&
+        if ( ((start != end && here != end && here != graph->flip(start)) ||
+               start == end)
+            && !unary_boundaries.count(here) &&
             !chain_ends_by_start.count(here)  && !chain_end_rewrites.count(here)) {
                 
             // We have normal graph to our right and not the exterior of this snarl or the interior of a child.
             graph->follow_edges(here, false, handle_edge);
         }
             
-        if (here != start && here != graph->flip(end)) {
+        if ((start != end && here != start && here != graph->flip(end)) ||
+             start == end) {
             // We have normal graph to our left.
             graph->follow_edges(here, true, handle_edge);
         }
