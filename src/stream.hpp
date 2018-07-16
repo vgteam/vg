@@ -157,7 +157,7 @@ bool write_buffered(std::ostream& out, std::vector<T>& buffer, uint64_t buffer_l
 // takes a callback function to be called on the objects, and another to be called per object group.
 
 template <typename T>
-void for_each(std::istream& in,
+void for_each_with_group_length(std::istream& in,
               const std::function<void(T&)>& lambda,
               const std::function<void(uint64_t)>& handle_count) {
 
@@ -213,7 +213,7 @@ template <typename T>
 void for_each(std::istream& in,
               const std::function<void(T&)>& lambda) {
     std::function<void(uint64_t)> noop = [](uint64_t) { };
-    for_each(in, lambda, noop);
+    for_each_with_group_length(in, lambda, noop);
 }
 
 // Parallelized versions of for_each

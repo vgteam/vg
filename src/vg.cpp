@@ -24,20 +24,53 @@ void VG::from_istream(istream& in, bool showp, bool warn_on_duplicates) {
     // set up uninitialized values
     init();
     show_progress = showp;
-    // and if we should show progress
-    function<void(uint64_t)> handle_count = [this](uint64_t count) {
-        create_progress("loading graph", count);
-    };
-
+    
+    // Work out how long the input file is, if applicable
+    size_t file_size = 0;
+    
+    if (!in.good()) {
+        throw runtime_error("Cannot read VG graph from bad stream");
+    }
+    
+    
+    // Save our position
+    auto here = in.tellg();
+    // Go to the end
+    in.seekg(0, in.end);
+    // Get its position
+    auto there = in.tellg();
+    // Go back to where we were
+    in.seekg(here);
+        
+    if (in.good()) {
+        // We can seek in this stream. So how far until the end?
+        file_size = there - here;
+    } else {
+        // It's entirely possible that none of that worked. So clear the error flags and leave the size at 0.
+        in.clear();
+    }
+    
+    // Don't give an actual 0 to the progress code or it will NaN
+    create_progress("loading graph", file_size == 0 ? 1 : file_size);
+    
     // the graph is read in chunks, which are attached to this graph
-    uint64_t i = 0;
-    function<void(Graph&)> lambda = [this, &i, &warn_on_duplicates](Graph& g) {
-        update_progress(++i);
+    function<void(Graph&)> lambda = [this, &in, &file_size, &warn_on_duplicates](Graph& g) {
+        if(in.good() && file_size != 0) {
+            // We want to update the progress bar from the file position.
+            // Note that tellg isn't thread-safe, but we're single-threaded.
+            update_progress(in.tellg());
+            if (!in.good()) {
+                // tellg upset something
+                in.clear();
+            }
+        }
         // We usually expect these to not overlap in nodes or edges, so complain unless we've been told not to.
         extend(g, warn_on_duplicates);
     };
 
-    stream::for_each(in, lambda, handle_count);
+    stream::for_each(in, lambda);
+    
+    update_progress(file_size);
 
     // Collate all the path mappings we got from all the different chunks. A
     // mapping from any chunk might fall anywhere in a path (because paths may

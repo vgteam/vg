@@ -56,12 +56,10 @@ Paths::Paths(void) {
 }
 
 void Paths::load(istream& in) {
-    uint64_t count = 0;
-    function<void(uint64_t)> handle_count = [this, &count](uint64_t c) { count = c; };
     function<void(Path&)> lambda = [this](Path& p) {
         this->extend(p);
     };
-    stream::for_each(in, lambda, handle_count);
+    stream::for_each(in, lambda);
 }
 
 void Paths::write(ostream& out) {
@@ -142,9 +140,7 @@ void Paths::for_each_mapping(const function<void(mapping_t&)>& lambda) {
 }
 
 void Paths::for_each_stream(istream& in, const function<void(Path&)>& lambda) {
-    uint64_t count = 0;
-    function<void(uint64_t)> handle_count = [this, &count](uint64_t c) { count = c; };
-    stream::for_each(in, lambda, handle_count);
+    stream::for_each(in, lambda);
 }
 
 void Paths::make_circular(const string& name) {
