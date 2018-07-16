@@ -4,6 +4,7 @@
 // version.hpp: Version reflection information for vg builds.
 
 #include <string>
+#include <unordered_map>
 
 namespace vg {
 
@@ -23,8 +24,18 @@ public:
     /// The host that built vg
     const static string BUILD_HOST;
     
-    /// Get a short description of the current version of vg.
-    static const string& get_short();
+    /// Get only the version (like v1.7.0-68-g224e7625).
+    static string get_version();
+
+    /// Get the release Git tag version of vg that the current version
+    /// is based on (e.g. v1.7.0-68-g224e7625 will report v1.7.0).
+    static string get_release();
+    
+    /// Get the codename of our released version
+    static string get_codename();
+
+    /// Get a short one-line description of the current version of vg with no terminating newline.
+    static string get_short();
     
     /// Get a long, potentially multi-line description of the current version
     /// of vg with no terminating newline.
@@ -32,6 +43,9 @@ public:
 private:
     // Not constructable
     Version() = delete;
+
+    /// Store all the codenames by major version
+    const static unordered_map<string, string> codenames;
 };
 
 }
