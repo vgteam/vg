@@ -45,14 +45,7 @@ bool write(std::ostream& out, uint64_t element_count, uint64_t chunk_elements,
     // How many elements have we serialized so far
     size_t serialized = 0;
     
-    // Wrap the stream as an hFILE
-    hFILE* wrapped = hfile_wrap(out);
-    assert(wrapped != nullptr);
-    // Give ownership of it to a BGZF
-    BGZF* bgzf_handle = bgzf_hopen(wrapped, "r");
-    assert(bgzf_handle != nullptr);
-    // Give ownership of the BGZF to a BlockedGzipOutputStream
-    BlockedGzipOutputStream bgzip_out(bgzf_handle);
+    BlockedGzipOutputStream bgzip_out(out);
     ::google::protobuf::io::CodedOutputStream coded_out(&bgzip_out);
 
     auto handle = [](bool ok) {

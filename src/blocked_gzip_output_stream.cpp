@@ -17,6 +17,19 @@ BlockedGzipOutputStream::BlockedGzipOutputStream(BGZF* bgzf_handle) : handle(bgz
     // Nothing to do
 }
 
+BlockedGzipOutputStream::BlockedGzipOutputStream(std::ostream& stream) : handle(nullptr), buffer(), backed_up(0), byte_count(0) {
+    // Wrap the stream in an hFILE*
+    hFILE* wrapped = hfile_wrap(stream);
+    if (wrapped == nullptr) {
+        throw runtime_error("Unable to wrap stream");
+    }
+    // Give ownership of it to a BGZF that writes, which we in turn own.
+    handle = bgzf_hopen(wrapped, "w");
+    if (handle == nullptr) {
+        throw runtime_error("Unable to set up BGZF library on wrapped stream");
+    }
+}
+
 BlockedGzipOutputStream::~BlockedGzipOutputStream() {
     // Make sure to finish writing before destructing.
     flush();

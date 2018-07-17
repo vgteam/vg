@@ -18,6 +18,10 @@ public:
     /// Make a new stream outputting to the given open BGZF file handle.
     /// The stream will own the BGZF file and close it when destructed.
     BlockedGzipOutputStream(BGZF* bgzf_handle);
+    
+    /// Make a new stream outputting to the given C++ std::ostream, wrapping it
+    /// in a BGZF.
+    BlockedGzipOutputStream(std::ostream& stream);
 
     /// Destroy the stream, finishing all writes if necessary.
     virtual ~BlockedGzipOutputStream();
