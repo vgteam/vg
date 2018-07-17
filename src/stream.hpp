@@ -11,11 +11,16 @@
 #include <functional>
 #include <vector>
 #include <list>
-#include "google/protobuf/stubs/common.h"
-#include "google/protobuf/io/zero_copy_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
-#include "google/protobuf/io/gzip_stream.h"
-#include "google/protobuf/io/coded_stream.h"
+
+#include <google/protobuf/stubs/common.h>
+#include <google/protobuf/io/zero_copy_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/io/gzip_stream.h>
+#include <google/protobuf/io/coded_stream.h>
+
+#include "blocked_gzip_output_stream.hpp"
+
+namespace vg {
 
 namespace stream {
 
@@ -40,9 +45,15 @@ bool write(std::ostream& out, uint64_t element_count, uint64_t chunk_elements,
     // How many elements have we serialized so far
     size_t serialized = 0;
     
-    ::google::protobuf::io::OstreamOutputStream raw_out(&out);
-    ::google::protobuf::io::GzipOutputStream gzip_out(&raw_out);
-    ::google::protobuf::io::CodedOutputStream coded_out(&gzip_out);
+    // Wrap the stream as an hFILE
+    hFILE* wrapped = hfile_wrap(out);
+    assert(wrapped != nullptr);
+    // Give ownership of it to a BGZF
+    BGZF* bgzf_handle = bgzf_hopen(wrapped, "r");
+    assert(bgzf_handle != nullptr);
+    // Give ownership of the BGZF to a BlockedGzipOutputStream
+    BlockedGzipOutputStream bgzip_out(bgzf_handle);
+    ::google::protobuf::io::CodedOutputStream coded_out(&bgzip_out);
 
     auto handle = [](bool ok) {
         if (!ok) throw std::runtime_error("stream::write: I/O error writing protobuf");
@@ -523,6 +534,8 @@ private:
 template <typename T>
 std::pair<ProtobufIterator<T>, ProtobufIterator<T>> protobuf_iterator_range(std::istream& in) {
     return std::make_pair(ProtobufIterator<T>(in), ProtobufIterator<T>());
+}
+
 }
 
 }

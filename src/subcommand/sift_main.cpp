@@ -7,12 +7,12 @@
 #include <omp.h>
 #include "subcommand.hpp"
 #include <gcsa/gcsa.h>
-#include "stream.hpp"
-#include "json2pb.h"
-#include "vg.hpp"
+#include "../stream.hpp"
+#include "../json2pb.h"
+#include "../vg.hpp"
 #include "vg.pb.h"
-#include "filter.hpp"
-#include "alignment.hpp"
+#include "../filter.hpp"
+#include "../alignment.hpp"
 
 using namespace std;
 using namespace vg;

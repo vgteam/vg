@@ -3,7 +3,6 @@
 using namespace std;
 using namespace vg;
 using namespace sdsl;
-using namespace stream;
 Vectorizer::Vectorizer(xg::XG* x) : my_xg(x){
 
 }

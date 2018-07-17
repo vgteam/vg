@@ -16,6 +16,7 @@
 #include "../vg.hpp"
 #include "../mapper.hpp"
 #include "../sampler.hpp"
+#include "../stream.hpp"
 
 using namespace std;
 using namespace vg;

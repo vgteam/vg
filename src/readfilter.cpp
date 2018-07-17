@@ -1,5 +1,6 @@
 #include "readfilter.hpp"
 #include "IntervalTree.h"
+#include "stream.hpp"
 
 #include <fstream>
 #include <sstream>
