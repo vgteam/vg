@@ -208,28 +208,9 @@ TEST_CASE("BlockedGzipOutputStream can write to the same stream multiple times",
     
     {
         // We have to be creating a new block now
-        hFILE* wrapped = hfile_wrap((std::ostream&)datastream);
-        REQUIRE(wrapped != nullptr);
+        BlockedGzipOutputStream bgzip_out(datastream);
         
-        // If the underlying hFILE* doesn't know its offset, the bgzf can't.
-        REQUIRE(htell(wrapped) == data_size);
-        
-        // Give ownership of it to a BGZF that writes
-        BGZF* bgzf_handle = bgzf_hopen(wrapped, "wa");
-        REQUIRE(bgzf_handle != nullptr);
-        
-        // Make sure the BGZF can seek and end up at the same place
-        REQUIRE(bgzf_seek(bgzf_handle, vo(data_size, 0), SEEK_SET) == 0);
-        auto virtual_offset = bgzf_tell(bgzf_handle);
-        REQUIRE(virtual_offset == vo(data_size, 0));
-        
-        // If the BGZF doesn't know where its block starts, that is bad.
-        virtual_offset = bgzf_tell(bgzf_handle);
-        REQUIRE(virtual_offset == vo(data_size, 0));
-        
-        // Give ownership of the BGZF to a BlockedGzipOutputStream
-        BlockedGzipOutputStream bgzip_out(bgzf_handle);
-         
+        // Make sure the stream reports that it is starting a block at the position the file is at, and not at 0.
         REQUIRE(bgzip_out.Tell() == vo(data_size, 0));
          
         char* buffer;

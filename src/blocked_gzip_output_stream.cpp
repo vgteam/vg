@@ -16,7 +16,19 @@ namespace stream {
 using namespace std;
 
 BlockedGzipOutputStream::BlockedGzipOutputStream(BGZF* bgzf_handle) : handle(bgzf_handle), buffer(), backed_up(0), byte_count(0) {
-    // Nothing to do
+    if (handle->mt) {
+        // I don't want to deal with BGZF multithreading, because I'm going to be hacking its internals
+        throw runtime_error("Multithreaded BGZF is not supported");
+    }
+    
+    // Force the BGZF to start a new block by flushing the old one, if it exists.
+    if (bgzf_flush(handle) != 0) {
+        throw runtime_error("Unable to flush BGZF");
+    }
+    
+    // Tell the BGZF where its next block is actually starting.
+    // We can't get at bgzf_htell, so we poke at its hFILE.
+    handle->block_address = htell(handle->fp);
 }
 
 BlockedGzipOutputStream::BlockedGzipOutputStream(std::ostream& stream) : handle(nullptr), buffer(), backed_up(0), byte_count(0) {
@@ -25,11 +37,20 @@ BlockedGzipOutputStream::BlockedGzipOutputStream(std::ostream& stream) : handle(
     if (wrapped == nullptr) {
         throw runtime_error("Unable to wrap stream");
     }
+    
+    // Work out where we are in the stream by looking at the file.
+    auto file_start = htell(wrapped);
+    
     // Give ownership of it to a BGZF that writes, which we in turn own.
     handle = bgzf_hopen(wrapped, "w");
     if (handle == nullptr) {
         throw runtime_error("Unable to set up BGZF library on wrapped stream");
     }
+    
+    // No need to flush because we just freshly opened the BGZF
+    
+    // Tell the BGZF where its next block is actually starting, according to the hFILE.
+    handle->block_address = file_start;
 }
 
 BlockedGzipOutputStream::~BlockedGzipOutputStream() {
