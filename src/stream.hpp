@@ -31,8 +31,9 @@ const size_t TARGET_PROTOBUF_SIZE = MAX_PROTOBUF_SIZE/2;
 
 /// Write objects using adaptive chunking. Takes a stream to write to, a total
 /// element count to write, a guess at how many elements should be in a chunk,
-/// and a function that, given a start element and a length, returns a Protobuf
-/// object representing that range of elements.
+/// and a function that, given a destination virtual offset in the output
+/// stream (or -1), a start element, and a length, returns a Protobuf object
+/// representing that range of elements.
 ///
 /// Adaptively sets the chunk size, in elements, so that no too-large Protobuf
 /// records are serialized.
@@ -40,7 +41,7 @@ const size_t TARGET_PROTOBUF_SIZE = MAX_PROTOBUF_SIZE/2;
 /// Returns true on success, but throws errors on failure.
 template <typename T>
 bool write(std::ostream& out, size_t element_count, size_t chunk_elements,
-    const std::function<T(size_t, size_t)>& lambda) {
+    const std::function<T(int64_t, size_t, size_t)>& lambda) {
 
     // How many elements have we serialized so far
     size_t serialized = 0;
@@ -57,9 +58,16 @@ bool write(std::ostream& out, size_t element_count, size_t chunk_elements,
         // Work out how many elements can go in this chunk, accounting for the total element count
         chunk_elements = std::min(chunk_elements, element_count - serialized);
     
+        // Work out where the chunk is going.
+        // TODO: we need to back up the coded output stream after every chunk,
+        // and push the partial buffer into BGZF, and get a new buffer, which 
+        // wastes time.
+        coded_out.Trim(); 
+        int64_t virtual_offset = bgzip_out.Tell();
+    
         // Serialize a chunk
         std::string chunk_data;
-        handle(lambda(serialized, chunk_elements).SerializeToString(&chunk_data));
+        handle(lambda(virtual_offset, serialized, chunk_elements).SerializeToString(&chunk_data));
     
         if (chunk_data.size() > MAX_PROTOBUF_SIZE) {
             // This is too big!
@@ -103,23 +111,51 @@ bool write(std::ostream& out, size_t element_count, size_t chunk_elements,
 
 }
 
-// write objects
-// count should be equal to the number of objects to write
-// count is written before the objects, but if it is 0, it is not written
-// if not all objects are written, return false, otherwise true
+/// Write objects using adaptive chunking. Takes a stream to write to, a total
+/// element count to write, a guess at how many elements should be in a chunk,
+/// and a function that, given a start element and a length, returns a Protobuf
+/// object representing that range of elements.
+///
+/// Adaptively sets the chunk size, in elements, so that no too-large Protobuf
+/// records are serialized.
+///
+/// Returns true on success, but throws errors on failure.
 template <typename T>
-bool write(std::ostream& out, size_t count, const std::function<T(size_t)>& lambda) {
+bool write(std::ostream& out, size_t element_count, size_t chunk_elements,
+    const std::function<T(size_t, size_t)>& lambda) {
+    
+    return write(out, element_count, chunk_elements,
+        (const std::function<T(int64_t, size_t, size_t)>&)
+        [&lambda](int64_t virtual_offset, size_t chunk_start, size_t chunk_length) -> T {
+        
+        // Ignore the virtual offset
+        return lambda(chunk_start, chunk_length);
+    });
+}
+
+/// Write objects. count should be equal to the number of objects to write.
+/// count is written before the objects, but if it is 0, it is not written. To
+/// get the objects, calls lambda with the highest virtual offset that can be
+/// seek'd to in order to read the object, and the index of the object to
+/// retrieve. If not all objects are written, return false, otherwise true.
+template <typename T>
+bool write(std::ostream& out, size_t count, const std::function<T(int64_t, size_t)>& lambda) {
 
     // Make all our streams on the stack, in case of error.
-    ::google::protobuf::io::OstreamOutputStream raw_out(&out);
-    ::google::protobuf::io::GzipOutputStream gzip_out(&raw_out);
-    ::google::protobuf::io::CodedOutputStream coded_out(&gzip_out);
+    BlockedGzipOutputStream bgzip_out(out);
+    ::google::protobuf::io::CodedOutputStream coded_out(&bgzip_out);
 
     auto handle = [](bool ok) {
         if (!ok) {
             throw std::runtime_error("stream::write: I/O error writing protobuf");
         }
     };
+    
+    // We can't seek directly to individual messages, because we can only read
+    // count-prefixed groups. So the highest seek offset is going to be where
+    // we are now, where the group count is being written.
+    coded_out.Trim();
+    int64_t virtual_offset = bgzip_out.Tell();
 
     // prefix the chunk with the number of objects, if any objects are to be written
     if(count > 0) {
@@ -130,7 +166,7 @@ bool write(std::ostream& out, size_t count, const std::function<T(size_t)>& lamb
     std::string s;
     size_t written = 0;
     for (size_t n = 0; n < count; ++n, ++written) {
-        handle(lambda(n).SerializeToString(&s));
+        handle(lambda(virtual_offset, n).SerializeToString(&s));
         if (s.size() > MAX_PROTOBUF_SIZE) {
             throw std::runtime_error("stream::write: message too large error writing protobuf");
         }
@@ -142,6 +178,20 @@ bool write(std::ostream& out, size_t count, const std::function<T(size_t)>& lamb
     }
 
     return !count || written == count;
+}
+
+/// Write objects. count should be equal to the number of objects to write.
+/// count is written before the objects, but if it is 0, it is not written. To
+/// get the objects, calls lambda with the index of the object to retrieve. If
+/// not all objects are written, return false, otherwise true.
+template <typename T>
+bool write(std::ostream& out, size_t count, const std::function<T(size_t)>& lambda) {
+    return write(out, count,
+        (const std::function<T(int64_t, size_t)>&)
+        [&lambda](int64_t virtual_offset, size_t object_number) -> T {
+        // Discard the virtual offset
+        return lambda(object_number);
+    });
 }
 
 template <typename T>
@@ -156,13 +206,14 @@ bool write_buffered(std::ostream& out, std::vector<T>& buffer, size_t buffer_lim
     return wrote;
 }
 
-// deserialize the input stream into the objects
-// skips over groups of objects with count 0
-// takes a callback function to be called on the objects, and another to be called per object group.
-
+/// Deserialize the input stream into the objects. Skips over groups of objects
+/// with count 0. Takes a callback function to be called on the objects, with
+/// the object and the maximum blocked gzip virtual offset to seek to to find
+/// it (or -1 if the input is not blocked gzipped), and another to be called
+/// per object group.
 template <typename T>
 void for_each_with_group_length(std::istream& in,
-              const std::function<void(T&)>& lambda,
+              const std::function<void(int64_t, T&)>& lambda,
               const std::function<void(size_t)>& handle_count) {
 
     ::google::protobuf::io::IstreamInputStream raw_in(&in);
@@ -205,7 +256,7 @@ void for_each_with_group_length(std::istream& in,
                 handle(coded_in.ReadString(&s, msgSize));
                 T object;
                 handle(object.ParseFromString(s));
-                lambda(object);
+                lambda(-1, object);
             }
         }
     }
@@ -217,7 +268,10 @@ template <typename T>
 void for_each(std::istream& in,
               const std::function<void(T&)>& lambda) {
     std::function<void(size_t)> noop = [](size_t) { };
-    for_each_with_group_length(in, lambda, noop);
+    for_each_with_group_length(in, 
+        (const std::function<void(int64_t, T&)>&)
+        [&lambda](int64_t virtual_offset, T& item) {lambda(item);},
+        noop);
 }
 
 // Parallelized versions of for_each

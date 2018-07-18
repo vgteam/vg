@@ -25,7 +25,11 @@ public:
 
     /// Destroy the stream, finishing all writes if necessary.
     virtual ~BlockedGzipOutputStream();
-    
+   
+    ///////////////////////////////////////////////////////////////////////////
+    // ZeroCopyOutputStream interface
+    ///////////////////////////////////////////////////////////////////////////
+   
     /// Get a buffer to write to. Saves the address of the buffer where data
     /// points, and the size of the buffer where size points. Returns false on
     /// an unrecoverable error, and true if a buffer was gotten. The stream is
@@ -49,6 +53,21 @@ public:
     
     /// Return true if WriteAliasedRaw() is actually available, and false otherwise.
     virtual bool AllowsAliasing() const;
+    
+    ///////////////////////////////////////////////////////////////////////////
+    // BGZF support interface
+    ///////////////////////////////////////////////////////////////////////////
+    
+    /// Return the blocked gzip virtual offset at which the next buffer
+    /// returned by Next() will start. Note that this will only get you the
+    /// position of the next write if anything you are writing through is fully
+    /// backed up to the next actually-unwritten byte. See Protobuf's
+    /// CodedOutputStream::Trim(). Not const because buffered data may need to
+    /// be sent to the compressor to get the virtual offset.
+    virtual int64_t Tell();
+    
+    // Seek is not supported because overwriting internal bits of a BGZF file
+    // is not safe without knowing how big each chunk is allowed to be.
     
 private:
     

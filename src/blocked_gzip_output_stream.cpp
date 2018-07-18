@@ -78,6 +78,15 @@ bool BlockedGzipOutputStream::AllowsAliasing() const {
     return false;
 }
 
+
+int64_t BlockedGzipOutputStream::Tell() {
+    // Make sure all data has been sent to BGZF
+    flush();
+    
+    // See where we are now
+    return bgzf_tell(handle);
+}
+
 void BlockedGzipOutputStream::flush() {
     // How many bytes are left to write?
     auto outstanding = buffer.size() - backed_up;
