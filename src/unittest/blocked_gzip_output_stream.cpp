@@ -88,7 +88,7 @@ TEST_CASE("output streams can be wrapped as hFILEs", "[bgzip]") {
     
 }
 
-TEST_CASE("hFILE stream position is preserved across multiple opens and closes", "[bgzip]") {
+TEST_CASE("hFILE stream position is preserved across opens and closes", "[bgzip]") {
     // Make a stream that we are not at the beginning of
     stringstream datastream;
     datastream << "datadatadata";
@@ -112,9 +112,10 @@ TEST_CASE("hFILE stream position is preserved across multiple opens and closes",
     
 }
 
-// We have a tiny function to get virtual offsets
-int64_t vo(size_t block, size_t offset) {
-    return (block << 16) | (0xFFFF & offset);
+// We have a tiny function to get virtual offsets, based on the block's start
+// offset in the file, and the offset in the block
+int64_t vo(size_t block_start, size_t offset) {
+    return (block_start << 16) | (0xFFFF & offset);
 }
 
 TEST_CASE("a BlockedGzipOutputStream can write to a stringstream", "[bgzip]") {
@@ -214,12 +215,22 @@ TEST_CASE("BlockedGzipOutputStream can write to the same stream multiple times",
         REQUIRE(htell(wrapped) == data_size);
         
         // Give ownership of it to a BGZF that writes
-        BGZF* bgzf_handle = bgzf_hopen(wrapped, "w");
+        BGZF* bgzf_handle = bgzf_hopen(wrapped, "wa");
         REQUIRE(bgzf_handle != nullptr);
+        
+        // Make sure the BGZF can seek and end up at the same place
+        REQUIRE(bgzf_seek(bgzf_handle, vo(data_size, 0), SEEK_SET) == 0);
+        auto virtual_offset = bgzf_tell(bgzf_handle);
+        REQUIRE(virtual_offset == vo(data_size, 0));
+        
+        // If the BGZF doesn't know where its block starts, that is bad.
+        virtual_offset = bgzf_tell(bgzf_handle);
+        REQUIRE(virtual_offset == vo(data_size, 0));
+        
         // Give ownership of the BGZF to a BlockedGzipOutputStream
         BlockedGzipOutputStream bgzip_out(bgzf_handle);
          
-        REQUIRE(bgzip_out.Tell() == vo(1, 0));
+        REQUIRE(bgzip_out.Tell() == vo(data_size, 0));
          
         char* buffer;
         int buffer_size;
@@ -234,7 +245,7 @@ TEST_CASE("BlockedGzipOutputStream can write to the same stream multiple times",
         
         bgzip_out.BackUp(buffer_size - 5);
         
-        REQUIRE(bgzip_out.Tell() == vo(1, 5));
+        REQUIRE(bgzip_out.Tell() == vo(data_size, 5));
     }
     
     REQUIRE(datastream.str().size() == data_size * 2);

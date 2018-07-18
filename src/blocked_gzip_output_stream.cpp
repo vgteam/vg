@@ -326,6 +326,14 @@ hFILE* hfile_wrap(std::istream& input) {
     // Set the backend
     fp->base.backend = &cppstream_backend;
     
+    // Tell the file that it is starting at the offset that the stream is at
+    input.clear();
+    auto start_pos = input.tellg();
+    if (start_pos < 0 || !input.good()) {
+        throw runtime_error("Could not determine initial input position");
+    }
+    fp->base.offset = start_pos;
+    
     // Return the base hFILE*
     return &fp->base;
 }
@@ -345,6 +353,14 @@ hFILE* hfile_wrap(std::ostream& output) {
     
     // Set the backend
     fp->base.backend = &cppstream_backend;
+    
+    // Tell the file that it is starting at the offset that the stream is at
+    output.clear();
+    auto start_pos = output.tellp();
+    if (start_pos < 0 || !output.good()) {
+        throw runtime_error("Could not determine initial output position");
+    }
+    fp->base.offset = start_pos;
     
     // Return the base hFILE*
     return &fp->base;
