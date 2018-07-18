@@ -39,8 +39,8 @@ const size_t TARGET_PROTOBUF_SIZE = MAX_PROTOBUF_SIZE/2;
 ///
 /// Returns true on success, but throws errors on failure.
 template <typename T>
-bool write(std::ostream& out, uint64_t element_count, uint64_t chunk_elements,
-    const std::function<T(uint64_t, uint64_t)>& lambda) {
+bool write(std::ostream& out, size_t element_count, size_t chunk_elements,
+    const std::function<T(size_t, size_t)>& lambda) {
 
     // How many elements have we serialized so far
     size_t serialized = 0;
@@ -108,7 +108,7 @@ bool write(std::ostream& out, uint64_t element_count, uint64_t chunk_elements,
 // count is written before the objects, but if it is 0, it is not written
 // if not all objects are written, return false, otherwise true
 template <typename T>
-bool write(std::ostream& out, uint64_t count, const std::function<T(uint64_t)>& lambda) {
+bool write(std::ostream& out, size_t count, const std::function<T(size_t)>& lambda) {
 
     // Make all our streams on the stack, in case of error.
     ::google::protobuf::io::OstreamOutputStream raw_out(&out);
@@ -128,8 +128,8 @@ bool write(std::ostream& out, uint64_t count, const std::function<T(uint64_t)>& 
     }
 
     std::string s;
-    uint64_t written = 0;
-    for (uint64_t n = 0; n < count; ++n, ++written) {
+    size_t written = 0;
+    for (size_t n = 0; n < count; ++n, ++written) {
         handle(lambda(n).SerializeToString(&s));
         if (s.size() > MAX_PROTOBUF_SIZE) {
             throw std::runtime_error("stream::write: message too large error writing protobuf");
@@ -145,10 +145,10 @@ bool write(std::ostream& out, uint64_t count, const std::function<T(uint64_t)>& 
 }
 
 template <typename T>
-bool write_buffered(std::ostream& out, std::vector<T>& buffer, uint64_t buffer_limit) {
+bool write_buffered(std::ostream& out, std::vector<T>& buffer, size_t buffer_limit) {
     bool wrote = false;
     if (buffer.size() >= buffer_limit) {
-        std::function<T(uint64_t)> lambda = [&buffer](uint64_t n) { return buffer.at(n); };
+        std::function<T(size_t)> lambda = [&buffer](size_t n) { return buffer.at(n); };
 #pragma omp critical (stream_out)
         wrote = write(out, buffer.size(), lambda);
         buffer.clear();
@@ -163,7 +163,7 @@ bool write_buffered(std::ostream& out, std::vector<T>& buffer, uint64_t buffer_l
 template <typename T>
 void for_each_with_group_length(std::istream& in,
               const std::function<void(T&)>& lambda,
-              const std::function<void(uint64_t)>& handle_count) {
+              const std::function<void(size_t)>& handle_count) {
 
     ::google::protobuf::io::IstreamInputStream raw_in(&in);
     ::google::protobuf::io::GzipInputStream gzip_in(&raw_in);
@@ -175,7 +175,7 @@ void for_each_with_group_length(std::istream& in,
         }
     };
 
-    uint64_t count;
+    size_t count;
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
     while (coded_in.ReadVarint64((::google::protobuf::uint64*) &count)) {
@@ -183,7 +183,7 @@ void for_each_with_group_length(std::istream& in,
         handle_count(count);
 
         std::string s;
-        for (uint64_t i = 0; i < count; ++i) {
+        for (size_t i = 0; i < count; ++i) {
             uint32_t msgSize = 0;
             // Reconstruct the CodedInputStream in place to reset its maximum-
             // bytes-ever-read counter, because it thinks it's reading a single
@@ -216,7 +216,7 @@ void for_each_with_group_length(std::istream& in,
 template <typename T>
 void for_each(std::istream& in,
               const std::function<void(T&)>& lambda) {
-    std::function<void(uint64_t)> noop = [](uint64_t) { };
+    std::function<void(size_t)> noop = [](size_t) { };
     for_each_with_group_length(in, lambda, noop);
 }
 
@@ -231,18 +231,18 @@ template <typename T>
 void for_each_parallel_impl(std::istream& in,
                             const std::function<void(T&,T&)>& lambda2,
                             const std::function<void(T&)>& lambda1,
-                            const std::function<void(uint64_t)>& handle_count,
+                            const std::function<void(size_t)>& handle_count,
                             const std::function<bool(void)>& single_threaded_until_true) {
 
     // objects will be handed off to worker threads in batches of this many
-    const uint64_t batch_size = 256;
+    const size_t batch_size = 256;
     static_assert(batch_size % 2 == 0, "stream::for_each_parallel::batch_size must be even");
     // max # of such batches to be holding in memory
-    uint64_t max_batches_outstanding = 256;
+    size_t max_batches_outstanding = 256;
     // max # we will ever increase the batch buffer to
-    const uint64_t max_max_batches_outstanding = 1 << 13; // 8192
+    const size_t max_max_batches_outstanding = 1 << 13; // 8192
     // number of batches currently being processed
-    uint64_t batches_outstanding = 0;
+    size_t batches_outstanding = 0;
 
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
@@ -260,10 +260,10 @@ void for_each_parallel_impl(std::istream& in,
         std::vector<std::string> *batch = nullptr;
         
         // process chunks prefixed by message count
-        uint64_t count;
+        size_t count;
         while (coded_in.ReadVarint64((::google::protobuf::uint64*) &count)) {
             handle_count(count);
-            for (uint64_t i = 0; i < count; ++i) {
+            for (size_t i = 0; i < count; ++i) {
                 if (!batch) {
                      batch = new std::vector<std::string>();
                      batch->reserve(batch_size);
@@ -296,7 +296,7 @@ void for_each_parallel_impl(std::istream& in,
                 if (batch->size() == batch_size) {
                     // time to enqueue this batch for processing. first, block if
                     // we've hit max_batches_outstanding.
-                    uint64_t b;
+                    size_t b;
 #pragma omp atomic capture
                     b = ++batches_outstanding;
                     
@@ -380,7 +380,7 @@ void for_each_interleaved_pair_parallel(std::istream& in,
     std::function<void(T&)> err1 = [](T&){
         throw std::runtime_error("stream::for_each_interleaved_pair_parallel: expected input stream of interleaved pairs, but it had odd number of elements");
     };
-    std::function<void(uint64_t)> no_count = [](uint64_t i) {};
+    std::function<void(size_t)> no_count = [](size_t i) {};
     std::function<bool(void)> no_wait = [](void) {return true;};
     for_each_parallel_impl(in, lambda2, err1, no_count, no_wait);
 }
@@ -392,7 +392,7 @@ void for_each_interleaved_pair_parallel_after_wait(std::istream& in,
     std::function<void(T&)> err1 = [](T&){
         throw std::runtime_error("stream::for_each_interleaved_pair_parallel: expected input stream of interleaved pairs, but it had odd number of elements");
     };
-    std::function<void(uint64_t)> no_count = [](uint64_t i) {};
+    std::function<void(size_t)> no_count = [](size_t i) {};
     for_each_parallel_impl(in, lambda2, err1, no_count, single_threaded_until_true);
 }
 
@@ -400,7 +400,7 @@ void for_each_interleaved_pair_parallel_after_wait(std::istream& in,
 template <typename T>
 void for_each_parallel(std::istream& in,
                        const std::function<void(T&)>& lambda1,
-                       const std::function<void(uint64_t)>& handle_count) {
+                       const std::function<void(size_t)>& handle_count) {
     std::function<void(T&,T&)> lambda2 = [&lambda1](T& o1, T& o2) { lambda1(o1); lambda1(o2); };
     std::function<bool(void)> no_wait = [](void) {return true;};
     for_each_parallel_impl(in, lambda2, lambda1, handle_count, no_wait);
@@ -409,7 +409,7 @@ void for_each_parallel(std::istream& in,
 template <typename T>
 void for_each_parallel(std::istream& in,
               const std::function<void(T&)>& lambda) {
-    std::function<void(uint64_t)> noop = [](uint64_t) { };
+    std::function<void(size_t)> noop = [](size_t) { };
     for_each_parallel(in, lambda, noop);
 }
 
@@ -507,10 +507,10 @@ private:
     T value;
     
     // For testing identity with another iterator
-    uint64_t where;
+    size_t where;
     
-    uint64_t chunk_count;
-    uint64_t chunk_idx;
+    size_t chunk_count;
+    size_t chunk_idx;
     
     ::google::protobuf::io::IstreamInputStream raw_in;
     ::google::protobuf::io::GzipInputStream gzip_in;
