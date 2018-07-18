@@ -175,16 +175,6 @@ TEST_CASE("a BlockedGzipOutputStream can write to a stringstream", "[bgzip]") {
     
 }
 
-TEST_CASE("a BlockedGzipOutputStream can be created on standard output", "[bgzip]") {
-    BlockedGzipOutputStream bgzip_out(std::cout);
-    
-    // It should be able to give us virtual offsets IFF stdout is tellable.
-    bool have_pos = bgzip_out.Tell() != -1;
-    bool tell_stdout = std::cout.tellp() != -1;
-    
-    REQUIRE(have_pos == tell_stdout);
-}
-
 TEST_CASE("BlockedGzipOutputStream can write to the same stream multiple times", "[bgzip]") {
 
     stringstream datastream;

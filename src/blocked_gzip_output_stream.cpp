@@ -7,8 +7,6 @@
 
 #include <errno.h>
 
-#define debug
-
 namespace vg {
 
 namespace stream {
