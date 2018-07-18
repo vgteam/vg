@@ -67,10 +67,10 @@ public:
     /// be sent to the compressor to get the virtual offset.
     virtual int64_t Tell();
     
-    // Seek is not supported because overwriting internal bits of a BGZF file
-    // is not safe without knowing how big each chunk is allowed to be.
+    // Seek is not supported because it is not allowed by the backing BGZF
+    // library for writable files.
     
-private:
+protected:
     
     /// Actually dump the buffer data to the file, if needed. Sadly, we can't
     /// really be zero-copy because the bgzf library isn't.
@@ -93,11 +93,6 @@ private:
     bool know_offset;
     
 };
-
-/// Wrap a C++ input stream as an hFILE* that can be read by BGZF
-hFILE* hfile_wrap(std::istream& input);
-/// Wrap a C++ output stream as an hFILE* that can be written by BGZF
-hFILE* hfile_wrap(std::ostream& output);
 
 }
 

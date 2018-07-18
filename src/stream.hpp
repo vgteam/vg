@@ -136,8 +136,9 @@ bool write(std::ostream& out, size_t element_count, size_t chunk_elements,
 /// Write objects. count should be equal to the number of objects to write.
 /// count is written before the objects, but if it is 0, it is not written. To
 /// get the objects, calls lambda with the highest virtual offset that can be
-/// seek'd to in order to read the object, and the index of the object to
-/// retrieve. If not all objects are written, return false, otherwise true.
+/// seek'd to in order to read the object (or -1 if the stream is not
+/// tellable), and the index of the object to retrieve. If not all objects are
+/// written, return false, otherwise true.
 template <typename T>
 bool write(std::ostream& out, size_t count, const std::function<T(int64_t, size_t)>& lambda) {
 
