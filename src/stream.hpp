@@ -30,7 +30,7 @@ const size_t MAX_PROTOBUF_SIZE = 1000000000;
 const size_t TARGET_PROTOBUF_SIZE = MAX_PROTOBUF_SIZE/2;
 
 /// Write objects using adaptive chunking. Takes a stream to write to, a total
-/// element count to write, a guess at how manye elements should be in a chunk,
+/// element count to write, a guess at how many elements should be in a chunk,
 /// and a function that, given a start element and a length, returns a Protobuf
 /// object representing that range of elements.
 ///
