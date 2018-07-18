@@ -2405,6 +2405,10 @@ namespace vg {
         // to keep track of which clusters have been merged
         UnionFind union_find(clusters.size());
         
+        // (for the suppressed merge code path)
+        // maps the hits that make up a cluster to the index of the cluster
+        unordered_map<pair<const MaximalExactMatch*, pos_t>, size_t> hit_to_cluster_idx;
+        
         for (size_t i = 0; i < clusters.size(); i++) {
             
 #ifdef debug_multipath_mapper
@@ -2458,6 +2462,12 @@ namespace vg {
                     else {
                         node_id_to_cluster[node_id] = i;
                     }
+                }
+            }
+            else {
+                // assign the hits to clusters
+                for (auto& mem_hit : cluster) {
+                    hit_to_cluster_idx[mem_hit] = i;
                 }
             }
             
@@ -2598,6 +2608,18 @@ namespace vg {
             delete cluster_graphs[multicomponent_graph.first];
             cluster_graphs.erase(multicomponent_graph.first);
             
+            if (suppress_cluster_merging) {
+                // we need to re-assign the hits to the new cluster graphs
+                for (auto& mem_hit : clusters[multicomponent_graph.first]) {
+                    for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
+                        if (multicomponent_graph.second[i].count(id(mem_hit.second))) {
+                            hit_to_cluster_idx[mem_hit] = max_graph_idx + i;
+                            break;
+                        }
+                    }
+                }
+            }
+            
             max_graph_idx += multicomponent_graph.second.size();
         }
         
@@ -2642,6 +2664,7 @@ namespace vg {
             cerr << "suppressed merging path, creating index to identify nodes with cluster graphs" << endl;
 #endif
             
+            // identify all of the clusters that contain each node
             unordered_map<id_t, vector<size_t>> node_id_to_cluster_idxs;
             for (size_t i = 0; i < cluster_graphs_out.size(); i++) {
                 Graph& graph = get<0>(cluster_graphs_out[i])->graph;
@@ -2650,16 +2673,27 @@ namespace vg {
                 }
             }
             
+            
+            
             for (const MaximalExactMatch& mem : mems) {
                 for (gcsa::node_type hit : mem.nodes) {
-                    id_t node_id = gcsa::Node::id(hit);
-                    auto iter = node_id_to_cluster_idxs.find(node_id);
-                    if (iter != node_id_to_cluster_idxs.end()) {
-                        for (size_t cluster_idx : iter->second) {
-                            get<1>(cluster_graphs_out[cluster_idx]).push_back(make_pair(&mem, make_pos_t(hit)));
+                    auto mem_hit = make_pair(&mem, make_pos_t(hit));
+                    auto iter = hit_to_cluster_idx.find(mem_hit);
+                    if (iter != hit_to_cluster_idx.end()) {
+                        get<1>(cluster_graphs_out[iter->second]).push_back(mem_hit);
 #ifdef debug_multipath_mapper
-                            cerr << "\tMEM " << mem.sequence() << " at " << make_pos_t(hit) << " found in cluster at index " << cluster_idx << endl;
+                        cerr << "\tMEM " << mem.sequence() << " at " << mem_hit.second << " assigned as seed to cluster at index " << iter->second << endl;
 #endif
+                    }
+                    else {
+                        auto id_iter = node_id_to_cluster_idxs.find(id(mem_hit.second));
+                        if (id_iter != node_id_to_cluster_idxs.end()) {
+                            for (size_t cluster_idx : id_iter->second) {
+                                get<1>(cluster_graphs_out[cluster_idx]).push_back(mem_hit);
+#ifdef debug_multipath_mapper
+                                cerr << "\tMEM " << mem.sequence() << " at " << mem_hit.second << " found in cluster at index " << cluster_idx << endl;
+#endif
+                            }
                         }
                     }
                 }
