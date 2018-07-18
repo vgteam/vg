@@ -2407,7 +2407,7 @@ namespace vg {
         
         // (for the suppressed merge code path)
         // maps the hits that make up a cluster to the index of the cluster
-        unordered_map<pair<const MaximalExactMatch*, pos_t>, size_t> hit_to_cluster_idx;
+        unordered_map<pair<const MaximalExactMatch*, pos_t>, size_t> hit_to_cluster;
         
         for (size_t i = 0; i < clusters.size(); i++) {
             
@@ -2467,7 +2467,7 @@ namespace vg {
             else {
                 // assign the hits to clusters
                 for (auto& mem_hit : cluster) {
-                    hit_to_cluster_idx[mem_hit] = i;
+                    hit_to_cluster[mem_hit] = i;
                 }
             }
             
@@ -2613,7 +2613,7 @@ namespace vg {
                 for (auto& mem_hit : clusters[multicomponent_graph.first]) {
                     for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
                         if (multicomponent_graph.second[i].count(id(mem_hit.second))) {
-                            hit_to_cluster_idx[mem_hit] = max_graph_idx + i;
+                            hit_to_cluster[mem_hit] = max_graph_idx + i;
                             break;
                         }
                     }
@@ -2673,19 +2673,19 @@ namespace vg {
                 }
             }
             
-            
-            
             for (const MaximalExactMatch& mem : mems) {
                 for (gcsa::node_type hit : mem.nodes) {
                     auto mem_hit = make_pair(&mem, make_pos_t(hit));
-                    auto iter = hit_to_cluster_idx.find(mem_hit);
-                    if (iter != hit_to_cluster_idx.end()) {
-                        get<1>(cluster_graphs_out[iter->second]).push_back(mem_hit);
+                    // force the hits that generated a cluster to be assigned to it
+                    auto iter = hit_to_cluster.find(mem_hit);
+                    if (iter != hit_to_cluster.end()) {
+                        get<1>(cluster_graphs_out[cluster_to_idx[iter->second]]).push_back(mem_hit);
 #ifdef debug_multipath_mapper
-                        cerr << "\tMEM " << mem.sequence() << " at " << mem_hit.second << " assigned as seed to cluster at index " << iter->second << endl;
+                        cerr << "\tMEM " << mem.sequence() << " at " << mem_hit.second << " assigned as seed to cluster at index " << cluster_to_idx[iter->second] << endl;
 #endif
                     }
                     else {
+                        // also try to find other, unassigned MEMs in the clusters
                         auto id_iter = node_id_to_cluster_idxs.find(id(mem_hit.second));
                         if (id_iter != node_id_to_cluster_idxs.end()) {
                             for (size_t cluster_idx : id_iter->second) {
