@@ -7,6 +7,8 @@
 
 #include <errno.h>
 
+#define debug
+
 namespace vg {
 
 namespace stream {
@@ -179,6 +181,11 @@ static ssize_t cppstream_write(hFILE *fpv, const void *buffer, size_t nbytes) {
 /// resulting offset from the beginning of the file.
 /// Returns a negative value on error.
 static off_t cppstream_seek(hFILE *fpv, off_t offset, int whence) {
+
+#ifdef debug
+    cerr << "cppstream_seek(" << fpv << ", " << offset << ", " << whence << ")" << endl;
+#endif
+    
     // Cast the hFILE to the derived class
     hFILE_cppstream* fp = (hFILE_cppstream*) fpv;
     
@@ -248,6 +255,10 @@ static off_t cppstream_seek(hFILE *fpv, off_t offset, int whence) {
         
         arrived_at = reached;
     }
+    
+#ifdef debug
+    cerr << "\t" << arrived_at << endl;
+#endif
     
     // We worked!
     return arrived_at;
