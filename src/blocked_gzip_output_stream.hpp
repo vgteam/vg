@@ -59,7 +59,8 @@ public:
     ///////////////////////////////////////////////////////////////////////////
     
     /// Return the blocked gzip virtual offset at which the next buffer
-    /// returned by Next() will start. Note that this will only get you the
+    /// returned by Next() will start, or -1 if operating on an untellable
+    /// stream like standard output. Note that this will only get you the
     /// position of the next write if anything you are writing through is fully
     /// backed up to the next actually-unwritten byte. See Protobuf's
     /// CodedOutputStream::Trim(). Not const because buffered data may need to
@@ -87,6 +88,9 @@ private:
     
     /// The counter to back ByteCount
     size_t byte_count;
+    
+    /// Flag for whether our backing stream is tellable.
+    bool know_offset;
     
 };
 

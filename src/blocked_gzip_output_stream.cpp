@@ -15,7 +15,9 @@ namespace stream {
 
 using namespace std;
 
-BlockedGzipOutputStream::BlockedGzipOutputStream(BGZF* bgzf_handle) : handle(bgzf_handle), buffer(), backed_up(0), byte_count(0) {
+BlockedGzipOutputStream::BlockedGzipOutputStream(BGZF* bgzf_handle) : handle(bgzf_handle), buffer(), backed_up(0), byte_count(0),
+    know_offset(false) {
+    
     if (handle->mt) {
         // I don't want to deal with BGZF multithreading, because I'm going to be hacking its internals
         throw runtime_error("Multithreaded BGZF is not supported");
@@ -25,21 +27,31 @@ BlockedGzipOutputStream::BlockedGzipOutputStream(BGZF* bgzf_handle) : handle(bgz
     if (bgzf_flush(handle) != 0) {
         throw runtime_error("Unable to flush BGZF");
     }
-    
-    // Tell the BGZF where its next block is actually starting.
-    // We can't get at bgzf_htell, so we poke at its hFILE.
-    handle->block_address = htell(handle->fp);
+   
+    // Try seeking the hfile's backend to exactly the position it is at, to get the actual offset.
+    // This lets us know if the stream is really seekable/tellable, because htell always works.
+    auto cur_pos = (*(handle->fp->backend->seek))(handle->fp, 0, SEEK_CUR);
+    if (cur_pos >= 0) {
+        // The seek succeeded. We know where we are, and so, we assume, does
+        // the hFILE.
+        
+        // Tell the BGZF where it is (which is at the hFILE's position rather
+        // than the backend's, but we know the hFILE position is correct)
+        handle->block_address = htell(handle->fp);
+        
+        // We are backed by a tellable stream
+        know_offset = true;
+    }
 }
 
-BlockedGzipOutputStream::BlockedGzipOutputStream(std::ostream& stream) : handle(nullptr), buffer(), backed_up(0), byte_count(0) {
+BlockedGzipOutputStream::BlockedGzipOutputStream(std::ostream& stream) : handle(nullptr), buffer(), backed_up(0), byte_count(0),
+    know_offset(false) {
+    
     // Wrap the stream in an hFILE*
     hFILE* wrapped = hfile_wrap(stream);
     if (wrapped == nullptr) {
         throw runtime_error("Unable to wrap stream");
     }
-    
-    // Work out where we are in the stream by looking at the file.
-    auto file_start = htell(wrapped);
     
     // Give ownership of it to a BGZF that writes, which we in turn own.
     handle = bgzf_hopen(wrapped, "w");
@@ -47,10 +59,21 @@ BlockedGzipOutputStream::BlockedGzipOutputStream(std::ostream& stream) : handle(
         throw runtime_error("Unable to set up BGZF library on wrapped stream");
     }
     
-    // No need to flush because we just freshly opened the BGZF
+    stream.clear();
+    auto file_start = stream.tellp();
+    if (file_start >= 0 && stream.good()) {
+        // The stream we are wrapping is seekable.
+        
+        // We need to make sure BGZF knows where its blocks are starting.
     
-    // Tell the BGZF where its next block is actually starting, according to the hFILE.
-    handle->block_address = file_start;
+        // No need to flush because we just freshly opened the BGZF
+        
+        // Tell the BGZF where its next block is actually starting, according to the hFILE.
+        handle->block_address = file_start;
+        
+        // Remember the virtual offsets will be valid
+        know_offset = true;
+    }
 }
 
 BlockedGzipOutputStream::~BlockedGzipOutputStream() {
@@ -103,11 +126,19 @@ bool BlockedGzipOutputStream::AllowsAliasing() const {
 
 
 int64_t BlockedGzipOutputStream::Tell() {
-    // Make sure all data has been sent to BGZF
-    flush();
-    
-    // See where we are now
-    return bgzf_tell(handle);
+    if (know_offset) {
+        // Our virtual offsets are true.
+        
+        // Make sure all data has been sent to BGZF
+        flush();
+        
+        // See where we are now
+        return bgzf_tell(handle);
+    } else {
+        // We don't know where the zero position in the stream was, so we can't
+        // trust BGZF's virtual offsets.
+        return -1;
+    }
 }
 
 void BlockedGzipOutputStream::flush() {
@@ -351,7 +382,13 @@ hFILE* hfile_wrap(std::istream& input) {
     input.clear();
     auto start_pos = input.tellg();
     if (start_pos < 0 || !input.good()) {
-        throw runtime_error("Could not determine initial input position");
+        // The offset can't be determined, because this isn't a seekable stream.
+        // Use a 0 offset.
+        start_pos = 0;
+        
+        // TODO: This can be confused with starting at the beginning of a
+        // seekable stream, especially because hFILE allows seek within its
+        // buffer even when the backend doesn't.
     }
     fp->base.offset = start_pos;
     
@@ -379,9 +416,18 @@ hFILE* hfile_wrap(std::ostream& output) {
     output.clear();
     auto start_pos = output.tellp();
     if (start_pos < 0 || !output.good()) {
-        throw runtime_error("Could not determine initial output position");
+        // The offset can't be determined, because this isn't a seekable stream.
+        // Use a 0 offset.
+        start_pos = 0;
+        
+        // TODO: This can be confused with starting at the beginning of a
+        // seekable stream, especially because hFILE allows seek within its
+        // buffer even when the backend doesn't.
+        
     }
     fp->base.offset = start_pos;
+    
+    
     
     // Return the base hFILE*
     return &fp->base;
