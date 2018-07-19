@@ -51,7 +51,7 @@ BlockedGzipInputStream::~BlockedGzipInputStream() {
     bgzf_close(handle);
 }
 
-bool BlockedGzipInputStream::Next(void** data, int* size) {
+bool BlockedGzipInputStream::Next(const void** data, int* size) {
     if (handle->block_length != 0 && handle->block_offset != handle->block_length) {
         // We aren't just after a seek, but we also aren't at the end of a block. We backed up.
         
@@ -106,6 +106,37 @@ bool BlockedGzipInputStream::Next(void** data, int* size) {
 void BlockedGzipInputStream::BackUp(int count) {
     assert(count >= handle->block_offset);
     handle->block_offset -= count;    
+}
+
+bool BlockedGzipInputStream::Skip(int count) {
+    // We just implement this in terms of next and back up. There's not really
+    // a more efficient way, since we can't do relative seeks.
+    
+    // We have to support this happening immediately after a seek.
+    
+    while (count > 0) {
+        // Keep nexting until we get the block that is count away from where we are.
+        const void* ignored_data;
+        int size;
+        
+        if (!Next(&ignored_data, &size)) {
+            // We hit EOF, or had an error.
+            return false;
+        }
+        
+        // We accomplished this much skipping.
+        count -= size;
+    }
+    
+    if (count < 0) {
+        // We went too far. But we know we want to go somewhere in this buffer,
+        // or we would have finished the loop before we did.
+        BackUp(-count);
+        count = 0;
+    }
+    
+    return true;
+    
 }
 
 int64_t BlockedGzipInputStream::ByteCount() const {

@@ -1,7 +1,6 @@
 /// \file blocked_gzip_output_stream.cpp
 ///  
-/// Unit tests for BlockedGzipOutputStream and the many adapters that power it.
-///
+/// Unit tests for BlockedGzipOutputStream 
 
 #include "../blocked_gzip_output_stream.hpp"
 #include "../hfile_cppstream.hpp"
@@ -18,7 +17,7 @@ using namespace vg::stream;
 
 // We have a tiny function to get virtual offsets, based on the block's start
 // offset in the file, and the offset in the block
-int64_t vo(size_t block_start, size_t offset) {
+static int64_t vo(size_t block_start, size_t offset) {
     return (block_start << 16) | (0xFFFF & offset);
 }
 

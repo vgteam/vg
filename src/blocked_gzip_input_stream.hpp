@@ -37,11 +37,16 @@ public:
     /// an unrecoverable error or EOF, and true if a buffer was gotten. The
     /// data pointer must be valid until the next read call or until the stream
     /// is destroyed.
-    virtual bool Next(void** data, int* size);
+    virtual bool Next(const void** data, int* size);
     
     /// When called after Next(), mark the last count bytes of the buffer that
     /// Next() produced as not having been read.
     virtual void BackUp(int count);
+    
+    /// Skip ahead the given number of bytes. Return false if the end of the
+    /// stream is reached, or an error occurs. If the end of the stream is hit,
+    /// advances to the end of the stream.
+    virtual bool Skip(int count);
     
     /// Get the number of bytes read since the stream was constructed.
     virtual int64_t ByteCount() const;
