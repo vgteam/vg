@@ -126,12 +126,12 @@ bool write(std::ostream& out, size_t element_count, size_t chunk_elements,
     const std::function<T(size_t, size_t)>& lambda) {
     
     return write(out, element_count, chunk_elements,
-        (const typename std::function<T(int64_t, size_t, size_t)>&)
+        static_cast<const typename std::function<T(int64_t, size_t, size_t)>&>(
         [&lambda](int64_t virtual_offset, size_t chunk_start, size_t chunk_length) -> T {
         
         // Ignore the virtual offset
         return lambda(chunk_start, chunk_length);
-    });
+    }));
 }
 
 /// Write objects. count should be equal to the number of objects to write.
@@ -189,11 +189,11 @@ bool write(std::ostream& out, size_t count, const std::function<T(int64_t, size_
 template <typename T>
 bool write(std::ostream& out, size_t count, const std::function<T(size_t)>& lambda) {
     return write(out, count,
-        (const typename std::function<T(int64_t, size_t)>&)
+        static_cast<const typename std::function<T(int64_t, size_t)>&>(
         [&lambda](int64_t virtual_offset, size_t object_number) -> T {
         // Discard the virtual offset
         return lambda(object_number);
-    });
+    }));
 }
 
 template <typename T>
@@ -290,9 +290,9 @@ void for_each(std::istream& in,
 template <typename T>
 void for_each(std::istream& in,
               const std::function<void(T&)>& lambda) {
-    for_each(in, (const std::function<void(int64_t, T&)>&) [&lambda](int64_t virtual_offset, T& item) {
+    for_each(in, static_cast<const typename std::function<void(int64_t, T&)>&>([&lambda](int64_t virtual_offset, T& item) {
         lambda(item);
-    });
+    }));
 }
 
 // Parallelized versions of for_each
