@@ -252,6 +252,40 @@ TEST_CASE("a BlockedGzipInputStream can read large amounts of non-blocked compre
 
 }
 
+TEST_CASE("a BlockedGzipInputStream can read large amounts of uncompressed data", "[bgzip]") {
+    stringstream datastream;
+
+    {
+        // Write some data in
+        ::google::protobuf::io::OstreamOutputStream raw_out(&datastream);
+        ::google::protobuf::io::CodedOutputStream coded_out(&raw_out);
+        
+        for (uint32_t i = 0; i < 1000000; i++) {
+            // Generate ~4 MB of data
+            coded_out.WriteLittleEndian32(i);
+        }
+        
+    }
+    
+    // Stringstreams track put and get positions separately. So we will read from the beginning.
+    REQUIRE(datastream.tellg() == 0);
+    
+    // Now try and read it back
+    BlockedGzipInputStream bgzip_in(datastream);
+    ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
+    
+    uint32_t expected = 0;
+    uint32_t found;
+    
+    while(coded_in.ReadLittleEndian32(&found)) {
+        REQUIRE(found == expected);
+        expected++;
+    }
+    
+    REQUIRE(expected == 1000000);
+
+}
+
 TEST_CASE("a BlockedGzipInputStream can read large amounts of blocked compressed data", "[bgzip]") {
     stringstream datastream;
 
