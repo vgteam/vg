@@ -194,10 +194,10 @@ int main_paths(int argc, char** argv) {
                 thread_ids = xgidx.threads_named_starting(thread_prefix);
             }
             for (auto& id : thread_ids) {
-                //cerr << "thread_id " << id << endl;
                 gbwt::vector_type sequence = index.extract(gbwt::Path::encode(id-1, false));
                 Path path;
                 path.set_name(xgidx.thread_name(id));
+                size_t rank = 0;
                 for (auto node : sequence) {
                     Mapping* m = path.add_mapping();
                     Position* p = m->mutable_position();
@@ -207,6 +207,7 @@ int main_paths(int argc, char** argv) {
                     size_t len = xgidx.node_length(p->node_id());
                     e->set_to_length(len);
                     e->set_from_length(len);
+                    m->set_rank(rank++);
                 }
                 if (extract_as_gam) {
                     vector<Alignment> alns;
