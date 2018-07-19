@@ -87,6 +87,10 @@ bool BlockedGzipOutputStream::Next(void** data, int* size) {
         // Allocate some space in the buffer
         buffer.resize(4096);
         
+#ifdef debug
+        cerr << "Allocate buffer of " << buffer.size() << " bytes " << endl;
+#endif
+        
         // None of it is backed up
         backed_up = 0;
         
@@ -105,9 +109,16 @@ bool BlockedGzipOutputStream::Next(void** data, int* size) {
 void BlockedGzipOutputStream::BackUp(int count) {
     backed_up += count;
     assert(backed_up <= buffer.size());
+    
+#ifdef debug
+    cerr << "Back up " << count << " bytes to " << (buffer.size() - backed_up) << " still written" << endl;
+#endif
 }
 
 int64_t BlockedGzipOutputStream::ByteCount() const {
+#ifdef debug
+    cerr << "Report total bytes written as " << byte_count << endl;
+#endif
     return byte_count;
 }
 
@@ -141,6 +152,10 @@ void BlockedGzipOutputStream::flush() {
     // How many bytes are left to write?
     auto outstanding = buffer.size() - backed_up;
     if (outstanding > 0) {
+#ifdef debug
+        cerr << "Flush " << outstanding << " bytes to BGZF" << endl;
+#endif
+    
         // Save the buffer
         auto written = bgzf_write(handle, (void*)&buffer[0], outstanding);
         
@@ -151,6 +166,10 @@ void BlockedGzipOutputStream::flush() {
         
         // Record the actual write
         byte_count += written;
+        
+        // Make sure we don't try and write the same data twice by scrapping the buffer.
+        buffer.resize(0);
+        backed_up = 0;
     }
 }
 

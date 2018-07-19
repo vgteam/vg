@@ -80,6 +80,129 @@ TEST_CASE("Protobuf messages can be written and read back", "[stream]") {
 
 }
 
+TEST_CASE("Multiple write calls work correctly on the same stream", "[stream]") {
+    stringstream datastream;
+
+    // Define some functions to make and check fake Protobuf objects
+    using message_t = Position;
+    
+    size_t index_to_make = 0;
+    auto get_message = [&](size_t index) {
+        message_t item;
+        item.set_node_id(index_to_make);
+        index_to_make++;
+        return item;
+    };
+    
+    size_t index_expected = 0;
+    auto check_message = [&](const message_t& item) {
+        REQUIRE(item.node_id() == index_expected);
+        index_expected++;
+    };
+    
+    for (size_t i = 0; i < 10; i++) {
+        // Serialize some objects
+        REQUIRE(stream::write<message_t>(datastream, 1, get_message));
+    }
+    
+    // Read them back
+    stream::for_each<message_t>(datastream, check_message);
+
+}
+
+TEST_CASE("Single auto-chunking write calls work correctly", "[stream]") {
+    stringstream datastream;
+
+    // Define some functions to make and check fake Protobuf objects
+    using message_t = Graph;
+    
+    id_t id_to_make = 0;
+    auto get_message = [&](size_t start, size_t count) {
+        message_t item;
+        
+        for(size_t i = 0; i < count; i++) {
+            // Put nodes with those IDs in
+            Node* added = item.add_node();
+            added->set_id(id_to_make);
+            id_to_make++;
+#ifdef debug
+            cerr << "Emit item " << added->id() << endl;
+#endif
+        }
+        
+        return item;
+    };
+    
+    id_t id_expected = 0;
+    auto check_message = [&](const message_t& item) {
+        for (size_t i = 0; i < item.node_size(); i++) {
+            // Make sure they come out in the same order
+#ifdef debug
+            cerr << "Found item " << item.node(i).id() << endl;
+#endif
+            REQUIRE(item.node(i).id() == id_expected);
+            id_expected++;
+        }
+    };
+    
+    // Serialize some objects with dynamic chunking
+    REQUIRE(stream::write<message_t>(datastream, 10, 1, get_message));
+    
+    // Read them back
+    stream::for_each<message_t>(datastream, check_message);
+    
+    // Make sure we saw them all
+    REQUIRE(id_expected == 10);
+
+}
+
+TEST_CASE("Multiple auto-chunking write calls work correctly on the same stream", "[stream]") {
+    stringstream datastream;
+
+    // Define some functions to make and check fake Protobuf objects
+    using message_t = Graph;
+    
+    id_t id_to_make = 0;
+    auto get_message = [&](size_t start, size_t count) {
+        message_t item;
+        
+        for(size_t i = 0; i < count; i++) {
+            // Put nodes with those IDs in
+            Node* added = item.add_node();
+            added->set_id(id_to_make);
+            id_to_make++;
+#ifdef debug
+            cerr << "Emit item " << added->id() << endl;
+#endif
+        }
+        
+        return item;
+    };
+    
+    id_t id_expected = 0;
+    auto check_message = [&](const message_t& item) {
+        for (size_t i = 0; i < item.node_size(); i++) {
+            // Make sure they come out in the same order
+#ifdef debug
+            cerr << "Found item " << item.node(i).id() << endl;
+#endif
+            REQUIRE(item.node(i).id() == id_expected);
+            id_expected++;
+        }
+    };
+    
+    for (size_t i = 0; i < 3; i++) {
+        // Serialize some objects with dynamic chunking
+        REQUIRE(stream::write<message_t>(datastream, 10, 1, get_message));
+    }
+    
+    // Read them back
+    stream::for_each<message_t>(datastream, check_message);
+    
+    // Make sure we saw them all
+    REQUIRE(id_expected == 30);
+
+}
 
 }
 

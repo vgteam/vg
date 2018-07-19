@@ -25,6 +25,8 @@ namespace vg {
 
 namespace stream {
 
+using namespace std;
+
 /// Protobuf will refuse to read messages longer than this size.
 const size_t MAX_PROTOBUF_SIZE = 1000000000;
 /// We aim to generate messages that are this size
@@ -63,10 +65,19 @@ bool write(std::ostream& out, size_t element_count, size_t chunk_elements,
         // TODO: we need to back up the coded output stream after every chunk,
         // and push the partial buffer into BGZF, and get a new buffer, which 
         // wastes time.
+#ifdef debug
+        cerr << "Trim stream and determine offset" << endl;
+#endif
         coded_out.Trim(); 
         int64_t virtual_offset = bgzip_out.Tell();
+#ifdef debug
+        cerr << "Offset is " << virtual_offset << endl;
+#endif
     
         // Serialize a chunk
+#ifdef debug
+        cerr << "Go get " << chunk_elements << " elements" << endl;
+#endif
         std::string chunk_data;
         handle(lambda(virtual_offset, serialized, chunk_elements).SerializeToString(&chunk_data));
     
@@ -84,15 +95,31 @@ bool write(std::ostream& out, size_t element_count, size_t chunk_elements,
             }
         } else {
             // We can send this message
+#ifdef debug
+            cerr << "Writing message/group of " << chunk_data.size() << " bytes and elements "
+                << serialized << "-" << (serialized + chunk_elements) << endl;
+#endif
             
             // Say we have a group of a single message
+#ifdef debug
+            cerr << "\tWrite group length" << endl;
+#endif
             coded_out.WriteVarint64(1);
             handle(!coded_out.HadError());
             // and prefix each object with its size
+#ifdef debug
+            cerr << "\tWrite message length" << endl;
+#endif
             coded_out.WriteVarint32(chunk_data.size());
             handle(!coded_out.HadError());
+#ifdef debug
+            cerr << "\tWrite message data" << endl;
+#endif
             coded_out.WriteRaw(chunk_data.data(), chunk_data.size());
             handle(!coded_out.HadError());
+#ifdef debug
+            cerr << "\tMessage/group written" << endl;
+#endif
             
             // Remember how far we've serialized now
             serialized += chunk_elements;
@@ -172,6 +199,11 @@ bool write(std::ostream& out, size_t count, const std::function<T(int64_t, size_
         if (s.size() > MAX_PROTOBUF_SIZE) {
             throw std::runtime_error("stream::write: message too large error writing protobuf");
         }
+        
+#ifdef debug
+        cerr << "Writing message of " << s.size() << " bytes at " << n << "/" << count << " in group @ " << virtual_offset << endl;
+#endif
+        
         // and prefix each object with its size
         coded_out.WriteVarint32(s.size());
         handle(!coded_out.HadError());
@@ -267,6 +299,10 @@ void for_each_with_group_length(std::istream& in,
                 throw std::runtime_error("[stream::for_each] protobuf message of " +
                     std::to_string(msgSize) + " bytes is too long");
             }
+            
+#ifdef debug
+            cerr << "Reading message of " << msgSize << " bytes at " << i << "/" << count << " in group @ " << virtual_offset << endl; 
+#endif
             
             // Note that the message may be 0-size, which is a valid (all default values) Protobuf message.
             T object;

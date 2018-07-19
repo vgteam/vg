@@ -5,6 +5,8 @@
 
 #include <errno.h>
 
+#include <iostream>
+
 namespace vg {
 
 namespace stream {
