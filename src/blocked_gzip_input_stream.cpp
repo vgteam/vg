@@ -65,10 +65,18 @@ bool BlockedGzipInputStream::Next(const void** data, int* size) {
         
         // Send the offset to the end of the block again
         handle->block_offset = handle->block_length;
+        handle->uncompressed_address += *size;
         
         return true;
     } else {
         // We need new data. Either we did a seek, or we are at the end of the previous block.
+        
+        if (bgzf_compression(handle) != 2) {
+            // We're not BGZF compressed. bgzf_read_block only resets the
+            // block_offset (when not seeking) for BGZF files. We have to do it
+            // manually.
+            handle->block_offset = 0;
+        }
         
         // Make the BGZF read the next block
         if (bgzf_read_block(handle) != 0) {
@@ -98,6 +106,7 @@ bool BlockedGzipInputStream::Next(const void** data, int* size) {
         // Tell the BGZF that the cursor is at the end of the block (because it
         // is; subsequent reads come from there)
         handle->block_offset = handle->block_length;
+        handle->uncompressed_address += *size;
         
         return true;
     }
@@ -105,7 +114,8 @@ bool BlockedGzipInputStream::Next(const void** data, int* size) {
 
 void BlockedGzipInputStream::BackUp(int count) {
     assert(count <= handle->block_offset);
-    handle->block_offset -= count;    
+    handle->block_offset -= count;
+    handle->uncompressed_address -= count;
 }
 
 bool BlockedGzipInputStream::Skip(int count) {

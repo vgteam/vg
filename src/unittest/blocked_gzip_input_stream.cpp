@@ -30,7 +30,7 @@ static int64_t vo(size_t block_start, size_t offset) {
 TEST_CASE("a BlockedGzipInputStream can read from a stringstream", "[bgzip]") {
     stringstream datastream;
     
-    string TO_COMPRESS = "It's cheap and it's ethical... well, it's ethical... well, it's magical really";
+    const string TO_COMPRESS = "It's cheap and it's ethical... well, it's ethical... well, it's magical really";
     
     {
         // Write some data in
@@ -38,6 +38,9 @@ TEST_CASE("a BlockedGzipInputStream can read from a stringstream", "[bgzip]") {
         ::google::protobuf::io::CodedOutputStream coded_out(&bgzip_out);
         coded_out.WriteString(TO_COMPRESS);
     }
+    
+    REQUIRE(datastream.tellp() == 0);
+    REQUIRE(datastream.tellg() == 0);
     
     // Now try and read it back
     BlockedGzipInputStream bgzip_in(datastream);
@@ -131,7 +134,7 @@ TEST_CASE("a BlockedGzipInputStream can read from a stringstream", "[bgzip]") {
 TEST_CASE("a BlockedGzipInputStream can read non-blocked gzip-compressed data", "[bgzip]") {
     stringstream datastream;
     
-    string TO_COMPRESS = "But wait, it comes with a warranty for a week, and that's respectable";
+    const string TO_COMPRESS = "But wait, it comes with a warranty for a week, and that's respectable";
     
     {
         // Write some data in
@@ -140,6 +143,9 @@ TEST_CASE("a BlockedGzipInputStream can read non-blocked gzip-compressed data", 
         ::google::protobuf::io::CodedOutputStream coded_out(&gzip_out);
         coded_out.WriteString(TO_COMPRESS);
     }
+    
+    REQUIRE(datastream.tellp() == 0);
+    REQUIRE(datastream.tellg() == 0);
     
     // Now try and read it back
     BlockedGzipInputStream bgzip_in(datastream);
@@ -208,6 +214,43 @@ TEST_CASE("a BlockedGzipInputStream can read non-blocked gzip-compressed data", 
         REQUIRE(buffer[0] == TO_COMPRESS[10]);
     }
 
+
+}
+
+TEST_CASE("a BlockedGzipInputStream can read large amounts of non-blocked compressed data", "[bgzip]") {
+    stringstream datastream;
+
+    {
+        // Write some data in
+        ::google::protobuf::io::OstreamOutputStream raw_out(&datastream);
+        ::google::protobuf::io::GzipOutputStream gzip_out(&raw_out);
+        ::google::protobuf::io::CodedOutputStream coded_out(&gzip_out);
+        
+        for (uint32_t i = 0; i < 1000000; i++) {
+            // Generate ~4 MB of data
+            coded_out.WriteLittleEndian32(i);
+        }
+        
+    }
+    
+    // Stringstreams track put and get positions separately.
+    // Seek back to the beginng.
+    datastream.seekp(0);
+    datastream.seekg(0);
+    
+    // Now try and read it back
+    BlockedGzipInputStream bgzip_in(datastream);
+    ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
+    
+    uint32_t expected = 0;
+    uint32_t found;
+    
+    while(coded_in.ReadLittleEndian32(&found)) {
+        REQUIRE(found == expected);
+        expected++;
+    }
+    
+    REQUIRE(expected == 1000000);
 
 }
 
