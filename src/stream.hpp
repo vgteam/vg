@@ -126,7 +126,7 @@ bool write(std::ostream& out, size_t element_count, size_t chunk_elements,
     const std::function<T(size_t, size_t)>& lambda) {
     
     return write(out, element_count, chunk_elements,
-        (const std::function<T(int64_t, size_t, size_t)>&)
+        (const typename std::function<T(int64_t, size_t, size_t)>&)
         [&lambda](int64_t virtual_offset, size_t chunk_start, size_t chunk_length) -> T {
         
         // Ignore the virtual offset
@@ -189,7 +189,7 @@ bool write(std::ostream& out, size_t count, const std::function<T(int64_t, size_
 template <typename T>
 bool write(std::ostream& out, size_t count, const std::function<T(size_t)>& lambda) {
     return write(out, count,
-        (const std::function<T(int64_t, size_t)>&)
+        (const typename std::function<T(int64_t, size_t)>&)
         [&lambda](int64_t virtual_offset, size_t object_number) -> T {
         // Discard the virtual offset
         return lambda(object_number);
