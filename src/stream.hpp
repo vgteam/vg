@@ -489,18 +489,18 @@ void for_each_parallel(std::istream& in,
 
     
 /*
- * Refactored stream::for_each function that follows the unidirectional iterator interface
+ * Refactored stream::for_each function that follows the unidirectional iterator interface.
+ * Also supports seeking and telling at the group level in bgzip files.
  */
 template <typename T>
 class ProtobufIterator {
 public:
     /// Constructor
     ProtobufIterator(std::istream& in) :
-        where(0),
         chunk_count(0),
         chunk_idx(0),
-        bgzip_in(in),
-        coded_in(&bgzip_in)
+        chunk(-1),
+        bgzip_in(in)
     {
         get_next();
     }
@@ -509,41 +509,54 @@ public:
     
 //    inline ProtobufIterator<T>& operator=(const ProtobufIterator<T>& other) {
 //        value = other.value;
-//        where = other.where;
 //        chunk_count = other.chunk_count;
 //        chunk_idx = other.chunk_idx;
+//        chunk = other.chunk;
 //        bgzip_in = other.bgzip_in;
-//        coded_in = other.coded_in;
 //    }
 
     
     inline bool has_next() {
-        return where != 0;
+        return chunk != -1;
     }
     
     void get_next() {
+        // Determine exactly where we are positioned, if possible, before creating the CodedInputStream
+        auto virtual_offset = bgzip_in.Tell();
+    
+        // We need a fresh CodedInputStream every time, because of the total byte limit
+        ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
+        // Alot space for size, and for reading chunk's length
+        coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
+    
         if (chunk_count == chunk_idx) {
+            // We have made it to the end of the chunk we are reading. We will start a new chunk now.
+            
+            if (virtual_offset == -1) {
+                // We don't have seek capability, so we just count up the chunks we read.
+                // On construction this is -1; bump it up to 0 for the first chunk.
+                chunk++;
+            } else {
+                // We can seek. We need to know what offset we are at
+                chunk = virtual_offset;
+            }
+            
+            // Start at the start of the new chunk
             chunk_idx = 0;
+            // Try and read its size
             if (!coded_in.ReadVarint64((::google::protobuf::uint64*) &chunk_count)) {
                 // This is the end of the input stream, switch to state that
                 // will match the end constructor
-                where = 0;
+                chunk = -1;
                 value = T();
                 return;
             }
         }
         
-        std::string s;
-        uint32_t msgSize = 0;
-        // Reconstruct the CodedInputStream in place to reset its maximum-
-        // bytes-ever-read counter, because it thinks it's reading a single
-        // message.
-        coded_in.~CodedInputStream();
-        new (&coded_in) ::google::protobuf::io::CodedInputStream(&bgzip_in);
-        // Alot space for size, and for reading next chunk's length
-        coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
+        // Now we know we're in a chunk
         
-        // the messages are prefixed by their size
+        // The messages are prefixed by their size
+        uint32_t msgSize = 0;
         handle(coded_in.ReadVarint32(&msgSize));
         
         if (msgSize > MAX_PROTOBUF_SIZE) {
@@ -552,15 +565,16 @@ public:
         }
         
         if (msgSize) {
+            // We have a message. Parse it.
             value.Clear();
+            std::string s;
             handle(coded_in.ReadString(&s, msgSize));
             handle(value.ParseFromString(s));
-        }
-        else {
+        } else {
             get_next();
         }
         
-        where++;
+        // Move on to the next message in the chunk
         chunk_idx++;
     }
     
@@ -574,31 +588,75 @@ public:
         return value;
     }
     
+    /// Return the virtual offset of the group being currently read, to seek back to.
+    /// You can't seek back to the current message, just to the start of the group.
+    /// Returns -1 instead if the underlying file doesn't support seek/tell.
+    inline int64_t tell_group() {
+        if (bgzip_in.Tell() != -1) {
+            // The backing file supports seek/tell (which we ascertain by attempting it).
+            // Return the *chunk's* virtual offset (not the current one)
+            return chunk;
+        } else {
+            // Chunk holds a count. But we need to say we can't seek.
+            return -1;
+        }
+    }
+    
+    /// Seek to the given virtual offset and start reading the chunk that is there.
+    /// The next value produced will be the first value in that chunk.
+    /// Return false if seeking is unsupported or the seek fails.
+    inline bool seek_group(int64_t virtual_offset) {
+        if (virtual_offset < 0) {
+            // That's not allowed
+            return false;
+        }
+        
+        // Try and do the seek
+        bool sought = bgzip_in.Seek(virtual_offset);
+        
+        if (!sought) {
+            // We can't seek
+            return false;
+        }
+        
+        // Get ready to read the group that's here
+        chunk_count = 0;
+        chunk_idx = 0;
+        
+        // Read it (or detect EOF)
+        get_next();
+        
+        // It worked!
+        return true;
+    }
+    
+    /// Returns iterators that act like begin() and end() for a stream containing protobuf data
+    static std::pair<ProtobufIterator<T>, ProtobufIterator<T>> range(std::istream& in) {
+        return std::make_pair(ProtobufIterator<T>(in), ProtobufIterator<T>());
+    }
+    
 private:
     
     T value;
     
-    // For testing identity with another iterator
-    size_t where;
-    
+    // This holds the number of messages that exist in the current chunk.
     size_t chunk_count;
+    // This holds the number of messages read in the current chunk.
     size_t chunk_idx;
+    // This holds the virtual offset of the current chunk's start, or the
+    // number of the current chunk if seeking is not available.
+    // If the iterator is the end iterator, this is -1.
+    int64_t chunk;
     
     BlockedGzipInputStream bgzip_in;
-    ::google::protobuf::io::CodedInputStream coded_in;
     
     void handle(bool ok) {
         if (!ok) {
-            throw std::runtime_error("[stream::for_each] obsolete, invalid, or corrupt protobuf input");
+            throw std::runtime_error("[stream::ProtobufIterator] obsolete, invalid, or corrupt protobuf input");
         }
     }
 };
 
-/// Returns iterators that act like begin() and end() for a stream containing protobuf data
-template <typename T>
-std::pair<ProtobufIterator<T>, ProtobufIterator<T>> protobuf_iterator_range(std::istream& in) {
-    return std::make_pair(ProtobufIterator<T>(in), ProtobufIterator<T>());
-}
 
 }
 
