@@ -39,7 +39,7 @@ TEST_CASE("a BlockedGzipInputStream can read from a stringstream", "[bgzip]") {
         coded_out.WriteString(TO_COMPRESS);
     }
     
-    REQUIRE(datastream.tellp() == 0);
+    // Stringstreams track put and get positions separately. So we will read from the beginning.
     REQUIRE(datastream.tellg() == 0);
     
     // Now try and read it back
@@ -144,7 +144,7 @@ TEST_CASE("a BlockedGzipInputStream can read non-blocked gzip-compressed data", 
         coded_out.WriteString(TO_COMPRESS);
     }
     
-    REQUIRE(datastream.tellp() == 0);
+    // Stringstreams track put and get positions separately. So we will read from the beginning.
     REQUIRE(datastream.tellg() == 0);
     
     // Now try and read it back
@@ -233,10 +233,8 @@ TEST_CASE("a BlockedGzipInputStream can read large amounts of non-blocked compre
         
     }
     
-    // Stringstreams track put and get positions separately.
-    // Seek back to the beginng.
-    datastream.seekp(0);
-    datastream.seekg(0);
+    // Stringstreams track put and get positions separately. So we will read from the beginning.
+    REQUIRE(datastream.tellg() == 0);
     
     // Now try and read it back
     BlockedGzipInputStream bgzip_in(datastream);
