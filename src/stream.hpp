@@ -247,6 +247,7 @@ void for_each_with_group_length(std::istream& in,
         // Call the count callback
         handle_count(count);
         
+        // Make a shared buffer string to hold message data for each message.
         std::string s;
         for (size_t i = 0; i < count; ++i) {
             uint32_t msgSize = 0;
@@ -267,15 +268,15 @@ void for_each_with_group_length(std::istream& in,
                     std::to_string(msgSize) + " bytes is too long");
             }
             
-            if (msgSize) {
-                // If the message is nonempty, read it into a string
+            // Note that the message may be 0-size, which is a valid (all default values) Protobuf message.
+            T object;
+            if (msgSize > 0) {
+                // Actually need to parse the nonempty message
                 handle(coded_in.ReadString(&s, msgSize));
-                // Deserialize it
-                T object;
                 handle(object.ParseFromString(s));
-                // Process it, passing along the virtual offset of the group, if available
-                lambda(virtual_offset, object);
             }
+            // Process the message, passing along the virtual offset of the group, if available
+            lambda(virtual_offset, object);
         }
     }
 }
@@ -360,10 +361,14 @@ void for_each_parallel_impl(std::istream& in,
                         std::to_string(msgSize) + " bytes is too long");
                 }
                 
-                if (msgSize) {
-                    // pick off the message (serialized protobuf object)
+               
+                {
                     std::string s;
-                    handle(coded_in.ReadString(&s, msgSize));
+                    if (msgSize > 0) {
+                        // pick off the message (serialized protobuf object)
+                        handle(coded_in.ReadString(&s, msgSize));
+                    }
+                    // Even empty messages need to be handled; they are all-default Protobuf objects.
                     batch->push_back(std::move(s));
                 }
 
@@ -564,15 +569,15 @@ public:
                                      std::to_string(msgSize) + " bytes is too long");
         }
         
+        
+        // We have a message.
+        value.Clear();
         if (msgSize) {
-            // We have a message. Parse it.
-            value.Clear();
+            // It has non-default field values. Parse them.
             std::string s;
             handle(coded_in.ReadString(&s, msgSize));
             handle(value.ParseFromString(s));
-        } else {
-            get_next();
-        }
+        } 
         
         // Move on to the next message in the chunk
         chunk_idx++;

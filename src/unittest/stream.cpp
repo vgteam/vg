@@ -42,13 +42,17 @@ TEST_CASE("Protobuf messages can be written and read back", "[stream]") {
     auto get_message = [&](size_t index) {
         message_t item;
         item.set_node_id(index);
+#ifdef debug
         cerr << "Made item " << index << endl;
+#endif
         return item;
     };
     
     size_t index_expected = 0;
     auto check_message = [&](const message_t& item) {
+#ifdef debug
         cerr << "Read item " << item.node_id() << endl;
+#endif
         REQUIRE(item.node_id() == index_expected);
         index_expected++;
     };
@@ -56,6 +60,8 @@ TEST_CASE("Protobuf messages can be written and read back", "[stream]") {
     // Serialize some objects
     REQUIRE(stream::write<message_t>(datastream, 10, get_message));
     
+#ifdef debug
+    // Dump the compressed data
     auto data = datastream.str();
     for (size_t i = 0; i < data.size(); i++) {
         ios state(nullptr);
@@ -67,6 +73,7 @@ TEST_CASE("Protobuf messages can be written and read back", "[stream]") {
         cerr.copyfmt(state);
     }
     cerr << endl;
+#endif
    
     // Read them back
     stream::for_each<message_t>(datastream, check_message);
