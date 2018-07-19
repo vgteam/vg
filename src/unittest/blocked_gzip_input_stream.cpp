@@ -9,6 +9,7 @@
 
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/gzip_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
 
 
 #include <htslib/hfile.h>
@@ -38,10 +39,10 @@ TEST_CASE("a BlockedGzipInputStream can read from a stringstream", "[bgzip]") {
         coded_out.WriteString(TO_COMPRESS);
     }
     
-    SECTION("data can be read the first time through, from the start") {
+    // Now try and read it back
+    BlockedGzipInputStream bgzip_in(datastream);
     
-        // Now try and read it back
-        BlockedGzipInputStream bgzip_in(datastream);
+    SECTION("data can be read the first time through, from the start") {
     
         REQUIRE(bgzip_in.Tell() == vo(0, 0));
         
@@ -74,7 +75,6 @@ TEST_CASE("a BlockedGzipInputStream can read from a stringstream", "[bgzip]") {
     }
     
     SECTION("data can be seeked into") {
-        BlockedGzipInputStream bgzip_in(datastream);
     
         // Make sure we started at the start
         REQUIRE(bgzip_in.Tell() == vo(0, 0));
@@ -109,11 +109,107 @@ TEST_CASE("a BlockedGzipInputStream can read from a stringstream", "[bgzip]") {
             
         }
         
+        SECTION("skip works") {
+            REQUIRE(bgzip_in.Seek(vo(0, 0)));
+            bgzip_in.Skip(5);
+            REQUIRE(bgzip_in.Tell() == vo(0, 5));
+            
+            buffer_size = 0;
+            while(buffer_size == 0) {
+                // Fish for data until we get some
+                REQUIRE(bgzip_in.Next((const void**)&buffer, &buffer_size));
+            }
+            
+            REQUIRE(buffer[0] == TO_COMPRESS[5]);
+        }
+        
         
     }
         
 }
 
+TEST_CASE("a BlockedGzipInputStream can read non-blocked gzip-compressed data", "[bgzip]") {
+    stringstream datastream;
+    
+    string TO_COMPRESS = "But wait, it comes with a warranty for a week, and that's respectable";
+    
+    {
+        // Write some data in
+        ::google::protobuf::io::OstreamOutputStream raw_out(&datastream);
+        ::google::protobuf::io::GzipOutputStream gzip_out(&raw_out);
+        ::google::protobuf::io::CodedOutputStream coded_out(&gzip_out);
+        coded_out.WriteString(TO_COMPRESS);
+    }
+    
+    // Now try and read it back
+    BlockedGzipInputStream bgzip_in(datastream);
+    
+    SECTION("data can be read the first time through, from the start") {
+    
+        // We can't seek
+        REQUIRE(bgzip_in.Tell() == -1);
+        
+        const char* buffer;
+        int buffer_size;
+        REQUIRE(bgzip_in.Next((const void**)&buffer, &buffer_size));
+        
+        int block = 0;
+        int good_through = 0;
+        
+        do {
+        
+            // Check each block we read out of the stream
+            
+            // We still can't seek
+            REQUIRE(bgzip_in.Tell() == -1);
+            
+            for (size_t i = 0; i < buffer_size; i++) {
+                // Check all the characters
+                REQUIRE(buffer[i] == TO_COMPRESS[good_through + i]);
+            }
+            
+            good_through += buffer_size;
+            block++;
+            
+        } while (bgzip_in.Next((const void**)&buffer, &buffer_size));
+        
+        REQUIRE(good_through == TO_COMPRESS.size());
+    }
+    
+    SECTION("seeking refuses to work") {
+        REQUIRE(bgzip_in.Tell() == -1);
+        REQUIRE(!bgzip_in.Seek(vo(0, 10)));
+        REQUIRE(bgzip_in.Tell() == -1);
+        
+        const char* buffer;
+        int buffer_size = 0;
+        while(buffer_size == 0) {
+            // Fish for data until we get some
+            REQUIRE(bgzip_in.Next((const void**)&buffer, &buffer_size));
+        }
+        
+        // Make sure we got the right data, even though we tried to seek
+        REQUIRE(buffer[0] == TO_COMPRESS[0]);
+    }
+    
+    SECTION("Skip works") {
+        REQUIRE(bgzip_in.Tell() == -1);
+        REQUIRE(bgzip_in.Skip(10));
+        REQUIRE(bgzip_in.Tell() == -1);
+        
+        const char* buffer;
+        int buffer_size = 0;
+        while(buffer_size == 0) {
+            // Fish for data until we get some
+            REQUIRE(bgzip_in.Next((const void**)&buffer, &buffer_size));
+        }
+        
+        // Make sure we got the right data that we skipped to
+        REQUIRE(buffer[0] == TO_COMPRESS[10]);
+    }
+
+
+}
 
 }
 

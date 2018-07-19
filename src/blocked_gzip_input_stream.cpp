@@ -104,7 +104,7 @@ bool BlockedGzipInputStream::Next(const void** data, int* size) {
 }
 
 void BlockedGzipInputStream::BackUp(int count) {
-    assert(count >= handle->block_offset);
+    assert(count <= handle->block_offset);
     handle->block_offset -= count;    
 }
 
