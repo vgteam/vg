@@ -19,6 +19,7 @@
 #include <google/protobuf/io/coded_stream.h>
 
 #include "blocked_gzip_output_stream.hpp"
+#include "blocked_gzip_input_stream.hpp"
 
 namespace vg {
 
@@ -209,43 +210,56 @@ bool write_buffered(std::ostream& out, std::vector<T>& buffer, size_t buffer_lim
 
 /// Deserialize the input stream into the objects. Skips over groups of objects
 /// with count 0. Takes a callback function to be called on the objects, with
-/// the object and the maximum blocked gzip virtual offset to seek to to find
-/// it (or -1 if the input is not blocked gzipped), and another to be called
-/// per object group.
+/// the object and the blocked gzip virtual offset of its group (or -1 if the
+/// input is not blocked gzipped), and another to be called per object group
+/// with the group size.
 template <typename T>
 void for_each_with_group_length(std::istream& in,
               const std::function<void(int64_t, T&)>& lambda,
               const std::function<void(size_t)>& handle_count) {
 
-    ::google::protobuf::io::IstreamInputStream raw_in(&in);
-    ::google::protobuf::io::GzipInputStream gzip_in(&raw_in);
-    ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
+    BlockedGzipInputStream bgzip_in(in);
 
+    // Have a function to complain if any protobuf things report failure
     auto handle = [](bool ok) {
         if (!ok) {
             throw std::runtime_error("[stream::for_each] obsolete, invalid, or corrupt protobuf input");
         }
     };
 
-    size_t count;
-    // this loop handles a chunked file with many pieces
-    // such as we might write in a multithreaded process
-    while (coded_in.ReadVarint64((::google::protobuf::uint64*) &count)) {
-
+    while (true) {
+        // For each count-prefixed group
+    
+        // Get the offset we're at, or -1 if we can't seek/tell
+        int64_t virtual_offset = bgzip_in.Tell();
+        
+        // Read the count
+        size_t count;
+        {
+            ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
+            bool saw_count = coded_in.ReadVarint64((::google::protobuf::uint64*) &count);
+            if (!saw_count) {
+                // EOF (probably)
+                return;
+            }
+        }
+        
+        // Call the count callback
         handle_count(count);
-
+        
         std::string s;
         for (size_t i = 0; i < count; ++i) {
             uint32_t msgSize = 0;
-            // Reconstruct the CodedInputStream in place to reset its maximum-
-            // bytes-ever-read counter, because it thinks it's reading a single
-            // message.
-            coded_in.~CodedInputStream();
-            new (&coded_in) ::google::protobuf::io::CodedInputStream(&gzip_in);
+            
+            // Make sure to use a new CodedInputStream every time, because each
+            // one limits all input size on the assumption it is reading a
+            // single message.
+            ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
+            
             // Alot space for size, and for reading next chunk's length
             coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
             
-            // the messages are prefixed by their size
+            // the messages are prefixed by their size. Insist on reading it.
             handle(coded_in.ReadVarint32(&msgSize));
             
             if (msgSize > MAX_PROTOBUF_SIZE) {
@@ -254,25 +268,31 @@ void for_each_with_group_length(std::istream& in,
             }
             
             if (msgSize) {
+                // If the message is nonempty, read it into a string
                 handle(coded_in.ReadString(&s, msgSize));
+                // Deserialize it
                 T object;
                 handle(object.ParseFromString(s));
-                lambda(-1, object);
+                // Process it, passing along the virtual offset of the group, if available
+                lambda(virtual_offset, object);
             }
         }
     }
 }
     
-    
+template <typename T>
+void for_each(std::istream& in,
+              const std::function<void(int64_t, T&)>& lambda) {
+    std::function<void(size_t)> noop = [](size_t) { };
+    for_each_with_group_length(in, lambda, noop);
+}
 
 template <typename T>
 void for_each(std::istream& in,
               const std::function<void(T&)>& lambda) {
-    std::function<void(size_t)> noop = [](size_t) { };
-    for_each_with_group_length(in, 
-        (const std::function<void(int64_t, T&)>&)
-        [&lambda](int64_t virtual_offset, T& item) {lambda(item);},
-        noop);
+    for_each(in, (const std::function<void(int64_t, T&)>&) [&lambda](int64_t virtual_offset, T& item) {
+        lambda(item);
+    });
 }
 
 // Parallelized versions of for_each
@@ -308,9 +328,8 @@ void for_each_parallel_impl(std::istream& in,
             if (!retval) throw std::runtime_error("obsolete, invalid, or corrupt protobuf input");
         };
 
-        ::google::protobuf::io::IstreamInputStream raw_in(&in);
-        ::google::protobuf::io::GzipInputStream gzip_in(&raw_in);
-        ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
+        BlockedGzipInputStream bgzip_in(in);
+        ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
 
         std::vector<std::string> *batch = nullptr;
         
@@ -328,7 +347,7 @@ void for_each_parallel_impl(std::istream& in,
                 // bytes-ever-read counter, because it thinks it's reading a single
                 // message.
                 coded_in.~CodedInputStream();
-                new (&coded_in) ::google::protobuf::io::CodedInputStream(&gzip_in);
+                new (&coded_in) ::google::protobuf::io::CodedInputStream(&bgzip_in);
                 // Allot space for size, and for reading next chunk's length
                 coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
                 
@@ -480,9 +499,8 @@ public:
         where(0),
         chunk_count(0),
         chunk_idx(0),
-        raw_in(&in),
-        gzip_in(&raw_in),
-        coded_in(&gzip_in)
+        bgzip_in(in),
+        coded_in(&bgzip_in)
     {
         get_next();
     }
@@ -494,8 +512,7 @@ public:
 //        where = other.where;
 //        chunk_count = other.chunk_count;
 //        chunk_idx = other.chunk_idx;
-//        raw_in = other.raw_in;
-//        gzip_in = other.gzip_in;
+//        bgzip_in = other.bgzip_in;
 //        coded_in = other.coded_in;
 //    }
 
@@ -522,7 +539,7 @@ public:
         // bytes-ever-read counter, because it thinks it's reading a single
         // message.
         coded_in.~CodedInputStream();
-        new (&coded_in) ::google::protobuf::io::CodedInputStream(&gzip_in);
+        new (&coded_in) ::google::protobuf::io::CodedInputStream(&bgzip_in);
         // Alot space for size, and for reading next chunk's length
         coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
         
@@ -567,8 +584,7 @@ private:
     size_t chunk_count;
     size_t chunk_idx;
     
-    ::google::protobuf::io::IstreamInputStream raw_in;
-    ::google::protobuf::io::GzipInputStream gzip_in;
+    BlockedGzipInputStream bgzip_in;
     ::google::protobuf::io::CodedInputStream coded_in;
     
     void handle(bool ok) {
