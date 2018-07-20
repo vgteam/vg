@@ -558,7 +558,7 @@ namespace vg {
                         // region
                         trim_to_variable(parsed_clump[variant]);
                     } else {
-                        cerr << "Is symbolic: " << *variant << endl;
+                        //cerr << "Is symbolic: " << *variant << endl;
                         // For now, only permit one allele for SVs
                         // in the future, we'll build out VCF lib to fix this.
                         // TODO build out vcflib to fix this.
@@ -719,8 +719,9 @@ namespace vg {
                             // inversion_starts[inv_start - 1].insert(inv_end);
                             // inversion_ends[inv_end + 1].insert(inv_start);
 
-                            inversion_starts[inv_start].insert(inv_end + 1);
-                            inversion_ends[inv_end].insert(inv_start - 1);
+                            inversion_starts[inv_start].insert(inv_end);
+                            inversion_ends[inv_end - 1].insert(inv_start - 1);
+                            cerr << *variant << endl << inv_start << " " << inv_end << endl;
                         }
                         else {
                             // Unknown or unsupported SV type
@@ -1504,7 +1505,7 @@ namespace vg {
             if (vvar->is_symbolic_sv() && this->do_svs) {
                 // Canonicalize the variant and see if that disqualifies it.
                 // This also takes care of setting the variant's insertion sequences.
-                variant_acceptable = vvar->canonicalize(reference, insertions, true, -1);
+                variant_acceptable = vvar->canonicalize(reference, insertions, true);
                     
                 if (variant_acceptable) {
                     // Worth checking for multiple alts.
