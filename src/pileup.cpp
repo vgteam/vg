@@ -62,8 +62,7 @@ void Pileups::write(ostream& out, size_t chunk_size) {
     EdgePileupHash::iterator edge_it = _edge_pileups.begin();
     Pileup pileup;
 
-    // note: this won't work at all in parallel but presumably write
-    // is single threaded...
+    // note: this won't work at all in parallel but write is single threaded...
     function<Pileup&(size_t)> lambda = [&](size_t i) -> Pileup& {
         pileup.clear_node_pileups();
         pileup.clear_edge_pileups();
@@ -81,6 +80,7 @@ void Pileups::write(ostream& out, size_t chunk_size) {
     };
 
     stream::write(out, count, lambda);
+    stream::finish(out);
 }
 
 void Pileups::for_each_node_pileup(const function<void(NodePileup&)>& lambda) {

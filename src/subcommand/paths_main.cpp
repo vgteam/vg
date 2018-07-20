@@ -159,6 +159,7 @@ int main_paths(int argc, char** argv) {
         } else if (extract_as_gam) {
             vector<Alignment> alns = graph.paths_as_alignments();
             write_alignments(cout, alns);
+            stream::finish(cout);
         } else if (extract_as_vg) {
             cerr << "[vg paths] Error: vg extraction is only defined for prefix queries against a XG/GBWT index pair" << endl;
             exit(1);
@@ -214,6 +215,7 @@ int main_paths(int argc, char** argv) {
                     vector<Alignment> alns;
                     alns.emplace_back(xgidx.path_as_alignment(path));
                     write_alignments(cout, alns);
+                    stream::finish(cout);
                 } else if (extract_as_vg) {
                     Graph g;
                     *(g.add_path()) = path;
@@ -225,6 +227,7 @@ int main_paths(int argc, char** argv) {
             if (extract_as_gam) {
                 auto alns = xgidx.paths_as_alignments();
                 write_alignments(cout, alns);
+                stream::finish(cout);
             } else if (!path_prefix.empty()) {
                 vector<Path> got = xgidx.paths_by_prefix(path_prefix);
                 if (extract_as_gam) {
@@ -233,6 +236,7 @@ int main_paths(int argc, char** argv) {
                         alns.emplace_back(xgidx.path_as_alignment(path));
                     }
                     write_alignments(cout, alns);
+                    stream::finish(cout);
                 } else if (extract_as_vg) {
                     for(auto& path : got) {
                         Graph g;

@@ -82,6 +82,7 @@ void Paths::write(ostream& out) {
         return path;
     };
     stream::write(out, _paths.size(), lambda);
+    stream::finish(out);
 }
 
 void Paths::to_graph(Graph& g) {

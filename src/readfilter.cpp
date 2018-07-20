@@ -604,8 +604,9 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
     // remember if write or append
     vector<bool> chunk_append(chunk_names.size(), append_regions);
 
-    // flush a buffer specified by cur_buffer to target in chunk_names, and clear it
-    function<void(int, int)> flush_buffer = [&buffer, &chunk_names, &chunk_append](int tid, int cur_buffer) {
+    // flush a buffer specified by cur_buffer to target in chunk_names, and clear it.
+    // if end is true, write an EOF marker
+    function<void(int, int, bool)> flush_buffer = [&buffer, &chunk_names, &chunk_append](int tid, int cur_buffer, bool end) {
         ofstream outfile;
         auto& outbuf = chunk_names[cur_buffer] == "-" ? cout : outfile;
         if (chunk_names[cur_buffer] != "-") {
@@ -616,6 +617,9 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
             return buffer[tid][cur_buffer][i];
         };
         stream::write(outbuf, buffer[tid][cur_buffer].size(), write_buffer);
+        if (end) {
+            stream::finish(outbuf);
+        }
         buffer[tid][cur_buffer].clear();
     };
 
@@ -631,7 +635,7 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
                 // speed up defray and not write IO)
 #pragma omp critical (ReadFilter_flush_buffer)
                 {
-                    flush_buffer(tid, chunk);
+                    flush_buffer(tid, chunk, false);
                 }
             }
         }
@@ -784,11 +788,9 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
 
     for (int tid = 0; tid < buffer.size(); ++tid) {
         for (int chunk = 0; chunk < buffer[tid].size(); ++chunk) {
-            if (buffer[tid][chunk].size() > 0 || 
-                // we deliberately write empty gams at this point for empty chunks:
-                (chunk_append[chunk] == false && chunk_names[chunk] != "-" )) {
-                flush_buffer(tid, chunk);
-            }
+            // Give every chunk, even those going to standard out or with no buffered reads, an EOF marker.
+            // This also makes sure empty chunks exist.
+            flush_buffer(tid, chunk, true);
         }
     }
 

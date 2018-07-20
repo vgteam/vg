@@ -393,6 +393,11 @@ void VG::sync_paths(void) {
 }
 
 void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
+    serialize_to_ostream_as_part(out, chunk_size);
+    stream::finish(out);
+}
+
+void VG::serialize_to_ostream_as_part(ostream& out, id_t chunk_size) {
 
     // This makes sure mapping ranks are updated to reflect their actual
     // positions along their paths.

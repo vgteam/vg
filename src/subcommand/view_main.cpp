@@ -554,6 +554,8 @@ int main_view(int argc, char** argv) {
             hts_for_each(file_name, lambda);
             write_alignments(std::cout, buf);
             buf.clear();
+            // Finish the stream with an EOF marker
+            stream::finish(std::cout);
             cout.flush();
             return 0;
         } else if (output_type == "json") {
@@ -697,6 +699,8 @@ int main_view(int argc, char** argv) {
             }
             write_alignments(std::cout, buf);
             buf.clear();
+            // Finish the stream with an EOF marker
+            stream::finish(std::cout);
         } else {
             // We can't convert fastq to the other graph formats
             cerr << "[vg view] error: FASTQ can only be converted to GAM" << endl;
@@ -835,6 +839,7 @@ int main_view(int argc, char** argv) {
         graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
+        stream::finish(cout);
     } else if (output_type == "locus") {
 
     } else {

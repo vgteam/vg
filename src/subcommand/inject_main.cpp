@@ -12,6 +12,7 @@
 
 #include "../alignment.hpp"
 #include "../vg.hpp"
+#include "../stream.hpp"
 
 using namespace std;
 using namespace vg;
@@ -93,7 +94,7 @@ int main_inject(int argc, char** argv) {
         {
             buf.push_back(aln);
             if (buf.size() > 1000) {
-                write_alignments(std::cout, buf);
+                write_alignments(cout, buf);
                 buf.clear();
             }
         }
@@ -103,8 +104,10 @@ int main_inject(int argc, char** argv) {
     } else {
         hts_for_each(file_name, lambda, xgidx);
     }
-    write_alignments(std::cout, buf);
+    write_alignments(cout, buf);
     buf.clear();
+    // Finish the stream with an EOF marker
+    stream::finish(cout);
     cout.flush();
     return 0;
 }

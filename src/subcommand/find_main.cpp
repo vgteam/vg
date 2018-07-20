@@ -476,6 +476,7 @@ int main_find(int argc, char** argv) {
             
             // return it
             result_graph.serialize_to_ostream(cout);
+            // TODO: We're serializing graphs all with their own redundant EOF markers if we use multiple functions simultaneously.
         } else if (end_id != 0) {
             for (auto& e : xindex.edges_on_end(end_id)) {
                 cout << (e.from_start() ? -1 : 1) * e.from() << "\t" <<  (e.to_end() ? -1 : 1) * e.to() << endl;

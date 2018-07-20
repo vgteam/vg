@@ -26,7 +26,7 @@ public:
     // get a callback function that will read an object at a time from json stream.
     std::function<bool(T&)> get_read_fn();
     // read json stream (using above fn), and directly write to out in either
-    // protobuf or json format. 
+    // protobuf or json format. If writing in protobuf, append an EOF marker. 
     int64_t write(std::ostream& out, bool json_out = false, int64_t buf_size = 1000);
 private:
     FILE* _fp;
@@ -113,15 +113,13 @@ inline int64_t JSONStreamHelper<T>::write(std::ostream& out, bool json_out,
             buf.clear();
         }
     }
-    out.flush();
-    return total;
-}
-
-template<class T>
-inline int64_t JSONStreamHelper<T>::finish(std::ostream& out) {
+    
     if (!json_out) {
         stream::finish(out);
-    }    
+    }
+    
+    out.flush();
+    return total;
 }
 
 }

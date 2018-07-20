@@ -32,6 +32,10 @@ const size_t MAX_PROTOBUF_SIZE = 1000000000;
 /// We aim to generate messages that are this size
 const size_t TARGET_PROTOBUF_SIZE = MAX_PROTOBUF_SIZE/2;
 
+/// Write the EOF marker to the given stream, so that readers won't complain that it might be truncated when they read it in.
+/// Internal EOF markers MAY exist, but a file SHOULD have exactly one EOF marker at its end.
+void finish(std::ostream& out);
+
 /// Write objects using adaptive chunking. Takes a stream to write to, a total
 /// element count to write, a guess at how many elements should be in a chunk,
 /// and a function that, given a destination virtual offset in the output
@@ -249,10 +253,6 @@ bool write_buffered(std::ostream& out, std::vector<T>& buffer, size_t buffer_lim
     }
     return wrote;
 }
-
-/// Write the EOF marker to the given stream, so that readers won't complain that it might be truncated when they read it in.
-/// Internal EOF markers MAY exist, but a file SHOULD have exactly one EOF marker at its end.
-void finish(std::ostream& out);
 
 /// Deserialize the input stream into the objects. Skips over groups of objects
 /// with count 0. Takes a callback function to be called on the objects, with
