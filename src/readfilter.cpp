@@ -612,7 +612,7 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
             outfile.open(chunk_names[cur_buffer], chunk_append[cur_buffer] ? ios::app : ios_base::out);
             chunk_append[cur_buffer] = true;
         }
-        function<Alignment&(uint64_t)> write_buffer = [&buffer, &tid, &cur_buffer](uint64_t i) -> Alignment& {
+        function<Alignment&(size_t)> write_buffer = [&buffer, &tid, &cur_buffer](size_t i) -> Alignment& {
             return buffer[tid][cur_buffer][i];
         };
         stream::write(outbuf, buffer[tid][cur_buffer].size(), write_buffer);

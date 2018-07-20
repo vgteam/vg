@@ -276,7 +276,7 @@ int main_sim(int argc, char** argv) {
                         cout << pb2json(alns.front()) << endl;
                         cout << pb2json(alns.back()) << endl;
                     } else {
-                        function<Alignment(uint64_t)> lambda = [&alns](uint64_t n) { return alns[n]; };
+                        function<Alignment(size_t)> lambda = [&alns](size_t n) { return alns[n]; };
                         stream::write(cout, 2, lambda);
                     }
                 } else {
@@ -309,7 +309,7 @@ int main_sim(int argc, char** argv) {
                     if (json_out) {
                         cout << pb2json(aln) << endl;
                     } else {
-                        function<Alignment(uint64_t)> lambda = [&aln](uint64_t n) { return aln; };
+                        function<Alignment(size_t)> lambda = [&aln](size_t n) { return aln; };
                         stream::write(cout, 1, lambda);
                     }
                 } else {
@@ -349,7 +349,7 @@ int main_sim(int argc, char** argv) {
                         cout << pb2json(read_pair.second) << endl;
                     }
                     else {
-                        function<Alignment(uint64_t)> lambda = [&read_pair](uint64_t n) {
+                        function<Alignment(size_t)> lambda = [&read_pair](size_t n) {
                             return n % 2 == 0 ? read_pair.first : read_pair.second;
                         };
                         stream::write(cout, 2, lambda);
@@ -370,7 +370,7 @@ int main_sim(int argc, char** argv) {
                         cout << pb2json(read) << endl;
                     }
                     else {
-                        function<Alignment(uint64_t)> lambda = [&read](uint64_t n) {
+                        function<Alignment(size_t)> lambda = [&read](size_t n) {
                             return read;
                         };
                         stream::write(cout, 1, lambda);

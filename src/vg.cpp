@@ -401,7 +401,7 @@ void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
     create_progress("saving graph", graph.node_size());
     
     // Have a function to grab the chunk for the given range of nodes
-    function<Graph(uint64_t, uint64_t)> lambda = [this](uint64_t element_start, uint64_t element_length) -> Graph {
+    function<Graph(size_t, size_t)> lambda = [this](size_t element_start, size_t element_length) -> Graph {
     
         VG g;
         map<string, map<size_t, mapping_t*> > sorted_paths;

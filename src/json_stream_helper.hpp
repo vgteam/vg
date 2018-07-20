@@ -94,7 +94,7 @@ inline int64_t JSONStreamHelper<T>::write(std::ostream& out, bool json_out,
     std::vector<T> buf;
     int64_t total = 0;
     bool good = true;
-    std::function<T(uint64_t)> lambda = [&](uint64_t i) -> T {return buf[i];};
+    std::function<T(size_t)> lambda = [&](size_t i) -> T {return buf[i];};
     while (good) {
         T obj;
         good = reader(obj);
