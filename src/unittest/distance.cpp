@@ -1692,7 +1692,7 @@ class TestDistanceIndex : public DistanceIndex {
         }
     }//end test case
 
-
+/*
     TEST_CASE("Two tip start", "[dist][bug]") {
         VG graph;
 
@@ -1723,7 +1723,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         }
     }//end test case
-
+*/
 
     TEST_CASE( "Snarl that loops on itself",
                   "[dist]" ) {
