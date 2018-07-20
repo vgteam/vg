@@ -68,8 +68,8 @@ void Paths::write(ostream& out) {
         const string& name = p.first;
         path_names.push_back(name);
     }
-    function<Path(uint64_t)> lambda =
-        [this, &path_names](uint64_t i) -> Path {
+    function<Path(size_t)> lambda =
+        [this, &path_names](size_t i) -> Path {
         auto& mappings = _paths[path_names.at(i)];
         Path path;
         for (auto& m : mappings) {
