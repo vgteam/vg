@@ -240,6 +240,10 @@ bool write_buffered(std::ostream& out, std::vector<T>& buffer, size_t buffer_lim
     return wrote;
 }
 
+/// Write the EOF marker to the given stream, so that readers won't complain that it might be truncated when they read it in.
+/// Internal EOF markers MAY exist, but a file SHOULD have exactly one EOF marker at its end.
+void finish(std::ostream& out);
+
 /// Deserialize the input stream into the objects. Skips over groups of objects
 /// with count 0. Takes a callback function to be called on the objects, with
 /// the object and the blocked gzip virtual offset of its group (or -1 if the

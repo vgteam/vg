@@ -92,7 +92,7 @@ bool BlockedGzipInputStream::Next(const void** data, int* size) {
         // Otherwise we have data.
         
         if (handle->block_offset > handle->block_length) {
-            // We don't have enough data to fulfill the most recent seek
+            // We don't have enough data to fulfill the most recent seek. Signal an error.
             return false;
         }
         
@@ -157,10 +157,20 @@ int64_t BlockedGzipInputStream::Tell() {
     if (know_offset) {
         // Our virtual offsets are true.
        
-        // Since we use the BGZF's internal cursor correctly, we can rely on its tell function.
-        
-        // See where we are now
-        return bgzf_tell(handle);
+        // But since we are happy to leave the BGZF's cursor at the ends of
+        // blocks, we have to work out what the real virtual offset should be
+        // in that case (byte 0 of the next block)
+        if (handle->block_offset == handle->block_length) {
+            // We need to know where the next block is
+            
+            // We don't have bgzf_htell so we fake it.
+            // We also manually shift the block address to the right place.
+            return htell(handle->fp) << 16;
+            
+        } else {
+            // Since we use the BGZF's internal cursor correctly, we can rely on its tell function.
+            return bgzf_tell(handle);
+        }
     } else {
         // We don't know where the zero position in the stream was, so we can't
         // trust BGZF's virtual offsets.

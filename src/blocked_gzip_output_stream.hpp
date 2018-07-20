@@ -11,7 +11,9 @@ namespace stream {
 
 
 /// Protobuf-style ZeroCopyOutputStream that writes data in blocked gzip
-/// format, and allows interacting with virtual offsets.
+/// format, and allows interacting with virtual offsets. Does NOT emit the BGZF
+/// end-of-file marker unless told to, because we don't want an empty block
+/// after every vg stream::write call.
 class BlockedGzipOutputStream : public ::google::protobuf::io::ZeroCopyOutputStream {
 
 public:
@@ -70,12 +72,25 @@ public:
     // Seek is not supported because it is not allowed by the backing BGZF
     // library for writable files.
     
+    /// Make this BlockedGzipOutputStream write the BGZF-required empty end of
+    /// file block, when it finishes writing to the BGZF. These blocks are
+    /// permitted in the interior of files, but we don't want to add them all
+    /// the time because they're superfluous and they are supposed to be EOF
+    /// indicators while we are supposed to be able to append data to a file in
+    /// progress.
+    virtual void EndFile();
+    
 protected:
     
-    /// Actually dump the buffer data to the file, if needed. Sadly, we can't
-    /// really be zero-copy because the bgzf library isn't.
+    /// Actually dump the buffer data to the BGZF, if needed. Sadly, we can't
+    /// really be zero-copy because the BGZF library isn't.
     /// Throws on failure.
     void flush();
+    
+    /// Force the BGZF handle closed without letting the library write its EOF marker.
+    /// TODO: This is necessarily a hack that depends strongly on htslib internals.
+    /// Should not be called unless data has been flushed into the BGZF.
+    void force_close();
     
     /// The open BGZF handle being written to
     BGZF* handle;
@@ -91,6 +106,9 @@ protected:
     
     /// Flag for whether our backing stream is tellable.
     bool know_offset;
+    
+    /// Flag for whether we are supposed to close out the BGZF file.
+    bool end_file;
     
 };
 

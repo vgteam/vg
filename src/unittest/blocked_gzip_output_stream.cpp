@@ -102,7 +102,6 @@ TEST_CASE("BlockedGzipOutputStream can write to the same stream multiple times",
         bgzip_out.BackUp(buffer_size - 5);
         
         REQUIRE(bgzip_out.Tell() == vo(0, 5));
-         
     }
     
     // Now the stream goes away. The BGZF must be gone, so all the data must be done.
@@ -137,6 +136,35 @@ TEST_CASE("BlockedGzipOutputStream can write to the same stream multiple times",
 
 }
 
+TEST_CASE("BlockedGzipOutputStream produces EOF markers on demand", "[bgzip]") {
+    stringstream s1;
+    stringstream s2;
+    
+    {
+        // Make some streams
+        BlockedGzipOutputStream bs1(s1);
+        BlockedGzipOutputStream bs2(s2);
+        
+        // Fake some writes
+        char* data;
+        int size;
+        bs1.Next((void**)&data, &size);
+        for (size_t i = 0; i < size; i++) {
+            data[i] = 0;
+        }
+        
+        bs2.Next((void**)&data, &size);
+        for (size_t i = 0; i < size; i++) {
+            data[i] = 0;
+        }
+        
+        // Only give one an EOF
+        bs2.EndFile();
+    }
+    
+    // Make sure the extra 28-byte EOF marker is present
+    REQUIRE(s2.str().length() == s1.str().length() + 28);
+}
 
 }
 

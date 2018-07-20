@@ -37,6 +37,7 @@ TEST_CASE("a BlockedGzipInputStream can read from a stringstream", "[bgzip]") {
         BlockedGzipOutputStream bgzip_out(datastream);
         ::google::protobuf::io::CodedOutputStream coded_out(&bgzip_out);
         coded_out.WriteString(TO_COMPRESS);
+        bgzip_out.EndFile();
     }
     
     // Stringstreams track put and get positions separately. So we will read from the beginning.
@@ -59,10 +60,6 @@ TEST_CASE("a BlockedGzipInputStream can read from a stringstream", "[bgzip]") {
         do {
         
             // Check each block we read out of the stream
-            
-            // We know that the stream ought to put us at the end of whatever it read.
-            // We also know it ought to read one block per Next if we don't back up.
-            REQUIRE(bgzip_in.Tell() == vo(block, buffer_size));
             
             for (size_t i = 0; i < buffer_size; i++) {
                 // Check all the characters
@@ -298,6 +295,7 @@ TEST_CASE("a BlockedGzipInputStream can read large amounts of blocked compressed
             // Generate ~4 MB of data
             coded_out.WriteLittleEndian32(i);
         }
+        bgzip_out.EndFile();
         
     }
     

@@ -12,7 +12,7 @@ namespace stream {
 using namespace std;
 
 BlockedGzipOutputStream::BlockedGzipOutputStream(BGZF* bgzf_handle) : handle(bgzf_handle), buffer(), backed_up(0), byte_count(0),
-    know_offset(false) {
+    know_offset(false), end_file(false) {
     
     if (handle->mt) {
         // I don't want to deal with BGZF multithreading, because I'm going to be hacking its internals
@@ -41,7 +41,7 @@ BlockedGzipOutputStream::BlockedGzipOutputStream(BGZF* bgzf_handle) : handle(bgz
 }
 
 BlockedGzipOutputStream::BlockedGzipOutputStream(std::ostream& stream) : handle(nullptr), buffer(), backed_up(0), byte_count(0),
-    know_offset(false) {
+    know_offset(false), end_file(false) {
     
     // Wrap the stream in an hFILE*
     hFILE* wrapped = hfile_wrap(stream);
@@ -75,8 +75,20 @@ BlockedGzipOutputStream::BlockedGzipOutputStream(std::ostream& stream) : handle(
 BlockedGzipOutputStream::~BlockedGzipOutputStream() {
     // Make sure to finish writing before destructing.
     flush();
-    // Close the GBZF
-    bgzf_close(handle);
+    
+    if (end_file) {
+        // Close the file with an EOF block.
+#ifdef debug
+        cerr << "Close normally" << endl;
+#endif
+        bgzf_close(handle);
+    } else {
+        // Close the BGZF *without* writing an EOF block.
+#ifdef debug
+        cerr << "Force close" << endl;
+#endif
+        force_close();
+    }
 }
 
 bool BlockedGzipOutputStream::Next(void** data, int* size) {
@@ -139,13 +151,19 @@ int64_t BlockedGzipOutputStream::Tell() {
         // Make sure all data has been sent to BGZF
         flush();
         
-        // See where we are now
+        // See where we are now. No de-aliasing is necessary; the BGZF never
+        // leaves the cursor past the end of the block when writing, so we
+        // always have the cannonical virtual offset.
         return bgzf_tell(handle);
     } else {
         // We don't know where the zero position in the stream was, so we can't
         // trust BGZF's virtual offsets.
         return -1;
     }
+}
+
+void BlockedGzipOutputStream::EndFile() {
+    end_file = true;
 }
 
 void BlockedGzipOutputStream::flush() {
@@ -171,6 +189,23 @@ void BlockedGzipOutputStream::flush() {
         buffer.resize(0);
         backed_up = 0;
     }
+}
+
+void BlockedGzipOutputStream::force_close() {
+    // Sneakily close the BGZF file without letting it write an EOF empty block marker.
+    
+    // Flush the data, which the close function won't do in the path we want it to take
+    if (bgzf_flush(handle) != 0) {
+        throw runtime_error("Could not flush the BGZF");
+    }
+    
+    // Lie to BGZF and tell it that it did not just write compressed data.
+    // This causes close to bypass the EOF block write.
+    handle->is_compressed = 0;
+    
+    // Do the close operation, which does all the other cleanup still.
+    bgzf_close(handle);
+    handle = nullptr;
 }
 
 }
