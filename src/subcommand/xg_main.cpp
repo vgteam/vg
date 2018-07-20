@@ -19,7 +19,7 @@
 #include "../cpp/vg.pb.h"
 #include "../xg.hpp"
 #include "../region.hpp"
-#include "../converter.hpp"
+#include "../handle_to_vg.hpp"
 
 using namespace std;
 using namespace vg;
@@ -174,41 +174,41 @@ int main_xg(int argc, char** argv) {
             break;
 
         case 'n':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             node_context = true;
             break;
 
         case 'c':
-            context_steps = atoi(optarg);
+            context_steps = parse<int>(optarg);
             break;
 
         case 'f':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             edges_from = true;
             break;
             
         case 't':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             edges_to = true;
             break;
 
         case 'O':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             edges_of = true;
             break;
 
         case 'S':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             edges_on_start = true;
             break;
 
         case 'E':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             edges_on_end = true;
             break;
 
         case 's':
-            node_id = atol(optarg);
+            node_id = parse<int64_t>(optarg);
             node_sequence = true;
             break;
 
@@ -281,10 +281,29 @@ int main_xg(int argc, char** argv) {
              cerr << "error [vg xg] no xg graph exists to convert; Try: vg xg -i graph.xg -X graph.vg" << endl;
              return 1;
         }
+        
+        // Convert the xg graph to vg format
+        VG converted = handle_to_vg(graph);
+        
+        // TODO: The converter doesn't copy paths yet. When it does, we can
+        // remove all this path copying code.
+        
+        // Make a raw Proto Graph to hold Path objects
+        Graph path_graph;
+        
+        // Since paths are not copied, copy the paths.
+        for (size_t rank = 1; rank <= graph->max_path_rank(); rank++) {
+            // Extract each path into the path graph
+            *path_graph.add_path() = graph->path(graph->path_name(rank));
+        }
+        
+        // Merge in all the paths
+        converted.extend(path_graph);
+        
         if (vg_out == "-") {
-            converter(graph).serialize_to_ostream(std::cout);
+            converted.serialize_to_ostream(std::cout);
         } else {
-            converter(graph).serialize_to_file(vg_out);
+            converted.serialize_to_file(vg_out);
         }
     }
 

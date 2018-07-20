@@ -79,11 +79,11 @@ int main_ids(int argc, char** argv) {
                 break;
 
             case 'i':
-                increment = atoi(optarg);
+                increment = parse<int>(optarg);
                 break;
 
             case 'd':
-                decrement = atoi(optarg);
+                decrement = parse<int>(optarg);
                 break;
 
             case 'j':

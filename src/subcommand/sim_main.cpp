@@ -126,31 +126,31 @@ int main_sim(int argc, char** argv) {
             break;
 
         case 'l':
-            read_length = atoi(optarg);
+            read_length = parse<int>(optarg);
             break;
 
         case 'n':
-            num_reads = atoi(optarg);
+            num_reads = parse<int>(optarg);
             break;
 
         case 's':
-            seed_val = atoi(optarg);
+            seed_val = parse<int>(optarg);
             break;
 
         case 'e':
-            base_error = atof(optarg);
+            base_error = parse<double>(optarg);
             break;
 
         case 'i':
-            indel_error = atof(optarg);
+            indel_error = parse<double>(optarg);
             break;
             
         case 'd':
-            indel_prop = atof(optarg);
+            indel_prop = parse<double>(optarg);
             break;
             
         case 'S':
-            error_scale_factor = atof(optarg);
+            error_scale_factor = parse<double>(optarg);
             break;
 
         case 'f':
@@ -171,11 +171,11 @@ int main_sim(int argc, char** argv) {
             break;
 
         case 'p':
-            fragment_length = atoi(optarg);
+            fragment_length = parse<int>(optarg);
             break;
 
         case 'v':
-            fragment_std_dev = atof(optarg);
+            fragment_std_dev = parse<double>(optarg);
             break;
             
         case 'h':

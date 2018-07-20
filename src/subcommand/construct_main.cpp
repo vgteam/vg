@@ -158,7 +158,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'z':
-            constructor.vars_per_chunk = atoi(optarg);
+            constructor.vars_per_chunk = parse<int>(optarg);
             break;
 
         case 'R':
@@ -170,11 +170,11 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'm':
-            max_node_size = atoi(optarg);
+            max_node_size = parse<int>(optarg);
             break;
 
         case 'f':

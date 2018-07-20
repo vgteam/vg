@@ -63,7 +63,7 @@ int main_gamcompare(int argc, char** argv) {
         {
 
         case 'r':
-            range = atoi(optarg);
+            range = parse<int>(optarg);
             break;
             
         case 'T':
@@ -75,7 +75,7 @@ int main_gamcompare(int argc, char** argv) {
             break;
 
         case 't':
-            threads = atoi(optarg);
+            threads = parse<int>(optarg);
             omp_set_num_threads(threads);
             break;
 

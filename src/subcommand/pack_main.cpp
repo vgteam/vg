@@ -93,7 +93,7 @@ int main_pack(int argc, char** argv) {
             bin_size = atoll(optarg);
             break;
         case 't':
-            thread_count = atoi(optarg);
+            thread_count = parse<int>(optarg);
             break;
 
         default:

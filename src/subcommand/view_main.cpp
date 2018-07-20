@@ -15,6 +15,7 @@
 
 #include "../multipath_alignment.hpp"
 #include "../vg.hpp"
+#include "../gfa.hpp"
 
 using namespace std;
 using namespace vg;
@@ -235,7 +236,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case 's':
-            seed_val = atoi(optarg);
+            seed_val = parse<int>(optarg);
             break;
 
         case 'g':
@@ -386,7 +387,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case '7':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'h':
@@ -448,7 +449,10 @@ int main_view(int argc, char** argv) {
     } else if (input_type == "gfa") {
         get_input_file(file_name, [&](istream& in) {
             graph = new VG;
-            graph->from_gfa(in);
+            if (!gfa_to_graph(in, graph)) {
+                // GFA loading has failed because the file is invalid
+                exit(1);
+            }
         });
         // GFA can convert to any of the graph formats, so keep going
     } else if(input_type == "json") {
@@ -825,7 +829,7 @@ int main_view(int argc, char** argv) {
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {
-        graph->to_gfa(std::cout);
+        graph_to_gfa(graph, std::cout);
     } else if (output_type == "turtle") {
         graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {

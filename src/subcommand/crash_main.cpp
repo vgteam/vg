@@ -16,6 +16,7 @@
 #include "subcommand.hpp"
 
 #include "../benchmark.hpp"
+#include "../utility.hpp"
 
 using namespace std;
 using namespace vg;
@@ -69,7 +70,7 @@ int main_crash(int argc, char** argv){
         {
 
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'h':

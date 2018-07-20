@@ -172,7 +172,7 @@ int main_augment(int argc, char** argv) {
             verbose = true;
             break;            
         case 't':
-            thread_count = atoi(optarg);
+            thread_count = parse<int>(optarg);
             break;
 
             // Pileup Options
@@ -183,19 +183,19 @@ int main_augment(int argc, char** argv) {
             support_file_name = optarg;
             break;            
         case 'q':
-            min_quality = atoi(optarg);
+            min_quality = parse<int>(optarg);
             break;
         case 'm':
-            max_mismatches = atoi(optarg);
+            max_mismatches = parse<int>(optarg);
             break;
         case 'w':
-            window_size = atoi(optarg);
+            window_size = parse<int>(optarg);
             break;
         case 'M':
             use_mapq = false;
             break;            
         case 'g':
-            min_aug_support = atoi(optarg);
+            min_aug_support = parse<int>(optarg);
             break;            
         case 'U':
             expect_subgraph = true;

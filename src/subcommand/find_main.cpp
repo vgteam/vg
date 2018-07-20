@@ -187,7 +187,7 @@ int main_find(int argc, char** argv) {
             break;
             
         case 'B':
-            mem_reseed_length = atoi(optarg);
+            mem_reseed_length = parse<int>(optarg);
             break;
             
         case 'f':
@@ -195,19 +195,19 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'Y':
-            max_mem_length = atoi(optarg);
+            max_mem_length = parse<int>(optarg);
             break;
             
         case 'Z':
-            min_mem_length = atoi(optarg);
+            min_mem_length = parse<int>(optarg);
             break;
             
         case 'j':
-            kmer_stride = atoi(optarg);
+            kmer_stride = parse<int>(optarg);
             break;
 
         case 'z':
-            kmer_size = atoi(optarg);
+            kmer_size = parse<int>(optarg);
             break;
 
         case 'C':
@@ -229,7 +229,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'c':
-            context_size = atoi(optarg);
+            context_size = parse<int>(optarg);
             break;
 
         case 'L':
@@ -237,7 +237,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'n':
-            node_ids.push_back(atoi(optarg));
+            node_ids.push_back(parse<int>(optarg));
             break;
 
         case 'N':
@@ -245,11 +245,11 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'e':
-            end_id = atoi(optarg);
+            end_id = parse<int>(optarg);
             break;
 
         case 's':
-            start_id = atoi(optarg);
+            start_id = parse<int>(optarg);
             break;
 
         case 'T':
@@ -303,7 +303,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'X':
-            approx_id = atoi(optarg);
+            approx_id = parse<int>(optarg);
             break;
 
         case 'G':
@@ -355,7 +355,7 @@ int main_find(int argc, char** argv) {
         string line;
         while (getline(nli, line)){
             for (auto& idstr : split_delims(line, " \t")) {
-                node_ids.push_back(atol(idstr.c_str()));
+                node_ids.push_back(parse<int64_t>(idstr.c_str()));
             }
         }
         nli.close();

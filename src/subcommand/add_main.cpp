@@ -107,11 +107,11 @@ int main_add(int argc, char** argv) {
             break;
             
         case 'r':
-            variant_range = atoi(optarg);
+            variant_range = parse<int>(optarg);
             break;
             
         case 'f':
-            flank_range = atoi(optarg);
+            flank_range = parse<int>(optarg);
             break;
 
         case 'p':
@@ -119,7 +119,7 @@ int main_add(int argc, char** argv) {
             break;
             
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'h':

@@ -1,0 +1,51 @@
+{
+  "node": [
+    {
+      "id": "1",
+      "sequence": "GATTACA"
+    }
+  ],
+  "edge": [
+    {
+      "from": "1",
+      "to": 1
+    }
+  ],
+  "path": [
+    {
+      "name": "round",
+      "is_circular": true,
+      "mapping": [
+        {
+          "position": {
+            "node_id": 1
+          },
+          "edit": [
+            {
+              "from_length": 7,
+              "to_length": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "linear",
+      "is_circular": false,
+      "mapping": [
+        {
+          "position": {
+            "node_id": 1
+          },
+          "edit": [
+            {
+              "from_length": 7,
+              "to_length": 7
+            }
+          ]
+        }
+      ]
+    }
+    
+  ]
+}

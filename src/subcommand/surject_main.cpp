@@ -121,11 +121,11 @@ int main_surject(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'C':
-            compress_level = atoi(optarg);
+            compress_level = parse<int>(optarg);
             break;
 
         case 'h':

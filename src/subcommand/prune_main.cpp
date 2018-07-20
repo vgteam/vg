@@ -171,15 +171,15 @@ int main_prune(int argc, char** argv) {
         switch (c)
         {
         case 'k':
-            kmer_length = stoi(optarg);
+            kmer_length = parse<int>(optarg);
             kmer_length_set = true;
             break;
         case 'e':
-            edge_max = stoi(optarg);
+            edge_max = parse<int>(optarg);
             edge_max_set = true;
             break;
         case 's':
-            subgraph_min = stoul(optarg);
+            subgraph_min = parse<size_t>(optarg);
             subgraph_min_set = true;
             break;
         case 'P':
@@ -210,7 +210,7 @@ int main_prune(int argc, char** argv) {
             show_progress = true;
             break;
         case 't':
-            threads = stoi(optarg);
+            threads = parse<int>(optarg);
             threads = std::min(threads, omp_get_max_threads());
             threads = std::max(threads, 1);
             omp_set_num_threads(threads);
