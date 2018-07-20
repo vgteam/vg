@@ -216,6 +216,7 @@ int main_align(int argc, char** argv) {
                 return alignment;
             };
         stream::write(cout, 1, lambda);
+        stream::finish(cout);
     }
 
     if (graph != nullptr) {

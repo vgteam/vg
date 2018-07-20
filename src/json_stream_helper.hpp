@@ -117,6 +117,13 @@ inline int64_t JSONStreamHelper<T>::write(std::ostream& out, bool json_out,
     return total;
 }
 
+template<class T>
+inline int64_t JSONStreamHelper<T>::finish(std::ostream& out) {
+    if (!json_out) {
+        stream::finish(out);
+    }    
+}
+
 }
 
 }

@@ -383,6 +383,10 @@ int main_sim(int argc, char** argv) {
         }
     }
     
+    if (align_out && !json_out) {
+        // We wrote alignment data, so write an EOF
+        stream::finish(cout);
+    }
 
     return 0;
 }

@@ -64,7 +64,7 @@ void Pileups::write(ostream& out, size_t chunk_size) {
 
     // note: this won't work at all in parallel but presumably write
     // is single threaded...
-    function<Pileup&(uint64_t)> lambda = [&](uint64_t i) -> Pileup& {
+    function<Pileup&(size_t)> lambda = [&](size_t i) -> Pileup& {
         pileup.clear_node_pileups();
         pileup.clear_edge_pileups();
         for (size_t j = 0; j < chunk_size && node_it != _node_pileups.end(); ++j, ++node_it) {

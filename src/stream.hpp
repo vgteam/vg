@@ -228,6 +228,12 @@ bool write(std::ostream& out, size_t count, const std::function<T(size_t)>& lamb
     }));
 }
 
+/// Start, continue, or finish a buffered stream of objects.
+/// If the length of the buffer is greater than the limit, writes the buffer out.
+/// Otherwise, leaves the objects in the buffer.
+/// Must be called with a buffer limit of 0 after all the objects have been produced, to flush the buffer.
+/// When called with a buffer limit of 0, automatically appends an EOF marker.
+/// Returns true unless an error occurs.
 template <typename T>
 bool write_buffered(std::ostream& out, std::vector<T>& buffer, size_t buffer_limit) {
     bool wrote = false;
@@ -236,6 +242,10 @@ bool write_buffered(std::ostream& out, std::vector<T>& buffer, size_t buffer_lim
 #pragma omp critical (stream_out)
         wrote = write(out, buffer.size(), lambda);
         buffer.clear();
+    }
+    if (buffer_limit == 0) {
+        // The session is over. Append the EOF marker.
+        finish(out);
     }
     return wrote;
 }
