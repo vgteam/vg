@@ -180,10 +180,10 @@ void variant_recall(VG* graph,
     // For each variant in VCF:
     vcflib::Variant var;
     while(vars->getNextVariant(var)){
-        // Adjust the position offset, canonicalize any structural variants,
+        // DON'T Adjust the position offset, canonicalize any structural variants,
         // and get the sha1 hash of the variant and store that in a map for later.
-        var.position -= 1;
-        var.canonicalize_sv(*ref_genome, insertions, -1);
+        // var.position -= 1;
+        var.canonicalize(*ref_genome, insertions, true, 0);
         string var_id = make_variant_id(var);
 
         hash_to_var[ var_id ] = var;
