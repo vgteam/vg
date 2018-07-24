@@ -16,6 +16,10 @@
 
 #include <sstream>
 
+#include <sys/stat.h> 
+#include <unistd.h>
+#include <fcntl.h>
+
 namespace vg {
 namespace unittest {
 using namespace std;
@@ -210,7 +214,49 @@ TEST_CASE("a BlockedGzipInputStream can read non-blocked gzip-compressed data", 
         // Make sure we got the right data that we skipped to
         REQUIRE(buffer[0] == TO_COMPRESS[10]);
     }
+    
+}
 
+TEST_CASE("a BlockedGzipInputStream does not hang on truncated gzip-compressed data", "[bgzip]") {
+    stringstream datastream;
+    
+    const string TO_COMPRESS = "Now all the parts are running, sparks are spilling out the gears";
+    
+    {
+        // Write some data in
+        ::google::protobuf::io::OstreamOutputStream raw_out(&datastream);
+        ::google::protobuf::io::GzipOutputStream gzip_out(&raw_out);
+        ::google::protobuf::io::CodedOutputStream coded_out(&gzip_out);
+        coded_out.WriteString(TO_COMPRESS);
+    }
+    
+    string data = datastream.str();
+    data = data.substr(0, data.size() / 2);
+    datastream = stringstream(data);
+    
+    BlockedGzipInputStream bgzip_in(datastream);
+    
+    char* buffer;
+    int size;
+    
+    // This is going to complain about truncation. Don't listen to it.
+    // Send stderr to /dev/null
+    int discard = open("/dev/null", O_WRONLY);
+    int real_stderr = dup(2);
+    dup2(discard, 2);
+
+    while(bgzip_in.Next((const void**)&buffer, &size)) {
+        // Read off all the data
+    }
+    
+    bool can_read_more = bgzip_in.Next((const void**)&buffer, &size);
+    
+    // Send stderr back to stderr
+    dup2(real_stderr, 2);
+    close(discard);
+    close(real_stderr);
+    
+    REQUIRE(can_read_more == false);
 
 }
 
