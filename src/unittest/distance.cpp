@@ -13,7 +13,7 @@
 #include <fstream>
 #include <random>
 #include <time.h> 
-//#define print
+#define print
 namespace vg {
 namespace unittest {
 
@@ -169,12 +169,41 @@ class TestDistanceIndex : public DistanceIndex {
         Edge* e10 = graph.create_edge(n7, n8);
 
         CactusSnarlFinder bubble_finder(graph);
-        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+        SnarlManager snarl_manager; 
+
+        Snarl s1;
+        const Snarl* snarl1 = &s1;
+        s1.mutable_start()->set_node_id(1);
+        s1.mutable_end()->set_node_id(8);
+        s1.set_start_end_reachable(true);
+
+        Snarl s2;
+        const Snarl* snarl2 = &s2;
+        s2.mutable_start()->set_node_id(2);
+        s2.mutable_end()->set_node_id(7);
+        s2.set_start_end_reachable(true);
+        transfer_boundary_info(s1, *s2.mutable_parent());
+
+        Snarl s3;
+        const Snarl* snarl3 = &s3;
+        s3.mutable_start()->set_node_id(3);
+        s3.mutable_end()->set_node_id(5);
+        s3.set_start_end_reachable(true);
+        transfer_boundary_info(s2, *s3.mutable_parent());
+
+        auto ptr3 = snarl_manager.add_snarl(s3);
+        auto ptr2 = snarl_manager.add_snarl(s2);
+        
+        snarl_manager.add_chain(Chain{ptr3}, ptr2);
+ 
+        auto ptr1 = snarl_manager.add_snarl(s1);
+        snarl_manager.add_chain(Chain{ptr2}, ptr1);
+        snarl_manager.add_chain(Chain{ptr1}, nullptr);
+
         TestDistanceIndex di (&graph, &snarl_manager);
         
         SECTION( "Create distance index" ) {
             const vector<const Snarl*> topSnarls = snarl_manager.top_level_snarls();
-            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
             pair<id_t, bool> start1 = make_pair(snarl1->start().node_id(), 
                                                     snarl1->start().backward());
             pair<id_t, bool> end1 = make_pair(snarl1->end().node_id(), 
@@ -184,7 +213,6 @@ class TestDistanceIndex : public DistanceIndex {
             TestDistanceIndex::SnarlDistances& sd1 = di.snarlIndex.at(make_pair(snarl1->start().node_id(),
                                               snarl1->start().backward()));
 
-            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
             pair<id_t, bool> start2 = make_pair(snarl2->start().node_id(), 
                                                     snarl2->start().backward());
             pair<id_t, bool> start2r = make_pair(snarl2->start().node_id(), 
@@ -196,7 +224,6 @@ class TestDistanceIndex : public DistanceIndex {
             TestDistanceIndex::SnarlDistances& sd2 = di.snarlIndex.at(make_pair(snarl2->start().node_id(),
                                      snarl2->start().backward()));
 
-            const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
             pair<id_t, bool> start3 = make_pair(snarl3->start().node_id(), 
                                                     snarl3->start().backward());
             pair<id_t, bool> start3r = make_pair(snarl3->start().node_id(), 
@@ -221,7 +248,7 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(sd1.snarlDistanceShort(&graph , &ng, make_pair(1, false), make_pair(8, false)) == 0); 
  
 
-             //REQUIRE(sd2.snarlDistance(make_pair(3, false), make_pair(7, false)) == 4);          
+             REQUIRE(sd2.snarlDistance(make_pair(3, false), make_pair(7, false)) == 4);          
              REQUIRE(sd2.snarlDistance(make_pair(7, true), make_pair(2, true)) == 2);
 
              REQUIRE(((sd2.snarlDistance(end2r, start3r) == 1 && //3 is start
@@ -299,7 +326,7 @@ class TestDistanceIndex : public DistanceIndex {
     }//End test case
 
     TEST_CASE( "Create distance index disconnected graph",
-                   "[dist]" ) {
+                   "[dist][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -314,21 +341,26 @@ class TestDistanceIndex : public DistanceIndex {
         Node* n9 = graph.create_node("T");
         Node* n10 = graph.create_node("G");
         Node* n11 = graph.create_node("CTGA");
+        Node* n12 = graph.create_node("G");
+        Node* n13 = graph.create_node("CTGA");
 
         Edge* e1 = graph.create_edge(n1, n2);
-        Edge* e2 = graph.create_edge(n1, n8);
+        Edge* e2 = graph.create_edge(n1, n3);
         Edge* e3 = graph.create_edge(n2, n3);
-        Edge* e4 = graph.create_edge(n2, n6);
-        Edge* e5 = graph.create_edge(n3, n4);
-        Edge* e6 = graph.create_edge(n3, n5);
-        Edge* e7 = graph.create_edge(n4, n5);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n3, n5);
+        Edge* e6 = graph.create_edge(n4, n5);
+        Edge* e7 = graph.create_edge(n5, n6);
         Edge* e8 = graph.create_edge(n5, n7);
-        Edge* e9 = graph.create_edge(n6, n7);
+        Edge* e9 = graph.create_edge(n6, n8);
         Edge* e10 = graph.create_edge(n7, n8);
 
         Edge* e11 = graph.create_edge(n9, n10);
         Edge* e12 = graph.create_edge(n9, n11);
         Edge* e13 = graph.create_edge(n10, n11);
+        Edge* e14 = graph.create_edge(n11, n12);
+        Edge* e15 = graph.create_edge(n11, n13);
+        Edge* e16 = graph.create_edge(n12, n13);
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
@@ -344,30 +376,29 @@ class TestDistanceIndex : public DistanceIndex {
 
         SECTION ("Distance functions") {
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
-            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
             const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
+            const Snarl* snarl5 = snarl_manager.into_which_snarl(5, false);
             const Snarl* snarl9 = snarl_manager.into_which_snarl(9, false);
+            const Snarl* snarl11 = snarl_manager.into_which_snarl(11, false);
 
-            pos_t pos1 = make_pos_t(4, false, 1);
-            pos_t pos2 = make_pos_t(5, false, 2);
-            pos_t pos3 = make_pos_t(5, false, 1);
-            pos_t pos4 = make_pos_t(4, false, 2);
-            pos_t pos5 = make_pos_t(2, false, 0);
-            pos_t pos6 = make_pos_t(2, true, 0);
-            pos_t pos7 = make_pos_t(1, true, 1);
-            pos_t pos8r = make_pos_t(8, false, 2);
-            pos_t pos8 = make_pos_t(8, true, 1);
-            pos_t pos9 = make_pos_t(6, true, 0);
-            pos_t pos10 = make_pos_t(9, false, 0);
+            pos_t pos1 = make_pos_t(1, false, 0);
+            pos_t pos4 = make_pos_t(4, false, 0);
+            pos_t pos3 = make_pos_t(3, false, 0);
+            pos_t pos6 = make_pos_t(6, false, 0);
+            pos_t pos7 = make_pos_t(7, false, 0);
+            pos_t pos9 = make_pos_t(9, false, 0);
             pos_t pos11 = make_pos_t(11, false, 0);
+            pos_t pos12 = make_pos_t(12, false, 0);
 
-            REQUIRE(di.distance(snarl1, snarl1, pos7, pos8r) == 5);
-            REQUIRE(di.distance(snarl1, snarl1, pos7, pos8) == 5);
-            REQUIRE(di.distance(snarl3, snarl2, pos4, pos9) == -1);
+            REQUIRE(di.distance(snarl1, snarl3, pos1, pos4) == 5);
+            REQUIRE(di.distance(snarl1, snarl5, pos1, pos6) == 8);
+            REQUIRE(di.distance(snarl5, snarl5, pos6, pos7) == -1);
 
-            REQUIRE(di.distance(snarl9, snarl9, pos10, pos11) == 2);
-            REQUIRE(di.distance(snarl3, snarl9, pos4, pos10) == -1);
-            REQUIRE(di.distance(snarl1, snarl9, pos7, pos11) == -1);
+            REQUIRE(di.distance(snarl9, snarl11, pos9, pos12) == 6);
+            REQUIRE(di.distance(snarl9, snarl9, pos9, pos11) == 2);
+            REQUIRE(di.distance(snarl3, snarl9, pos4, pos9) == -1);
+            REQUIRE(di.distance(snarl3, snarl11, pos4, pos12) == -1);
+            REQUIRE(di.distance(snarl1, snarl9, pos1, pos11) == -1);
 
 
         }
@@ -398,14 +429,41 @@ class TestDistanceIndex : public DistanceIndex {
         Edge* e10 = graph.create_edge(n7, n8);
 
         CactusSnarlFinder bubble_finder(graph);
-        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+
+        SnarlManager snarl_manager; 
+
+        Snarl s1;
+        const Snarl* snarl1 = &s1;
+        s1.mutable_start()->set_node_id(1);
+        s1.mutable_end()->set_node_id(8);
+        s1.set_start_end_reachable(true);
+
+        Snarl s2;
+        const Snarl* snarl2 = &s2;
+        s2.mutable_start()->set_node_id(2);
+        s2.mutable_end()->set_node_id(5);
+        s2.set_start_end_reachable(true);
+        transfer_boundary_info(s1, *s2.mutable_parent());
+
+        Snarl s5;
+        const Snarl* snarl5 = &s5;
+        s5.mutable_start()->set_node_id(5);
+        s5.mutable_end()->set_node_id(7);
+        s5.set_start_end_reachable(true);
+        transfer_boundary_info(s1, *s5.mutable_parent());
+
+        auto ptr5 = snarl_manager.add_snarl(s5);
+        auto ptr2 = snarl_manager.add_snarl(s2);
+        auto ptr1 = snarl_manager.add_snarl(s1);
+        
+        snarl_manager.add_chain(Chain{ptr2, ptr5}, ptr1); 
+        snarl_manager.add_chain(Chain{ptr1}, nullptr);
+
+
         TestDistanceIndex di (&graph, &snarl_manager);
 
 
         SECTION("Create distance index") {
-            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
-            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
-            const Snarl* snarl5 = snarl_manager.into_which_snarl(5, false);
             const Chain* chain = snarl_manager.chain_of(snarl2);
 
             pair<id_t, bool> start1 = make_pair(snarl1->start().node_id(), 
@@ -523,15 +581,41 @@ class TestDistanceIndex : public DistanceIndex {
         Edge* e12 = graph.create_edge(n6, n6, false, true);
         Edge* e13 = graph.create_edge(n7, n7, false, true);
 
-        CactusSnarlFinder bubble_finder(graph);
-        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+
+        SnarlManager snarl_manager; 
+
+        Snarl s1;
+        const Snarl* snarl1 = &s1;
+        s1.mutable_start()->set_node_id(1);
+        s1.mutable_end()->set_node_id(8);
+        s1.set_start_end_reachable(true);
+
+        Snarl s2;
+        const Snarl* snarl2 = &s2;
+        s2.mutable_start()->set_node_id(2);
+        s2.mutable_end()->set_node_id(5);
+        s2.set_start_end_reachable(true);
+        transfer_boundary_info(s1, *s2.mutable_parent());
+
+        Snarl s5;
+        const Snarl* snarl5 = &s5;
+        s5.mutable_start()->set_node_id(5);
+        s5.mutable_end()->set_node_id(7);
+        s5.set_start_end_reachable(true);
+        transfer_boundary_info(s1, *s5.mutable_parent());
+
+        auto ptr5 = snarl_manager.add_snarl(s5);
+        auto ptr2 = snarl_manager.add_snarl(s2);
+        auto ptr1 = snarl_manager.add_snarl(s1);
+        
+        snarl_manager.add_chain(Chain{ptr2, ptr5}, ptr1); 
+        snarl_manager.add_chain(Chain{ptr1}, nullptr);
+
+
         TestDistanceIndex di(&graph, &snarl_manager);
 
 
         SECTION("Create distance index") {
-            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
-            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
-            const Snarl* snarl5 = snarl_manager.into_which_snarl(5, false);
             const Chain* chain = snarl_manager.chain_of(snarl2);
 
             pair<id_t, bool> start1 = make_pair(snarl1->start().node_id(), 
@@ -603,9 +687,6 @@ class TestDistanceIndex : public DistanceIndex {
 
             }
         SECTION ("Distance functions") {
-            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
-            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
-            const Snarl* snarl5 = snarl_manager.into_which_snarl(5, false);
 
             pos_t pos1 = make_pos_t(4, false, 1);
             pos_t pos2 = make_pos_t(6, false, 0);
@@ -1692,38 +1773,6 @@ class TestDistanceIndex : public DistanceIndex {
         }
     }//end test case
 
-/*
-    TEST_CASE("Two tip start", "[dist][bug]") {
-        VG graph;
-
-        Node* n1 = graph.create_node("G");
-        Node* n2 = graph.create_node("TA");
-        Node* n3 = graph.create_node("GGG");
-
-        Edge* e1 = graph.create_edge(n1, n3);
-        Edge* e2 = graph.create_edge(n2, n3);
-
-        CactusSnarlFinder bubble_finder(graph);
-        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
-
-
-       SECTION ("Distance functions") {
-            #ifdef print
-                di.printSelf();
-            #endif
-            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, true);
-            const Snarl* snarl3 = snarl_manager.into_which_snarl(2, false);
-
-            pos_t pos1 = make_pos_t(1, false, 0);
-            pos_t pos2 = make_pos_t(2, false, 0);
-            pos_t pos3 = make_pos_t(3, false, 0);
-
-            REQUIRE(di.distance(snarl1, snarl3, pos1, pos3) == 2);
-
-        }
-    }//end test case
-*/
 
     TEST_CASE( "Snarl that loops on itself",
                   "[dist]" ) {

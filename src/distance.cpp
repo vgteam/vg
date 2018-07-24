@@ -15,7 +15,6 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager){
         cerr << endl << "Creating distance index"<< endl;
     #endif
     const vector<const Snarl*> topSnarls = sm->top_level_snarls();
-//              calculateIndex(&topSnarls);
 
     unordered_set<const Snarl*> seenSnarls;
     for (const Snarl* snarl : topSnarls) {
@@ -921,7 +920,7 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
 
 
     //// Find common ancestor of the two snarls
-    unordered_set<const Snarl*> ancestors1;//set of all ancestor snarls of node1
+    unordered_set<pair<id_t, bool>> ancestors1;//set of all ancestor snarls of node1
     const Snarl* ancestor1 = snarl1;
 
 #ifdef printDistances
@@ -933,7 +932,8 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
 #ifdef printDistances
         cerr << ancestor1->start().node_id() << " ";
 #endif
-        ancestors1.emplace(ancestor1);
+        ancestors1.emplace(make_pair(ancestor1->start().node_id(),
+                                     ancestor1->start().backward()));
         ancestor1 = sm->parent_of(ancestor1);
     }
 
@@ -952,7 +952,8 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
 #endif
 
 
-        if (ancestors1.count(ancestor2) > 0) { 
+        if (ancestors1.count(make_pair(ancestor2->start().node_id(),
+                                       ancestor2->start().backward())) > 0) { 
             commonAncestor = ancestor2;
             break;
         }
@@ -1350,7 +1351,9 @@ pair<pair<int64_t, int64_t>, const Snarl*> DistanceIndex::distToCommonAncestor(
                ", end: " << distR << endl;
     #endif
  
-    if (snarl == commonAncestor) {
+    if (commonAncestor != NULL &&
+        snarl->start().node_id() == commonAncestor->start().node_id() &&
+        snarl->start().backward() == commonAncestor->start().backward()) {
         /*If the node is a node in commonAncestor, return the distances to 
            the ends of the node
         */
@@ -1374,7 +1377,12 @@ pair<pair<int64_t, int64_t>, const Snarl*> DistanceIndex::distToCommonAncestor(
     nodeID = startID;
     bool nodeRev = startRev;
 
-    while (sm->parent_of(snarl) != commonAncestor) {
+    while ((sm->parent_of(snarl) != NULL && commonAncestor == NULL) || 
+           (commonAncestor != NULL && 
+           !(sm->parent_of(snarl)->start().node_id() == commonAncestor->start().node_id() &&
+           sm->parent_of(snarl)->start().backward() == commonAncestor->start().backward()))) {
+        //While snarl's parent doesn't equal common ancestor
+
         int64_t dsl; int64_t dsr; int64_t der; int64_t del;
 
         if (sm->in_nontrivial_chain(snarl)) {
