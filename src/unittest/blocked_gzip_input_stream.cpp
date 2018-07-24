@@ -31,10 +31,11 @@ static int64_t vo(size_t block_start, size_t offset) {
     return (block_start << 16) | (0xFFFF & offset);
 }
 
+// We have a function to get a shared test data string.
+const static string TO_COMPRESS = "This is some extremely boring text that is going to be compressed.";
+
 TEST_CASE("a BlockedGzipInputStream can read from a stringstream", "[bgzip]") {
     stringstream datastream;
-    
-    const string TO_COMPRESS = "It's cheap and it's ethical... well, it's ethical... well, it's magical really";
     
     {
         // Write some data in
@@ -135,8 +136,6 @@ TEST_CASE("a BlockedGzipInputStream can read from a stringstream", "[bgzip]") {
 TEST_CASE("a BlockedGzipInputStream can read non-blocked gzip-compressed data", "[bgzip]") {
     stringstream datastream;
     
-    const string TO_COMPRESS = "But wait, it comes with a warranty for a week, and that's respectable";
-    
     {
         // Write some data in
         ::google::protobuf::io::OstreamOutputStream raw_out(&datastream);
@@ -219,9 +218,7 @@ TEST_CASE("a BlockedGzipInputStream can read non-blocked gzip-compressed data", 
 
 TEST_CASE("a BlockedGzipInputStream does not hang on truncated gzip-compressed data", "[bgzip]") {
     stringstream datastream;
-    
-    const string TO_COMPRESS = "Now all the parts are running, sparks are spilling out the gears";
-    
+   
     {
         // Write some data in
         ::google::protobuf::io::OstreamOutputStream raw_out(&datastream);
