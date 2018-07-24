@@ -235,18 +235,80 @@ TEST_CASE("a BlockedGzipInputStream can read large amounts of non-blocked compre
     
     // Now try and read it back
     BlockedGzipInputStream bgzip_in(datastream);
+    
+    SECTION("it can be read straight through") {
+        ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
+        
+        uint32_t expected = 0;
+        uint32_t found;
+        
+        while(coded_in.ReadLittleEndian32(&found)) {
+            REQUIRE(found == expected);
+            expected++;
+        }
+        
+        REQUIRE(expected == 1000000);
+    }
+    
+    SECTION("it can be read with multiple CodedInputStreams") {
+        uint32_t expected = 0;
+        uint32_t found;
+        
+        while(true) {
+            ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
+            
+            if (!coded_in.ReadLittleEndian32(&found)) {
+                break;
+            }
+            
+            REQUIRE(found == expected);
+            expected++;
+        }
+        
+        REQUIRE(expected == 1000000);
+    }
+
+}
+
+TEST_CASE("a BlockedGzipInputStream can read concatenated streams of non-blocked compressed data", "[bgzip]") {
+    stringstream datastream;
+
+    for (size_t stream = 0; stream < 10; stream++) {
+        // Write some data in
+        ::google::protobuf::io::OstreamOutputStream raw_out(&datastream);
+        ::google::protobuf::io::GzipOutputStream gzip_out(&raw_out);
+        ::google::protobuf::io::CodedOutputStream coded_out(&gzip_out);
+        
+        for (uint32_t i = 0; i < 100; i++) {
+            // Each stream will have 100 entries
+            coded_out.WriteLittleEndian32(i);
+        }
+        
+    }
+    
+    // Stringstreams track put and get positions separately. So we will read from the beginning.
+    REQUIRE(datastream.tellg() == 0);
+    
+    // Now try and read it back
+    BlockedGzipInputStream bgzip_in(datastream);
+    
     ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
     
     uint32_t expected = 0;
     uint32_t found;
+    size_t seen_count = 0;
     
     while(coded_in.ReadLittleEndian32(&found)) {
+        if (expected == 100) {
+            expected = 0;
+        }
         REQUIRE(found == expected);
         expected++;
+        seen_count++;
     }
     
-    REQUIRE(expected == 1000000);
-
+    REQUIRE(expected == 100);
+    REQUIRE(seen_count == 100 * 10);
 }
 
 TEST_CASE("a BlockedGzipInputStream can read large amounts of uncompressed data", "[bgzip]") {

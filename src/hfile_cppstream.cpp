@@ -27,6 +27,10 @@ typedef struct {
 
 /// Read data. Return bytes read, or a negative value on error. Set errno on error.
 static ssize_t cppstream_read(hFILE *fpv, void *buffer, size_t nbytes) {
+#ifdef debug
+    cerr << "cppstream_read(" << fpv << ", " << buffer << ", " << nbytes << ")" << endl;
+#endif
+    
     // Cast the hFILE to the derived class
     hFILE_cppstream* fp = (hFILE_cppstream*) fpv;
     
@@ -48,6 +52,10 @@ static ssize_t cppstream_read(hFILE *fpv, void *buffer, size_t nbytes) {
         errno = EIO;
         return -1;
     }
+    
+#ifdef debug
+    cerr << "\tFound " << found << "/" << nbytes << " bytes up to " << fp->input->tellg() << endl;
+#endif
     
     // Otherwise the read worked
     return found;

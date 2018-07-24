@@ -67,6 +67,11 @@ bool BlockedGzipInputStream::Next(const void** data, int* size) {
         handle->block_offset = handle->block_length;
         handle->uncompressed_address += *size;
         
+#ifdef debug
+        cerr << "Re-emit " << *size << " bytes of backed-up data, move to " << handle->block_offset << "/" << handle->block_length << endl;
+        cerr << "errcode: " << handle->errcode << endl;
+#endif
+        
         return true;
     } else {
         // We need new data. Either we did a seek, or we are at the end of the previous block.
@@ -78,14 +83,47 @@ bool BlockedGzipInputStream::Next(const void** data, int* size) {
             handle->block_offset = 0;
         }
         
+#ifdef debug
+        cerr << "Compression mode: " << bgzf_compression(handle) << endl;
+        cerr << "Read next block; offset is " << handle->block_offset << endl;
+        if (handle->gz_stream != nullptr) {
+            cerr << "\tavail_in: " << handle->gz_stream->avail_in << endl;
+            if (handle->gz_stream->avail_in > 0) {
+                cerr << "\t\tShould not read from backing file!" << endl;
+            }
+            cerr << "\tavail_out: " << handle->gz_stream->avail_out << endl;
+        }
+#endif
+        
         // Make the BGZF read the next block
         if (bgzf_read_block(handle) != 0) {
             // We have encountered an error
+            
+#ifdef debug
+            cerr << "Failed to read next block" << endl;
+            cerr << "\terrcode: " << handle->errcode << endl;
+#endif
+            
             return false;
         }
         
+#ifdef debug
+        cerr << "See a block of length " << handle->block_length << " at " << handle->block_address << endl;
+        cerr << "\terrcode: " << handle->errcode << endl;
+        if (handle->gz_stream != nullptr) {
+            cerr << "\tavail_in: " << handle->gz_stream->avail_in << endl;
+            cerr << "\tavail_out: " << handle->gz_stream->avail_out << endl;
+        }
+#endif
+        
         if (handle->block_length == 0) {
             // We have hit EOF
+            
+#ifdef debug
+            cerr << "Next block reports length 0 (EOF)" << endl;
+            cerr << "\terrcode: " << handle->errcode << endl;
+#endif
+            
             return false;
         }
         
@@ -93,6 +131,12 @@ bool BlockedGzipInputStream::Next(const void** data, int* size) {
         
         if (handle->block_offset > handle->block_length) {
             // We don't have enough data to fulfill the most recent seek. Signal an error.
+            
+#ifdef debug
+            cerr << "Tried to seek to " << handle->block_offset << " but got only " <<  handle->block_length << " bytes" << endl;
+            cerr << "\terrcode: " << handle->errcode << endl;
+#endif
+            
             return false;
         }
         
@@ -108,6 +152,11 @@ bool BlockedGzipInputStream::Next(const void** data, int* size) {
         handle->block_offset = handle->block_length;
         handle->uncompressed_address += *size;
         
+#ifdef debug
+        cerr << "Emit " << *size << " bytes in fresh block" << endl;
+        cerr << "\terrcode: " << handle->errcode << endl;
+#endif
+        
         return true;
     }
 }
@@ -116,6 +165,10 @@ void BlockedGzipInputStream::BackUp(int count) {
     assert(count <= handle->block_offset);
     handle->block_offset -= count;
     handle->uncompressed_address -= count;
+    
+#ifdef debug
+    cerr << "Back up " << count << " bytes to " << handle->block_offset << "/" << handle->block_length << endl;
+#endif
 }
 
 bool BlockedGzipInputStream::Skip(int count) {

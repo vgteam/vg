@@ -279,15 +279,45 @@ void for_each_with_group_length(std::istream& in,
         // Get the offset we're at, or -1 if we can't seek/tell
         int64_t virtual_offset = bgzip_in.Tell();
         
+#ifdef debug
+        cerr << "At virtual offset " << virtual_offset << endl;
+#endif
+        
         // Read the count
         size_t count;
         {
+            
+#ifdef debug
+            // Peek ahead at the group header
+            char* data;
+            int size;
+            bool worked = bgzip_in.Next((const void**)&data, &size);
+            if (worked) {
+                cerr << "Next data is " << size << " bytes: " << endl;
+                for (size_t i = 0; size > 0 && i < std::min(size, 10); i++) {
+                    cerr << (unsigned int)data[i] << " ";
+                }
+                cerr << endl;
+                bgzip_in.BackUp(size);
+            } else {
+                cerr << "Peek failed!" << endl;
+            }
+#endif
+            
             ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
             bool saw_count = coded_in.ReadVarint64((::google::protobuf::uint64*) &count);
             if (!saw_count) {
+        
+#ifdef debug
+                cerr << "Could not read count. Stopping read." << endl;
+#endif
                 // EOF (probably)
                 return;
             }
+            
+#ifdef debug 
+                cerr << "Found group with count " << count << endl;
+#endif
         }
         
         // Call the count callback
@@ -308,6 +338,10 @@ void for_each_with_group_length(std::istream& in,
             
             // the messages are prefixed by their size. Insist on reading it.
             handle(coded_in.ReadVarint32(&msgSize));
+            
+#ifdef debug
+            cerr << "Found message size of " << msgSize << endl;
+#endif
             
             if (msgSize > MAX_PROTOBUF_SIZE) {
                 throw std::runtime_error("[stream::for_each] protobuf message of " +
@@ -712,6 +746,7 @@ private:
     }
 };
 
+#undef debug
 
 }
 
