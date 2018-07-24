@@ -217,21 +217,21 @@ TEST_CASE("a BlockedGzipInputStream can read non-blocked gzip-compressed data", 
 }
 
 TEST_CASE("a BlockedGzipInputStream does not hang on truncated gzip-compressed data", "[bgzip]") {
-    stringstream datastream;
+    stringstream outstream;
    
     {
         // Write some data in
-        ::google::protobuf::io::OstreamOutputStream raw_out(&datastream);
+        ::google::protobuf::io::OstreamOutputStream raw_out(&outstream);
         ::google::protobuf::io::GzipOutputStream gzip_out(&raw_out);
         ::google::protobuf::io::CodedOutputStream coded_out(&gzip_out);
         coded_out.WriteString(TO_COMPRESS);
     }
     
-    string data = datastream.str();
+    string data = outstream.str();
     data = data.substr(0, data.size() / 2);
-    datastream = stringstream(data);
+    stringstream instream(data);
     
-    BlockedGzipInputStream bgzip_in(datastream);
+    BlockedGzipInputStream bgzip_in(instream);
     
     char* buffer;
     int size;
