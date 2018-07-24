@@ -298,6 +298,82 @@ class TestDistanceIndex : public DistanceIndex {
         }
     }//End test case
 
+    TEST_CASE( "Create distance index disconnected graph",
+                   "[dist]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("CTGA");
+//Disconnected
+        Node* n9 = graph.create_node("T");
+        Node* n10 = graph.create_node("G");
+        Node* n11 = graph.create_node("CTGA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n8);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n6);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n3, n5);
+        Edge* e7 = graph.create_edge(n4, n5);
+        Edge* e8 = graph.create_edge(n5, n7);
+        Edge* e9 = graph.create_edge(n6, n7);
+        Edge* e10 = graph.create_edge(n7, n8);
+
+        Edge* e11 = graph.create_edge(n9, n10);
+        Edge* e12 = graph.create_edge(n9, n11);
+        Edge* e13 = graph.create_edge(n10, n11);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+        TestDistanceIndex di (&graph, &snarl_manager);
+        
+        SECTION( "Create distance index" ) {
+            //REQUIRE(di.chainIndex.size() == 0);
+#ifdef print
+            di.printSelf();
+#endif
+        }
+
+
+        SECTION ("Distance functions") {
+            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
+            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
+            const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
+            const Snarl* snarl9 = snarl_manager.into_which_snarl(9, false);
+
+            pos_t pos1 = make_pos_t(4, false, 1);
+            pos_t pos2 = make_pos_t(5, false, 2);
+            pos_t pos3 = make_pos_t(5, false, 1);
+            pos_t pos4 = make_pos_t(4, false, 2);
+            pos_t pos5 = make_pos_t(2, false, 0);
+            pos_t pos6 = make_pos_t(2, true, 0);
+            pos_t pos7 = make_pos_t(1, true, 1);
+            pos_t pos8r = make_pos_t(8, false, 2);
+            pos_t pos8 = make_pos_t(8, true, 1);
+            pos_t pos9 = make_pos_t(6, true, 0);
+            pos_t pos10 = make_pos_t(9, false, 0);
+            pos_t pos11 = make_pos_t(11, false, 0);
+
+            REQUIRE(di.distance(snarl1, snarl1, pos7, pos8r) == 5);
+            REQUIRE(di.distance(snarl1, snarl1, pos7, pos8) == 5);
+            REQUIRE(di.distance(snarl3, snarl2, pos4, pos9) == -1);
+
+            REQUIRE(di.distance(snarl9, snarl9, pos10, pos11) == 2);
+            REQUIRE(di.distance(snarl3, snarl9, pos4, pos10) == -1);
+            REQUIRE(di.distance(snarl1, snarl9, pos7, pos11) == -1);
+
+
+        }
+    }//End test case
+
+
     TEST_CASE("Simple chain", "[dist]") {
         VG graph;
 
@@ -1543,7 +1619,7 @@ class TestDistanceIndex : public DistanceIndex {
         }
     }//End test case
 
-    TEST_CASE("Top level loops", "[dist][help]") {
+    TEST_CASE("Top level loops", "[dist]") {
         VG graph;
 
         Node* n1 = graph.create_node("G");
@@ -1616,7 +1692,8 @@ class TestDistanceIndex : public DistanceIndex {
         }
     }//end test case
 
-    TEST_CASE("Two tip start", "[dist]") {
+/*
+    TEST_CASE("Two tip start", "[dist][bug]") {
         VG graph;
 
         Node* n1 = graph.create_node("G");
@@ -1646,6 +1723,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         }
     }//end test case
+*/
 
     TEST_CASE( "Snarl that loops on itself",
                   "[dist]" ) {
@@ -1784,7 +1862,7 @@ class TestDistanceIndex : public DistanceIndex {
 
     TEST_CASE("Serialize distance index", "[dist][serial]") {
         for (int i = 0; i < 100; i++) {
-            //1000 different graphs
+
             VG graph = randomGraph(1000, 20, 100); 
 
             CactusSnarlFinder bubble_finder(graph);

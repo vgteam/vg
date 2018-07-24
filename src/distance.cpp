@@ -15,7 +15,28 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager){
         cerr << endl << "Creating distance index"<< endl;
     #endif
     const vector<const Snarl*> topSnarls = sm->top_level_snarls();
-    calculateIndex(&topSnarls);
+//              calculateIndex(&topSnarls);
+
+    unordered_set<const Snarl*> seenSnarls;
+    for (const Snarl* snarl : topSnarls) {
+       if (seenSnarls.count(snarl) == 0){
+          if (sm->in_nontrivial_chain(snarl)){
+              const Chain* chain = sm->chain_of(snarl);
+              calculateIndex(chain);
+              for (auto s : *chain) {
+                  seenSnarls.insert(s);
+              }
+           } else {
+               Chain currChain;
+               currChain.push_back(snarl);
+               calculateIndex(&currChain);
+               seenSnarls.insert(snarl);
+           }
+           
+       }
+        
+    }
+
 };
 
 
@@ -113,49 +134,6 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager, istream& in) {
     }
 };
 
-void DistanceIndex::toVector(
-                    vector<int64_t>& snarlNodes, vector<int64_t>& snarlVector,
-                    vector<int64_t>& chainNodes, vector<int64_t>& chainVector){
-    //Convert contents of object into vectors for serialization
-  
-    size_t snarlNodesI = 0;
-    size_t snarlVectorI = 0;
-    //Serialize snarls
-    snarlNodes.resize(2*snarlIndex.size());
-
-    for (pair<pair<id_t, bool>, SnarlDistances> snarlPair : snarlIndex) {
-        int64_t nodeInt = snarlPair.first.second ? 
-            - (int64_t) snarlPair.first.first : (int64_t) snarlPair.first.first;
-        vector<int64_t> currVector = snarlPair.second.toVector();
-        
-        snarlNodes[snarlNodesI++] = nodeInt;
-        snarlNodes[snarlNodesI++] = (int64_t) currVector.size();
-    
-        snarlVector.resize(snarlVector.size() + currVector.size());
-        //Concatenate new vector onto whole snarl vector
-        for (auto x : currVector) {
-            snarlVector[snarlVectorI++] = x;
-        }
-    }
-
-    size_t chainNodesI = 0;
-    size_t chainVectorI = 0;
-    //Serialize chains
-    for (pair<id_t, ChainDistances> chainP: chainIndex) {
-        vector<int64_t> currVector = chainP.second.toVector();
-        
-        chainNodes.resize(chainNodes.size() + 2 );
-        chainNodes[chainNodesI++] = (int64_t) chainP.first;
-        chainNodes[chainNodesI++] = (int64_t) currVector.size();
-        
-        chainVector.resize(chainVector.size() + currVector.size()); 
-        for (auto x : currVector) {
-            chainVector[chainVectorI ++ ] = x;
-        } 
-    }
-
-}
-
 void DistanceIndex::serialize(ostream& out) {
 
     auto toUint = [](int64_t val) {
@@ -165,13 +143,49 @@ void DistanceIndex::serialize(ostream& out) {
         if (val < 0) { uval += 1; }
         return uval;
     };
+
     vector<int64_t> d1;
     vector<int64_t> d2;
     vector<int64_t> d3;
     vector<int64_t> d4;
-    toVector(d1, d2, d3, d4);
 
+    size_t snarlNodesI = 0;
+    size_t snarlVectorI = 0;
+    //Serialize snarls
+    d1.resize(2*snarlIndex.size());
+
+    for (pair<pair<id_t, bool>, SnarlDistances> snarlPair : snarlIndex) {
+        int64_t nodeInt = snarlPair.first.second ? 
+            - (int64_t) snarlPair.first.first : (int64_t) snarlPair.first.first;
+        vector<int64_t> currVector = snarlPair.second.toVector();
+        
+        d1[snarlNodesI++] = nodeInt;
+        d1[snarlNodesI++] = (int64_t) currVector.size();
     
+        d2.resize(d2.size() + currVector.size());
+        //Concatenate new vector onto whole snarl vector
+        for (auto x : currVector) {
+            d2[snarlVectorI++] = x;
+        }
+    }
+
+    size_t chainNodesI = 0;
+    size_t chainVectorI = 0;
+    //Serialize chains
+    for (pair<id_t, ChainDistances> chainP: chainIndex) {
+        vector<int64_t> currVector = chainP.second.toVector();
+        
+        d3.resize(d3.size() + 2 );
+        d3[chainNodesI++] = (int64_t) chainP.first;
+        d3[chainNodesI++] = (int64_t) currVector.size();
+        
+        d4.resize(d4.size() + currVector.size()); 
+        for (auto x : currVector) {
+            d4[chainVectorI ++ ] = x;
+        } 
+    }
+    
+    //Convert vectors of ints to int_vector TODO: Start with int_vector
     int_vector<> snarlNodes;
     int_vector<> snarlVector;
     int_vector<> chainNodes;
@@ -248,7 +262,8 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
         if (snarlToIndex.find(snarlEndID) == snarlToIndex.end()){
             //Store the index of the start of the snarl only if it hasn't
             //already been seen (if the chain loops)
-            snarlToIndex[snarlEndID] = snarlToIndex.size()-1;
+            size_t nextIndex = snarlToIndex.size();
+            snarlToIndex[snarlEndID] = nextIndex;
         }
 
 
@@ -550,7 +565,6 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
 
                         ng.follow_edges(currHandle, false, addHandle);
                     } else if (firstLoop) {
-//TODO: This might be bad
                         //If the nodeLen is -1 then node is a unary snarl that doesn't have a path from start to end. If this is the start of the distance calculation then add subsequent nodes assuming that the node length was 0
                         ng.follow_edges(currHandle, false, addHandle0);
                     } 
@@ -961,7 +975,7 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
 
     //Find distances from pos1 and pos2 to ends of child snarls of ancestor
     pair<pair<int64_t, int64_t>, const Snarl*> p1 = 
-    distToCommonAncestor(snarl1, commonAncestor, pos1);
+                             distToCommonAncestor(snarl1, commonAncestor, pos1);
     pair<int64_t, int64_t> temp1 = p1.first; 
     snarl1 = p1.second;
     if (snarl1 != commonAncestor) {
@@ -971,7 +985,7 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
     int64_t distL1 = temp1.first; int64_t distR1 = temp1.second;
     
     pair<pair<int64_t, int64_t>, const Snarl*> p2 = 
-    distToCommonAncestor(snarl2, commonAncestor, pos2);
+                             distToCommonAncestor(snarl2, commonAncestor, pos2);
     pair<int64_t, int64_t> temp3 = p2.first; 
     snarl2 = p2.second;
     if (snarl2 != commonAncestor) {
@@ -1005,7 +1019,6 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
 
         const Chain* chain = sm->chain_of(snarl1);
         id_t chainStartID = get_start_of(*chain).node_id();
-        bool chainStartRev = get_start_of(*chain).backward(); 
 
         ChainDistances& chainDists = chainIndex.at( chainStartID); 
         bool snarlRev1 = chainDists.isReverse(snarl1, sm); 
@@ -1072,8 +1085,9 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
 
         id_t chainStartID = get_start_of(*chain).node_id();
         ChainDistances& chainDists = chainIndex.at( chainStartID);
+        bool snarlRev = chainDists.isReverse(snarl1, sm); 
         pair<int64_t, int64_t> endDists = chainDists.distToEnds(
-                           make_pair(nodeID1, nodeRev1 != get_start_of(*chain).backward()), distL1, distR1);
+                           make_pair(nodeID1, snarlRev), distL1, distR1);
 
         distL1 = endDists.first;
         distR1 = endDists.second;
@@ -1086,9 +1100,10 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
         const Chain* chain = sm->chain_of(snarl2);
         id_t chainStartID = get_start_of(*chain).node_id();
         ChainDistances& chainDists = chainIndex.at( chainStartID);
+        bool snarlRev = chainDists.isReverse(snarl2, sm); 
 
         pair<int64_t, int64_t> endDists = chainDists.distToEnds(
-                       make_pair(nodeID2, nodeRev2 != get_start_of(*chain).backward()), distL2, distR2);    
+                       make_pair(nodeID2, snarlRev), distL2, distR2);    
         distL2 = endDists.first;
         distR2 = endDists.second;
 
@@ -1180,9 +1195,6 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
             const Chain* currChain= sm->chain_of(currSnarl);
             ChainDistances& chainDists = chainIndex.at(
                                             get_start_of(*currChain).node_id());
-            //TODO: If too slow, this is done twice        
-            bool chainStartRev = get_start_of(*currChain).backward(); 
-
             bool snarlRev = chainDists.isReverse(currSnarl, sm); 
 
             //Distance from start (reverse) to start (forward)
@@ -1213,15 +1225,15 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
             shortestDistance = minPos({shortestDistance, d1, d2, d3, d4});
            
             //Find distances to ends of the current chain
+            //TODO: If too slow, this essentially is done twice 
+
 
             pair<int64_t, int64_t> chainEnd1 = chainDists.distToEnds(
-                      make_pair(startID, startRev != 
-                          get_start_of(*currChain).backward()), distL1, distR1);
+                      make_pair(startID, snarlRev), distL1, distR1);
             distL1 = chainEnd1.first; distR1 = chainEnd1.second;
 
             pair<int64_t, int64_t> chainEnd2 = chainDists.distToEnds(
-                          make_pair(startID, startRev!=
-                          get_start_of(*currChain).backward()), distL2, distR2);
+                          make_pair(startID, snarlRev), distL2, distR2);
             distL2 = chainEnd2.first; distR2 = chainEnd2.second;
 
 
@@ -1234,7 +1246,7 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
     cerr << "At chain " << startID << " dists to ends: " << distL1 << " " << 
          distR1 << " " << distL2 << " " << distR2 << endl;
     cerr << "distances: "  << d1 << " " << d2 << " " << d3 << " " << d4 << endl;
-  << " Shortest distance : "
+    cerr << " Shortest distance : "
           << shortestDistance << endl;
 #endif  
         }
@@ -1371,10 +1383,10 @@ pair<pair<int64_t, int64_t>, const Snarl*> DistanceIndex::distToCommonAncestor(
             const Chain* chain = sm->chain_of(snarl);
             id_t chainStartID = get_start_of(*chain).node_id();
             ChainDistances& chainDists =  chainIndex.at(chainStartID);
+            bool snarlRev = chainDists.isReverse(snarl, sm); 
 
             pair<int64_t, int64_t> endDists = chainDists.distToEnds(
-                          make_pair(nodeID, nodeRev != 
-                               get_start_of(*chain).backward()), distL, distR);
+                          make_pair(nodeID, snarlRev), distL, distR);
 
             distL = endDists.first;   
             distR = endDists.second;
