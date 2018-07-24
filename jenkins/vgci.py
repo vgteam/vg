@@ -512,8 +512,6 @@ class VGCITest(TestCase):
         extra_opts = '--vcf_offsets {}'.format(offset)
         if misc_opts:
             extra_opts += ' {}'.format(misc_opts)
-        # vg genotype needs this not to run out of ram
-        extra_opts += ' --call_chunk_size 300000'
         
         self._toil_vg_run('NA12878', chrom,
                           self._input('{}-{}.vg'.format(graph, region)),
@@ -1096,7 +1094,7 @@ class VGCITest(TestCase):
         # run both gentoype and call
         cmd += ['--call', '--genotype']
         # vg genotype needs this not to run out of ram
-        cmd += ['--call_chunk_size', '300000']
+        cmd += ['--call_chunk_size', '500000']
         # turn off defray filter so genotype doesn't spend time xg-indexing chunks
         # (but leave on the other filters)
         # cmd += ['--filter_opts_gt', '-r', '0.9', '-fu', '-s', '1000', '-m', '1', '-q', '15']
