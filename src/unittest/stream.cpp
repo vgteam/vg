@@ -233,8 +233,10 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
         message_t item;
         item.set_node_id(index_to_make);
         auto vo_parts = unvo(group_virtual_offset);
+#ifdef debug
         cerr << "Write item " << index_to_make << " at VO " << group_virtual_offset 
             << " = " << vo_parts.first << ", " << vo_parts.second << endl;
+#endif
         index_to_group[index_to_make] = group_virtual_offset;
         index_to_make++;
         return item;
@@ -257,8 +259,10 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
         size_t index_expected = 0;
         for (stream::ProtobufIterator<message_t> it(datastream); it.has_next(); it.get_next()) {
             auto vo_parts = unvo(it.tell_group());
+#ifdef debug
             cerr << "Found item " << (*it).node_id() << " at VO " << it.tell_group()
                 << " = " << vo_parts.first << ", " << vo_parts.second << endl;
+#endif
         
             // Each item should be the right item
             REQUIRE((*it).node_id() == index_expected);
