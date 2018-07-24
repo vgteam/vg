@@ -289,7 +289,9 @@ TEST_CASE("a BlockedGzipInputStream can read large amounts of non-blocked compre
         uint32_t found;
         
         while(coded_in.ReadLittleEndian32(&found)) {
-            REQUIRE(found == expected);
+            if (expected % 1000 == 1) {
+                REQUIRE(found == expected);
+            }
             expected++;
         }
         
@@ -307,7 +309,9 @@ TEST_CASE("a BlockedGzipInputStream can read large amounts of non-blocked compre
                 break;
             }
             
-            REQUIRE(found == expected);
+            if (expected % 1000 == 1) {
+                REQUIRE(found == expected);
+            }
             expected++;
         }
         
@@ -348,7 +352,10 @@ TEST_CASE("a BlockedGzipInputStream can read concatenated streams of non-blocked
         if (expected == 100) {
             expected = 0;
         }
-        REQUIRE(found == expected);
+        
+        if (expected % 10 == 1) {
+            REQUIRE(found == expected);
+        }
         expected++;
         seen_count++;
     }
@@ -383,7 +390,9 @@ TEST_CASE("a BlockedGzipInputStream can read large amounts of uncompressed data"
     uint32_t found;
     
     while(coded_in.ReadLittleEndian32(&found)) {
-        REQUIRE(found == expected);
+        if (expected % 1000 == 1) {
+            REQUIRE(found == expected);
+        }
         expected++;
     }
     
@@ -418,7 +427,9 @@ TEST_CASE("a BlockedGzipInputStream can read large amounts of blocked compressed
     uint32_t found;
     
     while(coded_in.ReadLittleEndian32(&found)) {
-        REQUIRE(found == expected);
+        if (expected % 1000 == 1) {
+            REQUIRE(found == expected);
+        }
         expected++;
     }
     
