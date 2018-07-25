@@ -89,24 +89,68 @@ TEST_CASE("GAMindex can look up inserted ranges", "[gam][gamindex]") {
     // Being sorted by lowest ID doesn't mean you are always sorted by highest ID
     index.add_group(7, 8, 300, 400);
     index.add_group(100, 110, 400, 500);
+    index.add_group(1000, 1005, 500, 600);
     
     // Look for node 1
     auto found = index.find(1);
-    // We should find the 1 run from 0 to 100
-    REQUIRE(found.size() == 1);
-    REQUIRE(found[0].first == 0);
-    REQUIRE(found[0].second == 100);
     
+    cerr << "Found:" << endl;
+    for (auto& run : found) {
+        cerr << run.first << "-" << run.second << endl;
+    }
+    
+    // We should find the run from 0 to 100, or a set of runs encompassing that
+    REQUIRE(found.size() > 0);
+    REQUIRE(found.front().first <= 0);
+    REQUIRE(found.back().second >= 100);
+    for (size_t i = 0; i + 1 < found.size(); i++) {
+        // Successive ranges shouldn't overlap, but may abut.
+        REQUIRE(found[i].second <= found[i + 1].first);
+    }
+
     // Look for node 7
     found = index.find(7);
-    // We should find one combined run from 100 to 400
-    REQUIRE(found.size() == 1);
-    REQUIRE(found[0].first == 100);
-    REQUIRE(found[0].second == 400);
     
-    // Look for node 999 which nothing can touch
-    found = index.find(999);
+    cerr << "Found:" << endl;
+    for (auto& run : found) {
+        cerr << run.first << "-" << run.second << endl;
+    }
+    
+    // It could occur as early as 100 or as late as before 400
+    REQUIRE(found.size() > 0);
+    REQUIRE(found.front().first <= 100);
+    REQUIRE(found.back().second >= 400);
+    for (size_t i = 0; i + 1 < found.size(); i++) {
+        // Successive ranges shouldn't overlap, but may abut.
+        REQUIRE(found[i].second <= found[i + 1].first);
+    }
+
+    
+    // Look for node 500 which nothing can touch or be near
+    found = index.find(500);
+    
+    cerr << "Found:" << endl;
+    for (auto& run : found) {
+        cerr << run.first << "-" << run.second << endl;
+    }
+    
     REQUIRE(found.size() == 0);
+    
+    // Look for node 1000 which should benefit from the windowing
+    found = index.find(1000);
+    
+    cerr << "Found:" << endl;
+    for (auto& run : found) {
+        cerr << run.first << "-" << run.second << endl;
+    }
+    
+    // We should find runs encompassing the run we added
+    REQUIRE(found.size() > 0);
+    REQUIRE(found.front().first <= 500);
+    REQUIRE(found.back().second >= 600);
+    
+    // This should be the only thing in its window, so really we shouldn't find anything too early
+    REQUIRE(found.front().first == 500);
     
     
 }
