@@ -83,8 +83,10 @@ auto GAMIndex::add_group(id_t min_id, id_t max_id, int64_t virtual_start, int64_
     // Find the bin for the run
     bin_t bin = common_bin(min_id, max_id);
     
+#ifdef debug
     cerr << "Group spanning " << min_id << "-" << max_id << " at "
         << virtual_start << "-" << virtual_past_end << " lands in bin " << bin << endl;
+#endif
     
     // Find the existing ranges in the bin.
     // We know the previous one, if present, must end at or before this one's start.
@@ -93,7 +95,9 @@ auto GAMIndex::add_group(id_t min_id, id_t max_id, int64_t virtual_start, int64_
     if (!ranges.empty() && ranges.back().second == virtual_start) {
         // We fit right after the last range.
         ranges.back().second = virtual_past_end;
+#ifdef debug
         cerr << "Extend existing range to " << ranges.back().first << "-" << ranges.back().second << endl;
+#endif
     } else {
         // We need a new range
         bin_to_ranges[bin].emplace_back(virtual_start, virtual_past_end);
@@ -108,7 +112,9 @@ auto GAMIndex::add_group(id_t min_id, id_t max_id, int64_t virtual_start, int64_
             // This is the earliest virtual offset to overlap that window
             window_to_start[w] = virtual_start;
             
+#ifdef debug
             cerr << "Start window " << w << endl;
+#endif
         }
     }
 }
@@ -133,14 +139,18 @@ auto GAMIndex::find(id_t node_id, const function<bool(pair<int64_t, int64_t>)>& 
 
 auto GAMIndex::find(id_t min_node, id_t max_node, const function<bool(pair<int64_t, int64_t>)>& scan_callback) const -> void {
     
+#ifdef debug
     cerr << "Query for node range " << min_node << "-" << max_node << endl;
+#endif
     
     // Find the window that gives us a lower bound on the virtual offset we
     // need to be at to find things that touch this node ID.
     window_t min_window = window_of_id(min_node);
     window_t max_window = window_of_id(max_node);
     
+#ifdef debug
     cerr << "Looking for first filled window of " << min_window << "-" << max_window << endl;
+#endif
     
     // Find the minimum virtual offset we need to consider
     int64_t min_vo;
@@ -150,11 +160,15 @@ auto GAMIndex::find(id_t min_node, id_t max_node, const function<bool(pair<int64
         // Some groups overlapped this window, and they started here.
         min_vo = found->second;
         
+#ifdef debug
         cerr << "First occupied window is " << found->first << " at offset " << min_vo << endl;
+#endif
     } else {
         // No groups overlapped any window within the range, so don't iterate anything.
         
+#ifdef debug
         cerr << "No windows occupied; range is empty" << endl;
+#endif
         
         return;
     }
@@ -177,13 +191,17 @@ auto GAMIndex::find(id_t min_node, id_t max_node, const function<bool(pair<int64
     vector<vector<pair<int64_t, int64_t>>::const_iterator> cursors;
     for (auto& bin : used_bins) {
         cursors.push_back(bin->second.begin());
+#ifdef debug
         cerr << "Bin " << bin->first << " overlaps the query and is nonempty" << endl;
+#endif
     }
     
     while (true) {
         // Loop until the user asks us to stop or we run out of things to give them.
     
+#ifdef debug
         cerr << "Find earliest-starting run in any bin ending after " << min_vo << endl;
+#endif
     
         // This tracks which of the cursors points to the run that starts earliest, or the max value if no candidate runs exist.
         size_t starts_earliest = numeric_limits<size_t>::max();
@@ -212,12 +230,16 @@ auto GAMIndex::find(id_t min_node, id_t max_node, const function<bool(pair<int64
         
         if (starts_earliest == numeric_limits<size_t>::max()) {
             // We are all out of runs in any of the bins. We are done!
+#ifdef debug
             cerr << "Out of runs in bins" << endl;
+#endif
             return;
         }
         
+#ifdef debug
         cerr << "Found run " << cursors[starts_earliest]->first << "-" << cursors[starts_earliest]->second
             << " from bin " << used_bins[starts_earliest]->first << endl;
+#endif
         
         // Call the callback with the range max(min_vo, that run's start) to that run's end.
         bool keep_going = scan_callback(make_pair(max(min_vo, cursors[starts_earliest]->first), cursors[starts_earliest]->second));
