@@ -41,7 +41,7 @@ XdropAligner& XdropAligner::operator=(XdropAligner const &rhs)
 
 XdropAligner::XdropAligner(XdropAligner&& rhs)
 {
-	free(dz);
+	dz_destroy(dz);
 	dz = rhs.dz;		// move
 	rhs.dz = nullptr;
 }
@@ -49,7 +49,7 @@ XdropAligner::XdropAligner(XdropAligner&& rhs)
 XdropAligner& XdropAligner::operator=(XdropAligner&& rhs)
 {
 	if(this == &rhs) { return(*this); }
-	free(dz);
+	dz_destroy(dz);
 	dz = rhs.dz;
 	rhs.dz = nullptr;
 	return(*this);
