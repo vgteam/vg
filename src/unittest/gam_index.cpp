@@ -78,6 +78,39 @@ TEST_CASE("GAMindex binning works on adjacent numbers", "[gam][gamindex]") {
 
 }
 
+TEST_CASE("GAMindex can look up inserted ranges", "[gam][gamindex]") {
+    // Make an empty index
+    GAMIndex index;
+
+    // Add some ID-sorted groups
+    index.add_group(1, 5, 0, 100);
+    index.add_group(3, 7, 100, 200);
+    index.add_group(6, 9, 200, 300);
+    // Being sorted by lowest ID doesn't mean you are always sorted by highest ID
+    index.add_group(7, 8, 300, 400);
+    index.add_group(100, 110, 400, 500);
+    
+    // Look for node 1
+    auto found = index.find(1);
+    // We should find the 1 run from 0 to 100
+    REQUIRE(found.size() == 1);
+    REQUIRE(found[0].first == 0);
+    REQUIRE(found[0].second == 100);
+    
+    // Look for node 7
+    found = index.find(7);
+    // We should find one combined run from 100 to 400
+    REQUIRE(found.size() == 1);
+    REQUIRE(found[0].first == 100);
+    REQUIRE(found[0].second == 400);
+    
+    // Look for node 999 which nothing can touch
+    found = index.find(999);
+    REQUIRE(found.size() == 0);
+    
+    
+}
+
 
 }
 }

@@ -33,6 +33,28 @@ auto GAMIndex::bins_of_id(id_t id) -> vector<bin_t> {
     
     return to_return;
 }
+
+auto GAMIndex::bins_of_range(id_t min_id, id_t max_id) -> vector<bin_t> {
+    // We can just get the two bin vectors for the ending bin, and generate an inclusive range of bins at each level.
+    
+    vector<bin_t> to_return;
+    
+    auto min_bins = bins_of_id(min_id);
+    auto max_bins = bins_of_id(max_id);
+    
+    assert(min_bins.size() == max_bins.size());
+    
+    for (size_t i = 0; i < min_bins.size(); i++) {
+        // For each specificity level
+        for (bin_t bin = min_bins[i]; bin != max_bins[i] + 1; bin++) {
+            // For each bin in the inclusive range, emit it
+            to_return.push_back(bin);
+        }
+    }
+    
+    return to_return;
+    
+}
     
 auto GAMIndex::common_bin(id_t a, id_t b) -> bin_t {
     // Convert to unsigned numbers
@@ -57,5 +79,136 @@ auto GAMIndex::window_of_id(id_t id) -> window_t  {
     return id >> WINDOW_SHIFT;
 }
 
+auto GAMIndex::add_group(id_t min_id, id_t max_id, int64_t virtual_start, int64_t virtual_past_end) -> void {
+    // Find the bin for the run
+    bin_t bin = common_bin(min_id, max_id);
+    
+    // Find the existing ranges in the bin.
+    // We know the previous one, if present, must end at or before this one's start.
+    auto& ranges = bin_to_ranges[bin];
+    
+    if (!ranges.empty() && ranges.back().second == virtual_start) {
+        // We fit right after the last range.
+        ranges.back().second = virtual_past_end;
+    } else {
+        // We need a new range
+        bin_to_ranges[bin].emplace_back(virtual_start, virtual_past_end);
+    }
+    
+    for (window_t w = window_of_id(min_id); w <= window_of_id(max_id); w++) {
+        // For each window that this group overlaps
+        
+        if (!window_to_start.count(w)) {
+            // If it is the first group we encounter in the window, it must also be the earliest-staring group in the window.
+            
+            // This is the earliest virtual offset to overlap that window
+            window_to_start[w] = virtual_start;
+        }
+    }
+}
+
+auto GAMIndex::find(id_t node_id) const -> vector<pair<int64_t, int64_t>> {
+    vector<pair<int64_t, int64_t>> to_return;
+    
+    find(node_id, [&](pair<int64_t, int64_t> run) -> bool {
+        // For each run we find, remember it
+        to_return.push_back(run);
+        // Keep getting runs until we run out in the index. We can't actually scan the data.
+        return true;
+    });
+    
+    return to_return;
+}
+
+auto GAMIndex::find(id_t node_id, const function<bool(pair<int64_t, int64_t>)>& scan_callback) const -> void {
+    // Look for a single-node inclusive range
+    find(node_id, node_id, scan_callback);
+}
+
+auto GAMIndex::find(id_t min_node, id_t max_node, const function<bool(pair<int64_t, int64_t>)>& scan_callback) const -> void {
+    
+    // Find the window that gives us a lower bound on the virtual offset we
+    // need to be at to find things that touch this node ID.
+    window_t min_window = window_of_id(min_node);
+    window_t max_window = window_of_id(max_node);
+    
+    // Find the minimum virtual offset we need to consider
+    int64_t min_vo;
+    // It will be for the first occupied window at or after the min window but not greater than the max window.
+    auto found = window_to_start.lower_bound(min_window);
+    if (found != window_to_start.end() && found->first <= max_window) {
+        // Some groups overlapped this window, and they started here.
+        min_vo = found->second;
+    } else {
+        // No groups overlapped any window within the range, so don't iterate anything.
+        return;
+    }
+    
+    // Find the bins that any of the nodes in the range can be in
+    auto bin_numbers = bins_of_range(min_node, max_node);
+    
+    // Filter down to bins that actually have vectors in the index
+    vector<decltype(bin_to_ranges)::const_iterator> used_bins;
+    for (auto& bin_number : bin_numbers) {
+        auto found = bin_to_ranges.find(bin_number);
+        
+        if (found != bin_to_ranges.end()) {
+            used_bins.push_back(found);
+        }
+    }
+    
+    // Set up a cursor in each bin
+    // TODO: Could we do one cursor per specificity level instead? This way might be introducing some n^2 stuff in the range length.
+    vector<vector<pair<int64_t, int64_t>>::const_iterator> cursors;
+    for (auto& bin : used_bins) {
+        cursors.push_back(bin->second.begin());
+    }
+    
+    while (true) {
+        // Loop until the user asks us to stop or we run out of things to give them.
+    
+        // This tracks which of the cursors points to the run that starts earliest, or the max value if no candidate runs exist.
+        size_t starts_earliest = numeric_limits<size_t>::max();
+        
+        for(size_t i = 0; i < used_bins.size(); i++) {
+            // Advance each cursor to the earliest-starting window that ends after the min_vo, by linear scan
+            auto& bin_ranges = used_bins[i]->second;
+            auto& cursor = cursors[i];
+            
+            while (cursor != bin_ranges.end() && cursor->second <= min_vo) {
+                // This run ends too early, so keep advancing.
+                ++cursor;
+            }
+            
+            if (cursor != bin_ranges.end()) {
+                // We actually have a candidate run
+                if (starts_earliest == numeric_limits<size_t>::max() || cursor->first < cursors[starts_earliest]->first) {
+                    // This candidate run starts earlier than the earliest candidate run from other bins.
+                    
+                    // Rememebr it.
+                    starts_earliest = i;
+                }
+                
+            }
+        }
+        
+        if (starts_earliest == numeric_limits<size_t>::max()) {
+            // We are all out of runs in any of the bins. We are done!
+            return;
+        }
+        
+        // Call the callback with the range max(min_vo, that run's start) to that run's end.
+        bool keep_going = scan_callback(make_pair(max(min_vo, cursors[starts_earliest]->first), cursors[starts_earliest]->second));
+        
+        if (!keep_going) {
+            // The user is done with runs. They must have found a group that has an out-of-range minimum node ID.
+            // We are done!
+            return;
+        }
+        
+        // Look for the next run continuing after here.
+        min_vo = cursors[starts_earliest]->second;
+    }
+}
 
 }
