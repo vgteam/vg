@@ -203,7 +203,7 @@ void GAMSorter::dumb_sort(string gamfile)
 
     std::sort(buf.begin(), buf.end(), alnsortkey);
 
-    std::function<void(uint64_t)> x_buf_func = [&](uint64_t) {
+    std::function<void(size_t)> x_buf_func = [&](size_t) {
 
     };
 

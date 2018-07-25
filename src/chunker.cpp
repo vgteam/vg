@@ -142,7 +142,7 @@ int64_t PathChunker::extract_gam_for_ids(vector<vg::id_t>& graph_ids,
     vector<Alignment> gam_buffer;
     int64_t gam_count = 0;
 
-    function<Alignment&(uint64_t)> write_buffer_elem = [&gam_buffer](uint64_t i) -> Alignment& {
+    function<Alignment&(size_t)> write_buffer_elem = [&gam_buffer](size_t i) -> Alignment& {
         return gam_buffer[i];
     };
 
