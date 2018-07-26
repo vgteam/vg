@@ -329,8 +329,18 @@ auto GAMIndex::find(cursor_t& cursor, id_t min_node, id_t max_node,
         
         if (start_vo != cursor.tell_raw()) {
             // Seek to the start if we aren't there already, or if we are somehow in the middle of that group.
+            
+#ifdef debug
+            cerr << "Seek cursor from " << cursor.tell_raw() << " to " << start_vo << endl;
+#endif
+            
             cursor.seek_group(start_vo);
+        } else {
+#ifdef debug
+            cerr << "Cursor already at " << start_vo << endl;
+#endif
         }
+        
         
         // We need to track each group we encounter, so we can tell when an entire group is past the top end of the ID range.
         int64_t group_vo = cursor.tell_group();
@@ -345,8 +355,17 @@ auto GAMIndex::find(cursor_t& cursor, id_t min_node, id_t max_node,
             if (alignment_group_vo != group_vo) {
                 // We finished the previous group.
                 
+#ifdef debug
+                cerr << "Finished group " << group_vo << endl;
+#endif
+                
                 if (group_min_id != numeric_limits<id_t>::max() && group_min_id > max_node) {
                     // Everything in the (non-empty) previous group was too high. We don't care about this group; our iteration is over.
+                    
+#ifdef debug
+                    cerr << "Group was out of bounds with min id " << group_min_id << " > " << max_node << endl;
+#endif
+                    
                     return false;
                 }
                 
@@ -386,12 +405,24 @@ auto GAMIndex::find(cursor_t& cursor, id_t min_node, id_t max_node,
                 handle_result(alignment);
             }
             
+            // Look for the next alignment
+            cursor.get_next();
+            
         }
+       
+#ifdef debug
+        cerr << "Finished last group " << group_vo << endl;
+#endif
        
         if (group_min_id != numeric_limits<id_t>::max() && group_min_id > max_node) {
             // If the (non-empty) last group had all its node IDs past the max
             // node ID, we know nothing after it can possibly match, so stop
             // iteration.
+            
+#ifdef debug
+            cerr << "Group was out of bounds with min id " << group_min_id << " > " << max_node << endl;
+#endif
+            
             return false;
         }
         

@@ -7,6 +7,7 @@
 #include <iostream>
 #include "catch.hpp"
 #include "../gam_index.hpp"
+#include "../utility.hpp"
 
 
 namespace vg {
@@ -132,6 +133,152 @@ TEST_CASE("GAMindex can look up inserted ranges", "[gam][gamindex]") {
     // This should be the only thing in its window, so really we shouldn't find anything too early
     REQUIRE(found.front().first == 500);
     
+    
+}
+
+TEST_CASE("GAMindex can be serialized and deserialized and still work", "[gam][gamindex]") {
+    // Make an empty index
+    GAMIndex build_index;
+
+    // Add some ID-sorted groups
+    build_index.add_group(1, 5, 0, 100);
+    build_index.add_group(3, 7, 100, 200);
+    build_index.add_group(6, 9, 200, 300);
+    // Being sorted by lowest ID doesn't mean you are always sorted by highest ID
+    build_index.add_group(7, 8, 300, 400);
+    build_index.add_group(100, 110, 400, 500);
+    build_index.add_group(1000, 1005, 500, 600);
+    
+    stringstream buffer;
+    build_index.save(buffer);
+    
+    // Make another index and load it from the buffer
+    GAMIndex index;
+    index.load(buffer);
+    
+    // Look for node 1
+    auto found = index.find(1);
+    
+    // We should find the run from 0 to 100, or a set of runs encompassing that
+    REQUIRE(found.size() > 0);
+    REQUIRE(found.front().first <= 0);
+    REQUIRE(found.back().second >= 100);
+    for (size_t i = 0; i + 1 < found.size(); i++) {
+        // Successive ranges shouldn't overlap, but may abut.
+        REQUIRE(found[i].second <= found[i + 1].first);
+    }
+
+    // Look for node 7
+    found = index.find(7);
+    
+    // It could occur as early as 100 or as late as before 400
+    REQUIRE(found.size() > 0);
+    REQUIRE(found.front().first <= 100);
+    REQUIRE(found.back().second >= 400);
+    for (size_t i = 0; i + 1 < found.size(); i++) {
+        // Successive ranges shouldn't overlap, but may abut.
+        REQUIRE(found[i].second <= found[i + 1].first);
+    }
+
+    
+    // Look for node 500 which nothing can touch or be near
+    found = index.find(500);
+    
+    REQUIRE(found.size() == 0);
+    
+    // Look for node 1000 which should benefit from the windowing
+    found = index.find(1000);
+    
+    // We should find runs encompassing the run we added
+    REQUIRE(found.size() > 0);
+    REQUIRE(found.front().first <= 500);
+    REQUIRE(found.back().second >= 600);
+    
+    // This should be the only thing in its window, so really we shouldn't find anything too early
+    REQUIRE(found.front().first == 500);
+    
+    
+}
+
+TEST_CASE("GAMIndex can work with ProtobufIterator cursors", "[gam][gamindex]") {
+    // First we will fill this file with groups of alignments
+    stringstream file;
+    
+    id_t next_id = 1;
+    
+    // Define a function to stamp out a group of Alignments
+    auto make_group = [&](size_t count) {
+    
+        vector<Alignment> group;
+    
+        for (size_t i = 0; i < count; i++) {
+            // Make a one-node alignment to each node, in order.
+            group.emplace_back();
+            Alignment& aln = group.back();
+            auto* mapping = aln.mutable_path()->add_mapping();
+            mapping->mutable_position()->set_node_id(next_id);
+            next_id++;
+            
+            // Give the alignment some data to make it big ish
+            aln.set_sequence(random_sequence(100));
+        }
+        
+        stream::write_buffered(file, group, 0);
+    };
+    
+    for (size_t group_number = 0; group_number < 10; group_number++) {
+#ifdef debug
+        cerr << "Make group " << group_number << endl;
+#endif
+        make_group(1000);
+    }
+    
+#ifdef debug
+    cerr << "Data is " << file.str().size() << " bytes" << endl;
+#endif
+
+    // Make a cursor to read the file
+    GAMIndex::cursor_t cursor(file);
+    
+    // Index the file
+    GAMIndex index;
+    index.index(cursor);
+    
+    // The index should be pretty small
+    stringstream index_data;
+    index.save(index_data);
+#ifdef debug
+    cerr << "Index data is " << index_data.str().size() << " bytes" << endl;
+#endif
+    REQUIRE(index_data.str().size() < 1000);
+    
+    for (size_t start = 1; start < next_id; start += 345) {
+        // Look up a series of ranges
+        auto last = start + 9;
+        
+        vector<id_t> seen;
+        
+        // Collect the visited nodes of all the alignments
+        index.find(cursor, start, last, [&](const Alignment& found) {
+            seen.push_back(found.path().mapping(0).position().node_id());
+        });
+        
+#ifdef debug
+        cerr << "Found " << seen.size() << " alignments for range " << start << "-" << last << endl;
+#endif
+        
+        // Make sure we found just the matching reads.
+        if (last >= next_id) {
+            REQUIRE(seen.size() == next_id - start);
+            REQUIRE(seen.front() == start);
+            REQUIRE(seen.back() == next_id - 1);
+        } else {
+            REQUIRE(seen.size() == 10);
+            REQUIRE(seen.front() == start);
+            REQUIRE(seen.back() == last);
+        }
+        
+    }
     
 }
 
