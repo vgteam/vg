@@ -2011,11 +2011,12 @@ Genotyper::locus_to_variant(VG& graph,
            locus.support(best_genotype.allele(i)).reverse() < min_unique_per_strand) {
             // If there's not enough support for that allele in an orientation, skip the snarl. 
 
+#ifdef debug_verbose
 #pragma omp critical (cerr)
             cerr << "Warning: dropping locus from VCF due to insufficient per-strand unique support "
                  << locus.support(best_genotype.allele(i)).forward() << ", " 
                  << locus.support(best_genotype.allele(i)).reverse() << endl;
-
+#endif
             return to_return;
         }
     }
