@@ -53,7 +53,8 @@ using namespace std;
  *
  * The tiling windows are just the node IDs down-shifted by a few bits.
  *
- * Unmapped reads are considered to visit node ID 0.
+ * Unmapped reads are considered to visit node ID 0. The maximum and minimum
+ * id_t values are used as sentinels, so they can't be real nodes.
  *
  */
 class GAMIndex {
@@ -82,10 +83,10 @@ public:
     ///////////////////
     
     /// Call the given callback with all Alignments in the index that visit the given node.
-    void find(cursor_t& cursor, id_t node_id, const function<void(const Alignment&)>& handle_result) const;
+    void find(cursor_t& cursor, id_t node_id, const function<void(const Alignment&)> handle_result) const;
     
-    /// Call the given callback with all Alignments in the index that visit a node in the given range.
-    void find(cursor_t& cursor, id_t first_id, id_t past_last_id, const function<void(const Alignment&)>& handle_result) const;
+    /// Call the given callback with all Alignments in the index that visit a node in the given inclusive range.
+    void find(cursor_t& cursor, id_t min_node, id_t max_node, const function<void(const Alignment&)> handle_result) const;
     
     /// Given a cursor at the beginning of a sorted, readable file, index the file.
     void index(cursor_t& cursor);
@@ -104,13 +105,14 @@ public:
     // group in the file with a minimum node ID that is too large. Then you
     // know to jump to the next start address.
     
-    /// Find all the ranges of run virtual offsets to check for reads visiting
-    /// the given node ID. Trims ranges by the linear index on the low end, and
-    /// returns a series of potentially abutting but non-overlapping virtual
-    /// offset ranges. Does not stop early (because it has no access to the
-    /// actual reads to tell when it should stop looking at runs in a bin). So
-    /// you will get ranges covering all runs in a bin that follow the runs you
-    /// are interested in as well.
+    /// Find all the ranges of run virtual offsets from the first position that
+    /// might be relevant for the given node ID to the ends of all the bins it
+    /// is in. Trims ranges by the linear index on the low end, and returns a
+    /// series of potentially abutting but non-overlapping virtual offset
+    /// ranges. Does not stop early (because it has no access to the actual
+    /// reads to tell when it should stop looking at runs in a bin). So you
+    /// will get ranges covering all runs in a bin that follow the runs you are
+    /// interested in as well.
     vector<pair<int64_t, int64_t>> find(id_t node_id) const;
     
     /// Find all the ranges of run virtual offsets to check for reads visiting
@@ -122,7 +124,7 @@ public:
     /// and wants to stop iteration. Runs will be emitted in order, and
     /// truncated on the left to either the appropriate lower bound from the
     /// linear index, or the past-the-end of the previous run scanned.
-    void find(id_t node_id, const function<bool(pair<int64_t, int64_t>)>& scan_callback) const;
+    void find(id_t node_id, const function<bool(int64_t, int64_t)> scan_callback) const;
     
     // Find all the ranges of run virtual offsets to check for reads visiting
     /// the given inclusive node ID range. Relies on a scanning callback, which
@@ -133,7 +135,7 @@ public:
     /// out-of-range start and wants to stop iteration. Runs will be emitted in
     /// order, and truncated on the left to either the appropriate lower bound
     /// from the linear index, or the past-the-end of the previous run scanned.
-    void find(id_t min_node, id_t max_node, const function<bool(pair<int64_t, int64_t>)>& scan_callback) const;
+    void find(id_t min_node, id_t max_node, const function<bool(int64_t, int64_t)> scan_callback) const;
     
     /// Add a group into the index, based on its minimum and maximum
     /// (inclusive) used node IDs. Must be called for all groups in virtual

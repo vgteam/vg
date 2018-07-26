@@ -586,9 +586,9 @@ class ProtobufIterator {
 public:
     /// Constructor
     ProtobufIterator(std::istream& in) :
-        chunk_count(0),
-        chunk_idx(0),
-        chunk(-1),
+        group_count(0),
+        group_idx(0),
+        group(-1),
         bgzip_in(in)
     {
         get_next();
@@ -598,51 +598,53 @@ public:
     
 //    inline ProtobufIterator<T>& operator=(const ProtobufIterator<T>& other) {
 //        value = other.value;
-//        chunk_count = other.chunk_count;
-//        chunk_idx = other.chunk_idx;
-//        chunk = other.chunk;
+//        group_count = other.group_count;
+//        group_idx = other.group_idx;
+//        group = other.group;
 //        bgzip_in = other.bgzip_in;
 //    }
 
     
+    /// Return true if dereferencing the iterator will produce a valid value, and false otherwise.
     inline bool has_next() {
-        return chunk != -1;
+        return group != -1;
     }
     
+    /// Advance the iterator to the next message, or the end if this was the last message.
     void get_next() {
         // Determine exactly where we are positioned, if possible, before creating the CodedInputStream
         auto virtual_offset = bgzip_in.Tell();
     
         // We need a fresh CodedInputStream every time, because of the total byte limit
         ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
-        // Alot space for size, and for reading chunk's length
+        // Alot space for size, and for reading group's length
         coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
     
-        if (chunk_count == chunk_idx) {
-            // We have made it to the end of the chunk we are reading. We will start a new chunk now.
+        if (group_count == group_idx) {
+            // We have made it to the end of the group we are reading. We will start a new group now.
             
             if (virtual_offset == -1) {
-                // We don't have seek capability, so we just count up the chunks we read.
-                // On construction this is -1; bump it up to 0 for the first chunk.
-                chunk++;
+                // We don't have seek capability, so we just count up the groups we read.
+                // On construction this is -1; bump it up to 0 for the first group.
+                group++;
             } else {
                 // We can seek. We need to know what offset we are at
-                chunk = virtual_offset;
+                group = virtual_offset;
             }
             
-            // Start at the start of the new chunk
-            chunk_idx = 0;
+            // Start at the start of the new group
+            group_idx = 0;
             // Try and read its size
-            if (!coded_in.ReadVarint64((::google::protobuf::uint64*) &chunk_count)) {
+            if (!coded_in.ReadVarint64((::google::protobuf::uint64*) &group_count)) {
                 // This is the end of the input stream, switch to state that
                 // will match the end constructor
-                chunk = -1;
+                group = -1;
                 value = T();
                 return;
             }
         }
         
-        // Now we know we're in a chunk
+        // Now we know we're in a group
         
         // The messages are prefixed by their size
         uint32_t msgSize = 0;
@@ -663,8 +665,8 @@ public:
             handle(value.ParseFromString(s));
         } 
         
-        // Move on to the next message in the chunk
-        chunk_idx++;
+        // Move on to the next message in the group
+        group_idx++;
     }
     
 //    inline ProtobufIterator<T> operator++( int ) {
@@ -677,22 +679,23 @@ public:
         return value;
     }
     
-    /// Return the virtual offset of the group being currently read, to seek back to.
-    /// You can't seek back to the current message, just to the start of the group.
+    /// Return the virtual offset of the group being currently read (i.e. the
+    /// group to which the current message belongs), to seek back to. You can't
+    /// seek back to the current message, just to the start of the group.
     /// Returns -1 instead if the underlying file doesn't support seek/tell.
     inline int64_t tell_group() {
         if (bgzip_in.Tell() != -1) {
             // The backing file supports seek/tell (which we ascertain by attempting it).
-            // Return the *chunk's* virtual offset (not the current one)
-            return chunk;
+            // Return the *group's* virtual offset (not the current one)
+            return group;
         } else {
             // Chunk holds a count. But we need to say we can't seek.
             return -1;
         }
     }
     
-    /// Seek to the given virtual offset and start reading the chunk that is there.
-    /// The next value produced will be the first value in that chunk.
+    /// Seek to the given virtual offset and start reading the group that is there.
+    /// The next value produced will be the first value in that group.
     /// Return false if seeking is unsupported or the seek fails.
     inline bool seek_group(int64_t virtual_offset) {
         if (virtual_offset < 0) {
@@ -709,14 +712,22 @@ public:
         }
         
         // Get ready to read the group that's here
-        chunk_count = 0;
-        chunk_idx = 0;
+        group_count = 0;
+        group_idx = 0;
         
         // Read it (or detect EOF)
         get_next();
         
         // It worked!
         return true;
+    }
+    
+    /// Return the raw virtual offset that the cursor is at in the file, or -1
+    /// for an unseekable/untellable stream. Not necessarily at a group
+    /// boundary, so cannot be used for seeking. Useful for getting the final
+    /// virtual offset when the cursor hits the end of a file.
+    inline int64_t tell_raw() {
+        return bgzip_in.Tell();
     }
     
     /// Returns iterators that act like begin() and end() for a stream containing protobuf data
@@ -728,14 +739,14 @@ private:
     
     T value;
     
-    // This holds the number of messages that exist in the current chunk.
-    size_t chunk_count;
-    // This holds the number of messages read in the current chunk.
-    size_t chunk_idx;
-    // This holds the virtual offset of the current chunk's start, or the
-    // number of the current chunk if seeking is not available.
+    // This holds the number of messages that exist in the current group.
+    size_t group_count;
+    // This holds the number of messages read in the current group.
+    size_t group_idx;
+    // This holds the virtual offset of the current group's start, or the
+    // number of the current group if seeking is not available.
     // If the iterator is the end iterator, this is -1.
-    int64_t chunk;
+    int64_t group;
     
     BlockedGzipInputStream bgzip_in;
     

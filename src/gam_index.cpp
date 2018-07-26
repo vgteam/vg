@@ -122,9 +122,9 @@ auto GAMIndex::add_group(id_t min_id, id_t max_id, int64_t virtual_start, int64_
 auto GAMIndex::find(id_t node_id) const -> vector<pair<int64_t, int64_t>> {
     vector<pair<int64_t, int64_t>> to_return;
     
-    find(node_id, [&](pair<int64_t, int64_t> run) -> bool {
+    find(node_id, [&](int64_t run_start, int64_t run_past_end) -> bool {
         // For each run we find, remember it
-        to_return.push_back(run);
+        to_return.emplace_back(run_start, run_past_end);
         // Keep getting runs until we run out in the index. We can't actually scan the data.
         return true;
     });
@@ -132,12 +132,12 @@ auto GAMIndex::find(id_t node_id) const -> vector<pair<int64_t, int64_t>> {
     return to_return;
 }
 
-auto GAMIndex::find(id_t node_id, const function<bool(pair<int64_t, int64_t>)>& scan_callback) const -> void {
+auto GAMIndex::find(id_t node_id, const function<bool(int64_t, int64_t)> scan_callback) const -> void {
     // Look for a single-node inclusive range
-    find(node_id, node_id, scan_callback);
+    find(node_id, node_id, std::move(scan_callback));
 }
 
-auto GAMIndex::find(id_t min_node, id_t max_node, const function<bool(pair<int64_t, int64_t>)>& scan_callback) const -> void {
+auto GAMIndex::find(id_t min_node, id_t max_node, const function<bool(int64_t, int64_t)> scan_callback) const -> void {
     
 #ifdef debug
     cerr << "Query for node range " << min_node << "-" << max_node << endl;
@@ -242,7 +242,7 @@ auto GAMIndex::find(id_t min_node, id_t max_node, const function<bool(pair<int64
 #endif
         
         // Call the callback with the range max(min_vo, that run's start) to that run's end.
-        bool keep_going = scan_callback(make_pair(max(min_vo, cursors[starts_earliest]->first), cursors[starts_earliest]->second));
+        bool keep_going = scan_callback(max(min_vo, cursors[starts_earliest]->first), cursors[starts_earliest]->second);
         
         if (!keep_going) {
             // The user is done with runs. They must have found a group that has an out-of-range minimum node ID.
@@ -277,6 +277,257 @@ auto GAMIndex::add_group(const vector<Alignment>& alns, int64_t virtual_start, i
     }
     
     add_group(min_id, max_id, virtual_start, virtual_past_end);
+}
+
+auto GAMIndex::index(cursor_t& cursor) -> void {
+    // Keep track of what group we are in 
+    int64_t group_vo = cursor.tell_group();
+    // And load all its alignments
+    vector<Alignment> group;
+    
+    // We need to have seek support
+    assert(group_vo != -1);
+    
+    while (cursor.has_next()) {
+        // For each alignment
+        
+        // Work out what group it is in
+        int64_t alignment_group_vo = cursor.tell_group();
+        
+        if (alignment_group_vo != group_vo) {
+            // This is the start of a new group
+            
+            // Record the old group as being up to here
+            add_group(group, group_vo, alignment_group_vo);
+            
+            // Set up for the new group
+            group.clear();
+            group_vo = alignment_group_vo;
+        }
+        
+        // Add the alignment to the group
+        group.push_back(*cursor);
+        
+        // Go look at the next alignment
+        cursor.get_next();
+    }
+    
+    if (!group.empty()) {
+        // Record the final group. Use wherever the cursor landed at the end as its final virtual offset.
+        add_group(group, group_vo, cursor.tell_raw());
+    }
+}
+
+auto GAMIndex::find(cursor_t& cursor, id_t min_node, id_t max_node,
+    const function<void(const Alignment&)> handle_result) const -> void {
+    
+    // We need seek support
+    assert(cursor.tell_raw() != -1);
+    
+    find(min_node, max_node, [&](int64_t start_vo, int64_t past_end_vo) -> bool {
+        // For each matching range in the index
+        
+        if (start_vo != cursor.tell_raw()) {
+            // Seek to the start if we aren't there already, or if we are somehow in the middle of that group.
+            cursor.seek_group(start_vo);
+        }
+        
+        // We need to track each group we encounter, so we can tell when an entire group is past the top end of the ID range.
+        int64_t group_vo = cursor.tell_group();
+        id_t group_min_id = numeric_limits<id_t>::max();
+        
+        while (cursor.has_next() && cursor.tell_group() < past_end_vo) {
+            // Read each alignment until we find a group that starts out of range
+            
+            // Which group is this alignment in?
+            auto alignment_group_vo = cursor.tell_group();
+            
+            if (alignment_group_vo != group_vo) {
+                // We finished the previous group.
+                
+                if (group_min_id != numeric_limits<id_t>::max() && group_min_id > max_node) {
+                    // Everything in the (non-empty) previous group was too high. We don't care about this group; our iteration is over.
+                    return false;
+                }
+                
+                // Otherwise we need to start a new group
+                group_vo = alignment_group_vo;
+                group_min_id = numeric_limits<id_t>::max();
+            }
+            
+            // Filter the alignment by the query and yield it if it matches
+            const auto& alignment = *cursor;
+            bool alignment_match = false;
+            
+            if (alignment.path().mapping_size() == 0) {
+                // This read is unmapped, so count it as node 0.
+                group_min_id = min(group_min_id, (id_t)0);
+                if (0 >= min_node && 0 <= max_node) {
+                    // We want unmapped reads.
+                    alignment_match = true;
+                }
+            } else {
+                // The read has mappings
+                for (const auto& mapping : alignment.path().mapping()) {
+                    // Look at each node that is visited
+                    auto visited = mapping.position().node_id();
+                    group_min_id = min(group_min_id, visited);
+                    if (visited >= min_node && visited <= max_node) {
+                        // We want this node.
+                        alignment_match = true;
+                        break;
+                    }
+                    
+                }
+            }
+            
+            if (alignment_match) {
+                // This alignment is one that matches the query. Yield it.
+                handle_result(alignment);
+            }
+            
+        }
+       
+        if (group_min_id != numeric_limits<id_t>::max() && group_min_id > max_node) {
+            // If the (non-empty) last group had all its node IDs past the max
+            // node ID, we know nothing after it can possibly match, so stop
+            // iteration.
+            return false;
+        }
+        
+        // Otherwise, the last group we looked at was not yet out of bounds, so get another range to look at, if one exists.
+        return true;
+    });
+}
+
+auto GAMIndex::find(cursor_t& cursor, id_t node_id, const function<void(const Alignment&)> handle_result) const -> void {
+    find(cursor, node_id, node_id, std::move(handle_result));
+}
+
+auto GAMIndex::save(ostream& to) const -> void {
+    // We aren't going to save as Protobuf messages; we're going to save as a bunch of varints.
+    
+    // Format is
+    // Bin count (varint64)
+    // For each bin:
+    // Bin number (varint64)
+    // Run count (varint64)
+    // For each run:
+    // Start (varint64)
+    // Past-end (varint64)
+    // And then window count (varint64)
+    // And for each window:
+    // Window number (varint64)
+    // Window start (varint64)
+    
+    // All the integers are Protobuf variable-length values.
+    // The result is gzip-compressed.
+    
+    ::google::protobuf::io::OstreamOutputStream raw_out(&to);
+    ::google::protobuf::io::GzipOutputStream gzip_out(&raw_out);
+    ::google::protobuf::io::CodedOutputStream coded_out(&gzip_out);
+    
+    // Save the bin count
+    coded_out.WriteVarint64(bin_to_ranges.size());
+    for (auto& kv : bin_to_ranges) {
+        // For each bin, save the number
+        coded_out.WriteVarint64(kv.first);
+        // And the number of runs
+        coded_out.WriteVarint64(kv.second.size());
+        
+        for (auto& run : kv.second) {
+            // For each run, write the VO range
+            coded_out.WriteVarint64(run.first);
+            coded_out.WriteVarint64(run.second);
+        }
+    }
+    
+    // Save the window count
+    coded_out.WriteVarint64(window_to_start.size());
+    for (auto& kv : window_to_start) {
+        // Save each window's number and start
+        coded_out.WriteVarint64(kv.first);
+        coded_out.WriteVarint64(kv.second);
+    }
+    
+}
+
+auto GAMIndex::load(istream& from) -> void {
+
+    ::google::protobuf::io::IstreamInputStream raw_in(&from);
+    ::google::protobuf::io::GzipInputStream gzip_in(&raw_in);
+    
+
+    bin_to_ranges.clear();
+    window_to_start.clear();
+    
+    // Define an error handling function
+    auto handle = [](bool ok) {
+        if (!ok) throw std::runtime_error("GAMIndex::load detected corrupt index file");
+    };
+    
+    // Read the number of bins that are used
+    uint64_t bin_count;
+    {
+        // TODO: To avoid hitting the coded input stream's byte limit (why is
+        // it even at this level?) we destory and recreate it for every
+        // semantic group.
+        ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
+        handle(coded_in.ReadVarint64(&bin_count));
+    }
+    
+    for (size_t i = 0; i < bin_count; i++) {
+        // Read the bin number and run count for each bin
+        uint64_t bin_number;
+        uint64_t run_count;
+        {
+            ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
+            handle(coded_in.ReadVarint64(&bin_number));
+            handle(coded_in.ReadVarint64(&run_count));
+        }
+        
+        // Create the empty bin
+        auto& runs = bin_to_ranges[bin_number];
+        
+        for (size_t j = 0; j < run_count; j++) {
+            // Load each run
+            uint64_t run_start;
+            uint64_t run_end;
+            
+            {
+                ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
+                handle(coded_in.ReadVarint64(&run_start));
+                handle(coded_in.ReadVarint64(&run_end));
+            }
+            
+            runs.emplace_back(run_start, run_end);
+            
+        }
+        
+    }
+    
+    
+    // Now count the number of windows
+    uint64_t window_count;
+    {
+        ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
+        handle(coded_in.ReadVarint64(&window_count));
+    }
+    
+    for (size_t i = 0; i < window_count; i++) {
+        // Load each window
+        uint64_t window_number;
+        uint64_t window_start;
+        
+        {
+            ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
+            handle(coded_in.ReadVarint64(&window_number));
+            handle(coded_in.ReadVarint64(&window_start));
+        }
+        
+        window_to_start[window_number] = window_start;
+    }
+
 }
 
 }
