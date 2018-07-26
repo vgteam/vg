@@ -688,17 +688,23 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
 
 Alignment NGSSimulator::sample_read() {
     
+    
     Alignment aln;
     // sample a quality string based on the trained distribution
     pair<string, vector<bool>> qual_and_masks = sample_read_quality();
     
+#ifdef debug_ngs_sim
+    cerr << "sampled qualities and N-mask:" << endl;
+    cerr << string_quality_short_to_char(qual_and_masks.first) << endl;
+    for (bool mask : qual_and_masks.second) {
+        cerr << (mask ? "1" : "0");
+    }
+    cerr << endl;
+#endif
+    
     assert(qual_and_masks.first.size() == qual_and_masks.second.size());
     
     aln.set_quality(qual_and_masks.first);
-    
-#ifdef debug_ngs_sim
-    cerr << "got quality string " << string_quality_short_to_char(aln.quality()) << endl;
-#endif
     
     // attempt samples until we get one that succeeds without walking
     // off the end of the graph
@@ -736,6 +742,21 @@ Alignment NGSSimulator::sample_read() {
 pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     pair<Alignment, Alignment> aln_pair;
     pair<pair<string, vector<bool>>, pair<string, vector<bool>>> qual_and_mask_pair = sample_read_quality_pair();
+    
+#ifdef debug_ngs_sim
+    cerr << "sampled qualities and N-masks:" << endl;
+    cerr << string_quality_short_to_char(qual_and_mask_pair.first.first) << endl;
+    for (bool mask : qual_and_mask_pair.first.second) {
+        cerr << (mask ? "1" : "0");
+    }
+    cerr << endl;
+    cerr << string_quality_short_to_char(qual_and_mask_pair.second.first) << endl;
+    for (bool mask : qual_and_mask_pair.second.second) {
+        cerr << (mask ? "1" : "0");
+    }
+    cerr << endl;
+#endif
+
     
     assert(qual_and_mask_pair.first.first.size() == qual_and_mask_pair.first.second.size());
     assert(qual_and_mask_pair.second.first.size() == qual_and_mask_pair.second.second.size());
@@ -1435,7 +1456,7 @@ void NGSSimulator::MarkovDistribution<From, To>::finalize() {
             cond_distr.second[i] += cond_distr.second[i - 1];
         }
         
-        samplers[cond_distr.first] = uniform_int_distribution<size_t>(0, cond_distr.second.back() - 1);
+        samplers[cond_distr.first] = uniform_int_distribution<size_t>(1, cond_distr.second.back());
     }
 }
 
@@ -1447,7 +1468,6 @@ To NGSSimulator::MarkovDistribution<From, To>::sample_transition(From from) {
     }
     
     size_t sample_val = samplers[from](prng);
-    
     vector<size_t>& cdf = cond_distrs[from];
     
     if (sample_val <= cdf[0]) {
