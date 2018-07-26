@@ -1,9 +1,8 @@
-#include "gamsorter.hpp"
-#include "stream.hpp"
+#include "../gamsorter.hpp"
+#include "../stream.hpp"
 #include <getopt.h>
 #include "subcommand.hpp"
-#include "index.hpp"
-#include "stream.hpp"
+#include "../index.hpp"
 
 /**
 * GAM sort main

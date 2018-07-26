@@ -15,6 +15,7 @@
 
 #include "../utility.hpp"
 #include "../vg.hpp"
+#include "../stream.hpp"
 
 using namespace std;
 using namespace vg;
@@ -210,11 +211,12 @@ int main_align(int argc, char** argv) {
     if (output_json) {
         cout << pb2json(alignment) << endl;
     } else {
-        function<Alignment(uint64_t)> lambda =
-            [&alignment] (uint64_t n) {
+        function<Alignment(size_t)> lambda =
+            [&alignment] (size_t n) {
                 return alignment;
             };
         stream::write(cout, 1, lambda);
+        stream::finish(cout);
     }
 
     if (graph != nullptr) {

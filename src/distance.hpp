@@ -1,6 +1,4 @@
 #include "snarls.hpp"
-#include "hash_map.hpp"
-
 using namespace sdsl;
 namespace vg { 
 
@@ -14,10 +12,6 @@ class DistanceIndex {
 
     //Constructor to load index from serialization 
     DistanceIndex (VG* vg, SnarlManager* snarlManager, istream& in);
-     //Convert contents of object into vector of ints for serialization
-    void toVector(vector<int64_t> & snarlNodes, vector<int64_t> & snarlVector,
-                  vector<int64_t> & chainNodes, vector<int64_t> & chainVector);
-
   
     //Serialize object into out
     void serialize(ostream& out);
