@@ -255,4 +255,28 @@ auto GAMIndex::find(id_t min_node, id_t max_node, const function<bool(pair<int64
     }
 }
 
+auto GAMIndex::add_group(const vector<Alignment>& alns, int64_t virtual_start, int64_t virtual_past_end) -> void {
+    // Find the min and max ID visited by any of the alignments
+    id_t min_id = numeric_limits<id_t>::max();
+    id_t max_id = numeric_limits<id_t>::min();
+    
+    for (auto& aln : alns) {
+        // For each alignment
+        if (aln.path().mapping_size() == 0) {
+            // The read is unmapped, so it belongs to node ID 0
+            min_id = min(min_id, (id_t)0);
+            max_id = max(max_id, (id_t)0);
+        } else {
+            for (auto& mapping : aln.path().mapping()) {
+                // For each mapping in it, min/max in the ID
+                auto id = mapping.position().node_id();
+                min_id = min(min_id, id);
+                max_id = max(max_id, id);
+            }
+        }
+    }
+    
+    add_group(min_id, max_id, virtual_start, virtual_past_end);
+}
+
 }
