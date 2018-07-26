@@ -12,6 +12,7 @@ namespace stream {
 
 /// Protobuf-style ZeroCopyInputStream that reads data from blocked gzip
 /// format, and allows interacting with virtual offsets.
+/// Cannot be moved or copied, because the base class can't be moved or copied.
 class BlockedGzipInputStream : public ::google::protobuf::io::ZeroCopyInputStream {
 
 public:
@@ -27,6 +28,12 @@ public:
 
     /// Destroy the stream.
     virtual ~BlockedGzipInputStream();
+    
+    // Explicitly say we can't be copied/moved, to simplify errors.
+    BlockedGzipInputStream(const BlockedGzipInputStream& other) = delete;
+    BlockedGzipInputStream& operator=(const BlockedGzipInputStream& other) = delete;
+    BlockedGzipInputStream(BlockedGzipInputStream&& other) = delete;
+    BlockedGzipInputStream& operator=(BlockedGzipInputStream&& other) = delete;
    
     ///////////////////////////////////////////////////////////////////////////
     // ZeroCopyInputStream interface
@@ -61,7 +68,7 @@ public:
     /// will only get you the position of the next read if anything you are
     /// reading through is fully backed up to the next actually-unread byte.
     /// See Protobuf's CodedInputStream::Trim().
-    virtual int64_t Tell();
+    virtual int64_t Tell() const;
     
     /// Seek to the given virtual offset. Return true if successful, or false
     /// if the backing stream is unseekable, or not blocked. Note that this

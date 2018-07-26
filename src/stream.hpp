@@ -577,9 +577,10 @@ void for_each_parallel(std::istream& in,
 }
 
     
-/*
+/**
  * Refactored stream::for_each function that follows the unidirectional iterator interface.
  * Also supports seeking and telling at the group level in bgzip files.
+ * Cannot be copied, but can be moved.
  */
 template <typename T>
 class ProtobufIterator {
@@ -589,34 +590,23 @@ public:
         group_count(0),
         group_idx(0),
         group(-1),
-        bgzip_in(in)
+        bgzip_in(new BlockedGzipInputStream(in))
     {
         get_next();
     }
     
-    
-    
-//    inline ProtobufIterator<T>& operator=(const ProtobufIterator<T>& other) {
-//        value = other.value;
-//        group_count = other.group_count;
-//        group_idx = other.group_idx;
-//        group = other.group;
-//        bgzip_in = other.bgzip_in;
-//    }
-
-    
     /// Return true if dereferencing the iterator will produce a valid value, and false otherwise.
-    inline bool has_next() {
+    inline bool has_next() const {
         return group != -1;
     }
     
     /// Advance the iterator to the next message, or the end if this was the last message.
     void get_next() {
         // Determine exactly where we are positioned, if possible, before creating the CodedInputStream
-        auto virtual_offset = bgzip_in.Tell();
+        auto virtual_offset = bgzip_in->Tell();
     
         // We need a fresh CodedInputStream every time, because of the total byte limit
-        ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
+        ::google::protobuf::io::CodedInputStream coded_in(bgzip_in.get());
         // Alot space for size, and for reading group's length
         coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
     
@@ -675,7 +665,7 @@ public:
 //        return temp;
 //    }
     
-    inline T operator*(){
+    inline const T& operator*() const {
         return value;
     }
     
@@ -683,8 +673,8 @@ public:
     /// group to which the current message belongs), to seek back to. You can't
     /// seek back to the current message, just to the start of the group.
     /// Returns -1 instead if the underlying file doesn't support seek/tell.
-    inline int64_t tell_group() {
-        if (bgzip_in.Tell() != -1) {
+    inline int64_t tell_group() const {
+        if (bgzip_in->Tell() != -1) {
             // The backing file supports seek/tell (which we ascertain by attempting it).
             // Return the *group's* virtual offset (not the current one)
             return group;
@@ -704,7 +694,7 @@ public:
         }
         
         // Try and do the seek
-        bool sought = bgzip_in.Seek(virtual_offset);
+        bool sought = bgzip_in->Seek(virtual_offset);
         
         if (!sought) {
             // We can't seek
@@ -726,8 +716,8 @@ public:
     /// for an unseekable/untellable stream. Not necessarily at a group
     /// boundary, so cannot be used for seeking. Useful for getting the final
     /// virtual offset when the cursor hits the end of a file.
-    inline int64_t tell_raw() {
-        return bgzip_in.Tell();
+    inline int64_t tell_raw() const {
+        return bgzip_in->Tell();
     }
     
     /// Returns iterators that act like begin() and end() for a stream containing protobuf data
@@ -748,7 +738,8 @@ private:
     // If the iterator is the end iterator, this is -1.
     int64_t group;
     
-    BlockedGzipInputStream bgzip_in;
+    // Since Protobuf streams can't be copied or moved, we wrap ours in a uniqueptr_t so we can be moved.
+    unique_ptr<BlockedGzipInputStream> bgzip_in;
     
     void handle(bool ok) {
         if (!ok) {

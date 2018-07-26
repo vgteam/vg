@@ -13,12 +13,12 @@ using namespace vg;
 using namespace vg::subcommand;
 void help_gamsort(char **argv)
 {
-    cerr << "gamsort: sort a GAM file (or index it) without Rocksdb" << endl
+    cerr << "gamsort: sort a GAM file, or index a sorted GAM file" << endl
          << "Usage: " << argv[1] << " [Options] gamfile" << endl
          << "Options:" << endl
-         << "  -p / --paired           Index a paired-end GAM." << endl
+         << "  -p / --paired           Input GAM is paired-end." << endl
          << "  -s / --sorted           Input GAM is already sorted." << endl
-         << "  -i / --index <INDEX>    produce a node-to-alignment index" << endl
+         << "  -i / --index FILE       produce an index of the sorted GAM file" << endl
          << "  -d / --dumb-sort        use naive sorting algorithm (no tmp files, faster for small GAMs)" << endl
          << "  -r / --rocks            Just use the old RocksDB-style indexing scheme for sorting." << endl
          << "  -a / --aln-index        Create the old RocksDB-style node-to-alignment index." << endl
@@ -27,8 +27,7 @@ void help_gamsort(char **argv)
 
 int main_gamsort(int argc, char **argv)
 {
-    string gamfile;
-    bool do_index = false;
+    string index_filename;
     bool dumb_sort = false;
     bool is_paired = false;
     bool is_sorted = false;
@@ -58,7 +57,7 @@ int main_gamsort(int argc, char **argv)
         switch (c)
         {
         case 'i':
-            do_index = true;
+            index_filename = optarg;
             break;
         case 'd':
             dumb_sort = true;
@@ -84,88 +83,57 @@ int main_gamsort(int argc, char **argv)
     }
 
 
-    if (argc <= 2){
+    if (argc < 2){
         help_gamsort(argv);
-        exit(11);
+        exit(1);
     }
 
-    gamfile = argv[optind];
+    get_input_file(optind, argc, argv, [&](istream& gam_in) {
 
-    GAMSorter gs;
+        GAMSorter gs;
 
-    if (just_use_rocks && !do_index)
-    {
-        // Do the sort the old way - write a big ol'
-        // RocksDB index of alignments, then dump them
-        // from that DB. Loses unmapped reads.
-        string dbname = gamfile + ".grai";
-        Index index;
+        if (just_use_rocks) {
+            // Do the sort the old way - write a big ol'
+            // RocksDB index of alignments, then dump them
+            // from that DB. Loses unmapped reads.
+            
+            if (index_filename.empty()) {
+                cerr << "error:[vg gamsort]: Cannot index using RocksDB without an index filename (-i)" << endl;
+                exit(1);
+            }
+            
+            string dbname = index_filename;
+            Index index;
 
-        index.open_for_bulk_load(dbname);
-        int64_t aln_idx = 0;
-        function<void(Alignment&)> lambda_reader = [&index](Alignment& aln) {
-                index.put_alignment(aln);
-        };
-        get_input_file(gamfile, [&](istream& in) {
-            stream::for_each_parallel(in, lambda_reader);
-        });
-
-        vector<Alignment> output_buf;
-        auto lambda_writer = [&output_buf](const Alignment& aln) {
-                output_buf.push_back(aln);
-                stream::write_buffered(cout, output_buf, 100);
+            // Index the alignments in RocksDB
+            index.open_for_bulk_load(dbname);
+            int64_t aln_idx = 0;
+            function<void(Alignment&)> lambda_reader = [&index](Alignment& aln) {
+                    index.put_alignment(aln);
             };
-        index.for_each_alignment(lambda_writer);
-        ofstream outstream;
-        outstream.open(dbname);
-        //stream::write_buffered(outstream, output_buf, 0);
-        index.flush();
-        index.close();
-    }
-
-    if (dumb_sort)
-    {
-        gs.dumb_sort(gamfile);
-    }
-    else if (!dumb_sort)
-    {
-        gs.stream_sort(gamfile);
-    }
-
-    if (do_index && just_use_rocks)
-    {
-        string dbname = gamfile + ".grai";
-        Index index;
-
-        index.open_for_bulk_load(dbname);
-        int64_t aln_idx = 0;
-        function<void(Alignment&)> lambda_reader = [&index](Alignment& aln) {
-                index.put_alignment(aln);
-        };
-        get_input_file(gamfile, [&](istream& in) {
-            stream::for_each_parallel(in, lambda_reader);
-        });
-
-        vector<Alignment> output_buf;
-        auto lambda_writer = [&output_buf](const Alignment& aln) {
+            stream::for_each_parallel(gam_in, lambda_reader);
+            
+            // Print them out again in order
+            vector<Alignment> output_buf;
+            auto lambda_writer = [&output_buf](const Alignment& aln) {
                 output_buf.push_back(aln);
-                stream::write_buffered(cout, output_buf, 100);
+                stream::write_buffered(cout, output_buf, 1000);
             };
-        index.for_each_alignment(lambda_writer);
-        ofstream outstream;
-        outstream.open(dbname);
-        //stream::write_buffered(outstream, output_buf, 0);
-        index.flush();
-       
-    }
-    
-    else if (do_index){
-        // Write a super simple index file of format
-        // node_d \tab firstAlnLineNumber \tab secondAlnLineNumber ...
-        gs.write_index(gamfile, gamfile + ".gai", false);
-    }
+            index.for_each_alignment(lambda_writer);
+            stream::write_buffered(cout, output_buf, 0);
+            
+            index.flush();
+            index.close();
+        } else if (dumb_sort) {
+            gs.dumb_sort(gam_in, cout);
+            // TODO: Write the index if asked for
+        } else if (!dumb_sort) {
+            gs.stream_sort(gam_in, cout);
+            // TODO: Write the index if asked for
+        }
+    });
 
-    return 1;
+    return 0;
 }
 
-static Subcommand vg_gamsort("gamsort", "Perform naive sorts and indexing on a GAM file.", main_gamsort);
+static Subcommand vg_gamsort("gamsort", "Sort a GAM file or index a sorted GAM file.", main_gamsort);
