@@ -810,6 +810,14 @@ public:
         return value;
     }
     
+    /// Take the current item, which must exist, and advance the iterator to the next one.
+    inline T take() {
+        T temp = std::move(value);
+        get_next();
+        // Return by value, which gets moved.
+        return temp;
+    }
+    
     /// Return the virtual offset of the group being currently read (i.e. the
     /// group to which the current message belongs), to seek back to. You can't
     /// seek back to the current message, just to the start of the group.

@@ -31,11 +31,23 @@ void GAMSorter::dumb_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to)
     // Write the output in non-enormous chunks, so indexing is actually useful
     vector<Alignment> out_buffer;
     
-    for (auto& aln : sort_buffer) {
-        out_buffer.push_back(aln);
-        stream::write_buffered(gam_out, out_buffer, 1000);
+    // Make an output emitter
+    stream::ProtobufEmitter<Alignment> emitter(gam_out);
+    
+    if (index_to != nullptr) {
+        emitter.on_group([&index_to](const vector<Alignment>& group, int64_t start_vo, int64_t past_end_vo) {
+            // Whenever it emits a group, index it.
+            // Make sure to only capture things that will outlive the emitter
+            index_to->add_group(group, start_vo, past_end_vo);
+        });
     }
-    stream::write_buffered(gam_out, out_buffer, 0);
+    
+    for (auto& aln : sort_buffer) {
+        // Feed in all the sorted alignments
+        emitter.write(std::move(aln));
+    }
+    
+    // Emitter destruction will terminate the file with an EOF marker
 }
 
 void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) const {
@@ -109,7 +121,17 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
         temp_files.push(&temp_cursors.back());
     }
     
-    vector<Alignment> output_buffer;
+    // Make an output emitter
+    stream::ProtobufEmitter<Alignment> emitter(gam_out);
+    
+    if (index_to != nullptr) {
+        emitter.on_group([&index_to](const vector<Alignment>& group, int64_t start_vo, int64_t past_end_vo) {
+            // Whenever it emits a group, index it.
+            // Make sure to only capture things that will outlive the emitter
+            index_to->add_group(group, start_vo, past_end_vo);
+        });
+    }
+    
     while(!temp_files.empty() && temp_files.top()->has_next()) {
         // Until we have run out of data in all the temp files
         
@@ -117,12 +139,8 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
         cursor_t* winner = temp_files.top();
         temp_files.pop();
         
-        // Grab and emit its alignment
-        output_buffer.push_back(*(*winner));
-        stream::write_buffered(gam_out, output_buffer, 1000);
-        
-        // Advance it
-        winner->get_next();
+        // Grab and emit its alignment, and advance it
+        emitter.write(std::move(winner->take()));
         
         // Put it back in the heap if it is not depleted
         if (winner->has_next()) {
@@ -131,10 +149,9 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
         // TODO: Maybe keep it off the heap for the next loop somehow if it still wins
     }
     
-    // Finish off the output
-    stream::write_buffered(gam_out, output_buffer, 0);
+    // The output file will be flushed and finished automatically when the emitter goes away.
     
-    // The temp files will get cleaned up automatically.
+    // The temp files will get cleaned up automatically when the program ends.
 }
 
 bool GAMSorter::less_than(const Alignment &a, const Alignment &b) const {

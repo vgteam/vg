@@ -1,4 +1,5 @@
 #include "../gamsorter.hpp"
+#include "../gam_index.hpp"
 #include "../stream.hpp"
 #include <getopt.h>
 #include "subcommand.hpp"
@@ -47,7 +48,7 @@ int main_gamsort(int argc, char **argv)
                 {"is-sorted", no_argument, 0, 's'},
                 {0, 0, 0, 0}};
         int option_index = 0;
-        c = getopt_long(argc, argv, "idhraps",
+        c = getopt_long(argc, argv, "i:dhraps",
                         long_options, &option_index);
 
         // Detect the end of the options.
@@ -124,12 +125,28 @@ int main_gamsort(int argc, char **argv)
             
             index.flush();
             index.close();
-        } else if (dumb_sort) {
-            gs.dumb_sort(gam_in, cout);
-            // TODO: Write the index if asked for
-        } else if (!dumb_sort) {
-            gs.stream_sort(gam_in, cout);
-            // TODO: Write the index if asked for
+        } else {
+            // Do a normal GAMSorter sort
+            unique_ptr<GAMIndex> index;
+            
+            if (!index_filename.empty()) {
+                // Make an index
+                index = unique_ptr<GAMIndex>(new GAMIndex());
+            }
+            
+            if (dumb_sort) {
+                // Sort in a single pass in memory
+                gs.dumb_sort(gam_in, cout, index.get());
+            } else {
+                // Sort using temp files
+                gs.stream_sort(gam_in, cout, index.get());
+            }
+            
+            if (index.get() != nullptr) {
+                // Save the index
+                ofstream index_out(index_filename);
+                index->save(index_out);
+            }
         }
     });
 
