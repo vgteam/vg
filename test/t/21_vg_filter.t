@@ -9,7 +9,7 @@ plan tests 8
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
-vg sim -x x.xg -l 100 -n 5000 -s 0 -e 0.01 -i 0.001 -a > x.gam
+vg sim -x x.xg -l 100 -n 5000 -s 10 -e 0.01 -i 0.001 -a > x.gam
 vg view -a x.gam > x.gam.json
 
 # sanity check: does passing no options preserve input
