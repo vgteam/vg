@@ -1,6 +1,7 @@
 #include "gamsorter.hpp"
 #include "utility.hpp"
 #include "json2pb.h"
+#include "gam_index.hpp"
 
 /**
  * \file gamsorter.cpp
@@ -18,7 +19,7 @@ void GAMSorter::sort(vector<Alignment>& alns) const {
     });
 }
 
-void GAMSorter::dumb_sort(istream& gam_in, ostream& gam_out) const {
+void GAMSorter::dumb_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) const {
     std::vector<Alignment> sort_buffer;
 
     stream::for_each<Alignment>(gam_in, [&](Alignment &aln) {
@@ -37,7 +38,7 @@ void GAMSorter::dumb_sort(istream& gam_in, ostream& gam_out) const {
     stream::write_buffered(gam_out, out_buffer, 0);
 }
 
-void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out) const {
+void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) const {
 
     // Read the input into buffers.
     std::vector<Alignment> input_buffer;
@@ -101,19 +102,12 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out) const {
         // Open each file again
         temp_ifstreams.emplace_back();
         temp_ifstreams.back().open(name);
-        cerr << "Open temp file " << name << endl;
         // Make a cursor for it and put it in the heap
         temp_cursors.emplace_back(temp_ifstreams.back());
         
-        if (!temp_cursors.back().has_next()) {
-            cerr << "\tFile is empty!" << endl;
-        }
-    
         // Put the cursor pointer in the queue
         temp_files.push(&temp_cursors.back());
     }
-    
-    cerr << "Going to merge from " << temp_files.size() << " cursors" << endl;
     
     vector<Alignment> output_buffer;
     while(!temp_files.empty() && temp_files.top()->has_next()) {
@@ -122,8 +116,6 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out) const {
         // Pop off the winning cursor
         cursor_t* winner = temp_files.top();
         temp_files.pop();
-        
-        cerr << "Winning cursor " << winner << endl;
         
         // Grab and emit its alignment
         output_buffer.push_back(*(*winner));

@@ -23,6 +23,10 @@ namespace vg
 {
 
 
+// We need to know about the GAMIndex, but we don't actually need to hold one.
+// So pre-declare it here.
+class GAMIndex;
+
 /// Provides the ability to sort a GAM, either "dumbly" (in memory), or
 /// "streaming" into temporary files. Paired alignments are not necessarily
 /// going to end up next to each other, so if sorting by position make sure to
@@ -39,11 +43,13 @@ class GAMSorter
     //////////////////
     
     /// Sort a stream of GAM-format data, using temporary files.
-    void stream_sort(istream& gam_in, ostream& gam_out) const;
+    /// Optionally index the sorted GAM file into the given GAMIndex.
+    void stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to = nullptr) const;
     
     /// Sort a stream of GAM-format data, loading it all into memory and doing
     /// a single giant sort operation.
-    void dumb_sort(istream& gam_in, ostream& gam_out) const;
+    /// Optionally index the sorted GAM file into the given GAMIndex.
+    void dumb_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to = nullptr) const;
     
     //////////////////
     // Supporting API
@@ -77,7 +83,7 @@ class GAMSorter
     bool greater_than(const Position& a, const Position& b) const;
 
   private:
-    int max_buf_size = 10; //20000;
+    int max_buf_size = 20000;
 };
 }
 #endif
