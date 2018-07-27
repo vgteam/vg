@@ -162,6 +162,13 @@ int64_t BlockedGzipOutputStream::Tell() {
     }
 }
 
+void BlockedGzipOutputStream::StartFile() {
+    // We know since nothing has been written that we are working with a fresh
+    // BGZF at what it thinks is virtual offset 0.
+    assert(bgzf_tell(handle) == 0);
+    know_offset = true;
+}
+
 void BlockedGzipOutputStream::EndFile() {
     end_file = true;
 }

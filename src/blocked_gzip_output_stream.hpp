@@ -27,6 +27,12 @@ public:
 
     /// Destroy the stream, finishing all writes if necessary.
     virtual ~BlockedGzipOutputStream();
+    
+    // Explicitly say we can't be copied/moved, to simplify errors.
+    BlockedGzipOutputStream(const BlockedGzipOutputStream& other) = delete;
+    BlockedGzipOutputStream& operator=(const BlockedGzipOutputStream& other) = delete;
+    BlockedGzipOutputStream(BlockedGzipOutputStream&& other) = delete;
+    BlockedGzipOutputStream& operator=(BlockedGzipOutputStream&& other) = delete;
    
     ///////////////////////////////////////////////////////////////////////////
     // ZeroCopyOutputStream interface
@@ -71,6 +77,12 @@ public:
     
     // Seek is not supported because it is not allowed by the backing BGZF
     // library for writable files.
+    
+    /// Tell this BlockedGzipOutputStream that it is at the beginning of a
+    /// file, when the backing stream is unseekable. Must be called before
+    /// anything has been written. Enables Tell() and sets the current virtual
+    /// offset to 0.
+    virtual void StartFile();
     
     /// Make this BlockedGzipOutputStream write the BGZF-required empty end of
     /// file block, when it finishes writing to the BGZF. These blocks are

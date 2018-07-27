@@ -576,6 +576,147 @@ void for_each_parallel(std::istream& in,
     for_each_parallel(in, lambda, noop);
 }
 
+
+/**
+ *
+ * Class that wraps an output stream and allows emitting groups of Protobuf
+ * objects to it, with internal buffering. Handles finishing the file on its
+ * own, and allows tracking of BGZF virtual offsets within a non-seekable
+ * stream (as long as the entire stream is controleld by one instance). Cannot
+ * be copied, but can be moved.
+ *
+ * Can call callbacks with the groups emitted and their virtual offsets, for
+ * indexing purposes.
+ *
+ * Not thread-safe. May be more efficient than repeated write/write_buffered
+ * calls because a single BGZF stream can be used.
+ */
+template <typename T>
+class ProtobufEmitter {
+public:
+    /// Constructor
+    ProtobufEmitter(std::ostream& out, size_t max_group_size = 1000) :
+        group(),
+        max_group_size(max_group_size),
+        bgzip_out(new BlockedGzipOutputStream(out))
+    {
+        if (bgzip_out->Tell() == -1) {
+            // Say we are starting at the beginnign of the stream, if we don't know where we are.
+            bgzip_out->StartFile();
+        }
+    }
+    
+    /// Destructor that finishes the file
+    ~ProtobufEmitter() {
+        if (bgzip_out.get() != nullptr) {
+            // Before we are destroyed, write stuff out.
+            emit_group();
+            // Tell our stream to finish the file (since it hasn't been moved away)
+            bgzip_out->EndFile();
+        }
+    }
+    
+    // Prohibit copy
+    ProtobufEmitter(const ProtobufEmitter& other) = delete;
+    ProtobufEmitter& operator=(const ProtobufEmitter& other) = delete;
+    // Allow default move
+    ProtobufEmitter(ProtobufEmitter&& other) = default;
+    ProtobufEmitter& operator=(ProtobufEmitter&& other) = default;
+    
+    /// Emit the given item.
+    /// TODO: Not thread safe.
+    void write(T&& item) {
+        if (group.size() >= max_group_size) {
+            emit_group();
+        }
+        group.emplace_back(std::move(item));
+    }
+    
+    /// Define a type for group emission event listeners
+    using listener_t = std::function<void(const vector<T>&, int64_t, int64_t)>;
+    
+    /// Add an event listener that listens for emitted groups. The listener
+    /// will be called with the group buffer, the start virtual offset, and the
+    /// past-end virtual offset. Moves the function passed in.
+    /// Anything the function uses by reference must outlive this object.
+    void on_group(listener_t&& listener) {
+        group_handlers.emplace_back(std::move(listener));
+    }
+    
+    /// Actually write out everything in the buffer.
+    /// Doesn't actually flush the underlying streams to disk.
+    /// Assumes that no more than one group's worht of items are in the buffer.
+    void emit_group() {
+        
+        if (group.empty()) {
+            // Nothing to do
+            return;
+        }
+        
+        // We can't write a non-empty buffer if our stream is gone/moved away
+        assert(bgzip_out.get() != nullptr);
+        
+        auto handle = [](bool ok) {
+            if (!ok) {
+                throw std::runtime_error("stream::ProtobufEmitter::emit_group: I/O error writing protobuf");
+            }
+        };
+    
+        // Work out where the group we emit will start
+        int64_t virtual_offset = bgzip_out->Tell();
+    
+        ::google::protobuf::io::CodedOutputStream coded_out(bgzip_out.get());
+
+        // Prefix the group with the number of objects
+        coded_out.WriteVarint64(group.size());
+        handle(!coded_out.HadError());
+
+        std::string s;
+        size_t written = 0;
+        for (auto& item : group) {
+            handle(item.SerializeToString(&s));
+            if (s.size() > MAX_PROTOBUF_SIZE) {
+                throw std::runtime_error("stream::ProtobufEmitter::emit_group: message too large error writing protobuf");
+            }
+            
+    #ifdef debug
+            cerr << "Writing message of " << s.size() << " bytes in group @ " << virtual_offset << endl;
+    #endif
+            
+            // And prefix each object with its size
+            coded_out.WriteVarint32(s.size());
+            handle(!coded_out.HadError());
+            coded_out.WriteRaw(s.data(), s.size());
+            handle(!coded_out.HadError());
+        }
+        
+        // Work out where we ended
+        coded_out.Trim();
+        int64_t next_virtual_offset = bgzip_out->Tell();
+        
+        for (auto& handler : group_handlers) {
+            // Report the group to each group handler that is listening
+            handler(group, virtual_offset, next_virtual_offset);
+        }
+        
+        // Empty the buffer because everything in it is written
+        group.clear();
+    }
+    
+    
+private:
+
+    // This is our internal buffer
+    vector<T> group;
+    // This is how big we let it get before we dump it
+    size_t max_group_size;
+    // Since Protobuf streams can't be copied or moved, we wrap ours in a uniqueptr_t so we can be moved.
+    unique_ptr<BlockedGzipOutputStream> bgzip_out;
+    
+    // If someone wants to listen in on emitted groups, they can register a handler
+    vector<listener_t> group_handlers;
+
+};
     
 /**
  * Refactored stream::for_each function that follows the unidirectional iterator interface.
