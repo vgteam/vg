@@ -632,6 +632,15 @@ public:
         group.emplace_back(std::move(item));
     }
     
+    /// Emit a copy of the given item.
+    /// To use when you have something you can't move.
+    void write_copy(const T& item) {
+        if (group.size() >= max_group_size) {
+            emit_group();
+        }
+        group.push_back(item);
+    }
+    
     /// Define a type for group emission event listeners
     using listener_t = std::function<void(const vector<T>&, int64_t, int64_t)>;
     
@@ -822,11 +831,17 @@ public:
     /// group to which the current message belongs), to seek back to. You can't
     /// seek back to the current message, just to the start of the group.
     /// Returns -1 instead if the underlying file doesn't support seek/tell.
+    /// Returns the past-the-end virtual offset of the file if EOF is reached.
     inline int64_t tell_group() const {
         if (bgzip_in->Tell() != -1) {
             // The backing file supports seek/tell (which we ascertain by attempting it).
-            // Return the *group's* virtual offset (not the current one)
-            return group;
+            if (group == -1) {
+                // We hit EOF and have no loaded message
+                return tell_raw();
+            } else {
+                // Return the *group's* virtual offset (not the current one)
+                return group;
+            }
         } else {
             // Chunk holds a count. But we need to say we can't seek.
             return -1;
@@ -865,6 +880,7 @@ public:
     /// for an unseekable/untellable stream. Not necessarily at a group
     /// boundary, so cannot be used for seeking. Useful for getting the final
     /// virtual offset when the cursor hits the end of a file.
+    /// This is NOT the virtual offset at which the currently loaded item occurs!
     inline int64_t tell_raw() const {
         return bgzip_in->Tell();
     }

@@ -56,6 +56,9 @@ using namespace std;
  * Unmapped reads are considered to visit node ID 0. The maximum and minimum
  * id_t values are used as sentinels, so they can't be real nodes.
  *
+ * All find operations are thread-safe with respect to each other. Simultaneous
+ * adds or finds and ads are prohibited.
+ *
  */
 class GAMIndex {
 public:
@@ -87,6 +90,13 @@ public:
     
     /// Call the given callback with all Alignments in the index that visit a node in the given inclusive range.
     void find(cursor_t& cursor, id_t min_node, id_t max_node, const function<void(const Alignment&)> handle_result) const;
+    
+    /// Call the given callback with all the Alignments in the index that visit
+    /// a node in any of the given sorted, coalesced inclusive ranges.
+    /// Emits each alignment at most once, and processes each group in the file at most once.
+    /// If only_fully_contained is set, only Alignments where *all* the mappings are to nodes in one of the ranges will match.
+    void find(cursor_t& cursor, const vector<pair<id_t, id_t>>& ranges, const function<void(const Alignment&)> handle_result,
+        bool only_fully_contained = false) const;
     
     /// Given a cursor at the beginning of a sorted, readable file, index the file.
     void index(cursor_t& cursor);

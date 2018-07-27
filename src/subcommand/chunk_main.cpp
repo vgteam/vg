@@ -39,7 +39,7 @@ void help_chunk(char** argv) {
          << "options:" << endl
          << "    -x, --xg-name FILE       use this xg index to chunk subgraphs" << endl
          << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction" << endl
-         << "    -a, --gam-index FILE     chunk this gam index (made with vg index -a) instead of the graph" << endl
+         << "    -a, --gam-name FILE      chunk this gam file (not stdin, sorted, with FILE.gai index) instead of the graph" << endl
          << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
          << "path chunking:" << endl
          << "    -p, --path TARGET        write the chunk in the specified (0-based inclusive)\n"
@@ -52,7 +52,7 @@ void help_chunk(char** argv) {
          << "    -R, --node-ranges FILE   write the chunk for each node range in (newline or whitespace separated) file" << endl
          << "    -n, --n-chunks N         generate this many id-range chunks, which are determined using the xg index" << endl
          << "simple gam chunking:" << endl
-         << "    -m, --gam-split-size N   split gam (specified with -a, index not required) up into chunks with at most N reads each" << endl
+         << "    -m, --gam-split-size N   split gam (specified with -a, sort/index not required) up into chunks with at most N reads each" << endl
          << "general:" << endl
          << "    -s, --chunk-size N       create chunks spanning N bases (or nodes with -r/-R) for all input regions." << endl
          << "    -o, --overlap N          overlap between chunks when using -s [0]" << endl        
@@ -64,7 +64,6 @@ void help_chunk(char** argv) {
          << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
          << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl 
          << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
-         << "    -A, --search-all         search all nodes of alignment as opposed just the minimum (gam index must be made with -N)" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -95,7 +94,6 @@ int main_chunk(int argc, char** argv) {
     int threads = 1;
     bool trace = false;
     bool fully_contained = false;
-    bool search_all_positions = false;
     int n_chunks = 0;
     size_t gam_split_size = 0;
     
@@ -121,7 +119,6 @@ int main_chunk(int argc, char** argv) {
             {"id-range", no_argument, 0, 'R'},
             {"trace", required_argument, 0, 'T'},
             {"fully-contained", no_argument, 0, 'f'},
-            {"search-all-positions", no_argument, 0, 'A'},
             {"threads", required_argument, 0, 't'},
             {"n-chunks", required_argument, 0, 'n'},
             {"context-length", required_argument, 0, 'l'},
@@ -130,7 +127,7 @@ int main_chunk(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:TfAt:n:l:m:",
+        c = getopt_long (argc, argv, "hx:G:a:gp:P:s:o:e:E:b:c:r:R:Tft:n:l:m:",
                 long_options, &option_index);
 
 
@@ -221,10 +218,6 @@ int main_chunk(int argc, char** argv) {
             fully_contained = true;
             break;
 
-        case 'A':
-            search_all_positions = true;
-            break;
-            
         case 't':
             threads = parse<int>(optarg);
             break;
@@ -307,20 +300,14 @@ int main_chunk(int argc, char** argv) {
         gbwt_index->load(in);
     }
 
-    // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
-    Index gam_index; 
+    
+    // We need an index on the GAM to chunk it
+    unique_ptr<GAMIndex> gam_index;
     if (chunk_gam) {
-        gam_index.open_read_only(gam_file);
-    }
-    // Read the gam file directly if just splitting into simple chunks
-    ifstream gam_stream;
-    if (gam_split_size != 0) {
-        assert (!chunk_gam);
-        gam_stream.open(gam_file);
-        if (!gam_stream) {
-            cerr << "error[vg chunk]: unable to open input gam: " << gam_file << endl;
-            return 1;
-        }
+        get_input_file(gam_file + ".gai", [&](istream& index_stream) {
+            gam_index = unique_ptr<GAMIndex>(new GAMIndex());
+            gam_index->load(index_stream);
+        });
     }
     
     // parse the regions into a list
@@ -451,7 +438,14 @@ int main_chunk(int argc, char** argv) {
     // now ready to get our chunk on
 
     if (gam_split_size != 0) {
-        // just chunk up every N reads in the gam without any path or id logic
+        ifstream gam_stream;
+        // Open the GAM file, whether splitting directly or seeking with an index
+        gam_stream.open(gam_file);
+        if (!gam_stream) {
+            cerr << "error[vg chunk]: unable to open input gam: " << gam_file << endl;
+            return 1;
+        }
+        // just chunk up every N reads in the gam without any path or id logic. Don't do anything else.
         return split_gam(gam_stream, gam_split_size, out_chunk_prefix);
     }
 
@@ -477,6 +471,26 @@ int main_chunk(int argc, char** argv) {
     for (auto& chunker : chunkers) {
         chunker.xg = &xindex;
     }
+    
+    // When chunking GAMs, every thread gets its own cursor to seek into the input GAM.
+    list<ifstream> gam_streams;
+    vector<GAMIndex::cursor_t> cursors;
+    
+    if (chunk_gam) {
+        cursors.reserve(threads);
+        for (size_t i = 0; i < threads; i++) {
+            // Open a stream for every thread
+            gam_streams.emplace_back(gam_file);
+            if (!gam_streams.back()) {
+                cerr << "error[vg chunk]: unable to open GAM file " << gam_file << endl;
+                return 1;
+            }
+            
+            // And wrap it in a cursor
+            cursors.emplace_back(gam_streams.back());
+        }
+    }
+    
 
     // extract chunks in parallel
 #pragma omp parallel for
@@ -551,20 +565,22 @@ int main_chunk(int argc, char** argv) {
         
         // optional gam chunking
         if (chunk_gam) {
+            assert(gam_index.get() != nullptr);
+            GAMIndex::cursor_t& cursor = cursors[tid];
+            
             string gam_name = chunk_name(i, output_regions[i], ".gam");
             ofstream out_gam_file(gam_name);
             if (!out_gam_file) {
                 cerr << "error[vg chunk]: can't open output gam file " << gam_name << endl;
                 exit(1);
             }
+            
             if (subgraph != NULL) {
-                chunker.extract_gam_for_subgraph(*subgraph, gam_index, &out_gam_file,
-                                                 fully_contained, search_all_positions);
+                chunker.extract_gam_for_subgraph(*subgraph, cursor, *gam_index, &out_gam_file, fully_contained);
             } else {
                 assert(id_range == true);
-                vector<vg::id_t> region_id_range = {region.start, region.end};
-                chunker.extract_gam_for_ids(region_id_range, gam_index, &out_gam_file,
-                                            true, fully_contained, search_all_positions);
+                vector<pair<vg::id_t, vg::id_t>> region_id_range = {{region.start, region.end}};
+                chunker.extract_gam_for_ids(region_id_range, cursor, *gam_index, &out_gam_file, fully_contained);
             }
         }
 

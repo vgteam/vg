@@ -19,7 +19,7 @@ vg view -aj x.gam | jq -r '.path.mapping | ([.[] | .position.node_id | tonumber]
 
 is "$(md5sum <min_ids.gamsorted.txt)" "$(md5sum <min_ids.sorted.txt)" "Sorting a GAM orders the alignments by min node ID"
 
-vg gamsort x.gam -i x.sorted.gam.index >x.sorted.gam
+vg gamsort x.gam -i x.sorted.gam.gai >x.sorted.gam
 is "$?" "0" "sorted GAMs can be indexed during the sort"
 
 rm -f x.vg x.xg x.gam x.sorted.gam min_ids.gamsorted.txt min_ids.sorted.txt x.sorted.gam.index

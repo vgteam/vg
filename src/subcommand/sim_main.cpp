@@ -136,6 +136,11 @@ int main_sim(int argc, char** argv) {
 
         case 's':
             seed_val = parse<int>(optarg);
+            if (seed_val == 0) {
+                // Don't let the user specify seed 0 as we will confuse it with no deterministic seed.
+                cerr << "error[vg sim]: seed 0 cannot be used. Omit the seed option if you want nondeterministic results." << endl;
+                exit(1);
+            }
             break;
 
         case 'e':
