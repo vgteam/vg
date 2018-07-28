@@ -93,7 +93,7 @@ public:
     
     /// Call the given callback with all the Alignments in the index that visit
     /// a node in any of the given sorted, coalesced inclusive ranges.
-    /// Emits each alignment at most once, and processes each group in the file at most once.
+    /// Emits each alignment at most once.
     /// If only_fully_contained is set, only Alignments where *all* the mappings are to nodes in one of the ranges will match.
     void find(cursor_t& cursor, const vector<pair<id_t, id_t>>& ranges, const function<void(const Alignment&)> handle_result,
         bool only_fully_contained = false) const;

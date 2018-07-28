@@ -226,11 +226,11 @@ TEST_CASE("GAMIndex can work with ProtobufIterator cursors", "[gam][gamindex]") 
         stream::write_buffered(file, group, 0);
     };
     
-    for (size_t group_number = 0; group_number < 10; group_number++) {
+    for (size_t group_number = 0; group_number < 100; group_number++) {
 #ifdef debug
         cerr << "Make group " << group_number << endl;
 #endif
-        make_group(1000);
+        make_group(100);
     }
     
 #ifdef debug
@@ -244,23 +244,32 @@ TEST_CASE("GAMIndex can work with ProtobufIterator cursors", "[gam][gamindex]") 
     GAMIndex index;
     index.index(cursor);
     
-    // The index should be pretty small
+    // The index should be pretty small, even though we have a lot of groups
     stringstream index_data;
     index.save(index_data);
 #ifdef debug
     cerr << "Index data is " << index_data.str().size() << " bytes" << endl;
 #endif
-    REQUIRE(index_data.str().size() < 1000);
+    REQUIRE(index_data.str().size() < 10000);
+    
+    // Remember every range we look up
+    vector<pair<id_t, id_t>> ranges;
+    // And the number of alignments we find
+    size_t total_found = 0;
     
     for (size_t start = 1; start < next_id; start += 345) {
         // Look up a series of ranges
         auto last = start + 9;
+        
+        // Remember each range we look up
+        ranges.emplace_back(start, last);
         
         vector<id_t> seen;
         
         // Collect the visited nodes of all the alignments
         index.find(cursor, start, last, [&](const Alignment& found) {
             seen.push_back(found.path().mapping(0).position().node_id());
+            total_found++;
         });
         
 #ifdef debug
@@ -279,6 +288,14 @@ TEST_CASE("GAMIndex can work with ProtobufIterator cursors", "[gam][gamindex]") 
         }
         
     }
+    
+    // Make sure we find the same alignment count when querying the ranges together, because they don't overlap.
+    size_t recovered = 0;
+    index.find(cursor, ranges, [&](const Alignment& found) {
+        recovered++;
+    });
+    
+    REQUIRE(recovered == total_found);
     
 }
 

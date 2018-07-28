@@ -358,34 +358,111 @@ static bool is_in_range(const vector<pair<id_t, id_t>>& ranges, id_t id) {
     return false;
     
 }
-    
+
 auto GAMIndex::find(cursor_t& cursor, const vector<pair<id_t, id_t>>& ranges,
     const function<void(const Alignment&)> handle_result, bool only_fully_contained) const -> void {
+    
+#ifdef debug
+    cerr << "Begin a find query on ranges:" << endl;
+    for (auto& range : ranges) {
+        cerr << "\t" << range.first << "-" << range.second << endl;
+    }
+#endif
     
     // We need seek support
     assert(cursor.tell_raw() != -1);
     
-    // This holds the max VO we have processed up to (past-end). Since the
-    // ranges are sorted, and the file is sorted, and we scan each range's part
-    // of the file for matching alignments to any range we want, we never have
-    // to visit the same group in the file twice. So this can always advance.
-    int64_t processed_up_to = 0;
+    // Because a node in a later range may appear earlier in the file than a
+    // node in an earlier range (but in a high-in-the-hierarchy bin), in
+    // general we need to jump around in the file. TODO: Use a processed_up_to
+    // counter to constrain us to one sweep in the only_fully_contained case.
+    
+    // To prevent us from scanning groups multiple times over, we keep a map
+    // from already-processed group start VO to the VO of the next group (or
+    // EOF). We can ride down chains in this map whenever we hit somewhere we
+    // have already been, instead of actually re-reading anything.
+    unordered_map<int64_t, int64_t> next_unprocessed;
+    
+    // We access it with this accessor function. It returns the given address
+    // if the group there has not been read, or the next unprocessed VO (or EOF
+    // VO) if it has.
+    auto get_next_unprocessed = [&](int64_t currently_at) {
+        // If we have to chain through multiple VOs to find the final one, we store them here.
+        vector<int64_t> chain;
+        
+#ifdef debug
+        cerr << "Find next unprocessed group after " << currently_at << endl;
+#endif
+        
+        auto found = next_unprocessed.find(currently_at);
+        while(found != next_unprocessed.end()) {
+            // We have a place to go.
+            
+            // Remember this place as a place that needs to go to the final place we find.
+            chain.push_back(currently_at);
+            
+#ifdef debug
+            cerr << currently_at << " chains to " << found->second << endl;
+#endif
+            
+            // Advance to the place we found.
+            currently_at = found->second;
+            found = next_unprocessed.find(currently_at);
+        }
+        
+        // Now we hit the end. Save the final answer back to the map for
+        // everything but the last item, so we never need to scan it again
+        for (size_t i = 0; i + 1 < chain.size(); i++) {
+            next_unprocessed[chain[i]] = currently_at;
+        }
+        
+#ifdef debug
+        cerr << "It is " << currently_at << endl;
+#endif
+        
+        return currently_at;
+    };
+    
+    // And this accessor marks a group as processed
+    auto mark_processed = [&](int64_t start_vo, int64_t past_end_vo) {
+    
+#ifdef debug
+        cerr << "Mark group " << start_vo << " to " << past_end_vo << " as processed" << endl;
+#endif
+    
+        next_unprocessed[start_vo] = past_end_vo;
+    };
     
     for (auto& range : ranges) {
         // For each range of IDs to look up
         
+#ifdef debug
+        cerr << "Look up range " << range.first << "-" << range.second << endl;
+#endif
+        
         find(range.first, range.second, [&](int64_t start_vo, int64_t past_end_vo) -> bool {
             // For each matching range of virtual offsets in the index
             
-            // Clip the start by where we have processed up to
-            start_vo = max(start_vo, processed_up_to);
-            if (past_end_vo <= processed_up_to) {
-                // This VO range does not need us to look any further. How about the next one?
+#ifdef debug
+            cerr << "Look at VOs " << start_vo << "-" << past_end_vo << endl;
+#endif
+            
+            // Warp the start past any already-processed groups we know about
+            start_vo = get_next_unprocessed(start_vo);
+            if (start_vo >= past_end_vo) {
+                // Skip this whole range and look at the next one
+                
+#ifdef debug
+                cerr << "The VO range has already been processed." << endl;
+#endif
+                
                 return true;
             }
             
-           // Seek the cursor, even if we are already at the group in question.
-           // TODO: We don't have a good way to tell if we are at the beginning of a group or not.
+            // Now the range starts with a group we have never seen before.
+            
+            // Seek the cursor, even if we are already at the group in question.
+            // TODO: We don't have a good way to tell if we are at the beginning of a group or not.
            
 #ifdef debug
             cerr << "Seek cursor to " << start_vo << endl;
@@ -393,10 +470,11 @@ auto GAMIndex::find(cursor_t& cursor, const vector<pair<id_t, id_t>>& ranges,
                 
             cursor.seek_group(start_vo);
             
-            // We need to track each group we encounter, so we can tell when an entire group is past the top end of the ID range.
+            // We need to track each group we encounter, so we can tell when an
+            // entire group is past the top end of the ID range we are
+            // currently looking up.
             int64_t group_vo = cursor.tell_group();
             id_t group_min_id = numeric_limits<id_t>::max();
-            
             while (cursor.has_next() && cursor.tell_group() < past_end_vo) {
                 // Read each alignment until we find a group that starts out of range
                 
@@ -409,25 +487,49 @@ auto GAMIndex::find(cursor_t& cursor, const vector<pair<id_t, id_t>>& ranges,
 #ifdef debug
                     cerr << "Finished group " << group_vo << endl;
 #endif
+
+                    // Record the group as processed
+                    mark_processed(group_vo, alignment_group_vo);
                     
                     if (group_min_id != numeric_limits<id_t>::max() && group_min_id > range.second) {
                         // Everything in the (non-empty) previous group was too high. We don't care about this group; our iteration is over.
                         
 #ifdef debug
-                        cerr << "Group was out of bounds with min id " << group_min_id << " > " << range.second << endl;
+                        cerr << "Group was out of bounds for its range with min id " << group_min_id << " > " << range.second << endl;
+                        cerr << "Move on to next range" << endl;
 #endif
                         
                         // Stop early. Don't finish this run and don't look at the next runs for this query range.
-                        
-                        // Update processed_up_to because we know we never need to look before here again for this query.
-                        processed_up_to = max(processed_up_to, cursor.tell_group());
-                        
                         return false;
                     }
                     
                     // Otherwise we need to start a new group
-                    group_vo = alignment_group_vo;
                     group_min_id = numeric_limits<id_t>::max();
+                    
+                    // Zip the group VO ahead to the next unprocessed group (which may be here, or at EOF)
+                    group_vo = get_next_unprocessed(alignment_group_vo);
+                    if (group_vo != alignment_group_vo) {
+                        // We want to go to a different group next.
+                        if (group_vo >= past_end_vo) {
+                            // But it's out of range for this range. Don't go there.
+#ifdef debug
+                            cerr << "Next unprocessed VO is out of range" << endl;
+#endif
+                            break;
+                        } else {
+                            // Seek there and restart the loop to see if we found anything good.
+#ifdef debug
+                            cerr << "Seek to next unprocessed VO at " << group_vo << endl;
+#endif
+                            cursor.seek_group(group_vo);
+                            continue;
+                        }
+                    } else {
+                        // Otherwise, we are continuing with this group we just found.
+#ifdef debug
+                        cerr << "Next unprocessed VO is right here." << endl;
+#endif
+                    }
                 }
                 
                 // Filter the alignment by the query and yield it if it matches
@@ -472,23 +574,27 @@ auto GAMIndex::find(cursor_t& cursor, const vector<pair<id_t, id_t>>& ranges,
                 
             }
            
+            if (group_vo < past_end_vo) {
+                // We finished a final group, from group_vo to past_end_vo
 #ifdef debug
-            cerr << "Finished last group " << group_vo << endl;
+                cerr << "Finished last group " << group_vo << endl;
 #endif
 
-            // Update processed_up_to because we know we never need to look before here again for this query.
-            processed_up_to = max(processed_up_to, cursor.tell_group());
-           
-            if (group_min_id != numeric_limits<id_t>::max() && group_min_id > range.second) {
-                // If the (non-empty) last group had all its node IDs past the max
-                // node ID, we know nothing after it can possibly match, so stop
-                // iteration.
-                
+                // Mark it finished
+                mark_processed(group_vo, past_end_vo);
+
+                if (group_min_id != numeric_limits<id_t>::max() && group_min_id > range.second) {
+                    // If the (non-empty) last group had all its node IDs past the max
+                    // node ID, we know nothing after it can possibly match, so stop
+                    // iteration.
+                    
 #ifdef debug
-                cerr << "Group was out of bounds with min id " << group_min_id << " > " << range.second << endl;
+                    cerr << "Group was out of bounds with min id " << group_min_id << " > " << range.second << endl;
+                    cerr << "Move on to next range" << endl;
 #endif
                 
-                return false;
+                    return false;
+                }
             }
             
             // Otherwise, the last group we looked at was not yet out of bounds, so get another range to look at, if one exists.
