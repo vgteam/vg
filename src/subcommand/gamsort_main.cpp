@@ -79,12 +79,12 @@ int main_gamsort(int argc, char **argv)
         case '?':
         default:
             help_gamsort(argv);
-            abort();
+            exit(1);
         }
     }
 
 
-    if (argc < 2){
+    if (argc < 3){
         help_gamsort(argv);
         exit(1);
     }
