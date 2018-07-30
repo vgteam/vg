@@ -739,7 +739,9 @@ public:
     ProtobufIterator(std::istream& in) :
         group_count(0),
         group_idx(0),
-        group(-1),
+        group_vo(-1),
+        item_vo(-1),
+        end_next(false),
         bgzip_in(new BlockedGzipInputStream(in))
     {
         get_next();
@@ -747,44 +749,68 @@ public:
     
     /// Return true if dereferencing the iterator will produce a valid value, and false otherwise.
     inline bool has_next() const {
-        return group != -1;
+        return item_vo != -1;
     }
     
     /// Advance the iterator to the next message, or the end if this was the last message.
     void get_next() {
-        // Determine exactly where we are positioned, if possible, before creating the CodedInputStream
-        auto virtual_offset = bgzip_in->Tell();
-    
-        // We need a fresh CodedInputStream every time, because of the total byte limit
-        ::google::protobuf::io::CodedInputStream coded_in(bgzip_in.get());
-        // Alot space for size, and for reading group's length
-        coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
-    
-        if (group_count == group_idx) {
-            // We have made it to the end of the group we are reading. We will start a new group now.
+        if (end_next || group_count == group_idx) {
+            // We have made it to the end of the group we are reading. We will
+            // start a new group now.
+            
+            // Determine exactly where we are positioned, if possible, before
+            // creating the CodedInputStream to read the group's item count
+            auto virtual_offset = bgzip_in->Tell();
             
             if (virtual_offset == -1) {
                 // We don't have seek capability, so we just count up the groups we read.
                 // On construction this is -1; bump it up to 0 for the first group.
-                group++;
+                group_vo++;
             } else {
                 // We can seek. We need to know what offset we are at
-                group = virtual_offset;
+                group_vo = virtual_offset;
             }
             
             // Start at the start of the new group
             group_idx = 0;
-            // Try and read its size
-            if (!coded_in.ReadVarint64((::google::protobuf::uint64*) &group_count)) {
+            
+            // Make a CodedInputStream to read the group length
+            ::google::protobuf::io::CodedInputStream coded_in(bgzip_in.get());
+            // Alot space for group's length (generously)
+            coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
+            
+            // Try and read the group's length
+            if (end_next || !coded_in.ReadVarint64((::google::protobuf::uint64*) &group_count)) {
+                // We didn't get a length (or we want to end the iteration)
+                
                 // This is the end of the input stream, switch to state that
                 // will match the end constructor
-                group = -1;
+                group_vo = -1;
+                item_vo = -1;
                 value = T();
                 return;
             }
+            
         }
         
-        // Now we know we're in a group
+        // Now we know we're in a group.
+        
+        // Get the item's virtual offset, if available
+        auto virtual_offset = bgzip_in->Tell();
+        
+        // We need a fresh CodedInputStream every time, because of the total byte limit
+        ::google::protobuf::io::CodedInputStream coded_in(bgzip_in.get());
+        // Alot space for size and item (generously)
+        coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
+        
+        // A message starts here
+        if (virtual_offset == -1) {
+            // Just track the counter.
+            item_vo++;
+        } else {
+            // We know where here is
+            item_vo = virtual_offset;
+        }
         
         // The messages are prefixed by their size
         uint32_t msgSize = 0;
@@ -835,15 +861,15 @@ public:
     inline int64_t tell_group() const {
         if (bgzip_in->Tell() != -1) {
             // The backing file supports seek/tell (which we ascertain by attempting it).
-            if (group == -1) {
+            if (group_vo == -1) {
                 // We hit EOF and have no loaded message
                 return tell_raw();
             } else {
                 // Return the *group's* virtual offset (not the current one)
-                return group;
+                return group_vo;
             }
         } else {
-            // Chunk holds a count. But we need to say we can't seek.
+            // group_vo holds a count. But we need to say we can't seek.
             return -1;
         }
     }
@@ -868,6 +894,7 @@ public:
         // Get ready to read the group that's here
         group_count = 0;
         group_idx = 0;
+        end_next = false;
         
         // Read it (or detect EOF)
         get_next();
@@ -883,6 +910,60 @@ public:
     /// This is NOT the virtual offset at which the currently loaded item occurs!
     inline int64_t tell_raw() const {
         return bgzip_in->Tell();
+    }
+    
+    /// Return the virtual offset of the currently loaded item, or tell_raw() if at end.
+    /// Returns -1 for an unseekable/untellable stream.
+    inline int64_t tell_item() const {
+        if (bgzip_in->Tell() != -1) {
+            // The backing file supports seek/tell (which we ascertain by attempting it).
+            if (item_vo == -1) {
+                // We hit EOF and have no loaded message
+                return tell_raw();
+            } else {
+                // Return the item's virtual offset
+                return item_vo;
+            }
+        } else {
+            // item_vo holds a count. But we need to say we can't seek.
+            return -1;
+        }
+    }
+    
+    /// Seek to the given virtual offset and read a single item from there. The
+    /// next value produced will be the item that is there, and then the
+    /// iterator will end (unless the user seeks somewhere else). Return false
+    /// if seeking is unsupported or the seek fails.
+    /// Will not work right if EOF is sought.
+    inline bool seek_item_and_stop(int64_t virtual_offset) {
+        if (virtual_offset < 0) {
+            // That's not allowed
+            return false;
+        }
+        
+        // Try and do the seek
+        bool sought = bgzip_in->Seek(virtual_offset);
+        
+        if (!sought) {
+            // We can't seek
+            return false;
+        }
+        
+        // Pretend to be in a 1-element group, which will be the last one until someone seeks again.
+        group_count = 1;
+        group_idx = 0;
+        
+        // Allow an item to be read
+        end_next = false;
+        
+        // Read the element
+        get_next();
+        
+        // Stop after this one
+        end_next = true;
+        
+        // It worked!
+        return true;
     }
     
     /// Returns iterators that act like begin() and end() for a stream containing protobuf data
@@ -901,7 +982,13 @@ private:
     // This holds the virtual offset of the current group's start, or the
     // number of the current group if seeking is not available.
     // If the iterator is the end iterator, this is -1.
-    int64_t group;
+    int64_t group_vo;
+    // This holds the virtual offset of the current item, or -1 if seeking is not possible.
+    // Useful for seeking back to the item later, although you will have to seek to a group to iterate, after that.
+    int64_t item_vo;
+    // This is a flag for whether we should hit the end on the next get_next()
+    // It is set when we seek to a message individually, and unset when we seek to a group.
+    bool end_next;
     
     // Since Protobuf streams can't be copied or moved, we wrap ours in a uniqueptr_t so we can be moved.
     unique_ptr<BlockedGzipInputStream> bgzip_in;
