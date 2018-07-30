@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <set>
+#include <dirent.h>
 
 namespace vg {
 
@@ -183,15 +184,44 @@ string temp_dir;
 /// std::exit() is called.
 struct Handler {
     set<string> filenames;
+    string parent_directory;
     ~Handler() {
         for (auto& filename : filenames) {
             std::remove(filename.c_str());
+        }
+        if (!parent_directory.empty()) {
+            // There may be extraneous files in the directory still (like .fai files)
+            auto directory = opendir(parent_directory.c_str());
+            
+            dirent* dp;
+            while ((dp = readdir(directory)) != nullptr) {
+                // For every item still in it, delete it.
+                // TODO: Maybe eventually recursively delete?
+                std::remove((parent_directory + "/" + dp->d_name).c_str());
+            }
+            closedir(directory);
+            
+            // Delete the directory itself
+            std::remove(parent_directory.c_str());
         }
     }
 } handler;
 
 string create(const string& base) {
-    string tmpname = get_dir() + "/" + base + "XXXXXXXX";
+    if (handler.parent_directory.empty()) {
+        // Make a parent directory for our temp files
+        string tmpdirname = get_dir() + "/vg-XXXXXX";
+        auto got = mkdtemp(&tmpdirname[0]);
+        if (got != nullptr) {
+            // Save the directory we got
+            handler.parent_directory = got;
+        } else {
+            cerr << "[vg utility.cpp]: couldn't create temp directory: " << tmpdirname << endl;
+            exit(1);
+        }
+    }
+
+    string tmpname = handler.parent_directory + "/" + base + "XXXXXX";
     // hack to use mkstemp to get us a safe temporary file name
     int fd = mkstemp(&tmpname[0]);
     if(fd != -1) {
