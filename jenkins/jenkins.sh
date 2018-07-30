@@ -196,7 +196,7 @@ then
         echo "vg local build fail"
         BUILD_FAIL=1
     fi
-    VG_VERSION=`vg version`
+    VG_VERSION=`vg version -s`
     printf "vg-docker-version None\n" >> vgci_cfg.tsv
     printf "container None\n" >> vgci_cfg.tsv
 else
@@ -221,7 +221,7 @@ else
         for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
         for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
     fi
-    VG_VERSION=`docker run jenkins-docker-vg-local vg version`
+    VG_VERSION=`docker run jenkins-docker-vg-local vg version -s`
     printf "vg-docker-version jenkins-docker-vg-local\n" >> vgci_cfg.tsv
 fi
 

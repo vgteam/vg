@@ -21,17 +21,49 @@ using namespace vg::subcommand;
 void help_version(char** argv){
     cerr << "usage: " << argv[0] << " version" << endl
          << "options: " << endl
+         << "  -s / --slug           print only the one-line, whitespace-free version string" << endl
+         << "  -h / --help           print this help" << endl
          << endl;
 }
 
 int main_version(int argc, char** argv){
 
-    if (argc != 2) {
+    bool slug_only = false;
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"slug", no_argument, 0, 's'},
+                {"help", no_argument, 0, 'h'},
+                {0, 0, 0, 0}};
+        int option_index = 0;
+        c = getopt_long(argc, argv, "sh",
+                        long_options, &option_index);
+
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+
+        switch (c) {
+        case 's':
+            slug_only = true;
+            break;
+        case 'h':
+        case '?':
+        default:
+            help_version(argv);
+            exit(1);
+        }
+    }
+
+    if (argc > optind) {
         help_version(argv);
         return 1;
     }
 
-    cout << Version::get_long() << endl;
+    cout << (slug_only ? Version::get_version() : Version::get_long()) << endl;
     return 0;
 }
 // Register subcommand
