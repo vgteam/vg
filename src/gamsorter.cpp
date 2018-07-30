@@ -159,24 +159,26 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
 }
 
 void GAMSorter::benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) {
-    if (gam_in.tellg() == -1) {
-        cerr << "error:[vg gamsort]: Cannot sort an unseekable GAM" << endl;
-        exit(1);
-    }
-    
     // Go to the end of the file
     gam_in.seekg(0, gam_in.end);
     // Get its position
     auto file_end = gam_in.tellg();
     // Go to the start
     gam_in.seekg(0);
-    // Make a progress bar
-    create_progress("load positions", file_end);
     
     // This will have all the item VOs and let us sort them by position
     vector<pair<pos_t, int64_t>> pos_to_vo;
     
     stream::ProtobufIterator<Alignment> cursor(gam_in);
+    
+    if (cursor.tell_raw() == -1) {
+        // This will catch non-blocked gzip files, as well as streaming streams.
+        cerr << "error:[vg gamsort]: Cannot sort an unseekable GAM" << endl;
+        exit(1);
+    }
+    
+    // Make a progress bar
+    create_progress("load positions", file_end);
     
     // Count reads seen so we can only update our progress bar sometimes
     size_t seen = 0;
