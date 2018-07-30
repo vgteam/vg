@@ -13,6 +13,9 @@
 using namespace std;
 using namespace vg;
 
+GAMSorter::GAMSorter(bool show_progress) {
+    this->show_progress = show_progress;
+}
 
 void GAMSorter::sort(vector<Alignment>& alns) const {
     std::sort(alns.begin(), alns.end(), [&](const Alignment& a, const Alignment& b) {
@@ -20,7 +23,7 @@ void GAMSorter::sort(vector<Alignment>& alns) const {
     });
 }
 
-void GAMSorter::dumb_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) const {
+void GAMSorter::dumb_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) {
     std::vector<Alignment> sort_buffer;
 
     stream::for_each<Alignment>(gam_in, [&](Alignment &aln) {
@@ -51,7 +54,7 @@ void GAMSorter::dumb_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to)
     // Emitter destruction will terminate the file with an EOF marker
 }
 
-void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) const {
+void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) {
 
     // Read the input into buffers.
     std::vector<Alignment> input_buffer;
@@ -155,16 +158,28 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
     // The temp files will get cleaned up automatically when the program ends.
 }
 
-void GAMSorter::benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) const {
+void GAMSorter::benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) {
     if (gam_in.tellg() == -1) {
         cerr << "error:[vg gamsort]: Cannot sort an unseekable GAM" << endl;
         exit(1);
     }
     
+    // Go to the end of the file
+    gam_in.seekg(0, gam_in.end);
+    // Get its position
+    auto file_end = gam_in.tellg();
+    // Go to the start
+    gam_in.seekg(0);
+    // Make a progress bar
+    create_progress("load positions", file_end);
+    
     // This will have all the item VOs and let us sort them by position
     vector<pair<pos_t, int64_t>> pos_to_vo;
     
     stream::ProtobufIterator<Alignment> cursor(gam_in);
+    
+    // Count reads seen so we can only update our progress bar sometimes
+    size_t seen = 0;
     
     while(cursor.has_next()) {
         // Get the min position of each alignment
@@ -174,12 +189,25 @@ void GAMSorter::benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index
         pos_to_vo.emplace_back(min_pos, cursor.tell_item());
         
         cursor.get_next();
+        
+        if (seen % 1000 == 0) {
+            update_progress(gam_in.tellg());
+        }
+        seen++;
     }
+    
+    update_progress(gam_in.tellg());
+    destroy_progress();
+    create_progress("sort positions", 1);
     
     // Sort everything by pos_t key
     std::sort(pos_to_vo.begin(), pos_to_vo.end(), [&](const pair<pos_t, int64_t>& a, const pair<pos_t, int64_t>& b) {
         return this->less_than(a.first, b.first);
     });
+    
+    update_progress(1);
+    destroy_progress();
+    create_progress("reorder reads", pos_to_vo.size());
     
     // Make an output emitter
     stream::ProtobufEmitter<Alignment> emitter(gam_out);
@@ -201,7 +229,11 @@ void GAMSorter::benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index
         
         // Send it out
         emitter.write(std::move(cursor.take()));
+        
+        increment_progress();
     }
+    
+    destroy_progress();
 }
 
 

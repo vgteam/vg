@@ -91,7 +91,7 @@ int main_gamsort(int argc, char **argv)
 
     get_input_file(optind, argc, argv, [&](istream& gam_in) {
 
-        GAMSorter gs;
+        GAMSorter gs(true);
 
         if (just_use_rocks) {
             // Do the sort the old way - write a big ol'

@@ -4,6 +4,7 @@
 #include "vg.pb.h"
 #include "stream.hpp"
 #include "types.hpp"
+#include "progressive.hpp"
 #include <string>
 #include <queue>
 #include <sstream>
@@ -20,8 +21,7 @@
  * GAM sorting tools.
  */
 using namespace std;
-namespace vg
-{
+namespace vg {
 
 
 // We need to know about the GAMIndex, but we don't actually need to hold one.
@@ -33,30 +33,30 @@ class GAMIndex;
 /// going to end up next to each other, so if sorting by position make sure to
 /// set the position cross-references first if you want to be able to find
 /// them.
-class GAMSorter
-{
-
-  
-  public:
+class GAMSorter : public Progressive {
+public:
 
     //////////////////
     // Main entry points
     //////////////////
     
+    /// Create a GAM sorter, showing sort progress on standard error if show_progress is true.
+    GAMSorter(bool show_progress = false);
+    
     /// Sort a stream of GAM-format data, using temporary files.
     /// Optionally index the sorted GAM file into the given GAMIndex.
-    void stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to = nullptr) const;
+    void stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to = nullptr);
     
     /// Sort a stream of GAM-format data, loading it all into memory and doing
     /// a single giant sort operation.
     /// Optionally index the sorted GAM file into the given GAMIndex.
-    void dumb_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to = nullptr) const;
+    void dumb_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to = nullptr);
     
     /// Sort a seekable input stream by doing one pass to load all the
     /// positions, sorting all the positions in memory, and doing another pass
     /// of jumping around to re-order all the reads.
     /// Optionally index the sorted GAM file into the given GAMIndex.
-    void benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to = nullptr) const;
+    void benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to = nullptr);
     
     //////////////////
     // Supporting API
