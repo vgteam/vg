@@ -1,6 +1,7 @@
 #include "gamsorter.hpp"
 #include "utility.hpp"
 #include "json2pb.h"
+#include "position.hpp"
 #include "gam_index.hpp"
 
 /**
@@ -154,6 +155,56 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
     // The temp files will get cleaned up automatically when the program ends.
 }
 
+void GAMSorter::benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) const {
+    if (gam_in.tellg() == -1) {
+        cerr << "error:[vg gamsort]: Cannot sort an unseekable GAM" << endl;
+        exit(1);
+    }
+    
+    // This will have all the item VOs and let us sort them by position
+    vector<pair<pos_t, int64_t>> pos_to_vo;
+    
+    stream::ProtobufIterator<Alignment> cursor(gam_in);
+    
+    while(cursor.has_next()) {
+        // Get the min position of each alignment
+        pos_t min_pos = make_pos_t(get_min_position(*cursor));
+        
+        // Save it with the alignment-s virtual offset
+        pos_to_vo.emplace_back(min_pos, cursor.tell_item());
+        
+        cursor.get_next();
+    }
+    
+    // Sort everything by pos_t key
+    std::sort(pos_to_vo.begin(), pos_to_vo.end(), [&](const pair<pos_t, int64_t>& a, const pair<pos_t, int64_t>& b) {
+        return this->less_than(a.first, b.first);
+    });
+    
+    // Make an output emitter
+    stream::ProtobufEmitter<Alignment> emitter(gam_out);
+    
+    if (index_to != nullptr) {
+        emitter.on_group([&index_to](const vector<Alignment>& group, int64_t start_vo, int64_t past_end_vo) {
+            // Whenever it emits a group, index it.
+            // Make sure to only capture things that will outlive the emitter
+            index_to->add_group(group, start_vo, past_end_vo);
+        });
+    }
+    
+    // Actually do the shuffle
+    for (auto& pos_and_vo : pos_to_vo) {
+        // For each item in sorted order
+        
+        // Load it
+        cursor.seek_item_and_stop(pos_and_vo.second);
+        
+        // Send it out
+        emitter.write(std::move(cursor.take()));
+    }
+}
+
+
 bool GAMSorter::less_than(const Alignment &a, const Alignment &b) const {
     return less_than(get_min_position(a), get_min_position(b));
 }
@@ -200,6 +251,26 @@ bool GAMSorter::less_than(const Position& a, const Position& b) const {
     }
 
     if (a.offset() < b.offset()) {
+        return true;
+    }
+    
+    return false;
+}
+
+bool GAMSorter::less_than(const pos_t& a, const pos_t& b) const {
+    if (id(a) < id(b)) {
+        return true;
+    } else if (id(a) > id(b)) {
+        return false;
+    }
+    
+    if (is_rev(a) < is_rev(b)) {
+        return true;
+    } else if (is_rev(a) > is_rev(b)) {
+        return false;
+    }
+
+    if (offset(a) < offset(b)) {
         return true;
     }
     
