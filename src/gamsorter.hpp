@@ -43,8 +43,9 @@ public:
     /// Create a GAM sorter, showing sort progress on standard error if show_progress is true.
     GAMSorter(bool show_progress = false);
     
-    /// Sort a stream of GAM-format data, using temporary files.
-    /// Optionally index the sorted GAM file into the given GAMIndex.
+    /// Sort a stream of GAM-format data, using temporary files, limiting the
+    /// number of simultaneously open input files and the size of in-memory
+    /// data. Optionally index the sorted GAM file into the given GAMIndex.
     void stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to = nullptr);
     
     /// Sort a stream of GAM-format data, loading it all into memory and doing
@@ -93,7 +94,31 @@ public:
     bool greater_than(const Position& a, const Position& b) const;
 
   private:
-    int max_buf_size = 20000;
+    /// What's the maximum size of reads in serialized, uncompressed bytes to
+    /// load into memory for a single temp file chunk, during the streaming
+    /// sort?
+    size_t max_buf_size = 1073741824;
+    /// What's the max fan-in when combining temp files, during the streaming sort?
+    size_t max_fan_in = 1000;
+    
+    using cursor_t = stream::ProtobufIterator<Alignment>;
+    using emitter_t = stream::ProtobufEmitter<Alignment>;
+    
+    /// Open all the given input files, keeping the streams and cursors in the given lists.
+    /// We use lists because none of these should be allowed to move after creation.
+    void open_all(const vector<string>& filenames, list<ifstream>& streams, list<cursor_t>& cursors);
+    
+    /// Merge all the reads from the given list of cursors into the given emitter.
+    /// The total expected number of reads can be passed for progress bar purposes.
+    void streaming_merge(list<cursor_t>& cursors, emitter_t& emitter, size_t expected_reads = 0);
+    
+    /// Merge all the given temp input files into one or more temp output
+    /// files, opening no more than max_fan_in input files at a time. The input
+    /// files, which must be from temp_file::create(), will be deleted.
+    ///
+    /// If reads_per_file is specified, it will be used to show progress bars,
+    /// and will be updated for newly-created files.
+    vector<string> streaming_merge(const vector<string>& temp_names_in, unordered_map<string, size_t>* reads_per_file = nullptr);
 };
 }
 #endif

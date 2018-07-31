@@ -54,14 +54,45 @@ void GAMSorter::dumb_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to)
     // Emitter destruction will terminate the file with an EOF marker
 }
 
+
+
 void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) {
 
-    // Read the input into buffers.
-    std::vector<Alignment> input_buffer;
+    // We want to work out the file size, if we can.
+    size_t file_size = 0;
+    {
+        // Save our position
+        auto here = gam_in.tellg();
+        // Go to the end
+        gam_in.seekg(0, gam_in.end);
+        // Get its position
+        auto there = gam_in.tellg();
+        // Go back to where we were
+        gam_in.seekg(here);
+            
+        if (gam_in.good()) {
+            // We can seek in this stream. So how far until the end?
+            file_size = there - here;
+        } else {
+            // It's entirely possible that none of that worked. So clear the error flags and leave the size at 0.
+            gam_in.clear();
+        }
+    }
     
-    // When a buffer is full, sort it and write it to a temporary file, which
-    // we remember.    
-    vector<string> temp_file_names;
+    // Don't give an actual 0 to the progress code or it will NaN
+    create_progress("breaking into sorted chunks", file_size == 0 ? 1 : file_size);
+
+    // Read the input into a buffer, accumulating up to the size limit
+    std::vector<Alignment> input_buffer;
+    size_t buffered_message_bytes = 0;
+    
+    // When the buffer is full, we put it in a temp file and put the name here
+    vector<string> outstanding_temp_files;
+    
+    // This tracks the number of reads in each file, by file name
+    unordered_map<string, size_t> reads_per_file;
+    // This tracks the total reads observed on input
+    size_t total_reads_read = 0;
     
     auto finish_buffer = [&]() {
         // Do a sort. TODO: do it on another thread.
@@ -69,31 +100,103 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
         
         // Save it to a temp file.
         string temp_name = temp_file::create();
-        temp_file_names.push_back(temp_name);
+        outstanding_temp_files.push_back(temp_name);
         ofstream temp_stream(temp_name);
         // OK to save as one massive group here.
         // TODO: This write could also be in a thread.
         stream::write_buffered(temp_stream, input_buffer, 0);
         
+        // Remember the reads in the file, for progress purposes
+        reads_per_file[temp_name] = input_buffer.size();
+        total_reads_read += input_buffer.size();
+        
+        // Empty the buffer
         input_buffer.clear();
+        buffered_message_bytes = 0;
+        
+        // Update the progress bar
+        update_progress(gam_in.tellg());
     };
     
-    
-    stream::for_each<Alignment>(gam_in, [&](const Alignment& aln) {
-        // Buffer each input alignment
-        input_buffer.push_back(aln);
-        if (input_buffer.size() == max_buf_size) {
+    cursor_t input_cursor(gam_in);
+    while (input_cursor.has_next()) {
+        // Until we run out of input alignments, buffer each, recording its size.
+        buffered_message_bytes += input_cursor.get_item_size();
+        input_buffer.emplace_back(std::move(input_cursor.take()));
+        
+        if (buffered_message_bytes >= max_buf_size) {
             // We have a full temp file's worth of data.
             finish_buffer();
         }
-    });
+    }
     finish_buffer();
+    destroy_progress();
     
+    // Now all the data is in temp files.
     
+    while (outstanding_temp_files.size() > max_fan_in) {
+        // We can't merge them all at once, so merge subsets of them.
+        outstanding_temp_files = streaming_merge(outstanding_temp_files, &reads_per_file);
+    }
+    
+    // Now we can merge (and maybe index) the final layer of the tree.
+    
+    // Open up cursors into all the files.
+    list<ifstream> temp_ifstreams;
+    list<cursor_t> temp_cursors;
+    open_all(outstanding_temp_files, temp_ifstreams, temp_cursors);
+    
+    // Make an output emitter
+    emitter_t emitter(gam_out);
+    
+    if (index_to != nullptr) {
+        emitter.on_group([&index_to](const vector<Alignment>& group, int64_t start_vo, int64_t past_end_vo) {
+            // Whenever it emits a group, index it.
+            // Make sure to only capture things that will outlive the emitter
+            index_to->add_group(group, start_vo, past_end_vo);
+        });
+    }
+    
+    // Merge the cursors into the emitter
+    streaming_merge(temp_cursors, emitter, total_reads_read);
+    
+    // Clean up
+    temp_cursors.clear();
+    temp_ifstreams.clear();
+    for (auto& filename : outstanding_temp_files) {
+        temp_file::remove(filename);
+    }
+    
+}
+
+void GAMSorter::open_all(const vector<string>& filenames, list<ifstream>& streams, list<cursor_t>& cursors) {
+    // The open files need to live in a collection; the cursors don't own them.
+    // They also can't be allowed to move since we reference them.
+    // The cursors also need to live in a collection, because we don't want to be
+    // moving/copying them and their internal buffers and streams.
+    // And they can't move after creation either.
+    
+    // So everything lives in caller-passed lists.
+    
+    for (auto& filename : filenames) {
+        // Open each file
+        streams.emplace_back();
+        streams.back().open(filename);
+        // Make a cursor for it
+        cursors.emplace_back(streams.back());
+    }
+
+}
+
+void GAMSorter::streaming_merge(list<cursor_t>& cursors, emitter_t& emitter, size_t expected_reads) {
+
+    create_progress("merge " + to_string(cursors.size()) + " files", expected_reads == 0 ? 1 : expected_reads);
+    // Count the reads we actually see
+    size_t observed_reads = 0;
+
     // Put all the files in a priority queue based on which has an alignment that comes first.
     // We work with pointers to cursors because we don't want to be copying the actual cursors around the heap.
     // We also *reverse* the order, because priority queues put the "greatest" element forts
-    using cursor_t = stream::ProtobufIterator<Alignment>;
     auto cursor_order = [&](cursor_t*& a, cursor_t*& b) {
         if (b->has_next()) {
             if(!a->has_next()) {
@@ -104,58 +207,92 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
         }
         return false;
     };
-    priority_queue<cursor_t*, vector<cursor_t*>, decltype(cursor_order)> temp_files(cursor_order);
-    
-    // The open files also need to live in a collection; the cursors don't own them
-    // They also can't be allowed to move since we reference them
-    list<ifstream> temp_ifstreams;
-    // The cursors also need to live in a collection, because we don't want to be
-    // moving/copying them and their internal buffers and streams.
-    // And they can't move after creation either.
-    list<cursor_t> temp_cursors;
-    
-    for (auto& name : temp_file_names) {
-        // Open each file again
-        temp_ifstreams.emplace_back();
-        temp_ifstreams.back().open(name);
-        // Make a cursor for it and put it in the heap
-        temp_cursors.emplace_back(temp_ifstreams.back());
-        
-        // Put the cursor pointer in the queue
-        temp_files.push(&temp_cursors.back());
+    priority_queue<cursor_t*, vector<cursor_t*>, decltype(cursor_order)> cursor_queue(cursor_order);
+
+    for (auto& cursor : cursors) {
+        // Put the cursor pointers in the queue
+        cursor_queue.push(&cursor);
     }
     
-    // Make an output emitter
-    stream::ProtobufEmitter<Alignment> emitter(gam_out);
-    
-    if (index_to != nullptr) {
-        emitter.on_group([&index_to](const vector<Alignment>& group, int64_t start_vo, int64_t past_end_vo) {
-            // Whenever it emits a group, index it.
-            // Make sure to only capture things that will outlive the emitter
-            index_to->add_group(group, start_vo, past_end_vo);
-        });
-    }
-    
-    while(!temp_files.empty() && temp_files.top()->has_next()) {
+    while(!cursor_queue.empty() && cursor_queue.top()->has_next()) {
         // Until we have run out of data in all the temp files
         
         // Pop off the winning cursor
-        cursor_t* winner = temp_files.top();
-        temp_files.pop();
+        cursor_t* winner = cursor_queue.top();
+        cursor_queue.pop();
         
         // Grab and emit its alignment, and advance it
         emitter.write(std::move(winner->take()));
         
         // Put it back in the heap if it is not depleted
         if (winner->has_next()) {
-            temp_files.push(winner);
+            cursor_queue.push(winner);
         }
         // TODO: Maybe keep it off the heap for the next loop somehow if it still wins
+        
+        observed_reads++;
+        if (expected_reads != 0) {
+            update_progress(observed_reads);
+        }
     }
     
-    // The output file will be flushed and finished automatically when the emitter goes away.
+    // We finished the files, so say we're done.
+    // TODO: Should we warn/fail if we expected the wrong number of reads?
+    update_progress(expected_reads == 0 ? 1 : expected_reads);
+    destroy_progress();
+
+}
+
+vector<string> GAMSorter::streaming_merge(const vector<string>& temp_files_in, unordered_map<string, size_t>* reads_per_file) {
     
-    // The temp files will get cleaned up automatically when the program ends.
+    // What are the names of the merged files we create?
+    vector<string> temp_files_out;
+    
+    for (size_t start_file = 0; start_file < temp_files_in.size(); start_file += max_fan_in) {
+        // For each range of sufficiently few files, starting at start_file and running for file_count
+        size_t file_count = min(max_fan_in, temp_files_in.size() - start_file);
+    
+        // Open up cursors into all the files.
+        list<ifstream> temp_ifstreams;
+        list<cursor_t> temp_cursors;
+        open_all(vector<string>(&temp_files_out[start_file], &temp_files_out[start_file + file_count]), temp_ifstreams, temp_cursors);
+        
+        // Work out how many reads to expect
+        size_t expected_reads = 0;
+        if (reads_per_file != nullptr) {
+            for (size_t i = start_file; i < start_file + file_count; i++) {
+                expected_reads += reads_per_file->at(temp_files_in.at(i));
+            }
+        }
+        
+        // Open an output file
+        string out_file_name = temp_file::create();
+        ofstream out_stream(out_file_name);
+        temp_files_out.push_back(out_file_name);
+        
+        // Make an output emitter
+        emitter_t emitter(out_stream);
+        
+        // Merge the cursors into the emitter
+        streaming_merge(temp_cursors, emitter, expected_reads);
+        
+        // The output file will be flushed and finished automatically when the emitter goes away.
+        
+        // Clean up the input files we used
+        temp_cursors.clear();
+        temp_ifstreams.clear();
+        for (size_t i = start_file; i < file_count; i++) {
+            temp_file::remove(temp_files_in.at(i));
+        }
+        
+        if (reads_per_file != nullptr) {
+            // Save the total reads that should be in the created file, in case we need to do another pass
+            (*reads_per_file)[out_file_name] = expected_reads;
+        }
+    }
+    
+    return temp_files_out;
+        
 }
 
 void GAMSorter::benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) {

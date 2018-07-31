@@ -741,6 +741,7 @@ public:
         group_idx(0),
         group_vo(-1),
         item_vo(-1),
+        item_bytes(0),
         end_next(false),
         bgzip_in(new BlockedGzipInputStream(in))
     {
@@ -787,6 +788,7 @@ public:
                 // will match the end constructor
                 group_vo = -1;
                 item_vo = -1;
+                item_bytes = 0;
                 value = T();
                 return;
             }
@@ -815,6 +817,7 @@ public:
         // The messages are prefixed by their size
         uint32_t msgSize = 0;
         handle(coded_in.ReadVarint32(&msgSize));
+        item_bytes = msgSize;
         
         if (msgSize > MAX_PROTOBUF_SIZE) {
             throw std::runtime_error("[stream::ProtobufIterator::get_next] protobuf message of " +
@@ -851,6 +854,12 @@ public:
         get_next();
         // Return by value, which gets moved.
         return temp;
+    }
+    
+    /// How many serialized, uncompressed bytes did the currently loaded item take.
+    /// Will be 0 if no current item is available, but can also be 0 for valid, all-default items.
+    inline size_t get_item_size() const {
+        return item_bytes;
     }
     
     /// Return the virtual offset of the group being currently read (i.e. the
@@ -986,6 +995,9 @@ private:
     // This holds the virtual offset of the current item, or -1 if seeking is not possible.
     // Useful for seeking back to the item later, although you will have to seek to a group to iterate, after that.
     int64_t item_vo;
+    // This holds the number of serialized bytes that the currently loaded item took up in the stream.
+    // Doesn't count group size or item length overhead.
+    size_t item_bytes;
     // This is a flag for whether we should hit the end on the next get_next()
     // It is set when we seek to a message individually, and unset when we seek to a group.
     bool end_next;

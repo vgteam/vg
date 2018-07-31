@@ -138,8 +138,8 @@ int main_gamsort(int argc, char **argv)
                 // Sort in a single pass in memory
                 gs.dumb_sort(gam_in, cout, index.get());
             } else {
-                // Sort using seek and in-memory key sort
-                gs.benedict_sort(gam_in, cout, index.get());
+                // Sort using fan-in-limited temp file merging 
+                gs.stream_sort(gam_in, cout, index.get());
             }
             
             if (index.get() != nullptr) {
