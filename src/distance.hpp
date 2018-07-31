@@ -4,11 +4,14 @@ namespace vg {
 
 class DistanceIndex {
 
-    /*The distance index*/
+    /*The distance index. Used for calculation of the minimum distance between
+       two positions and for a maximum distance estimation. The maximum distance
+       estimation is at least as large as the maximum distance between two 
+       positions up to a specified cap*/
 
     public: 
     //Constructor 
-    DistanceIndex (VG* vg, SnarlManager* snarlManager);
+    DistanceIndex (VG* vg, SnarlManager* snarlManager, int64_t cap);
 
     //Constructor to load index from serialization 
     DistanceIndex (VG* vg, SnarlManager* snarlManager, istream& in);
@@ -183,6 +186,9 @@ class DistanceIndex {
     }; 
 
 
+    //map each node to connected component for max distance estimation 
+    hash_map<id_t, size_t> nodeToCycles;
+
     //map from start node of a snarl to its index
     unordered_map<pair<id_t, bool>, SnarlDistances> snarlIndex;
 
@@ -194,8 +200,20 @@ class DistanceIndex {
 
     SnarlManager* sm;
  
-    //Helper function for constructor
-    int64_t calculateIndex(const Chain* chain); 
+    //Helper function for constructor - populate the minimum distance index
+    int64_t calculateMinIndex(const Chain* chain); 
+
+    //Helper function for constructor - populate the minimum distance index
+    void calculateMaxIndex(const Chain* chain, int64_t cap); 
+
+    //Flag each node with true if it is in a cycle that has minimum length
+    //smaller than cap
+    void flagCycles(const Snarl* snarl, hash_map<id_t, bool>* inCycle,
+                    int64_t cap);
+
+    //Minimum distance of a loop that involves node
+    int64_t loopDistance( const Snarl* snarl1, const Snarl* snarl2,
+                          pair<id_t, bool> node1, pair<id_t, bool> node2); 
 
     /*Helper function for distance calculation
       Returns the distance to the start of and end of the child snarl of

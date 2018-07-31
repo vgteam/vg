@@ -13,7 +13,7 @@
 #include <fstream>
 #include <random>
 #include <time.h> 
-#define print
+//#define print
 namespace vg {
 namespace unittest {
 
@@ -134,6 +134,7 @@ class TestDistanceIndex : public DistanceIndex {
         using DistanceIndex::SnarlDistances;
         using DistanceIndex::snarlIndex;
         using DistanceIndex::ChainDistances;
+        using DistanceIndex::loopDistance;
         using DistanceIndex::chainIndex;
         using DistanceIndex::distToCommonAncestor;
         using DistanceIndex::checkChainDist;
@@ -200,7 +201,7 @@ class TestDistanceIndex : public DistanceIndex {
         snarl_manager.add_chain(Chain{ptr2}, ptr1);
         snarl_manager.add_chain(Chain{ptr1}, nullptr);
 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
         
         SECTION( "Create distance index" ) {
             const vector<const Snarl*> topSnarls = snarl_manager.top_level_snarls();
@@ -322,11 +323,27 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos4, pos9) == -1);
 
 
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(6, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(3, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == -1);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(4, false),  
+                                        make_pair(4, false)) == -1);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(4, false),  
+                                        make_pair(5, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(6, false),  
+                                        make_pair(6, false)) == -1);
+            REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
+                                        make_pair(8, false)) == -1);
         }
     }//End test case
 
     TEST_CASE( "Create distance index disconnected graph",
-                   "[dist][bug]" ) {
+                   "[dist]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -364,7 +381,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
         
         SECTION( "Create distance index" ) {
             //REQUIRE(di.chainIndex.size() == 0);
@@ -460,7 +477,7 @@ class TestDistanceIndex : public DistanceIndex {
         snarl_manager.add_chain(Chain{ptr1}, nullptr);
 
 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
 
 
         SECTION("Create distance index") {
@@ -552,6 +569,23 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos5, pos2) == 9);
             REQUIRE(distance(&graph, pos5, pos6) == 7);
 
+
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(3, true),  
+                                        make_pair(3, true)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(3, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == -1);
+            REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(6, false),  
+                                        make_pair(6, false)) == -1);
+            REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(5, false),  
+                                        make_pair(6, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(5, false),  
+                                        make_pair(5, false)) == -1);
+            REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
+                                        make_pair(8, false)) == -1);
         }
     }//end test case
 
@@ -612,7 +646,7 @@ class TestDistanceIndex : public DistanceIndex {
         snarl_manager.add_chain(Chain{ptr1}, nullptr);
 
 
-        TestDistanceIndex di(&graph, &snarl_manager);
+        TestDistanceIndex di(&graph, &snarl_manager, 50);
 
 
         SECTION("Create distance index") {
@@ -720,6 +754,21 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos5, pos6) == 7);
             REQUIRE(distance(&graph, pos1, pos7) == 10);
             REQUIRE(distance(&graph, pos1, pos8) == 10);
+
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(3, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2,  snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == -1);
+            REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(6, false),  
+                                        make_pair(6, false)) == -1);
+            REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(6, false),  
+                                        make_pair(7, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(5, false),  
+                                        make_pair(5, false)) == -1);
+            REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
+                                        make_pair(8, false)) == -1);
         }
     }//end test case
 
@@ -754,7 +803,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
 
 
         SECTION("Create distance index") {
@@ -862,6 +911,19 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos5, pos2) == 9);
             REQUIRE(distance(&graph, pos5, pos6) == 7);
             REQUIRE(distance(&graph, pos3, pos7) == 11);
+
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == -1);
+            REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(6, false),  
+                                        make_pair(6, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(5, false),  
+                                        make_pair(5, false)) == -1);
+            REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
+                                        make_pair(8, false)) == -1);
+            REQUIRE(di.loopDistance(snarl8, snarl8, make_pair(9, false),  
+                                        make_pair(9, false)) == -1);
         }
     }//end test case
     TEST_CASE("Interior chain", "[dist]") {
@@ -896,7 +958,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
 
 
         SECTION("Create distance index") {
@@ -1014,6 +1076,19 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos8r, pos7) == 2);
             REQUIRE(distance(&graph, pos2, pos8) == 7);
             REQUIRE(distance(&graph, pos6, pos5) == 10);
+
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == -1);
+            REQUIRE(di.loopDistance(snarl4, snarl4, make_pair(6, false),  
+                                        make_pair(6, false)) == -1);
+            REQUIRE(di.loopDistance(snarl4, snarl4, make_pair(5, false),  
+                                        make_pair(5, false)) == -1);
+            REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(10, false),  
+                                        make_pair(10, false)) == -1);
+            REQUIRE(di.loopDistance(snarl7, snarl7, make_pair(9, false),  
+                                        make_pair(9, false)) == -1);
         }
     }//end test case
     TEST_CASE("Top level loop creates unary snarl", "[dist]") {
@@ -1039,7 +1114,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
 
 
         SECTION("Create distance index") {
@@ -1144,9 +1219,20 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos2, pos3) == 8);
             REQUIRE(distance(&graph, pos4, pos7) == 6);
             REQUIRE(distance(&graph, pos1, pos5) == 5);
+
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == -1);
+            REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(6, false),  
+                                        make_pair(6, false)) == -1);
+            REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(5, false),  
+                                        make_pair(5, false)) == -1);
+            REQUIRE(di.loopDistance(snarl7, snarl7, make_pair(7, false),  
+                                        make_pair(7, false)) == -1);
         }
     }//end test case
-    TEST_CASE( "Shortest path exits common ancestor","[dist]" ) {
+    TEST_CASE( "Shortest path exits common ancestor","[dist][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -1178,7 +1264,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
         
         SECTION( "Create distance index" ) {
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
@@ -1224,6 +1310,19 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos4, pos5) == 6);
             REQUIRE(distance(&graph, pos5, pos5r) == 2);
             REQUIRE(distance(&graph, pos5, pos7) == 11);
+
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == -1);
+            REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(6, false),  
+                                        make_pair(6, false)) == -1);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
+                                        make_pair(3, false)) == -1);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(5, false),  
+                                        make_pair(5, false)) == 12);
+            REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(7, false),  
+                                        make_pair(7, false)) == -1);
         }
     }//End test case
     TEST_CASE( "Simple nested snarl with loop",
@@ -1254,7 +1353,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
         
         SECTION( "Create distance index" ) {
 
@@ -1333,6 +1432,22 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos4, pos9) == 8);
             REQUIRE(distance(&graph, pos10, pos9) == 9);
             REQUIRE(distance(&graph, pos9, pos10) == 9);
+
+
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(6, false),  
+                                        make_pair(6, false)) == -1);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
+                                        make_pair(3, false)) == 9);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(5, false),  
+                                        make_pair(5, false)) == 9);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(4, false),  
+                                        make_pair(4, false)) == 13);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(7, false),  
+                                        make_pair(7, false)) == 9);
         }
     }//End test case
 
@@ -1362,7 +1477,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
         
         SECTION( "Create distance index" ) {
 
@@ -1414,6 +1529,17 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos1, pos4) == 5);
             REQUIRE(distance(&graph, pos5, pos6) == 12);
             REQUIRE(distance(&graph, pos2, pos7) == 7);
+
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                                    make_pair(2, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                                    make_pair(2, true)) == -1);
+            REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(6, false),  
+                                                    make_pair(6, false)) == -1);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
+                                                    make_pair(3, false)) == -1);
+            REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(5, false),  
+                                                    make_pair(5, false)) == -1);
         }
     }//End test case
     TEST_CASE("Nested unary snarls", "[dist]") {
@@ -1443,7 +1569,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
 
 
         SECTION("Create distance index") {
@@ -1482,6 +1608,22 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos3, pos5) == -1);
             REQUIRE(distance(&graph, pos3, pos8) == 3);
  
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == -1);
+            REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(5, false),  
+                                        make_pair(5, false)) == -1);
+            REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(5, false),  
+                                        make_pair(7, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl3, make_pair(2, false),  
+                                        make_pair(3, false)) == -1);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(2, false),  
+                                        make_pair(3, false)) == -1);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
+                                        make_pair(3, false)) == -1);
+            REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(5, false),  
+                                        make_pair(5, false)) == -1);
         }
     }//end test case
 
@@ -1522,7 +1664,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
         
         SECTION( "Create distance index" ) {
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
@@ -1581,6 +1723,32 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos7, pos12) == 14);
             REQUIRE(distance(&graph, pos8, pos11) == 8);
 
+            REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(1, false),  
+                                        make_pair(1, false)) == -1);
+            REQUIRE(di.loopDistance(snarl1, snarl2, make_pair(1, false),  
+                                        make_pair(2, false)) == -1);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == 4);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == 4);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(11, false)) == 4);
+            REQUIRE(di.loopDistance(snarl2, snarl3, make_pair(2, false),  
+                                        make_pair(3, false)) == 14);
+            REQUIRE(di.loopDistance(snarl3, snarl2, make_pair(3, false),  
+                                        make_pair(2, false)) == 14);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(5, false),  
+                                        make_pair(5, false)) == 22);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
+                                        make_pair(3, false)) == 14);
+            REQUIRE(di.loopDistance(snarl3, snarl2, make_pair(8, false),  
+                                        make_pair(9, false)) == 14);
+            REQUIRE(di.loopDistance(snarl2, snarl3, make_pair(9, true),  
+                                        make_pair(8, true)) == 14);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(11, true),  
+                                        make_pair(2, true)) == 4);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(11, false)) == 4);
         }
     }//End test case
 
@@ -1634,7 +1802,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
         
         SECTION( "Create distance index" ) {
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
@@ -1697,6 +1865,32 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos14, pos10) == 6);
             REQUIRE(distance(&graph, pos14, pos3) == 8);
             REQUIRE(distance(&graph, pos16, pos3) == 4);
+
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == 5);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == 5);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(5, false),  
+                                        make_pair(5, false)) == 19);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
+                                        make_pair(3, false)) == 11);
+
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(16, false)) == 5);
+            REQUIRE(di.loopDistance(snarl2, snarl3, make_pair(2, false),  
+                                        make_pair(3, false)) == 11);
+            REQUIRE(di.loopDistance(snarl1, snarl2, make_pair(1, false),  
+                                        make_pair(2, false)) == 9);
+            REQUIRE(di.loopDistance(snarl9, snarl1, make_pair(11, false),  
+                                        make_pair(12, false)) == 9);
+            REQUIRE(di.loopDistance(snarl1, snarl9, make_pair(12, true),  
+                                        make_pair(11, true)) == 9);
+            REQUIRE(di.loopDistance(snarl13, snarl13, make_pair(13, false),  
+                                        make_pair(15, false)) == 7);
+            REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(6, false),  
+                                        make_pair(8, false)) == 11);
+            REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(6, false),  
+                                        make_pair(7, false)) == 12);
         }
     }//End test case
 
@@ -1734,7 +1928,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 50);
 
 
         SECTION("Create distance index") {
@@ -1770,6 +1964,26 @@ class TestDistanceIndex : public DistanceIndex {
 
             REQUIRE(distance(&graph, pos4, pos6) == 8);
             REQUIRE(distance(&graph, pos2, pos7) == 6);
+
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == 11);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == 11);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(5, false),  
+                                        make_pair(5, false)) == 11);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(3, false),  
+                                        make_pair(3, false)) == 11);
+            REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(6, false),
+                                        make_pair(6, false)) == 12);
+            REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),
+                                        make_pair(8, false)) == 4);
+
+            REQUIRE(di.loopDistance(snarl5, snarl1, make_pair(7, false),  
+                                        make_pair(8, false)) == 11);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(3, false)) == 11);
+            REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(1, false),  
+                                        make_pair(8, false)) == 4);
         }
     }//end test case
 
@@ -1800,12 +2014,13 @@ class TestDistanceIndex : public DistanceIndex {
 
 
        SECTION ("Distance functions") {
-            TestDistanceIndex di (&graph, &snarl_manager);
+            TestDistanceIndex di (&graph, &snarl_manager, 50);
             #ifdef print
                 di.printSelf();
             #endif
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, true);
             const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
+            const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
 
             pos_t pos1 = make_pos_t(1, false, 0);
             pos_t pos2 = make_pos_t(2, false, 0);
@@ -1814,6 +2029,26 @@ class TestDistanceIndex : public DistanceIndex {
 
 
 
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == 10);
+            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == 10);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(4, false),  
+                                        make_pair(4, false)) == 14);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(5, false),  
+                                        make_pair(5, false)) == 10);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
+                                        make_pair(3, false)) == 10);
+            REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(1, false),
+                                        make_pair(1, false)) == 10);
+            REQUIRE(di.loopDistance(snarl1, snarl2, make_pair(1, false),
+                                        make_pair(2, false)) == 10);
+            REQUIRE(di.loopDistance(snarl2, snarl3, make_pair(2, false),
+                                        make_pair(3, false)) == 10);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),
+                                        make_pair(5, true)) == 10);
+            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),
+                                        make_pair(4, false)) == 14);
         }
  
     }
@@ -1827,7 +2062,7 @@ class TestDistanceIndex : public DistanceIndex {
             SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
                         graph.serialize_to_file("testGraph");
-            TestDistanceIndex di (&graph, &snarl_manager);
+            TestDistanceIndex di (&graph, &snarl_manager, 50);
             #ifdef print        
                 di.printSelf();
 
@@ -1918,7 +2153,7 @@ class TestDistanceIndex : public DistanceIndex {
             SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
                         graph.serialize_to_file("testGraph");
-            TestDistanceIndex di (&graph, &snarl_manager);
+            TestDistanceIndex di (&graph, &snarl_manager, 50);
   
             filebuf buf;
             buf.open("distanceIndex", ios::out);
