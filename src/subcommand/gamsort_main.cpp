@@ -23,6 +23,7 @@ void help_gamsort(char **argv)
          << "  -d / --dumb-sort        use naive sorting algorithm (no tmp files, faster for small GAMs)" << endl
          << "  -r / --rocks            Just use the old RocksDB-style indexing scheme for sorting." << endl
          << "  -a / --aln-index        Create the old RocksDB-style node-to-alignment index." << endl
+         << "  -t / --threads          Use the specified number of threads." << endl
          << endl;
 }
 
@@ -46,9 +47,10 @@ int main_gamsort(int argc, char **argv)
                 {"rocks", no_argument, 0, 'r'},
                 {"aln-index", no_argument, 0, 'a'},
                 {"is-sorted", no_argument, 0, 's'},
+                {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}};
         int option_index = 0;
-        c = getopt_long(argc, argv, "i:dhraps",
+        c = getopt_long(argc, argv, "i:dhrapst:",
                         long_options, &option_index);
 
         // Detect the end of the options.
@@ -74,6 +76,9 @@ int main_gamsort(int argc, char **argv)
             break;
         case 'p':
             is_paired = true;
+            break;
+        case 't':
+            omp_set_num_threads(parse<int>(optarg));
             break;
         case 'h':
         case '?':

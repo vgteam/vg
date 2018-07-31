@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <set>
+#include <mutex>
 #include <dirent.h>
 
 namespace vg {
@@ -178,6 +179,9 @@ string toUppercase(const string& s) {
 
 namespace temp_file {
 
+// We use this to make the API thread-safe
+recursive_mutex monitor;
+
 string temp_dir;
 
 /// Because the names are in a static object, we can delete them when
@@ -186,6 +190,7 @@ struct Handler {
     set<string> filenames;
     string parent_directory;
     ~Handler() {
+        // No need to lock in static destructor
         for (auto& filename : filenames) {
             std::remove(filename.c_str());
         }
@@ -208,6 +213,8 @@ struct Handler {
 } handler;
 
 string create(const string& base) {
+    lock_guard<recursive_mutex> lock(monitor);
+
     if (handler.parent_directory.empty()) {
         // Make a parent directory for our temp files
         string tmpdirname = get_dir() + "/vg-XXXXXX";
@@ -237,19 +244,26 @@ string create(const string& base) {
 }
 
 string create() {
+    // No need to lock as we call this thing that locks
     return create("vg-");
 }
 
 void remove(const string& filename) {
+    lock_guard<recursive_mutex> lock(monitor);
+    
     std::remove(filename.c_str());
     handler.filenames.erase(filename);
 }
 
 void set_dir(const string& new_temp_dir) {
+    lock_guard<recursive_mutex> lock(monitor);
+    
     temp_dir = new_temp_dir;
 }
 
 string get_dir() {
+    lock_guard<recursive_mutex> lock(monitor);
+
     // Get the default temp dir from environment variables.
     if (temp_dir.empty()) {
         const char* system_temp_dir = nullptr;

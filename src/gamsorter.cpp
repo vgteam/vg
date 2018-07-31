@@ -79,94 +79,131 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
         }
     }
     
-    // Don't give an actual 0 to the progress code or it will NaN
-    create_progress("breaking into sorted chunks", file_size == 0 ? 1 : file_size);
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+    
+            // Don't give an actual 0 to the progress code or it will NaN
+            create_progress("break into sorted chunks", file_size == 0 ? 1 : file_size);
 
-    // Read the input into a buffer, accumulating up to the size limit
-    std::vector<Alignment> input_buffer;
-    size_t buffered_message_bytes = 0;
-    
-    // When the buffer is full, we put it in a temp file and put the name here
-    vector<string> outstanding_temp_files;
-    
-    // This tracks the number of reads in each file, by file name
-    unordered_map<string, size_t> reads_per_file;
-    // This tracks the total reads observed on input
-    size_t total_reads_read = 0;
-    
-    auto finish_buffer = [&]() {
-        // Do a sort. TODO: do it on another thread.
-        this->sort(input_buffer);
-        
-        // Save it to a temp file.
-        string temp_name = temp_file::create();
-        outstanding_temp_files.push_back(temp_name);
-        ofstream temp_stream(temp_name);
-        // OK to save as one massive group here.
-        // TODO: This write could also be in a thread.
-        stream::write_buffered(temp_stream, input_buffer, 0);
-        
-        // Remember the reads in the file, for progress purposes
-        reads_per_file[temp_name] = input_buffer.size();
-        total_reads_read += input_buffer.size();
-        
-        // Empty the buffer
-        input_buffer.clear();
-        buffered_message_bytes = 0;
-        
-        // Update the progress bar
-        update_progress(gam_in.tellg());
-    };
-    
-    cursor_t input_cursor(gam_in);
-    while (input_cursor.has_next()) {
-        // Until we run out of input alignments, buffer each, recording its size.
-        buffered_message_bytes += input_cursor.get_item_size();
-        input_buffer.emplace_back(std::move(input_cursor.take()));
-        
-        if (buffered_message_bytes >= max_buf_size) {
-            // We have a full temp file's worth of data.
+            // Read the input into a buffer, accumulating up to the size limit
+            vector<Alignment> input_buffer;
+            size_t buffered_message_bytes = 0;
+            
+            // When the buffer is full, we throw it in this queue to be sorted.
+            list<vector<Alignment>> sort_queue;
+            
+            // Eventually we put it in a temp file and put the name here
+            vector<string> outstanding_temp_files;
+            
+            // This tracks the number of reads in each file, by file name
+            unordered_map<string, size_t> reads_per_file;
+            // This tracks the total reads observed on input
+            size_t total_reads_read = 0;
+            
+            auto finish_buffer = [&]() {
+                // Record that we read the reads
+                total_reads_read += input_buffer.size();
+                
+                // Queue up the buffer to be sorted and dumped
+                #pragma omp critical (sort_queue)
+                sort_queue.emplace_back(std::move(input_buffer));
+                
+                // Get ready for more reads
+                input_buffer.clear();
+                buffered_message_bytes = 0;
+                
+                // Update the progress bar
+                update_progress(gam_in.tellg());
+                
+                #pragma omp task
+                {
+                    // In another thread
+                    
+                    // Get a queued buffer (not necessarily the same one)
+                    vector<Alignment> sort_buffer;
+                    #pragma omp critical (sort_queue)
+                    {
+                        sort_buffer = std::move(sort_queue.front());
+                        sort_queue.pop_front();
+                    }
+            
+                    // Do a sort.
+                    this->sort(sort_buffer);
+                    
+                    // Save it to a temp file.
+                    string temp_name = temp_file::create();
+                    ofstream temp_stream(temp_name);
+                    // OK to save as one massive group here.
+                    // TODO: This write could also be in a thread.
+                    stream::write_buffered(temp_stream, sort_buffer, 0);
+                    
+                    #pragma omp critical (outstanding_temp_files)
+                    {
+                        // Remember the temp file name
+                        outstanding_temp_files.push_back(temp_name);
+                        // Remember the reads in the file, for progress purposes
+                        reads_per_file[temp_name] = input_buffer.size();
+                    }
+                }
+            };
+            
+            cursor_t input_cursor(gam_in);
+            while (input_cursor.has_next()) {
+                // Until we run out of input alignments, buffer each, recording its size.
+                buffered_message_bytes += input_cursor.get_item_size();
+                input_buffer.emplace_back(std::move(input_cursor.take()));
+                
+                if (buffered_message_bytes >= max_buf_size) {
+                    // We have a full temp file's worth of data.
+                    finish_buffer();
+                }
+            }
             finish_buffer();
+            
+            #pragma omp taskwait
+            
+            destroy_progress();
+            
+            // Now all the data is in temp files.
+            
+            while (outstanding_temp_files.size() > max_fan_in) {
+                // We can't merge them all at once, so merge subsets of them.
+                outstanding_temp_files = streaming_merge(outstanding_temp_files, &reads_per_file);
+            }
+            
+            // Now we can merge (and maybe index) the final layer of the tree.
+            
+            // Open up cursors into all the files.
+            list<ifstream> temp_ifstreams;
+            list<cursor_t> temp_cursors;
+            open_all(outstanding_temp_files, temp_ifstreams, temp_cursors);
+            
+            // Make an output emitter
+            emitter_t emitter(gam_out);
+            
+            if (index_to != nullptr) {
+                emitter.on_group([&index_to](const vector<Alignment>& group, int64_t start_vo, int64_t past_end_vo) {
+                    // Whenever it emits a group, index it.
+                    // Make sure to only capture things that will outlive the emitter
+                    index_to->add_group(group, start_vo, past_end_vo);
+                });
+            }
+            
+            // Merge the cursors into the emitter
+            streaming_merge(temp_cursors, emitter, total_reads_read);
+            
+            // Clean up
+            temp_cursors.clear();
+            temp_ifstreams.clear();
+            for (auto& filename : outstanding_temp_files) {
+                temp_file::remove(filename);
+            }
+            
         }
+        
     }
-    finish_buffer();
-    destroy_progress();
-    
-    // Now all the data is in temp files.
-    
-    while (outstanding_temp_files.size() > max_fan_in) {
-        // We can't merge them all at once, so merge subsets of them.
-        outstanding_temp_files = streaming_merge(outstanding_temp_files, &reads_per_file);
-    }
-    
-    // Now we can merge (and maybe index) the final layer of the tree.
-    
-    // Open up cursors into all the files.
-    list<ifstream> temp_ifstreams;
-    list<cursor_t> temp_cursors;
-    open_all(outstanding_temp_files, temp_ifstreams, temp_cursors);
-    
-    // Make an output emitter
-    emitter_t emitter(gam_out);
-    
-    if (index_to != nullptr) {
-        emitter.on_group([&index_to](const vector<Alignment>& group, int64_t start_vo, int64_t past_end_vo) {
-            // Whenever it emits a group, index it.
-            // Make sure to only capture things that will outlive the emitter
-            index_to->add_group(group, start_vo, past_end_vo);
-        });
-    }
-    
-    // Merge the cursors into the emitter
-    streaming_merge(temp_cursors, emitter, total_reads_read);
-    
-    // Clean up
-    temp_cursors.clear();
-    temp_ifstreams.clear();
-    for (auto& filename : outstanding_temp_files) {
-        temp_file::remove(filename);
-    }
-    
 }
 
 void GAMSorter::open_all(const vector<string>& filenames, list<ifstream>& streams, list<cursor_t>& cursors) {
@@ -248,6 +285,7 @@ vector<string> GAMSorter::streaming_merge(const vector<string>& temp_files_in, u
     // What are the names of the merged files we create?
     vector<string> temp_files_out;
     
+    // We don't do this loop in parallel because the point of looping is to limit the total currently open files.
     for (size_t start_file = 0; start_file < temp_files_in.size(); start_file += max_fan_in) {
         // For each range of sufficiently few files, starting at start_file and running for file_count
         size_t file_count = min(max_fan_in, temp_files_in.size() - start_file);
