@@ -17,12 +17,12 @@ void help_gamsort(char **argv)
     cerr << "gamsort: sort a GAM file, or index a sorted GAM file" << endl
          << "Usage: " << argv[1] << " [Options] gamfile" << endl
          << "Options:" << endl
-         << "  -p / --paired           Input GAM is paired-end." << endl
          << "  -s / --sorted           Input GAM is already sorted." << endl
          << "  -i / --index FILE       produce an index of the sorted GAM file" << endl
          << "  -d / --dumb-sort        use naive sorting algorithm (no tmp files, faster for small GAMs)" << endl
          << "  -r / --rocks            Just use the old RocksDB-style indexing scheme for sorting." << endl
          << "  -a / --aln-index        Create the old RocksDB-style node-to-alignment index." << endl
+         << "  -p / --progress         Show progress." << endl
          << "  -t / --threads          Use the specified number of threads." << endl
          << endl;
 }
@@ -31,10 +31,10 @@ int main_gamsort(int argc, char **argv)
 {
     string index_filename;
     bool dumb_sort = false;
-    bool is_paired = false;
     bool is_sorted = false;
     bool just_use_rocks = false;
     bool do_aln_index = false;
+    bool show_progress = false;
     // We limit the max threads, and only allow thread count to be lowered, to
     // prevent tcmalloc from giving each thread a very large heap for many
     // threads.
@@ -47,14 +47,14 @@ int main_gamsort(int argc, char **argv)
             {
                 {"index", required_argument, 0, 'i'},
                 {"dumb-sort", no_argument, 0, 'd'},
-                {"paired", no_argument, 0, 'p'},
                 {"rocks", no_argument, 0, 'r'},
                 {"aln-index", no_argument, 0, 'a'},
                 {"is-sorted", no_argument, 0, 's'},
+                {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}};
         int option_index = 0;
-        c = getopt_long(argc, argv, "i:dhrapst:",
+        c = getopt_long(argc, argv, "i:dhraspt:",
                         long_options, &option_index);
 
         // Detect the end of the options.
@@ -79,7 +79,7 @@ int main_gamsort(int argc, char **argv)
             do_aln_index = true;
             break;
         case 'p':
-            is_paired = true;
+            show_progress = true;
             break;
         case 't':
             num_threads = min(parse<size_t>(optarg), num_threads);
@@ -102,7 +102,7 @@ int main_gamsort(int argc, char **argv)
 
     get_input_file(optind, argc, argv, [&](istream& gam_in) {
 
-        GAMSorter gs(true);
+        GAMSorter gs(show_progress);
 
         if (just_use_rocks) {
             // Do the sort the old way - write a big ol'
