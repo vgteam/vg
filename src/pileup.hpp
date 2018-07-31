@@ -128,8 +128,8 @@ public:
     void to_json(ostream& out);
     /// read from protobuf
     void load(istream& in);
-    /// write to protobuf
-    void write(ostream& out, uint64_t buffer_size = 5);
+    /// write to protobuf, with EOF marker
+    void write(ostream& out, size_t buffer_size = 5);
 
     /// apply function to each pileup in table
     void for_each_node_pileup(const function<void(NodePileup&)>& lambda);

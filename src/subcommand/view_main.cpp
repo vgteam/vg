@@ -16,6 +16,7 @@
 #include "../multipath_alignment.hpp"
 #include "../vg.hpp"
 #include "../gfa.hpp"
+#include "../json_stream_helper.hpp"
 
 using namespace std;
 using namespace vg;
@@ -457,7 +458,7 @@ int main_view(int argc, char** argv) {
         // GFA can convert to any of the graph formats, so keep going
     } else if(input_type == "json") {
         assert(input_json);
-        JSONStreamHelper<Graph> json_helper(file_name);
+        stream::JSONStreamHelper<Graph> json_helper(file_name);
         function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
         graph = new VG(get_next_graph, false, !expect_duplicates);
     } else if(input_type == "turtle-in") {
@@ -517,7 +518,7 @@ int main_view(int argc, char** argv) {
                 return 1;
             }
         } else {
-            JSONStreamHelper<Alignment> json_helper(file_name);
+            stream::JSONStreamHelper<Alignment> json_helper(file_name);
             if (output_type == "json" || output_type == "gam") {
                 json_helper.write(cout, output_type == "json");
             }
@@ -553,6 +554,8 @@ int main_view(int argc, char** argv) {
             hts_for_each(file_name, lambda);
             write_alignments(std::cout, buf);
             buf.clear();
+            // Finish the stream with an EOF marker
+            stream::finish(std::cout);
             cout.flush();
             return 0;
         } else if (output_type == "json") {
@@ -565,7 +568,7 @@ int main_view(int argc, char** argv) {
         }
     } else if (input_type == "multipath") {
         if (input_json) {
-            JSONStreamHelper<MultipathAlignment> json_helper(file_name);
+            stream::JSONStreamHelper<MultipathAlignment> json_helper(file_name);
             if (output_type == "multipath") {
                 json_helper.write(cout, false);
             }
@@ -696,6 +699,8 @@ int main_view(int argc, char** argv) {
             }
             write_alignments(std::cout, buf);
             buf.clear();
+            // Finish the stream with an EOF marker
+            stream::finish(std::cout);
         } else {
             // We can't convert fastq to the other graph formats
             cerr << "[vg view] error: FASTQ can only be converted to GAM" << endl;
@@ -720,7 +725,7 @@ int main_view(int argc, char** argv) {
             }
         } else {
             if (output_type == "json" || output_type == "pileup") {
-                JSONStreamHelper<Pileup> json_helper(file_name);
+                stream::JSONStreamHelper<Pileup> json_helper(file_name);
                 json_helper.write(cout, output_type == "json");
             } else {
                 cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
@@ -759,7 +764,7 @@ int main_view(int argc, char** argv) {
             }
         } else {
             if (output_type == "json" || output_type == "locus") {
-                JSONStreamHelper<Locus> json_helper(file_name);
+                stream::JSONStreamHelper<Locus> json_helper(file_name);
                 json_helper.write(cout, output_type == "json");
             } else {
                 cerr << "[vg view] error: JSON Locus can only be converted to Locus or JSON" << endl;
@@ -834,6 +839,7 @@ int main_view(int argc, char** argv) {
         graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
+        stream::finish(cout);
     } else if (output_type == "locus") {
 
     } else {

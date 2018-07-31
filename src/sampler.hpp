@@ -192,13 +192,13 @@ private:
     void record_read_pair_quality(const Alignment& aln_1, const Alignment& aln_2);
     /// Indicate that there is no more training data
     void finalize();
-    /// Get a quality string that mimics the training data
-    string sample_read_quality();
-    /// Get a pair of quality strings that mimic the training data
-    pair<string, string> sample_read_quality_pair();
+    /// Get a quality string and a vector of 'N'-masks that mimics the training data
+    pair<string, vector<bool>> sample_read_quality();
+    /// Get a pair of quality strings and vectors of 'N'-masks that mimic the training data
+    pair<pair<string, vector<bool>>, pair<string, vector<bool>>> sample_read_quality_pair();
     /// Wrapped internal function for quality sampling
-    string sample_read_quality_internal(uint8_t first,
-                                        vector<MarkovDistribution<uint8_t, uint8_t>>& transition_distrs);
+    pair<string, vector<bool>> sample_read_quality_internal(pair<uint8_t, bool> first,
+                                                            bool transitions_1);
     
     /// Internal method called by paired and unpaired samplers for both whole-
     /// graph and path sources. Offset and is_reverse are only used (and drive
@@ -245,6 +245,8 @@ private:
     /// can't because we hit a tip or false otherwise
     bool advance_on_graph_by_distance(pos_t& pos, size_t distance);
     
+    /// Mask out bases with 'N's if the mask is true
+    void apply_N_mask(string& sequence, const vector<bool>& n_mask);
     
     /// Returns the position a given distance from the end of the path, walking backwards
     pos_t walk_backwards(const Path& path, size_t distance);
@@ -258,12 +260,12 @@ private:
     /// Memo for Phred -> probability conversion
     vector<double> phred_prob;
     
-    /// A Markov distribution for each read position
-    vector<MarkovDistribution<uint8_t, uint8_t>> transition_distrs_1;
+    /// A Markov distribution for each read position indicating quality and whether the base is an 'N'
+    vector<MarkovDistribution<pair<uint8_t, bool>, pair<uint8_t, bool>>> transition_distrs_1;
     /// A second set of Markov distributions for the second read in a pair
-    vector<MarkovDistribution<uint8_t, uint8_t>> transition_distrs_2;
+    vector<MarkovDistribution<pair<uint8_t, bool>, pair<uint8_t, bool>>> transition_distrs_2;
     /// A distribution for the joint initial qualities of a read pair
-    MarkovDistribution<uint8_t, pair<uint8_t, uint8_t>> joint_initial_distr;
+    MarkovDistribution<pair<uint8_t, bool>, pair<pair<uint8_t, bool>, pair<uint8_t, bool>>> joint_initial_distr;
     
     xg::XG& xg_index;
     
