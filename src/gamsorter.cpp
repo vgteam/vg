@@ -37,7 +37,7 @@ GAMSorter::GAMSorter(bool show_progress) {
         // We read the limit
         if (fd_limit.rlim_cur != RLIM_INFINITY && fd_limit.rlim_cur < max_fan_in + extra_fds) {
             // Max out our FD limit
-            fd_limit.rlim_cur = min(max_fan_in + extra_fds, fd_limit.rlim_max);
+            fd_limit.rlim_cur = min<size_t>(max_fan_in + extra_fds, fd_limit.rlim_max);
             
             if (setrlimit(RLIMIT_NOFILE, &fd_limit) != 0) {
                 // We asked for a value in bound sso we should have succeeded
