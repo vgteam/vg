@@ -38,7 +38,8 @@ int main_gamsort(int argc, char **argv)
     // We limit the max threads, and only allow thread count to be lowered, to
     // prevent tcmalloc from giving each thread a very large heap for many
     // threads.
-    size_t num_threads = 8;
+    // On my machine we can keep about 4 threads busy.
+    size_t num_threads = 4;
     int c;
     optind = 2; // force optind past command positional argument
     while (true)

@@ -4,6 +4,9 @@
 #include "position.hpp"
 #include "gam_index.hpp"
 
+#include <sys/time.h>
+#include <sys/resource.h>
+
 /**
  * \file gamsorter.cpp
  * GAMSorter: sort a gam by position and offset.
@@ -15,6 +18,46 @@ using namespace vg;
 
 GAMSorter::GAMSorter(bool show_progress) {
     this->show_progress = show_progress;
+    
+    // We would like this many FDs max, if not limited below that.
+    max_fan_in = 2048;
+    // We need at least this many to sort practically.
+    int min_fan_in = 100;
+    
+    // We need this many extra FDs not used for fan-in
+    int extra_fds = 10;
+    
+    // Work out how many FDs we are allowed
+    struct rlimit fd_limit;
+    if (getrlimit(RLIMIT_NOFILE, &fd_limit) != 0) {
+        // We don't know; choose a conservative default.
+        max_fan_in = min_fan_in;
+        cerr << "warning:[vg gamsort]: Cannot determine file descriptor limits; using " << max_fan_in << " temp file fan-in" << endl;
+    } else {
+        // We read the limit
+        if (fd_limit.rlim_cur != RLIM_INFINITY && fd_limit.rlim_cur < max_fan_in + extra_fds) {
+            // Max out our FD limit
+            fd_limit.rlim_cur = min(max_fan_in + extra_fds, fd_limit.rlim_max);
+            
+            if (setrlimit(RLIMIT_NOFILE, &fd_limit) != 0) {
+                // We asked for a value in bound sso we should have succeeded
+                throw runtime_error("Error adjusting file descriptor limit to " + to_string(fd_limit.rlim_cur)
+                    + " / " + to_string(fd_limit.rlim_max));
+            }
+        }
+        
+        if (fd_limit.rlim_cur != RLIM_INFINITY && fd_limit.rlim_cur < max_fan_in + extra_fds) {
+            // We need to limit ourselves to under the max FD limit
+            if (fd_limit.rlim_cur < extra_fds + min_fan_in) {
+                // If we can't at least do a fan-in of 10 we have a big problem.
+                cerr << "error:[vg gamsort]: Open file limit very low (" << fd_limit.rlim_cur << "); we need " << (extra_fds + min_fan_in) << endl;
+                exit(1);
+            }
+            
+            // Set the max fan in to be subject to the limit
+            max_fan_in = min((size_t)(fd_limit.rlim_cur - extra_fds), max_fan_in);
+        }
+    }
 }
 
 void GAMSorter::sort(vector<Alignment>& alns) const {

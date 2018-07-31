@@ -97,9 +97,11 @@ public:
     /// What's the maximum size of reads in serialized, uncompressed bytes to
     /// load into memory for a single temp file chunk, during the streaming
     /// sort?
-    size_t max_buf_size = 1073741824;
+    /// For reference, a whole-genome GAM file is about 500 GB of uncompressed data
+    size_t max_buf_size = (512 * 1024 * 1024);
     /// What's the max fan-in when combining temp files, during the streaming sort?
-    size_t max_fan_in = 1000;
+    /// This will be computed based on the max file descriptor limit from the OS.
+    size_t max_fan_in;
     
     using cursor_t = stream::ProtobufIterator<Alignment>;
     using emitter_t = stream::ProtobufEmitter<Alignment>;
