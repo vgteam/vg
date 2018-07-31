@@ -35,6 +35,10 @@ int main_gamsort(int argc, char **argv)
     bool is_sorted = false;
     bool just_use_rocks = false;
     bool do_aln_index = false;
+    // We limit the max threads, and only allow thread count to be lowered, to
+    // prevent tcmalloc from giving each thread a very large heap for many
+    // threads.
+    size_t num_threads = 8;
     int c;
     optind = 2; // force optind past command positional argument
     while (true)
@@ -78,7 +82,7 @@ int main_gamsort(int argc, char **argv)
             is_paired = true;
             break;
         case 't':
-            omp_set_num_threads(parse<int>(optarg));
+            num_threads = min(parse<size_t>(optarg), num_threads);
             break;
         case 'h':
         case '?':
@@ -93,6 +97,8 @@ int main_gamsort(int argc, char **argv)
         help_gamsort(argv);
         exit(1);
     }
+    
+    omp_set_num_threads(num_threads);
 
     get_input_file(optind, argc, argv, [&](istream& gam_in) {
 
