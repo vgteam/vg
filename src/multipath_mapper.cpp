@@ -394,9 +394,17 @@ namespace vg {
         align_graph.lazy_sort();
         
         get_aligner()->align(aln, align_graph.graph, true, false);
-        translate_oriented_node_ids(*aln.mutable_path(), node_trans);
         
-        to_multipath_alignment(aln, rescue_multipath_aln);
+        if (num_alt_alns > 1 && snarl_manager != nullptr) {
+            // make a more interesting multipath alignment by using snarl cutting on the single path alignment
+            make_nontrivial_multipath_alignment(aln, align_graph, node_trans, *snarl_manager, rescue_multipath_aln);
+        }
+        else {
+            // just convert the single alignment into a trivial multipath alignment
+            translate_oriented_node_ids(*aln.mutable_path(), node_trans);
+            to_multipath_alignment(aln, rescue_multipath_aln);
+        }
+        
         identify_start_subpaths(rescue_multipath_aln);
         
         vector<double> score(1, aln.score());
@@ -2576,6 +2584,23 @@ namespace vg {
         cerr << "completed multipath alignment: " << pb2json(multipath_aln_out) << endl;
 #endif
     }
+            
+    void MultipathMapper::make_nontrivial_multipath_alignment(const Alignment& alignment, VG& subgraph,
+                                                              unordered_map<id_t, pair<id_t, bool>>& translator,
+                                                              SnarlManager& snarl_manager, MultipathAlignment& multipath_aln_out) const {
+        
+        // create an alignment graph with the internals of snarls removed
+        MultipathAlignmentGraph multi_aln_graph(subgraph, alignment, snarl_manager, max_snarl_cut_size, translator);
+        
+        // remove any transitive edges that may have found their way in there
+        vector<size_t> topological_order;
+        multi_aln_graph.topological_sort(topological_order);
+        multi_aln_graph.remove_transitive_edges(topological_order);
+        
+        // do the connecting alignments and fill out the MultipathAlignment object
+        multi_aln_graph.align(alignment, subgraph, get_aligner(), false, num_alt_alns, band_padding, multipath_aln_out);
+        
+    }
     
     int64_t MultipathMapper::read_coverage(const memcluster_t& mem_hits) {
         if (mem_hits.empty()) {
@@ -2605,14 +2630,14 @@ namespace vg {
         return total + (curr_end - curr_begin);
     }
     
-    void MultipathMapper::strip_full_length_bonuses(MultipathAlignment& mulipath_aln) const {
+    void MultipathMapper::strip_full_length_bonuses(MultipathAlignment& multipath_aln) const {
         
         int32_t full_length_bonus = get_aligner()->full_length_bonus;
         // strip bonus from source paths
-        if (mulipath_aln.start_size()) {
+        if (multipath_aln.start_size()) {
             // use the precomputed list of sources if we have it
-            for (size_t i = 0; i < mulipath_aln.start_size(); i++) {
-                Subpath* source_subpath = mulipath_aln.mutable_subpath(mulipath_aln.start(i));
+            for (size_t i = 0; i < multipath_aln.start_size(); i++) {
+                Subpath* source_subpath = multipath_aln.mutable_subpath(multipath_aln.start(i));
                 if (edit_is_insertion(source_subpath->path().mapping(0).edit(0))) {
                     source_subpath->set_score(source_subpath->score() - full_length_bonus);
                 }
@@ -2620,27 +2645,27 @@ namespace vg {
         }
         else {
             // find sources
-            vector<bool> is_source(mulipath_aln.subpath_size(), true);
-            for (size_t i = 0; i < mulipath_aln.subpath_size(); i++) {
-                const Subpath& subpath = mulipath_aln.subpath(i);
+            vector<bool> is_source(multipath_aln.subpath_size(), true);
+            for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+                const Subpath& subpath = multipath_aln.subpath(i);
                 for (size_t j = 0; j < subpath.next_size(); j++) {
                     is_source[subpath.next(j)] = false;
                 }
             }
             // strip the bonus from the sources
-            for (size_t i = 0; i < mulipath_aln.subpath_size(); i++) {
+            for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
                 if (!is_source[i]) {
                     continue;
                 }
-                Subpath* source_subpath = mulipath_aln.mutable_subpath(i);
+                Subpath* source_subpath = multipath_aln.mutable_subpath(i);
                 if (edit_is_insertion(source_subpath->path().mapping(0).edit(0))) {
                     source_subpath->set_score(source_subpath->score() - full_length_bonus);
                 }
             }
         }
         // strip bonus from sink paths
-        for (size_t i = 0; i < mulipath_aln.subpath_size(); i++) {
-            Subpath* subpath = mulipath_aln.mutable_subpath(i);
+        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            Subpath* subpath = multipath_aln.mutable_subpath(i);
             if (subpath->next_size() == 0) {
                 const Mapping& final_mapping = subpath->path().mapping(subpath->path().mapping_size() - 1);
                 if (edit_is_insertion(final_mapping.edit(final_mapping.edit_size() - 1))) {
