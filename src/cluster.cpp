@@ -1801,27 +1801,26 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
 #ifdef debug_od_clusterer
         cerr << "looking for high coverage clusters to split" << endl;
 #endif
-        for (size_t i = 0; i < components.size(); i++) {
+        size_t num_original_components = components.size();
+        for (size_t i = 0; i < num_original_components; i++) {
 #ifdef debug_od_clusterer
             cerr << "component " << i << " has median coverage " << median_mem_coverage(components[i], alignment) << endl;
 #endif
             if (median_mem_coverage(components[i], alignment) >= min_median_mem_coverage_for_split) {
 #ifdef debug_od_clusterer
                 cerr << "attempting to prune and split cluster" << endl;
-                vector<vector<size_t>> components;
-                connected_components(components);
-                cerr << "before splitting, " << components.size() << "connected components" << endl;
 #endif
                 
                 prune_low_scoring_edges(components, i, suboptimal_edge_pruning_factor);
                 
-#ifdef debug_od_clusterer
-                components.clear();
-                connected_components(components);
-                cerr << "after splitting, " << components.size() << "connected components" << endl;
-#endif
+
             }
         }
+#ifdef debug_od_clusterer
+        vector<vector<size_t>> current_components;
+        connected_components(current_components);
+        cerr << "after splitting, from " << num_original_components << " to " << current_components.size() << " connected components" << endl;
+#endif
     }
     
     
@@ -2273,7 +2272,6 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
         if (enqueued[i]) {
             continue;
         }
-        //cerr << "new cmp at " << component[i] << endl;
         new_components.emplace_back();
         vector<size_t> stack(1, component[i]);
         enqueued[node_idx_to_component_idx[i]] = true;
@@ -2281,15 +2279,11 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
             size_t node_idx = stack.back();
             stack.pop_back();
             
-            //cerr << "trav at " << node_idx << endl;
-            
             new_components.back().push_back(node_idx);
             
             for (ODEdge& edge : nodes[node_idx].edges_from) {
                 size_t local_idx = node_idx_to_component_idx[edge.to_idx];
-                //cerr << "edge fwd to " << edge.to_idx << ", local " << local_idx << endl;
                 if (!enqueued[local_idx]) {
-                    //cerr << "enqueuing" << endl;
                     stack.push_back(edge.to_idx);
                     enqueued[local_idx] = true;
                 }
@@ -2297,9 +2291,7 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
             
             for (ODEdge& edge : nodes[node_idx].edges_to) {
                 size_t local_idx = node_idx_to_component_idx[edge.to_idx];
-                //cerr << "edge bwd to " << edge.to_idx << ", local " << local_idx << endl;
                 if (!enqueued[local_idx]) {
-                    //cerr << "enqueuing" << endl;
                     stack.push_back(edge.to_idx);
                     enqueued[local_idx] = true;
                 }
