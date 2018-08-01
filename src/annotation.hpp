@@ -75,11 +75,11 @@ struct Annotation {
 };
 
 /// Cast a Protobuf generic Value to any type.
-template <typename T, typename Enabled = void>
+template <typename T>
 inline T value_cast(const google::protobuf::Value& value);
 
 /// Cast any type to a generic Protobuf value.
-template<typename T,  typename Enabled = void>
+template<typename T>
 inline google::protobuf::Value value_cast(const T& wrap);
 
 ////////////////////////////////////////////////////////////////////////
@@ -104,39 +104,39 @@ void Annotation<T, Enabled>::clear(T* t) {
 // We define all these value_cast implementations, in both directions
 
 template<>
-inline bool value_cast<bool, void>(const google::protobuf::Value& value) {
+inline bool value_cast<bool>(const google::protobuf::Value& value) {
     assert(value.kind_case() == google::protobuf::Value::KindCase::kBoolValue);
     return value.bool_value();
 }
 
 template<>
-inline double value_cast<double, void>(const google::protobuf::Value& value) {
+inline double value_cast<double>(const google::protobuf::Value& value) {
     assert(value.kind_case() == google::protobuf::Value::KindCase::kNumberValue);
     return value.number_value();
 }
 
 template<>
-inline string value_cast<string, void>(const google::protobuf::Value& value) {
+inline string value_cast<string>(const google::protobuf::Value& value) {
     assert(value.kind_case() == google::protobuf::Value::KindCase::kStringValue);
     return value.string_value();
 }
 
 template<>
-inline google::protobuf::Value value_cast<bool, void>(const bool& wrap) {
+inline google::protobuf::Value value_cast<bool>(const bool& wrap) {
     google::protobuf::Value to_return;
     to_return.set_bool_value(wrap);
     return to_return;
 }
 
 template<>
-inline google::protobuf::Value value_cast<double, void>(const double& wrap) {
+inline google::protobuf::Value value_cast<double>(const double& wrap) {
     google::protobuf::Value to_return;
     to_return.set_number_value(wrap);
     return to_return;
 }
 
 template<>
-inline google::protobuf::Value value_cast<string, void>(const string& wrap) {
+inline google::protobuf::Value value_cast<string>(const string& wrap) {
     google::protobuf::Value to_return;
     to_return.set_string_value(wrap);
     return to_return;
@@ -144,7 +144,7 @@ inline google::protobuf::Value value_cast<string, void>(const string& wrap) {
 
 // We also have implementations for vectors and other push_back-able containers.
 
-template<typename Container, typename Eabled>
+template<typename Container>
 inline Container value_cast(const google::protobuf::Value& value) {
     assert(value.kind_case() == google::protobuf::Value::KindCase::kListValue);
     Container items;
@@ -154,7 +154,7 @@ inline Container value_cast(const google::protobuf::Value& value) {
     return items;
 }
 
-template<typename Container, typename Enabled>
+template<typename Container>
 inline google::protobuf::Value value_cast(const Container& wrap) {
     // Make a new list that the Protobuf Value message will eventually own
     google::protobuf::ListValue* list = new google::protobuf::ListValue();
