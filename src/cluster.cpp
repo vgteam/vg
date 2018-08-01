@@ -1808,8 +1808,18 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
             if (median_mem_coverage(components[i], alignment) >= min_median_mem_coverage_for_split) {
 #ifdef debug_od_clusterer
                 cerr << "attempting to prune and split cluster" << endl;
+                vector<vector<size_t>> components;
+                connected_components(components);
+                cerr << "before splitting, " << components.size() << "connected components" << endl;
 #endif
+                
                 prune_low_scoring_edges(components, i, suboptimal_edge_pruning_factor);
+                
+#ifdef debug_od_clusterer
+                components.clear();
+                connected_components(components);
+                cerr << "after splitting, " << components.size() << "connected components" << endl;
+#endif
             }
         }
     }
