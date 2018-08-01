@@ -2405,10 +2405,20 @@ size_t OrientedDistanceClusterer::median_mem_coverage(const vector<size_t>& comp
             // an interval is leaving scope, decrement the depth
             depth--;
         }
+        
+        // if there's an initial interval of 0 depth, we ignore it (helps with read-end effects from sequencers)
+        if (at > 0 || depth > 0) {
 #ifdef debug_median_algorithm
-        cerr << "\ttraversing pre-interval segment staring from " << at << " adding " << interval.first - at << " to depth " << depth << endl;
+            cerr << "\ttraversing pre-interval segment staring from " << at << " adding " << interval.first - at << " to depth " << depth << endl;
 #endif
-        coverage_count[depth] += interval.first - at;
+            coverage_count[depth] += interval.first - at;
+        }
+#ifdef debug_median_algorithm
+        else {
+            cerr << "\tskipping an initial segment from " << at << " to " << interval.first << " with depth " << depth << endl;
+        }
+#endif
+
         
         at = interval.first;
         // an interval is entering scope, increment the depth
@@ -2428,8 +2438,10 @@ size_t OrientedDistanceClusterer::median_mem_coverage(const vector<size_t>& comp
         // an interval is leaving scope, decrement the depth
         depth--;
     }
-    // add the final segment, which necessarily has 0 coverage
-    coverage_count[0] += aln.sequence().size() - at;
+    
+    // NOTE: we used to count the final interval of depth 0 here, but now we ignore 0-depth terminal intervals
+    // because it seems to help with the read-end effects of sequencers (which can lead to match dropout)
+    //coverage_count[0] += aln.sequence().size() - at;
     
     // convert it into a CDF over read coverage
     vector<pair<int64_t, int64_t>> cumul_coverage_count(coverage_count.begin(), coverage_count.end());
