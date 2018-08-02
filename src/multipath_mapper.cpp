@@ -2355,7 +2355,7 @@ namespace vg {
             else {
 #ifdef debug_multipath_mapper
                 cerr << "copying alignment from read1 at index " << i << endl;
-#endi
+#endif
                 // we've already completed this multipath alignment, so we can copy it
                 multipath_aln_pairs_out.back().first = multipath_aln_pairs_out[prev_1->second].first;
             }
