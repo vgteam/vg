@@ -223,14 +223,12 @@ int main_annotate(int argc, char** argv) {
             // TODO: this ends up storing two copies, but is easier than writing the map logic on the unique_ptr value.
             unordered_map<string, unique_ptr<string>> feature_names;
             auto intern = [&feature_names](const string& value) -> const string* {
-                // See if it's in the map
-                auto found = feature_names.find(value);
-                if (found == feature_names.end()) {
+                if (!feature_names.count(value)) {
                     // If it isn't in the map, put it in
-                    found = feature_names.emplace_hint(found, value, new string(value));
+                    feature_names[value] = unique_ptr<srting>(new string(value));
+                    
                 }
-                // Return the pointer to the string owned by the unique_ptr
-                return found->second.get();
+                return feature_names[value].second.get();
             };
             
             // This will hold, for each graph node, the start to past-end
