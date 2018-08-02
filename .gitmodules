@@ -94,3 +94,6 @@
 [submodule "deps/libdeflate"]
 	path = deps/libdeflate
 	url = https://github.com/ebiggers/libdeflate.git
+[submodule "deps/dozeu"]
+	path = deps/dozeu
+	url = https://github.com/ocxtal/dozeu.git

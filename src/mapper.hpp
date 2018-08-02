@@ -28,6 +28,9 @@
 #include "haplotypes.hpp"
 #include "algorithms/topological_sort.hpp"
 
+// #define BENCH
+// #include "bench.h"
+
 namespace vg {
 
 // uncomment to make vg map --debug very interesting
@@ -162,7 +165,7 @@ public:
     void load_scoring_matrix(std::ifstream& matrix_stream);
 
     void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
-        double haplotype_consistency_exponent = 1);
+        double haplotype_consistency_exponent = 1, uint32_t max_gap_length = default_max_gap_length);
     
     // TODO: setting alignment threads could mess up the internal memory for how many threads to reset to
     void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
@@ -310,8 +313,8 @@ protected:
     size_t get_adaptive_min_reseed_length(size_t parent_mem_length);
     
     int alignment_threads; // how many threads will *this* mapper use. Should not be set directly.
-    
-    void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+
+    void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus, uint32_t max_gap_length = default_max_gap_length);
     void clear_aligners(void);
     
     /// Score all of the alignments in the vector for haplotype consistency. If
@@ -426,7 +429,8 @@ private:
                                            double& cluster_mq,
                                            int keep_multimaps = 0,
                                            int additional_multimaps = 0,
-                                           vector<MaximalExactMatch>* restricted_mems = nullptr);
+                                           vector<MaximalExactMatch>* restricted_mems = nullptr,
+                                           bool xdrop_alignment = false);
     void compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double mq_estimate, double mq_cap);
     void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double mq_estmate1, double mq_estimate2, double mq_cap1, double mq_cap2);
     vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
@@ -437,7 +441,8 @@ private:
                                    int stride = 0,
                                    int max_mem_length = 0,
                                    int band_width = 1000,
-                                   int band_overlap = 500);
+                                   int band_overlap = 500,
+                                   bool xdrop_alignment = false);
     // alignment based on the MEM approach
 //    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int max_mem_length, int additional_multimaps = 0);
     // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
@@ -448,10 +453,10 @@ private:
                                       double fraction_filtered,
                                       int max_mem_length,
                                       int keep_multimaps,
-                                      int additional_multimaps);
+                                      int additional_multimaps,
+                                      bool xdrop_alignment = false);
     
 protected:
-    
     Alignment align_to_graph(const Alignment& aln,
                              Graph& graph,
                              size_t max_query_graph_ratio,
@@ -459,7 +464,18 @@ protected:
                              bool acyclic_and_sorted,
                              bool pinned_alignment = false,
                              bool pin_left = false,
-                             bool global = false,
+                             bool banded_global = false,
+                             bool keep_bonuses = true);
+    Alignment align_to_graph(const Alignment& aln,
+                             Graph& graph,
+                             const vector<MaximalExactMatch>& mems,
+                             size_t max_query_graph_ratio,
+                             bool traceback,
+                             bool acyclic_and_sorted,
+                             bool pinned_alignment = false,
+                             bool pin_left = false,
+                             bool banded_global = false,
+                             int xdrop_alignment = 0,           // 0 to disable X-drop, otherwise enabled (1 for forward, 2 for reverse-complemented; keep compatble to align_maybe_flip)
                              bool keep_bonuses = true);
     
     // make the bands used in banded alignment
@@ -493,11 +509,8 @@ public:
                          double pval);
 
     /// use the fragment configuration statistics to rescue more precisely
-    pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, bool& tried1, bool& tried2, int match_score, int full_length_bonus, bool traceback);
+    pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, bool& tried1, bool& tried2, int match_score, int full_length_bonus, bool traceback, bool xdrop_alignment);
 
-    /// assuming the read has only been score-aligned, realign from the end position backwards
-    Alignment realign_from_start_position(const Alignment& aln, int extra, int iteration);
-    
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
                                                 vector<MaximalExactMatch>& mems2);
 
@@ -524,15 +537,16 @@ public:
     void remove_full_length_bonuses(Alignment& aln);
     
     // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
-    Alignment patch_alignment(const Alignment& aln, int max_patch_length, bool trim_internal_deletions = true);
+    Alignment patch_alignment(const Alignment& aln, int max_patch_length, bool trim_internal_deletions = true, bool xdrop_alignment = false);
     // Get the graph context of a particular cluster, not expanding beyond the middles of MEMs.
     VG cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // for aligning to a particular MEM cluster
-    Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback);
+    Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback, bool xdrop_alignment = false);
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global = false);
+    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global = false, bool xdrop_alignment = false);
+    Alignment align_maybe_flip(const Alignment& base, Graph& graph, const vector<MaximalExactMatch>& mems, bool flip, bool traceback, bool acyclic_and_sorted, bool banded_global = false, bool xdrop_alignment = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
@@ -545,7 +559,8 @@ public:
                     int stride = 0,
                     int max_mem_length = 0,
                     int band_width = 1000,
-                    int band_overlap = 500);
+                    int band_overlap = 500,
+                    bool xdrop_alignment = false);
 
     // Align the given read and return an aligned copy. Does not modify the input Alignment.
     Alignment align(const Alignment& read,
@@ -553,7 +568,8 @@ public:
                     int stride = 0,
                     int max_mem_length = 0,
                     int band_width = 1000,
-                    int band_overlap = 500);
+                    int band_overlap = 500,
+                    bool xdrop_alignment = false);
 
     // Align the given read with multi-mapping. Returns the alignments in score
     // order, up to multimaps (or max_multimaps if multimaps is 0). Does not update the alignment passed in.
@@ -564,7 +580,8 @@ public:
                                   int stride = 0,
                                   int max_mem_length = 0,
                                   int band_width = 1000,
-                                  int band_overlap = 500);
+                                  int band_overlap = 500,
+                                  bool xdrop_alignment = false);
     
     // paired-end based
     
@@ -582,7 +599,8 @@ public:
                            bool& queued_resolve_later,
                            int max_mem_length = 0,
                            bool only_top_scoring_pair = false,
-                           bool retrying = false);
+                           bool retrying = false,
+                           bool xdrop_alignment = false);
     
     // compute a mapping quality component based only on the MEMs we've obtained
     double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);
@@ -666,6 +684,8 @@ public:
     // Keep track of fragment length distribution statistics
     FragmentLengthStatistics frag_stats;
 
+    // bench_t bench[4];
+    // uint64_t counter[6];
 };
 
 // utility
