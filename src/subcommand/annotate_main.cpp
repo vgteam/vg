@@ -225,10 +225,10 @@ int main_annotate(int argc, char** argv) {
             auto intern = [&feature_names](const string& value) -> const string* {
                 if (!feature_names.count(value)) {
                     // If it isn't in the map, put it in
-                    feature_names[value] = unique_ptr<srting>(new string(value));
+                    feature_names[value] = unique_ptr<string>(new string(value));
                     
                 }
-                return feature_names[value].second.get();
+                return feature_names[value].get();
             };
             
             // This will hold, for each graph node, the start to past-end
