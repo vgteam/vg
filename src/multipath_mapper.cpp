@@ -2353,6 +2353,9 @@ namespace vg {
                 previous_multipath_alns_1[cluster_pair.first.first] = i;
             }
             else {
+#ifdef debug_multipath_mapper
+                cerr << "copying alignment from read1 at index " << i << endl;
+#endi
                 // we've already completed this multipath alignment, so we can copy it
                 multipath_aln_pairs_out.back().first = multipath_aln_pairs_out[prev_1->second].first;
             }
@@ -2375,6 +2378,9 @@ namespace vg {
                 previous_multipath_alns_2[cluster_pair.first.second] = i;
             }
             else {
+#ifdef debug_multipath_mapper
+                cerr << "copying alignment from read2 at index " << i << endl;
+#endif
                 // we've already completed this multipath alignment, so we can copy it
                 multipath_aln_pairs_out.back().second = multipath_aln_pairs_out[prev_2->second].second;
             }
