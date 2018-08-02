@@ -2308,6 +2308,10 @@ namespace vg {
         // TODO: some cluster pairs will produce redundant subgraph pairs.
         // We'll end up with redundant pairs being output.
         
+        // the same index may occur in multiple pairs, if so we can copy it rather than needing to recompute it
+        // we keep track of where the original occurrence was here
+        unordered_map<size_t, size_t> previous_multipath_alns_1, previous_multipath_alns_2;
+        
         // align to each cluster pair
         multipath_aln_pairs_out.reserve(min(num_mappings_to_compute, cluster_pairs.size()));
         size_t num_mappings = 0;
@@ -2327,22 +2331,53 @@ namespace vg {
                 
                 break;
             }
-            
-            VG* vg1 = get<0>(cluster_graphs1[cluster_pair.first.first]);
-            VG* vg2 = get<0>(cluster_graphs2[cluster_pair.first.second]);
-            
-            memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first.first]);
-            memcluster_t& graph_mems2 = get<1>(cluster_graphs2[cluster_pair.first.second]);
-            
 #ifdef debug_multipath_mapper
             cerr << "doing pair " << cluster_pair.first.first << " " << cluster_pair.first.second << endl;
-            cerr << "performing alignments to subgraphs " << pb2json(vg1->graph) << " and " << pb2json(vg2->graph) << endl;
 #endif
-            
-            // Do the two alignments
+            // create multipath alignments to fill
             multipath_aln_pairs_out.emplace_back();
-            multipath_align(alignment1, vg1, graph_mems1, multipath_aln_pairs_out.back().first);
-            multipath_align(alignment2, vg2, graph_mems2, multipath_aln_pairs_out.back().second);
+            
+            auto prev_1 = previous_multipath_alns_1.find(cluster_pair.first.first);
+            if (prev_1 == previous_multipath_alns_1.end()) {
+                // we haven't done this alignment yet, so we have to complete it for the first time
+                VG* vg1 = get<0>(cluster_graphs1[cluster_pair.first.first]);
+                memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first.first]);
+                
+#ifdef debug_multipath_mapper
+                cerr << "performing alignment to subgraph " << pb2json(vg1->graph) << endl;
+#endif
+                
+                multipath_align(alignment1, vg1, graph_mems1, multipath_aln_pairs_out.back().first);
+                
+                // keep track of the fact that we have completed this multipath alignment
+                previous_multipath_alns_1[cluster_pair.first.first] = i;
+            }
+            else {
+                // we've already completed this multipath alignment, so we can copy it
+                multipath_aln_pairs_out.back().first = multipath_aln_pairs_out[prev_1->second].first;
+            }
+            
+            // repeat this routine for the second read end
+            // TODO: repetitive code
+            auto prev_2 = previous_multipath_alns_2.find(cluster_pair.first.first);
+            if (prev_2 == previous_multipath_alns_2.end()) {
+                // we haven't done this alignment yet, so we have to complete it for the first time
+                VG* vg2 = get<0>(cluster_graphs2[cluster_pair.first.second]);
+                memcluster_t& graph_mems2 = get<1>(cluster_graphs2[cluster_pair.first.second]);
+                
+#ifdef debug_multipath_mapper
+                cerr << "performing alignment to subgraph " << pb2json(vg2->graph) << endl;
+#endif
+                
+                multipath_align(alignment2, vg2, graph_mems2, multipath_aln_pairs_out.back().second);
+                
+                // keep track of the fact that we have completed this multipath alignment
+                previous_multipath_alns_2[cluster_pair.first.second] = i;
+            }
+            else {
+                // we've already completed this multipath alignment, so we can copy it
+                multipath_aln_pairs_out.back().second = multipath_aln_pairs_out[prev_2->second].second;
+            }
             
             num_mappings++;
         }

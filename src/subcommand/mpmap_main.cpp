@@ -113,7 +113,7 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus = default_full_length_bonus;
     bool interleaved_input = false;
     int snarl_cut_size = 5;
-    int max_paired_end_map_attempts = 10;
+    int max_paired_end_map_attempts = 24;
     int max_single_end_mappings_for_rescue = 64;
     int max_single_end_map_attempts = 64;
     int max_rescue_attempts = 10;
