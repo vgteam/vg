@@ -2362,7 +2362,7 @@ namespace vg {
             
             // repeat this routine for the second read end
             // TODO: repetitive code
-            auto prev_2 = previous_multipath_alns_2.find(cluster_pair.first.first);
+            auto prev_2 = previous_multipath_alns_2.find(cluster_pair.first.second);
             if (prev_2 == previous_multipath_alns_2.end()) {
                 // we haven't done this alignment yet, so we have to complete it for the first time
                 VG* vg2 = get<0>(cluster_graphs2[cluster_pair.first.second]);
