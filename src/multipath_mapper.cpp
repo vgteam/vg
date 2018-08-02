@@ -2278,24 +2278,17 @@ namespace vg {
             return get<2>(cluster_graphs1[cluster_pair.first]) + get<2>(cluster_graphs2[cluster_pair.second]);
         };
         
-        int64_t optimal_separation = fragment_length_distr.mean();
-        
-        // sort the pairs descending by total unique sequence coverage
+        // sort the pairs descending by approximate likelihood
         stable_sort(cluster_pairs.begin(), cluster_pairs.end(),
                     [&](const pair<pair<size_t, size_t>, int64_t>& a, const pair<pair<size_t, size_t>, int64_t>& b) {
-                        // We need to be able to look up the coverage for the graph an input cluster went into.
-                        // Compute total coverage following all the redirects and see if
-                        // it's in the right order.
-                        // We also add a total ordering over the pair indexes to remove system dependencies
-                        size_t cov_1 = get_pair_coverage(a.first);
-                        size_t cov_2 = get_pair_coverage(b.first);
-                        int64_t dev_1 = abs(a.second - optimal_separation);
-                        int64_t dev_2 = abs(b.second - optimal_separation);
+                        // compute approximate likelihood in similar way to how the mapping quality routine will
+                        double likelihood_1 = (get_pair_coverage(a.first) * get_aligner()->match * get_aligner()->log_base
+                                               + fragment_length_log_likelihood(a.second));
+                        double likelihood_2 = (get_pair_coverage(b.first) * get_aligner()->match * get_aligner()->log_base
+                                               + fragment_length_log_likelihood(b.second));
                         size_t hash_1 = wang_hash<pair<pair<size_t, size_t>, int64_t>>()(a);
                         size_t hash_2 = wang_hash<pair<pair<size_t, size_t>, int64_t>>()(b);
-                        return (cov_1 > cov_2 ||
-                                (cov_1 == cov_2 && (dev_1 < dev_2 ||
-                                                    (dev_1 == dev_2 && hash_1 < hash_2))));
+                        return (likelihood_1 > likelihood_2 || (likelihood_1 == likelihood_2 && hash_1 < hash_2));
                   });
         
 #ifdef debug_multipath_mapper

@@ -12,6 +12,15 @@ using namespace structures;
 
 namespace vg {
     
+//size_t OrientedDistanceClusterer::PRUNE_COUNTER = 0;
+//size_t OrientedDistanceClusterer::CLUSTER_TOTAL = 0;
+//size_t OrientedDistanceClusterer::MEM_FILTER_COUNTER = 0;
+//size_t OrientedDistanceClusterer::MEM_TOTAL = 0;
+//size_t OrientedDistanceClusterer::SPLIT_ATTEMPT_COUNTER = 0;
+//size_t OrientedDistanceClusterer::SUCCESSFUL_SPLIT_ATTEMPT_COUNTER = 0;
+//size_t OrientedDistanceClusterer::PRE_SPLIT_CLUSTER_COUNTER = 0;
+//size_t OrientedDistanceClusterer::POST_SPLIT_CLUSTER_COUNTER = 0;
+    
 MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
     const vector<vector<MaximalExactMatch> >& matches,
@@ -429,15 +438,16 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     
     for (const MaximalExactMatch& mem : mems) {
         
-        //#pragma omp atomic
-        //        MEM_TOTAL += mem.nodes.size();
+//#pragma omp atomic
+//        MEM_TOTAL += mem.nodes.size();
         
         if (mem.length() < min_mem_length) {
 #ifdef debug_od_clusterer
             cerr << "skipping short MEM " << mem << endl;
 #endif
-            //#pragma omp atomic
-            //            MEM_FILTER_COUNTER += mem.nodes.size();
+            
+//#pragma omp atomic
+//            MEM_FILTER_COUNTER += mem.nodes.size();
             continue;
         }
         
@@ -1806,14 +1816,20 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
 #ifdef debug_od_clusterer
             cerr << "component " << i << " has median coverage " << median_mem_coverage(components[i], alignment) << endl;
 #endif
+            size_t curr_num_components = components.size();
             if (median_mem_coverage(components[i], alignment) >= min_median_mem_coverage_for_split) {
+//#pragma omp atomic
+//                SPLIT_ATTEMPT_COUNTER++;
 #ifdef debug_od_clusterer
                 cerr << "attempting to prune and split cluster" << endl;
 #endif
                 
                 prune_low_scoring_edges(components, i, suboptimal_edge_pruning_factor);
                 
-
+                if (components.size() > curr_num_components) {
+//#pragma omp atomic
+//                    SUCCESSFUL_SPLIT_ATTEMPT_COUNTER++;
+                }
             }
         }
 #ifdef debug_od_clusterer
@@ -1821,6 +1837,10 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         connected_components(current_components);
         cerr << "after splitting, from " << num_original_components << " to " << current_components.size() << " connected components" << endl;
 #endif
+//#pragma omp atomic
+//        PRE_SPLIT_CLUSTER_COUNTER += num_original_components;
+//#pragma omp atomic
+//        POST_SPLIT_CLUSTER_COUNTER += components.size();
     }
     
     
