@@ -255,6 +255,38 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
         REQUIRE((*it).node_id() == 4);
     }
     
+    SECTION("Individual items can be sought") {
+        stream::ProtobufIterator<message_t> it(datastream);
+        vector<int64_t> item_vos;
+        for (size_t i = 0; i < 5; i++) {
+            REQUIRE(it.has_next());
+            it.get_next();
+            // Load the VOs of a few items individually
+            item_vos.push_back(it.tell_item());
+            REQUIRE(item_vos.back() != -1);
+        }
+        
+        for (size_t i = item_vos.size() - 1; i != (size_t) -1; i--) {
+            // Look them up in reverse order
+            int64_t vo = item_vos[i];
+            REQUIRE(it.seek_item_and_stop(vo));
+            REQUIRE(it.has_next());
+            
+            // They should be the right things
+            REQUIRE((*it).node_id() == i + 1);
+            
+            // We should stop iterating after finding them
+            it.get_next();
+            REQUIRE(!it.has_next());
+        }
+        
+        // We should be able to pick up again after that
+        REQUIRE(it.seek_group(0));
+        REQUIRE(it.has_next());
+        it.get_next();
+        REQUIRE(it.has_next());
+    }
+    
     SECTION("Data can be iterated back all in a run") {
         size_t index_expected = 0;
         for (stream::ProtobufIterator<message_t> it(datastream); it.has_next(); it.get_next()) {

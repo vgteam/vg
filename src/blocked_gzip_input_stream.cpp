@@ -206,7 +206,7 @@ int64_t BlockedGzipInputStream::ByteCount() const {
     return byte_count;
 }
 
-int64_t BlockedGzipInputStream::Tell() {
+int64_t BlockedGzipInputStream::Tell() const {
     if (know_offset) {
         // Our virtual offsets are true.
        

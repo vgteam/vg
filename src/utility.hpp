@@ -258,8 +258,8 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
  * Temporary files. Create with create() and remove with remove(). All
  * temporary files will be deleted when the program exits normally or with
  * std::exit(). The files will be created in a directory determined from
- * environment variables, though this can be overridden with set_dir(). Note
- * that the interface is not thread-safe.
+ * environment variables, though this can be overridden with set_dir().
+ * The interface is thread-safe.
  */
 namespace temp_file {
 
