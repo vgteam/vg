@@ -1433,7 +1433,7 @@ void parse_bed_regions(istream& bedstream,
     // Record end position
     size_t ebuf;
     string name;
-    size_t score;
+    size_t score = 0;
     string strand;
 
     for (int line = 1; getline(bedstream, row); ++line) {
@@ -1479,6 +1479,7 @@ void parse_bed_regions(istream& bedstream,
 
         // Make the Alignment
         Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name, is_reverse);
+        alignment.set_score(score);
 
         out_alignments->push_back(alignment);
     }

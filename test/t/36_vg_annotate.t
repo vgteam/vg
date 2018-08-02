@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 2
+plan tests 7
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
 
@@ -15,7 +15,14 @@ vg index -x t.ref.xg t.ref.vg
 
 is "$(vg sim -s 7331 -n 10 -l 50 -x t.xg -a | vg annotate -n -x t.ref.xg -a - | awk '{ if ($5 < 50) print }' | wc -l)" "10" "we can detect when reads contain non-reference variation"
 
-rm -f t.vg t.ref.vg t.xg t.ref.xg
+vg sim -s 543 -n 30 -l 10 -x t.xg -a | vg annotate -b tiny/tiny.bed -x t.ref.xg -a - > annotated.gam
+is "$(vg view -aj annotated.gam | jq -c '.annotation.features' | grep feat1 | wc -l)" 3 "vg annotate finds the right number of reads overlapping a feature"
+is "$(vg view -aj annotated.gam | grep feat1 | grep '"node_id":"1"' | wc -l)" "$(vg view -aj annotated.gam | grep feat1 | wc -l)" "all reads overlapping a feature fall on its node"
+is "$(vg view -aj annotated.gam | jq -c '.annotation.features' | grep feat1 | grep feat2 | wc -l)" 0 "vg annotate finds no reads touching both of two distant features"
+is "$(vg view -aj annotated.gam | jq -c '.annotation.features' | grep feat2 | grep feat3 | wc -l)" 2 "vg annotate shows reads having to go through one feature to get to another at the end"
+is "$(vg view -aj annotated.gam | jq -c '.annotation.features' | grep featAll | wc -l)" 30 "vg annotate shows all reads overlapping a whole-reference-covering feature"
+
+rm -f t.vg t.ref.vg t.xg t.ref.xg annotated.gam
 
 vg view -Jv cyclic/circular_path.json > circular_path.vg
 vg index -x circular_path.xg circular_path.vg
