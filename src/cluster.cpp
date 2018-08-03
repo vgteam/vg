@@ -12,6 +12,15 @@ using namespace structures;
 
 namespace vg {
     
+//size_t OrientedDistanceClusterer::PRUNE_COUNTER = 0;
+//size_t OrientedDistanceClusterer::CLUSTER_TOTAL = 0;
+//size_t OrientedDistanceClusterer::MEM_FILTER_COUNTER = 0;
+//size_t OrientedDistanceClusterer::MEM_TOTAL = 0;
+//size_t OrientedDistanceClusterer::SPLIT_ATTEMPT_COUNTER = 0;
+//size_t OrientedDistanceClusterer::SUCCESSFUL_SPLIT_ATTEMPT_COUNTER = 0;
+//size_t OrientedDistanceClusterer::PRE_SPLIT_CLUSTER_COUNTER = 0;
+//size_t OrientedDistanceClusterer::POST_SPLIT_CLUSTER_COUNTER = 0;
+    
 MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
     const vector<vector<MaximalExactMatch> >& matches,
@@ -429,15 +438,16 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     
     for (const MaximalExactMatch& mem : mems) {
         
-        //#pragma omp atomic
-        //        MEM_TOTAL += mem.nodes.size();
+//#pragma omp atomic
+//        MEM_TOTAL += mem.nodes.size();
         
         if (mem.length() < min_mem_length) {
 #ifdef debug_od_clusterer
             cerr << "skipping short MEM " << mem << endl;
 #endif
-            //#pragma omp atomic
-            //            MEM_FILTER_COUNTER += mem.nodes.size();
+            
+//#pragma omp atomic
+//            MEM_FILTER_COUNTER += mem.nodes.size();
             continue;
         }
         
@@ -1801,17 +1811,36 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
 #ifdef debug_od_clusterer
         cerr << "looking for high coverage clusters to split" << endl;
 #endif
-        for (size_t i = 0; i < components.size(); i++) {
+        size_t num_original_components = components.size();
+        for (size_t i = 0; i < num_original_components; i++) {
 #ifdef debug_od_clusterer
             cerr << "component " << i << " has median coverage " << median_mem_coverage(components[i], alignment) << endl;
 #endif
+            size_t curr_num_components = components.size();
             if (median_mem_coverage(components[i], alignment) >= min_median_mem_coverage_for_split) {
+//#pragma omp atomic
+//                SPLIT_ATTEMPT_COUNTER++;
 #ifdef debug_od_clusterer
                 cerr << "attempting to prune and split cluster" << endl;
 #endif
+                
                 prune_low_scoring_edges(components, i, suboptimal_edge_pruning_factor);
+                
+                if (components.size() > curr_num_components) {
+//#pragma omp atomic
+//                    SUCCESSFUL_SPLIT_ATTEMPT_COUNTER++;
+                }
             }
         }
+#ifdef debug_od_clusterer
+        vector<vector<size_t>> current_components;
+        connected_components(current_components);
+        cerr << "after splitting, from " << num_original_components << " to " << current_components.size() << " connected components" << endl;
+#endif
+//#pragma omp atomic
+//        PRE_SPLIT_CLUSTER_COUNTER += num_original_components;
+//#pragma omp atomic
+//        POST_SPLIT_CLUSTER_COUNTER += components.size();
     }
     
     
@@ -2263,7 +2292,6 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
         if (enqueued[i]) {
             continue;
         }
-        //cerr << "new cmp at " << component[i] << endl;
         new_components.emplace_back();
         vector<size_t> stack(1, component[i]);
         enqueued[node_idx_to_component_idx[i]] = true;
@@ -2271,15 +2299,11 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
             size_t node_idx = stack.back();
             stack.pop_back();
             
-            //cerr << "trav at " << node_idx << endl;
-            
             new_components.back().push_back(node_idx);
             
             for (ODEdge& edge : nodes[node_idx].edges_from) {
                 size_t local_idx = node_idx_to_component_idx[edge.to_idx];
-                //cerr << "edge fwd to " << edge.to_idx << ", local " << local_idx << endl;
                 if (!enqueued[local_idx]) {
-                    //cerr << "enqueuing" << endl;
                     stack.push_back(edge.to_idx);
                     enqueued[local_idx] = true;
                 }
@@ -2287,9 +2311,7 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
             
             for (ODEdge& edge : nodes[node_idx].edges_to) {
                 size_t local_idx = node_idx_to_component_idx[edge.to_idx];
-                //cerr << "edge bwd to " << edge.to_idx << ", local " << local_idx << endl;
                 if (!enqueued[local_idx]) {
-                    //cerr << "enqueuing" << endl;
                     stack.push_back(edge.to_idx);
                     enqueued[local_idx] = true;
                 }
@@ -2403,10 +2425,20 @@ size_t OrientedDistanceClusterer::median_mem_coverage(const vector<size_t>& comp
             // an interval is leaving scope, decrement the depth
             depth--;
         }
+        
+        // if there's an initial interval of 0 depth, we ignore it (helps with read-end effects from sequencers)
+        if (at > 0 || depth > 0) {
 #ifdef debug_median_algorithm
-        cerr << "\ttraversing pre-interval segment staring from " << at << " adding " << interval.first - at << " to depth " << depth << endl;
+            cerr << "\ttraversing pre-interval segment staring from " << at << " adding " << interval.first - at << " to depth " << depth << endl;
 #endif
-        coverage_count[depth] += interval.first - at;
+            coverage_count[depth] += interval.first - at;
+        }
+#ifdef debug_median_algorithm
+        else {
+            cerr << "\tskipping an initial segment from " << at << " to " << interval.first << " with depth " << depth << endl;
+        }
+#endif
+
         
         at = interval.first;
         // an interval is entering scope, increment the depth
@@ -2426,8 +2458,10 @@ size_t OrientedDistanceClusterer::median_mem_coverage(const vector<size_t>& comp
         // an interval is leaving scope, decrement the depth
         depth--;
     }
-    // add the final segment, which necessarily has 0 coverage
-    coverage_count[0] += aln.sequence().size() - at;
+    
+    // NOTE: we used to count the final interval of depth 0 here, but now we ignore 0-depth terminal intervals
+    // because it seems to help with the read-end effects of sequencers (which can lead to match dropout)
+    //coverage_count[0] += aln.sequence().size() - at;
     
     // convert it into a CDF over read coverage
     vector<pair<int64_t, int64_t>> cumul_coverage_count(coverage_count.begin(), coverage_count.end());

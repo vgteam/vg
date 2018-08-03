@@ -2278,24 +2278,17 @@ namespace vg {
             return get<2>(cluster_graphs1[cluster_pair.first]) + get<2>(cluster_graphs2[cluster_pair.second]);
         };
         
-        int64_t optimal_separation = fragment_length_distr.mean();
-        
-        // sort the pairs descending by total unique sequence coverage
+        // sort the pairs descending by approximate likelihood
         stable_sort(cluster_pairs.begin(), cluster_pairs.end(),
                     [&](const pair<pair<size_t, size_t>, int64_t>& a, const pair<pair<size_t, size_t>, int64_t>& b) {
-                        // We need to be able to look up the coverage for the graph an input cluster went into.
-                        // Compute total coverage following all the redirects and see if
-                        // it's in the right order.
-                        // We also add a total ordering over the pair indexes to remove system dependencies
-                        size_t cov_1 = get_pair_coverage(a.first);
-                        size_t cov_2 = get_pair_coverage(b.first);
-                        int64_t dev_1 = abs(a.second - optimal_separation);
-                        int64_t dev_2 = abs(b.second - optimal_separation);
+                        // compute approximate likelihood in similar way to how the mapping quality routine will
+                        double likelihood_1 = (get_pair_coverage(a.first) * get_aligner()->match * get_aligner()->log_base
+                                               + fragment_length_log_likelihood(a.second));
+                        double likelihood_2 = (get_pair_coverage(b.first) * get_aligner()->match * get_aligner()->log_base
+                                               + fragment_length_log_likelihood(b.second));
                         size_t hash_1 = wang_hash<pair<pair<size_t, size_t>, int64_t>>()(a);
                         size_t hash_2 = wang_hash<pair<pair<size_t, size_t>, int64_t>>()(b);
-                        return (cov_1 > cov_2 ||
-                                (cov_1 == cov_2 && (dev_1 < dev_2 ||
-                                                    (dev_1 == dev_2 && hash_1 < hash_2))));
+                        return (likelihood_1 > likelihood_2 || (likelihood_1 == likelihood_2 && hash_1 < hash_2));
                   });
         
 #ifdef debug_multipath_mapper
@@ -2307,6 +2300,10 @@ namespace vg {
         
         // TODO: some cluster pairs will produce redundant subgraph pairs.
         // We'll end up with redundant pairs being output.
+        
+        // the same index may occur in multiple pairs, if so we can copy it rather than needing to recompute it
+        // we keep track of where the original occurrence was here
+        unordered_map<size_t, size_t> previous_multipath_alns_1, previous_multipath_alns_2;
         
         // align to each cluster pair
         multipath_aln_pairs_out.reserve(min(num_mappings_to_compute, cluster_pairs.size()));
@@ -2327,22 +2324,59 @@ namespace vg {
                 
                 break;
             }
-            
-            VG* vg1 = get<0>(cluster_graphs1[cluster_pair.first.first]);
-            VG* vg2 = get<0>(cluster_graphs2[cluster_pair.first.second]);
-            
-            memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first.first]);
-            memcluster_t& graph_mems2 = get<1>(cluster_graphs2[cluster_pair.first.second]);
-            
 #ifdef debug_multipath_mapper
             cerr << "doing pair " << cluster_pair.first.first << " " << cluster_pair.first.second << endl;
-            cerr << "performing alignments to subgraphs " << pb2json(vg1->graph) << " and " << pb2json(vg2->graph) << endl;
 #endif
-            
-            // Do the two alignments
+            // create multipath alignments to fill
             multipath_aln_pairs_out.emplace_back();
-            multipath_align(alignment1, vg1, graph_mems1, multipath_aln_pairs_out.back().first);
-            multipath_align(alignment2, vg2, graph_mems2, multipath_aln_pairs_out.back().second);
+            
+            auto prev_1 = previous_multipath_alns_1.find(cluster_pair.first.first);
+            if (prev_1 == previous_multipath_alns_1.end()) {
+                // we haven't done this alignment yet, so we have to complete it for the first time
+                VG* vg1 = get<0>(cluster_graphs1[cluster_pair.first.first]);
+                memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first.first]);
+                
+#ifdef debug_multipath_mapper
+                cerr << "performing alignment to subgraph " << pb2json(vg1->graph) << endl;
+#endif
+                
+                multipath_align(alignment1, vg1, graph_mems1, multipath_aln_pairs_out.back().first);
+                
+                // keep track of the fact that we have completed this multipath alignment
+                previous_multipath_alns_1[cluster_pair.first.first] = i;
+            }
+            else {
+#ifdef debug_multipath_mapper
+                cerr << "copying alignment from read1 at index " << prev_1->second << endl;
+#endif
+                // we've already completed this multipath alignment, so we can copy it
+                multipath_aln_pairs_out.back().first = multipath_aln_pairs_out[prev_1->second].first;
+            }
+            
+            // repeat this routine for the second read end
+            // TODO: repetitive code
+            auto prev_2 = previous_multipath_alns_2.find(cluster_pair.first.second);
+            if (prev_2 == previous_multipath_alns_2.end()) {
+                // we haven't done this alignment yet, so we have to complete it for the first time
+                VG* vg2 = get<0>(cluster_graphs2[cluster_pair.first.second]);
+                memcluster_t& graph_mems2 = get<1>(cluster_graphs2[cluster_pair.first.second]);
+                
+#ifdef debug_multipath_mapper
+                cerr << "performing alignment to subgraph " << pb2json(vg2->graph) << endl;
+#endif
+                
+                multipath_align(alignment2, vg2, graph_mems2, multipath_aln_pairs_out.back().second);
+                
+                // keep track of the fact that we have completed this multipath alignment
+                previous_multipath_alns_2[cluster_pair.first.second] = i;
+            }
+            else {
+#ifdef debug_multipath_mapper
+                cerr << "copying alignment from read2 at index " << prev_2->second << endl;
+#endif
+                // we've already completed this multipath alignment, so we can copy it
+                multipath_aln_pairs_out.back().second = multipath_aln_pairs_out[prev_2->second].second;
+            }
             
             num_mappings++;
         }
@@ -2405,6 +2439,10 @@ namespace vg {
         // to keep track of which clusters have been merged
         UnionFind union_find(clusters.size());
         
+        // (for the suppressed merge code path)
+        // maps the hits that make up a cluster to the index of the cluster
+        unordered_map<pair<const MaximalExactMatch*, pos_t>, size_t> hit_to_cluster;
+        
         for (size_t i = 0; i < clusters.size(); i++) {
             
 #ifdef debug_multipath_mapper
@@ -2458,6 +2496,12 @@ namespace vg {
                     else {
                         node_id_to_cluster[node_id] = i;
                     }
+                }
+            }
+            else {
+                // assign the hits to clusters
+                for (auto& mem_hit : cluster) {
+                    hit_to_cluster[mem_hit] = i;
                 }
             }
             
@@ -2598,6 +2642,18 @@ namespace vg {
             delete cluster_graphs[multicomponent_graph.first];
             cluster_graphs.erase(multicomponent_graph.first);
             
+            if (suppress_cluster_merging) {
+                // we need to re-assign the hits to the new cluster graphs
+                for (auto& mem_hit : clusters[multicomponent_graph.first]) {
+                    for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
+                        if (multicomponent_graph.second[i].count(id(mem_hit.second))) {
+                            hit_to_cluster[mem_hit] = max_graph_idx + i;
+                            break;
+                        }
+                    }
+                }
+            }
+            
             max_graph_idx += multicomponent_graph.second.size();
         }
         
@@ -2642,6 +2698,7 @@ namespace vg {
             cerr << "suppressed merging path, creating index to identify nodes with cluster graphs" << endl;
 #endif
             
+            // identify all of the clusters that contain each node
             unordered_map<id_t, vector<size_t>> node_id_to_cluster_idxs;
             for (size_t i = 0; i < cluster_graphs_out.size(); i++) {
                 Graph& graph = get<0>(cluster_graphs_out[i])->graph;
@@ -2652,14 +2709,25 @@ namespace vg {
             
             for (const MaximalExactMatch& mem : mems) {
                 for (gcsa::node_type hit : mem.nodes) {
-                    id_t node_id = gcsa::Node::id(hit);
-                    auto iter = node_id_to_cluster_idxs.find(node_id);
-                    if (iter != node_id_to_cluster_idxs.end()) {
-                        for (size_t cluster_idx : iter->second) {
-                            get<1>(cluster_graphs_out[cluster_idx]).push_back(make_pair(&mem, make_pos_t(hit)));
+                    auto mem_hit = make_pair(&mem, make_pos_t(hit));
+                    // force the hits that generated a cluster to be assigned to it
+                    auto iter = hit_to_cluster.find(mem_hit);
+                    if (iter != hit_to_cluster.end()) {
+                        get<1>(cluster_graphs_out[cluster_to_idx[iter->second]]).push_back(mem_hit);
 #ifdef debug_multipath_mapper
-                            cerr << "\tMEM " << mem.sequence() << " at " << make_pos_t(hit) << " found in cluster at index " << cluster_idx << endl;
+                        cerr << "\tMEM " << mem.sequence() << " at " << mem_hit.second << " assigned as seed to cluster at index " << cluster_to_idx[iter->second] << endl;
 #endif
+                    }
+                    else {
+                        // also try to find other, unassigned MEMs in the clusters
+                        auto id_iter = node_id_to_cluster_idxs.find(id(mem_hit.second));
+                        if (id_iter != node_id_to_cluster_idxs.end()) {
+                            for (size_t cluster_idx : id_iter->second) {
+                                get<1>(cluster_graphs_out[cluster_idx]).push_back(mem_hit);
+#ifdef debug_multipath_mapper
+                                cerr << "\tMEM " << mem.sequence() << " at " << mem_hit.second << " found in cluster at index " << cluster_idx << endl;
+#endif
+                            }
                         }
                     }
                 }

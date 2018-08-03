@@ -223,6 +223,10 @@ public:
     //static size_t CLUSTER_TOTAL;
     //static size_t MEM_FILTER_COUNTER;
     //static size_t MEM_TOTAL;
+    //static size_t PRE_SPLIT_CLUSTER_COUNTER;
+    //static size_t SPLIT_ATTEMPT_COUNTER;
+    //static size_t SUCCESSFUL_SPLIT_ATTEMPT_COUNTER;
+    //static size_t POST_SPLIT_CLUSTER_COUNTER;
     
 private:
     class ODNode;
