@@ -9,6 +9,7 @@
 #include "mem.hpp"
 #include "xdrop_aligner.hpp"
 
+#define DZ_FULL_LENGTH_BONUS
 #define DZ_CIGAR_OP				0x04030201
 enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 #include "../deps/dozeu/dozeu.h"
@@ -23,7 +24,8 @@ XdropAligner::XdropAligner(XdropAligner const &rhs)
 		rhs.dz->matrix,
 		(uint16_t)rhs.dz->giv[0],
 		(uint16_t)rhs.dz->gev[0],
-		(uint64_t)(rhs.dz->xt - rhs.dz->giv[0]) / rhs.dz->gev[0]
+		(uint16_t)rhs.dz->max_gap_len,
+		(uint16_t)rhs.dz->bonus
 	);
 }
 
@@ -34,7 +36,8 @@ XdropAligner& XdropAligner::operator=(XdropAligner const &rhs)
 		rhs.dz->matrix,
 		(uint16_t)rhs.dz->giv[0],
 		(uint16_t)rhs.dz->gev[0],
-		(uint64_t)(rhs.dz->xt - rhs.dz->giv[0]) / rhs.dz->gev[0]
+		(uint16_t)rhs.dz->max_gap_len,
+		(uint16_t)rhs.dz->bonus
 	);
 	return(*this);
 }
@@ -74,7 +77,7 @@ XdropAligner::XdropAligner(
 
 	uint64_t go = _gap_open - _gap_extension, ge = _gap_extension;
 	uint64_t xdrop_threshold = ge * (uint64_t)_max_gap_length + go;
-	dz = dz_init((int8_t const *)_score_matrix, go, ge, xdrop_threshold);
+	dz = dz_init((int8_t const *)_score_matrix, go, ge, xdrop_threshold, _full_length_bonus);
 	// bench_init(bench);
 }
 
@@ -102,7 +105,7 @@ XdropAligner::XdropAligner(
 	};
 	uint64_t go = _gap_open - _gap_extension, ge = _gap_extension;
 	uint64_t xdrop_threshold = ge * (uint64_t)_max_gap_length + go;
-	dz = dz_init((int8_t const *)_score_matrix, go, ge, xdrop_threshold);
+	dz = dz_init((int8_t const *)_score_matrix, go, ge, xdrop_threshold, _full_length_bonus);
 	// bench_init(bench);
 }
 
