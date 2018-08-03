@@ -304,16 +304,12 @@ $(LIB_DIR)/libhts.a: $(LIB_DIR)/libdeflate.a $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h
 	+rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts.a
 	+cd $(HTSLIB_DIR) && autoheader && autoconf && CFLAGS="-I$(CWD)/$(INC_DIR)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins $(FILTER) && $(MAKE) lib-static $(FILTER) && cp libhts.a $(CWD)/$(LIB_DIR) && cp *.h $(CWD)/$(INC_DIR) && cp -r htslib $(CWD)/$(INC_DIR)/
 
-# We hack the vcflib build to use our own htslib
-# We also sneakily sneak in the libraries needed to build tabixpp with our htslib.
-# This can be changed when https://github.com/ekg/tabixpp/issues/17 is fixed.
-# Then we can do this all through pkgconfig or another reasonable method.
+# We tell the vcflib build to use our own htslib
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h $(VCFLIB_DIR)/tabixpp/*.cpp $(VCFLIB_DIR)/tabixpp/*.hpp
-	+rm -Rf $(VCFLIB_DIR)/tabixpp/htslib/* && cp -R $(HTSLIB_DIR)/* $(VCFLIB_DIR)/tabixpp/htslib/
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && INCLUDES="-I$(CWD)/$(INC_DIR)" LIBPATH="-L$(CWD)/$(LIB_DIR) -lhts -lpthread -lm -lbz2 -llzma -lz -ldeflate" $(MAKE) libvcflib.a $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && cd $(VCFLIB_DIR) && HTS_LIB="$(CWD)/$(LIB_DIR)/libhts.a" HTS_INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_LDFLAGS="-L$(CWD)/$(LIB_DIR) -lhts -lpthread -lm -lbz2 -llzma -lz -ldeflate" $(MAKE) libvcflib.a $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
     
 $(VCFLIB_DIR)/bin/vcf2tsv: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.h $(LIB_DIR)/libvcflib.a
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && INCLUDES="-I$(CWD)/$(INC_DIR)" LIBPATH="-L$(CWD)/$(LIB_DIR) -lhts -lpthread -lm -lbz2 -llzma -lz -ldeflate" $(MAKE) vcf2tsv $(FILTER)
+	+. ./source_me.sh && cd $(VCFLIB_DIR) && HTS_LIB="$(CWD)/$(LIB_DIR)/libhts.a" HTS_INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_LDFLAGS="-L$(CWD)/$(LIB_DIR) -lhts -lpthread -lm -lbz2 -llzma -lz -ldeflate" $(MAKE) vcf2tsv $(FILTER)
 
 $(FASTAHACK_DIR)/fastahack: $(FASTAHACK_DIR)/*.c $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
 	+cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER)
