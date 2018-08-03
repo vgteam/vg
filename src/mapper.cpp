@@ -1970,7 +1970,7 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     }
 }
 
-map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby) {
+map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby) const {
     return xg_alignment_path_offsets(aln, just_min, nearby, xindex);
 }
 
@@ -2953,11 +2953,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
 }
 
-void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) {
+void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) const {
     for (auto& aln : alns) annotate_with_initial_path_positions(aln);
 }
 
-void Mapper::annotate_with_initial_path_positions(Alignment& aln) {
+void Mapper::annotate_with_initial_path_positions(Alignment& aln) const {
     if (!aln.refpos_size()) {
         auto init_path_positions = alignment_path_offsets(aln);
         for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {

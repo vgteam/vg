@@ -29,6 +29,8 @@ void reverse_complement_in_place(string& seq);
 /// Return True if the given string is entirely Ns of either case, and false
 /// otherwise.
 bool is_all_n(const string& seq);
+/// Return the number of threads that OMP will produce for a parallel section.
+/// TODO: Assumes that this is the same for every parallel section.
 int get_thread_count(void);
 string wrap_text(const string& str, size_t width);
 bool is_number(const string& s);
