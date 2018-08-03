@@ -45,6 +45,9 @@ public:
     bool drop_split = false;
     // We can also pseudorandomly drop reads. What's the probability that we keep a read?
     double downsample_probability = 1.0;
+    // Samtools-compatible internal seed mask, for deciding which read pairs to keep.
+    // To be generated with rand() after srand() from the user-visible seed.
+    uint32_t downsample_seed_mask = 0;        
     // default to 1 thread (as opposed to all)
     int threads = 1;
 
@@ -140,10 +143,13 @@ private:
     bool is_split(xg::XG* index, Alignment& alignment);
     
     /**
-     * Return true with the given probability, and false otherwise.
-     * Thread safe. May or may not be deterministic within or between threads.
+     * Based on the read name and paired-ness, compute the SAM-style QNAME and
+     * use that and the configured sampling probability and seed in the
+     * Samtools read sampling algorithm, to determine if the read should be
+     * kept. Returns true if the read should stay, and false if it should be
+     * removed. Always accepts or rejects paired reads together.
      */
-    static bool sample_bool(double probability);
+    bool sample_read(const Alignment& read); 
     
 };
 }

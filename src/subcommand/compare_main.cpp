@@ -72,7 +72,7 @@ int main_compare(int argc, char** argv) {
                 break;
 
             case 't':
-                num_threads = atoi(optarg);
+                num_threads = parse<int>(optarg);
                 break;
 
             case 'h':

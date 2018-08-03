@@ -13,6 +13,7 @@
 #include "../vg.hpp"
 #include "vg.pb.h"
 #include "../traversal_finder.hpp"
+#include "../stream.hpp"
 
 
 using namespace std;
@@ -89,7 +90,7 @@ int main_snarl(int argc, char** argv) {
             break;
 
         case 'm':
-            max_nodes = atoi(optarg);
+            max_nodes = parse<int>(optarg);
             break;
             
         case 't':

@@ -15,6 +15,7 @@
 #include "../vg.hpp"
 #include "../index.hpp"
 #include "../convert.hpp"
+#include "../stream.hpp"
 
 using namespace std;
 using namespace vg;
@@ -104,7 +105,7 @@ int main_locify(int argc, char** argv){
             break;
 
         case 'b':
-            n_best = atoi(optarg);
+            n_best = parse<int>(optarg);
             name_alleles = true;
             break;
 

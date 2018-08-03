@@ -51,6 +51,8 @@ void help_map(char** argv) {
          << "    --mate-rescues INT      attempt up to INT mate rescues per pair [64]" << endl
          << "    -S, --unpaired-cost INT penalty for an unpaired read pair [17]" << endl
          << "    --no-patch-aln          do not patch banded alignments by locally aligning unaligned regions" << endl
+         << "    --xdrop-alignment       use X-drop heuristic (much faster for long-read alignment)" << endl
+         << "    --max-gap-length        maximum gap length allowed in each contiguous alignment (for X-drop alignment) [40]" << endl
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -167,6 +169,8 @@ int main_map(int argc, char** argv) {
     bool patch_alignments = true;
     int min_banded_mq = 0;
     int max_sub_mem_recursion_depth = 2;
+    bool xdrop_alignment = false;
+    uint32_t max_gap_length = 40;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -238,6 +242,8 @@ int main_map(int argc, char** argv) {
                 {"no-patch-aln", no_argument, 0, '8'},
                 {"drop-full-l-bonus", no_argument, 0, '2'},
                 {"unpaired-cost", required_argument, 0, 'S'},
+                {"max-gap-length", required_argument, 0, 1},
+                {"xdrop-alignment", no_argument, 0, 2},
                 {0, 0, 0, 0}
             };
 
@@ -277,27 +283,27 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'c':
-            hit_max = atoi(optarg);
+            hit_max = parse<int>(optarg);
             break;
 
         case 'M':
-            max_multimaps = atoi(optarg);
+            max_multimaps = parse<int>(optarg);
             break;
 
         case '7':
-            identity_weight = atof(optarg);
+            identity_weight = parse<double>(optarg);
             break;
 
         case 'Q':
-            max_mapping_quality = atoi(optarg);
+            max_mapping_quality = parse<int>(optarg);
             break;
 
         case 'E':
-            maybe_mq_threshold = atof(optarg);
+            maybe_mq_threshold = parse<double>(optarg);
             break;
 
         case 'L':
-            full_length_bonus = atoi(optarg);
+            full_length_bonus = parse<int>(optarg);
             break;
 
         case '2':
@@ -305,7 +311,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'a':
-            haplotype_consistency_exponent = atof(optarg);
+            haplotype_consistency_exponent = parse<double>(optarg);
             break;
         
         case 'm':
@@ -347,7 +353,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'D':
@@ -355,19 +361,19 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'e':
-            chance_match = atof(optarg);
+            chance_match = parse<double>(optarg);
             break;
 
         case 'C':
-            drop_chain = atof(optarg);
+            drop_chain = parse<double>(optarg);
             break;
 
         case 'l':
-            min_multimaps = atoi(optarg);
+            min_multimaps = parse<int>(optarg);
             break;
 
         case 'n':
-            mq_overlap = atof(optarg);
+            mq_overlap = parse<double>(optarg);
             break;
 
         case 'G':
@@ -379,59 +385,60 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'w':
-            band_width = atoi(optarg);
+            band_width = parse<int>(optarg);
+            band_width = band_width == 0 ? INT_MAX : band_width;
             break;
 
         case 'O':
-            band_overlap = atoi(optarg);
+            band_overlap = parse<int>(optarg);
             break;
 
         case 'B':
-            band_multimaps = atoi(optarg);
+            band_multimaps = parse<int>(optarg);
             break;
 
         case 'J':
-            max_band_jump = atoi(optarg);
+            max_band_jump = parse<int>(optarg);
             break;
 
         case 'Z':
-            min_banded_mq = atoi(optarg);
+            min_banded_mq = parse<int>(optarg);
             break;
 
         case 'P':
-            min_score = atof(optarg);
+            min_score = parse<double>(optarg);
             break;
 
         case 'k':
-            min_mem_length = atoi(optarg);
+            min_mem_length = parse<int>(optarg);
             break;
 
         case 'Y':
-            max_mem_length = atoi(optarg);
+            max_mem_length = parse<int>(optarg);
             break;
 
         case 'r':
-            mem_reseed_factor = atof(optarg);
+            mem_reseed_factor = parse<double>(optarg);
             break;
 
         case 'W':
-            min_cluster_length = atoi(optarg);
+            min_cluster_length = parse<int>(optarg);
             break;
 
         case 'H':
-            max_target_factor = atoi(optarg);
+            max_target_factor = parse<int>(optarg);
             break;
 
         case '9':
-            buffer_size = atoi(optarg);
+            buffer_size = parse<int>(optarg);
             break;
 
         case 'q':
-            match = atoi(optarg);
+            match = parse<int>(optarg);
             break;
 
         case 'z':
-            mismatch = atoi(optarg);
+            mismatch = parse<int>(optarg);
             break;
 
         case OPT_SCORE_MATRIX:
@@ -443,11 +450,11 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'o':
-            gap_open = atoi(optarg);
+            gap_open = parse<int>(optarg);
             break;
 
         case 'y':
-            gap_extend = atoi(optarg);
+            gap_extend = parse<int>(optarg);
             break;
 
         case 'A':
@@ -455,7 +462,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'u':
-            extra_multimaps = atoi(optarg);
+            extra_multimaps = parse<int>(optarg);
             break;
 
         case 'X':
@@ -494,15 +501,15 @@ int main_map(int argc, char** argv) {
         break;
 
         case '3':
-            fragment_sigma = atof(optarg);
+            fragment_sigma = parse<double>(optarg);
             break;
 
         case 'S':
-            unpaired_penalty = atoi(optarg);
+            unpaired_penalty = parse<int>(optarg);
             break;
 
         case '0':
-            mate_rescues = atoi(optarg);
+            mate_rescues = parse<int>(optarg);
             break;
 
         case 'U':
@@ -514,7 +521,13 @@ int main_map(int argc, char** argv) {
             break;
 
         case '4':
-            fragment_model_update = atoi(optarg);
+            fragment_model_update = parse<int>(optarg);
+            break;
+
+        case 1:
+            max_gap_length = atoi(optarg);     // fall through
+        case 2:
+            xdrop_alignment = true;
             break;
 
         case 'h':
@@ -950,7 +963,7 @@ int main_map(int argc, char** argv) {
         m->fast_reseed = use_fast_reseed;
         m->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
         m->max_target_factor = max_target_factor;
-        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent);
+        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent, max_gap_length);
         if(matrix_stream.is_open()) m->load_scoring_matrix(matrix_stream);
         m->strip_bonuses = strip_bonuses;
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
@@ -988,7 +1001,7 @@ int main_map(int argc, char** argv) {
             unaligned.set_quality(qual);
         }
 
-        vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap);
+        vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
         if(alignments.size() == 0) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
@@ -1023,7 +1036,7 @@ int main_map(int argc, char** argv) {
                     Alignment unaligned;
                     unaligned.set_sequence(line);
 
-                    vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap);
+                    vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
 
                     for(auto& alignment : alignments) {
                         // Set the alignment metadata
@@ -1049,7 +1062,7 @@ int main_map(int argc, char** argv) {
                 unaligned.set_sequence(seq);
                 unaligned.set_name(name);
                 int tid = omp_get_thread_num();
-                vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap);
+                vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
                 for(auto& alignment : alignments) {
                     // Set the alignment metadata
                     if (!sample_name.empty()) alignment.set_sample_name(sample_name);
@@ -1077,7 +1090,8 @@ int main_map(int argc, char** argv) {
              &max_mem_length,
              &band_width,
              &band_overlap,
-             &empty_alns]
+             &empty_alns,
+             &xdrop_alignment]
                 (Alignment& alignment) {
 
                     if(alignment.is_secondary() && !keep_secondary) {
@@ -1086,7 +1100,7 @@ int main_map(int argc, char** argv) {
                     }
 
                     int tid = omp_get_thread_num();
-                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap);
+                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
 
                     // Output the alignments in JSON or protobuf as appropriate.
                     output_alignments(alignments, empty_alns);
@@ -1121,10 +1135,11 @@ int main_map(int argc, char** argv) {
                  &pair_window,
                  &top_pairs_only,
                  &print_fragment_model,
-                 &output_func](Alignment& aln1, Alignment& aln2) {
+                 &output_func,
+                 &xdrop_alignment](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false, xdrop_alignment);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -1136,7 +1151,8 @@ int main_map(int argc, char** argv) {
                                                                        queued_resolve_later,
                                                                        max_mem_length,
                                                                        top_pairs_only,
-                                                                       true);
+                                                                       true,
+                                                                       xdrop_alignment);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -1155,7 +1171,8 @@ int main_map(int argc, char** argv) {
                                                                queued_resolve_later,
                                                                max_mem_length,
                                                                top_pairs_only,
-                                                               true);
+                                                               true,
+                                                               xdrop_alignment);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
@@ -1170,11 +1187,12 @@ int main_map(int argc, char** argv) {
                  &max_mem_length,
                  &band_width,
                  &band_overlap,
-                 &empty_alns]
+                 &empty_alns,
+                 &xdrop_alignment]
                     (Alignment& alignment) {
 
                         int tid = omp_get_thread_num();
-                        vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap);
+                        vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
                         //cerr << "This is just before output_alignments" << alignment.DebugString() << endl;
                         output_alignments(alignments, empty_alns);
                     };
@@ -1204,10 +1222,11 @@ int main_map(int argc, char** argv) {
                  &pair_window,
                  &top_pairs_only,
                  &print_fragment_model,
-                 &output_func](Alignment& aln1, Alignment& aln2) {
+                 &output_func,
+                 &xdrop_alignment](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false, xdrop_alignment);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -1219,7 +1238,8 @@ int main_map(int argc, char** argv) {
                                                                        queued_resolve_later,
                                                                        max_mem_length,
                                                                        top_pairs_only,
-                                                                       true);
+                                                                       true,
+                                                                       xdrop_alignment);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -1237,7 +1257,8 @@ int main_map(int argc, char** argv) {
                                                                queued_resolve_later,
                                                                max_mem_length,
                                                                top_pairs_only,
-                                                               true);
+                                                               true,
+                                                               xdrop_alignment);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
@@ -1280,10 +1301,11 @@ int main_map(int argc, char** argv) {
                  &pair_window,
                  &top_pairs_only,
                  &print_fragment_model,
-                 &output_func](Alignment& aln1, Alignment& aln2) {
+                 &output_func,
+                 &xdrop_alignment](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false, xdrop_alignment);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -1295,7 +1317,8 @@ int main_map(int argc, char** argv) {
                                                                        queued_resolve_later,
                                                                        max_mem_length,
                                                                        top_pairs_only,
-                                                                       true);
+                                                                       true,
+                                                                       xdrop_alignment);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -1313,7 +1336,8 @@ int main_map(int argc, char** argv) {
                                                                queued_resolve_later,
                                                                max_mem_length,
                                                                top_pairs_only,
-                                                               true);
+                                                               true,
+                                                               xdrop_alignment);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
@@ -1329,11 +1353,11 @@ int main_map(int argc, char** argv) {
                  &band_width,
                  &band_overlap,
                  &compare_gam,
-                 &empty_alns]
-                (Alignment& alignment) {
+                 &empty_alns,
+                 &xdrop_alignment](Alignment& alignment) {
                 int tid = omp_get_thread_num();
                 std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-                vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap);
+                vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
                 std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
                 // Output the alignments in JSON or protobuf as appropriate.

@@ -250,11 +250,11 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'l':
-            path_length = atoi(optarg);
+            path_length = parse<int>(optarg);
             break;
 
         case 'X':
-            chop_to = atoi(optarg);
+            chop_to = parse<int>(optarg);
             break;
 
         case 'u':
@@ -270,7 +270,7 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'e':
-            edge_max = atoi(optarg);
+            edge_max = parse<int>(optarg);
             break;
 
         case 'm':
@@ -278,11 +278,11 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'f':
-            unfold_to = atoi(optarg);
+            unfold_to = parse<int>(optarg);
             break;
 
         case 'O':
@@ -318,19 +318,19 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'U':
-            until_normal_iter = atoi(optarg);
+            until_normal_iter = parse<int>(optarg);
             break;
 
         case 'd':
-            dagify_steps = atoi(optarg);
+            dagify_steps = parse<int>(optarg);
             break;
 
         case 'w':
-            dagify_to = atoi(optarg);
+            dagify_to = parse<int>(optarg);
             break;
 
         case 'L':
-            dagify_component_length_max = atoi(optarg);
+            dagify_component_length_max = parse<int>(optarg);
             break;
 
         case 'B':
@@ -346,11 +346,11 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'g':
-            root_nodes.push_back(atoi(optarg));
+            root_nodes.push_back(parse<int>(optarg));
             break;
 
         case 'x':
-            context_steps = atoi(optarg);
+            context_steps = parse<int>(optarg);
             break;
 
         case 'R':
@@ -358,7 +358,7 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'y':
-            destroy_node_id = atoi(optarg);
+            destroy_node_id = parse<int>(optarg);
             break;
 
         case 'a':
@@ -374,7 +374,7 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'M':
-            max_degree = atoi(optarg);
+            max_degree = parse<int>(optarg);
             break;
 
         case 'h':

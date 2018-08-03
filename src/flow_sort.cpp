@@ -8,7 +8,6 @@
 namespace vg {
 
 using namespace std;
-using namespace gfak;
 FlowSort::FlowSort(VG& vg):vg(vg) {
     
 }

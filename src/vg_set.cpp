@@ -113,6 +113,8 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
 
                 // Sort out all the mappings from the paths we pulled out
                 for(Path& path : paths_taken) {
+                    mappings[path.name()] = map<int64_t, Mapping>(); // We want to include empty paths as well.
+
                     for(size_t i = 0; i < path.mapping_size(); i++) {
                         // For each mapping, file it under its rank if a rank is
                         // specified, or at the last rank otherwise.

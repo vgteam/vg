@@ -688,13 +688,23 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
 
 Alignment NGSSimulator::sample_read() {
     
+    
     Alignment aln;
     // sample a quality string based on the trained distribution
-    aln.set_quality(sample_read_quality());
+    pair<string, vector<bool>> qual_and_masks = sample_read_quality();
     
 #ifdef debug_ngs_sim
-    cerr << "got quality string " << string_quality_short_to_char(aln.quality()) << endl;
+    cerr << "sampled qualities and N-mask:" << endl;
+    cerr << string_quality_short_to_char(qual_and_masks.first) << endl;
+    for (bool mask : qual_and_masks.second) {
+        cerr << (mask ? "1" : "0");
+    }
+    cerr << endl;
 #endif
+    
+    assert(qual_and_masks.first.size() == qual_and_masks.second.size());
+    
+    aln.set_quality(qual_and_masks.first);
     
     // attempt samples until we get one that succeeds without walking
     // off the end of the graph
@@ -721,6 +731,9 @@ Alignment NGSSimulator::sample_read() {
         }
     }
     
+    // mask out any of the sequence that we sampled to be an 'N'
+    apply_N_mask(*aln.mutable_sequence(), qual_and_masks.second);
+    
     aln.set_name(get_read_name());
     xg_annotate_with_initial_path_positions(aln, true, false, &xg_index);
     return aln;
@@ -728,9 +741,28 @@ Alignment NGSSimulator::sample_read() {
 
 pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     pair<Alignment, Alignment> aln_pair;
-    pair<string, string> qual_pair = sample_read_quality_pair();
-    aln_pair.first.set_quality(qual_pair.first);
-    aln_pair.second.set_quality(qual_pair.second);
+    pair<pair<string, vector<bool>>, pair<string, vector<bool>>> qual_and_mask_pair = sample_read_quality_pair();
+    
+#ifdef debug_ngs_sim
+    cerr << "sampled qualities and N-masks:" << endl;
+    cerr << string_quality_short_to_char(qual_and_mask_pair.first.first) << endl;
+    for (bool mask : qual_and_mask_pair.first.second) {
+        cerr << (mask ? "1" : "0");
+    }
+    cerr << endl;
+    cerr << string_quality_short_to_char(qual_and_mask_pair.second.first) << endl;
+    for (bool mask : qual_and_mask_pair.second.second) {
+        cerr << (mask ? "1" : "0");
+    }
+    cerr << endl;
+#endif
+
+    
+    assert(qual_and_mask_pair.first.first.size() == qual_and_mask_pair.first.second.size());
+    assert(qual_and_mask_pair.second.first.size() == qual_and_mask_pair.second.second.size());
+    
+    aln_pair.first.set_quality(qual_and_mask_pair.first.first);
+    aln_pair.second.set_quality(qual_and_mask_pair.second.first);
     
     // reverse the quality string so that it acts like it's reading from the opposite end
     // when we walk forward from the beginning of the first read
@@ -789,7 +821,6 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         // align the second end starting at the walked position
         sample_read_internal(aln_pair.second, offset, is_reverse, pos, source_path); 
         
-        
         if (retry_on_Ns) {
             if (aln_pair.second.sequence().find('N') != string::npos) {
                 aln_pair.second.clear_path();
@@ -802,6 +833,10 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     aln_pair.second = reverse_complement_alignment(aln_pair.second, [&](id_t node_id) {
         return xg_index.node_length(node_id);
     });
+    
+    // mask out any of the sequence that we sampled to be an 'N'
+    apply_N_mask(*aln_pair.first.mutable_sequence(), qual_and_mask_pair.first.second);
+    apply_N_mask(*aln_pair.second.mutable_sequence(), qual_and_mask_pair.second.second);
     
     string name = get_read_name();
     aln_pair.first.set_name(name + "_1");
@@ -1307,6 +1342,7 @@ string NGSSimulator::get_read_name() {
 
 void NGSSimulator::record_read_quality(const Alignment& aln, bool read_2) {
     const string& quality = aln.quality();
+    const string& sequence = aln.sequence();
     auto& transition_distrs = read_2 ? transition_distrs_2 : transition_distrs_1;
     if (quality.empty()) {
         return;
@@ -1314,58 +1350,81 @@ void NGSSimulator::record_read_quality(const Alignment& aln, bool read_2) {
     while (transition_distrs.size() < quality.size()) {
         transition_distrs.emplace_back(seed ? seed + transition_distrs.size() + 1 : random_device()());
     }
-    transition_distrs[0].record_transition(0, quality[0]);
+    // record the initial quality and N-mask
+    transition_distrs[0].record_transition(pair<uint8_t, bool>(0, false),
+                                           pair<uint8_t, bool>(quality[0], sequence[0] == 'N'));
+    // record the subsequent quality and N-mask transitions
     for (size_t i = 1; i < transition_distrs.size(); i++) {
-        transition_distrs[i].record_transition(quality[i - 1], quality[i]);
+        transition_distrs[i].record_transition(pair<uint8_t, bool>(quality[i - 1], sequence[i - 1] == 'N'),
+                                               pair<uint8_t, bool>(quality[i], sequence[i] == 'N'));
     }
 }
     
 void NGSSimulator::record_read_pair_quality(const Alignment& aln_1, const Alignment& aln_2) {
+    // record the transitions within the reads separates
     record_read_quality(aln_1, false);
     record_read_quality(aln_2, true);
+    // record the joint distribution of the first quality and N-mask
     if (!aln_1.quality().empty() && !aln_2.quality().empty()) {
-        joint_initial_distr.record_transition(0, make_pair<uint8_t, uint8_t>(aln_1.quality()[0], aln_2.quality()[0]));
+        joint_initial_distr.record_transition(pair<uint8_t, bool>(0, false),
+                                              make_pair(pair<uint8_t, bool>(aln_1.quality()[0], aln_1.sequence()[0] == 'N'),
+                                                        pair<uint8_t, bool>(aln_2.quality()[0], aln_2.sequence()[0] == 'N')));
     }
 }
 
 void NGSSimulator::finalize() {
-    for (MarkovDistribution<uint8_t, uint8_t>& markov_distr : transition_distrs_1) {
+    for (auto& markov_distr : transition_distrs_1) {
         markov_distr.finalize();
     }
-    for (MarkovDistribution<uint8_t, uint8_t>& markov_distr : transition_distrs_2) {
+    for (auto& markov_distr : transition_distrs_2) {
         markov_distr.finalize();
     }
     joint_initial_distr.finalize();
 }
 
-string NGSSimulator::sample_read_quality() {
+pair<string, vector<bool>> NGSSimulator::sample_read_quality() {
     // only use the first trained distribution (on the assumption that it better reflects the properties of
     // single-ended sequencing)
-    return sample_read_quality_internal(transition_distrs_1[0].sample_transition(0),  transition_distrs_1);
+    return sample_read_quality_internal(transition_distrs_1[0].sample_transition(pair<uint8_t, bool>(0, false)),
+                                        true);
 }
     
-pair<string, string> NGSSimulator::sample_read_quality_pair() {
+pair<pair<string, vector<bool>>, pair<string, vector<bool>>> NGSSimulator::sample_read_quality_pair() {
     if (transition_distrs_2.empty()) {
         // no paired training data, sample qual strings independently
         return make_pair(sample_read_quality(), sample_read_quality());
     }
     else {
         // paired training data, sample the start quality jointly
-        pair<uint8_t, uint8_t> first_quals = joint_initial_distr.sample_transition(0);
-        return make_pair(sample_read_quality_internal(first_quals.first, transition_distrs_1),
-                         sample_read_quality_internal(first_quals.second, transition_distrs_2));
+        auto first_quals_and_masks = joint_initial_distr.sample_transition(pair<uint8_t, bool>(0, false));
+        return make_pair(sample_read_quality_internal(first_quals_and_masks.first, true),
+                         sample_read_quality_internal(first_quals_and_masks.second, false));
     }
 }
     
-string NGSSimulator::sample_read_quality_internal(uint8_t first,
-                                                  vector<MarkovDistribution<uint8_t, uint8_t>>& transition_distrs) {
-    string quality(transition_distrs.size(), first);
-    uint8_t at = first;
+                                
+pair<string, vector<bool>> NGSSimulator::sample_read_quality_internal(pair<uint8_t, bool> first,
+                                                                      bool transitions_1) {
+    
+    auto& transition_distrs = transitions_1 ? transition_distrs_1 : transition_distrs_2;
+    string quality(transition_distrs.size(), first.first);
+    vector<bool> n_masks(transition_distrs.size(), first.second);
+    pair<uint8_t, bool> at = first;
     for (size_t i = 1; i < transition_distrs.size(); i++) {
         at = transition_distrs[i].sample_transition(at);
-        quality[i] = at;
+        quality[i] = at.first;
+        n_masks[i] = at.second;
     }
-    return quality;
+    return make_pair(quality, n_masks);
+}
+                                              
+void NGSSimulator::apply_N_mask(string& sequence, const vector<bool>& n_mask) {
+    assert(sequence.size() == n_mask.size());
+    for (size_t i = 0; i < n_mask.size(); i++) {
+        if (n_mask[i]) {
+            sequence[i] = 'N';
+        }
+    }
 }
     
 template<class From, class To>
@@ -1397,7 +1456,7 @@ void NGSSimulator::MarkovDistribution<From, To>::finalize() {
             cond_distr.second[i] += cond_distr.second[i - 1];
         }
         
-        samplers[cond_distr.first] = uniform_int_distribution<size_t>(0, cond_distr.second.back() - 1);
+        samplers[cond_distr.first] = uniform_int_distribution<size_t>(1, cond_distr.second.back());
     }
 }
 
@@ -1409,7 +1468,6 @@ To NGSSimulator::MarkovDistribution<From, To>::sample_transition(From from) {
     }
     
     size_t sample_val = samplers[from](prng);
-    
     vector<size_t>& cdf = cond_distrs[from];
     
     if (sample_val <= cdf[0]) {

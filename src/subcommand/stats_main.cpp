@@ -163,7 +163,7 @@ int main_stats(int argc, char** argv) {
             break;
 
         case 'n':
-            ids.insert(atoi(optarg));
+            ids.insert(parse<vg::id_t>(optarg));
             break;
 
         case 'A':

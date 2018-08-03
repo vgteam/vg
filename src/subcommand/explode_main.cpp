@@ -59,7 +59,7 @@ int main_explode(int argc, char** argv) {
         {
 
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'h':

@@ -1663,7 +1663,9 @@ bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function
                 
             return iteratee(real_handle);
         } else {
+#ifdef debug
             cerr << "Edge has been seen" << endl;
+#endif
             return true;
         }
     };
@@ -1696,7 +1698,9 @@ bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function
                 
             return iteratee(real_handle);
         } else {
+#ifdef debug
             cerr << "Edge has been seen" << endl;
+#endif
             return true;
         }
     };
@@ -1945,11 +1949,13 @@ bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function
                     
             } else {
                 if (!use_internal_connectivity) {
+
                     if (!graph->follow_edges(handle, false, handle_edge)) {
                         // Iteratee is done
                         return false;
                     }
                 }
+                
             }
             
         }

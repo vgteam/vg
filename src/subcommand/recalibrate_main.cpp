@@ -11,6 +11,7 @@
 
 #include "../alignment.hpp"
 #include "../vg.hpp"
+#include "../stream.hpp"
 
 #include <vowpalwabbit/vw.h>
 
@@ -108,7 +109,7 @@ int main_recalibrate(int argc, char** argv) {
             break;
 
         case 't':
-            threads = atoi(optarg);
+            threads = parse<int>(optarg);
             omp_set_num_threads(threads);
             break;
 
@@ -244,7 +245,7 @@ int main_recalibrate(int argc, char** argv) {
                     buf.push_back(aln);
                     if (buf.size() > 1000) {
                         // And output if buffer is full
-                        write_alignments(std::cout, buf);
+                        write_alignments(cout, buf);
                         buf.clear();
                     }
                 }
@@ -257,8 +258,10 @@ int main_recalibrate(int argc, char** argv) {
             VW::finish(*model);
             
             // Flush the buffer
-            write_alignments(std::cout, buf);
+            write_alignments(cout, buf);
             buf.clear();
+            // Finish the stream with an EOF marker
+            stream::finish(cout);
             cout.flush();
         }
         

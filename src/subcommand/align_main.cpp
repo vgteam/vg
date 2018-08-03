@@ -13,7 +13,9 @@
 
 #include "subcommand.hpp"
 
+#include "../utility.hpp"
 #include "../vg.hpp"
+#include "../stream.hpp"
 
 using namespace std;
 using namespace vg;
@@ -110,23 +112,23 @@ int main_align(int argc, char** argv) {
             break;
 
         case 'm':
-            match = atoi(optarg);
+            match = parse<int>(optarg);
             break;
 
         case 'M':
-            mismatch = atoi(optarg);
+            mismatch = parse<int>(optarg);
             break;
 
         case 'g':
-            gap_open = atoi(optarg);
+            gap_open = parse<int>(optarg);
             break;
 
         case 'e':
-            gap_extend = atoi(optarg);
+            gap_extend = parse<int>(optarg);
             break;
 
         case 'T':
-            full_length_bonus = atoi(optarg);
+            full_length_bonus = parse<int>(optarg);
             break;
 
         case OPT_SCORE_MATRIX:
@@ -196,10 +198,10 @@ int main_align(int argc, char** argv) {
         SSWAligner ssw = SSWAligner(match, mismatch, gap_open, gap_extend);
         alignment = ssw.align(seq, ref_seq);
     } else {
-        Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
+        Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus, vg::default_gc_content, seq.size());
         if(matrix_stream.is_open()) aligner.load_scoring_matrix(matrix_stream);
         alignment = graph->align(seq, &aligner, true, false, 0, pinned_alignment, pin_left,
-                                 banded_global, 0, max(seq.size(), graph->length()), 0, debug);
+                                 banded_global, 0, 0, 0, 0, 0, debug);
     }
 
     if (!seq_name.empty()) {
@@ -209,11 +211,12 @@ int main_align(int argc, char** argv) {
     if (output_json) {
         cout << pb2json(alignment) << endl;
     } else {
-        function<Alignment(uint64_t)> lambda =
-            [&alignment] (uint64_t n) {
+        function<Alignment(size_t)> lambda =
+            [&alignment] (size_t n) {
                 return alignment;
             };
         stream::write(cout, 1, lambda);
+        stream::finish(cout);
     }
 
     if (graph != nullptr) {

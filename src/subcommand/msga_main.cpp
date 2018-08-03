@@ -53,6 +53,8 @@ void help_msga(char** argv) {
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
+         << "    --xdrop-alignment       use X-drop heuristic (much faster for long-read alignment)" << endl
+         << "    --max-gap-length        maximum gap length allowed in each contiguous alignment (for X-drop alignment) [40]" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes [16]" << endl
         //<< "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
@@ -132,6 +134,8 @@ int main_msga(int argc, char** argv) {
     bool bigger_first = true;
     bool patch_alignments = true;
     int max_sub_mem_recursion_depth = 2;
+    bool xdrop_alignment = false;
+    uint32_t max_gap_length = 40;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -181,6 +185,8 @@ int main_msga(int argc, char** argv) {
                 {"align-progress", no_argument, 0, 'S'},
                 {"bigger-first", no_argument, 0, 'a'},
                 {"no-patch-aln", no_argument, 0, '8'},
+                {"max-gap-length", required_argument, 0, 1},
+                {"xdrop-alignment", no_argument, 0, 2},
                 {0, 0, 0, 0}
             };
 
@@ -196,43 +202,43 @@ int main_msga(int argc, char** argv) {
         {
 
         case 'k':
-            min_mem_length = atoi(optarg);
+            min_mem_length = parse<int>(optarg);
             break;
 
         case 'r':
-            mem_reseed_factor = atof(optarg);
+            mem_reseed_factor = parse<double>(optarg);
             break;
 
         case 'W':
-            min_cluster_length = atoi(optarg);
+            min_cluster_length = parse<int>(optarg);
             break;
 
         case 'e':
-            chance_match = atof(optarg);
+            chance_match = parse<double>(optarg);
             break;
 
         case 'Y':
-            max_mem_length = atoi(optarg);
+            max_mem_length = parse<int>(optarg);
             break;
 
         case 'c':
-            hit_max = atoi(optarg);
+            hit_max = parse<int>(optarg);
             break;
 
         case 'M':
-            max_multimaps = atoi(optarg);
+            max_multimaps = parse<int>(optarg);
             break;
 
         case 'l':
-            min_multimaps = atoi(optarg);
+            min_multimaps = parse<int>(optarg);
             break;
 
         case 'u':
-            extra_multimaps = atoi(optarg);
+            extra_multimaps = parse<int>(optarg);
             break;
             
         case 'H':
-            max_target_factor = atoi(optarg);
+            max_target_factor = parse<int>(optarg);
             break;
 
         case 'f':
@@ -261,15 +267,15 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 'w':
-            band_width = atoi(optarg);
+            band_width = parse<int>(optarg);
             break;
 
         case 'J':
-            max_band_jump = atoi(optarg);
+            max_band_jump = parse<int>(optarg);
             break;
 
         case 'B':
-            band_multimaps = atoi(optarg);
+            band_multimaps = parse<int>(optarg);
             break;
 
         case 'D':
@@ -285,19 +291,19 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 'X':
-            doubling_steps = atoi(optarg);
+            doubling_steps = parse<int>(optarg);
             break;
 
         case 'K':
-            idx_kmer_size = atoi(optarg);
+            idx_kmer_size = parse<int>(optarg);
             break;
 
         case 'O':
-            band_overlap = atoi(optarg);
+            band_overlap = parse<int>(optarg);
             break;
 
         case 'm':
-            node_max = atoi(optarg);
+            node_max = parse<int>(optarg);
             break;
 
         case 'N':
@@ -309,48 +315,48 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 'C':
-            drop_chain = atof(optarg);
+            drop_chain = parse<double>(optarg);
             break;
 
         case 'P':
-            min_identity = atof(optarg);
+            min_identity = parse<double>(optarg);
             break;
 
         case 'F':
-            min_banded_mq = atoi(optarg);
+            min_banded_mq = parse<int>(optarg);
             break;
 
         case 't':
-            omp_set_num_threads(atoi(optarg));
-            alignment_threads = atoi(optarg);
+            omp_set_num_threads(parse<int>(optarg));
+            alignment_threads = parse<int>(optarg);
             break;
 
         case 'Q':
-            subgraph_prune = atoi(optarg);
+            subgraph_prune = parse<int>(optarg);
             break;
 
         case 'E':
-            edge_max = atoi(optarg);
+            edge_max = parse<int>(optarg);
             break;
 
         case 'q':
-            match = atoi(optarg);
+            match = parse<int>(optarg);
             break;
 
         case 'z':
-            mismatch = atoi(optarg);
+            mismatch = parse<int>(optarg);
             break;
 
         case 'o':
-            gap_open = atoi(optarg);
+            gap_open = parse<int>(optarg);
             break;
 
         case 'y':
-            gap_extend = atoi(optarg);
+            gap_extend = parse<int>(optarg);
             break;
 
         case 'L':
-            full_length_bonus = atoi(optarg);
+            full_length_bonus = parse<int>(optarg);
             break;
 
         case 'a':
@@ -359,6 +365,12 @@ int main_msga(int argc, char** argv) {
 
         case '8':
             patch_alignments = false;
+            break;
+
+        case 1:
+            max_gap_length = atoi(optarg);     // fall through
+        case 2:
+            xdrop_alignment = true;
             break;
 
         case 'h':
@@ -636,7 +648,7 @@ int main_msga(int argc, char** argv) {
                             << graph->length() << "bp "
                             << "n:" << graph->node_count() << " "
                             << "e:" << graph->edge_count() << endl;
-            Alignment aln = mapper->align(seq, 0, 0, 0, band_width, band_overlap);
+            Alignment aln = mapper->align(seq, 0, 0, 0, band_width, band_overlap, xdrop_alignment);
             aln.set_name(name);
             if (aln.path().mapping_size()) {
                 auto aln_seq = graph->path_string(aln.path());
@@ -645,7 +657,8 @@ int main_msga(int argc, char** argv) {
                     cerr << "expected " << seq << endl;
                     cerr << "got      " << aln_seq << endl;
                     ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
-                    stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+                    stream::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
+                    stream::finish(f);
                     f.close();
                     graph->serialize_to_file(name + "-corrupted-alignment.vg");
                     exit(1);
@@ -661,7 +674,8 @@ int main_msga(int argc, char** argv) {
 
             /*
                ofstream f(name + "-pre-edit-" + convert(j) + ".gam");
-               stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+               stream::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
+               stream::finish(f);
                f.close();
                */
 
@@ -713,7 +727,8 @@ int main_msga(int argc, char** argv) {
                     << pb2json(graph->paths.path(name)) << endl;
                 graph->serialize_to_file(name + "-post-edit.vg");
                 ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
-                stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+                stream::write(f, 1, (std::function<Alignment(size_t)>)([&aln](size_t n) { return aln; }));
+                stream::finish(f);
                 f.close();
             }
         }

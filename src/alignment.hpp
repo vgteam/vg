@@ -53,6 +53,8 @@ bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
                              map<string, int64_t>& path_length,
                              map<string, string>& rg_sample);
+/// Write alighnents to the given output stream.
+/// Does not write an EOF marker, so stream::finish() must be run on the stream after writing is done.
 void write_alignments(std::ostream& out, vector<Alignment>& buf);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 
@@ -193,6 +195,9 @@ Alignment simplify(const Alignment& a, bool trim_internal_deletions = true);
 // quality information; a kind of poor man's pileup
 map<id_t, int> alignment_quality_per_node(const Alignment& aln);
 
+/// Parse regions from the given BED file into Alignments in a vector.
+/// Reads the optional name, is_reverse, and score fields if present, and populates the relevant Alignment fields.
+/// Skips and warns about malformed or illegal BED records.
 void parse_bed_regions(istream& bedstream, xg::XG* xgindex, vector<Alignment>* out_alignments);
 void parse_gff_regions(istream& gtfstream, xg::XG* xgindex, vector<Alignment>* out_alignments);
 

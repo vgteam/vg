@@ -24,6 +24,7 @@
 #include "utility.hpp"
 #include "alignment.hpp"
 #include "prune.hpp"
+#include "mem.hpp"
 
 #include "vg.pb.h"
 #include "hash_map.hpp"
@@ -40,7 +41,6 @@
 #include "colors.hpp"
 
 #include "types.hpp"
-#include "gfakluge.hpp"
 
 #include "nodetraversal.hpp"
 #include "nodeside.hpp"
@@ -367,8 +367,6 @@ public:
     /// Convert edges that are both from_start and to_end to "regular" ones from end to start.
     void flip_doubly_reversed_edges(void);
 
-    /// Build a graph from a GFA stream.
-    void from_gfa(istream& in, bool showp = false);
     /// Build a graph from a Turtle stream.
     void from_turtle(string filename, string baseuri, bool showp = false);
 
@@ -455,8 +453,16 @@ public:
     void prune_complex_paths(int length, int edge_max, Node* head_node, Node* tail_node);
     void prune_short_subgraphs(size_t min_size);
 
-    /// Write to a stream in chunked graphs.
+    /// Write to a stream in chunked graphs. Adds an EOF marker.
+    /// Use when this VG will be the only thing in the stream.
     void serialize_to_ostream(ostream& out, id_t chunk_size = 1000);
+    /// Write to a stream in chunked graphs. Does not add an EOF marker, so
+    /// serializing multiple graphs to a stream won't produce spurious EOF
+    /// markers. Caller must call stream::finish(out) on the stream when done
+    /// writing to it.
+    /// Use when combining multiple VG objects in a stream/
+    void serialize_to_ostream_as_part(ostream& out, id_t chunk_size = 1000);
+    /// Write the graph to a file, with an EOF marker.
     void serialize_to_file(const string& file_name, id_t chunk_size = 1000);
 
     // can we handle this with merge?
@@ -703,6 +709,7 @@ public:
     Node* create_node(const string& seq, id_t id);
     /// Find a particular node.
     Node* get_node(id_t id);
+    const Node* get_node(id_t id) const;
     /// Get the subgraph of a node and all the edges it is responsible for
     /// (where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
@@ -723,15 +730,16 @@ public:
     /// Destroy the node with the given ID.
     void destroy_node(id_t id);
     /// Determine if the graph has a node with the given ID.
-    bool has_node(id_t id);
+    bool has_node(id_t id) const;
     /// Determine if the graph contains the given node.
-    bool has_node(Node* node);
+    bool has_node(const Node* node) const;
     /// Determine if the graph contains the given node.
-    bool has_node(const Node& node);
+    bool has_node(const Node& node) const;
     /// Find a node with the given name, or create a new one if none is found.
     Node* find_node_by_name_or_add_new(string name);
     /// Run the given function on every node.
     void for_each_node(function<void(Node*)> lambda);
+    void for_each_node(function<void(const Node*)> lambda) const;
     /// Run the given function on every node in parallel.
     void for_each_node_parallel(function<void(Node*)> lambda);
     /// Go through all the nodes in the same connected component as the given node. Ignores relative orientation.
@@ -777,7 +785,7 @@ public:
              const function<bool(void)>& break_fn);
 
     /// Is the graph empty?
-    bool empty(void);
+    bool empty(void) const;
 
     /// Generate a digest of the serialized graph.
     const string hash(void);
@@ -886,6 +894,7 @@ public:
     bool has_inverting_edge_to(Node* n);
     /// Run the given function for each edge.
     void for_each_edge(function<void(Edge*)> lambda);
+    void for_each_edge(function<void(const Edge*)> lambda) const;
     /// Run the given function for each edge, in parallel.
     void for_each_edge_parallel(function<void(Edge*)> lambda);
 
@@ -940,8 +949,6 @@ public:
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
                 bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0,
                 bool color_variants = false);
-    /// Convert the graph to GFA format.
-    void to_gfa(ostream& out);
     /// Convert the graph to Turtle format.
     void to_turtle(ostream& out, const string& rdf_base_uri, bool precompress);
     /// Determine if the graph is valid or not, according to the specified criteria.
@@ -972,11 +979,28 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
+                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse, see constructor for the X-drop threshold
+                    bool multithreaded_xdrop = false,
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
     /// Align to the graph.
     /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
+    Alignment align(const Alignment& alignment,
+                    Aligner* aligner,
+                    const vector<MaximalExactMatch>& mems,
+                    bool traceback = true,
+                    bool acyclic_and_sorted = false,
+                    size_t max_query_graph_ratio = 0,
+                    bool pinned_alignment = false,
+                    bool pin_left = false,
+                    bool banded_global = false,
+                    size_t band_padding_override = 0,
+                    size_t max_span = 0,
+                    size_t unroll_length = 0,
+                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
+                    bool multithreaded_xdrop = false,
+                    bool print_score_matrices = false);
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     bool traceback = true,
@@ -988,6 +1012,8 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
+                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
+                    bool multithreaded_xdrop = false,
                     bool print_score_matrices = false);
     
     /// Align with default Aligner.
@@ -1004,6 +1030,8 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
+                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
+                    bool multithreaded_xdrop = false,
                     bool print_score_matrices = false);
     /// Align with default Aligner.
     /// Align to the graph.
@@ -1019,12 +1047,29 @@ public:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
+                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
+                    bool multithreaded_xdrop = false,
                     bool print_score_matrices = false);
     
     /// Align with base quality adjusted scores.
     /// Align to the graph.
     /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
+    Alignment align_qual_adjusted(const Alignment& alignment,
+                                  QualAdjAligner* qual_adj_aligner,
+                                  const vector<MaximalExactMatch>& mems,
+                                  bool traceback = true,
+                                  bool acyclic_and_sorted = false,
+                                  size_t max_query_graph_ratio = 0,
+                                  bool pinned_alignment = false,
+                                  bool pin_left = false,
+                                  bool banded_global = false,
+                                  size_t band_padding_override = 0,
+                                  size_t max_span = 0,
+                                  size_t unroll_length = 0,
+                                  int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
+                                  bool multithreaded_xdrop = false,
+                                  bool print_score_matrices = false);
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner* qual_adj_aligner,
                                   bool traceback = true,
@@ -1036,6 +1081,8 @@ public:
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
+                                  int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
+                                  bool multithreaded_xdrop = false,
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
     /// Align to the graph.
@@ -1052,6 +1099,8 @@ public:
                                   size_t band_padding_override = 0,
                                   size_t max_span = 0,
                                   size_t unroll_length = 0,
+                                  int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
+                                  bool multithreaded_xdrop = false,
                                   bool print_score_matrices = false);
     
     
@@ -1161,6 +1210,7 @@ private:
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
+                    const vector<MaximalExactMatch>& mems,
                     bool traceback = true,
                     bool acyclic_and_sorted = false,
                     size_t max_query_graph_ratio = 0,
@@ -1170,6 +1220,8 @@ private:
                     size_t band_padding_override = 0,
                     size_t max_span = 0,
                     size_t unroll_length = 0,
+                    int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
+                    bool multithreaded_xdrop = false,
                     bool print_score_matrices = false);
 
 

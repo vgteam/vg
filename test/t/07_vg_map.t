@@ -5,12 +5,14 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 51
+plan tests 52
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 
 is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "3" "offset counts unused bases from the start of the node on the forward strand"
+
+is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa --xdrop-alignment -j - | jq -r '.path.mapping[0].position.offset')" "3" "xdrop alignment obtains the expected result"
 
 is  "$(vg map --score-matrix default.mat -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "3" "score-matrix defaults match 1 mismatch -4 should produce same results: with matrixoffset counts unused bases from the start of the node on the forward strand"
 
@@ -149,7 +151,7 @@ is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -
 is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.match.fq -j | jq -r '.score')" "35" "mapping a read that matches a haplotype gets a small penalty"
 is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 0 --full-l-bonus 0 -f reads/x.match.fq -j | jq -r '.score')" "36" "mapping a read that matches a haplotype with exponent 0 gets the base score"
 # This read matches no haplotypes but only visits used nodes
-is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.offhap.fq -j | jq -r '.score')" "22" "mapping a read that matches no haplotypes gets a larger penalty"
+is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.offhap.fq -j | jq -r '.score')" "21" "mapping a read that matches no haplotypes gets a larger penalty"
 
 # Test paired surjected mapping
 vg map -d x -iG <(vg sim -a -s 13241 -n 1 -p 500 -v 300 -x x.xg | vg view -a - | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --surject-to SAM >surjected.sam

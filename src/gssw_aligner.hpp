@@ -15,6 +15,10 @@
 #include "path.hpp"
 #include "utility.hpp"
 #include "banded_global_aligner.hpp"
+#include "xdrop_aligner.hpp"
+
+// #define BENCH
+// #include "bench.h"
 
 namespace vg {
 
@@ -26,8 +30,8 @@ namespace vg {
     static const int8_t default_max_scaled_score = 32;
     static const uint8_t default_max_qual_score = 255;
     static const double default_gc_content = 0.5;
-    
-    
+    static const uint32_t default_max_gap_length = 40;
+
     
     class VG; // forward declaration
 
@@ -63,16 +67,18 @@ namespace vg {
                                        bool print_score_matrices = false);
         string graph_cigar(gssw_graph_mapping* gm);
         
+    public:
         /// Given a nonempty vector of nonnegative scaled alignment scores,
         /// compute the mapping quality of the maximal score in the vector.
         /// Sets max_idx_out to the index of that score in the vector. May
         /// modify the input vector.
-        double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out);
+        static double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out);
         /// Given a nonempty vector of nonnegative scaled alignment scores,
         /// approximate the mapping quality of the maximal score in the vector.
         /// Sets max_idx_out to the index of that score in the vector. May
         /// modify the input vector.
-        double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out);
+        static double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out);
+    protected:
         double group_mapping_quality_exact(vector<double>& scaled_scores, vector<size_t>& group);
         double estimate_next_best_score(int length, double min_diffs);
         
@@ -126,7 +132,10 @@ namespace vg {
         virtual void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments,
                                                Graph& g, int32_t max_alt_alns, int32_t band_padding = 0,
                                                bool permissive_banding = true) = 0;
-                        
+        // xdrop aligner
+        virtual void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded) = 0;
+        virtual void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) = 0;
+
         /// Compute the score of an exact match in the given alignment, from the
         /// given offset, of the given length.
         virtual int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const = 0;
@@ -243,14 +252,25 @@ namespace vg {
                             bool pinned, bool pin_left, int32_t max_alt_alns,
                             bool traceback_aln,
                             bool print_score_matrices);
+
+        // members
+        XdropAligner xdrop;
+        // bench_t bench;
     public:
-        
         Aligner(int8_t _match = default_match,
                 int8_t _mismatch = default_mismatch,
                 int8_t _gap_open = default_gap_open,
                 int8_t _gap_extension = default_gap_extension,
                 int8_t _full_length_bonus = default_full_length_bonus,
                 double _gc_content = default_gc_content);
+        // xdrop_aligner wrapper, omit default values to call the one above for Aligner();
+        Aligner(int8_t _match,
+                int8_t _mismatch,
+                int8_t _gap_open,
+                int8_t _gap_extension,
+                int8_t _full_length_bonus,
+                double _gc_content,
+                uint32_t _max_gap_length);
         ~Aligner(void) = default;
         
         /// Store optimal local alignment against a graph in the Alignment object.
@@ -291,8 +311,11 @@ namespace vg {
         // optimal alignment will be stored in both the vector and the original alignment object
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
-        
-        
+
+        // xdrop aligner
+        void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded);
+        void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns);
+
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
@@ -330,8 +353,10 @@ namespace vg {
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
                                 bool pin_left, int32_t max_alt_alns);
-        
-        
+        // xdrop aligner
+        void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded);
+        void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns);
+
         void init_mapping_quality(double gc_content);
         
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const;
