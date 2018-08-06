@@ -10,7 +10,7 @@
 #include "xg.hpp"
 #include "json2pb.h"
 #include "region.hpp"
-#include "index.hpp"
+#include "gam_index.hpp"
 
 namespace vg {
 
@@ -52,19 +52,20 @@ public:
     void extract_id_range(vg::id_t start, vg::id_t end, int context, int length, bool forward_only,
                          VG& subgraph, Region& out_region);
 
-    /** Extract all alignments that touch a node in a subgraph and write them 
-     * to an output stream using the rocksdb index (and this->gam_buffer_size) */
-    int64_t extract_gam_for_subgraph(VG& subgraph, Index& index, ostream* out_stream,
-                                     bool only_fully_contained = false,
-                                     bool search_all_positions = false,
-                                     bool unsorted_index = false);                                     
+    /**
+     * Extract all alignments that touch a node in a subgraph and write them 
+     * to an output stream using the given GAM index (and this->gam_buffer_size)
+     */
+    void extract_gam_for_subgraph(VG& subgraph, GAMIndex::cursor_t& cursor, const GAMIndex& index,
+                                  ostream* out_stream, bool only_fully_contained = false);                                     
     
-    /** More general interface used by above two functions */
-    int64_t extract_gam_for_ids(vector<vg::id_t>& graph_ids, Index& index, ostream* out_stream,
-                                bool contiguous_id_range = false,
-                                bool only_fully_contained = false,
-                                bool search_all_positions = false,
-                                bool unsorted_index = false);
+    /** 
+     * More general interface used by above two functions.
+     * Extract GAM data for a series of inclusive contiguous ranges of IDs.
+     * The ranges must be sorted and coalesced.
+     */
+    void extract_gam_for_ids(const vector<pair<vg::id_t, vg::id_t>>& graph_id_ranges, GAMIndex::cursor_t& cursor, const GAMIndex& index,
+                             ostream* out_stream, bool only_fully_contained = false);
     
 };
 

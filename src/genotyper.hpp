@@ -140,8 +140,8 @@ public:
     unordered_set<const Snarl*> all_snarls;
     
     // We need to have aligners in our genotyper, for realigning around indels.
-    Aligner normal_aligner;
-    QualAdjAligner quality_aligner;
+    vector<Aligner> normal_aligners;
+    vector<QualAdjAligner> quality_aligners;
 
     // Toggle traversal finder for testing
     enum TraversalAlg { Reads, Exhaustive, Representative, Adaptive };

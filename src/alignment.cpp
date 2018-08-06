@@ -540,8 +540,8 @@ void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
 }
 
 void write_alignments(std::ostream& out, vector<Alignment>& buf) {
-    function<Alignment(uint64_t)> lambda =
-        [&buf] (uint64_t n) {
+    function<Alignment(size_t)> lambda =
+        [&buf] (size_t n) {
         return buf[n];
     };
     stream::write(cout, buf.size(), lambda);
@@ -1433,7 +1433,7 @@ void parse_bed_regions(istream& bedstream,
     // Record end position
     size_t ebuf;
     string name;
-    size_t score;
+    size_t score = 0;
     string strand;
 
     for (int line = 1; getline(bedstream, row); ++line) {
@@ -1479,6 +1479,7 @@ void parse_bed_regions(istream& bedstream,
 
         // Make the Alignment
         Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name, is_reverse);
+        alignment.set_score(score);
 
         out_alignments->push_back(alignment);
     }

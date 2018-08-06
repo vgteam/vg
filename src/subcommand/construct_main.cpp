@@ -194,19 +194,7 @@ int main_construct(int argc, char** argv) {
         }
     }
     
-    // We need a callback to handle pieces of graph as they are produced.
-    auto callback = [&](Graph& big_chunk) {
-        // Wrap the chunk in a vg object that can properly divide it into
-        // reasonably sized serialized chunks.
-        VG* g = new VG(big_chunk, false, true);
-#pragma omp critical (cout)
-        g->serialize_to_ostream(cout);
-    };
-    
-    constructor.max_node_size = max_node_size;
-    constructor.show_progress = show_progress;
-    
-    if (constructor.max_node_size == 0) {
+    if (max_node_size == 0) {
         // Make sure we can actually make nodes
         cerr << "error:[vg construct] max node size cannot be 0" << endl;
         exit(1);
@@ -218,7 +206,22 @@ int main_construct(int argc, char** argv) {
     }
     
     if (!fasta_filenames.empty()) {
+        // Actually use the Constructor.
+        // TODO: If we aren't always going to use the Constructor, refactor the subcommand to not always create and configure it.
+
+        // We need a callback to handle pieces of graph as they are produced.
+        auto callback = [&](Graph& big_chunk) {
+            // Wrap the chunk in a vg object that can properly divide it into
+            // reasonably sized serialized chunks.
+            VG* g = new VG(big_chunk, false, true);
+#pragma omp critical (cout)
+            g->serialize_to_ostream_as_part(cout);
+        };
         
+        // Copy shared parameters into the constructor
+        constructor.max_node_size = max_node_size;
+        constructor.show_progress = show_progress;
+
         
         if (!region.empty()) {
             // We want to limit to a certain region
@@ -320,6 +323,10 @@ int main_construct(int argc, char** argv) {
         // Construct the graph.
         constructor.construct_graph(fasta_pointers, vcf_pointers,
                                     ins_pointers, callback);
+                                    
+        // Now all the graph chunks are written out.
+        // Add an EOF marker
+        stream::finish(cout);
         
         // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
         // this would free all the memory used by protobuf:
@@ -339,7 +346,7 @@ int main_construct(int argc, char** argv) {
         msa_converter.load_alignments(msa_file, msa_format);
         VG msa_graph = msa_converter.make_graph(keep_paths, max_node_size);
         
-        callback(msa_graph.graph);
+        msa_graph.serialize_to_ostream(cout);
     }
     else {
         cerr << "error:[vg construct] a reference or an MSA is required for construct" << endl;

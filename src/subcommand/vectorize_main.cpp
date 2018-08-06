@@ -16,6 +16,7 @@
 #include "../vg.hpp"
 #include "../vectorizer.hpp"
 #include "../mapper.hpp"
+#include "../stream.hpp"
 
 using namespace std;
 using namespace vg;
