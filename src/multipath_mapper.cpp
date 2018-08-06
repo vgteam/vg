@@ -19,6 +19,9 @@ namespace vg {
     
     //size_t MultipathMapper::PRUNE_COUNTER = 0;
     //size_t MultipathMapper::SUBGRAPH_TOTAL = 0;
+    //size_t MultipathMapper::SECONDARY_RESCUE_COUNT = 0;
+    //size_t MultipathMapper::SECONDARY_RESCUE_ATTEMPT = 0;
+    //size_t MultipathMapper::SECONDARY_RESCUE_TOTAL = 0;
     
     MultipathMapper::MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                                      haplo::ScoreProvider* haplo_score_provider, SnarlManager* snarl_manager) :
@@ -1089,6 +1092,15 @@ namespace vg {
                 
                 num_rescues++;
             }
+            
+//#pragma omp atomic
+//            SECONDARY_RESCUE_TOTAL++;
+//#pragma omp atomic
+//            SECONDARY_RESCUE_ATTEMPT += num_rescues;
+//            if (num_rescues > 0) {
+//#pragma omp atomic
+//                SECONDARY_RESCUE_COUNT++;
+//            }
         };
         
         // perform routine for both read ends
