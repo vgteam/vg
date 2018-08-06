@@ -147,7 +147,7 @@ namespace vg {
         }
     }
 
-    pair<int64_t, int64_t> Constructor::get_bounds(vcflib::Variant var, bool use_flat_alts){
+    pair<int64_t, int64_t> Constructor::get_bounds(vcflib::Variant var){
         int64_t start = numeric_limits<int64_t>::max();
 
         start = min(start, (int64_t) var.zeroBasedPosition());
@@ -1520,7 +1520,7 @@ namespace vg {
                 if (variant_acceptable) {
                     // Worth checking for bounds problems.
                     // We have seen VCFs where the variant positions are on GRCh38 but the END INFO tags are on GRCh37.
-                    auto bounds = get_bounds(*vvar, true);
+                    auto bounds = get_bounds(*vvar);
                     if (bounds.second < bounds.first) {
                         #pragma omp critical (cerr)
                         cerr << "warning:[vg::Constructor] SV with end position before start being skipped (check liftover?): "
