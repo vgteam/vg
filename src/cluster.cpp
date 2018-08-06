@@ -636,8 +636,8 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
 #endif
                 
                 // add the edges in
-                pivot.edges_from.emplace_back(next_idx, edge_score);
-                next.edges_to.emplace_back(pivot_idx, edge_score);
+                pivot.edges_from.emplace_back(next_idx, edge_score, graph_dist);
+                next.edges_to.emplace_back(pivot_idx, edge_score, graph_dist);
             }
         }
     }
@@ -2249,8 +2249,20 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
         ODNode& node = nodes[node_idx];
         for (size_t j = 0; j < node.edges_from.size(); ) {
             ODEdge& edge = node.edges_from[j];
+            
+            // don't remove edges that look nearly perfect (helps keep redundant sub-MEMs in the cluster with
+            // their parent so that they can be removed later)
+            if (abs(edge.distance - (nodes[edge.to_idx].mem->begin - node.mem->begin)) < 2) {
+#ifdef debug_od_clusterer
+                cerr << "preserving edge because distance looks good" << endl;
+#endif
+                continue;
+            }
+            
             // the forward-backward score of this edge
             int32_t edge_score = node.dp_score + edge.weight + backwards_dp_score[node_idx_to_component_idx[edge.to_idx]];
+            
+            // is the max score across this edge too low?
             if (edge_score < min_score) {
                 
 #ifdef debug_od_clusterer

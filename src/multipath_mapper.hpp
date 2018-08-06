@@ -169,6 +169,7 @@ namespace vg {
                                           vector<clustergraph_t>& cluster_graphs2,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                          vector<pair<size_t, size_t>>& duplicate_pairs_out,
                                           OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
                                           OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
                                           OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
@@ -187,6 +188,7 @@ namespace vg {
         void attempt_rescue_for_secondaries(const Alignment& alignment1, const Alignment& alignment2,
                                             vector<clustergraph_t>& cluster_graphs1,
                                             vector<clustergraph_t>& cluster_graphs2,
+                                            vector<pair<size_t, size_t>>& duplicate_pairs,
                                             vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                             vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
         
@@ -198,7 +200,8 @@ namespace vg {
                                                       vector<memcluster_t>& clusters1, vector<memcluster_t>& clusters2,
                                                       vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
                                                       vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                      vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances, size_t max_alt_mappings,
+                                                      vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
+                                                      size_t max_alt_mappings,
                                                       OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
                                                       OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
                                                       OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
@@ -253,7 +256,8 @@ namespace vg {
         /// If there are ties between scores, breaks them by the expected distance between pairs as computed by the
         /// OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector)
         void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
-                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
+                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                              vector<pair<size_t, size_t>>* duplicate_pairs_out = nullptr) const;
 
         /// Estimates the probability that the correct cluster was not chosen as a cluster to rescue from and caps the
         /// mapping quality to the minimum of the current mapping quality and this probability (in Phred scale)

@@ -977,6 +977,7 @@ namespace vg {
     void MultipathMapper::attempt_rescue_for_secondaries(const Alignment& alignment1, const Alignment& alignment2,
                                                          vector<clustergraph_t>& cluster_graphs1,
                                                          vector<clustergraph_t>& cluster_graphs2,
+                                                         vector<pair<size_t, size_t>>& duplicate_pairs,
                                                          vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) {
         
@@ -991,6 +992,12 @@ namespace vg {
             // keep track of which clusters already have consistent pairs
             paired_clusters_1.insert(cluster_pairs[i].first.first);
             paired_clusters_2.insert(cluster_pairs[i].first.second);
+        }
+        
+        for (size_t i = 0; i < duplicate_pairs.size(); i++) {
+            // also mark which pairs have already been identified as duplicates
+            paired_clusters_1.insert(duplicate_pairs[i].first);
+            paired_clusters_2.insert(duplicate_pairs[i].second);
         }
         
         int32_t cluster_score_1 = get_aligner()->match * get<2>(cluster_graphs1[cluster_pairs.front().first.first]);
@@ -1218,6 +1225,7 @@ namespace vg {
         vector<memcluster_t> clusters1, clusters2;
         vector<clustergraph_t> cluster_graphs1, cluster_graphs2;
         vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs;
+        vector<pair<size_t, size_t>> duplicate_pairs;
         
         // intialize memos for the results of expensive succinct operations that we may need to do multiple times
         OrientedDistanceClusterer::paths_of_node_memo_t paths_of_node_memo;
@@ -1450,7 +1458,8 @@ namespace vg {
                 // only perform the mappings that satisfy the expectations on distance
                 
                 align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
-                                             multipath_aln_pairs_out, &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
+                                             multipath_aln_pairs_out, duplicate_pairs,
+                                             &paths_of_node_memo, &oriented_occurences_memo, &handle_memo);
                 
                 // do we produce at least one good looking pair alignments from the clustered clusters?
                 if (multipath_aln_pairs_out.empty() ? true : (likely_mismapping(multipath_aln_pairs_out.front().first) ||
@@ -1509,7 +1518,7 @@ namespace vg {
                         // we're very confident about this pair, but it might be because we over-pruned at the clustering stage
                         // so we use this routine to use rescue on other very good looking independent end clusters
                         attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
-                                                       multipath_aln_pairs_out, cluster_pairs);
+                                                       duplicate_pairs, multipath_aln_pairs_out, cluster_pairs);
                         
                         // account for the possiblity that we selected the wrong ends to rescue with
                         cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
@@ -2280,28 +2289,29 @@ namespace vg {
                                                        vector<clustergraph_t>& cluster_graphs2,
                                                        vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                                        vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                       vector<pair<size_t, size_t>>& duplicate_pairs_out,
                                                        OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo,
                                                        OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo,
                                                        OrientedDistanceClusterer::handle_memo_t* handle_memo) {
         
         assert(multipath_aln_pairs_out.empty());
         
-        auto get_pair_coverage = [&](const pair<size_t, size_t>& cluster_pair) {
-            return get<2>(cluster_graphs1[cluster_pair.first]) + get<2>(cluster_graphs2[cluster_pair.second]);
+        auto get_pair_approx_likelihood = [&](const pair<pair<size_t, size_t>, int64_t>& cluster_pair) {
+            return ((get<2>(cluster_graphs1[cluster_pair.first.first])
+                     + get<2>(cluster_graphs2[cluster_pair.first.second])) * get_aligner()->match * get_aligner()->log_base
+                    + fragment_length_log_likelihood(cluster_pair.second));
         };
         
         // sort the pairs descending by approximate likelihood
         stable_sort(cluster_pairs.begin(), cluster_pairs.end(),
                     [&](const pair<pair<size_t, size_t>, int64_t>& a, const pair<pair<size_t, size_t>, int64_t>& b) {
                         // compute approximate likelihood in similar way to how the mapping quality routine will
-                        double likelihood_1 = (get_pair_coverage(a.first) * get_aligner()->match * get_aligner()->log_base
-                                               + fragment_length_log_likelihood(a.second));
-                        double likelihood_2 = (get_pair_coverage(b.first) * get_aligner()->match * get_aligner()->log_base
-                                               + fragment_length_log_likelihood(b.second));
+                        double likelihood_1 = get_pair_approx_likelihood(a);
+                        double likelihood_2 = get_pair_approx_likelihood(b);
                         size_t hash_1 = wang_hash<pair<pair<size_t, size_t>, int64_t>>()(a);
                         size_t hash_2 = wang_hash<pair<pair<size_t, size_t>, int64_t>>()(b);
                         return (likelihood_1 > likelihood_2 || (likelihood_1 == likelihood_2 && hash_1 < hash_2));
-                  });
+                    });
         
 #ifdef debug_multipath_mapper
         cerr << "aligning to cluster pairs..." << endl;
@@ -2327,7 +2337,7 @@ namespace vg {
             // if we have a cluster graph pair with small enough MEM coverage
             // compared to the best one or we've made the maximum number of
             // alignments we stop producing alternate alignments
-            if (get_pair_coverage(cluster_pair.first) < mem_coverage_min_ratio * get_pair_coverage(cluster_pairs[0].first)
+            if (get_pair_approx_likelihood(cluster_pair) < mem_coverage_min_ratio * get_pair_approx_likelihood(cluster_pairs.front())
                 || num_mappings >= num_mappings_to_compute) {
                 
                 // remove the rest of the cluster pairs so we maintain the invariant that there are the
@@ -2409,7 +2419,7 @@ namespace vg {
         }
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score
-        sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs);
+        sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, &duplicate_pairs_out);
         
 #ifdef debug_validate_multipath_alignments
         for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
@@ -3193,7 +3203,8 @@ namespace vg {
     
     // TODO: pretty duplicative with the unpaired version
     void MultipathMapper::sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
-                                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const {
+                                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                           vector<pair<size_t, size_t>>* duplicate_pairs_out) const {
         
 #ifdef debug_multipath_mapper
         cerr << "Sorting and computing mapping qualities for paired reads" << endl;
@@ -3379,9 +3390,11 @@ namespace vg {
 #ifdef debug_multipath_mapper
                         cerr << "found double end duplication at index " << i << endl;
 #endif
-                        
                         // this pair is a complete duplication (not just one end) we want it gone
                         to_remove.push_back(i);
+                        if (duplicate_pairs_out) {
+                            duplicate_pairs_out->push_back(cluster_pairs[i].first);
+                        }
                     }
                     else if (duplicate_1) {
 #ifdef debug_multipath_mapper
