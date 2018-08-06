@@ -187,6 +187,7 @@ public:
     void compact_ranks(void);
     //void add_node_mapping(Node* n);
     void load(istream& in);
+    /// Write paths to the given stream, ending with an EOF marker.
     void write(ostream& out);
     /// Add all paths into the given Protobuf graph. Creates a new path for every path.
     void to_graph(Graph& g);

@@ -1,4 +1,5 @@
 #include "gssw_aligner.hpp"
+#include "xdrop_aligner.hpp"
 #include "json2pb.h"
 
 static const double quality_scale_factor = 10.0 / log(10.0);
@@ -839,6 +840,18 @@ Aligner::Aligner(int8_t _match,
                  int8_t _gap_extension,
                  int8_t _full_length_bonus,
                  double gc_content)
+    : Aligner(_match, _mismatch, _gap_open, _gap_extension, _full_length_bonus, gc_content, default_max_gap_length)
+{
+}
+
+Aligner::Aligner(int8_t _match,
+                 int8_t _mismatch,
+                 int8_t _gap_open,
+                 int8_t _gap_extension,
+                 int8_t _full_length_bonus,
+                 double gc_content,
+                 uint32_t _max_gap_length)
+    : xdrop(_match, _mismatch, _gap_open, _gap_extension, _full_length_bonus, _max_gap_length)
 {
     match = _match;
     mismatch = _mismatch;
@@ -849,13 +862,20 @@ Aligner::Aligner(int8_t _match,
     nt_table = gssw_create_nt_table();
     score_matrix = gssw_create_score_matrix(match, mismatch);
     BaseAligner::init_mapping_quality(gc_content);
+    // bench_init(bench);
 }
 
+/*
+Aligner::~Aligner()
+{
+    // fprintf(stderr, "gssw: time(%lu), count(%lu)\n", bench_get(bench) / 1000, bench_get_count(bench));
+}
+*/
 
 void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
                              bool pinned, bool pin_left, int32_t max_alt_alns,
                              bool traceback_aln, bool print_score_matrices) {
-
+    // bench_start(bench);
     // check input integrity
     if (pin_left && !pinned) {
         cerr << "error:[Aligner] cannot choose pinned end in non-pinned alignment" << endl;
@@ -1019,6 +1039,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);
     
     gssw_graph_destroy(graph);
+    // bench_end(bench);
 }
 
 void Aligner::align(Alignment& alignment, Graph& g, bool traceback_aln, bool print_score_matrices) {
@@ -1154,6 +1175,23 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
         band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     }
 }
+
+// X-drop aligner
+void Aligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded)
+{
+    // cerr << "X-drop aligner" << endl;
+    if (multithreaded) {
+        auto xdrop_copy = xdrop; // make thread safe
+        xdrop_copy.align(alignment, g, mems, reverse_complemented);
+    } else {
+        xdrop.align(alignment, g, mems, reverse_complemented);
+    }
+}
+
+void Aligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns)
+{
+}
+
 
 // Scoring an exact match is very simple in an ordinary Aligner
 
@@ -1477,6 +1515,15 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
                                                                            true);
     
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+}
+
+// X-drop aligner
+void QualAdjAligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded)
+{
+}
+
+void QualAdjAligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns)
+{
 }
 
 int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {

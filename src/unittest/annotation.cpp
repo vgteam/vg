@@ -49,6 +49,23 @@ TEST_CASE("Annotations can be populated", "[alignment][annotation]") {
     }
     
 }
+
+TEST_CASE("Multi-value annotations can be set and gotten", "[alignment][annotation]") {
+    
+    Alignment aln;
+    
+    vector<string> words{"candy", "cats", "cacaphony"};
+    
+    set_annotation(&aln, "words", words);
+    
+    vector<string> recovered = get_annotation<vector<string>>(&aln, "words");
+    
+    REQUIRE(recovered.size() == words.size());
+    for (size_t i = 0; i < words.size(); i++) {
+        REQUIRE(recovered[i] == words[i]);
+    }
+    
+}
    
 }
 }

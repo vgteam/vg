@@ -51,7 +51,7 @@ void Pileups::load(istream& in) {
     stream::for_each(in, lambda);
 }
 
-void Pileups::write(ostream& out, uint64_t chunk_size) {
+void Pileups::write(ostream& out, size_t chunk_size) {
 
     int64_t count = max(_node_pileups.size(), _edge_pileups.size()) / chunk_size;
     if (max(_node_pileups.size(), _edge_pileups.size()) % chunk_size != 0) {
@@ -62,17 +62,16 @@ void Pileups::write(ostream& out, uint64_t chunk_size) {
     EdgePileupHash::iterator edge_it = _edge_pileups.begin();
     Pileup pileup;
 
-    // note: this won't work at all in parallel but presumably write
-    // is single threaded...
-    function<Pileup&(uint64_t)> lambda = [&](uint64_t i) -> Pileup& {
+    // note: this won't work at all in parallel but write is single threaded...
+    function<Pileup&(size_t)> lambda = [&](size_t i) -> Pileup& {
         pileup.clear_node_pileups();
         pileup.clear_edge_pileups();
-        for (int j = 0; j < chunk_size && node_it != _node_pileups.end(); ++j, ++node_it) {
+        for (size_t j = 0; j < chunk_size && node_it != _node_pileups.end(); ++j, ++node_it) {
             NodePileup* np = pileup.add_node_pileups();
             *np = *node_it->second;
         }
         // unlike for Graph, we don't bother to try to group edges with nodes they attach
-        for (int j = 0; j < chunk_size && edge_it != _edge_pileups.end(); ++j, ++edge_it) {
+        for (size_t j = 0; j < chunk_size && edge_it != _edge_pileups.end(); ++j, ++edge_it) {
             EdgePileup* ep = pileup.add_edge_pileups();
             *ep = *edge_it->second;
         }
@@ -81,6 +80,7 @@ void Pileups::write(ostream& out, uint64_t chunk_size) {
     };
 
     stream::write(out, count, lambda);
+    stream::finish(out);
 }
 
 void Pileups::for_each_node_pileup(const function<void(NodePileup&)>& lambda) {
