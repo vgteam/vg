@@ -607,7 +607,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                 }
                 
                 if (next.mem->begin >= pivot.mem->begin && next.mem->end <= pivot.mem->end
-                    && abs(graph_dist - (next.mem->begin - pivot.mem->begin)) <= 1) {
+                    && abs((sorted_pos[j].first - strand_pos) - (next.mem->begin - pivot.mem->begin)) <= 1) {
                     // this looks like a redundant sub-MEM
                     
                     // we add a dummy edge, but only to connect the nodes' components and join the clusters,
@@ -2269,7 +2269,8 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
             
             // don't remove edges that look nearly perfect (helps keep redundant sub-MEMs in the cluster with
             // their parent so that they can be removed later)
-            if (abs(edge.distance - (nodes[edge.to_idx].mem->begin - node.mem->begin)) <= 1) {
+            if (abs((edge.distance + (node.mem->end - node.mem->begin))
+                    - (nodes[edge.to_idx].mem->begin - node.mem->begin)) <= 1) {
 #ifdef debug_od_clusterer
                 cerr << "preserving edge because distance looks good" << endl;
 #endif
