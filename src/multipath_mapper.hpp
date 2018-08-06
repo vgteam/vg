@@ -114,6 +114,9 @@ namespace vg {
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
+        //static size_t SECONDARY_RESCUE_COUNT;
+        //static size_t SECONDARY_RESCUE_ATTEMPT;
+        //static size_t SECONDARY_RESCUE_TOTAL;
         
         /// We often pass around clusters of MEMs and their graph positions.
         using memcluster_t = vector<pair<const MaximalExactMatch*, pos_t>>;
