@@ -1378,8 +1378,7 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 }
 
 
-/**
-TEST_CASE("VG handles insertions and inversions", "[constructor"){
+TEST_CASE("VG handles insertions", "[constructor"){
     auto fasta_data = R"(>x
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 )";
@@ -1393,13 +1392,27 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	N	<INV>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INV;SVLEN=20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=13;CIPOS=0,3;CIEND=-3,0	GT)";
 
     auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
 
+    unordered_map<size_t, string> expected;
+    expected.insert({1, "CAAATAAGG"});
+    expected.insert({2, "ACTG"});
+    expected.insert({3, "CTTGGAAATT"});
+    expected.insert({4, "TTCTGGAGTT"});
+    expected.insert({5, "CTATTATATT"});
+    expected.insert({6, "CCAACTCTCT"});
+    expected.insert({7, "G"});
+
+
+    for (size_t i = 0; i < result.node_size(); i++){
+        auto& node = result.node(i);
+        REQUIRE(node.sequence() == expected[node.id()]);
+    }
+
 }
 
-**/
 
 
 }
