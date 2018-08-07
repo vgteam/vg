@@ -199,15 +199,16 @@ public:
     // Also, if both pre-ranked and un-ranked mappings are appended, or if you
     // called clear_mapping_ranks before appending, mappings_by_rank may be
     // incorrect until rebuild_mapping_aux() is called.
-    void append_mapping(const string& name, const mapping_t& m);
-    void append_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank = 0);
-    void prepend_mapping(const string& name, const Mapping& m);
-    void prepend_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank);
+    void append_mapping(const string& name, const mapping_t& m, bool warn_on_duplicates = false);
+    void append_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank = 0, bool warn_on_duplicates = false);
+    // TODO: Adapt this to use mapping_t instead.
+    void prepend_mapping(const string& name, const Mapping& m, bool warn_on_duplicates = false);
+    void prepend_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank, bool warn_on_duplicates = false);
     size_t get_next_rank(const string& name);
-    void append(const Paths& p);
-    void append(const Graph& g);
-    void extend(const Paths& p);
-    void extend(const Path& p);
+    void append(const Paths& p, bool warn_on_duplicates = false);
+    void append(const Graph& g, bool warn_on_duplicates = false);
+    void extend(const Paths& p, bool warn_on_duplicates = false);
+    void extend(const Path& p, bool warn_on_duplicates = false);
     void for_each(const function<void(const Path&)>& lambda);
     // Loop over the names of paths without actually extracting the Path objects.
     void for_each_name(const function<void(const string&)>& lambda);

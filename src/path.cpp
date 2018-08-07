@@ -152,12 +152,12 @@ void Paths::make_linear(const string& name) {
     circular.erase(name);
 }
 
-void Paths::extend(const Path& p) {
+void Paths::extend(const Path& p, bool warn_on_duplicates) {
     const string& name = p.name();
     auto& path = get_create_path(name);
     for (int i = 0; i < p.mapping_size(); ++i) {
         const Mapping& m = p.mapping(i);
-        append_mapping(name, m);
+        append_mapping(name, m, warn_on_duplicates);
     }
     if (p.is_circular()) {
         make_circular(name);
@@ -168,14 +168,14 @@ void Paths::extend(const Path& p) {
 }
 
 // one of these should go away
-void Paths::extend(const Paths& p) {
+void Paths::extend(const Paths& p, bool warn_on_duplicates) {
     for (auto& l : p._paths) {
         const string& name = l.first;
         auto& path = l.second;
         // Make sure we preserve empty paths
         get_create_path(name);
         for (auto& m : path) {
-            append_mapping(name, m.to_mapping());
+            append_mapping(name, m.to_mapping(), warn_on_duplicates);
         }
         if (p.circular.count(name)) {
             make_circular(name);
@@ -185,14 +185,14 @@ void Paths::extend(const Paths& p) {
     rebuild_mapping_aux();
 }
 
-void Paths::append(const Paths& paths) {
+void Paths::append(const Paths& paths, bool warn_on_duplicates) {
     for (auto& p : paths._paths) {
         const string& name = p.first;
         auto& path = p.second;
         // Make sure we preserve empty paths
         get_create_path(name);
         for (auto& m : path) {
-            append_mapping(name, m.to_mapping());
+            append_mapping(name, m.to_mapping(), warn_on_duplicates);
         }
         if (paths.circular.count(name)) {
             make_circular(name);
@@ -202,14 +202,14 @@ void Paths::append(const Paths& paths) {
     rebuild_mapping_aux();
 }
 
-void Paths::append(const Graph& g) {
+void Paths::append(const Graph& g, bool warn_on_duplicates) {
     for (int i = 0; i < g.path_size(); ++i) {
         const Path& p = g.path(i);
         // Make sure we preserve empty paths
         get_create_path(p.name());
         for (int j = 0; j < p.mapping_size(); ++j) {
             const Mapping& m = p.mapping(j);
-            append_mapping(p.name(), m);
+            append_mapping(p.name(), m, warn_on_duplicates);
             if (p.is_circular()) {
                 make_circular(p.name());
             }
@@ -226,7 +226,7 @@ bool Paths::has_mapping(const string& name, size_t rank) {
     return mappings_by_rank.count(name) && mappings_by_rank[name].count(rank);
 }
 
-void Paths::append_mapping(const string& name, const mapping_t& m) {
+void Paths::append_mapping(const string& name, const mapping_t& m, bool warn_on_duplicates) {
     // get or create the path with this name
     list<mapping_t>& pt = get_create_path(name);
     // now if we haven't already supplied a mapping
@@ -289,10 +289,10 @@ void Paths::append_mapping(const string& name, const mapping_t& m) {
             // ranks weren't cleared) do we really index by rank.
             mappings_by_rank[name][mp->rank] = mp;
         }
-    } else {
+    } else if (warn_on_duplicates) {
         // This mapping duplicates the rank of an existing mapping.
         // We're not going to keep it, so we should complain.
-        cerr << "warning [vg::Paths]: Path " << name << " mapping with duplicated rank " << m.rank << " discarded!" << endl;
+        cerr << "[vg] warning: path " << name << " rank " << m.rank << " appears multiple times. Skipping." << endl;
     }
 }
 
@@ -310,7 +310,7 @@ const string& Paths::get_path_name(int64_t id) {
     return id_to_name[id];
 }
 
-void Paths::append_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank) {
+void Paths::append_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank, bool warn_on_duplicates) {
     mapping_t m;
     m.set_node_id(id);
     m.set_is_reverse(is_reverse);
@@ -320,10 +320,10 @@ void Paths::append_mapping(const string& name, id_t id, bool is_reverse, size_t 
     // append_mapping.
     m.rank = rank;
     
-    append_mapping(name, m);
+    append_mapping(name, m, warn_on_duplicates);
 }
 
-void Paths::prepend_mapping(const string& name, const Mapping& m) {
+void Paths::prepend_mapping(const string& name, const Mapping& m, bool warn_on_duplicates) {
     // get or create the path with this name
     list<mapping_t>& pt = get_create_path(name);
    
@@ -351,17 +351,21 @@ void Paths::prepend_mapping(const string& name, const Mapping& m) {
         mitr.first = mi;
         mitr.second = get_path_id(name);
         mappings_by_rank[name][mp->rank] = mp;
+    } else if (warn_on_duplicates) {
+        // This mapping duplicates the rank of an existing mapping.
+        // We're not going to keep it, so we should complain.
+        cerr << "[vg] warning: path " << name << " rank " << m.rank() << " appears multiple times. Skipping." << endl;
     }
 }
 
-void Paths::prepend_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank) {
+void Paths::prepend_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank, bool warn_on_duplicates) {
     mapping_t m;
     m.set_node_id(id);
     m.set_is_reverse(is_reverse);
     m.length = length;
     m.rank = rank;
     
-    prepend_mapping(name, m.to_mapping());
+    prepend_mapping(name, m.to_mapping(), warn_on_duplicates);
 }
 
 size_t Paths::get_next_rank(const string& name) {

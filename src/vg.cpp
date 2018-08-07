@@ -2433,7 +2433,7 @@ void VG::extend(const VG& g, bool warn_on_duplicates) {
         }
     }
     // Append the path mappings from this graph, and sort based on rank.
-    paths.append(g.paths);
+    paths.append(g.paths, warn_on_duplicates);
 }
 
 // TODO: unify with above. The only difference is what's done with the paths.
@@ -2458,7 +2458,7 @@ void VG::extend(const Graph& graph, bool warn_on_duplicates) {
         }
     }
     // Append the path mappings from this graph, but don't sort by rank
-    paths.append(graph);
+    paths.append(graph, warn_on_duplicates);
 }
 
 // extend this graph by g, connecting the tails of this graph to the heads of the other
