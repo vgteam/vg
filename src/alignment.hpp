@@ -195,6 +195,9 @@ Alignment simplify(const Alignment& a, bool trim_internal_deletions = true);
 // quality information; a kind of poor man's pileup
 map<id_t, int> alignment_quality_per_node(const Alignment& aln);
 
+/// Parse regions from the given BED file into Alignments in a vector.
+/// Reads the optional name, is_reverse, and score fields if present, and populates the relevant Alignment fields.
+/// Skips and warns about malformed or illegal BED records.
 void parse_bed_regions(istream& bedstream, xg::XG* xgindex, vector<Alignment>* out_alignments);
 void parse_gff_regions(istream& gtfstream, xg::XG* xgindex, vector<Alignment>* out_alignments);
 
