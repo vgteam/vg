@@ -585,19 +585,14 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
 #endif
             
             for (int64_t j = low; j <= hi; j++) {
+                // don't make self edges
+                if (i == j) {
+                    continue;
+                }
+                
                 int64_t next_idx = sorted_pos[j].second;
                 ODNode& next = nodes[next_idx];
                 
-                if (next.mem->begin < pivot.mem->begin || next.mem->end < pivot.mem->end
-                    || (next.mem->begin == pivot.mem->begin && next.mem->end == pivot.mem->end)) {
-                    // these MEMs cannot be colinear along the read (also filters out j == i)
-                    
-                    // note: we allow one of the start/end positions to be the same here even though they can't
-                    // techinically overlap because it tends to soak up redundant sub-MEMs into the same connected
-                    // component so that they don't get their own cluster
-                    
-                    continue;
-                }
                 // the length of the sequence in between the MEMs (can be negative if they overlap)
                 int64_t between_length = next.mem->begin - pivot.mem->end;
                 
@@ -609,6 +604,28 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                 }
                 else {
                     graph_dist = sorted_pos[j].first - strand_pos - pivot_length;
+                }
+                
+                if (next.mem->begin >= pivot.mem->begin && next.mem->end <= pivot.mem->end
+                    && abs((sorted_pos[j].first - strand_pos) - (next.mem->begin - pivot.mem->begin)) <= 1) {
+                    // this looks like a redundant sub-MEM
+                    
+                    // we add a dummy edge, but only to connect the nodes' components and join the clusters,
+                    // not to actually use in dynamic programming (given arbitrary low weight that should not
+                    // cause overflow)
+                    pivot.edges_from.emplace_back(next_idx, numeric_limits<int32_t>::lowest() / 2, graph_dist);
+                    next.edges_to.emplace_back(pivot_idx, numeric_limits<int32_t>::lowest() / 2, graph_dist);
+                    
+                    continue;
+                }
+                else if (next.mem->begin <= pivot.mem->begin || next.mem->end <= pivot.mem->end) {
+                    // these MEMs cannot be colinear along the read
+                    
+                    // note: we allow one of the start/end positions to be the same here even though they can't
+                    // techinically overlap because it tends to soak up redundant sub-MEMs into the same connected
+                    // component so that they don't get their own cluster
+                    
+                    continue;
                 }
                 
                 int32_t edge_score;
@@ -636,8 +653,8 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
 #endif
                 
                 // add the edges in
-                pivot.edges_from.emplace_back(next_idx, edge_score);
-                next.edges_to.emplace_back(pivot_idx, edge_score);
+                pivot.edges_from.emplace_back(next_idx, edge_score, graph_dist);
+                next.edges_to.emplace_back(pivot_idx, edge_score, graph_dist);
             }
         }
     }
@@ -2249,8 +2266,22 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
         ODNode& node = nodes[node_idx];
         for (size_t j = 0; j < node.edges_from.size(); ) {
             ODEdge& edge = node.edges_from[j];
+            
+            // don't remove edges that look nearly perfect (helps keep redundant sub-MEMs in the cluster with
+            // their parent so that they can be removed later)
+            if (abs((edge.distance + (node.mem->end - node.mem->begin))
+                    - (nodes[edge.to_idx].mem->begin - node.mem->begin)) <= 1) {
+#ifdef debug_od_clusterer
+                cerr << "preserving edge because distance looks good" << endl;
+#endif
+                j++;
+                continue;
+            }
+            
             // the forward-backward score of this edge
             int32_t edge_score = node.dp_score + edge.weight + backwards_dp_score[node_idx_to_component_idx[edge.to_idx]];
+            
+            // is the max score across this edge too low?
             if (edge_score < min_score) {
                 
 #ifdef debug_od_clusterer
