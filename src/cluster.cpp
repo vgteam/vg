@@ -2274,6 +2274,7 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
 #ifdef debug_od_clusterer
                 cerr << "preserving edge because distance looks good" << endl;
 #endif
+                j++;
                 continue;
             }
             
