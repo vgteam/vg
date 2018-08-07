@@ -289,6 +289,10 @@ void Paths::append_mapping(const string& name, const mapping_t& m) {
             // ranks weren't cleared) do we really index by rank.
             mappings_by_rank[name][mp->rank] = mp;
         }
+    } else {
+        // This mapping duplicates the rank of an existing mapping.
+        // We're not going to keep it, so we should complain.
+        cerr << "warning [vg::Paths]: Path " << name << " mapping with duplicated rank " << m.rank << " discarded!" << endl;
     }
 }
 
