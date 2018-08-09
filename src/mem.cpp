@@ -8,12 +8,6 @@
 
 namespace vg {
     
-    
-//size_t OrientedDistanceClusterer::PRUNE_COUNTER = 0;
-//size_t OrientedDistanceClusterer::CLUSTER_TOTAL = 0;
-//size_t OrientedDistanceClusterer::MEM_FILTER_COUNTER = 0;
-//size_t OrientedDistanceClusterer::MEM_TOTAL = 0;
-    
 using namespace std;
 
 // construct the sequence of the MEM; useful in debugging
