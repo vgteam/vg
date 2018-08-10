@@ -395,13 +395,21 @@ namespace vg {
         
         get_aligner()->align(aln, align_graph.graph, true, false);
         
+        // get the IDs back into the space of the reference graph
+        translate_oriented_node_ids(*aln.mutable_path(), node_trans);
+        
+#ifdef debug_multipath_mapper
+        cerr << "resecued direct alignment is" << endl;
+        cerr << pb2json(aln) << endl;
+#endif
+        
         if (num_alt_alns > 1 && snarl_manager != nullptr) {
-            // make a more interesting multipath alignment by using snarl cutting on the single path alignment
+            // make an interesting multipath alignment by realigning the single path alignment inside snarls
             make_nontrivial_multipath_alignment(aln, align_graph, node_trans, *snarl_manager, rescue_multipath_aln);
+            
         }
         else {
             // just convert the single alignment into a trivial multipath alignment
-            translate_oriented_node_ids(*aln.mutable_path(), node_trans);
             to_multipath_alignment(aln, rescue_multipath_aln);
         }
         
@@ -413,7 +421,8 @@ namespace vg {
         rescue_multipath_aln.set_mapping_quality(adjusted_mapq);
         
 #ifdef debug_multipath_mapper
-        cerr << "rescued alignment is " << pb2json(rescue_multipath_aln) << endl;
+        cerr << "converted multipath alignment is" << endl;
+        cerr << pb2json(rescue_multipath_aln) << endl;
         cerr << "rescued alignment has effective match length " << pseudo_length(rescue_multipath_aln) / 3 << ", which gives p-value " << random_match_p_value(pseudo_length(rescue_multipath_aln) / 3, rescue_multipath_aln.sequence().size()) << endl;
 #endif
 
@@ -1104,6 +1113,24 @@ namespace vg {
         align_and_rescue(alignment1, alignment2, cluster_graphs1, paired_clusters_1, cluster_score_1, true);
         align_and_rescue(alignment2, alignment1, cluster_graphs2, paired_clusters_2, cluster_score_2, false);
         
+#ifdef debug_validate_multipath_alignments
+        for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : rescued_secondaries) {
+#ifdef debug_multipath_mapper
+            cerr << "validating rescued secondary multipath alignments:" << endl;
+            cerr << pb2json(multipath_aln_pair.first) << endl;
+            cerr << pb2json(multipath_aln_pair.second) << endl;
+#endif
+            if (!validate_multipath_alignment(multipath_aln_pair.first, *xindex)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.first.name() << " failed to validate" << endl;
+            }
+            if (!validate_multipath_alignment(multipath_aln_pair.second, *xindex)) {
+                cerr << "### WARNING ###" << endl;
+                cerr << "multipath alignment of read " << multipath_aln_pair.second.name() << " failed to validate" << endl;
+            }
+        }
+#endif
+        
         if (!rescued_secondaries.empty()) {
             // we found mappings that could be rescues of each other
             
@@ -1153,7 +1180,6 @@ namespace vg {
             cerr << "no rescues succeeded" << endl;
 #endif
         }
-        
     }
     
     void MultipathMapper::multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
@@ -2589,10 +2615,16 @@ namespace vg {
                                                               unordered_map<id_t, pair<id_t, bool>>& translator,
                                                               SnarlManager& snarl_manager, MultipathAlignment& multipath_aln_out) const {
         
+#ifdef debug_multipath_mapper_alignment
+        cerr << "attempting to make nontrivial alignment for " << alignment.name() << endl;
+#endif
+        
         // create an alignment graph with the internals of snarls removed
         MultipathAlignmentGraph multi_aln_graph(subgraph, alignment, snarl_manager, max_snarl_cut_size, translator);
         
         // remove any transitive edges that may have found their way in there
+        // TODO: is this necessary? all edges should be across snarls, how could they be transitive? from trimmed indels maybe?
+        // in any case, the optimization on the transitive edge algorithm will make this linear if there actually aren't any
         vector<size_t> topological_order;
         multi_aln_graph.topological_sort(topological_order);
         multi_aln_graph.remove_transitive_edges(topological_order);
@@ -2600,6 +2632,15 @@ namespace vg {
         // do the connecting alignments and fill out the MultipathAlignment object
         multi_aln_graph.align(alignment, subgraph, get_aligner(), false, num_alt_alns, band_padding, multipath_aln_out);
         
+        for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
+            translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);
+        }
+        
+        topologically_order_subpaths(multipath_aln_out);
+        
+#ifdef debug_multipath_mapper_alignment
+        cerr << "completed multipath alignment: " << pb2json(multipath_aln_out) << endl;
+#endif
     }
     
     int64_t MultipathMapper::read_coverage(const memcluster_t& mem_hits) {

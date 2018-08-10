@@ -103,11 +103,11 @@ namespace vg {
         // cut the snarls out of the aligned path so we can realign through them
         resect_snarls_from_paths(&snarl_manager, projection_trans, max_snarl_cut_size);
         
+        // the snarls algorithm adds edges where necessary
+        has_reachability_edges = true;
+        
         // trim indels from the end of path nodes so that scores will be dynamic programmable across subpaths
         trim_hanging_indels(alignment);
-        
-        // compute reachability and add edges
-        add_reachability_edges(vg, projection_trans, injection_trans);
     }
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
@@ -172,7 +172,7 @@ namespace vg {
                             cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << endl;
 #endif
                             
-                            if (stack.size() == path.mapping_size() + 1) {
+                            if (stack.size() == path.mapping_size()) {
 #ifdef debug_multipath_alignment
                                 cerr << "finished walking path" << endl;
 #endif
@@ -235,7 +235,8 @@ namespace vg {
         // if the path begins or ends with any gaps we have to remove them to make the score
         // dynamic programmable across Subpaths
         
-        size_t removed_so_far = 0;
+        unordered_set<size_t> to_remove;
+        
         for (size_t i = 0; i < path_nodes.size(); i++) {
             
             PathNode& path_node = path_nodes[i];
@@ -307,8 +308,6 @@ namespace vg {
             cerr << "after removing non-softclip flanking indels and N matches, path goes from (" << mapping_start_idx << ", " << edit_start_idx << ") to (" << mapping_last_idx << ", " << edit_last_idx << ")" << endl;
 #endif
             
-            bool removed_node = false;
-            
             // did we find any indels?
             if (mapping_start_idx != 0 || mapping_last_idx + 1 != path.mapping_size() ||
                 edit_start_idx != 0 || edit_last_idx + 1 != path.mapping(mapping_last_idx).edit_size()) {
@@ -323,7 +322,7 @@ namespace vg {
                     
                     // make a new path with the indels trimmed
                     Path trimmed_path;
-                    for (int64_t j = mapping_start_idx; j <= mapping_last_idx; i++) {
+                    for (int64_t j = mapping_start_idx; j <= mapping_last_idx; j++) {
                         const Mapping& mapping = path.mapping(j);
                         const Position& position = mapping.position();
                         
@@ -344,23 +343,90 @@ namespace vg {
                     path_node.path = move(trimmed_path);
                 }
                 else {
-                    removed_node = true;
+                    to_remove.insert(i);
                 }
-            }
-            
-            // we may have trimmed the entire path node, compact the remaining ones at the start of the vector
-            if (removed_node) {
-                removed_so_far++;
-            }
-            else if (removed_so_far > 0) {
-                path_nodes[i - removed_so_far] = move(path_node);
             }
         }
         
-        // remove the nodes that were completely trimmed from the vector
-        if (removed_so_far) {
-            path_nodes.resize(path_nodes.size() - removed_so_far);
+        if (!to_remove.empty()) {
+            // we need remove the nodes that were completely trimmed from the graph
+            
+            // first we need to make edges that bypass the nodes we're going to remove
+            for (size_t i = 0; i < path_nodes.size(); i++) {
+                if (to_remove.count(i)) {
+                    // we don't need to update edges on nodes we're going to remove
+                    continue;
+                }
+                
+                vector<pair<size_t, size_t>> new_edges;
+                
+                // records of (distance, index) in a queue for Dijkstra traversal
+                priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, greater<pair<size_t, size_t>>> edge_queue;
+                // the indexes of edges we've already added
+                unordered_set<size_t> added_edges;
+                
+                for (pair<size_t, size_t>& edge : path_nodes[i].edges) {
+                    edge_queue.emplace(edge.second, edge.first);
+                }
+                
+                while (!edge_queue.empty()) {
+                    pair<size_t, size_t> traversed_edge = edge_queue.top();
+                    edge_queue.pop();
+                    
+                    if (to_remove.count(traversed_edge.second)) {
+                        // we're removing this path node, so traverse it and add connections along its edges
+                        PathNode& removing_node = path_nodes[traversed_edge.second];
+                        size_t through_length = traversed_edge.first + path_from_length(removing_node.path);
+                        for (pair<size_t, size_t>& edge : removing_node.edges) {
+                            edge_queue.emplace(through_length + edge.second, edge.first);
+                        }
+                    }
+                    else if (!added_edges.count(traversed_edge.second)) {
+                        // we've finished walking a shortest path to a non-removed node, switch the order back and add it
+                        new_edges.emplace_back(traversed_edge.second, traversed_edge.first);
+                        
+                        // and mark it as added so we don't make duplicate edges
+                        added_edges.insert(traversed_edge.second);
+                    }
+                }
+                
+                // replace the old edges with the new ones
+                path_nodes[i].edges = new_edges;
+            }
+            
+            // move the nodes we're going to keep into the prefix of the vector
+            vector<size_t> removed_so_far(path_nodes.size(), 0);
+            for (size_t i = 0; i < path_nodes.size(); i++) {
+                if (i > 0) {
+                    removed_so_far[i] = removed_so_far[i - 1];
+                }
+                
+                if (to_remove.count(i)) {
+                    removed_so_far[i]++;;
+                }
+                else if (removed_so_far[i]) {
+                    path_nodes[i - removed_so_far[i]] = move(path_nodes[i]);
+                }
+            }
+            
+            // actually remove the nodes
+            path_nodes.resize(path_nodes.size() - to_remove.size());
+            
+            // update the indexes of the edges
+            for (size_t i = 0; i < path_nodes.size(); i++) {
+                for (pair<size_t, size_t>& edge : path_nodes[i].edges) {
+                    edge.first -= removed_so_far[edge.first];
+                }
+            }
+            
+#ifdef debug_multipath_alignment
+            cerr << "removed " << removed_so_far.back() << " complete nodes" << endl;
+#endif
         }
+        
+#ifdef debug_multipath_alignment
+        cerr << "finished trimming hanging indels" << endl;
+#endif
     }
     
     void MultipathAlignmentGraph::create_match_nodes(VG& vg, const MultipathMapper::memcluster_t& hits,
@@ -1036,30 +1102,33 @@ namespace vg {
                 path_node->edges.clear();
                 path->clear_mapping();
                 
-                size_t prefix_length = 0;
+                size_t prefix_from_length = 0;
+                size_t prefix_to_length = 0;
                 size_t prefix_idx = 0;
                 while (prefix_idx < keep_segments.front().first) {
-                    prefix_length += mapping_from_length(original_path.mapping(prefix_idx));
+                    prefix_from_length += mapping_from_length(original_path.mapping(prefix_idx));
+                    prefix_to_length += mapping_to_length(original_path.mapping(prefix_idx));
                     prefix_idx++;
                 }
                 
                 // keep track whether we trimmed a prefix off the left side of the priginal path
-                trimmed_prefix_length[i] = prefix_length;
-                trimmed_any_prefix = trimmed_any_prefix || (prefix_length > 0);
+                trimmed_prefix_length[i] = prefix_from_length;
+                trimmed_any_prefix = trimmed_any_prefix || (prefix_from_length > 0);
                 
 #ifdef debug_multipath_alignment
                 cerr << "making path for initial keep segment " << keep_segments.front().first << ":" << keep_segments.front().second << " at idx " << i << endl;
 #endif
                 
                 // place the first keep segment into the original node
-                path_node->begin = original_begin + prefix_length;
+                path_node->begin = original_begin + prefix_to_length;
                 for (int32_t rank = 1; prefix_idx < keep_segments.front().second; prefix_idx++, rank++) {
                     Mapping* mapping = path->add_mapping();
                     *mapping = original_path.mapping(prefix_idx);
                     mapping->set_rank(rank);
-                    prefix_length += mapping_from_length(*mapping);
+                    prefix_from_length += mapping_from_length(*mapping);
+                    prefix_to_length += mapping_to_length(*mapping);
                 }
-                path_node->end = original_begin + prefix_length;
+                path_node->end = original_begin + prefix_to_length;
                 
                 
 #ifdef debug_multipath_alignment
@@ -1074,15 +1143,16 @@ namespace vg {
                     auto& keep_segment = keep_segments[j];
                     
 #ifdef debug_multipath_alignment
-                    cerr << "making path for initial keep segment " << keep_segments.front().first << ":" << keep_segments.front().second << " at idx " << i << endl;
+                    cerr << "making path for next keep segment " << keep_segments[j].first << ":" << keep_segments[j].second << " at idx " << path_nodes.size() << endl;
 #endif
                     
                     // record the start of the intersegment section of the read
-                    size_t intersegment_start = prefix_length;
+                    size_t intersegment_start = prefix_from_length;
                     
                     // advance to the next keep segment
                     while (prefix_idx < keep_segment.first) {
-                        prefix_length += mapping_from_length(original_path.mapping(prefix_idx));
+                        prefix_from_length += mapping_from_length(original_path.mapping(prefix_idx));
+                        prefix_to_length += mapping_to_length(original_path.mapping(prefix_idx));
                         prefix_idx++;
                     }
                     
@@ -1092,17 +1162,18 @@ namespace vg {
                     Path& cut_path = cut_node.path;
                     
                     // add a connecting edge from the last keep segment
-                    path_nodes[prev_segment_idx].edges.emplace_back(path_nodes.size() - 1, prefix_length - intersegment_start);
+                    path_nodes[prev_segment_idx].edges.emplace_back(path_nodes.size() - 1, prefix_from_length - intersegment_start);
                     
                     // transfer over the path and the read interval
-                    cut_node.begin = original_begin + prefix_length;
+                    cut_node.begin = original_begin + prefix_to_length;
                     for (int32_t rank = 1; prefix_idx < keep_segment.second; prefix_idx++, rank++) {
                         Mapping* mapping = cut_path.add_mapping();
                         *mapping = original_path.mapping(prefix_idx);
                         mapping->set_rank(rank);
-                        prefix_length += mapping_from_length(*mapping);
+                        prefix_from_length += mapping_from_length(*mapping);
+                        prefix_to_length += mapping_to_length(*mapping);
                     }
-                    cut_node.end = original_begin + prefix_length;
+                    cut_node.end = original_begin + prefix_to_length;
                     
 #ifdef debug_multipath_alignment
                     cerr << "new cut path: " << pb2json(cut_path) << endl;
@@ -1115,7 +1186,7 @@ namespace vg {
                 path_nodes[prev_segment_idx].edges = move(forward_edges);
                 
                 // add the length of the trimmed portion of the path to the edge length
-                size_t trimmed_suffix_length = (original_begin + prefix_length) - original_end;
+                size_t trimmed_suffix_length = path_from_length(original_path) - prefix_from_length;
                 if (trimmed_suffix_length) {
                     for (pair<size_t, size_t>& edge : path_nodes[prev_segment_idx].edges) {
                         edge.second += trimmed_suffix_length;
@@ -1162,6 +1233,15 @@ namespace vg {
         // there.
         
         
+        // optimization: we never add edges unless there are multiple nodes, and frequently there is only one
+        // so we can skip traversing over the entire graph
+        if (path_nodes.size() <= 1) {
+#ifdef debug_multipath_alignment
+            cerr << "skipping reachability computation because there are " << path_nodes.size() << " path nodes" << endl;
+#endif
+            has_reachability_edges = true;
+            return;
+        }
         
         
 #ifdef debug_multipath_alignment
@@ -1900,7 +1980,7 @@ namespace vg {
                         candidate_end_node.edges.push_back(make_pair(start, candidate_dist));
                         
 #ifdef debug_multipath_alignment
-                        cerr << "connection is read colinear, adding edge" << endl;
+                        cerr << "connection is read colinear, adding edge for total of " << candidate_end_node.edges.size() << " edges so far" << endl;
 #endif
                         
                         // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
@@ -1932,7 +2012,7 @@ namespace vg {
 #endif
                         }
                         
-                        // traverse through any exposes starts to see if we can find other exposed ends
+                        // traverse through any exposed starts to see if we can find other exposed ends
                         priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> exposed_start_queue;
                         unordered_set<size_t> traversed_exposed_start;
                         
