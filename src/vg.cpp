@@ -3401,16 +3401,6 @@ vector<Edge> VG::break_cycles(void) {
     algorithms::sort(this);
     return removed;
 }
-
-bool VG::is_single_stranded(void) {
-    for (size_t i = 0; i < graph.edge_size(); i++) {
-        const Edge& edge = graph.edge(i);
-        if (edge.from_start() != edge.to_end()) {
-            return false;
-        }
-    }
-    return true;
-}
     
 void VG::identity_translation(unordered_map<id_t, pair<id_t, bool>>& node_translation) {
     node_translation.clear();
@@ -3446,52 +3436,6 @@ VG VG::reverse_complement_graph(unordered_map<id_t, pair<id_t, bool>>& node_tran
     rev_comp.build_indexes();
     
     return rev_comp;
-}
-    
-bool VG::is_directed_acyclic(void) {
-    unordered_map<id_t, pair<int64_t, int64_t>> degrees(graph.node_size());
-    for (size_t i = 0; i < graph.node_size(); i++) {
-        Node* node = graph.mutable_node(i);
-        degrees[node->id()] = make_pair(start_degree(node), end_degree(node));
-    }
-    
-    vector<NodeTraversal> stack;
-    for (size_t i = 0; i < graph.node_size(); i++) {
-        Node* node = graph.mutable_node(i);
-        pair<int64_t, int64_t> node_degrees = degrees[node->id()];
-        if (node_degrees.first == 0) {
-            stack.emplace_back(node, false);
-        }
-        if (node_degrees.second == 0) {
-            stack.emplace_back(node, true);
-        }
-    }
-    
-    while (!stack.empty()) {
-        NodeTraversal here = stack.back();
-        stack.pop_back();
-        
-        auto iter = degrees.find(here.node->id());
-        if (iter == degrees.end()) {
-            continue;
-        }
-        
-        degrees.erase(iter);
-        
-        vector<NodeTraversal> nexts;
-        nodes_next(here, nexts);
-        for (NodeTraversal next : nexts) {
-            auto next_iter = degrees.find(next.node->id());
-            if (next_iter != degrees.end()) {
-                int64_t& in_degree = next.backward ? next_iter->second.second : next_iter->second.first;
-                in_degree--;
-                if (in_degree == 0) {
-                    stack.push_back(next);
-                }
-            }
-        }
-    }
-    return degrees.empty();
 }
     
 void VG::lazy_sort(void) {

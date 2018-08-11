@@ -307,10 +307,6 @@ public:
     set<set<id_t> > multinode_strongly_connected_components(void);
     /// Returns true if the graph does not contain cycles.
     bool is_acyclic(void);
-    /// Returns true if the graph does not contain a directed cycle (but it may contain a reversing cycle)
-    bool is_directed_acyclic(void);
-    /// Return true if there are no reversing edges in the graph
-    bool is_single_stranded(void);
     /// Remove all elements which are not in a strongly connected component.
     void keep_multinode_strongly_connected_components(void);
     /// Does the specified node have any self-loops?

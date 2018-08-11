@@ -14,6 +14,8 @@
 #include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/weakly_connected_components.hpp"
+#include "algorithms/is_directed_acyclic.hpp"
+#include "algorithms/is_single_stranded.hpp"
 #include "algorithms/distance_to_head.hpp"
 #include "algorithms/distance_to_tail.hpp"
 #include "vg.hpp"
@@ -3859,9 +3861,322 @@ namespace vg {
             }
         }
 
+        TEST_CASE("is_directed_acyclic() should return whether the graph is directed acyclic", "[algorithms]") {
+            SECTION("is_directed_acyclic() works on a single node") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                
+                xg::XG xg1(vg.graph);
+                
+                // the graph has no edges
+                REQUIRE(algorithms::is_directed_acyclic(&vg));
+                REQUIRE(algorithms::is_directed_acyclic(&xg1));
+                
+                vg.create_edge(n0, n0, false, true);
+                
+                xg::XG xg2(vg.graph);
+                
+                // the graph has a reversing cycle, but no directed cycles
+                REQUIRE(algorithms::is_directed_acyclic(&vg));
+                REQUIRE(algorithms::is_directed_acyclic(&xg2));
+                
+                vg.create_edge(n0, n0, true, false);
+                
+                xg::XG xg3(vg.graph);
+                
+                // the graph now has a directed cycle
+                REQUIRE(!algorithms::is_directed_acyclic(&vg));
+                REQUIRE(!algorithms::is_directed_acyclic(&xg3));
+            }
+            
+            SECTION("is_directed_acyclic() works on DAG with only simple edges") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                Node* n6 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n0, n2);
+                vg.create_edge(n2, n3);
+                vg.create_edge(n1, n3);
+                vg.create_edge(n3, n4);
+                vg.create_edge(n0, n4);
+                vg.create_edge(n4, n5);
+                vg.create_edge(n0, n5);
+                vg.create_edge(n4, n6);
+                vg.create_edge(n3, n6);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(algorithms::is_directed_acyclic(&vg));
+                REQUIRE(algorithms::is_directed_acyclic(&xg1));
+            }
+            
+            SECTION("is_directed_acyclic() works on DAG with some doubly reversing edges") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                Node* n6 = vg.create_node("A");
+                
+                vg.create_edge(n1, n0, true, true);
+                vg.create_edge(n0, n2);
+                vg.create_edge(n2, n3);
+                vg.create_edge(n3, n1, true, true);
+                vg.create_edge(n4, n3, true, true);
+                vg.create_edge(n0, n4);
+                vg.create_edge(n4, n5);
+                vg.create_edge(n0, n5);
+                vg.create_edge(n6, n4, true, true);
+                vg.create_edge(n3, n6);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(algorithms::is_directed_acyclic(&vg));
+                REQUIRE(algorithms::is_directed_acyclic(&xg1));
+            }
+            
+            SECTION("is_directed_acyclic() works on DAG with doubly reversing and singly reversing eges") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                Node* n6 = vg.create_node("A");
+                
+                vg.create_edge(n1, n0, true, true);
+                vg.create_edge(n0, n2, false, true);
+                vg.create_edge(n2, n3, true, false);
+                vg.create_edge(n3, n1, true, true);
+                vg.create_edge(n4, n3, true, true);
+                vg.create_edge(n0, n4);
+                vg.create_edge(n4, n5, false, true);
+                vg.create_edge(n0, n5, false, true);
+                vg.create_edge(n6, n4, true, true);
+                vg.create_edge(n3, n6);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(algorithms::is_directed_acyclic(&vg));
+                REQUIRE(algorithms::is_directed_acyclic(&xg1));
+            }
+            
+            SECTION("is_directed_acyclic() works on a non trivial graph a reversing cycle but no directed cycles") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n1, n3);
+                vg.create_edge(n2, n3, false, true);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(algorithms::is_directed_acyclic(&vg));
+                REQUIRE(algorithms::is_directed_acyclic(&xg1));
+            }
+            
+            SECTION("is_directed_acyclic() works on a simple directed cycle") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n0);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(!algorithms::is_directed_acyclic(&vg));
+                REQUIRE(!algorithms::is_directed_acyclic(&xg1));
+            }
+            
+            SECTION("is_directed_acyclic() works on a non trivial graph with a directed cycle") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n0);
+                vg.create_edge(n0, n3);
+                vg.create_edge(n1, n4);
+                vg.create_edge(n2, n5);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(!algorithms::is_directed_acyclic(&vg));
+                REQUIRE(!algorithms::is_directed_acyclic(&xg1));
+            }
+        }
+    }
+    
+    TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges", "[algorithms]") {
         
-}
-    
-    
+        SECTION("is_single_stranded() works a trivial graph with no edges") {
+            
+            VG vg;
+            
+            Node* n0 = vg.create_node("A");
+            
+            xg::XG xg1(vg.graph);
+            
+            REQUIRE(algorithms::is_single_stranded(&vg));
+            REQUIRE(algorithms::is_single_stranded(&xg1));
+        }
+        
+        SECTION("is_single_stranded() works a non trivial graph with no reversing edges") {
+            
+            VG vg;
+            
+            Node* n0 = vg.create_node("A");
+            Node* n1 = vg.create_node("A");
+            Node* n2 = vg.create_node("A");
+            Node* n3 = vg.create_node("A");
+            Node* n4 = vg.create_node("A");
+            Node* n5 = vg.create_node("A");
+            
+            vg.create_edge(n0, n1);
+            vg.create_edge(n1, n2);
+            vg.create_edge(n2, n0);
+            vg.create_edge(n0, n3);
+            vg.create_edge(n1, n4);
+            vg.create_edge(n2, n5);
+            
+            xg::XG xg1(vg.graph);
+            
+            REQUIRE(algorithms::is_single_stranded(&vg));
+            REQUIRE(algorithms::is_single_stranded(&xg1));
+        }
+        
+        SECTION("is_single_stranded() works a non trivial graph with a directed cycle but no reversing edges") {
+            
+            VG vg;
+            
+            Node* n0 = vg.create_node("A");
+            Node* n1 = vg.create_node("A");
+            Node* n2 = vg.create_node("A");
+            Node* n3 = vg.create_node("A");
+            Node* n4 = vg.create_node("A");
+            Node* n5 = vg.create_node("A");
+            
+            vg.create_edge(n0, n1);
+            vg.create_edge(n1, n2);
+            vg.create_edge(n2, n0);
+            vg.create_edge(n0, n3);
+            vg.create_edge(n1, n4);
+            vg.create_edge(n2, n5);
+            vg.create_edge(n4, n0);
+            vg.create_edge(n5, n0);
+            
+            xg::XG xg1(vg.graph);
+            
+            REQUIRE(algorithms::is_single_stranded(&vg));
+            REQUIRE(algorithms::is_single_stranded(&xg1));
+        }
+        
+        SECTION("is_single_stranded() works a non trivial graph with no reversing edges, but with doubly reversing edges") {
+            
+            VG vg;
+            
+            Node* n0 = vg.create_node("A");
+            Node* n1 = vg.create_node("A");
+            Node* n2 = vg.create_node("A");
+            Node* n3 = vg.create_node("A");
+            Node* n4 = vg.create_node("A");
+            Node* n5 = vg.create_node("A");
+            
+            vg.create_edge(n0, n1);
+            vg.create_edge(n1, n2);
+            vg.create_edge(n0, n2, true, true);
+            vg.create_edge(n0, n3);
+            vg.create_edge(n1, n4);
+            vg.create_edge(n5, n2, true, true);
+            
+            xg::XG xg1(vg.graph);
+            
+            REQUIRE(algorithms::is_single_stranded(&vg));
+            REQUIRE(algorithms::is_single_stranded(&xg1));
+        }
+        
+        SECTION("is_single_stranded() works a non trivial graph with reversing edges") {
+            
+            VG vg;
+            
+            Node* n0 = vg.create_node("A");
+            Node* n1 = vg.create_node("A");
+            Node* n2 = vg.create_node("A");
+            Node* n3 = vg.create_node("A");
+            Node* n4 = vg.create_node("A");
+            Node* n5 = vg.create_node("A");
+            
+            vg.create_edge(n0, n1);
+            vg.create_edge(n1, n2);
+            vg.create_edge(n0, n2, true, false);
+            vg.create_edge(n0, n3);
+            vg.create_edge(n1, n4);
+            vg.create_edge(n5, n2, true, true);
+            
+            xg::XG xg1(vg.graph);
+            
+            REQUIRE(!algorithms::is_single_stranded(&vg));
+            REQUIRE(!algorithms::is_single_stranded(&xg1));
+        }
+        
+        SECTION("is_single_stranded() works a non trivial graph with reversing edges in the opposite orientation") {
+            
+            VG vg;
+            
+            Node* n0 = vg.create_node("A");
+            Node* n1 = vg.create_node("A");
+            Node* n2 = vg.create_node("A");
+            Node* n3 = vg.create_node("A");
+            Node* n4 = vg.create_node("A");
+            Node* n5 = vg.create_node("A");
+            
+            vg.create_edge(n0, n1);
+            vg.create_edge(n1, n2);
+            vg.create_edge(n0, n2, false, true);
+            vg.create_edge(n0, n3);
+            vg.create_edge(n1, n4);
+            vg.create_edge(n5, n2, true, true);
+            
+            xg::XG xg1(vg.graph);
+            
+            REQUIRE(!algorithms::is_single_stranded(&vg));
+            REQUIRE(!algorithms::is_single_stranded(&xg1));
+        }
+    }
 
 }

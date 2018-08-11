@@ -2908,7 +2908,6 @@ namespace vg {
                 
                 bool added_direct_connection = false;
                 // TODO a better way of choosing the number of alternate alignments
-                // TODO alternate alignments restricted only to distinct node paths?
                 vector<Alignment> alt_alignments;
                 aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alt_alns, band_padding, true);
                 
