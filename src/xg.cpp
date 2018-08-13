@@ -1260,17 +1260,28 @@ void XG::index_component_path_sets() {
     // index from the paths to their component set
     for (size_t i = 0; i < component_path_sets.size(); i++) {
         for (size_t path_rank : component_path_sets[i]) {
+            if (component_path_set_of_path[path_rank] != numeric_limits<size_t>::max()) {
+                cerr << "warning:[XG] Graph contains path " << path_name(path_rank) << " that spans multiple connected components. This path must follow edges that are not included in the graph. XG's component path set indexes may not be semantically meaningful for this graph." << endl;
+                continue;
+            }
             component_path_set_of_path[path_rank] = i;
         }
     }
 }
     
 void XG::create_succinct_component_path_sets(int_vector<>& path_ranks_iv_out, bit_vector& path_ranks_bv_out) const {
+    
+    size_t num_path_records = 0;
+    for (const auto& component_path_set : component_path_sets) {
+        num_path_records += component_path_set.size();
+    }
+    
 #ifdef debug_component_index
     cerr << "creating serializable component path sets for " << paths.size() << " paths and " << component_path_sets.size() << " components" << endl;
 #endif
-    path_ranks_iv_out = int_vector<>(paths.size());
-    path_ranks_bv_out = bit_vector(paths.size());
+    
+    path_ranks_iv_out = int_vector<>(num_path_records);
+    path_ranks_bv_out = bit_vector(num_path_records);
     
     size_t i = 0;
     for (const unordered_set<size_t>& component_path_set : component_path_sets) {

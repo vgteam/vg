@@ -114,6 +114,9 @@ namespace vg {
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
+        //static size_t SECONDARY_RESCUE_COUNT;
+        //static size_t SECONDARY_RESCUE_ATTEMPT;
+        //static size_t SECONDARY_RESCUE_TOTAL;
         
         /// We often pass around clusters of MEMs and their graph positions.
         using memcluster_t = vector<pair<const MaximalExactMatch*, pos_t>>;
@@ -166,6 +169,7 @@ namespace vg {
                                           vector<clustergraph_t>& cluster_graphs2,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                          vector<pair<size_t, size_t>>& duplicate_pairs_out,
                                           OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
                                           OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
                                           OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
@@ -184,6 +188,7 @@ namespace vg {
         void attempt_rescue_for_secondaries(const Alignment& alignment1, const Alignment& alignment2,
                                             vector<clustergraph_t>& cluster_graphs1,
                                             vector<clustergraph_t>& cluster_graphs2,
+                                            vector<pair<size_t, size_t>>& duplicate_pairs,
                                             vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                             vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
         
@@ -195,7 +200,8 @@ namespace vg {
                                                       vector<memcluster_t>& clusters1, vector<memcluster_t>& clusters2,
                                                       vector<clustergraph_t>& cluster_graphs1, vector<clustergraph_t>& cluster_graphs2,
                                                       vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                      vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances, size_t max_alt_mappings,
+                                                      vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
+                                                      size_t max_alt_mappings,
                                                       OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
                                                       OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
                                                       OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
@@ -205,14 +211,6 @@ namespace vg {
                                     vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                     vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) const;
-        
-        /// Estimates the probability that the correct cluster was chosen as a cluster to rescue from and caps the
-        /// mapping quality to the minimum of the current mapping quality and this probability (in Phred scale)
-        void cap_mapping_quality_by_rescue_probability(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                       vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                                       vector<clustergraph_t>& cluster_graphs1,
-                                                       vector<clustergraph_t>& cluster_graphs2,
-                                                       bool from_secondary_rescue) const;
         
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable (according to the Mapper's aligner) with
@@ -258,7 +256,34 @@ namespace vg {
         /// If there are ties between scores, breaks them by the expected distance between pairs as computed by the
         /// OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector)
         void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
-                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
+                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                              vector<pair<size_t, size_t>>* duplicate_pairs_out = nullptr) const;
+
+        /// Estimates the probability that the correct cluster was not chosen as a cluster to rescue from and caps the
+        /// mapping quality to the minimum of the current mapping quality and this probability (in Phred scale)
+        void cap_mapping_quality_by_rescue_probability(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                       vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                       vector<clustergraph_t>& cluster_graphs1,
+                                                       vector<clustergraph_t>& cluster_graphs2,
+                                                       bool from_secondary_rescue) const;
+        
+        /// Estimates the probability that the correct cluster was not identified because of sub-sampling MEM hits and
+        /// caps the mapping quality to this probability (in Phred scale)
+        void cap_mapping_quality_by_hit_sampling_probability(vector<MultipathAlignment>& multipath_alns_out,
+                                                             vector<size_t>& cluster_idxs,
+                                                             vector<clustergraph_t>& cluster_graphs) const;
+        
+        /// Estimates the probability that the correct cluster pair was not identified because of sub-sampling MEM hits and
+        /// caps the mapping quality to this probability (in Phred scale)
+        void cap_mapping_quality_by_hit_sampling_probability(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                             vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                             vector<clustergraph_t>& cluster_graphs1,
+                                                             vector<clustergraph_t>& cluster_graphs2,
+                                                             bool did_secondary_rescue) const;
+        
+        /// Estimates the probability that a cluster with the same hits would have been missed because of
+        /// subsampling high-count SMEMs
+        double prob_equivalent_clusters_hits_missed(const memcluster_t& cluster) const;
         
         /// Computes the log-likelihood of a given fragment length in the trained distribution
         double fragment_length_log_likelihood(int64_t length) const;

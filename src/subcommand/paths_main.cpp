@@ -199,7 +199,7 @@ int main_paths(int argc, char** argv) {
                 gbwt::vector_type sequence = index.extract(gbwt::Path::encode(id-1, false));
                 Path path;
                 path.set_name(xgidx.thread_name(id));
-                size_t rank = 0;
+                size_t rank = 1;
                 for (auto node : sequence) {
                     Mapping* m = path.add_mapping();
                     Position* p = m->mutable_position();
