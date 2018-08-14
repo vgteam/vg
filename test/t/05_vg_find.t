@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 24
+plan tests 25
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -71,6 +71,7 @@ is $(vg find -A <(vg find -N <(seq 37 52 ) -x x.xg ) -d x.db | vg view -a - | wc
 
 vg gamsort -i x.sorted.gam.gai x.gam > x.sorted.gam
 is $(vg find -o 127 --sorted-gam x.sorted.gam | vg view -a - | wc -l) 6 "the GAM index can return the set of alignments mapping to a node"
+is $(vg find -A <(vg find -N <(seq 37 52 ) -x x.xg ) --sorted-gam x.sorted.gam | vg view -a - | wc -l) 15 "a subgraph query may be used to obtain a particular subset of alignments from a sorted GAM"
 
 rm -rf x.db x.gam x.reads x.sorted.gam x.sorted.gam.gai
 
