@@ -241,8 +241,14 @@ namespace vg {
                              memcluster_t& graph_mems,
                              MultipathAlignment& multipath_aln_out) const;
         
+        /// Removes the sections of an Alignment's path within snarls and re-aligns them with multiple traceback
+        /// to create a multipath alignment with non-trivial topology
+        void make_nontrivial_multipath_alignment(const Alignment& alignment, VG& subgraph,
+                                                 unordered_map<id_t, pair<id_t, bool>>& translator,
+                                                 SnarlManager& snarl_manager, MultipathAlignment& multipath_aln_out) const;
+        
         /// Remove the full length bonus from all source or sink subpaths that received it
-        void strip_full_length_bonuses(MultipathAlignment& mulipath_aln) const;
+        void strip_full_length_bonuses(MultipathAlignment& multipath_aln) const;
         
         /// Compute a mapping quality from a list of scores, using the selected method.
         int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method) const;
