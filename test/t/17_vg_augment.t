@@ -14,7 +14,7 @@ vg view -J -v pileup/tiny.json > tiny.vg
 # with pileup/truth.json, which has been manually vetted.
 # Will also test some vg view functionality. 
 vg view -J -a -G pileup/alignment.json > alignment.gam
-vg augment tiny.vg alignment.gam -P tiny.gpu > /dev/null
+vg augment -a pileup tiny.vg alignment.gam -P tiny.gpu > /dev/null
 vg view tiny.gpu -l -j | jq . > tiny.gpu.json
 is $(jq --argfile a tiny.gpu.json --argfile b pileup/truth.json -n '($a == $b)') true "vg augment -P produces the expected output for test case on tiny graph."
 rm -f alignment.gam tiny.gpu tiny.gpu.json
