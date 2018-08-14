@@ -3437,53 +3437,6 @@ VG VG::reverse_complement_graph(unordered_map<id_t, pair<id_t, bool>>& node_tran
     
     return rev_comp;
 }
-    
-void VG::lazy_sort(void) {
-    // a map to the degrees on the left and right sides of nodes
-    unordered_map<id_t, pair<int64_t, int64_t>> side_degrees;
-    for (size_t i = 0; i < graph.node_size(); i++) {
-        id_t id = graph.node(i).id();
-        side_degrees[id] = make_pair(start_degree(get_node(id)), end_degree(get_node(id)));
-    }
-    
-    // find the nodes with 0 in degree an initialize the queue with them
-    vector<NodeTraversal> stack;
-    for (const auto& degree_record : side_degrees) {
-        if (degree_record.second.first == 0) {
-            stack.emplace_back(get_node(degree_record.first));
-        }
-    }
-    
-    vector<id_t> order;
-    order.reserve(graph.node_size());
-    
-    while (!stack.empty()) {
-        // get a head node off the queue
-        NodeTraversal head_trav = stack.back();
-        stack.pop_back();
-        
-        // add it to the topological order
-        order.push_back(head_trav.node->id());
-        
-        // remove its outgoing edges
-        vector<NodeTraversal> nexts;
-        nodes_next(head_trav, nexts);
-        for (NodeTraversal& next : nexts) {
-            // reduce the degree of the appropriate side
-            int64_t& inward_degree = next.backward ? side_degrees[next.node->id()].second : side_degrees[next.node->id()].first;
-            inward_degree--;
-            if (inward_degree == 0) {
-                // after removing this edge, the node is now a head, add it to the queue
-                stack.push_back(next);
-            }
-        }
-    }
-    
-    for (size_t i = 0; i < order.size(); i++) {
-        // Put the nodes in the order we got
-        swap_nodes(get_node(order[i]), graph.mutable_node(i));
-    }
-}
 
 bool VG::is_acyclic(void) {
     unordered_set<NodeTraversal> seen;

@@ -470,7 +470,7 @@ using namespace std;
             unordered_map<id_t, pair<id_t, bool>> split_trans;
             VG split_path_graph = path_graph.split_strands(split_trans);
             
-            split_path_graph.lazy_sort();
+            algorithms::lazier_sort(&split_path_graph);
             
             auto node_trans = split_path_graph.overlay_node_translations(split_trans, path_trans);
             

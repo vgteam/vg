@@ -377,7 +377,7 @@ namespace vg {
         unordered_map<id_t, pair<id_t, bool> > node_trans;
         VG align_graph = rescue_graph.split_strands(node_trans);
         // if necessary, convert from cyclic to acylic
-        if (algorithms::is_directed_acyclic(&rescue_graph)) {
+        if (!algorithms::is_directed_acyclic(&rescue_graph)) {
             unordered_map<id_t, pair<id_t, bool> > dagify_trans;
             align_graph = align_graph.dagify(target_length, // high enough that num SCCs is never a limiting factor
                                              dagify_trans,
@@ -391,7 +391,7 @@ namespace vg {
         // in case we're realigning a GAM, get rid of the path
         aln.clear_path();
         
-        align_graph.lazy_sort();
+        algorithms::lazier_sort(&align_graph);
         
         get_aligner()->align(aln, align_graph.graph, true, false);
         
@@ -2551,7 +2551,7 @@ namespace vg {
         }
         
         // put the internal graph in topological order for the MultipathAlignmentGraph algorithm
-        align_graph.lazy_sort();
+        algorithms::lazier_sort(&align_graph);
         
 #ifdef debug_multipath_mapper_alignment
         cerr << "making multipath alignment MEM graph" << endl;
