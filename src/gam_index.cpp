@@ -80,6 +80,15 @@ auto GAMIndex::window_of_id(id_t id) -> window_t  {
 }
 
 auto GAMIndex::add_group(id_t min_id, id_t max_id, int64_t virtual_start, int64_t virtual_past_end) -> void {
+    
+    if (min_id < last_group_min_id) {
+        // Someone is trying to index an unsorted GAM.
+        // This is probably user error, so complain appropriately:
+        cerr << "error [vg::GAMIndex]: GAM data being indexed is not sorted. Sort with vg gamsort." << endl;
+        exit(1);
+    }
+    last_group_min_id = min_id;
+    
     // Find the bin for the run
     bin_t bin = common_bin(min_id, max_id);
     
@@ -305,11 +314,8 @@ auto GAMIndex::index(cursor_t& cursor) -> void {
             group_vo = alignment_group_vo;
         }
         
-        // Add the alignment to the group
-        group.push_back(*cursor);
-        
-        // Go look at the next alignment
-        cursor.get_next();
+        // Add the alignment to the group and move on
+        group.emplace_back(std::move(cursor.take()));
     }
     
     if (!group.empty()) {

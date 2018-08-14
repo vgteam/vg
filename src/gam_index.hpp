@@ -190,6 +190,10 @@ protected:
     /// instead and hope nobody uses high/sparse node IDs?
     map<window_t, int64_t> window_to_start;
     
+    /// What was the minimum node ID of the last group added?
+    /// If this isn't strictly increasing, we're trying to idnex data that is not sorted.
+    id_t last_group_min_id = numeric_limits<id_t>::min();
+    
 };
 
 }
