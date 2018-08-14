@@ -15,6 +15,7 @@
 #include "types.hpp"
 #include "vg.pb.h"
 #include "stream.hpp"
+#include "handle.hpp"
 
 namespace vg {
 

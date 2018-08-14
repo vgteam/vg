@@ -1015,7 +1015,23 @@ private:
     }
 };
 
-#undef debug
+/// Produce an std::function that can be invoked with Protobuf objects and save them to the given stream.
+/// Easy way to get a dumping callback to feed to something that wants a callback.
+/// The passed stream must outlive the resulting function.
+template<typename Item>
+std::function<void(const Item&)> emit_to(ostream& out) {
+    // We are going to be clever and make a lambda capture a shared_ptr to an
+    // emitter, so we can have the emitter last as long as the function we
+    // return.
+    shared_ptr<ProtobufEmitter<Item>> emitter(new ProtobufEmitter<Item>(out));
+
+    return [emitter](const Item& item) {
+        // Write out each item.
+        // TODO: Set up so we can use the move operation the cursors support
+        // Not easy because of https://stackoverflow.com/a/30394755
+        emitter->write_copy(item);
+    };
+}
 
 }
 

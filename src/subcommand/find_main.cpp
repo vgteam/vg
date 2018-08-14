@@ -4,6 +4,8 @@
 #include "../mapper.hpp"
 #include "../stream.hpp"
 #include "../region.hpp"
+#include "../gam_index.hpp"
+#include "../algorithms/sorted_id_ranges.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -30,10 +32,11 @@ void help_find(char** argv) {
          << "    -X, --approx-pos ID    get the approximate position of this node" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
          << "    -G, --gam GAM          accumulate the graph touched by the alignments in the GAM" << endl
-         << "alignments: (rocksdb only)" << endl
-         << "    -a, --alignments       writes alignments from index, sorted by node id" << endl
-         << "    -i, --alns-in N:M      writes alignments whose start nodes is between N and M (inclusive)" << endl
-         << "    -o, --alns-on N:M      writes alignments which align to any of the nodes between N and M (inclusive)" << endl
+         << "alignments:" << endl
+         << "    -d, --db-name DIR      use this RocksDB database to retrieve alignments" << endl
+         << "    -l, --sorted-gam FILE  use this sorted, indexed GAM file" << endl
+         << "    -a, --alignments       write all alignments from input sorted GAM or RocksDB" << endl
+         << "    -o, --alns-on N:M      write alignments which align to any of the nodes between N and M (inclusive)" << endl
          << "    -A, --to-graph VG      get alignments to the provided subgraph" << endl
          << "sequences:" << endl
          << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph" << endl
@@ -86,9 +89,9 @@ int main_find(int argc, char** argv) {
     bool get_mems = false;
     int mem_reseed_length = 0;
     bool use_fast_reseed = true;
+    string sorted_gam_name;
     bool get_alignments = false;
     bool get_mappings = false;
-    string node_id_range;
     string aln_on_id_range;
     vg::id_t start_id = 0;
     vg::id_t end_id = 0;
@@ -133,9 +136,9 @@ int main_find(int argc, char** argv) {
                 {"position-in", required_argument, 0, 'P'},
                 {"rank-in", required_argument, 0, 'R'},
                 {"node-range", required_argument, 0, 'r'},
+                {"sorted-gam", required_argument, 0, 'l'},
                 {"alignments", no_argument, 0, 'a'},
                 {"mappings", no_argument, 0, 'm'},
-                {"alns-in", required_argument, 0, 'i'},
                 {"alns-on", required_argument, 0, 'o'},
                 {"distance", no_argument, 0, 'D'},
                 {"haplotypes", required_argument, 0, 'H'},
@@ -152,7 +155,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:B:fi:DH:G:N:A:Y:Z:tq:X:IQ:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:R:B:fDH:G:N:A:Y:Z:tq:X:IQ:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -259,13 +262,13 @@ int main_find(int argc, char** argv) {
         case 'r':
             range = optarg;
             break;
-
+        
+        case 'l':
+            sorted_gam_name = optarg;
+            break;
+        
         case 'a':
             get_alignments = true;
-            break;
-
-        case 'i':
-            node_id_range = optarg;
             break;
 
         case 'I':
@@ -329,8 +332,8 @@ int main_find(int argc, char** argv) {
         return 1;
     }
 
-    if (db_name.empty() && gcsa_in.empty() && xg_name.empty()) {
-        cerr << "[vg find] find requires -d, -g, or -x to know where to find its database" << endl;
+    if (db_name.empty() && gcsa_in.empty() && xg_name.empty() && sorted_gam_name.empty()) {
+        cerr << "[vg find] find requires -d, -g, -x, or -l to know where to find its database" << endl;
         return 1;
     }
 
@@ -361,12 +364,10 @@ int main_find(int argc, char** argv) {
         nli.close();
     }
 
-    // open index
-    Index* vindex = nullptr;
-    if (db_name.empty()) {
-        assert(!gcsa_in.empty() || !xg_name.empty());
-    } else {
-        vindex = new Index;
+    // open RocksDB index
+    unique_ptr<Index> vindex;
+    if (!db_name.empty()) {
+        vindex = unique_ptr<Index>(new Index());
         vindex->open_read_only(db_name);
     }
 
@@ -375,39 +376,45 @@ int main_find(int argc, char** argv) {
         ifstream in(xg_name.c_str());
         xindex.load(in);
     }
-
-    if (get_alignments) {
-        assert(!db_name.empty());
-        vector<Alignment> output_buf;
-        auto lambda = [&output_buf](const Alignment& aln) {
-            output_buf.push_back(aln);
-            stream::write_buffered(cout, output_buf, 100);
-        };
-        vindex->for_each_alignment(lambda);
-        stream::write_buffered(cout, output_buf, 0);
+    
+    unique_ptr<GAMIndex> gam_index;
+    unique_ptr<stream::ProtobufIterator<Alignment>> gam_cursor;
+    if (!sorted_gam_name.empty()) {
+        // Load the GAM index
+        gam_index = unique_ptr<GAMIndex>(new GAMIndex());
+        get_input_file(sorted_gam_name + ".gai", [&](istream& in) {
+            // We get it form the appropriate .gai, which must exist
+            gam_index->load(in); 
+        });
     }
 
-    if (!node_id_range.empty()) {
-        assert(!db_name.empty());
-        vector<string> parts = split_delims(node_id_range, ":");
-        if (parts.size() == 1) {
-            convert(parts.front(), start_id);
-            end_id = start_id;
+    if (get_alignments) {
+        // Dump all the alignments
+        if (vindex.get() != nullptr) {
+            // Dump from RocksDB
+        
+            vector<Alignment> output_buf;
+            auto lambda = [&output_buf](const Alignment& aln) {
+                output_buf.push_back(aln);
+                stream::write_buffered(cout, output_buf, 100);
+            };
+            vindex->for_each_alignment(lambda);
+            stream::write_buffered(cout, output_buf, 0);
+        } else if (gam_index.get() != nullptr) {
+            // Dump from sorted GAM
+            // TODO: This is basically a noop.
+            get_input_file(sorted_gam_name, [&](istream& in) {
+                // Stream the alignments in and then stream them back out.
+                stream::for_each<Alignment>(in, stream::emit_to<Alignment>(cout));
+            });
         } else {
-            convert(parts.front(), start_id);
-            convert(parts.back(), end_id);
+            cerr << "error [vg find]: Cannot find alignments without a RocksDB index or a sorted GAM" << endl;
+            exit(1);
         }
-        vector<Alignment> output_buf;
-        auto lambda = [&output_buf](const Alignment& aln) {
-            output_buf.push_back(aln);
-            stream::write_buffered(cout, output_buf, 100);
-        };
-        vindex->for_alignment_in_range(start_id, end_id, lambda);
-        stream::write_buffered(cout, output_buf, 0);
     }
 
     if (!aln_on_id_range.empty()) {
-        assert(!db_name.empty());
+        // Parse the range
         vector<string> parts = split_delims(aln_on_id_range, ":");
         if (parts.size() == 1) {
             convert(parts.front(), start_id);
@@ -416,32 +423,88 @@ int main_find(int argc, char** argv) {
             convert(parts.front(), start_id);
             convert(parts.back(), end_id);
         }
-        vector<vg::id_t> ids;
-        for (auto i = start_id; i <= end_id; ++i) {
-            ids.push_back(i);
+        
+        if (vindex.get() != nullptr) {
+            // Find in RocksDB
+            
+            // We need a set of all the IDs.
+            vector<vg::id_t> ids;
+            for (auto i = start_id; i <= end_id; ++i) {
+                ids.push_back(i);
+            }
+            
+            vector<Alignment> output_buf;
+            auto lambda = [&output_buf](const Alignment& aln) {
+                output_buf.push_back(aln);
+                stream::write_buffered(cout, output_buf, 100);
+            };
+            vindex->for_alignment_to_nodes(ids, lambda);
+            stream::write_buffered(cout, output_buf, 0);
+        } else if (gam_index.get() != nullptr) {
+            // Find in sorted GAM
+            
+            get_input_file(sorted_gam_name, [&](istream& in) {
+                // Make a cursor for input
+                // TODO: Refactor so we can put everything with the GAM index inside one get_input_file call to deduplicate code
+                stream::ProtobufIterator<Alignment> cursor(in);
+                
+                // Find the alignments and dump them to cout
+                gam_index->find(cursor, start_id, end_id, stream::emit_to<Alignment>(cout));
+            });
+            
+        } else {
+            cerr << "error [vg find]: Cannot find alignments on range without a RocksDB index or a sorted GAM" << endl;
+            exit(1);
         }
-        vector<Alignment> output_buf;
-        auto lambda = [&output_buf](const Alignment& aln) {
-            output_buf.push_back(aln);
-            stream::write_buffered(cout, output_buf, 100);
-        };
-        vindex->for_alignment_to_nodes(ids, lambda);
-        stream::write_buffered(cout, output_buf, 0);
     }
 
     if (!to_graph_file.empty()) {
-        assert(vindex != nullptr);
+        // Find alignments touching a graph
+        
+        // Load up the graph
         ifstream tgi(to_graph_file);
-        VG graph(tgi);
-        vector<vg::id_t> ids;
-        graph.for_each_node([&](Node* n) { ids.push_back(n->id()); });
-        vector<Alignment> output_buf;
-        auto lambda = [&output_buf](const Alignment& aln) {
-            output_buf.push_back(aln);
-            stream::write_buffered(cout, output_buf, 100);
-        };
-        vindex->for_alignment_to_nodes(ids, lambda);
-        stream::write_buffered(cout, output_buf, 0);
+        unique_ptr<VG> graph = unique_ptr<VG>(new VG(tgi));
+        
+        if (vindex.get() != nullptr) {
+            // Collet the IDs in a vector
+            vector<vg::id_t> ids;
+            graph->for_each_node([&](Node* n) { ids.push_back(n->id()); });
+            
+            // Throw out the graph
+            graph.reset();
+        
+            // Find in RocksDB
+            vector<Alignment> output_buf;
+            auto lambda = [&output_buf](const Alignment& aln) {
+                output_buf.push_back(aln);
+                stream::write_buffered(cout, output_buf, 100);
+            };
+            vindex->for_alignment_to_nodes(ids, lambda);
+            stream::write_buffered(cout, output_buf, 0);
+            
+        }  else if (gam_index.get() != nullptr) {
+            // Find in sorted GAM
+            
+            // Get the ID ranges from the graph
+            auto ranges = vg::algorithms::sorted_id_ranges(graph.get());
+            // Throw out the graph
+            graph.reset();
+            
+            get_input_file(sorted_gam_name, [&](istream& in) {
+                // Make a cursor for input
+                // TODO: Refactor so we can put everything with the GAM index inside one get_input_file call to deduplicate code
+                stream::ProtobufIterator<Alignment> cursor(in);
+            
+                // Find the alignments and send them to cout
+                gam_index->find(cursor, ranges, stream::emit_to<Alignment>(cout)); 
+            });
+            
+        } else {
+            cerr << "error [vg find]: Cannot find alignments on graph without a RocksDB index or a sorted GAM" << endl;
+            exit(1);
+        }
+        
+        
     }
 
     if (!xg_name.empty()) {
@@ -886,9 +949,7 @@ int main_find(int argc, char** argv) {
             result_graph.serialize_to_ostream(cout);
         }
     }
-
-    if (vindex) delete vindex;
-
+    
     return 0;
 
 }
