@@ -34,7 +34,8 @@ using namespace std;
     /// Finds a set of node orientations that can be applied so that there are no
     /// reversing edges (i.e. every edge connects a locally forward node traversal
     /// to another locally forward orientation). If no such combination of orientations
-    /// exists, produces an error and exits. Potentially invalidates any existing handles.
+    /// exists, produces an error and exits. Returns a set of the node IDs for nodes that
+    /// were swapped in orientation. Potentially invalidates any existing handles.
     unordered_set<id_t> make_single_stranded(MutableHandleGraph* graph);
 
 }
