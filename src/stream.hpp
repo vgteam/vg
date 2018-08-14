@@ -587,6 +587,9 @@ void for_each_parallel(std::istream& in,
  *
  * Can call callbacks with the groups emitted and their virtual offsets, for
  * indexing purposes.
+ * 
+ * Note that the callbacks may be called by the ProtobufEmitter's destructor,
+ * so anything they reference needs to outlive the ProtobufEmitter.
  *
  * Not thread-safe. May be more efficient than repeated write/write_buffered
  * calls because a single BGZF stream can be used.
@@ -647,7 +650,7 @@ public:
     /// Add an event listener that listens for emitted groups. The listener
     /// will be called with the group buffer, the start virtual offset, and the
     /// past-end virtual offset. Moves the function passed in.
-    /// Anything the function uses by reference must outlive this object.
+    /// Anything the function uses by reference must outlive this object!
     void on_group(listener_t&& listener) {
         group_handlers.emplace_back(std::move(listener));
     }
