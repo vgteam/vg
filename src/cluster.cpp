@@ -12,6 +12,15 @@ using namespace structures;
 
 namespace vg {
     
+//size_t OrientedDistanceClusterer::PRUNE_COUNTER = 0;
+//size_t OrientedDistanceClusterer::CLUSTER_TOTAL = 0;
+//size_t OrientedDistanceClusterer::MEM_FILTER_COUNTER = 0;
+//size_t OrientedDistanceClusterer::MEM_TOTAL = 0;
+//size_t OrientedDistanceClusterer::SPLIT_ATTEMPT_COUNTER = 0;
+//size_t OrientedDistanceClusterer::SUCCESSFUL_SPLIT_ATTEMPT_COUNTER = 0;
+//size_t OrientedDistanceClusterer::PRE_SPLIT_CLUSTER_COUNTER = 0;
+//size_t OrientedDistanceClusterer::POST_SPLIT_CLUSTER_COUNTER = 0;
+    
 MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
     const vector<vector<MaximalExactMatch> >& matches,
@@ -429,15 +438,16 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     
     for (const MaximalExactMatch& mem : mems) {
         
-        //#pragma omp atomic
-        //        MEM_TOTAL += mem.nodes.size();
+//#pragma omp atomic
+//        MEM_TOTAL += mem.nodes.size();
         
         if (mem.length() < min_mem_length) {
 #ifdef debug_od_clusterer
             cerr << "skipping short MEM " << mem << endl;
 #endif
-            //#pragma omp atomic
-            //            MEM_FILTER_COUNTER += mem.nodes.size();
+            
+//#pragma omp atomic
+//            MEM_FILTER_COUNTER += mem.nodes.size();
             continue;
         }
         
@@ -575,19 +585,14 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
 #endif
             
             for (int64_t j = low; j <= hi; j++) {
+                // don't make self edges
+                if (i == j) {
+                    continue;
+                }
+                
                 int64_t next_idx = sorted_pos[j].second;
                 ODNode& next = nodes[next_idx];
                 
-                if (next.mem->begin < pivot.mem->begin || next.mem->end < pivot.mem->end
-                    || (next.mem->begin == pivot.mem->begin && next.mem->end == pivot.mem->end)) {
-                    // these MEMs cannot be colinear along the read (also filters out j == i)
-                    
-                    // note: we allow one of the start/end positions to be the same here even though they can't
-                    // techinically overlap because it tends to soak up redundant sub-MEMs into the same connected
-                    // component so that they don't get their own cluster
-                    
-                    continue;
-                }
                 // the length of the sequence in between the MEMs (can be negative if they overlap)
                 int64_t between_length = next.mem->begin - pivot.mem->end;
                 
@@ -599,6 +604,28 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                 }
                 else {
                     graph_dist = sorted_pos[j].first - strand_pos - pivot_length;
+                }
+                
+                if (next.mem->begin >= pivot.mem->begin && next.mem->end <= pivot.mem->end
+                    && abs((sorted_pos[j].first - strand_pos) - (next.mem->begin - pivot.mem->begin)) <= 1) {
+                    // this looks like a redundant sub-MEM
+                    
+                    // we add a dummy edge, but only to connect the nodes' components and join the clusters,
+                    // not to actually use in dynamic programming (given arbitrary low weight that should not
+                    // cause overflow)
+                    pivot.edges_from.emplace_back(next_idx, numeric_limits<int32_t>::lowest() / 2, graph_dist);
+                    next.edges_to.emplace_back(pivot_idx, numeric_limits<int32_t>::lowest() / 2, graph_dist);
+                    
+                    continue;
+                }
+                else if (next.mem->begin <= pivot.mem->begin || next.mem->end <= pivot.mem->end) {
+                    // these MEMs cannot be colinear along the read
+                    
+                    // note: we allow one of the start/end positions to be the same here even though they can't
+                    // techinically overlap because it tends to soak up redundant sub-MEMs into the same connected
+                    // component so that they don't get their own cluster
+                    
+                    continue;
                 }
                 
                 int32_t edge_score;
@@ -626,8 +653,8 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
 #endif
                 
                 // add the edges in
-                pivot.edges_from.emplace_back(next_idx, edge_score);
-                next.edges_to.emplace_back(pivot_idx, edge_score);
+                pivot.edges_from.emplace_back(next_idx, edge_score, graph_dist);
+                next.edges_to.emplace_back(pivot_idx, edge_score, graph_dist);
             }
         }
     }
@@ -1801,17 +1828,36 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
 #ifdef debug_od_clusterer
         cerr << "looking for high coverage clusters to split" << endl;
 #endif
-        for (size_t i = 0; i < components.size(); i++) {
+        size_t num_original_components = components.size();
+        for (size_t i = 0; i < num_original_components; i++) {
 #ifdef debug_od_clusterer
             cerr << "component " << i << " has median coverage " << median_mem_coverage(components[i], alignment) << endl;
 #endif
+            size_t curr_num_components = components.size();
             if (median_mem_coverage(components[i], alignment) >= min_median_mem_coverage_for_split) {
+//#pragma omp atomic
+//                SPLIT_ATTEMPT_COUNTER++;
 #ifdef debug_od_clusterer
                 cerr << "attempting to prune and split cluster" << endl;
 #endif
+                
                 prune_low_scoring_edges(components, i, suboptimal_edge_pruning_factor);
+                
+                if (components.size() > curr_num_components) {
+//#pragma omp atomic
+//                    SUCCESSFUL_SPLIT_ATTEMPT_COUNTER++;
+                }
             }
         }
+#ifdef debug_od_clusterer
+        vector<vector<size_t>> current_components;
+        connected_components(current_components);
+        cerr << "after splitting, from " << num_original_components << " to " << current_components.size() << " connected components" << endl;
+#endif
+//#pragma omp atomic
+//        PRE_SPLIT_CLUSTER_COUNTER += num_original_components;
+//#pragma omp atomic
+//        POST_SPLIT_CLUSTER_COUNTER += components.size();
     }
     
     
@@ -2220,8 +2266,22 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
         ODNode& node = nodes[node_idx];
         for (size_t j = 0; j < node.edges_from.size(); ) {
             ODEdge& edge = node.edges_from[j];
+            
+            // don't remove edges that look nearly perfect (helps keep redundant sub-MEMs in the cluster with
+            // their parent so that they can be removed later)
+            if (abs((edge.distance + (node.mem->end - node.mem->begin))
+                    - (nodes[edge.to_idx].mem->begin - node.mem->begin)) <= 1) {
+#ifdef debug_od_clusterer
+                cerr << "preserving edge because distance looks good" << endl;
+#endif
+                j++;
+                continue;
+            }
+            
             // the forward-backward score of this edge
             int32_t edge_score = node.dp_score + edge.weight + backwards_dp_score[node_idx_to_component_idx[edge.to_idx]];
+            
+            // is the max score across this edge too low?
             if (edge_score < min_score) {
                 
 #ifdef debug_od_clusterer
@@ -2263,7 +2323,6 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
         if (enqueued[i]) {
             continue;
         }
-        //cerr << "new cmp at " << component[i] << endl;
         new_components.emplace_back();
         vector<size_t> stack(1, component[i]);
         enqueued[node_idx_to_component_idx[i]] = true;
@@ -2271,15 +2330,11 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
             size_t node_idx = stack.back();
             stack.pop_back();
             
-            //cerr << "trav at " << node_idx << endl;
-            
             new_components.back().push_back(node_idx);
             
             for (ODEdge& edge : nodes[node_idx].edges_from) {
                 size_t local_idx = node_idx_to_component_idx[edge.to_idx];
-                //cerr << "edge fwd to " << edge.to_idx << ", local " << local_idx << endl;
                 if (!enqueued[local_idx]) {
-                    //cerr << "enqueuing" << endl;
                     stack.push_back(edge.to_idx);
                     enqueued[local_idx] = true;
                 }
@@ -2287,9 +2342,7 @@ void OrientedDistanceClusterer::prune_low_scoring_edges(vector<vector<size_t>>& 
             
             for (ODEdge& edge : nodes[node_idx].edges_to) {
                 size_t local_idx = node_idx_to_component_idx[edge.to_idx];
-                //cerr << "edge bwd to " << edge.to_idx << ", local " << local_idx << endl;
                 if (!enqueued[local_idx]) {
-                    //cerr << "enqueuing" << endl;
                     stack.push_back(edge.to_idx);
                     enqueued[local_idx] = true;
                 }
@@ -2403,10 +2456,20 @@ size_t OrientedDistanceClusterer::median_mem_coverage(const vector<size_t>& comp
             // an interval is leaving scope, decrement the depth
             depth--;
         }
+        
+        // if there's an initial interval of 0 depth, we ignore it (helps with read-end effects from sequencers)
+        if (at > 0 || depth > 0) {
 #ifdef debug_median_algorithm
-        cerr << "\ttraversing pre-interval segment staring from " << at << " adding " << interval.first - at << " to depth " << depth << endl;
+            cerr << "\ttraversing pre-interval segment staring from " << at << " adding " << interval.first - at << " to depth " << depth << endl;
 #endif
-        coverage_count[depth] += interval.first - at;
+            coverage_count[depth] += interval.first - at;
+        }
+#ifdef debug_median_algorithm
+        else {
+            cerr << "\tskipping an initial segment from " << at << " to " << interval.first << " with depth " << depth << endl;
+        }
+#endif
+
         
         at = interval.first;
         // an interval is entering scope, increment the depth
@@ -2426,8 +2489,10 @@ size_t OrientedDistanceClusterer::median_mem_coverage(const vector<size_t>& comp
         // an interval is leaving scope, decrement the depth
         depth--;
     }
-    // add the final segment, which necessarily has 0 coverage
-    coverage_count[0] += aln.sequence().size() - at;
+    
+    // NOTE: we used to count the final interval of depth 0 here, but now we ignore 0-depth terminal intervals
+    // because it seems to help with the read-end effects of sequencers (which can lead to match dropout)
+    //coverage_count[0] += aln.sequence().size() - at;
     
     // convert it into a CDF over read coverage
     vector<pair<int64_t, int64_t>> cumul_coverage_count(coverage_count.begin(), coverage_count.end());

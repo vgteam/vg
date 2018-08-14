@@ -116,7 +116,7 @@ int main_mpmap(int argc, char** argv) {
     int max_paired_end_map_attempts = 24;
     int max_single_end_mappings_for_rescue = 64;
     int max_single_end_map_attempts = 64;
-    int max_rescue_attempts = 32;
+    int max_rescue_attempts = 10;
     int population_max_paths = 10;
     // How many distinct single path alignments should we look for in a multipath, for MAPQ?
     // TODO: create an option.
@@ -164,7 +164,7 @@ int main_mpmap(int argc, char** argv) {
     bool precollapse_order_length_hits = true;
     int max_sub_mem_recursion_depth = 1;
     int max_map_attempts_arg = 0;
-    int secondary_rescue_subopt_diff = 25;
+    int secondary_rescue_subopt_diff = 35;
     int min_median_mem_coverage_for_split = 0;
     bool suppress_cluster_merging = false;
     
@@ -682,12 +682,12 @@ int main_mpmap(int argc, char** argv) {
         }
         
         num_alt_alns = 1;
-        
-        // we get better performance by splitting up clusters a bit more when looking paired clusters
-        if (interleaved_input || !fastq_name_2.empty()) {
-            min_median_mem_coverage_for_split = 2;
-            suppress_cluster_merging = true;
-        }
+    }
+    
+    // we get better performance by splitting up clusters a bit more when we're forcing alignments to go to only one place
+    if (single_path_alignment_mode) {
+        min_median_mem_coverage_for_split = 2;
+        suppress_cluster_merging = true;
     }
     
     // ensure required parameters are provided
@@ -1224,6 +1224,8 @@ int main_mpmap(int argc, char** argv) {
     //cerr << "MEM length filtering efficiency: " << ((double) OrientedDistanceClusterer::MEM_FILTER_COUNTER) / OrientedDistanceClusterer::MEM_TOTAL << " (" << OrientedDistanceClusterer::MEM_FILTER_COUNTER << "/" << OrientedDistanceClusterer::MEM_TOTAL << ")" << endl;
     //cerr << "MEM cluster filtering efficiency: " << ((double) OrientedDistanceClusterer::PRUNE_COUNTER) / OrientedDistanceClusterer::CLUSTER_TOTAL << " (" << OrientedDistanceClusterer::PRUNE_COUNTER << "/" << OrientedDistanceClusterer::CLUSTER_TOTAL << ")" << endl;
     //cerr << "subgraph filtering efficiency: " << ((double) MultipathMapper::PRUNE_COUNTER) / MultipathMapper::SUBGRAPH_TOTAL << " (" << MultipathMapper::PRUNE_COUNTER << "/" << MultipathMapper::SUBGRAPH_TOTAL << ")" << endl;
+    //cerr << "attempted to split " << OrientedDistanceClusterer::SPLIT_ATTEMPT_COUNTER << " of " << OrientedDistanceClusterer::PRE_SPLIT_CLUSTER_COUNTER << " clusters with " << OrientedDistanceClusterer::SUCCESSFUL_SPLIT_ATTEMPT_COUNTER << " splits successful (" << 100.0 * double(OrientedDistanceClusterer::SUCCESSFUL_SPLIT_ATTEMPT_COUNTER) / OrientedDistanceClusterer::SPLIT_ATTEMPT_COUNTER << "%) resulting in " << OrientedDistanceClusterer::POST_SPLIT_CLUSTER_COUNTER << " total clusters (" << OrientedDistanceClusterer::POST_SPLIT_CLUSTER_COUNTER - OrientedDistanceClusterer::PRE_SPLIT_CLUSTER_COUNTER << " new)" << endl;
+    //cerr << "entered secondary rescue " << MultipathMapper::SECONDARY_RESCUE_TOTAL << " times with " << MultipathMapper::SECONDARY_RESCUE_COUNT << " actually attempting rescues, totaling " << MultipathMapper::SECONDARY_RESCUE_ATTEMPT << " rescues (" << double(MultipathMapper::SECONDARY_RESCUE_ATTEMPT) / MultipathMapper::SECONDARY_RESCUE_COUNT << " average per attempt)" << endl;
     
     if (snarl_manager != nullptr) {
         delete snarl_manager;
