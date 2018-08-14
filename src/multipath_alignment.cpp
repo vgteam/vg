@@ -1300,7 +1300,7 @@ namespace vg {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
                         if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) != subseq[seq_idx]) {
 #ifdef debug_verbose_validation
-                            cerr << "validation failure on match that does not match" << endl;
+                            cerr << "validation failure on match that does not match for read " << multipath_aln.name() << endl;
                             cerr << pb2json(mapping) << ", " << subseq << endl;
 #endif
                             return false;

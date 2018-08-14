@@ -499,6 +499,9 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         if (mem.begin < seq_begin || mem.end > seq_end) continue;
         mem.match_count = gcsa->count(mem.range);
         mem.primary = true;
+        // keep track of the initial number of hits we query in case the nodes vector is
+        // modified later (e.g. by prefiltering)
+        mem.queried_count = mem.nodes.size();
     }
     
     // the graph of containment relationships between MEMs by index, also keeps track of what the sub-MEM min
@@ -598,9 +601,14 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         if (mem.match_count > 0) {
             if (hit_max) {
                 gcsa->locate(mem.range, hit_max, mem.nodes);
+                
             } else {
                 gcsa->locate(mem.range, mem.nodes);
             }
+            // keep track of the initial number of hits we query in case the nodes vector is
+            // modified later (e.g. by prefiltering)
+            mem.queried_count = mem.nodes.size();
+            
             filtered_mems += mem.match_count - mem.nodes.size();
             total_mems += mem.nodes.size();
         }
@@ -1250,7 +1258,8 @@ void BaseMapper::precollapse_order_length_runs(string::const_iterator seq_begin,
         for (size_t i = 0; i < order_length_mems.size(); i++) {
             
             size_t removed_so_far = 0;
-            auto& nodes = mems[order_length_mems[i]].nodes;
+            auto& mem = mems[order_length_mems[i]];
+            auto& nodes = mem.nodes;
             for (size_t j = 0; j < nodes.size(); j++) {
                 
                 if (traversed.count(make_pair(i, j))) {
@@ -1264,12 +1273,19 @@ void BaseMapper::precollapse_order_length_runs(string::const_iterator seq_begin,
             if (removed_so_far) {
                 nodes.resize(nodes.size() - removed_so_far);
             }
+            
+            mem.match_count -= removed_so_far;
+            mem.queried_count -= removed_so_far;
+            
         }
         
         // label the newly created MEMs with their hit count
         
         for (size_t i = num_uncollapsed_mems; i < mems.size(); i++) {
-            mems[i].match_count = mems[i].nodes.size();
+            auto& collapsed_mem = mems[i];
+            collapsed_mem.match_count = collapsed_mem.nodes.size();
+            collapsed_mem.queried_count = collapsed_mem.match_count;
+            collapsed_mem.primary = true;
         }
         
         // resort the MEMs in lexicographic order by the read interval
@@ -1970,7 +1986,7 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     }
 }
 
-map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby) {
+map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby) const {
     return xg_alignment_path_offsets(aln, just_min, nearby, xindex);
 }
 
@@ -2953,11 +2969,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
 }
 
-void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) {
+void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) const {
     for (auto& aln : alns) annotate_with_initial_path_positions(aln);
 }
 
-void Mapper::annotate_with_initial_path_positions(Alignment& aln) {
+void Mapper::annotate_with_initial_path_positions(Alignment& aln) const {
     if (!aln.refpos_size()) {
         auto init_path_positions = alignment_path_offsets(aln);
         for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {

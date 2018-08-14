@@ -45,8 +45,6 @@ static ssize_t cppstream_read(hFILE *fpv, void *buffer, size_t nbytes) {
     fp->input->read((char*) buffer, nbytes);
     ssize_t found = fp->input->gcount();
     
-    // TODO: it is not clear how we should signal EOF
-    
     if (!fp->input->good() && !fp->input->eof()) {
         // An error happened
         errno = EIO;
@@ -76,8 +74,6 @@ static ssize_t cppstream_write(hFILE *fpv, const void *buffer, size_t nbytes) {
     // Write the data and record how much we put
     fp->output->clear();
     fp->output->write((char*) buffer, nbytes);
-    
-    // TODO: it is not clear how we should signal EOF
     
     if (!fp->output->good()) {
         // An error happened
@@ -246,9 +242,8 @@ hFILE* hfile_wrap(std::istream& input) {
         // Use a 0 offset.
         start_pos = 0;
         
-        // TODO: This can be confused with starting at the beginning of a
-        // seekable stream, especially because hFILE allows seek within its
-        // buffer even when the backend doesn't.
+        // TODO: There's no real way to prevent the hfile from seeking
+        // internally in its buffer. 
     }
     fp->base.offset = start_pos;
     
@@ -280,9 +275,8 @@ hFILE* hfile_wrap(std::ostream& output) {
         // Use a 0 offset.
         start_pos = 0;
         
-        // TODO: This can be confused with starting at the beginning of a
-        // seekable stream, especially because hFILE allows seek within its
-        // buffer even when the backend doesn't.
+        // TODO: There's no real way to prevent the hfile from seeking
+        // internally in its buffer. 
         
     }
     fp->base.offset = start_pos;

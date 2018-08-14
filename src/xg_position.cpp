@@ -2,11 +2,11 @@
 
 namespace vg {
 
-Node xg_node(id_t id, xg::XG* xgidx) {
+Node xg_node(id_t id, const xg::XG* xgidx) {
     return xgidx->node(id);
 }
 
-vector<Edge> xg_edges_on_start(id_t id, xg::XG* xgidx) {
+vector<Edge> xg_edges_on_start(id_t id, const xg::XG* xgidx) {
     vector<Edge> all_edges = xgidx->edges_of(id);
     auto new_end = std::remove_if(all_edges.begin(), all_edges.end(),
                                   [&](const Edge& edge) {
@@ -17,7 +17,7 @@ vector<Edge> xg_edges_on_start(id_t id, xg::XG* xgidx) {
     return all_edges;
 }
 
-vector<Edge> xg_edges_on_end(id_t id, xg::XG* xgidx) {
+vector<Edge> xg_edges_on_end(id_t id, const xg::XG* xgidx) {
     vector<Edge> all_edges = xgidx->edges_of(id);
     auto new_end = std::remove_if(all_edges.begin(), all_edges.end(),
                                   [&](const Edge& edge) {
@@ -28,23 +28,23 @@ vector<Edge> xg_edges_on_end(id_t id, xg::XG* xgidx) {
     return all_edges;
 }
 
-string xg_node_sequence(id_t id, xg::XG* xgidx) {
+string xg_node_sequence(id_t id, const xg::XG* xgidx) {
     return xgidx->node(id).sequence();
 }
 
-size_t xg_node_length(id_t id, xg::XG* xgidx) {
+size_t xg_node_length(id_t id, const xg::XG* xgidx) {
     return xgidx->node_length(id);
 }
 
-int64_t xg_node_start(id_t id, xg::XG* xgidx) {
+int64_t xg_node_start(id_t id, const xg::XG* xgidx) {
     return xgidx->node_start(id);
 }
 
-char xg_pos_char(pos_t pos, xg::XG* xgidx) {
+char xg_pos_char(pos_t pos, const xg::XG* xgidx) {
     return xgidx->pos_char(id(pos), is_rev(pos), offset(pos));
 }
 
-map<pos_t, char> xg_next_pos_chars(pos_t pos, xg::XG* xgidx) {
+map<pos_t, char> xg_next_pos_chars(pos_t pos, const xg::XG* xgidx) {
 
     map<pos_t, char> nexts;
     // See if the node is cached (did we just visit it?)
@@ -92,7 +92,7 @@ map<pos_t, char> xg_next_pos_chars(pos_t pos, xg::XG* xgidx) {
     return nexts;
 }
 
-set<pos_t> xg_next_pos(pos_t pos, bool whole_node, xg::XG* xgidx) {
+set<pos_t> xg_next_pos(pos_t pos, bool whole_node, const xg::XG* xgidx) {
     set<pos_t> nexts;
     // See if the node is cached (did we just visit it?)
     Node node = xgidx->node(id(pos));
@@ -134,7 +134,7 @@ set<pos_t> xg_next_pos(pos_t pos, bool whole_node, xg::XG* xgidx) {
     return nexts;
 }
 
-int64_t xg_distance(pos_t pos1, pos_t pos2, int64_t maximum, xg::XG* xgidx) {
+int64_t xg_distance(pos_t pos1, pos_t pos2, int64_t maximum, const xg::XG* xgidx) {
     //cerr << "distance from " << pos1 << " to " << pos2 << endl;
     if (pos1 == pos2) return 0;
     int64_t adj = (offset(pos1) == xg_node_length(id(pos1), xgidx) ? 0 : 1);
@@ -167,7 +167,7 @@ int64_t xg_distance(pos_t pos1, pos_t pos2, int64_t maximum, xg::XG* xgidx) {
     return numeric_limits<int64_t>::max();
 }
 
-set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, xg::XG* xgidx) {
+set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, const xg::XG* xgidx) {
     // handle base case
     //size_t xg_node_length(id_t id, xg::XG* xgidx);
     if (rev) {
@@ -212,7 +212,7 @@ set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, xg::XG* x
     }
 }
 
-map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby, xg::XG* xgidx) {
+map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby, const xg::XG* xgidx) {
     map<string, vector<pair<size_t, bool> > > offsets;
     for (auto& mapping : aln.path().mapping()) {
         auto pos_offs = (nearby ?
@@ -244,7 +244,7 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignm
     return offsets;
 }
 
-void xg_annotate_with_initial_path_positions(Alignment& aln, bool just_min, bool nearby, xg::XG* xgidx) {
+void xg_annotate_with_initial_path_positions(Alignment& aln, bool just_min, bool nearby, const xg::XG* xgidx) {
     if (!aln.refpos_size()) {
         auto init_path_positions = xg_alignment_path_offsets(aln, just_min, nearby, xgidx);
         for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {

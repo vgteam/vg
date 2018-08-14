@@ -223,6 +223,10 @@ public:
     //static size_t CLUSTER_TOTAL;
     //static size_t MEM_FILTER_COUNTER;
     //static size_t MEM_TOTAL;
+    //static size_t PRE_SPLIT_CLUSTER_COUNTER;
+    //static size_t SPLIT_ATTEMPT_COUNTER;
+    //static size_t SUCCESSFUL_SPLIT_ATTEMPT_COUNTER;
+    //static size_t POST_SPLIT_CLUSTER_COUNTER;
     
 private:
     class ODNode;
@@ -407,8 +411,7 @@ public:
 
 class OrientedDistanceClusterer::ODEdge {
 public:
-    ODEdge(size_t to_idx, int32_t weight) :
-    to_idx(to_idx), weight(weight) {}
+    ODEdge(size_t to_idx, int32_t weight, int64_t distance) : to_idx(to_idx), weight(weight), distance(distance) {}
     ODEdge() = default;
     ~ODEdge() = default;
     
@@ -417,6 +420,9 @@ public:
     
     /// Weight for dynamic programming
     int32_t weight;
+    
+    /// Estimated distance
+    int64_t distance;
 };
 
 struct OrientedDistanceClusterer::DPScoreComparator {
