@@ -15,7 +15,6 @@
 #include "types.hpp"
 #include "vg.pb.h"
 #include "stream.hpp"
-#include "handle.hpp"
 
 namespace vg {
 
@@ -80,6 +79,15 @@ public:
     
     /// Save a GAMIndex to a file.
     void save(ostream& to) const;
+    
+    // Like the XG we support versioning.
+    
+    /// What's the maximum GAM index version number we can read with this code?
+    const static uint32_t MAX_INPUT_VERSION = 1;
+    /// What's the version we serialize?
+    const static uint32_t OUTPUT_VERSION = 1;
+    /// What magic value do we embed in the compressed gam index data?
+    const static string MAGIC_BYTES;
     
     
     ///////////////////
