@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 51
+plan tests 52
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -163,7 +163,13 @@ is $(vg index -D -d x.vg.aln | wc -l) 201 "alignment index can be loaded using s
 vg map -T <(vg sim -s 1337 -n 100 -x x.xg) -d x | vg index -m - -d x.vg.map
 is $(vg index -D -d x.vg.map | wc -l) 1477 "index stores all mappings"
 
-rm -rf x.idx x.vg.map x.vg.aln x1337.gam
+# Compare our indexes against gamsort's
+vg gamsort -i x1337.sorted.gam.gai2 x1337.gam > x1337.sorted.gam
+vg index --index-sorted-gam x1337.sorted.gam
+
+is "$(md5sum <x1337.sorted.gam.gai)" "$(md5sum <x1337.sorted.gam.gai2)" "vg index and vg gamsort produce identical sorted GAM indexes"
+
+rm -rf x.idx x.vg.map x.vg.aln x1337.gam x1337.sorted.gam.gai2 x1337.sorted.gam.gai x1337.sorted.gam
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg
 vg index -x x.xg -v small/x.vcf.gz x.vg
