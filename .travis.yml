@@ -36,6 +36,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm use 2.3.3; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew uninstall --force oclint || true; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install jq jansson coreutils md5sha1sum samtools rasqal bison raptor rasqal gperftools autogen gcc6 lz4 xz cairo expat || true; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link --overwrite gcc@6; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link bison --force; fi
@@ -65,6 +66,7 @@ cache:
     - include
     - bin
 before_cache:
+  - cat deps/vowpal_wabbit/config.log || true
   - rm -f lib/libvg.*
   - rm -f include/vg.pb.h include/vg_git_version.hpp
   - rm -f bin/vg /bin/vg* bin/g++ bin/gcc
