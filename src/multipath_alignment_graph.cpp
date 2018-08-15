@@ -3023,13 +3023,15 @@ namespace vg {
                     // want past-the-last instead of last index here
                     get_offset(end_pos)++;
                     
-                    Graph tail_graph;
+                    VG tail_graph_extractor;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               tail_graph,
+                                                                                               &tail_graph_extractor,
                                                                                                target_length,
                                                                                                end_pos,
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
+                    
+                    Graph& tail_graph = tail_graph_extractor.graph;
                     
                     // ensure invariants that gssw-based alignment expects
                     groom_graph_for_gssw(tail_graph);
@@ -3132,14 +3134,16 @@ namespace vg {
                     pos_t begin_pos = initial_position(path_node.path);
                     
                     
-                    Graph tail_graph;
+                    VG tail_graph_extractor;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               tail_graph,
+                                                                                               &tail_graph_extractor,
                                                                                                target_length,
                                                                                                begin_pos,
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
+                    
+                    Graph& tail_graph = tail_graph_extractor.graph;
                     // ensure invariants that gssw-based alignment expects
                     groom_graph_for_gssw(tail_graph);
                     

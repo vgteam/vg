@@ -2765,8 +2765,7 @@ namespace vg {
             }
         }
         
-        TEST_CASE( "Extending graph extraction algorithm produces expected results",
-                  "[algorithms]" ) {
+        TEST_CASE( "Extending graph extraction algorithm produces expected results", "[algorithms]" ) {
             
             VG vg;
             
@@ -2797,9 +2796,9 @@ namespace vg {
                 bool search_backward = false;
                 bool preserve_cycles = false;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 1);
                 REQUIRE(g.edge_size() == 0);
@@ -2823,52 +2822,9 @@ namespace vg {
                 bool search_backward = false;
                 bool preserve_cycles = false;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
-                
-                REQUIRE(g.node_size() == 2);
-                REQUIRE(g.edge_size() == 1);
-                
-                bool found_node_0 = false;
-                bool found_node_1 = false;
-                
-                for (size_t i = 0; i < g.node_size(); i++) {
-                    const Node& n = g.node(i);
-                    if (id_trans[n.id()] == n3->id() && n.sequence() == "A") {
-                        found_node_0 = true;
-                    }
-                    else if (id_trans[n.id()] == n4->id() && n.sequence() == "TGAG") {
-                        found_node_1 = true;
-                    }
-                }
-                
-                REQUIRE(found_node_0);
-                REQUIRE(found_node_1);
-                
-                bool found_edge_0 = false;
-                
-                for (size_t i = 0; i < g.edge_size(); i++) {
-                    const Edge& e = g.edge(i);
-                    if (((id_trans[e.from()] == n3->id() && !e.from_start()) || (id_trans[e.to()] == n3->id() && e.to_end())) &&
-                        ((id_trans[e.from()] == n4->id() && e.from_start()) || (id_trans[e.to()] == n4->id() && !e.to_end()))) {
-                        found_edge_0 = true;
-                    }
-                }
-                
-                REQUIRE(found_edge_0);
-            }
-            
-            SECTION( "Extending graph extraction algorithm produces same output when searching in opposite direction on opposite strand" ) {
-                
-                pos_t pos = make_pos_t(n3->id(), true, 1);
-                int64_t max_dist = 5;
-                bool search_backward = true;
-                bool preserve_cycles = false;
-                
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 2);
                 REQUIRE(g.edge_size() == 1);
@@ -2909,9 +2865,52 @@ namespace vg {
                 bool search_backward = true;
                 bool preserve_cycles = false;
                 
-                Graph g;
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                REQUIRE(g.node_size() == 2);
+                REQUIRE(g.edge_size() == 1);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                
+                for (size_t i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (id_trans[n.id()] == n3->id() && n.sequence() == "A") {
+                        found_node_0 = true;
+                    }
+                    else if (id_trans[n.id()] == n4->id() && n.sequence() == "TGAG") {
+                        found_node_1 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                
+                bool found_edge_0 = false;
+                
+                for (size_t i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((id_trans[e.from()] == n3->id() && !e.from_start()) || (id_trans[e.to()] == n3->id() && e.to_end())) &&
+                        ((id_trans[e.from()] == n4->id() && e.from_start()) || (id_trans[e.to()] == n4->id() && !e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+            }
+            
+            SECTION( "Extending graph extraction algorithm produces same output when searching in opposite direction on opposite strand" ) {
+                
+                pos_t pos = make_pos_t(n3->id(), true, 1);
+                int64_t max_dist = 5;
+                bool search_backward = true;
+                bool preserve_cycles = false;
+                
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 2);
                 REQUIRE(g.edge_size() == 1);
@@ -2952,9 +2951,9 @@ namespace vg {
                 bool search_backward = true;
                 bool preserve_cycles = false;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 2);
@@ -3006,9 +3005,9 @@ namespace vg {
                 bool search_backward = false;
                 bool preserve_cycles = false;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 2);
@@ -3060,10 +3059,10 @@ namespace vg {
                 bool search_backward = false;
                 bool preserve_cycles = false;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
-                
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
+                                
                 REQUIRE(g.node_size() == 7);
                 REQUIRE(g.edge_size() == 8);
                 
@@ -3170,9 +3169,9 @@ namespace vg {
                 bool search_backward = false;
                 bool preserve_cycles = true;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 4);
@@ -3242,9 +3241,9 @@ namespace vg {
                 bool search_backward = false;
                 bool preserve_cycles = true;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                                 
                 REQUIRE(g.node_size() == 5);
                 REQUIRE(g.edge_size() == 6);
@@ -4527,24 +4526,21 @@ namespace vg {
             for (int i = 0; i < 20; i++) {
                 
                 vector<handle_t> orientation;
+                unordered_map<id_t, string> sequence_by_id;
+                //int j = 0;
                 vg.for_each_handle([&](const handle_t& handle) {
-                    orientation.push_back(handle);
-                    if (bernoulli_distribution()(prng)) {
-                        vg.flip(orientation.back());
-                    }
+                    orientation.push_back(bernoulli_distribution()(prng) ? handle : vg.flip(handle));
+                    sequence_by_id[vg.get_id(handle)] = vg.get_sequence(orientation.back());
+                    //cerr << j << " seq " << vg.get_sequence(handle) << " flip? " << vg.get_is_reverse(orientation.back()) << endl;
+                    //j++;
                 });
-                
-                vector<string> sequence_by_idx;
-                for (handle_t handle : orientation){
-                    sequence_by_idx.push_back(vg.get_is_reverse(handle) ?
-                                              reverse_complement(vg.get_sequence(handle)) : vg.get_sequence(handle));
-                }
                 
                 algorithms::apply_orientations(&vg, orientation);
                 
                 int idx = 0;
                 vg.for_each_handle([&](const handle_t& handle) {
-                    REQUIRE(vg.get_sequence(handle) == sequence_by_idx[idx]);
+                    //cerr << idx << " expect " << sequence_by_idx[idx] << " get " << vg.get_sequence(handle) << endl;
+                    REQUIRE(vg.get_sequence(handle) == sequence_by_id[vg.get_id(handle)]);
                     idx++;
                 });
             }

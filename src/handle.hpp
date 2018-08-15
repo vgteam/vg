@@ -107,7 +107,7 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // Interface that needs to be implemented
     ////////////////////////////////////////////////////////////////////////////
-
+    
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const = 0;
     
@@ -252,7 +252,8 @@ public:
     /// reflect this. Invalidates all handles to the node (including the one
     /// passed). Returns a new, valid handle to the node in its new forward
     /// orientation. Note that it is possible for the node's ID to change.
-    /// Does not update any stored paths.
+    /// Does not update any stored paths. May change the ordering of the underlying
+    /// graph.
     virtual handle_t apply_orientation(const handle_t& handle) = 0;
     
     /// Split a handle's underlying node at the given offsets in the handle's

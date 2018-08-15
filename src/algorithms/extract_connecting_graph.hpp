@@ -18,7 +18,7 @@
 namespace vg {
 namespace algorithms {
     
-    /// Fills Graph g with the subgraph of the VG graph vg that connects two positions. The nodes that contain
+    /// Fills Graph g with the subgraph of the HandleGraph that connects two positions. The nodes that contain
     /// the two positions will be "cut" at the position and will be tips in the returned graph. Sometimes it
     /// is necessary to duplicate nodes in order to do this, so a map is returned that translates node IDs in
     /// g to node IDs in vg. By default, the algorithm provides one and only one guarantee:
