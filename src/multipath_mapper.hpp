@@ -26,6 +26,8 @@
 #include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/weakly_connected_components.hpp"
+#include "algorithms/is_acyclic.hpp"
+#include "algorithms/is_single_stranded.hpp"
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>
