@@ -13,8 +13,10 @@ bool is_acyclic(const HandleGraph* graph) {
     // orientation exists, and the existence of non-reversing cycles is checked by
     // the directed acyclic algorithm
     
-    return (single_stranded_orientation(graph).size() < graph->node_size()
-            && is_directed_acyclic(graph));
+    if (!single_stranded_orientation(graph).size() < graph->node_size()) {
+        return false;
+    }
+    return is_directed_acyclic(graph);
 }
 
 bool is_directed_acyclic(const HandleGraph* graph) {

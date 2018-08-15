@@ -2581,12 +2581,14 @@ namespace vg {
             
             SECTION( "Containing graph extraction works with a single maximum distance" ) {
                 
-                Graph g;
                 
                 size_t max_len = 3;
                 vector<pos_t> positions{make_pos_t(n0->id(), false, 2), make_pos_t(n5->id(), true, 1)};
                 
-                algorithms::extract_containing_graph(&vg, g, positions, max_len);
+                VG extractor;
+                algorithms::extract_containing_graph(&vg, &extractor, positions, max_len);
+                
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 6);
                 REQUIRE(g.edge_size() == 4);
@@ -2660,12 +2662,14 @@ namespace vg {
             
             SECTION( "Containing graph extraction works with position specific maximum distances" ) {
                 
-                Graph g;
                 
                 vector<size_t> max_lens{2, 3};
                 vector<pos_t> positions{make_pos_t(n0->id(), false, 2), make_pos_t(n5->id(), true, 1)};
                 
-                algorithms::extract_containing_graph(&vg, g, positions, max_lens);
+                VG extractor;
+                algorithms::extract_containing_graph(&vg, &extractor, positions, max_lens);
+                
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 1);
@@ -2708,13 +2712,15 @@ namespace vg {
             
             SECTION( "Containing graph extraction works with position and orientation specific maximum distances" ) {
                 
-                Graph g;
                 
                 vector<size_t> forward_max_lens{3, 3};
                 vector<size_t> backward_max_lens{2, 3};
                 vector<pos_t> positions{make_pos_t(n0->id(), true, 2), make_pos_t(n5->id(), false, 1)};
                 
-                algorithms::extract_containing_graph(&vg, g, positions, forward_max_lens, backward_max_lens);
+                VG extractor;
+                algorithms::extract_containing_graph(&vg, &extractor, positions, forward_max_lens, backward_max_lens);
+                
+                Graph& g = extractor.graph;
                                 
                 REQUIRE(g.node_size() == 4);
                 REQUIRE(g.edge_size() == 2);
@@ -3062,7 +3068,7 @@ namespace vg {
                 VG extractor;
                 auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
                 Graph& g = extractor.graph;
-                                
+                
                 REQUIRE(g.node_size() == 7);
                 REQUIRE(g.edge_size() == 8);
                 
