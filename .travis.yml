@@ -32,6 +32,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -y install cmake; fi
   # Record that we are building these deps with gcc 6
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc6; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo softwareupdate -i "Command Line Tools (macOS High Sierra version 10.13) for Xcode-9.4"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm install ruby-2.3.3; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm use 2.3.3; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
