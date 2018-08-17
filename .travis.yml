@@ -32,11 +32,14 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -y install cmake; fi
   # Record that we are building these deps with gcc 6
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc6; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo softwareupdate -i "Command Line Tools (macOS High Sierra version 10.13) for Xcode-9.4"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm install ruby-2.3.3; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm use 2.3.3; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install jq jansson coreutils md5sha1sum samtools rasqal bison raptor rasqal gperftools autogen gcc6 lz4 xz cairo expat; brew link bison --force; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install jq jansson coreutils md5sha1sum samtools rasqal bison raptor rasqal gperftools autogen gcc6 lz4 xz cairo expat || true; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link --overwrite gcc@6; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link bison --force; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then echo pkg-config results should be $(pkg-config --libs --cflags cairo); fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi

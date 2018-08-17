@@ -14,7 +14,7 @@ vg view -J -v call/tiny.json > tiny.vg
 
 # With an empty pileup and loci mode we should assert the primery path.
 true > empty.gam
-vg augment tiny.vg empty.gam -Z empty.aug.trans -S empty.aug.support > empty.aug.vg
+vg augment tiny.vg empty.gam -a pileup -Z empty.aug.trans -S empty.aug.support > empty.aug.vg
 vg call empty.aug.vg -z empty.aug.trans -s empty.aug.support -b tiny.vg --no-vcf > calls.loci
 rm -f empty.gam
 
@@ -43,14 +43,14 @@ for REP in seq 1 5; do
     echo 'CGTAGCGTGGTCGCATAAGTACAGTANATCCTCCCCGCGCATCCTATTTATTAAGTTAAT' >>reads.txt
 done
 vg map -x test.xg -g test.gcsa --reads reads.txt > test.gam
-cat test.gam | vg augment test.vg -  test.vgpu -Z test.trans -S test.support > test.aug.vg
+cat test.gam | vg augment test.vg - -a pileup -P test.vgpu -Z test.trans -S test.support > test.aug.vg
 vg call test.aug.vg -s test.support -z test.trans -b test.vg > /dev/null
 
 N_COUNT=$(vg view -j test.aug.vg | grep "N" | wc -l)
 
 is "${N_COUNT}" "0" "N bases are not augmented into the graph"
 
-rm -rf reads.txt test.vg test.xg test.gcsa test.gcsa.lcp test.gam  test.aug.vg test.trans test.support empty.gam
+rm -rf reads.txt test.vg test.xg test.gcsa test.gcsa.lcp test.gam  test.aug.vg test.trans test.support empty.gam test.vgpu
 
 
 
