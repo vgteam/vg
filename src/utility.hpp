@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <random>
 #include <type_traits>
+#include <regex>
 #include <signal.h>
 #include <unistd.h>
 #include "vg.pb.h"
@@ -603,6 +604,15 @@ inline bool parse(const string& arg, double& dest) {
     size_t after;
     dest = std::stod(arg, &after);
     return(after == arg.size());
+}
+
+// And one for regular expressions
+template<>
+inline bool parse(const string& arg, std::regex& dest) {
+    // This throsw std::regex_error if it can't parse.
+    // That contains a kind of useless error code that we can't turn itno a string without switching on all the values.
+    dest = std::regex(arg);
+    return true;
 }
 
 // Implement the first version in terms of the second, for any type
