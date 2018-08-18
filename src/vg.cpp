@@ -256,6 +256,12 @@ void VG::destroy_edge(const handle_t& left, const handle_t& right) {
         // TODO: does destroy_edge update paths?
     }
 }
+    
+void VG::clear() {
+    graph.mutable_node()->Clear();
+    graph.mutable_edge()->Clear();
+    clear_indexes();
+}
 
 void VG::swap_handles(const handle_t& a, const handle_t& b) {
     swap_nodes(get_node(get_id(a)), get_node(get_id(b)));

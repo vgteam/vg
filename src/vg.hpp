@@ -145,6 +145,9 @@ public:
     /// Remove the edge connecting the given handles in the given order and orientations.
     virtual void destroy_edge(const handle_t& left, const handle_t& right);
     
+    /// Remove all nodes and edges. Does not update any stored paths.
+    virtual void clear();
+    
     /// Swap the nodes corresponding to the given handles, in the ordering used
     /// by for_each_handle when looping over the graph. Other handles to the
     /// nodes being swapped must not be invalidated.

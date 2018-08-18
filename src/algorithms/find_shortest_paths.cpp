@@ -12,7 +12,8 @@ namespace algorithms {
 
 using namespace structures;
 
-unordered_map<handle_t, size_t>  find_shortest_paths(const HandleGraph* g, handle_t start) {
+unordered_map<handle_t, size_t>  find_shortest_paths(const HandleGraph* g, handle_t start,
+                                                     bool traverse_leftward) {
 
     // This is the minimum distance to each handle
     unordered_map<handle_t, size_t> distances;
@@ -38,7 +39,6 @@ unordered_map<handle_t, size_t>  find_shortest_paths(const HandleGraph* g, handl
     // We keep a current handle
     handle_t current = start;
     size_t distance = 0;
-    distances[start] = distance;
     queue.push(make_pair(distance, start));
     
     while (!queue.empty()) {
@@ -56,17 +56,15 @@ unordered_map<handle_t, size_t>  find_shortest_paths(const HandleGraph* g, handl
         if (current != start) {
             // Up the distance with the node's length. We don't do this for the
             // start handle because we want to count distance from the *end* of
-            // the start handle.
+            // the start handle unless directed otherwise.
             distance += g->get_length(current);
         }
             
-        g->follow_edges(current, false, [&](const handle_t& next) {
+        g->follow_edges(current, traverse_leftward, [&](const handle_t& next) {
             // For each handle to the right of here
             
-            if (!distances.count(next) || distance < distances[next]) {
+            if (!distances.count(next)) {
                 // New shortest distance. Will never happen after the handle comes out of the queue because of Dijkstra.
-                // TODO: Recording the distance here is redundant.
-                distances[next] = distance;
                 queue.push(make_pair(distance, next));
                 
 #ifdef debug_vg_algorithms

@@ -2850,7 +2850,7 @@ namespace vg {
             // make a pos_t that points to the final base in the match
             pos_t src_pos = make_pos_t(final_mapping_position.node_id(),
                                        final_mapping_position.is_reverse(),
-                                       final_mapping_position.offset() + mapping_from_length(final_mapping) - 1);
+                                       final_mapping_position.offset() + mapping_from_length(final_mapping));
             
             // the longest gap that could be detected at this position in the read
             size_t src_max_gap = aligner->longest_detectable_gap(alignment, src_path_node.end);
@@ -2874,17 +2874,15 @@ namespace vg {
 #endif
                 
                 // extract the graph between the matches
-                Graph connecting_graph;
-                unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&align_graph,     // DAG with split strands
-                                                                                               connecting_graph, // graph to extract into
-                                                                                               max_dist,         // longest distance necessary
-                                                                                               src_pos,          // end of earlier match
-                                                                                               dest_pos,         // beginning of later match
-                                                                                               false,            // do not extract the end positions in the matches
-                                                                                               false,            // do not bother finding all cycles (it's a DAG)
-                                                                                               true,             // remove tips
-                                                                                               true,             // only include nodes on connecting paths
-                                                                                               true);            // enforce max distance strictly
+                VG connecting_graph;
+                unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&align_graph,      // DAG with split strands
+                                                                                               &connecting_graph, // graph to extract into
+                                                                                               max_dist,          // longest distance necessary
+                                                                                               src_pos,           // end of earlier match
+                                                                                               dest_pos,          // beginning of later match
+                                                                                               false,             // do not bother finding all cycles (it's a DAG)
+                                                                                               true,              // only include nodes on connecting paths
+                                                                                               true);             // enforce max distance strictly
                 
                 
                 if (connecting_graph.node_size() == 0) {
@@ -2903,13 +2901,13 @@ namespace vg {
                 }
                 
 #ifdef debug_multipath_alignment
-                cerr << "aligning sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph) << endl;
+                cerr << "aligning sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph.graph) << endl;
 #endif
                 
                 bool added_direct_connection = false;
                 // TODO a better way of choosing the number of alternate alignments
                 vector<Alignment> alt_alignments;
-                aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alt_alns, band_padding, true);
+                aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph.graph, num_alt_alns, band_padding, true);
                 
                 for (Alignment& connecting_alignment : alt_alignments) {
 #ifdef debug_multipath_alignment

@@ -10,12 +10,11 @@ using namespace std;
 bool is_acyclic(const HandleGraph* graph) {
     
     // the existence of reversing cycles is equivalent to whether a single stranded
-    // orientation exists, and the existence of non-reversing cycles is checked by
-    // the directed acyclic algorithm
-    
-    if (!single_stranded_orientation(graph).size() < graph->node_size()) {
+    // orientation exists
+    if (single_stranded_orientation(graph).size() < graph->node_size()) {
         return false;
     }
+    // the existence of non-reversing cycles is checked by the directed acyclic algorithm
     return is_directed_acyclic(graph);
 }
 

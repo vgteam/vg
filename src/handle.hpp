@@ -232,10 +232,23 @@ public:
     /// Ignores existing edges.
     virtual void create_edge(const handle_t& left, const handle_t& right) = 0;
     
+    /// Convenient wrapper for create_edge.
+    inline void create_edge(const edge_t& edge) {
+        create_edge(edge.first, edge.second);
+    }
+    
     /// Remove the edge connecting the given handles in the given order and orientations.
     /// Ignores nonexistent edges.
     /// Does not update any stored paths.
     virtual void destroy_edge(const handle_t& left, const handle_t& right) = 0;
+    
+    /// Convenient wrapper for destroy_edge.
+    inline void destroy_edge(const edge_t& edge) {
+        destroy_edge(edge.first, edge.second);
+    }
+    
+    /// Remove all nodes and edges. Does not update any stored paths.
+    virtual void clear() = 0;
     
     /// Swap the nodes corresponding to the given handles, in the ordering used
     /// by for_each_handle when looping over the graph. Other handles to the
