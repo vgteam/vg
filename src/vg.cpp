@@ -2260,18 +2260,18 @@ Node* VG::find_node_by_name_or_add_new(string name) {
 //TODO we need to have real names on id's;
   int namespace_end = name.find_last_of("/#");
 
-	string id_s = name.substr(namespace_end+1, name.length()-2);
-	id_t id = stoll(id_s);
+    string id_s = name.substr(namespace_end+1, name.length()-2);
+    id_t id = stoll(id_s);
 
-	if (has_node(id)){
-	   return get_node(id);
-	} else {
-		Node* new_node = graph.add_node();
-		new_node->set_id(id);
+    if (has_node(id)){
+       return get_node(id);
+    } else {
+        Node* new_node = graph.add_node();
+        new_node->set_id(id);
         node_by_id[new_node->id()] = new_node;
         node_index[new_node] = graph.node_size()-1;
-		return new_node;
-	}
+        return new_node;
+    }
 }
 
 bool VG::has_edge(Edge* edge) {
@@ -2433,7 +2433,7 @@ void VG::extend(const VG& g, bool warn_on_duplicates) {
         }
     }
     // Append the path mappings from this graph, and sort based on rank.
-    paths.append(g.paths);
+    paths.append(g.paths, warn_on_duplicates);
 }
 
 // TODO: unify with above. The only difference is what's done with the paths.
@@ -2458,7 +2458,7 @@ void VG::extend(const Graph& graph, bool warn_on_duplicates) {
         }
     }
     // Append the path mappings from this graph, but don't sort by rank
-    paths.append(graph);
+    paths.append(graph, warn_on_duplicates);
 }
 
 // extend this graph by g, connecting the tails of this graph to the heads of the other
@@ -3006,18 +3006,18 @@ triple_to_vg(void* user_data, raptor_statement* triple)
         const string pathname = sub.substr(1, sub.find_last_of("/#"));
 
         //TODO we are using a nasty trick here, which needs to be fixed.
-	    //We are using knowledge about the uri format to determine the rank of the step.
+        //We are using knowledge about the uri format to determine the rank of the step.
         try {
-	        int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
-	        mapping->set_rank(rank);
-	    } catch(exception& e) {
-	        cerr << "[vg view] assumption about rdf structure was wrong, parsing failed" << endl;
+            int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
+            mapping->set_rank(rank);
+        } catch(exception& e) {
+            cerr << "[vg view] assumption about rdf structure was wrong, parsing failed" << endl;
             exit(1);
-	    }
+        }
         Position* p = mapping->mutable_position();
         p->set_offset(0);
         p->set_node_id(node->id());
-	    p->set_is_reverse(reverse);
+        p->set_is_reverse(reverse);
         paths->append_mapping(pathname, *mapping);
     } else if (pred=="<http://www.w3.org/1999/02/22-rdf-syntax-ns#value>"){
         Node* node = vg->find_node_by_name_or_add_new(sub);
@@ -3052,8 +3052,8 @@ void VG::from_turtle(string filename, string baseuri, bool showp) {
     int st =  raptor_world_open (world);
 
     if (st!=0) {
-	cerr << "[vg view] we could not start the rdf parser " << endl;
-	exit(1);
+    cerr << "[vg view] we could not start the rdf parser " << endl;
+    exit(1);
     }
     raptor_parser* rdf_parser;
     const unsigned char *filename_uri_string;
@@ -3401,16 +3401,6 @@ vector<Edge> VG::break_cycles(void) {
     algorithms::sort(this);
     return removed;
 }
-
-bool VG::is_single_stranded(void) {
-    for (size_t i = 0; i < graph.edge_size(); i++) {
-        const Edge& edge = graph.edge(i);
-        if (edge.from_start() != edge.to_end()) {
-            return false;
-        }
-    }
-    return true;
-}
     
 void VG::identity_translation(unordered_map<id_t, pair<id_t, bool>>& node_translation) {
     node_translation.clear();
@@ -3446,99 +3436,6 @@ VG VG::reverse_complement_graph(unordered_map<id_t, pair<id_t, bool>>& node_tran
     rev_comp.build_indexes();
     
     return rev_comp;
-}
-    
-bool VG::is_directed_acyclic(void) {
-    unordered_map<id_t, pair<int64_t, int64_t>> degrees(graph.node_size());
-    for (size_t i = 0; i < graph.node_size(); i++) {
-        Node* node = graph.mutable_node(i);
-        degrees[node->id()] = make_pair(start_degree(node), end_degree(node));
-    }
-    
-    vector<NodeTraversal> stack;
-    for (size_t i = 0; i < graph.node_size(); i++) {
-        Node* node = graph.mutable_node(i);
-        pair<int64_t, int64_t> node_degrees = degrees[node->id()];
-        if (node_degrees.first == 0) {
-            stack.emplace_back(node, false);
-        }
-        if (node_degrees.second == 0) {
-            stack.emplace_back(node, true);
-        }
-    }
-    
-    while (!stack.empty()) {
-        NodeTraversal here = stack.back();
-        stack.pop_back();
-        
-        auto iter = degrees.find(here.node->id());
-        if (iter == degrees.end()) {
-            continue;
-        }
-        
-        degrees.erase(iter);
-        
-        vector<NodeTraversal> nexts;
-        nodes_next(here, nexts);
-        for (NodeTraversal next : nexts) {
-            auto next_iter = degrees.find(next.node->id());
-            if (next_iter != degrees.end()) {
-                int64_t& in_degree = next.backward ? next_iter->second.second : next_iter->second.first;
-                in_degree--;
-                if (in_degree == 0) {
-                    stack.push_back(next);
-                }
-            }
-        }
-    }
-    return degrees.empty();
-}
-    
-void VG::lazy_sort(void) {
-    // a map to the degrees on the left and right sides of nodes
-    unordered_map<id_t, pair<int64_t, int64_t>> side_degrees;
-    for (size_t i = 0; i < graph.node_size(); i++) {
-        id_t id = graph.node(i).id();
-        side_degrees[id] = make_pair(start_degree(get_node(id)), end_degree(get_node(id)));
-    }
-    
-    // find the nodes with 0 in degree an initialize the queue with them
-    vector<NodeTraversal> stack;
-    for (const auto& degree_record : side_degrees) {
-        if (degree_record.second.first == 0) {
-            stack.emplace_back(get_node(degree_record.first));
-        }
-    }
-    
-    vector<id_t> order;
-    order.reserve(graph.node_size());
-    
-    while (!stack.empty()) {
-        // get a head node off the queue
-        NodeTraversal head_trav = stack.back();
-        stack.pop_back();
-        
-        // add it to the topological order
-        order.push_back(head_trav.node->id());
-        
-        // remove its outgoing edges
-        vector<NodeTraversal> nexts;
-        nodes_next(head_trav, nexts);
-        for (NodeTraversal& next : nexts) {
-            // reduce the degree of the appropriate side
-            int64_t& inward_degree = next.backward ? side_degrees[next.node->id()].second : side_degrees[next.node->id()].first;
-            inward_degree--;
-            if (inward_degree == 0) {
-                // after removing this edge, the node is now a head, add it to the queue
-                stack.push_back(next);
-            }
-        }
-    }
-    
-    for (size_t i = 0; i < order.size(); i++) {
-        // Put the nodes in the order we got
-        swap_nodes(get_node(order[i]), graph.mutable_node(i));
-    }
 }
 
 bool VG::is_acyclic(void) {
@@ -6206,7 +6103,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
         Node* n = graph.mutable_node(i);
         if (precompress) {
             out << ":" << n->id() << " r:value \"" << n->sequence() << "\" . " ;
-	    } else {
+        } else {
             out << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . " << endl ;
         }
     }
@@ -6235,10 +6132,10 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
             for (auto &m : path.mapping()) {
                 string orientation = m.position().is_reverse() ? "<reverseOfNode>" : "<node>";
                 if (precompress) {
-                	out << "s:";
+                    out << "s:";
                     url_encode(path.name());
                     out << "-" << m.rank() << " <rank> " << m.rank() << " ; " ;
-                	out << orientation <<" :" << m.position().node_id() << " ;";
+                    out << orientation <<" :" << m.position().node_id() << " ;";
                     out << " <path> p:";
                     url_encode(path.name());
                     out << " ; ";
@@ -6247,14 +6144,14 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
                     out << "step:";
                     url_encode(path.name());
                     out << "-" << m.rank() << " <position> "<< offset<<" ; " << endl;
-                	out << " a <Step> ;" << endl ;
-                	out << " <rank> " << m.rank() << " ; "  << endl ;
-                	out << " " << orientation <<" node:" << m.position().node_id() << " ; " << endl;
-                	out << " <path> path:";
+                    out << " a <Step> ;" << endl ;
+                    out << " <rank> " << m.rank() << " ; "  << endl ;
+                    out << " " << orientation <<" node:" << m.position().node_id() << " ; " << endl;
+                    out << " <path> path:";
                     url_encode(path.name());
                     out  << " . " << endl;
                 }
-		        offset += mapping_to_length(m);
+                offset += mapping_to_length(m);
             }
         };
     paths.for_each(lambda);
@@ -6263,7 +6160,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
         Edge* e = graph.mutable_edge(i);
         if(precompress) {
             if (prev == -1){
-    	        out << ":" << e->from();
+                out << ":" << e->from();
             } else if (prev ==e->from()) {
                 out << "; " ;
             } else {
@@ -6272,7 +6169,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
             prev = e->from();
         } else {
             out << "node:" << e->from();
-	    }
+        }
 
         if (e->from_start() && e->to_end()) {
             out << " <linksReverseToReverse> " ; // <--
@@ -6287,7 +6184,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
              out << ":" << e->to();
         } else {
             out << "node:" << e->to() << " . " << endl;
-	    }
+        }
     }
     if(precompress) {
         out << " .";
@@ -6551,6 +6448,7 @@ unordered_map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const unord
 Alignment VG::align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
+                    const vector<MaximalExactMatch>& mems,
                     bool traceback,
                     bool acyclic_and_sorted,
                     size_t max_query_graph_ratio,
@@ -6560,6 +6458,8 @@ Alignment VG::align(const Alignment& alignment,
                     size_t band_padding_override,
                     size_t max_span,
                     size_t unroll_length,
+                    int xdrop_alignment,
+                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
 
     auto aln = alignment;
@@ -6577,6 +6477,9 @@ Alignment VG::align(const Alignment& alignment,
     //cerr << pinned_alignment << " " << pin_left << " " << " " << banded_global << " " << band_padding_override << " "  << max_span << endl;
 #endif
 
+    vector<MaximalExactMatch> translated_mems;
+    
+    // trans is only required in the X-drop aligner; can be nullptr
     auto do_align = [&](Graph& g) {
 #ifdef debug
         write_alignment_to_file(alignment, hash_alignment(alignment) + ".gam");
@@ -6610,6 +6513,14 @@ Alignment VG::align(const Alignment& alignment,
             } else if (qual_adj_aligner && !aligner) {
                 qual_adj_aligner->align_pinned(aln, g, pin_left);
             }
+        } else if(xdrop_alignment) {
+            // cerr << "X-drop alignment, (" << xdrop_alignment << ")" << endl;
+            if (aligner && !qual_adj_aligner) {
+                aligner->align_xdrop(aln, g, (translated_mems.size()? translated_mems : mems), (xdrop_alignment == 1) ? false : true, multithreaded_xdrop);
+            } else {
+                /* qual_adj_aligner is not yet implemented, fallback */
+                qual_adj_aligner->align/*_xdrop*/(aln, g, traceback, print_score_matrices);
+            }
         } else {
             if (aligner && !qual_adj_aligner) {
                 aligner->align(aln, g, traceback, print_score_matrices);
@@ -6626,7 +6537,7 @@ Alignment VG::align(const Alignment& alignment,
 #ifdef debug
         cerr << "Graph is a non-inverting DAG, so just sort and align" << endl;
 #endif
-        // run the alignment
+        // run the alignment without id translation
         do_align(this->graph);
     } else {
 #ifdef debug
@@ -6648,13 +6559,17 @@ Alignment VG::align(const Alignment& alignment,
 
         // overlay the translations
         auto trans = overlay_node_translations(dagify_trans, unfold_trans);
+        if (xdrop_alignment) {
+            // translate the MEMs
+            translated_mems = translate_mems(mems, trans);
+        }
 
         // Join to a common root, so alignment covers the entire graph
         // Put the nodes in sort order within the graph
         // and break any remaining cycles
         algorithms::sort(&dag);
         
-        // run the alignment
+        // run the alignment with id translation table
         do_align(dag.graph);
 
 #ifdef debug
@@ -6694,6 +6609,7 @@ Alignment VG::align(const Alignment& alignment,
 
 Alignment VG::align(const Alignment& alignment,
                     Aligner* aligner,
+                    const vector<MaximalExactMatch>& mems,
                     bool traceback,
                     bool acyclic_and_sorted,
                     size_t max_query_graph_ratio,
@@ -6703,10 +6619,32 @@ Alignment VG::align(const Alignment& alignment,
                     size_t band_padding_override,
                     size_t max_span,
                     size_t unroll_length,
+                    int xdrop_alignment,
+                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
-    return align(alignment, aligner, nullptr, traceback, acyclic_and_sorted, max_query_graph_ratio,
+    return align(alignment, aligner, nullptr, mems, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+}
+
+Alignment VG::align(const Alignment& alignment,
+                    Aligner* aligner,
+                    bool traceback,
+                    bool acyclic_and_sorted,
+                    size_t max_query_graph_ratio,
+                    bool pinned_alignment,
+                    bool pin_left,
+                    bool banded_global,
+                    size_t band_padding_override,
+                    size_t max_span,
+                    size_t unroll_length,
+                    int xdrop_alignment,
+                    bool multithreaded_xdrop,
+                    bool print_score_matrices) {
+    const vector<MaximalExactMatch> mems;
+    return align(alignment, aligner, nullptr, mems, traceback, acyclic_and_sorted, max_query_graph_ratio,
+                 pinned_alignment, pin_left, banded_global, band_padding_override,
+                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
@@ -6720,12 +6658,14 @@ Alignment VG::align(const string& sequence,
                     size_t band_padding_override,
                     size_t max_span,
                     size_t unroll_length,
+                    int xdrop_alignment,
+                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
 }
 
 Alignment VG::align(const Alignment& alignment,
@@ -6738,11 +6678,13 @@ Alignment VG::align(const Alignment& alignment,
                     size_t band_padding_override,
                     size_t max_span,
                     size_t unroll_length,
+                    int xdrop_alignment,
+                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     Aligner default_aligner = Aligner();
     return align(alignment, &default_aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
@@ -6755,12 +6697,35 @@ Alignment VG::align(const string& sequence,
                     size_t band_padding_override,
                     size_t max_span,
                     size_t unroll_length,
+                    int xdrop_alignment,
+                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+}
+
+
+Alignment VG::align_qual_adjusted(const Alignment& alignment,
+                                  QualAdjAligner* qual_adj_aligner,
+                                  const vector<MaximalExactMatch>& mems,
+                                  bool traceback,
+                                  bool acyclic_and_sorted,
+                                  size_t max_query_graph_ratio,
+                                  bool pinned_alignment,
+                                  bool pin_left,
+                                  bool banded_global,
+                                  size_t band_padding_override,
+                                  size_t max_span,
+                                  size_t unroll_length,
+                                  int xdrop_alignment,
+                                  bool multithreaded_xdrop,
+                                  bool print_score_matrices) {
+    return align(alignment, nullptr, qual_adj_aligner, mems, traceback, acyclic_and_sorted, max_query_graph_ratio,
+                 pinned_alignment, pin_left, banded_global, band_padding_override,
+                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
@@ -6774,10 +6739,13 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   size_t band_padding_override,
                                   size_t max_span,
                                   size_t unroll_length,
+                                  int xdrop_alignment,
+                                  bool multithreaded_xdrop,
                                   bool print_score_matrices) {
-    return align(alignment, nullptr, qual_adj_aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
+    const vector<MaximalExactMatch> mems;
+    return align(alignment, nullptr, qual_adj_aligner, mems, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const string& sequence,
@@ -6791,12 +6759,14 @@ Alignment VG::align_qual_adjusted(const string& sequence,
                                   size_t band_padding_override,
                                   size_t max_span,
                                   size_t unroll_length,
+                                  int xdrop_alignment,
+                                  bool multithreaded_xdrop,
                                   bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align_qual_adjusted(alignment, qual_adj_aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                                pinned_alignment, pin_left, banded_global, band_padding_override,
-                               max_span, unroll_length, print_score_matrices);
+                               max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
 }
 
 const string VG::hash(void) {

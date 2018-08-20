@@ -166,13 +166,16 @@ The following example shows how to construct a VCF file from a read alignment an
 vg filter alignment.gam -r 0.90 -fu -s 2 -o 0 -D 999 -x graph.xg > filtered.gam
 
 # create an augmented graph by adding variation from the reads
-vg augment graph.vg filtered.gam -q 10 -S aug_graph.support -Z aug_graph.trans -A aug_alignment.gam > aug_graph.vg
+vg augment graph.vg filtered.gam -a pileup  -S aug_graph.support -Z aug_graph.trans > aug_graph.vg
+
+# to only recall variants that are already in the graph, add -g 9999999 to the augment options above.
 
 # Make calls by thresholding based on read support for graph path SEQ
 vg call aug_graph.vg -b graph.vg -s aug_graph.support -z aug_graph.trans -r SEQ > calls.vcf
 
+
 # Or Make calls using a Freebayes-like genotyping algorithm for graph path SEQ
-vg genotype aug_graph.vg -G aug_alignment.gam -E -v -r SEQ > calls.vcf
+vg genotype graph.vg -G alignment.gam -E -v -r SEQ > calls.vcf
 
 # for comparison purposes, it's very useful to normalize the vcf output, especially for more complex graphs which can make large variant blocks that contain a lot of reference bases (Note: requires [vt](http://genome.sph.umich.edu/wiki/Vt)):
 vt decompose_blocksub -a calls.vcf | vt normalize -r FASTA_FILE - > calls.clean.vcf

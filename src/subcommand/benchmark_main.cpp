@@ -111,8 +111,8 @@ int main_benchmark(int argc, char** argv) {
     
     vector<BenchmarkResult> results;
     
-    results.push_back(run_benchmark("vg::algorithms topological_sort", 1000, [&]() {
-        vector<handle_t> order = algorithms::topological_sort(&vg);
+    results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
+        vector<handle_t> order = algorithms::topological_order(&vg);
         assert(order.size() == vg.node_size());
     }));
     

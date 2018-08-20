@@ -12,6 +12,7 @@
 
 #include "../vg.hpp"
 #include "../index.hpp"
+#include "../gam_index.hpp"
 #include "../stream.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
@@ -60,6 +61,8 @@ void help_index(char** argv) {
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction (default " << gcsa::ConstructionParameters::DOUBLING_STEPS << ")" << endl
          << "    -Z, --size-limit N     limit temporary disk space usage to N gigabytes (default " << gcsa::ConstructionParameters::SIZE_LIMIT << ")" << endl
          << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
+         << "gam indexing options:" << endl
+         << "    -l, --index-sorted-gam input is sorted .gam format alignments, store a GAI index of the sorted GAM in INPUT.gam.gai" << endl
          << "rocksdb options:" << endl
          << "    -d, --db-name  <X>     store the RocksDB index in <X>" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
@@ -151,6 +154,9 @@ int main_index(int argc, char** argv) {
     gcsa::size_type kmer_size = gcsa::Key::MAX_LENGTH;
     gcsa::ConstructionParameters params;
     bool verify_gcsa = false;
+    
+    // Gam index (GAI)
+    bool build_gam_index = false;
 
     // RocksDB
     bool dump_index = false;
@@ -199,6 +205,9 @@ int main_index(int argc, char** argv) {
             {"doubling-steps", required_argument, 0, 'X'},
             {"size-limit", required_argument, 0, 'Z'},
             {"verify-index", no_argument, 0, 'V'},
+            
+            // GAM index (GAI)
+            {"index-sorted-gam", no_argument, 0, 'l'},
 
             // RocksDB
             {"db-name", required_argument, 0, 'd'},
@@ -212,7 +221,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:TM:G:H:PoOB:R:r:I:E:g:i:f:k:X:Z:Vd:maANDCh",
+        c = getopt_long (argc, argv, "b:t:px:F:v:TM:G:H:PoOB:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCh",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -348,6 +357,11 @@ int main_index(int argc, char** argv) {
         case 'V':
             verify_gcsa = true;
             break;
+            
+        // Gam index (GAI)
+        case 'l':
+            build_gam_index = true;
+            break;
 
         // RocksDB
         case 'd':
@@ -390,7 +404,7 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if (xg_name.empty() && gbwt_name.empty() && threads_name.empty() && gcsa_name.empty() && rocksdb_name.empty()) {
+    if (xg_name.empty() && gbwt_name.empty() && threads_name.empty() && gcsa_name.empty() && rocksdb_name.empty() && !build_gam_index) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
     }
@@ -403,6 +417,11 @@ int main_index(int argc, char** argv) {
     if (file_names.size() <= 0 && dbg_names.empty()){
         //cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
+    }
+    
+    if (file_names.size() != 1 && build_gam_index) {
+        cerr << "error: [vg index] can only index exactly one sorted GAM file at a time" << endl;
+        return 1;
     }
     
     if (build_gcsa && kmer_size > gcsa::Key::MAX_LENGTH) {
@@ -890,6 +909,30 @@ int main_index(int argc, char** argv) {
                 temp_file::remove(filename);
             }
         }
+    }
+    
+    if (build_gam_index) {
+        // Index a sorted GAM file.
+        GAMIndex index;
+        
+        get_input_file(file_names.at(0), [&](istream& in) {
+            // Grab the input GAM stream and wrap it in a cursor
+            stream::ProtobufIterator<Alignment> cursor(in);
+            
+            // Index the file
+            GAMIndex index;
+            index.index(cursor);
+ 
+            // Save the GAM index in the appropriate place.
+            // TODO: Do we really like this enforced naming convention just beacuse samtools does it?
+            ofstream index_out(file_names.at(0) + ".gai");
+            if (!index_out.good()) {
+                cerr << "error: [vg index] could not open " << file_names.at(0) << ".gai" << endl;
+                exit(1);
+            }
+            index.save(index_out);
+        });
+        
     }
 
     if (build_rocksdb) {

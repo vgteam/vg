@@ -2,6 +2,8 @@
 
 #include <cstdio>
 #include <set>
+#include <mutex>
+#include <dirent.h>
 
 namespace vg {
 
@@ -177,21 +179,56 @@ string toUppercase(const string& s) {
 
 namespace temp_file {
 
+// We use this to make the API thread-safe
+recursive_mutex monitor;
+
 string temp_dir;
 
 /// Because the names are in a static object, we can delete them when
 /// std::exit() is called.
 struct Handler {
     set<string> filenames;
+    string parent_directory;
     ~Handler() {
+        // No need to lock in static destructor
         for (auto& filename : filenames) {
             std::remove(filename.c_str());
+        }
+        if (!parent_directory.empty()) {
+            // There may be extraneous files in the directory still (like .fai files)
+            auto directory = opendir(parent_directory.c_str());
+            
+            dirent* dp;
+            while ((dp = readdir(directory)) != nullptr) {
+                // For every item still in it, delete it.
+                // TODO: Maybe eventually recursively delete?
+                std::remove((parent_directory + "/" + dp->d_name).c_str());
+            }
+            closedir(directory);
+            
+            // Delete the directory itself
+            std::remove(parent_directory.c_str());
         }
     }
 } handler;
 
 string create(const string& base) {
-    string tmpname = get_dir() + "/" + base + "XXXXXXXX";
+    lock_guard<recursive_mutex> lock(monitor);
+
+    if (handler.parent_directory.empty()) {
+        // Make a parent directory for our temp files
+        string tmpdirname = get_dir() + "/vg-XXXXXX";
+        auto got = mkdtemp(&tmpdirname[0]);
+        if (got != nullptr) {
+            // Save the directory we got
+            handler.parent_directory = got;
+        } else {
+            cerr << "[vg utility.cpp]: couldn't create temp directory: " << tmpdirname << endl;
+            exit(1);
+        }
+    }
+
+    string tmpname = handler.parent_directory + "/" + base + "XXXXXX";
     // hack to use mkstemp to get us a safe temporary file name
     int fd = mkstemp(&tmpname[0]);
     if(fd != -1) {
@@ -207,19 +244,26 @@ string create(const string& base) {
 }
 
 string create() {
+    // No need to lock as we call this thing that locks
     return create("vg-");
 }
 
 void remove(const string& filename) {
+    lock_guard<recursive_mutex> lock(monitor);
+    
     std::remove(filename.c_str());
     handler.filenames.erase(filename);
 }
 
 void set_dir(const string& new_temp_dir) {
+    lock_guard<recursive_mutex> lock(monitor);
+    
     temp_dir = new_temp_dir;
 }
 
 string get_dir() {
+    lock_guard<recursive_mutex> lock(monitor);
+
     // Get the default temp dir from environment variables.
     if (temp_dir.empty()) {
         const char* system_temp_dir = nullptr;

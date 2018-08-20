@@ -16,6 +16,8 @@
 #include "vg.pb.h"
 #include "multipath_alignment_graph.hpp"
 
+#include "algorithms/topological_sort.hpp"
+
 namespace vg {
 
 using namespace std;
