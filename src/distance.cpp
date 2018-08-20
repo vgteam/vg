@@ -3,6 +3,14 @@
 
 #include "distance.hpp"
 
+
+/* 
+TODO:
+1. Index or method for node->snarl
+2. sdsl for vectors / reduce memory use
+3. new API without snarls
+4. CLI
+*/
 using namespace std;
 namespace vg {
 
@@ -11,6 +19,8 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager, int64_t cap){
       cap is the largest distance that the maximum distance estimation will be
       accurate to 
     */
+
+    nodeToSnarl = calculateNodeToSnarl(vg, snarlManager);
 
     graph = vg;
     sm = snarlManager;
@@ -40,7 +50,7 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager, int64_t cap){
        }
         
     }
-    calculateMaxIndex(&topSnarls, cap);
+    //calculateMaxIndex(&topSnarls, cap);
   
 };
 
@@ -50,6 +60,9 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager, istream& in) {
     /*Constructor for the distance index given a VG, snarl manager, and a vector
       of ints from serialization
     */
+   
+    nodeToSnarl = calculateNodeToSnarl(vg, snarlManager);//TODO: Probably need to serialize/deserialize this index too
+
     auto toInt = [] (uint64_t uval) {
         /*convert unsigned representation of signed int back to int64_t*/
         int64_t val = uval / 2;
@@ -230,6 +243,40 @@ void DistanceIndex::serialize(ostream& out) {
 }
 
 
+vector<int64_t> DistanceIndex::calculateNodeToSnarl(VG* vg, SnarlManager* sm){
+
+    id_t minNodeID = vg->min_node_id();
+    vector<int64_t> result(vg->max_node_id() - minNodeID + 1, -1);
+
+    const vector<const Snarl*> topSnarls = sm->top_level_snarls();
+    vector<const Snarl*> allSnarls(topSnarls.begin(), topSnarls.end());
+    while (allSnarls.size() > 0) {
+        const Snarl* snarl = allSnarls.back();
+        allSnarls.pop_back();
+        int64_t currSnarlID = snarl->start().backward() ? 
+                         -snarl->start().node_id() : snarl->start().node_id();
+        pair<unordered_set<Node*>, unordered_set<Edge*>> contents = 
+                           sm->shallow_contents(snarl, *vg, true);
+        for ( Node* n : contents.first) {
+            id_t nodeID = n->id();
+            
+            const Snarl* tempSnarl = sm->into_which_snarl(nodeID, true); 
+            const Snarl* nextSnarl = tempSnarl == NULL ? 
+                                sm->into_which_snarl(nodeID, false) : tempSnarl;
+
+            if (nodeID != snarl->start().node_id() && 
+                        nodeID != snarl->end().node_id() && nextSnarl != NULL) {
+                //If this node is a child snarl
+                allSnarls.push_back(nextSnarl);
+            } else {
+                result[nodeID - minNodeID] = currSnarlID; 
+            }
+        }
+    }
+    
+    return result;
+
+}
 int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
     /*Populate the DistanceIndex
       Add chain to distance index and recursively add all distances in 
@@ -1285,8 +1332,14 @@ cerr << "DISTANCES AFTER CHAIN: " << distSRev << " " << distSFd << " " << distER
 
 //////////////////    Calculate distances
 
+int64_t DistanceIndex::distance(pos_t& pos1, pos_t& pos2) {
+
+    const Snarl* snarl1 = snarlOf(get_id(pos1));
+    const Snarl* snarl2 = snarlOf(get_id(pos2)); 
+    return distance(snarl1,snarl2, pos1,pos2);
+}
 int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2, 
-                                                  pos_t& pos1, pos_t& pos2) {
+                                   pos_t& pos1, pos_t& pos2) {
     /*Find the shortest distance between two positions
       pos1 and pos2 must be on nodes contained in snarl1/snarl2 */
     
@@ -1861,6 +1914,15 @@ int64_t DistanceIndex::minPos (vector<int64_t> vals) {
    
 };
 
+
+const Snarl* DistanceIndex::snarlOf (id_t nodeID) {
+    /*Given a node id, return the snarl that contains the node*/
+
+    id_t minNodeID = graph->min_node_id();
+    int64_t snarlID = nodeToSnarl[nodeID - minNodeID];
+    return sm->into_which_snarl(abs(snarlID), (snarlID < 0));
+
+}
 
 
 void DistanceIndex::printSelf() {

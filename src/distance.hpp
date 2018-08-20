@@ -25,12 +25,16 @@ class DistanceIndex {
       pos1 must be on a node contained in snarl1 and not on any children of
       snarl1. The same for pos2 and snarl2
     */
+    int64_t distance( pos_t& pos1, pos_t& pos2);
     int64_t distance( 
          const Snarl* snarl1, const Snarl* snarl2, pos_t& pos1, pos_t& pos2);
   
     //Helper function to find the minimum value that is not -1
     static int64_t minPos(vector<int64_t> vals);
 
+
+    //Given a node, find the snarl containing it
+    const Snarl* snarlOf(id_t nodeID);
 
     protected:
     void printSelf();
@@ -185,6 +189,7 @@ class DistanceIndex {
         friend class TestDistanceIndex;
     }; 
 
+    ///////// Data members of overall index
 
     //map each node to connected component for max distance estimation 
     hash_map<id_t, size_t> nodeToCycles;
@@ -199,12 +204,28 @@ class DistanceIndex {
     VG* graph;
 
     SnarlManager* sm;
+
+
+    /*Index to find the snarl containing a node
+      The start node id of the snarl containing each node - negative if 
+       the start node is reverse
+    TODO: Maybe put this somewhere else and use sdsl bit compression
+    */
+    vector<int64_t> nodeToSnarl;
+
+
+
+
+    ////// Private helper functions
  
     //Helper function for constructor - populate the minimum distance index
     int64_t calculateMinIndex(const Chain* chain); 
 
     //Helper function for constructor - populate the minimum distance index
     void calculateMaxIndex(const Chain* chain, int64_t cap); 
+
+    //Helper function for constructor - populate node to snarl
+    vector<int64_t> calculateNodeToSnarl(VG* vg, SnarlManager* sm);
 
     //Flag each node with true if it is in a cycle that has minimum length
     //smaller than cap
