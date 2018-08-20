@@ -13,6 +13,7 @@ cpp/
 vg
 *.a
 *~
+*.swp
 *.dot
 *.fa.fai
 test/build_graph

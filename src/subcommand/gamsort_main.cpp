@@ -20,7 +20,7 @@ void help_gamsort(char **argv)
          << "  -s / --sorted           Input GAM is already sorted." << endl
          << "  -i / --index FILE       produce an index of the sorted GAM file" << endl
          << "  -d / --dumb-sort        use naive sorting algorithm (no tmp files, faster for small GAMs)" << endl
-         << "  -r / --rocks            Just use the old RocksDB-style indexing scheme for sorting." << endl
+         << "  -r / --rocks DIR        Just use the old RocksDB-style indexing scheme for sorting, using the given database name." << endl
          << "  -a / --aln-index        Create the old RocksDB-style node-to-alignment index." << endl
          << "  -p / --progress         Show progress." << endl
          << "  -t / --threads          Use the specified number of threads." << endl
@@ -30,9 +30,9 @@ void help_gamsort(char **argv)
 int main_gamsort(int argc, char **argv)
 {
     string index_filename;
+    string rocksdb_filename;
     bool dumb_sort = false;
     bool is_sorted = false;
-    bool just_use_rocks = false;
     bool do_aln_index = false;
     bool show_progress = false;
     // We limit the max threads, and only allow thread count to be lowered, to
@@ -48,14 +48,14 @@ int main_gamsort(int argc, char **argv)
             {
                 {"index", required_argument, 0, 'i'},
                 {"dumb-sort", no_argument, 0, 'd'},
-                {"rocks", no_argument, 0, 'r'},
+                {"rocks", required_argument, 0, 'r'},
                 {"aln-index", no_argument, 0, 'a'},
                 {"is-sorted", no_argument, 0, 's'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}};
         int option_index = 0;
-        c = getopt_long(argc, argv, "i:dhraspt:",
+        c = getopt_long(argc, argv, "i:dhr:aspt:",
                         long_options, &option_index);
 
         // Detect the end of the options.
@@ -74,7 +74,7 @@ int main_gamsort(int argc, char **argv)
             is_sorted = true;
             break;
         case 'r':
-            just_use_rocks = true;
+            rocksdb_filename = optarg;
             break;
         case 'a':
             do_aln_index = true;
@@ -105,38 +105,51 @@ int main_gamsort(int argc, char **argv)
 
         GAMSorter gs(show_progress);
 
-        if (just_use_rocks) {
+        if (!rocksdb_filename.empty()) {
             // Do the sort the old way - write a big ol'
             // RocksDB index of alignments, then dump them
             // from that DB. Loses unmapped reads.
-            
-            if (index_filename.empty()) {
-                cerr << "error:[vg gamsort]: Cannot index using RocksDB without an index filename (-i)" << endl;
-                exit(1);
+            Index rocks;
+
+            unique_ptr<GAMIndex> index;
+            if (!index_filename.empty()) {
+                // Make a new-style GAM index also
+                index = unique_ptr<GAMIndex>(new GAMIndex());
             }
-            
-            string dbname = index_filename;
-            Index index;
 
             // Index the alignments in RocksDB
-            index.open_for_bulk_load(dbname);
+            rocks.open_for_bulk_load(rocksdb_filename);
             int64_t aln_idx = 0;
-            function<void(Alignment&)> lambda_reader = [&index](Alignment& aln) {
-                    index.put_alignment(aln);
+            function<void(Alignment&)> lambda_reader = [&rocks](Alignment& aln) {
+                    rocks.put_alignment(aln);
             };
             stream::for_each_parallel(gam_in, lambda_reader);
             
-            // Print them out again in order
-            vector<Alignment> output_buf;
-            auto lambda_writer = [&output_buf](const Alignment& aln) {
-                output_buf.push_back(aln);
-                stream::write_buffered(cout, output_buf, 1000);
-            };
-            index.for_each_alignment(lambda_writer);
-            stream::write_buffered(cout, output_buf, 0);
+            // Set up the emitter
+            stream::ProtobufEmitter<Alignment> output(cout);
+            if (index.get() != nullptr) {
+                output.on_group([&index](const vector<Alignment>& group, int64_t start_vo, int64_t past_end_vo) {
+                    // If we are making a sorted GAM index, record the group.
+                    // The index will outlive the emitter so this is safe to call in the emitter's destructor.
+                    index->add_group(group, start_vo, past_end_vo);
+                });
+            }
             
-            index.flush();
-            index.close();
+            // Print them out again in order
+            auto lambda_writer = [&output](const Alignment& aln) {
+                output.write_copy(aln);
+            };
+            rocks.for_each_alignment(lambda_writer);
+            
+            rocks.flush();
+            rocks.close();
+            
+            if (index.get() != nullptr) {
+                // Save the index
+                ofstream index_out(index_filename);
+                index->save(index_out);
+            }
+            
         } else {
             // Do a normal GAMSorter sort
             unique_ptr<GAMIndex> index;

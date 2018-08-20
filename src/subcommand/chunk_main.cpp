@@ -16,8 +16,10 @@
 #include "../stream.hpp"
 #include "../utility.hpp"
 #include "../chunker.hpp"
+#include "../gam_index.hpp"
 #include "../region.hpp"
 #include "../haplotype_extracter.hpp"
+#include "../algorithms/sorted_id_ranges.hpp"
 
 using namespace std;
 using namespace vg;
@@ -575,13 +577,17 @@ int main_chunk(int argc, char** argv) {
                 exit(1);
             }
             
+            // Work out the ID ranges to look up
+            vector<pair<vg::id_t, vg::id_t>> region_id_ranges;
             if (subgraph != NULL) {
-                chunker.extract_gam_for_subgraph(*subgraph, cursor, *gam_index, &out_gam_file, fully_contained);
+                // Use the regions from the graph
+                region_id_ranges = vg::algorithms::sorted_id_ranges(subgraph);
             } else {
-                assert(id_range == true);
-                vector<pair<vg::id_t, vg::id_t>> region_id_range = {{region.start, region.end}};
-                chunker.extract_gam_for_ids(region_id_range, cursor, *gam_index, &out_gam_file, fully_contained);
+                // Use the region we were asked for
+                region_id_ranges = {{region.start, region.end}};
             }
+            
+            gam_index->find(cursor, region_id_ranges, stream::emit_to<Alignment>(out_gam_file), fully_contained);
         }
 
         // trace annotations

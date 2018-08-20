@@ -80,6 +80,15 @@ auto GAMIndex::window_of_id(id_t id) -> window_t  {
 }
 
 auto GAMIndex::add_group(id_t min_id, id_t max_id, int64_t virtual_start, int64_t virtual_past_end) -> void {
+    
+    if (min_id < last_group_min_id) {
+        // Someone is trying to index an unsorted GAM.
+        // This is probably user error, so complain appropriately:
+        cerr << "error [vg::GAMIndex]: GAM data being indexed is not sorted. Sort with vg gamsort." << endl;
+        exit(1);
+    }
+    last_group_min_id = min_id;
+    
     // Find the bin for the run
     bin_t bin = common_bin(min_id, max_id);
     
@@ -305,11 +314,8 @@ auto GAMIndex::index(cursor_t& cursor) -> void {
             group_vo = alignment_group_vo;
         }
         
-        // Add the alignment to the group
-        group.push_back(*cursor);
-        
-        // Go look at the next alignment
-        cursor.get_next();
+        // Add the alignment to the group and move on
+        group.emplace_back(std::move(cursor.take()));
     }
     
     if (!group.empty()) {
@@ -608,10 +614,14 @@ auto GAMIndex::find(cursor_t& cursor, id_t node_id, const function<void(const Al
     find(cursor, node_id, node_id, std::move(handle_result));
 }
 
+const string GAMIndex::MAGIC_BYTES = "GAI!";
+
 auto GAMIndex::save(ostream& to) const -> void {
     // We aren't going to save as Protobuf messages; we're going to save as a bunch of varints.
     
     // Format is
+    // Magic bytes
+    // Index version (varint32)
     // Bin count (varint64)
     // For each bin:
     // Bin number (varint64)
@@ -630,6 +640,12 @@ auto GAMIndex::save(ostream& to) const -> void {
     ::google::protobuf::io::OstreamOutputStream raw_out(&to);
     ::google::protobuf::io::GzipOutputStream gzip_out(&raw_out);
     ::google::protobuf::io::CodedOutputStream coded_out(&gzip_out);
+    
+    // Save the magic bytes
+    coded_out.WriteRaw((void*)MAGIC_BYTES.c_str(), MAGIC_BYTES.size());
+    
+    // Save the version
+    coded_out.WriteVarint32(OUTPUT_VERSION);
     
     // Save the bin count
     coded_out.WriteVarint64(bin_to_ranges.size());
@@ -670,66 +686,113 @@ auto GAMIndex::load(istream& from) -> void {
         if (!ok) throw std::runtime_error("GAMIndex::load detected corrupt index file");
     };
     
-    // Read the number of bins that are used
-    uint64_t bin_count;
-    {
-        // TODO: To avoid hitting the coded input stream's byte limit (why is
-        // it even at this level?) we destory and recreate it for every
-        // semantic group.
-        ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
-        handle(coded_in.ReadVarint64(&bin_count));
+    // Look for the magic value
+    
+    // First read a bit of data
+    char* buffer;
+    int buffer_size = 0;
+    while (buffer_size == 0) {
+        // We must retry until we get some data, accoridng to the ZeroCopyInputStream spec
+        handle(gzip_in.Next((const void**)&buffer, &buffer_size));
     }
     
-    for (size_t i = 0; i < bin_count; i++) {
-        // Read the bin number and run count for each bin
-        uint64_t bin_number;
-        uint64_t run_count;
+    // TODO: In theory, we might have arbitrarily small buffers given to us.
+    // We assume that the buffers are always big enough to actually peek the magic value and back up.
+    assert(buffer_size >= MAGIC_BYTES.size());
+    
+    // We will fill this in with the version if we find it
+    uint32_t input_version = 0;
+    
+    // Check to see if the magic bytes are there
+    if (std::equal(MAGIC_BYTES.begin(), MAGIC_BYTES.end(), buffer)) {
+        // We found the magic bytes! We know this is a versioned GAM index file.
+        
+        // Roll back to just after them
+        gzip_in.BackUp(buffer_size - MAGIC_BYTES.size());
+        
+        // Read the input version
         {
             ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
-            handle(coded_in.ReadVarint64(&bin_number));
-            handle(coded_in.ReadVarint64(&run_count));
+            handle(coded_in.ReadVarint32(&input_version));
+        }
+    } else {
+        // No magic bytes means input version 0
+        // Roll back everything
+        gzip_in.BackUp(buffer_size);
+    }
+    
+    if (input_version > MAX_INPUT_VERSION) {
+        throw std::runtime_error("GAMIndex::load can understand only up to index version " + to_string(MAX_INPUT_VERSION) +
+            " and file is version " + to_string(input_version));
+    }
+    
+    switch (input_version) {
+    case 0:
+    case 1:
+        // Read the number of bins that are used
+        uint64_t bin_count;
+        {
+            // TODO: To avoid hitting the coded input stream's byte limit (why is
+            // it even at this level?) we destory and recreate it for every
+            // semantic group.
+            ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
+            handle(coded_in.ReadVarint64(&bin_count));
         }
         
-        // Create the empty bin
-        auto& runs = bin_to_ranges[bin_number];
+        for (size_t i = 0; i < bin_count; i++) {
+            // Read the bin number and run count for each bin
+            uint64_t bin_number;
+            uint64_t run_count;
+            {
+                ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
+                handle(coded_in.ReadVarint64(&bin_number));
+                handle(coded_in.ReadVarint64(&run_count));
+            }
+            
+            // Create the empty bin
+            auto& runs = bin_to_ranges[bin_number];
+            
+            for (size_t j = 0; j < run_count; j++) {
+                // Load each run
+                uint64_t run_start;
+                uint64_t run_end;
+                
+                {
+                    ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
+                    handle(coded_in.ReadVarint64(&run_start));
+                    handle(coded_in.ReadVarint64(&run_end));
+                }
+                
+                runs.emplace_back(run_start, run_end);
+                
+            }
+            
+        }
         
-        for (size_t j = 0; j < run_count; j++) {
-            // Load each run
-            uint64_t run_start;
-            uint64_t run_end;
+        
+        // Now count the number of windows
+        uint64_t window_count;
+        {
+            ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
+            handle(coded_in.ReadVarint64(&window_count));
+        }
+        
+        for (size_t i = 0; i < window_count; i++) {
+            // Load each window
+            uint64_t window_number;
+            uint64_t window_start;
             
             {
                 ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
-                handle(coded_in.ReadVarint64(&run_start));
-                handle(coded_in.ReadVarint64(&run_end));
+                handle(coded_in.ReadVarint64(&window_number));
+                handle(coded_in.ReadVarint64(&window_start));
             }
             
-            runs.emplace_back(run_start, run_end);
-            
+            window_to_start[window_number] = window_start;
         }
-        
-    }
-    
-    
-    // Now count the number of windows
-    uint64_t window_count;
-    {
-        ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
-        handle(coded_in.ReadVarint64(&window_count));
-    }
-    
-    for (size_t i = 0; i < window_count; i++) {
-        // Load each window
-        uint64_t window_number;
-        uint64_t window_start;
-        
-        {
-            ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
-            handle(coded_in.ReadVarint64(&window_number));
-            handle(coded_in.ReadVarint64(&window_start));
-        }
-        
-        window_to_start[window_number] = window_start;
+        break;
+    default:
+        throw std::runtime_error("Unimplemented GAM index version " + to_string(input_version));
     }
 
 }
