@@ -27,6 +27,9 @@ class DistanceIndex {
     */
     int64_t distance( 
          const Snarl* snarl1, const Snarl* snarl2, pos_t& pos1, pos_t& pos2);
+
+    //Get a rough estimate of the size of the index
+    int64_t sizeOf();
   
     //Helper function to find the minimum value that is not -1
     static int64_t minPos(vector<int64_t> vals);
@@ -105,6 +108,9 @@ class DistanceIndex {
             //Total length of the snarl- start to end plus length of end
             int64_t length; 
 
+            
+            ////// Helper functions
+
             //The index into distances for distance start->end
             size_t index(pair<id_t, bool> start, pair<id_t, bool> end);
 
@@ -158,6 +164,7 @@ class DistanceIndex {
             void printSelf();
 
         protected:
+
             hash_map<id_t, size_t> snarlToIndex; 
 
             /*Dist from start of chain to start and end of each boundary node of
@@ -173,6 +180,10 @@ class DistanceIndex {
                from the end of the node traversing backward to the start of 
                the same node traversing forward*/
             vector<int64_t> loopRev;
+
+
+
+
         
             /*Helper function for finding distances*/
             int64_t chainDistanceHelper(pair<size_t, bool> start, 
@@ -200,6 +211,10 @@ class DistanceIndex {
 
     SnarlManager* sm;
  
+
+
+
+
     //Helper function for constructor - populate the minimum distance index
     int64_t calculateMinIndex(const Chain* chain); 
 

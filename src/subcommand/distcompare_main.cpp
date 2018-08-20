@@ -66,16 +66,7 @@ int main_distcompare(int argc, char** argv){
         switch (c)
         {
 
-/*
-        case 'x':
-            xg_name = optarg;
-            if (xg_name.empty()) {
-                cerr << "error: [vg distcompare] Must provide XG file with -x." << endl;
-                exit(1);
-            }
-            break;
 
-*/
 
         case 'v':
             vg_name = optarg;
@@ -84,6 +75,16 @@ int main_distcompare(int argc, char** argv){
                 exit(1);
             }
             break;
+
+        case 'x':
+            xg_name = optarg;
+            if (xg_name.empty()) {
+                cerr << "error: [vg distcompare] Must provide XG file with -x." << endl;
+                exit(1);
+            }
+            break;
+
+
 
         case 'h':
         case '?':
@@ -98,12 +99,12 @@ int main_distcompare(int argc, char** argv){
 
     //Check that all required arguments are given
 
-/*
+
     if (xg_name.empty()) {
         cerr << "error: [vg distcompare] Must provide XG file with -x." << endl;
         exit(1);
     }
-*/
+
 
     if (vg_name.empty()) {
         cerr << "error: [vg distcompare] Must provide VG file with -v." << endl;
@@ -112,13 +113,13 @@ int main_distcompare(int argc, char** argv){
     
     //Get file streams for xg and vg
 
-/*
+
     ifstream xg_stream(xg_name);
     if (!xg_stream) {
         cerr << "error:[vg distcompare] Cannot open XG file " << xg_name << endl;
         exit(1);
     }
-*/
+
 
     ifstream vg_stream(vg_name);
     if (!vg_stream) {
@@ -130,35 +131,7 @@ int main_distcompare(int argc, char** argv){
     //Get vg and xg objects
     VG vg(vg_stream);
 
-//TODO: shouldn't need to add paths
-
-Visit visit = to_visit(1, false);
-NodeTraversal n1 = to_node_traversal(visit, vg); 
-list<NodeTraversal> traversal;
-traversal.push_back(n1);
-
-handle_t currHandle;
-
-bool flag = true;
-auto addVisit = [&] (const handle_t& h)-> bool {
-    
-    Visit v = to_visit(vg.get_id(h), vg.get_is_reverse(h));
-    NodeTraversal n = to_node_traversal(v, vg);
-    traversal.push_back(n1);
-    currHandle = h;
-    flag = true;
-    return true;
-};
-Path p = path_from_node_traversals(traversal);
-vg.include(p);
-while (flag) {
-
-    flag = false;
-    vg.follow_edges(currHandle, false, addVisit);
-    
-}
-
-    xg::XG xg_index(vg.graph);//xg_stream);
+    xg::XG xg_index(xg_stream);
 
     CactusSnarlFinder bubble_finder(vg);
     SnarlManager snarl_manager = bubble_finder.find_snarls();
@@ -166,10 +139,16 @@ while (flag) {
     clock_t t = clock();
     DistanceIndex di (&vg, &snarl_manager, 100); 
     t = clock() - t;
+
+
+
+    int64_t size = di.sizeOf();
+    
 //TODO: record time to do this, and memory 
-     cout << "Time to create distance index: " << t << endl;
-     cout << "Space taken up by distance index: " << endl;
-     cout << endl;
+    cout << "Time to create distance index: " << t << endl;
+    cout << "Space taken up by distance index: " << size << endl;
+
+    cout << endl;
 
 
     vector<const Snarl*> allSnarls;
@@ -183,13 +162,14 @@ while (flag) {
     default_random_engine generator(seed_source());
 
     size_t count = 0;
-    while (count < 1000) {
+    while (count < 10000) {
         //Find distances between random positions in the graph
         /*Outputs: my distance /t old distance /t time for my calculation /t 
                    time for old calculation /t
         */
     
         //Generate random positions by choosing snarls then nodes, then position
+//TODO: Start using xg positions then find snarl containing node
         const Snarl* snarl1 = allSnarls[randomSnarlIndex(generator)];
         const Snarl* snarl2 = allSnarls[randomSnarlIndex(generator)];
    
@@ -234,18 +214,20 @@ while (flag) {
             clock_t t = clock();
             int64_t myDist = di.distance(snarl1, snarl2, pos1, pos2);
             clock_t t1 = clock() - t;
-            cout << myDist << "\t";
 
             t = clock();
-            int64_t oldDist = xg_index.closest_shared_path_oriented_distance(
-                    nodeID1, offset1, rev1, nodeID2, offset2, rev2, false, 10000); 
+            int64_t oldDist = abs(xg_index.closest_shared_path_oriented_distance(
+                    nodeID1, offset1, rev1, nodeID2, offset2, rev2));
+         
+            if (oldDist != 9223372036854775807 &&  myDist > oldDist + 1) {cerr << "WRONG";}
             clock_t t2 = clock() - t;
 
-            cout << oldDist << "\t" << t1 << "\t" << t2;
+            cout  << myDist << "\t" << oldDist << "\t" << t1 << "\t" << t2;
             cout << endl;
         }
     
     }
+
     return 0;
 }
 

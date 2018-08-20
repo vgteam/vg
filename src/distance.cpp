@@ -5,6 +5,58 @@
 
 using namespace std;
 namespace vg {
+int64_t DistanceIndex::sizeOf() {
+    //Estimate of the size of the object - probably keep this in uncommitted branch
+   
+    int64_t total = 0;
+   
+    int64_t numSnarls = snarlIndex.size();
+
+    int64_t snarlDists = 0;
+    int64_t snarlNodes = 0; //# node ids + direction
+
+    for (auto x : snarlIndex) {
+        //Add size of each SnarlDistances object
+        SnarlDistances sd = x.second;
+        int64_t numNodes = sd.visitToIndex.size();
+
+        snarlNodes += numNodes; 
+        snarlDists += numNodes * numNodes;
+  
+        total += numNodes * 17; //Add all elements in visitToIndex
+        total += numNodes * numNodes * 8;
+
+    }
+    
+    int64_t chainDists = 0;
+    int64_t chainNodes = 0;
+
+    int64_t numChains = chainIndex.size();
+  
+    for (auto x : chainIndex) {
+        ChainDistances cd = x.second;
+        int64_t numNodes = cd.snarlToIndex.size();
+        
+        chainDists += numNodes*3;
+        chainNodes += numNodes;
+
+        total += numNodes * 16; //Add all elements in snarlToIndex
+        total += numNodes * 8 * 4; //Add elements in prefixSum, loopFd, loopRev 
+
+    }
+ 
+    total += numSnarls * (sizeof(pair<id_t, bool>) + sizeof(SnarlDistances)) +
+             numChains * (sizeof(id_t) + sizeof(ChainDistances));
+
+
+    cerr << numSnarls << " snarls containing " << snarlNodes << " nodes" << endl;
+    cerr << numChains << " chains containing " << chainNodes << " nodes" << endl;
+    cerr << "Total: " << total << " bytes??" << endl;
+    return total; 
+    
+
+}
+
 
 DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager, int64_t cap){
     /*Constructor for the distance index given a VG and snarl manager
