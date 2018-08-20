@@ -2854,7 +2854,6 @@ namespace vg {
         }
         
         // make the graph we need to align to
-        // TODO: can I do this without the copy constructor for the forward strand?
 #ifdef debug_multipath_mapper_alignment
         cerr << "use_single_stranded: " << use_single_stranded << " mem_strand: " << mem_strand << endl;
 #endif
@@ -2874,7 +2873,6 @@ namespace vg {
             node_trans = algorithms::split_strands(vg, &align_graph);
         }
 
-        
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(vg)) {
             unordered_map<id_t, pair<id_t, bool> > dagify_trans;
