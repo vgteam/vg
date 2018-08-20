@@ -20,8 +20,8 @@
 namespace vg {
 namespace algorithms {
     
-    /// Fills MutableHandleGraph with the subgraph of the HandleGraph that connects two positions. The nodes that
-    /// contain the two positions will be "cut" at the position and will be tips in the returned graph. Sometimes
+    /// Fills a MutableHandleGraph with the subgraph of a HandleGraph that connects two positions. The nodes that
+    /// contain the two positions will be 'cut' at the position and will be tips in the returned graph. Sometimes
     /// it is necessary to duplicate nodes in order to do this, so a map is returned that translates node IDs in
     /// 'into' to node IDs in 'source'. By default, the algorithm provides one and only one guarantee:
     ///   - 'into' contains all walks between pos_1 and pos_2 under the maximum length except walks that include

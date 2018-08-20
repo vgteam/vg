@@ -215,21 +215,18 @@ unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, Mut
         }
     }
     
-    if (offset(pos)) {
-        // remove the original translation
-        id_trans.erase(into->get_id(src_node));
-        
-        // cut the source node at the starting position and record a new translation
-        size_t forward_offset = is_rev(pos) ? source->get_length(search_origin) - offset(pos) : offset(pos);
-        pair<handle_t, handle_t> halves = into->divide_handle(src_node, forward_offset);
-        if (is_rev(pos) == backward) {
-            into->destroy_handle(halves.first);
-            id_trans[into->get_id(halves.second)] = id(pos);
-        }
-        else {
-            into->destroy_handle(halves.second);
-            id_trans[into->get_id(halves.first)] = id(pos);
-        }
+    
+    // cut the source node at the starting position and record a new translation
+    size_t forward_offset = is_rev(pos) ? source->get_length(search_origin) - offset(pos) : offset(pos);
+    pair<handle_t, handle_t> halves = into->divide_handle(src_node, forward_offset);
+    id_trans.erase(into->get_id(src_node));
+    if (is_rev(pos) == backward) {
+        into->destroy_handle(halves.first);
+        id_trans[into->get_id(halves.second)] = id(pos);
+    }
+    else {
+        into->destroy_handle(halves.second);
+        id_trans[into->get_id(halves.first)] = id(pos);
     }
     
     return id_trans;

@@ -28,6 +28,7 @@
 #include "algorithms/weakly_connected_components.hpp"
 #include "algorithms/is_acyclic.hpp"
 #include "algorithms/is_single_stranded.hpp"
+#include "algorithms/split_strands.hpp"
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>

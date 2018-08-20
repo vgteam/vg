@@ -16,6 +16,7 @@
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/weakly_connected_components.hpp"
 #include "algorithms/is_acyclic.hpp"
+#include "algorithms/split_strands.hpp"
 #include "algorithms/is_single_stranded.hpp"
 #include "algorithms/distance_to_head.hpp"
 #include "algorithms/distance_to_tail.hpp"
@@ -4372,5 +4373,118 @@ namespace vg {
                 REQUIRE(!algorithms::is_acyclic(&cyclic));
             }
         }
+    }
+    
+    TEST_CASE("split_strands() should properly split the forward and reverse strands", "[vg][split]") {
+        
+        VG graph;
+        graph.create_node("ATA", 1);
+        graph.create_node("CT", 2);
+        graph.create_node("TGA", 3);
+        
+        graph.create_edge(1, 2);
+        graph.create_edge(3, 2, true, true);
+        graph.create_edge(1, 2, false, true);
+        graph.create_edge(2, 3, true, false);
+        
+        VG split;
+        unordered_map<id_t, pair<id_t, bool> > node_translation = algorithms::split_strands(&graph, &split);
+                
+        Graph& g = split.graph;
+        
+        REQUIRE(g.node_size() == 6);
+        REQUIRE(g.edge_size() == 8);
+        
+        int64_t node_1 = 0;
+        int64_t node_2 = 0;
+        int64_t node_3 = 0;
+        int64_t node_4 = 0;
+        int64_t node_5 = 0;
+        int64_t node_6 = 0;
+        
+        for (int i = 0; i < g.node_size(); i++) {
+            const Node& n = g.node(i);
+            int64_t orig_id = node_translation[n.id()].first;
+            bool flipped =  node_translation[n.id()].second;
+            if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
+                node_1 = n.id();
+            }
+            else if (orig_id == 1 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
+                node_2 = n.id();
+            }
+            else if (orig_id == 2 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
+                node_3 = n.id();
+            }
+            else if (orig_id == 2 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
+                node_4 = n.id();
+            }
+            else if (orig_id == 3 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
+                node_5 = n.id();
+            }
+            else if (orig_id == 3 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
+                node_6 = n.id();
+            }
+        }
+        
+        REQUIRE(node_1 != 0);
+        REQUIRE(node_2 != 0);
+        REQUIRE(node_3 != 0);
+        REQUIRE(node_4 != 0);
+        REQUIRE(node_5 != 0);
+        REQUIRE(node_6 != 0);
+        
+        bool found_edge_1 = false;
+        bool found_edge_2 = false;
+        bool found_edge_3 = false;
+        bool found_edge_4 = false;
+        bool found_edge_5 = false;
+        bool found_edge_6 = false;
+        bool found_edge_7 = false;
+        bool found_edge_8 = false;
+        
+        for (int i = 0; i < g.edge_size(); i++) {
+            const Edge& e = g.edge(i);
+            if ((e.from() == node_1 && e.to() == node_3 && !e.from_start() && !e.to_end()) ||
+                (e.from() == node_3 && e.to() == node_1 && e.from_start() && e.to_end())) {
+                found_edge_1 = true;
+            }
+            else if ((e.from() == node_1 && e.to() == node_4 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_4 && e.to() == node_1 && e.from_start() && e.to_end())) {
+                found_edge_2 = true;
+            }
+            else if ((e.from() == node_6 && e.to() == node_3 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_3 && e.to() == node_6 && e.from_start() && e.to_end())) {
+                found_edge_3 = true;
+            }
+            else if ((e.from() == node_6 && e.to() == node_4 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_4 && e.to() == node_6 && e.from_start() && e.to_end())) {
+                found_edge_4 = true;
+            }
+            else if ((e.from() == node_3 && e.to() == node_5 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_5 && e.to() == node_3 && e.from_start() && e.to_end())) {
+                found_edge_5 = true;
+            }
+            else if ((e.from() == node_3 && e.to() == node_2 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_2 && e.to() == node_3 && e.from_start() && e.to_end())) {
+                found_edge_6 = true;
+            }
+            else if ((e.from() == node_4 && e.to() == node_5 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_5 && e.to() == node_4 && e.from_start() && e.to_end())) {
+                found_edge_7 = true;
+            }
+            else if ((e.from() == node_4 && e.to() == node_2 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_2 && e.to() == node_4 && e.from_start() && e.to_end())) {
+                found_edge_8 = true;
+            }
+        }
+        
+        REQUIRE(found_edge_1);
+        REQUIRE(found_edge_2);
+        REQUIRE(found_edge_3);
+        REQUIRE(found_edge_4);
+        REQUIRE(found_edge_5);
+        REQUIRE(found_edge_6);
+        REQUIRE(found_edge_7);
+        REQUIRE(found_edge_8);
     }
 }

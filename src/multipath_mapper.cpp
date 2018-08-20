@@ -381,8 +381,8 @@ namespace vg {
         size_t target_length = other_aln.sequence().size() + get_aligner()->longest_detectable_gap(other_aln);
         
         // convert from bidirected to directed
-        unordered_map<id_t, pair<id_t, bool> > node_trans;
-        VG align_graph = rescue_graph.split_strands(node_trans);
+        VG align_graph;
+        unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&rescue_graph, &align_graph);
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(&rescue_graph)) {
             unordered_map<id_t, pair<id_t, bool> > dagify_trans;
@@ -2838,6 +2838,7 @@ namespace vg {
         
         // convert from bidirected to directed
         unordered_map<id_t, pair<id_t, bool> > node_trans;
+        VG align_graph;
         
         // check if we can get away with using only one strand of the graph
         bool use_single_stranded = algorithms::is_single_stranded(vg);
@@ -2857,13 +2858,22 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
         cerr << "use_single_stranded: " << use_single_stranded << " mem_strand: " << mem_strand << endl;
 #endif
-        VG align_graph = use_single_stranded ? (mem_strand ? vg->reverse_complement_graph(node_trans) : *vg) : vg->split_strands(node_trans);
-        
-        // if we are using only the forward strand of the current graph, a make trivial node translation so
-        // the later code's expectations are met
-        if (use_single_stranded && !mem_strand) {
-            vg->identity_translation(node_trans);
+        if (use_single_stranded) {
+            if (mem_strand) {
+                align_graph = vg->reverse_complement_graph(node_trans);
+            }
+            else {
+                // if we are using only the forward strand of the current graph, a make trivial node translation so
+                // the later code's expectations are met
+                // TODO: can we do this without the copy constructor?
+                align_graph = *vg;
+                vg->identity_translation(node_trans);
+            }
         }
+        else {
+            node_trans = algorithms::split_strands(vg, &align_graph);
+        }
+
         
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(vg)) {

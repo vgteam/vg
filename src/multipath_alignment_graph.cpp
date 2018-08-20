@@ -2866,8 +2866,7 @@ namespace vg {
 #endif
                 
                 size_t intervening_length = dest_path_node.begin - src_path_node.end;
-                size_t max_dist = intervening_length +
-                std::min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin)) + 1;
+                size_t max_dist = intervening_length + std::min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin));
                 
 #ifdef debug_multipath_alignment
                 cerr << "read dist: " << intervening_length << ", source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << endl;
@@ -2979,7 +2978,7 @@ namespace vg {
                         translate_node_ids(*connecting_subpath->mutable_path(), connect_trans);
                         Mapping* first_subpath_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
                         if (first_subpath_mapping->position().node_id() == final_mapping.position().node_id()) {
-                            first_subpath_mapping->mutable_position()->set_offset(offset(src_pos) + 1);
+                            first_subpath_mapping->mutable_position()->set_offset(offset(src_pos));
                         }
                     }
                     
