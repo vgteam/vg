@@ -467,8 +467,9 @@ using namespace std;
             unordered_map<id_t, pair<id_t, bool>> path_trans;
             VG path_graph = extract_linearized_path_graph(ref_path_interval.first, ref_path_interval.second, xpath, path_trans);
             
-            unordered_map<id_t, pair<id_t, bool>> split_trans;
-            VG split_path_graph = path_graph.split_strands(split_trans);
+            // split it into a forward and reverse strand
+            VG split_path_graph;
+            unordered_map<id_t, pair<id_t, bool>> split_trans = algorithms::split_strands(&path_graph, &split_path_graph);
             
             algorithms::lazier_sort(&split_path_graph);
             

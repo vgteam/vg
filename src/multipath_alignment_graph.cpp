@@ -2850,7 +2850,7 @@ namespace vg {
             // make a pos_t that points to the final base in the match
             pos_t src_pos = make_pos_t(final_mapping_position.node_id(),
                                        final_mapping_position.is_reverse(),
-                                       final_mapping_position.offset() + mapping_from_length(final_mapping) - 1);
+                                       final_mapping_position.offset() + mapping_from_length(final_mapping));
             
             // the longest gap that could be detected at this position in the read
             size_t src_max_gap = aligner->longest_detectable_gap(alignment, src_path_node.end);
@@ -2866,25 +2866,22 @@ namespace vg {
 #endif
                 
                 size_t intervening_length = dest_path_node.begin - src_path_node.end;
-                size_t max_dist = intervening_length +
-                std::min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin)) + 1;
+                size_t max_dist = intervening_length + std::min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin));
                 
 #ifdef debug_multipath_alignment
                 cerr << "read dist: " << intervening_length << ", source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << endl;
 #endif
                 
                 // extract the graph between the matches
-                Graph connecting_graph;
-                unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&align_graph,     // DAG with split strands
-                                                                                               connecting_graph, // graph to extract into
-                                                                                               max_dist,         // longest distance necessary
-                                                                                               src_pos,          // end of earlier match
-                                                                                               dest_pos,         // beginning of later match
-                                                                                               false,            // do not extract the end positions in the matches
-                                                                                               false,            // do not bother finding all cycles (it's a DAG)
-                                                                                               true,             // remove tips
-                                                                                               true,             // only include nodes on connecting paths
-                                                                                               true);            // enforce max distance strictly
+                VG connecting_graph;
+                unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&align_graph,      // DAG with split strands
+                                                                                               &connecting_graph, // graph to extract into
+                                                                                               max_dist,          // longest distance necessary
+                                                                                               src_pos,           // end of earlier match
+                                                                                               dest_pos,          // beginning of later match
+                                                                                               false,             // do not bother finding all cycles (it's a DAG)
+                                                                                               true,              // only include nodes on connecting paths
+                                                                                               true);             // enforce max distance strictly
                 
                 
                 if (connecting_graph.node_size() == 0) {
@@ -2903,13 +2900,13 @@ namespace vg {
                 }
                 
 #ifdef debug_multipath_alignment
-                cerr << "aligning sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph) << endl;
+                cerr << "aligning sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph.graph) << endl;
 #endif
                 
                 bool added_direct_connection = false;
                 // TODO a better way of choosing the number of alternate alignments
                 vector<Alignment> alt_alignments;
-                aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alt_alns, band_padding, true);
+                aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph.graph, num_alt_alns, band_padding, true);
                 
                 for (Alignment& connecting_alignment : alt_alignments) {
 #ifdef debug_multipath_alignment
@@ -2981,7 +2978,7 @@ namespace vg {
                         translate_node_ids(*connecting_subpath->mutable_path(), connect_trans);
                         Mapping* first_subpath_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
                         if (first_subpath_mapping->position().node_id() == final_mapping.position().node_id()) {
-                            first_subpath_mapping->mutable_position()->set_offset(offset(src_pos) + 1);
+                            first_subpath_mapping->mutable_position()->set_offset(offset(src_pos));
                         }
                     }
                     
@@ -3023,13 +3020,15 @@ namespace vg {
                     // want past-the-last instead of last index here
                     get_offset(end_pos)++;
                     
-                    Graph tail_graph;
+                    VG tail_graph_extractor;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               tail_graph,
+                                                                                               &tail_graph_extractor,
                                                                                                target_length,
                                                                                                end_pos,
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
+                    
+                    Graph& tail_graph = tail_graph_extractor.graph;
                     
                     // ensure invariants that gssw-based alignment expects
                     groom_graph_for_gssw(tail_graph);
@@ -3132,14 +3131,16 @@ namespace vg {
                     pos_t begin_pos = initial_position(path_node.path);
                     
                     
-                    Graph tail_graph;
+                    VG tail_graph_extractor;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               tail_graph,
+                                                                                               &tail_graph_extractor,
                                                                                                target_length,
                                                                                                begin_pos,
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
+                    
+                    Graph& tail_graph = tail_graph_extractor.graph;
                     // ensure invariants that gssw-based alignment expects
                     groom_graph_for_gssw(tail_graph);
                     

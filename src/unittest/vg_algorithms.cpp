@@ -16,6 +16,7 @@
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/weakly_connected_components.hpp"
 #include "algorithms/is_acyclic.hpp"
+#include "algorithms/split_strands.hpp"
 #include "algorithms/is_single_stranded.hpp"
 #include "algorithms/distance_to_head.hpp"
 #include "algorithms/distance_to_tail.hpp"
@@ -70,31 +71,33 @@ namespace vg {
             
             SECTION( "Graph extraction can extract a section of one node" ) {
                 
-                pos_t pos_1 = make_pos_t(n1->id(), false, 0);
+                pos_t pos_1 = make_pos_t(n1->id(), false, 1);
                 pos_t pos_2 = make_pos_t(n1->id(), false, 3);
                 
                 int64_t max_len = 5;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, false, true, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                Graph& g = extractor.graph;
                 
                 REQUIRE( g.node_size() == 1 );
                 REQUIRE( g.edge_size() == 0 );
-                REQUIRE( g.node(0).id() == n1->id() );
+                REQUIRE( trans[g.node(0).id()] == n1->id() );
                 REQUIRE( g.node(0).sequence() == "TG" );
             }
             
             SECTION( "Graph extraction can extract a section between two nodes" ) {
                 
-                pos_t pos_1 = make_pos_t(n0->id(), false, 1);
+                pos_t pos_1 = make_pos_t(n0->id(), false, 2);
                 pos_t pos_2 = make_pos_t(n1->id(), false, 2);
                 
                 int64_t max_len = 5;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, false, true, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                Graph& g = extractor.graph;
                 
                 set<int64_t> expected_node_ids{n0->id(), n1->id()};
                 
@@ -120,14 +123,15 @@ namespace vg {
             
             SECTION( "Graph extraction can extract a bubble" ) {
                 
-                pos_t pos_1 = make_pos_t(n2->id(), false, 1);
+                pos_t pos_1 = make_pos_t(n2->id(), false, 2);
                 pos_t pos_2 = make_pos_t(n5->id(), false, 3);
                 
                 int64_t max_len = 10;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, false, true, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                Graph& g = extractor.graph;
                 
                 set<int64_t> expected_node_ids{n2->id(), n3->id(), n4->id(), n5->id()};
                 
@@ -188,14 +192,15 @@ namespace vg {
             
             SECTION( "Graph extraction can trim nodes that are not a path between the two positions" ) {
                 
-                pos_t pos_1 = make_pos_t(n2->id(), false, 0);
+                pos_t pos_1 = make_pos_t(n2->id(), false, 1);
                 pos_t pos_2 = make_pos_t(n4->id(), false, 1);
                 
                 int64_t max_len = 10;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, false, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                Graph& g = extractor.graph;
                 
                 set<int64_t> expected_node_ids{n2->id(), n4->id()};
                 
@@ -221,14 +226,15 @@ namespace vg {
             
             SECTION( "Graph extraction returns an empty graph if there are no paths under the max length and the positions are on the same node" ) {
                 
-                pos_t pos_1 = make_pos_t(n5->id(), true, 0);
+                pos_t pos_1 = make_pos_t(n5->id(), true, 1);
                 pos_t pos_2 = make_pos_t(n5->id(), true, 4);
                 
                 int64_t max_len = 2;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, false, true, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                Graph& g = extractor.graph;
                 
                 REQUIRE( g.node_size() == 0 );
                 REQUIRE( g.edge_size() == 0 );
@@ -236,14 +242,15 @@ namespace vg {
             
             SECTION( "Graph extraction returns an empty graph if there are no paths under the max length and the positions are on different nodes" ) {
                 
-                pos_t pos_1 = make_pos_t(n5->id(), true, 0);
+                pos_t pos_1 = make_pos_t(n5->id(), true, 1);
                 pos_t pos_2 = make_pos_t(n0->id(), true, 2);
                 
-                int64_t max_len = 5;
+                int64_t max_len = 7;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, false, true, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                Graph& g = extractor.graph;
                 
                 REQUIRE( g.node_size() == 0 );
                 REQUIRE( g.edge_size() == 0 );
@@ -251,31 +258,33 @@ namespace vg {
             
             SECTION( "Graph extraction can detect a one-node path at the maximum distance" ) {
                 
-                pos_t pos_1 = make_pos_t(n5->id(), true, 0);
+                pos_t pos_1 = make_pos_t(n5->id(), true, 1);
                 pos_t pos_2 = make_pos_t(n5->id(), true, 4);
                 
-                int64_t max_len = 4;
+                int64_t max_len = 3;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, false, true, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                Graph& g = extractor.graph;
                 
                 REQUIRE( g.node_size() == 1 );
                 REQUIRE( g.edge_size() == 0 );
-                REQUIRE( g.node(0).id() == n5->id() );
+                REQUIRE( trans[g.node(0).id()] == n5->id() );
                 REQUIRE( g.node(0).sequence() == "ATA" );
             }
             
             SECTION( "Graph extraction can detect a two-node path at the maximum distance" ) {
                 
-                pos_t pos_1 = make_pos_t(n0->id(), false, 0);
+                pos_t pos_1 = make_pos_t(n0->id(), false, 1);
                 pos_t pos_2 = make_pos_t(n1->id(), false, 3);
                 
-                int64_t max_len = 6;
+                int64_t max_len = 5;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, false, true, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                Graph& g = extractor.graph;
                 
                 set<int64_t> expected_node_ids{n0->id(), n1->id()};
                 
@@ -301,14 +310,15 @@ namespace vg {
             
             SECTION( "Graph extraction can detect a multi-node path at the maximum distance" ) {
                 
-                pos_t pos_1 = make_pos_t(n2->id(), false, 0);
+                pos_t pos_1 = make_pos_t(n2->id(), false, 1);
                 pos_t pos_2 = make_pos_t(n5->id(), false, 4);
                 
-                int64_t max_len = 9;
+                int64_t max_len = 8;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, false, true, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                Graph& g = extractor.graph;
                 
                 set<int64_t> expected_node_ids{n2->id(), n3->id(), n5->id()};
                 
@@ -354,14 +364,15 @@ namespace vg {
             
             SECTION( "Graph extraction can remove paths that are above maximum length" ) {
                 
-                pos_t pos_1 = make_pos_t(n9->id(), true, 6);
+                pos_t pos_1 = make_pos_t(n9->id(), true, 7);
                 pos_t pos_2 = make_pos_t(n5->id(), true, 0);
                 
-                int64_t max_len = 5;
+                int64_t max_len = 4;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, false, true, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                Graph& g = extractor.graph;
                 
                 set<int64_t> expected_node_ids{n5->id(), n8->id(), n9->id()};
                 
@@ -417,14 +428,15 @@ namespace vg {
                 
                 vg.create_edge(n0, n0);
                 
-                pos_t pos_1 = make_pos_t(n0->id(), false, 4);
+                pos_t pos_1 = make_pos_t(n0->id(), false, 5);
                 pos_t pos_2 = make_pos_t(n0->id(), false, 3);
                 
-                int64_t max_len = 10;
+                int64_t max_len = 6;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, false, true, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                Graph& g = extractor.graph;
                 
                 set<int64_t> expected_node_ids{n0->id()};
                 
@@ -463,14 +475,15 @@ namespace vg {
                 
                 vg.create_edge(n0, n0, false, true);
                 
-                pos_t pos_1 = make_pos_t(n0->id(), false, 4);
+                pos_t pos_1 = make_pos_t(n0->id(), false, 5);
                 pos_t pos_2 = make_pos_t(n0->id(), true, 3);
                 
                 int64_t max_len = 10;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, false, true, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+                Graph& g = extractor.graph;
                 
                 set<int64_t> expected_node_ids{n0->id()};
                 
@@ -511,14 +524,15 @@ namespace vg {
                 vg.create_edge(n0, n0);
                 vg.create_edge(n0, n1);
                 
-                pos_t pos_1 = make_pos_t(n0->id(), false, 2);
+                pos_t pos_1 = make_pos_t(n0->id(), false, 3);
                 pos_t pos_2 = make_pos_t(n1->id(), false, 1);
                 
                 int64_t max_len = 15;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, true);
+                Graph& g = extractor.graph;
                 
                 set<int64_t> expected_node_ids{n0->id(), n1->id()};
                 
@@ -623,14 +637,15 @@ namespace vg {
                 vg.create_edge(n0, n1);
                 vg.create_edge(n1, n1);
                 
-                pos_t pos_1 = make_pos_t(n0->id(), false, 2);
+                pos_t pos_1 = make_pos_t(n0->id(), false, 3);
                 pos_t pos_2 = make_pos_t(n1->id(), false, 1);
                 
                 int64_t max_len = 20;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, true);
+                Graph& g = extractor.graph;
                 
                 REQUIRE( g.node_size() == 4 );
                 REQUIRE( g.edge_size() == 8 );
@@ -770,14 +785,15 @@ namespace vg {
                 vg.create_edge(n2, n0);
                 vg.create_edge(n3, n1);
                 
-                pos_t pos_1 = make_pos_t(n0->id(), false, 2);
+                pos_t pos_1 = make_pos_t(n0->id(), false, 3);
                 pos_t pos_2 = make_pos_t(n1->id(), false, 1);
                 
                 int64_t max_len = 30;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, true);
+                Graph& g = extractor.graph;
                 
                 REQUIRE( g.node_size() == 6 );
                 REQUIRE( g.edge_size() == 10 );
@@ -944,14 +960,15 @@ namespace vg {
                 vg.create_edge(n0, n1);
                 vg.create_edge(n1, n0);
                 
-                pos_t pos_1 = make_pos_t(n0->id(), false, 1);
+                pos_t pos_1 = make_pos_t(n0->id(), false, 2);
                 pos_t pos_2 = make_pos_t(n0->id(), false, 3);
                 
                 int64_t max_len = 40;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, true);
+                Graph& g = extractor.graph;
                 
                 REQUIRE( g.node_size() == 5 );
                 REQUIRE( g.edge_size() == 8 );
@@ -1091,14 +1108,15 @@ namespace vg {
                 vg.create_edge(n0, n1, false, true);
                 vg.create_edge(n1, n0, true, false);
                 
-                pos_t pos_1 = make_pos_t(n0->id(), false, 3);
+                pos_t pos_1 = make_pos_t(n0->id(), false, 4);
                 pos_t pos_2 = make_pos_t(n0->id(), false, 1);
                 
                 int64_t max_len = 40;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, true);
+                Graph& g = extractor.graph;
                 
                 REQUIRE( g.node_size() == 4 );
                 REQUIRE( g.edge_size() == 8 );
@@ -1238,14 +1256,15 @@ namespace vg {
                 vg.create_edge(n0, n2);
                 vg.create_edge(n2, n0, false, true);
                 
-                pos_t pos_1 = make_pos_t(n0->id(), false, 3);
+                pos_t pos_1 = make_pos_t(n0->id(), false, 4);
                 pos_t pos_2 = make_pos_t(n0->id(), true, 3);
                 
                 int64_t max_len = 40;
                 
-                Graph g;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true, true);
                 
-                auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, true);
+                Graph& g = extractor.graph;
                 
                 REQUIRE( g.node_size() == 5 );
                 REQUIRE( g.edge_size() == 18 );
@@ -1450,7 +1469,7 @@ namespace vg {
             }
         }
         
-        TEST_CASE( "Connecting graph extraction options perform as expected", "[algorithms]" ) {
+        TEST_CASE( "Connecting graph extraction pruning options perform as expected", "[algorithms][broken]" ) {
             VG vg;
             
             Node* n0 = vg.create_node("CGA");
@@ -1461,7 +1480,7 @@ namespace vg {
             Node* n5 = vg.create_node("CA"); // a shorter path
             Node* n6 = vg.create_node("T");
             
-            vg.create_edge(n1, n0, true, true); // a doubly reversing edge to keep it interesting
+            vg.create_edge(n1, n0, true, true);
             vg.create_edge(n1, n2);
             vg.create_edge(n1, n3);
             vg.create_edge(n1, n4, false, true);
@@ -1470,480 +1489,222 @@ namespace vg {
             vg.create_edge(n4, n6, true, false);
             vg.create_edge(n5, n6);
             
-            SECTION("Cutting behind end positions works on a single node path") {
+            SECTION("Connecting graph extraction can extract a graph without pruning") {
                 
-                int64_t max_len = 40;
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, 10,
+                                                                  make_pos_t(n1->id(), false, 3),
+                                                                  make_pos_t(n6->id(), false, 1));
                 
-                {
-                    Graph g;
-                    
-                    auto trans = algorithms::extract_connecting_graph(&vg, g, max_len,
-                                                                      make_pos_t(n0->id(), false, 0),
-                                                                      make_pos_t(n0->id(), false, 2),
-                                                                      true);
-                    
-                    REQUIRE(g.node_size() == 1);
-                    REQUIRE(g.edge_size() == 0);
-                    REQUIRE(g.node(0).sequence() == "CGA");
-                }
-
-                {
-                    Graph g;
-                    
-                    auto trans = algorithms::extract_connecting_graph(&vg, g, max_len,
-                                                                      make_pos_t(n0->id(), true, 0),
-                                                                      make_pos_t(n0->id(), true, 2),
-                                                                      true);
-                    
-                    REQUIRE(g.node_size() == 1);
-                    REQUIRE(g.edge_size() == 0);
-                    REQUIRE(g.node(0).sequence() == "CGA");
-                }
-            }
-            
-            SECTION("Cutting behind end positions works on a two node path") {
+                Graph& g = extractor.graph;
                 
-                int64_t max_len = 40;
+                REQUIRE(g.node_size() == 6);
+                REQUIRE(g.edge_size() == 7);
                 
-                {
-                    Graph g;
-                    
-                    auto trans = algorithms::extract_connecting_graph(&vg, g, max_len,
-                                                                      make_pos_t(n0->id(), false, 0),
-                                                                      make_pos_t(n1->id(), false, 2),
-                                                                      true);
-                    
-                    REQUIRE(g.node_size() == 2);
-                    REQUIRE(g.edge_size() == 1);
-                    
-                    bool found_node_0 = false;
-                    bool found_node_1 = false;
-                    
-                    for (int i = 0; i < g.node_size(); i++) {
-                        const Node& n = g.node(i);
-                        if (n.sequence() == "CGA") {
-                            found_node_0 = true;
-                        }
-                        else if (n.sequence() == "TTG") {
-                            found_node_1 = true;
-                        }
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                bool found_node_2 = false;
+                bool found_node_3 = false;
+                bool found_node_4 = false;
+                bool found_node_5 = false;
+                
+                for (int i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (n.sequence() == "G") {
+                        found_node_0 = true;
                     }
-                    
-                    REQUIRE(found_node_0);
-                    REQUIRE(found_node_1);
-                    
-                    bool found_edge_0 = false;
-                    const Edge& e = g.edge(0);
-                    if ((e.from() == n0->id() && !e.from_start() && e.to() == n1->id() && !e.to_end())
-                        ||(e.from() == n1->id() && e.from_start() && e.to() == n0->id() && e.to_end())){
+                    else if (n.sequence() == "T") {
+                        found_node_1 = true;
+                    }
+                    else if (n.sequence() == "GT") {
+                        found_node_2 = true;
+                    }
+                    else if (n.sequence() == "ATG") {
+                        found_node_3 = true;
+                    }
+                    else if (n.sequence() == "TGAG") {
+                        found_node_4 = true;
+                    }
+                    else if (n.sequence() == "CA") {
+                        found_node_5 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                REQUIRE(found_node_2);
+                REQUIRE(found_node_3);
+                REQUIRE(found_node_4);
+                REQUIRE(found_node_5);
+                
+                bool found_edge_0 = false;
+                bool found_edge_1 = false;
+                bool found_edge_2 = false;
+                bool found_edge_3 = false;
+                bool found_edge_4 = false;
+                bool found_edge_5 = false;
+                bool found_edge_6 = false;
+                
+                for (int i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((trans[e.from()] == n1->id() && !e.from_start() && trans[e.to()] == n2->id() && !e.to_end())
+                         ||(trans[e.from()] == n2->id() && e.from_start() && trans[e.to()] == n1->id() && e.to_end()))) {
                         found_edge_0 = true;
                     }
-                    REQUIRE(found_edge_0);
+                    else if (((trans[e.from()] == n1->id() && !e.from_start() && trans[e.to()] == n3->id() && !e.to_end())
+                              ||(trans[e.from()] == n3->id() && e.from_start() && trans[e.to()] == n1->id() && e.to_end()))) {
+                        found_edge_1 = true;
+                    }
+                    else if (((trans[e.from()] == n1->id() && !e.from_start() && trans[e.to()] == n4->id() && e.to_end())
+                              ||(trans[e.from()] == n4->id() && !e.from_start() && trans[e.to()] == n1->id() && e.to_end()))) {
+                        found_edge_2 = true;
+                    }
+                    else if (((trans[e.from()] == n1->id() && !e.from_start() && trans[e.to()] == n5->id() && !e.to_end())
+                              ||(trans[e.from()] == n5->id() && e.from_start() && trans[e.to()] == n1->id() && e.to_end()))) {
+                        found_edge_3 = true;
+                    }
+                    else if (((trans[e.from()] == n3->id() && !e.from_start() && trans[e.to()] == n3->id() && !e.to_end())
+                              ||(trans[e.from()] == n3->id() && e.from_start() && trans[e.to()] == n3->id() && e.to_end()))) {
+                        found_edge_4 = true;
+                    }
+                    else if (((trans[e.from()] == n4->id() && e.from_start() && trans[e.to()] == n6->id() && !e.to_end())
+                              ||(trans[e.from()] == n6->id() && e.from_start() && trans[e.to()] == n4->id() && !e.to_end()))) {
+                        found_edge_5 = true;
+                    }
+                    else if (((trans[e.from()] == n5->id() && !e.from_start() && trans[e.to()] == n6->id() && !e.to_end())
+                              ||(trans[e.from()] == n6->id() && e.from_start() && trans[e.to()] == n5->id() && e.to_end()))) {
+                        found_edge_6 = true;
+                    }
                 }
                 
-                {
-                    Graph g;
-                    
-                    auto trans = algorithms::extract_connecting_graph(&vg, g, max_len,
-                                                                      make_pos_t(n1->id(), true, 1),
-                                                                      make_pos_t(n0->id(), true, 2),
-                                                                      true);
-                    
-                    REQUIRE(g.node_size() == 2);
-                    REQUIRE(g.edge_size() == 1);
-                    
-                    bool found_node_0 = false;
-                    bool found_node_1 = false;
-                    
-                    for (int i = 0; i < g.node_size(); i++) {
-                        const Node& n = g.node(i);
-                        if (n.sequence() == "CGA") {
-                            found_node_0 = true;
-                        }
-                        else if (n.sequence() == "TTG") {
-                            found_node_1 = true;
-                        }
-                    }
-                    
-                    REQUIRE(found_node_0);
-                    REQUIRE(found_node_1);
-                    
-                    bool found_edge_0 = false;
-                    const Edge& e = g.edge(0);
-                    if ((e.from() == n0->id() && !e.from_start() && e.to() == n1->id() && !e.to_end())
-                        ||(e.from() == n1->id() && e.from_start() && e.to() == n0->id() && e.to_end())){
-                        found_edge_0 = true;
-                    }
-                    REQUIRE(found_edge_0);
-                }
+                REQUIRE(found_edge_0);
+                REQUIRE(found_edge_1);
+                REQUIRE(found_edge_2);
+                REQUIRE(found_edge_3);
+                REQUIRE(found_edge_4);
+                REQUIRE(found_edge_5);
+                REQUIRE(found_edge_6);
             }
             
-            SECTION("Distance filtering works when cutting behind end positions") {
+            SECTION("Connecting graph extraction can prune a graph to only nodes on walks between the two positions") {
                 
-                {
-                    Graph g;
-                    
-                    auto trans = algorithms::extract_connecting_graph(&vg, g, 0,
-                                                                      make_pos_t(n0->id(), true, 0),
-                                                                      make_pos_t(n0->id(), true, 0),
-                                                                      true);
-                    
-                    REQUIRE(g.node_size() == 1);
-                    REQUIRE(g.edge_size() == 0);
-                    REQUIRE(g.node(0).sequence() == "A");
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, 10,
+                                                                  make_pos_t(n1->id(), false, 3),
+                                                                  make_pos_t(n6->id(), false, 1),
+                                                                  false, true);
+                
+                Graph& g = extractor.graph;
+                
+                REQUIRE(g.node_size() == 4);
+                REQUIRE(g.edge_size() == 4);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                bool found_node_2 = false;
+                bool found_node_3 = false;
+                
+                for (int i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (n.sequence() == "G") {
+                        found_node_0 = true;
+                    }
+                    else if (n.sequence() == "T") {
+                        found_node_1 = true;
+                    }
+                    else if (n.sequence() == "TGAG") {
+                        found_node_2 = true;
+                    }
+                    else if (n.sequence() == "CA") {
+                        found_node_3 = true;
+                    }
                 }
                 
-                {
-                    Graph g;
-                    
-                    auto trans = algorithms::extract_connecting_graph(&vg, g, 5,
-                                                                      make_pos_t(n0->id(), false, 0),
-                                                                      make_pos_t(n1->id(), false, 2),
-                                                                      true);
-                    
-                    REQUIRE(g.node_size() == 2);
-                    REQUIRE(g.edge_size() == 1);
-                    
-                    bool found_node_0 = false;
-                    bool found_node_1 = false;
-                    
-                    for (int i = 0; i < g.node_size(); i++) {
-                        const Node& n = g.node(i);
-                        if (n.sequence() == "CGA") {
-                            found_node_0 = true;
-                        }
-                        else if (n.sequence() == "TTG") {
-                            found_node_1 = true;
-                        }
-                    }
-                    
-                    REQUIRE(found_node_0);
-                    REQUIRE(found_node_1);
-                    
-                    bool found_edge_0 = false;
-                    const Edge& e = g.edge(0);
-                    if ((e.from() == n0->id() && !e.from_start() && e.to() == n1->id() && !e.to_end())
-                        ||(e.from() == n1->id() && e.from_start() && e.to() == n0->id() && e.to_end())){
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                REQUIRE(found_node_2);
+                REQUIRE(found_node_3);
+                
+                bool found_edge_0 = false;
+                bool found_edge_1 = false;
+                bool found_edge_2 = false;
+                bool found_edge_3 = false;
+                
+                for (int i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((trans[e.from()] == n1->id() && !e.from_start() && trans[e.to()] == n4->id() && e.to_end())
+                         ||(trans[e.from()] == n4->id() && !e.from_start() && trans[e.to()] == n1->id() && e.to_end()))) {
                         found_edge_0 = true;
                     }
-                    REQUIRE(found_edge_0);
+                    else if (((trans[e.from()] == n1->id() && !e.from_start() && trans[e.to()] == n5->id() && !e.to_end())
+                              ||(trans[e.from()] == n5->id() && e.from_start() && trans[e.to()] == n1->id() && e.to_end()))) {
+                        found_edge_1 = true;
+                    }
+                    else if (((trans[e.from()] == n4->id() && e.from_start() && trans[e.to()] == n6->id() && !e.to_end())
+                              ||(trans[e.from()] == n6->id() && e.from_start() && trans[e.to()] == n4->id() && !e.to_end()))) {
+                        found_edge_2 = true;
+                    }
+                    else if (((trans[e.from()] == n5->id() && !e.from_start() && trans[e.to()] == n6->id() && !e.to_end())
+                              ||(trans[e.from()] == n6->id() && e.from_start() && trans[e.to()] == n5->id() && e.to_end()))) {
+                        found_edge_3 = true;
+                    }
                 }
                 
-                
-                
-                {
-                    Graph g;
-                    
-                    auto trans = algorithms::extract_connecting_graph(&vg, g, 4,
-                                                                      make_pos_t(n0->id(), false, 0),
-                                                                      make_pos_t(n1->id(), false, 2),
-                                                                      true);
-                    
-                    REQUIRE(g.node_size() == 0);
-                    REQUIRE(g.edge_size() == 0);
-                }
+                REQUIRE(found_edge_0);
+                REQUIRE(found_edge_1);
+                REQUIRE(found_edge_2);
+                REQUIRE(found_edge_3);
             }
             
-            SECTION("Pruning options produce expected output") {
-                {
-                    Graph g;
-                    
-                    auto trans = algorithms::extract_connecting_graph(&vg, g, 10,
-                                                                      make_pos_t(n1->id(), false, 3),
-                                                                      make_pos_t(n6->id(), false, 0),
-                                                                      true, false);
-                    
-                    REQUIRE(g.node_size() == 6);
-                    REQUIRE(g.edge_size() == 7);
-                    
-                    bool found_node_0 = false;
-                    bool found_node_1 = false;
-                    bool found_node_2 = false;
-                    bool found_node_3 = false;
-                    bool found_node_4 = false;
-                    bool found_node_5 = false;
-                    
-                    for (int i = 0; i < g.node_size(); i++) {
-                        const Node& n = g.node(i);
-                        if (n.sequence() == "G") {
-                            found_node_0 = true;
-                        }
-                        else if (n.sequence() == "T") {
-                            found_node_1 = true;
-                        }
-                        else if (n.sequence() == "GT") {
-                            found_node_2 = true;
-                        }
-                        else if (n.sequence() == "ATG") {
-                            found_node_3 = true;
-                        }
-                        else if (n.sequence() == "TGAG") {
-                            found_node_4 = true;
-                        }
-                        else if (n.sequence() == "CA") {
-                            found_node_5 = true;
-                        }
+            SECTION("Connecting graph extraction can prune a graph to only nodes on sufficiently short walks between the two positions") {
+                VG extractor;
+                auto trans = algorithms::extract_connecting_graph(&vg, &extractor, 4,
+                                                                  make_pos_t(n1->id(), false, 3),
+                                                                  make_pos_t(n6->id(), false, 1),
+                                                                  false, true, true);
+                Graph g = extractor.graph;
+                
+                REQUIRE(g.node_size() == 3);
+                REQUIRE(g.edge_size() == 2);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                bool found_node_2 = false;
+                
+                for (int i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (n.sequence() == "G") {
+                        found_node_0 = true;
                     }
-                    
-                    REQUIRE(found_node_0);
-                    REQUIRE(found_node_1);
-                    REQUIRE(found_node_2);
-                    REQUIRE(found_node_3);
-                    REQUIRE(found_node_4);
-                    REQUIRE(found_node_5);
-                    
-                    bool found_edge_0 = false;
-                    bool found_edge_1 = false;
-                    bool found_edge_2 = false;
-                    bool found_edge_3 = false;
-                    bool found_edge_4 = false;
-                    bool found_edge_5 = false;
-                    bool found_edge_6 = false;
-                    
-                    for (int i = 0; i < g.edge_size(); i++) {
-                        const Edge& e = g.edge(i);
-                        if (((e.from() == n1->id() && !e.from_start() && e.to() == n2->id() && !e.to_end())
-                             ||(e.from() == n2->id() && e.from_start() && e.to() == n1->id() && e.to_end()))) {
-                            found_edge_0 = true;
-                        }
-                        else if (((e.from() == n1->id() && !e.from_start() && e.to() == n3->id() && !e.to_end())
-                                  ||(e.from() == n3->id() && e.from_start() && e.to() == n1->id() && e.to_end()))) {
-                            found_edge_1 = true;
-                        }
-                        else if (((e.from() == n1->id() && !e.from_start() && e.to() == n4->id() && e.to_end())
-                                  ||(e.from() == n4->id() && !e.from_start() && e.to() == n1->id() && e.to_end()))) {
-                            found_edge_2 = true;
-                        }
-                        else if (((e.from() == n1->id() && !e.from_start() && e.to() == n5->id() && !e.to_end())
-                                  ||(e.from() == n5->id() && e.from_start() && e.to() == n1->id() && e.to_end()))) {
-                            found_edge_3 = true;
-                        }
-                        else if (((e.from() == n3->id() && !e.from_start() && e.to() == n3->id() && !e.to_end())
-                                  ||(e.from() == n3->id() && e.from_start() && e.to() == n3->id() && e.to_end()))) {
-                            found_edge_4 = true;
-                        }
-                        else if (((e.from() == n4->id() && e.from_start() && e.to() == n6->id() && !e.to_end())
-                                  ||(e.from() == n6->id() && e.from_start() && e.to() == n4->id() && !e.to_end()))) {
-                            found_edge_5 = true;
-                        }
-                        else if (((e.from() == n5->id() && !e.from_start() && e.to() == n6->id() && !e.to_end())
-                                  ||(e.from() == n6->id() && e.from_start() && e.to() == n5->id() && e.to_end()))) {
-                            found_edge_6 = true;
-                        }
+                    else if (n.sequence() == "T") {
+                        found_node_1 = true;
                     }
-                    
-                    REQUIRE(found_edge_0);
-                    REQUIRE(found_edge_1);
-                    REQUIRE(found_edge_2);
-                    REQUIRE(found_edge_3);
-                    REQUIRE(found_edge_4);
-                    REQUIRE(found_edge_5);
-                    REQUIRE(found_edge_6);
+                    else if (n.sequence() == "CA") {
+                        found_node_2 = true;
+                    }
                 }
                 
-                {
-                    Graph g;
-                    
-                    auto trans = algorithms::extract_connecting_graph(&vg, g, 10,
-                                                                      make_pos_t(n1->id(), false, 3),
-                                                                      make_pos_t(n6->id(), false, 0),
-                                                                      true, false, true);
-                    
-                    REQUIRE(g.node_size() == 5);
-                    REQUIRE(g.edge_size() == 6);
-                    
-                    bool found_node_0 = false;
-                    bool found_node_1 = false;
-                    bool found_node_2 = false;
-                    bool found_node_3 = false;
-                    bool found_node_4 = false;
-                    
-                    for (int i = 0; i < g.node_size(); i++) {
-                        const Node& n = g.node(i);
-                        if (n.sequence() == "G") {
-                            found_node_0 = true;
-                        }
-                        else if (n.sequence() == "T") {
-                            found_node_1 = true;
-                        }
-                        else if (n.sequence() == "ATG") {
-                            found_node_2 = true;
-                        }
-                        else if (n.sequence() == "TGAG") {
-                            found_node_3 = true;
-                        }
-                        else if (n.sequence() == "CA") {
-                            found_node_4 = true;
-                        }
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                REQUIRE(found_node_2);
+                
+                bool found_edge_0 = false;
+                bool found_edge_1 = false;
+                
+                for (int i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((trans[e.from()] == n1->id() && !e.from_start() && trans[e.to()] == n5->id() && !e.to_end())
+                         ||(trans[e.from()] == n5->id() && e.from_start() && trans[e.to()] == n1->id() && e.to_end()))) {
+                        found_edge_0 = true;
                     }
-                    
-                    REQUIRE(found_node_0);
-                    REQUIRE(found_node_1);
-                    REQUIRE(found_node_2);
-                    REQUIRE(found_node_3);
-                    REQUIRE(found_node_4);
-                    
-                    bool found_edge_0 = false;
-                    bool found_edge_1 = false;
-                    bool found_edge_2 = false;
-                    bool found_edge_3 = false;
-                    bool found_edge_4 = false;
-                    bool found_edge_5 = false;
-                    
-                    for (int i = 0; i < g.edge_size(); i++) {
-                        const Edge& e = g.edge(i);
-                         if (((e.from() == n1->id() && !e.from_start() && e.to() == n3->id() && !e.to_end())
-                                  ||(e.from() == n3->id() && e.from_start() && e.to() == n1->id() && e.to_end()))) {
-                            found_edge_0 = true;
-                        }
-                        else if (((e.from() == n1->id() && !e.from_start() && e.to() == n4->id() && e.to_end())
-                                  ||(e.from() == n4->id() && !e.from_start() && e.to() == n1->id() && e.to_end()))) {
-                            found_edge_1 = true;
-                        }
-                        else if (((e.from() == n1->id() && !e.from_start() && e.to() == n5->id() && !e.to_end())
-                                  ||(e.from() == n5->id() && e.from_start() && e.to() == n1->id() && e.to_end()))) {
-                            found_edge_2 = true;
-                        }
-                        else if (((e.from() == n3->id() && !e.from_start() && e.to() == n3->id() && !e.to_end())
-                                  ||(e.from() == n3->id() && e.from_start() && e.to() == n3->id() && e.to_end()))) {
-                            found_edge_3 = true;
-                        }
-                        else if (((e.from() == n4->id() && e.from_start() && e.to() == n6->id() && !e.to_end())
-                                  ||(e.from() == n6->id() && e.from_start() && e.to() == n4->id() && !e.to_end()))) {
-                            found_edge_4 = true;
-                        }
-                        else if (((e.from() == n5->id() && !e.from_start() && e.to() == n6->id() && !e.to_end())
-                                  ||(e.from() == n6->id() && e.from_start() && e.to() == n5->id() && e.to_end()))) {
-                            found_edge_5 = true;
-                        }
+                    else if (((trans[e.from()] == n5->id() && !e.from_start() && trans[e.to()] == n6->id() && !e.to_end())
+                              ||(trans[e.from()] == n6->id() && e.from_start() && trans[e.to()] == n5->id() && e.to_end()))) {
+                        found_edge_1 = true;
                     }
-                    
-                    REQUIRE(found_edge_0);
-                    REQUIRE(found_edge_1);
-                    REQUIRE(found_edge_2);
-                    REQUIRE(found_edge_3);
-                    REQUIRE(found_edge_4);
-                    REQUIRE(found_edge_5);
                 }
                 
-                {
-                    Graph g;
-                    
-                    auto trans = algorithms::extract_connecting_graph(&vg, g, 10,
-                                                                      make_pos_t(n1->id(), false, 3),
-                                                                      make_pos_t(n6->id(), false, 0),
-                                                                      true, false, true, true);
-                    
-                    REQUIRE(g.node_size() == 4);
-                    REQUIRE(g.edge_size() == 4);
-                    
-                    bool found_node_0 = false;
-                    bool found_node_1 = false;
-                    bool found_node_2 = false;
-                    bool found_node_3 = false;
-                    
-                    for (int i = 0; i < g.node_size(); i++) {
-                        const Node& n = g.node(i);
-                        if (n.sequence() == "G") {
-                            found_node_0 = true;
-                        }
-                        else if (n.sequence() == "T") {
-                            found_node_1 = true;
-                        }
-                        else if (n.sequence() == "TGAG") {
-                            found_node_2 = true;
-                        }
-                        else if (n.sequence() == "CA") {
-                            found_node_3 = true;
-                        }
-                    }
-                    
-                    REQUIRE(found_node_0);
-                    REQUIRE(found_node_1);
-                    REQUIRE(found_node_2);
-                    REQUIRE(found_node_3);
-                    
-                    bool found_edge_0 = false;
-                    bool found_edge_1 = false;
-                    bool found_edge_2 = false;
-                    bool found_edge_3 = false;
-                    
-                    for (int i = 0; i < g.edge_size(); i++) {
-                        const Edge& e = g.edge(i);
-                        if (((e.from() == n1->id() && !e.from_start() && e.to() == n4->id() && e.to_end())
-                                  ||(e.from() == n4->id() && !e.from_start() && e.to() == n1->id() && e.to_end()))) {
-                            found_edge_0 = true;
-                        }
-                        else if (((e.from() == n1->id() && !e.from_start() && e.to() == n5->id() && !e.to_end())
-                                  ||(e.from() == n5->id() && e.from_start() && e.to() == n1->id() && e.to_end()))) {
-                            found_edge_1 = true;
-                        }
-                        else if (((e.from() == n4->id() && e.from_start() && e.to() == n6->id() && !e.to_end())
-                                  ||(e.from() == n6->id() && e.from_start() && e.to() == n4->id() && !e.to_end()))) {
-                            found_edge_2 = true;
-                        }
-                        else if (((e.from() == n5->id() && !e.from_start() && e.to() == n6->id() && !e.to_end())
-                                  ||(e.from() == n6->id() && e.from_start() && e.to() == n5->id() && e.to_end()))) {
-                            found_edge_3 = true;
-                        }
-                    }
-                    
-                    REQUIRE(found_edge_0);
-                    REQUIRE(found_edge_1);
-                    REQUIRE(found_edge_2);
-                    REQUIRE(found_edge_3);
-                }
-                
-                {
-                    Graph g;
-                    
-                    auto trans = algorithms::extract_connecting_graph(&vg, g, 4,
-                                                                      make_pos_t(n1->id(), false, 3),
-                                                                      make_pos_t(n6->id(), false, 0),
-                                                                      true, false, true, true, true);
-                    
-                    REQUIRE(g.node_size() == 3);
-                    REQUIRE(g.edge_size() == 2);
-                    
-                    bool found_node_0 = false;
-                    bool found_node_1 = false;
-                    bool found_node_2 = false;
-                    
-                    for (int i = 0; i < g.node_size(); i++) {
-                        const Node& n = g.node(i);
-                        if (n.sequence() == "G") {
-                            found_node_0 = true;
-                        }
-                        else if (n.sequence() == "T") {
-                            found_node_1 = true;
-                        }
-                        else if (n.sequence() == "CA") {
-                            found_node_2 = true;
-                        }
-                    }
-                    
-                    REQUIRE(found_node_0);
-                    REQUIRE(found_node_1);
-                    REQUIRE(found_node_2);
-                    
-                    bool found_edge_0 = false;
-                    bool found_edge_1 = false;
-                    
-                    for (int i = 0; i < g.edge_size(); i++) {
-                        const Edge& e = g.edge(i);
-                        if (((e.from() == n1->id() && !e.from_start() && e.to() == n5->id() && !e.to_end())
-                                  ||(e.from() == n5->id() && e.from_start() && e.to() == n1->id() && e.to_end()))) {
-                            found_edge_0 = true;
-                        }
-                        else if (((e.from() == n5->id() && !e.from_start() && e.to() == n6->id() && !e.to_end())
-                                  ||(e.from() == n6->id() && e.from_start() && e.to() == n5->id() && e.to_end()))) {
-                            found_edge_1 = true;
-                        }
-                    }
-                    
-                    REQUIRE(found_edge_0);
-                    REQUIRE(found_edge_1);
-                }
+                REQUIRE(found_edge_0);
+                REQUIRE(found_edge_1);
             }
         }
         
@@ -2522,24 +2283,22 @@ namespace vg {
             VG vg;
             vg.extend(source);
             
-            Graph dest;
+            VG extractor;
             
             auto max_dist = 38;
             pos_t src_pos = make_pos_t(1393981, false, 31);
-            pos_t dest_pos = make_pos_t(1393958, false, 0);
+            pos_t dest_pos = make_pos_t(1393958, false, 1);
             
             unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&vg,              // DAG with split strands
-                                                                                           dest,             // graph to extract into
+                                                                                           &extractor,       // graph to extract into
                                                                                            max_dist,         // longest distance necessary
                                                                                            src_pos,          // end of earlier match
                                                                                            dest_pos,         // beginning of later match
-                                                                                           false,            // do not extract the end positions in the matches
                                                                                            false,            // do not bother finding all cycles (it's a DAG)
-                                                                                           true,             // remove tips
                                                                                            true,             // only include nodes on connecting paths
                                                                                            true);            // enforce max distance strictly
             
-            
+            Graph& dest = extractor.graph;
             
             
             // Make sure there are no dangling edges
@@ -2581,12 +2340,14 @@ namespace vg {
             
             SECTION( "Containing graph extraction works with a single maximum distance" ) {
                 
-                Graph g;
                 
                 size_t max_len = 3;
                 vector<pos_t> positions{make_pos_t(n0->id(), false, 2), make_pos_t(n5->id(), true, 1)};
                 
-                algorithms::extract_containing_graph(&vg, g, positions, max_len);
+                VG extractor;
+                algorithms::extract_containing_graph(&vg, &extractor, positions, max_len);
+                
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 6);
                 REQUIRE(g.edge_size() == 4);
@@ -2660,12 +2421,14 @@ namespace vg {
             
             SECTION( "Containing graph extraction works with position specific maximum distances" ) {
                 
-                Graph g;
                 
                 vector<size_t> max_lens{2, 3};
                 vector<pos_t> positions{make_pos_t(n0->id(), false, 2), make_pos_t(n5->id(), true, 1)};
                 
-                algorithms::extract_containing_graph(&vg, g, positions, max_lens);
+                VG extractor;
+                algorithms::extract_containing_graph(&vg, &extractor, positions, max_lens);
+                
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 1);
@@ -2708,13 +2471,15 @@ namespace vg {
             
             SECTION( "Containing graph extraction works with position and orientation specific maximum distances" ) {
                 
-                Graph g;
                 
                 vector<size_t> forward_max_lens{3, 3};
                 vector<size_t> backward_max_lens{2, 3};
                 vector<pos_t> positions{make_pos_t(n0->id(), true, 2), make_pos_t(n5->id(), false, 1)};
                 
-                algorithms::extract_containing_graph(&vg, g, positions, forward_max_lens, backward_max_lens);
+                VG extractor;
+                algorithms::extract_containing_graph(&vg, &extractor, positions, forward_max_lens, backward_max_lens);
+                
+                Graph& g = extractor.graph;
                                 
                 REQUIRE(g.node_size() == 4);
                 REQUIRE(g.edge_size() == 2);
@@ -2765,8 +2530,7 @@ namespace vg {
             }
         }
         
-        TEST_CASE( "Extending graph extraction algorithm produces expected results",
-                  "[algorithms]" ) {
+        TEST_CASE( "Extending graph extraction algorithm produces expected results", "[algorithms]" ) {
             
             VG vg;
             
@@ -2797,9 +2561,9 @@ namespace vg {
                 bool search_backward = false;
                 bool preserve_cycles = false;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 1);
                 REQUIRE(g.edge_size() == 0);
@@ -2823,52 +2587,9 @@ namespace vg {
                 bool search_backward = false;
                 bool preserve_cycles = false;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
-                
-                REQUIRE(g.node_size() == 2);
-                REQUIRE(g.edge_size() == 1);
-                
-                bool found_node_0 = false;
-                bool found_node_1 = false;
-                
-                for (size_t i = 0; i < g.node_size(); i++) {
-                    const Node& n = g.node(i);
-                    if (id_trans[n.id()] == n3->id() && n.sequence() == "A") {
-                        found_node_0 = true;
-                    }
-                    else if (id_trans[n.id()] == n4->id() && n.sequence() == "TGAG") {
-                        found_node_1 = true;
-                    }
-                }
-                
-                REQUIRE(found_node_0);
-                REQUIRE(found_node_1);
-                
-                bool found_edge_0 = false;
-                
-                for (size_t i = 0; i < g.edge_size(); i++) {
-                    const Edge& e = g.edge(i);
-                    if (((id_trans[e.from()] == n3->id() && !e.from_start()) || (id_trans[e.to()] == n3->id() && e.to_end())) &&
-                        ((id_trans[e.from()] == n4->id() && e.from_start()) || (id_trans[e.to()] == n4->id() && !e.to_end()))) {
-                        found_edge_0 = true;
-                    }
-                }
-                
-                REQUIRE(found_edge_0);
-            }
-            
-            SECTION( "Extending graph extraction algorithm produces same output when searching in opposite direction on opposite strand" ) {
-                
-                pos_t pos = make_pos_t(n3->id(), true, 1);
-                int64_t max_dist = 5;
-                bool search_backward = true;
-                bool preserve_cycles = false;
-                
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 2);
                 REQUIRE(g.edge_size() == 1);
@@ -2909,9 +2630,52 @@ namespace vg {
                 bool search_backward = true;
                 bool preserve_cycles = false;
                 
-                Graph g;
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                REQUIRE(g.node_size() == 2);
+                REQUIRE(g.edge_size() == 1);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                
+                for (size_t i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (id_trans[n.id()] == n3->id() && n.sequence() == "A") {
+                        found_node_0 = true;
+                    }
+                    else if (id_trans[n.id()] == n4->id() && n.sequence() == "TGAG") {
+                        found_node_1 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                
+                bool found_edge_0 = false;
+                
+                for (size_t i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((id_trans[e.from()] == n3->id() && !e.from_start()) || (id_trans[e.to()] == n3->id() && e.to_end())) &&
+                        ((id_trans[e.from()] == n4->id() && e.from_start()) || (id_trans[e.to()] == n4->id() && !e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+            }
+            
+            SECTION( "Extending graph extraction algorithm produces same output when searching in opposite direction on opposite strand" ) {
+                
+                pos_t pos = make_pos_t(n3->id(), true, 1);
+                int64_t max_dist = 5;
+                bool search_backward = true;
+                bool preserve_cycles = false;
+                
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 2);
                 REQUIRE(g.edge_size() == 1);
@@ -2952,9 +2716,9 @@ namespace vg {
                 bool search_backward = true;
                 bool preserve_cycles = false;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 2);
@@ -3006,9 +2770,9 @@ namespace vg {
                 bool search_backward = false;
                 bool preserve_cycles = false;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 2);
@@ -3060,9 +2824,9 @@ namespace vg {
                 bool search_backward = false;
                 bool preserve_cycles = false;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 7);
                 REQUIRE(g.edge_size() == 8);
@@ -3170,9 +2934,9 @@ namespace vg {
                 bool search_backward = false;
                 bool preserve_cycles = true;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                 
                 REQUIRE(g.node_size() == 3);
                 REQUIRE(g.edge_size() == 4);
@@ -3242,9 +3006,9 @@ namespace vg {
                 bool search_backward = false;
                 bool preserve_cycles = true;
                 
-                Graph g;
-                
-                auto id_trans = algorithms::extract_extending_graph(&vg, g, max_dist, pos, search_backward, preserve_cycles);
+                VG extractor;
+                auto id_trans = algorithms::extract_extending_graph(&vg, &extractor, max_dist, pos, search_backward, preserve_cycles);
+                Graph& g = extractor.graph;
                                 
                 REQUIRE(g.node_size() == 5);
                 REQUIRE(g.edge_size() == 6);
@@ -4527,27 +4291,200 @@ namespace vg {
             for (int i = 0; i < 20; i++) {
                 
                 vector<handle_t> orientation;
+                unordered_map<id_t, string> sequence_by_id;
                 vg.for_each_handle([&](const handle_t& handle) {
-                    orientation.push_back(handle);
-                    if (bernoulli_distribution()(prng)) {
-                        vg.flip(orientation.back());
-                    }
+                    orientation.push_back(bernoulli_distribution()(prng) ? handle : vg.flip(handle));
+                    sequence_by_id[vg.get_id(handle)] = vg.get_sequence(orientation.back());
                 });
-                
-                vector<string> sequence_by_idx;
-                for (handle_t handle : orientation){
-                    sequence_by_idx.push_back(vg.get_is_reverse(handle) ?
-                                              reverse_complement(vg.get_sequence(handle)) : vg.get_sequence(handle));
-                }
                 
                 algorithms::apply_orientations(&vg, orientation);
                 
                 int idx = 0;
                 vg.for_each_handle([&](const handle_t& handle) {
-                    REQUIRE(vg.get_sequence(handle) == sequence_by_idx[idx]);
+                    REQUIRE(vg.get_sequence(handle) == sequence_by_id[vg.get_id(handle)]);
                     idx++;
                 });
             }
         }
+    }
+    
+    TEST_CASE("is_acyclic can detect cyclic graphs", "[algorithms][cycles]") {
+        
+        SECTION("is_acyclic works on a graph with one node") {
+            
+            VG vg1;
+            
+            // empty graph is acyclic
+            REQUIRE(algorithms::is_acyclic(&vg1));
+            
+            handle_t n1 = vg1.create_handle("GATTACA");
+            
+            // no edges, still acyclic
+            REQUIRE(algorithms::is_acyclic(&vg1));
+            
+            VG vg2 = vg1;
+            VG vg3 = vg1;
+            
+            handle_t n2 = vg2.get_handle(vg1.get_id(n1), false);
+            handle_t n3 = vg3.get_handle(vg1.get_id(n1), false);
+            
+            // add each type of self edge
+            vg1.create_edge(n1, n1);
+            vg2.create_edge(n2, vg2.flip(n2));
+            vg3.create_edge(vg3.flip(n3), n3);
+            
+            // all of these are now cyclic
+            REQUIRE(!algorithms::is_acyclic(&vg1));
+            REQUIRE(!algorithms::is_acyclic(&vg2));
+            REQUIRE(!algorithms::is_acyclic(&vg3));
+            
+        }
+        
+        SECTION("is_acyclic works on a graph with multiple nodes") {
+            
+            VG vg;
+            
+            handle_t n1 = vg.create_handle("GATTACA");
+            handle_t n2 = vg.create_handle("GATTACA");
+            handle_t n3 = vg.create_handle("GATTACA");
+            handle_t n4 = vg.create_handle("GATTACA");
+            handle_t n5 = vg.create_handle("GATTACA");
+            
+            vg.create_edge(n1, n2);
+            vg.create_edge(n1, vg.flip(n3));
+            vg.create_edge(vg.flip(n3), n4);
+            vg.create_edge(n2, n4);
+            vg.create_edge(n2, n5);
+            
+            // the base is a DAG
+            REQUIRE(algorithms::is_acyclic(&vg));
+            
+            // add a non-reversing cycle
+            {
+                VG cyclic = vg;
+                cyclic.create_edge(cyclic.get_handle(vg.get_id(n5), false), cyclic.get_handle(vg.get_id(n2), false));
+                REQUIRE(!algorithms::is_acyclic(&cyclic));
+            }
+            
+            // add a reversing cycle
+            {
+                VG cyclic = vg;
+                cyclic.create_edge(cyclic.get_handle(vg.get_id(n5), false), cyclic.get_handle(vg.get_id(n3), false));
+                REQUIRE(!algorithms::is_acyclic(&cyclic));
+            }
+        }
+    }
+    
+    TEST_CASE("split_strands() should properly split the forward and reverse strands", "[vg][split]") {
+        
+        VG graph;
+        graph.create_node("ATA", 1);
+        graph.create_node("CT", 2);
+        graph.create_node("TGA", 3);
+        
+        graph.create_edge(1, 2);
+        graph.create_edge(3, 2, true, true);
+        graph.create_edge(1, 2, false, true);
+        graph.create_edge(2, 3, true, false);
+        
+        VG split;
+        unordered_map<id_t, pair<id_t, bool> > node_translation = algorithms::split_strands(&graph, &split);
+                
+        Graph& g = split.graph;
+        
+        REQUIRE(g.node_size() == 6);
+        REQUIRE(g.edge_size() == 8);
+        
+        int64_t node_1 = 0;
+        int64_t node_2 = 0;
+        int64_t node_3 = 0;
+        int64_t node_4 = 0;
+        int64_t node_5 = 0;
+        int64_t node_6 = 0;
+        
+        for (int i = 0; i < g.node_size(); i++) {
+            const Node& n = g.node(i);
+            int64_t orig_id = node_translation[n.id()].first;
+            bool flipped =  node_translation[n.id()].second;
+            if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
+                node_1 = n.id();
+            }
+            else if (orig_id == 1 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
+                node_2 = n.id();
+            }
+            else if (orig_id == 2 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
+                node_3 = n.id();
+            }
+            else if (orig_id == 2 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
+                node_4 = n.id();
+            }
+            else if (orig_id == 3 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
+                node_5 = n.id();
+            }
+            else if (orig_id == 3 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
+                node_6 = n.id();
+            }
+        }
+        
+        REQUIRE(node_1 != 0);
+        REQUIRE(node_2 != 0);
+        REQUIRE(node_3 != 0);
+        REQUIRE(node_4 != 0);
+        REQUIRE(node_5 != 0);
+        REQUIRE(node_6 != 0);
+        
+        bool found_edge_1 = false;
+        bool found_edge_2 = false;
+        bool found_edge_3 = false;
+        bool found_edge_4 = false;
+        bool found_edge_5 = false;
+        bool found_edge_6 = false;
+        bool found_edge_7 = false;
+        bool found_edge_8 = false;
+        
+        for (int i = 0; i < g.edge_size(); i++) {
+            const Edge& e = g.edge(i);
+            if ((e.from() == node_1 && e.to() == node_3 && !e.from_start() && !e.to_end()) ||
+                (e.from() == node_3 && e.to() == node_1 && e.from_start() && e.to_end())) {
+                found_edge_1 = true;
+            }
+            else if ((e.from() == node_1 && e.to() == node_4 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_4 && e.to() == node_1 && e.from_start() && e.to_end())) {
+                found_edge_2 = true;
+            }
+            else if ((e.from() == node_6 && e.to() == node_3 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_3 && e.to() == node_6 && e.from_start() && e.to_end())) {
+                found_edge_3 = true;
+            }
+            else if ((e.from() == node_6 && e.to() == node_4 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_4 && e.to() == node_6 && e.from_start() && e.to_end())) {
+                found_edge_4 = true;
+            }
+            else if ((e.from() == node_3 && e.to() == node_5 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_5 && e.to() == node_3 && e.from_start() && e.to_end())) {
+                found_edge_5 = true;
+            }
+            else if ((e.from() == node_3 && e.to() == node_2 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_2 && e.to() == node_3 && e.from_start() && e.to_end())) {
+                found_edge_6 = true;
+            }
+            else if ((e.from() == node_4 && e.to() == node_5 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_5 && e.to() == node_4 && e.from_start() && e.to_end())) {
+                found_edge_7 = true;
+            }
+            else if ((e.from() == node_4 && e.to() == node_2 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_2 && e.to() == node_4 && e.from_start() && e.to_end())) {
+                found_edge_8 = true;
+            }
+        }
+        
+        REQUIRE(found_edge_1);
+        REQUIRE(found_edge_2);
+        REQUIRE(found_edge_3);
+        REQUIRE(found_edge_4);
+        REQUIRE(found_edge_5);
+        REQUIRE(found_edge_6);
+        REQUIRE(found_edge_7);
+        REQUIRE(found_edge_8);
     }
 }

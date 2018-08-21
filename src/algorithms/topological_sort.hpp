@@ -62,7 +62,7 @@ vector<handle_t> topological_order(const HandleGraph* g);
 
 /**
  * Order the nodes in a graph using a topological sort. The sort is NOT guaranteed
- * to be machine-independent, but it is faster than topological_sort(). This algorithm 
+ * to be machine-independent, but it is faster than topological_order(). This algorithm 
  * is invalid in a graph that has any cycles. For safety, consider this property with
  * algorithms::is_directed_acyclic().
  */
