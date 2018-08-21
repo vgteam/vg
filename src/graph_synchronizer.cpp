@@ -135,7 +135,7 @@ void GraphSynchronizer::Lock::lock() {
                 false); // But we don't care about being strictly less than the specified length
                 
 #ifdef debug
-            cerr << "Extracted " << context_graph.node_size() << " nodes and " << context_graph.edge_size() << " edges between " << path_name << ":" << start << "-" << past_end << endl;
+            cerr << "Extracted " << context.graph.node_size() << " nodes and " << context.graph.edge_size() << " edges between " << path_name << ":" << start << "-" << past_end << endl;
 #endif
                 
             // Any ID mismatch is going to mess things up, since we need
