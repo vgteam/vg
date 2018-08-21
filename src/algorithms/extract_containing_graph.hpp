@@ -25,8 +25,8 @@ namespace algorithms {
     /// the source graph.
     ///
     /// Args:
-    ///  vg                         graph to extract subgraph from
-    ///  g                          graph to extract into
+    ///  source                     graph to extract subgraph from
+    ///  into                       graph to extract into
     ///  positions                  search outward from these positions
     ///  max_dist                   include all nodes and edges that can be reached in at most this distance
     void extract_containing_graph(const HandleGraph* source, MutableHandleGraph* into, const vector<pos_t>& positions, size_t max_dist);
