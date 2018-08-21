@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <random>
 #include <type_traits>
+#include <regex>
 #include <signal.h>
 #include <unistd.h>
 #include "vg.pb.h"
@@ -29,6 +30,8 @@ void reverse_complement_in_place(string& seq);
 /// Return True if the given string is entirely Ns of either case, and false
 /// otherwise.
 bool is_all_n(const string& seq);
+/// Return the number of threads that OMP will produce for a parallel section.
+/// TODO: Assumes that this is the same for every parallel section.
 int get_thread_count(void);
 string wrap_text(const string& str, size_t width);
 bool is_number(const string& s);
@@ -258,8 +261,8 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
  * Temporary files. Create with create() and remove with remove(). All
  * temporary files will be deleted when the program exits normally or with
  * std::exit(). The files will be created in a directory determined from
- * environment variables, though this can be overridden with set_dir(). Note
- * that the interface is not thread-safe.
+ * environment variables, though this can be overridden with set_dir().
+ * The interface is thread-safe.
  */
 namespace temp_file {
 
@@ -365,8 +368,14 @@ struct Tree {
     }
 
 };
-    
+
+// vector containing positive integer values in [begin, end)
 vector<size_t> range_vector(size_t begin, size_t end);
+    
+// vector containing positive integer values in [0, end)
+inline vector<size_t> range_vector(size_t end) {
+    return range_vector(0, end);
+}
 
 struct IncrementIter {
 public:
@@ -595,6 +604,15 @@ inline bool parse(const string& arg, double& dest) {
     size_t after;
     dest = std::stod(arg, &after);
     return(after == arg.size());
+}
+
+// And one for regular expressions
+template<>
+inline bool parse(const string& arg, std::regex& dest) {
+    // This throsw std::regex_error if it can't parse.
+    // That contains a kind of useless error code that we can't turn itno a string without switching on all the values.
+    dest = std::regex(arg);
+    return true;
 }
 
 // Implement the first version in terms of the second, for any type

@@ -29,7 +29,11 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@4a147495b97075d7498fba2cf21efe091a8e41af"
+TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@f04a21197cef57dc42a09e4f4d142baabd7c92bd"
+# What toil should we install?
+# Could be something like "toil[aws,mesos]==3.13.0"
+# or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
+TOIL_PACKAGE="toil[aws,mesos]==3.13.0"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
@@ -154,7 +158,16 @@ pip install requests
 pip install timeout_decorator
 pip install pytest
 pip install pygithub
-pip install toil[aws,mesos]==3.13.0
+
+# Install Toil
+echo "Installing toil from ${TOIL_PACKAGE}"
+pip install --upgrade "${TOIL_PACKAGE}"
+if [ "$?" -ne 0 ]
+then
+    echo "pip install toil fail"
+    exit 1
+fi
+
 # Don't manually install boto since toil just installs its preferred version
 
 # Install toil-vg itself
@@ -163,6 +176,7 @@ pip install --upgrade "${TOIL_VG_PACKAGE}"
 if [ "$?" -ne 0 ]
 then
     echo "pip install toil-vg fail"
+    exit 1
 fi
 
 # Make sure we have submodules
@@ -196,7 +210,7 @@ then
         echo "vg local build fail"
         BUILD_FAIL=1
     fi
-    VG_VERSION=`vg version`
+    VG_VERSION=`vg version -s`
     printf "vg-docker-version None\n" >> vgci_cfg.tsv
     printf "container None\n" >> vgci_cfg.tsv
 else
@@ -221,7 +235,7 @@ else
         for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
         for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
     fi
-    VG_VERSION=`docker run jenkins-docker-vg-local vg version`
+    VG_VERSION=`docker run jenkins-docker-vg-local vg version -s`
     printf "vg-docker-version jenkins-docker-vg-local\n" >> vgci_cfg.tsv
 fi
 

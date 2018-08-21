@@ -1,7 +1,7 @@
 #include "traversal_finder.hpp"
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
-#include "algorithms/is_directed_acyclic.hpp"
+#include "algorithms/is_acyclic.hpp"
 #include "cactus.hpp"
 
 //#define debug

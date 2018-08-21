@@ -5,11 +5,11 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 8
+plan tests 10
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
-vg sim -x x.xg -l 100 -n 5000 -s 0 -e 0.01 -i 0.001 -a > x.gam
+vg sim -x x.xg -l 100 -n 5000 -s 10 -e 0.01 -i 0.001 -a > x.gam
 vg view -a x.gam > x.gam.json
 
 # sanity check: does passing no options preserve input
@@ -72,7 +72,11 @@ is "$(vg view -aj filtered.gam | jq -rc '.name' | sed 's/_[12]//g' | sort | md5s
 
 vg filter -d 456.2 -t 10 single.gam > filtered.gam
 
-is "$(vg view -aj filtered.gam | jq -rc '.name' | sort | md5sum | cut -f1 -d' ')" "${SINGLE_HASH}" "samtools 1.0+ and vg filter agree on how to select downsampled unpaired reads"   
+is "$(vg view -aj filtered.gam | jq -rc '.name' | sort | md5sum | cut -f1 -d' ')" "${SINGLE_HASH}" "samtools 1.0+ and vg filter agree on how to select downsampled unpaired reads"
 
-rm -f x.vg x.xg paired.gam paired.sam single.gam single.sam filtered.gam filtered.sam
+vg annotate -p -x x.xg -a paired.gam > paired.annotated.gam
+is "$(vg filter -X "[a-f]" paired.annotated.gam | vg view -aj - | wc -l)" "200" "reads with refpos annotations not matching an exclusion regex are let through"
+is "$(vg filter -X "[w-z]" paired.annotated.gam | vg view -aj - | wc -l)" "0" "reads with refpos annotations matching an exclusion regex are removed"
+
+rm -f x.vg x.xg paired.gam paired.sam paired.annotated.gam single.gam single.sam filtered.gam filtered.sam
                                                                

@@ -75,16 +75,11 @@ rm -f fail.vg
 
 # check that we produce a full graph
 
-# build deps
-cd ../deps/vcflib && make vcf2tsv && cd -
-cd ../deps/fastahack && make && cd -
-
 refbp=$(../deps/fastahack/fastahack -r x small/x.fa | tr -d '\n' | wc -c)
 variantbp=$(zcat < small/x.vcf.gz | ../deps/vcflib/bin/vcf2tsv \
     | cut -f 5,4 | tail -n+2 \
     | awk '{ x=length($2)-length($1); if (x > 0) { print x; } else if (x == 0) { print length($2); } }' \
         | awk '{ sum += $1 } END { print sum }')
-rm ../deps/vcflib/bin/vcf2tsv ../deps/fastahack/fastahack
 
 graphbp=$(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -l - | cut -f 2)
 

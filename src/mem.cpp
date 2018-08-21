@@ -8,12 +8,6 @@
 
 namespace vg {
     
-    
-//size_t OrientedDistanceClusterer::PRUNE_COUNTER = 0;
-//size_t OrientedDistanceClusterer::CLUSTER_TOTAL = 0;
-//size_t OrientedDistanceClusterer::MEM_FILTER_COUNTER = 0;
-//size_t OrientedDistanceClusterer::MEM_TOTAL = 0;
-    
 using namespace std;
 
 // construct the sequence of the MEM; useful in debugging
@@ -171,15 +165,33 @@ bool clusters_overlap_in_graph(const vector<MaximalExactMatch>& cluster1,
                      std::back_inserter(comm));
     return comm.size() > 0;
 }
+
+vector<MaximalExactMatch> translate_mems(const vector<MaximalExactMatch>& mems,
+                                         const unordered_map<id_t, pair<id_t, bool> >& trans) {
+    // invert the translation
+    unordered_map<id_t, vector<pair<id_t, bool>>> inv_trans;
+    for (auto& t : trans) {
+        id_t new_id = t.first;
+        id_t old_id = t.second.first;
+        bool flip = t.second.second;
+        inv_trans[old_id].push_back(make_pair(new_id, flip));
+    }
+    vector<MaximalExactMatch> trans_mems;
+    for (auto& mem : mems) {
+        auto new_mem = mem;
+        new_mem.nodes.clear();
+        for (auto& node : mem.nodes) {
+            id_t node_id = gcsa::Node::id(node);
+            for (auto& p : inv_trans[node_id]) {
+                id_t new_id = p.first;
+                size_t node_offset = gcsa::Node::offset(node);
+                bool new_rc = (p.second ? !gcsa::Node::rc(node) : gcsa::Node::rc(node));
+                new_mem.nodes.push_back(gcsa::Node::encode(new_id, node_offset, new_rc));
+            }
+        }
+        trans_mems.push_back(new_mem);
+    }
+    return trans_mems;
 }
 
-
-
-
-
-
-
-
-
-
-
+}
