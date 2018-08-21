@@ -150,7 +150,7 @@ int main_distcompare(int argc, char** argv){
 
     cout << endl;
 
-
+/*
     vector<const Snarl*> allSnarls;
     auto addSnarl = [&] (const Snarl* s) {
         allSnarls.push_back(s);
@@ -164,9 +164,9 @@ int main_distcompare(int argc, char** argv){
     size_t count = 0;
     while (count < 10000) {
         //Find distances between random positions in the graph
-        /*Outputs: my distance /t old distance /t time for my calculation /t 
+        / *Outputs: my distance /t old distance /t time for my calculation /t 
                    time for old calculation /t
-        */
+        * /
     
         //Generate random positions by choosing snarls then nodes, then position
 //TODO: Start using xg positions then find snarl containing node
@@ -227,6 +227,7 @@ int main_distcompare(int argc, char** argv){
         }
     
     }
+*/
 
     return 0;
 }

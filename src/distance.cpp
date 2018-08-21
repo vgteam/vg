@@ -55,6 +55,8 @@ int64_t DistanceIndex::sizeOf() {
  
     total += numSnarls * (sizeof(pair<id_t, bool>) + sizeof(SnarlDistances)) +
              numChains * (sizeof(id_t) + sizeof(ChainDistances));
+    total += sizeof(vector<int64_t>);
+    total += nodeToSnarl.size() * 8;
 
 
     cerr << numSnarls << " snarls containing " << snarlNodes << " nodes" << endl;
