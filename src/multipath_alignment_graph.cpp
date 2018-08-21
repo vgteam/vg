@@ -2791,7 +2791,7 @@ namespace vg {
     }
     
     void MultipathAlignmentGraph::align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
-                                        size_t num_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out) {
+                                        size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out) {
         
         // Can only align if edges are present.
         assert(has_reachability_edges);
@@ -2889,6 +2889,8 @@ namespace vg {
                     edges_for_removal.insert(edge);
                     continue;
                 }
+                
+                size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&connecting_graph)) : max_alt_alns;
                 
                 // transfer the substring between the matches to a new alignment
                 Alignment intervening_sequence;
@@ -3028,6 +3030,8 @@ namespace vg {
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
+                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) : max_alt_alns;
+                    
                     Graph& tail_graph = tail_graph_extractor.graph;
                     
                     // ensure invariants that gssw-based alignment expects
@@ -3075,6 +3079,7 @@ namespace vg {
                     }
                     else {
                         // align against the graph
+                        
                         aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
                     }
                     
@@ -3139,6 +3144,7 @@ namespace vg {
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
+                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) : max_alt_alns;
                     
                     Graph& tail_graph = tail_graph_extractor.graph;
                     // ensure invariants that gssw-based alignment expects
