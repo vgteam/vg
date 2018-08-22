@@ -49,11 +49,12 @@ class DistanceIndex {
         public:
         
             //Constructor
-            SnarlDistances(unordered_set<pair<id_t, bool>>& allNodes, 
+            SnarlDistances(DistanceIndex* di,
+                          unordered_set<pair<id_t, bool>>& allNodes, 
                           pair<id_t, bool> start, pair<id_t, bool> end);
            
             //Construct from vector - inverse of toVector
-            SnarlDistances(vector<int64_t> v);
+            SnarlDistances(DistanceIndex* di, vector<int64_t> v);
 
             /*Store contents of object as a vector of ints for serialization
               Stored as [# nodes, start node id, end node id, snarl length] + 
@@ -63,12 +64,13 @@ class DistanceIndex {
             vector<int64_t>  toVector();
             
             //Distance between beginning of node start and beginning of node end
-            int64_t snarlDistance(pair<id_t, bool> start, pair<id_t, bool> end);
+            int64_t snarlDistance(VG* graph,NetGraph* ng,pair<id_t, bool> start,
+                                                         pair<id_t, bool> end);
 
  
             //Distance between end of node start and beginning of node end
-            int64_t snarlDistanceShort(VG* graph,NetGraph* ng,
-                     pair<id_t, bool> start, pair<id_t, bool> end); 
+            int64_t snarlDistanceShort(pair<id_t, bool> start, 
+                                       pair<id_t, bool> end); 
 
             //Add the distance from start to end to the index
             void insertDistance(pair<id_t, bool> start, pair<id_t, bool> curr, 
@@ -84,8 +86,8 @@ class DistanceIndex {
               shortest distance from that position to the start and end nodes of
               the snarl
             */
-            pair<int64_t, int64_t> distToEnds(id_t node, bool rev, 
-                                                 int64_t distL, int64_t distR);
+            pair<int64_t, int64_t> distToEnds(VG* graph, NetGraph* ng, 
+                             id_t node, bool rev, int64_t distL, int64_t distR);
 
             void printSelf();
 
@@ -94,10 +96,13 @@ class DistanceIndex {
             //Maps node to index to get its distance
             hash_map< pair<id_t, bool>, size_t> visitToIndex;
  
-             //Store the distance between every pair nodes, -1 indicates no path
-             //For child snarls that are unary or only connected to one node
-             //in the snarl, distances between that node leaving the snarl
-             //and any other node is -1
+             /*Store the distance between every pair nodes, -1 indicates no path
+             For child snarls that are unary or only connected to one node
+             in the snarl, distances between that node leaving the snarl
+             and any other node is -1
+             Distance from a node to itself is -1 unless there is a path leaving
+             that node and reaching it again
+             */
             vector<int64_t> distances;
 
             //ID of the first node in the snarl, also key for distance index 
@@ -113,9 +118,8 @@ class DistanceIndex {
             size_t index(pair<id_t, bool> start, pair<id_t, bool> end);
 
         private: 
+            DistanceIndex* distIndex; 
 
-            int64_t snarlDistanceShortHelp(VG* graph,NetGraph* ng,
-                     pair<id_t, bool> start, pair<id_t, bool> end); 
 
 
         friend class DistanceIndex;
