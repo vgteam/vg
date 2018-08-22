@@ -1377,6 +1377,8 @@ namespace vg {
     
     void view_multipath_alignment(ostream& out, const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph) {
         
+        size_t max_line_length = 128;
+        
         vector<pair<int64_t, int64_t>> subpath_read_interval(multipath_aln.subpath_size(), pair<int64_t, int64_t>(0, 0));
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             
@@ -1408,14 +1410,19 @@ namespace vg {
             read_strm << "\t" << read_header;
             node_strm << "\t" << node_header;
             
+            size_t line_length = 8 + read_header.size();
+            
             int64_t read_at = subpath_read_interval[i].first;
             
             for (size_t j = 0; j < subpath.path().mapping_size(); j++) {
                 const Mapping& mapping = subpath.path().mapping(j);
                 string pos_string = format_position(mapping.position());
                 
-                read_strm << " " << pos_string << " ";
-                node_strm << string(pos_string.size() + 2, ' ');
+                
+                stringstream mapping_read_strm;
+                stringstream mapping_node_strm;
+                mapping_read_strm << pos_string << " ";
+                mapping_node_strm << string(pos_string.size() + 1, ' ');
                 
                 string node_seq = handle_graph.get_sequence(handle_graph.get_handle(mapping.position().node_id(),
                                                                                     mapping.position().is_reverse()));
@@ -1423,20 +1430,39 @@ namespace vg {
                 int64_t node_at = mapping.position().offset();
                 for (const Edit& edit : mapping.edit()) {
                     if (edit.from_length() > 0 && edit.to_length() > 0) {
-                        read_strm << multipath_aln.sequence().substr(read_at, edit.to_length());
-                        node_strm << node_seq.substr(node_at, edit.from_length());
+                        mapping_read_strm << multipath_aln.sequence().substr(read_at, edit.to_length());
+                        mapping_node_strm << node_seq.substr(node_at, edit.from_length());
                     }
                     else if (edit.from_length() > 0) {
-                        read_strm << string(edit.from_length(), '-');
-                        node_strm << node_seq.substr(node_at, edit.from_length());
+                        mapping_read_strm << string(edit.from_length(), '-');
+                        mapping_node_strm << node_seq.substr(node_at, edit.from_length());
                     }
                     else if (edit.to_length() > 0) {
-                        read_strm << multipath_aln.sequence().substr(read_at, edit.to_length());
-                        node_strm << string(edit.to_length(), '-');
+                        mapping_read_strm << multipath_aln.sequence().substr(read_at, edit.to_length());
+                        mapping_node_strm << string(edit.to_length(), '-');
                     }
                     
                     read_at += edit.to_length();
                     node_at += edit.from_length();
+                }
+                
+                string mapping_read_str = mapping_read_strm.str();
+                string mapping_node_str = mapping_node_strm.str();
+                
+                if (line_length + mapping_node_str.size() + 1 <= max_line_length) {
+                    read_strm << " " << mapping_read_str;
+                    node_strm << " " << mapping_node_str;
+                    line_length += mapping_node_str.size() + 1;
+                }
+                else {
+                    out << read_strm.str() << endl;
+                    out << node_strm.str() << endl << endl;;
+                    read_strm.str("");
+                    node_strm.str("");
+                    read_strm << "\tread" << string(read_header.size() - 4, ' ') << " " << mapping_read_str;
+                    node_strm << "\tgraph" << string(read_header.size() - 5, ' ') << " " << mapping_node_str;
+                    
+                    line_length = 9 + read_header.size() + mapping_node_str.size();
                 }
             }
             
