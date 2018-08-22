@@ -1006,6 +1006,136 @@ namespace vg {
         // it should go into fragment_prev or fragment_next
     }
     
+    void merge_non_branching_subpaths(MultipathAlignment& multipath_aln) {
+        
+        vector<size_t> in_degree(multipath_aln.subpath_size(), 0);
+        for (const Subpath& subpath : multipath_aln.subpath()) {
+            for (int64_t next : subpath.next()) {
+                in_degree[next]++;
+            }
+        }
+        
+        vector<bool> removed(multipath_aln.subpath_size(), false);
+        vector<size_t> removed_so_far(multipath_aln.subpath_size(), 0);
+        
+        auto get_mergeable_next = [&](const Subpath& subpath) {
+            if (subpath.next_size() == 1) {
+                if (in_degree[subpath.next(0)] == 1) {
+                    return int64_t(subpath.next(0));
+                }
+            }
+            return int64_t(-1);
+        };
+        
+        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            
+            if (i > 0) {
+                removed_so_far[i] = removed_so_far[i - 1];
+            }
+            
+            // this one has been marked for removal,
+            if (removed[i]) {
+                removed_so_far[i]++;
+                continue;
+            }
+            
+            // the subpath we might merge into
+            Subpath* subpath = multipath_aln.mutable_subpath(i);
+            
+            // move it up in the vector if we've removed earlier subpaths
+            if (removed_so_far[i] > 0) {
+                *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*subpath);
+                subpath = multipath_aln.mutable_subpath(i - removed_so_far[i]);
+            }
+            
+            int64_t last = -1;
+            // iterate through non-branching subpaths
+            for (int64_t j = get_mergeable_next(*subpath); j >= 0; j = get_mergeable_next(multipath_aln.subpath(j))) {
+                
+                // mark the next one for removal
+                removed[j] = true;
+                
+                const Subpath& merge_subpath = multipath_aln.subpath(j);
+                
+                subpath->set_score(subpath->score() + merge_subpath.score());
+                
+                const Path& merge_path = merge_subpath.path();
+                if (merge_path.mapping_size() == 0) {
+                    continue;
+                }
+                
+                Path* path = subpath->mutable_path();
+                Mapping* final_mapping = path->mutable_mapping(path->mapping_size() - 1);
+                const Position& final_position = final_mapping->position();
+                
+                const Mapping& first_mapping = merge_path.mapping(0);
+                const Position& first_position = first_mapping.position();
+                
+                int64_t mapping_idx = 0;
+                
+                // do we need to merge the abutting mappings?
+                if (first_position.node_id() == final_position.node_id() &&
+                    first_position.is_reverse() == final_position.is_reverse() &&
+                    first_position.offset() == final_position.offset() + mapping_from_length(*final_mapping)) {
+                    
+                    // do we need to merge the abutting edits?
+                    int64_t edit_idx = 0;
+                    if (final_mapping->edit_size() && first_mapping.edit_size()) {
+                        Edit* final_edit = final_mapping->mutable_edit(0);
+                        const Edit& first_edit = first_mapping.edit(0);
+                        if ((first_edit.from_length() > 0) == (final_edit->from_length() > 0) &&
+                            (first_edit.to_length() > 0) == (final_edit->to_length() > 0) &&
+                            first_edit.sequence().empty() == final_edit->sequence().empty()) {
+                            
+                            final_edit->set_from_length(final_edit->from_length() + first_edit.from_length());
+                            final_edit->set_to_length(final_edit->to_length() + first_edit.to_length());
+                            final_edit->set_sequence(final_edit->sequence() + first_edit.sequence());
+                            
+                            edit_idx++;
+                        }
+                    }
+                    
+                    // append rest of the edits
+                    for (; edit_idx < first_mapping.edit_size(); edit_idx++) {
+                        *final_mapping->add_edit() = first_mapping.edit(edit_idx);
+                    }
+                    
+                    mapping_idx++;
+                }
+                
+                // append rest of the mappings
+                for (; mapping_idx < merge_path.mapping_size(); mapping_idx++) {
+                    *path->add_mapping() = merge_path.mapping(mapping_idx);
+                }
+                
+                last = j;
+            }
+            
+            // move the adjacencies over from the last one we merged in
+            if (last >= 0) {
+                subpath->clear_next();
+                for (int64_t next : multipath_aln.subpath(last).next()) {
+                    subpath->add_next(next);
+                }
+            }
+        }
+        
+        // did we merge and remove any subpaths?
+        if (removed_so_far.back()) {
+            // trim the vector of subpaths
+            multipath_aln.mutable_subpath()->DeleteSubrange(multipath_aln.subpath_size() - removed_so_far.back(),
+                                                            removed_so_far.back());
+            
+            // update the indexes of the adjacencies
+            for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+                Subpath* subpath = multipath_aln.mutable_subpath(i);
+                for (size_t j = 0; j < subpath->next_size(); j++) {
+                    subpath->set_next(j, subpath->next(j) - removed_so_far[subpath->next(j)]);
+                }
+            }
+        }
+    }
+    
     vector<vector<int64_t>> connected_components(const MultipathAlignment& multipath_aln) {
         
         int64_t comps = 0;

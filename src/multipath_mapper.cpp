@@ -133,6 +133,12 @@ namespace vg {
             multipath_alns_out.resize(max_alt_mappings);
         }
         
+        if (simplify_topologies) {
+            for (MultipathAlignment& multipath_aln : multipath_alns_out) {
+                merge_non_branching_subpaths(multipath_aln);
+            }
+        }
+        
         if (strip_bonuses) {
             for (MultipathAlignment& multipath_aln : multipath_alns_out) {
                 strip_full_length_bonuses(multipath_aln);
@@ -1603,6 +1609,13 @@ namespace vg {
             multipath_aln_pairs_out.resize(max_alt_mappings);
         }
         
+        if (simplify_topologies) {
+            for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
+                merge_non_branching_subpaths(multipath_aln_pair.first);
+                merge_non_branching_subpaths(multipath_aln_pair.second);
+            }
+        }
+        
         // remove the full length bonus if we don't want it in the final score
         if (strip_bonuses) {
             for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
@@ -2854,7 +2867,6 @@ namespace vg {
         }
         
         // make the graph we need to align to
-        // TODO: can I do this without the copy constructor for the forward strand?
 #ifdef debug_multipath_mapper_alignment
         cerr << "use_single_stranded: " << use_single_stranded << " mem_strand: " << mem_strand << endl;
 #endif
@@ -2874,7 +2886,6 @@ namespace vg {
             node_trans = algorithms::split_strands(vg, &align_graph);
         }
 
-        
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(vg)) {
             unordered_map<id_t, pair<id_t, bool> > dagify_trans;
@@ -2931,7 +2942,7 @@ namespace vg {
 #endif
         
         // do the connecting alignments and fill out the MultipathAlignment object
-        multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, band_padding, multipath_aln_out);
+        multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, dynamic_max_alt_alns, band_padding, multipath_aln_out);
         
         
 #ifdef debug_multipath_mapper_alignment
@@ -2965,7 +2976,7 @@ namespace vg {
         multi_aln_graph.remove_transitive_edges(topological_order);
         
         // do the connecting alignments and fill out the MultipathAlignment object
-        multi_aln_graph.align(alignment, subgraph, get_aligner(), false, num_alt_alns, band_padding, multipath_aln_out);
+        multi_aln_graph.align(alignment, subgraph, get_aligner(), false, num_alt_alns, dynamic_max_alt_alns, band_padding, multipath_aln_out);
         
         for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
             translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);
