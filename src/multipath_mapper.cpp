@@ -8,6 +8,7 @@
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
+//#define debug_pretty_print_alignments
 
 #include "multipath_mapper.hpp"
 #include "multipath_alignment_graph.hpp"
@@ -143,6 +144,12 @@ namespace vg {
         for (auto cluster_graph : cluster_graphs) {
             delete get<0>(cluster_graph);
         }
+#ifdef debug_pretty_print_alignments
+        cerr << "final alignments being returned:" << endl;
+        for (const MultipathAlignment& multipath_aln : multipath_alns_out) {
+            view_multipath_alignment(cerr, multipath_aln, *xindex);
+        }
+#endif
     }
     
     void MultipathMapper::align_to_cluster_graphs(const Alignment& alignment,
@@ -1632,6 +1639,16 @@ namespace vg {
         for (auto cluster_graph : cluster_graphs2) {
             delete get<0>(cluster_graph);
         }
+        
+#ifdef debug_pretty_print_alignments
+        cerr << "final alignments being returned:" << endl;
+        for (const pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
+            cerr << "read 1: " << endl;
+            view_multipath_alignment(cerr, multipath_aln_pair.first, *xindex);
+            cerr << "read 2: " << endl;
+            view_multipath_alignment(cerr, multipath_aln_pair.second, *xindex);
+        }
+#endif
     }
     
     void MultipathMapper::reduce_to_single_path(const MultipathAlignment& multipath_aln, vector<Alignment>& alns_out,

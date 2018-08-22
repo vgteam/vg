@@ -1096,7 +1096,7 @@ namespace vg {
     }
     
     
-    bool validate_multipath_alignment(const MultipathAlignment& multipath_aln, HandleGraph& handle_graph) {
+    bool validate_multipath_alignment(const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph) {
         
         // are the subpaths in topological order?
         
@@ -1373,6 +1373,80 @@ namespace vg {
         
         
         return true;
+    }
+    
+    void view_multipath_alignment(ostream& out, const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph) {
+        
+        vector<pair<int64_t, int64_t>> subpath_read_interval(multipath_aln.subpath_size(), pair<int64_t, int64_t>(0, 0));
+        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            
+            const Subpath& subpath = multipath_aln.subpath(i);
+            subpath_read_interval[i].second = subpath_read_interval[i].first + path_to_length(subpath.path());
+            
+            for (int64_t j : subpath.next()) {
+                subpath_read_interval[j].first = subpath_read_interval[i].second;
+            }
+        }
+        
+        auto format_position = [](const Position& pos) {
+            stringstream strm;
+            strm << pos.node_id() << (pos.is_reverse() ? "-" : "+") << (pos.offset() ? (":" + to_string(pos.offset())) : "");
+            return strm.str();
+        };
+        
+        for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            const Subpath& subpath = multipath_aln.subpath(i);
+            
+            stringstream read_strm;
+            stringstream node_strm;
+            
+            out << "subpath " << i << " (score " << subpath.score() << ")" << endl;
+            
+            string read_header = "read[" + to_string(subpath_read_interval[i].first) + ":" + to_string(subpath_read_interval[i].second) + "]";
+            string node_header = "graph" + string(max(int(read_header.size()) - 5, 0), ' ');
+            
+            read_strm << "\t" << read_header;
+            node_strm << "\t" << node_header;
+            
+            int64_t read_at = subpath_read_interval[i].first;
+            
+            for (size_t j = 0; j < subpath.path().mapping_size(); j++) {
+                const Mapping& mapping = subpath.path().mapping(j);
+                string pos_string = format_position(mapping.position());
+                
+                read_strm << " " << pos_string << " ";
+                node_strm << string(pos_string.size() + 2, ' ');
+                
+                string node_seq = handle_graph.get_sequence(handle_graph.get_handle(mapping.position().node_id(),
+                                                                                    mapping.position().is_reverse()));
+                
+                int64_t node_at = mapping.position().offset();
+                for (const Edit& edit : mapping.edit()) {
+                    if (edit.from_length() > 0 && edit.to_length() > 0) {
+                        read_strm << multipath_aln.sequence().substr(read_at, edit.to_length());
+                        node_strm << node_seq.substr(node_at, edit.from_length());
+                    }
+                    else if (edit.from_length() > 0) {
+                        read_strm << string(edit.from_length(), '-');
+                        node_strm << node_seq.substr(node_at, edit.from_length());
+                    }
+                    else if (edit.to_length() > 0) {
+                        read_strm << multipath_aln.sequence().substr(read_at, edit.to_length());
+                        node_strm << string(edit.to_length(), '-');
+                    }
+                    
+                    read_at += edit.to_length();
+                    node_at += edit.from_length();
+                }
+            }
+            
+            out << read_strm.str() << endl;
+            out << node_strm.str() << endl;
+            
+            for (size_t j = 0; j < subpath.next_size(); j++) {
+                out << "\t-> " << subpath.next(j) << endl;
+            }
+        }
     }
 }
 
