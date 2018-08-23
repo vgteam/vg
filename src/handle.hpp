@@ -107,7 +107,7 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // Interface that needs to be implemented
     ////////////////////////////////////////////////////////////////////////////
-
+    
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const = 0;
     
@@ -232,10 +232,23 @@ public:
     /// Ignores existing edges.
     virtual void create_edge(const handle_t& left, const handle_t& right) = 0;
     
+    /// Convenient wrapper for create_edge.
+    inline void create_edge(const edge_t& edge) {
+        create_edge(edge.first, edge.second);
+    }
+    
     /// Remove the edge connecting the given handles in the given order and orientations.
     /// Ignores nonexistent edges.
     /// Does not update any stored paths.
     virtual void destroy_edge(const handle_t& left, const handle_t& right) = 0;
+    
+    /// Convenient wrapper for destroy_edge.
+    inline void destroy_edge(const edge_t& edge) {
+        destroy_edge(edge.first, edge.second);
+    }
+    
+    /// Remove all nodes and edges. Does not update any stored paths.
+    virtual void clear() = 0;
     
     /// Swap the nodes corresponding to the given handles, in the ordering used
     /// by for_each_handle when looping over the graph. Other handles to the
@@ -252,7 +265,8 @@ public:
     /// reflect this. Invalidates all handles to the node (including the one
     /// passed). Returns a new, valid handle to the node in its new forward
     /// orientation. Note that it is possible for the node's ID to change.
-    /// Does not update any stored paths.
+    /// Does not update any stored paths. May change the ordering of the underlying
+    /// graph.
     virtual handle_t apply_orientation(const handle_t& handle) = 0;
     
     /// Split a handle's underlying node at the given offsets in the handle's

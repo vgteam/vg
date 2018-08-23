@@ -256,6 +256,12 @@ void VG::destroy_edge(const handle_t& left, const handle_t& right) {
         // TODO: does destroy_edge update paths?
     }
 }
+    
+void VG::clear() {
+    graph.mutable_node()->Clear();
+    graph.mutable_edge()->Clear();
+    clear_indexes();
+}
 
 void VG::swap_handles(const handle_t& a, const handle_t& b) {
     swap_nodes(get_node(get_id(a)), get_node(get_id(b)));
@@ -7078,79 +7084,6 @@ void VG::wrap_with_null_nodes(void) {
     for (vector<Node*>::iterator t = tails.begin(); t != tails.end(); ++t) {
         create_edge(*t, tail);
     }
-}
-
-VG VG::split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation) {
-    
-    VG split;
-    
-    split.current_id = 1;
-    
-    unordered_map<id_t, id_t> forward_node;
-    unordered_map<id_t, id_t> reverse_node;
-    
-    for (int64_t i = 0; i < graph.node_size(); i++) {
-        const Node& node = graph.node(i);
-        Node* fwd_node = split.graph.add_node();
-        fwd_node->set_sequence(node.sequence());
-        fwd_node->set_id(split.current_id);
-        split.current_id++;
-        
-        Node* rev_node = split.graph.add_node();
-        rev_node->set_sequence(reverse_complement(node.sequence()));
-        rev_node->set_id(split.current_id);
-        split.current_id++;
-        
-        forward_node[node.id()] = fwd_node->id();
-        reverse_node[node.id()] = rev_node->id();
-        
-        node_translation[fwd_node->id()] = make_pair(node.id(), false);
-        node_translation[rev_node->id()] = make_pair(node.id(), true);
-    }
-    
-    for (int64_t i = 0; i < graph.edge_size(); i++) {
-        const Edge& edge = graph.edge(i);
-        if (!edge.from_start() && !edge.to_end()) {
-            Edge* fwd_edge = split.graph.add_edge();
-            fwd_edge->set_from(forward_node[edge.from()]);
-            fwd_edge->set_to(forward_node[edge.to()]);
-            
-            Edge* rev_edge = split.graph.add_edge();
-            rev_edge->set_from(reverse_node[edge.to()]);
-            rev_edge->set_to(reverse_node[edge.from()]);
-        }
-        else if (edge.from_start() && edge.to_end()) {
-            Edge* fwd_edge = split.graph.add_edge();
-            fwd_edge->set_from(reverse_node[edge.from()]);
-            fwd_edge->set_to(reverse_node[edge.to()]);
-            
-            Edge* rev_edge = split.graph.add_edge();
-            rev_edge->set_from(forward_node[edge.to()]);
-            rev_edge->set_to(forward_node[edge.from()]);
-        }
-        else if (edge.from_start()) {
-            Edge* fwd_edge = split.graph.add_edge();
-            fwd_edge->set_from(reverse_node[edge.from()]);
-            fwd_edge->set_to(forward_node[edge.to()]);
-            
-            Edge* rev_edge = split.graph.add_edge();
-            rev_edge->set_from(reverse_node[edge.to()]);
-            rev_edge->set_to(forward_node[edge.from()]);
-        }
-        else {
-            Edge* fwd_edge = split.graph.add_edge();
-            fwd_edge->set_from(forward_node[edge.from()]);
-            fwd_edge->set_to(reverse_node[edge.to()]);
-            
-            Edge* rev_edge = split.graph.add_edge();
-            rev_edge->set_from(forward_node[edge.to()]);
-            rev_edge->set_to(reverse_node[edge.from()]);
-        }
-    }
-    
-    split.build_indexes();
-    
-    return split;
 }
 
 VG VG::unfold(uint32_t max_length,
