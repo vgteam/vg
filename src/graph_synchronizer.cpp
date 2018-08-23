@@ -89,9 +89,6 @@ void GraphSynchronizer::Lock::lock() {
         if (start != 0 || past_end != 0) {
             // We want to extract a range
             
-            // Make a Graph to fill in
-            Graph context_graph;
-            
             // Find the outer ends of this range
             NodeSide start_left = synchronizer.get_path_index(path_name).at_position(start);
             NodeSide end_right = synchronizer.get_path_index(path_name).at_position(past_end == 0 ? 0 : past_end - 1).flip();
@@ -122,36 +119,35 @@ void GraphSynchronizer::Lock::lock() {
             // Make them into pos_ts that point left to right, the way Jordan thinks.
             pos_t left_pos = make_pos_t(start_left.node, start_left.is_end, 0);
             pos_t right_pos = make_pos_t(end_right.node, !end_right.is_end,
-                synchronizer.graph.get_node(end_right.node)->sequence().size() - 1);
+                synchronizer.graph.get_node(end_right.node)->sequence().size());
             
             // Since these are already at node ends, we don't need to worry about node cuts.
             
             // Extract paths out to the length we need to connect the ends, or a bit further.
             // TODO: be sure to extract really big indels somehow...
-            auto duplications = algorithms::extract_connecting_graph(&synchronizer.graph,
-                context_graph,
+            auto translator = algorithms::extract_connecting_graph(&synchronizer.graph,
+                &context,
                 (past_end - start) * 2,
                 left_pos,
                 right_pos,
-                true, // Keep the specified positions in the graph
                 false, // Disallow terminal node cycles, so we don't duplicate nodes
-                true, // Remove other tips
-                false, // We don't care about being on a path
-                false); // Or being strictly less than the specified length
+                true, // We don't want extraneous material that doesn't connect the positions
+                false); // But we don't care about being strictly less than the specified length
                 
 #ifdef debug
-            cerr << "Extracted " << context_graph.node_size() << " nodes and " << context_graph.edge_size() << " edges between " << path_name << ":" << start << "-" << past_end << endl;
+            cerr << "Extracted " << context.graph.node_size() << " nodes and " << context.graph.edge_size() << " edges between " << path_name << ":" << start << "-" << past_end << endl;
 #endif
                 
-            // Any duplication is going to mess things up, since we need
+            // Any ID mismatch is going to mess things up, since we need
             // operations on the new graph to make sense in the original graph.
-            // We need all the entries in this duplication map to be no-ops.
-            for (auto& kv : duplications) {
-                assert(kv.first == kv.second);
+            // We need all the entries in this translation map to be no-ops, so
+            // we translate all IDs back to their original (which is possible
+            // because we chose extraction paramters that never duplicate nodes).
+            for (auto& kv : translator) {
+                if (kv.first != kv.second) {
+                    context.swap_node_id(kv.first, kv.second);
+                }
             }
-            
-            // Dump nodes and edges into the context VG object.
-            context.extend(context_graph);
             
         } else {
             // We want to extract a radius

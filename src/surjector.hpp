@@ -17,6 +17,7 @@
 #include "multipath_alignment_graph.hpp"
 
 #include "algorithms/topological_sort.hpp"
+#include "algorithms/split_strands.hpp"
 
 namespace vg {
 

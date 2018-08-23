@@ -28,6 +28,8 @@
 #include "algorithms/weakly_connected_components.hpp"
 #include "algorithms/is_acyclic.hpp"
 #include "algorithms/is_single_stranded.hpp"
+#include "algorithms/split_strands.hpp"
+#include "algorithms/count_walks.hpp"
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>
@@ -113,6 +115,8 @@ namespace vg {
         size_t min_median_mem_coverage_for_split = 0;
         bool suppress_cluster_merging = false;
         size_t alt_anchor_max_length_diff = 5;
+        bool dynamic_max_alt_alns = false;
+        bool simplify_topologies = false;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;

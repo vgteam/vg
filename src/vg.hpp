@@ -145,6 +145,9 @@ public:
     /// Remove the edge connecting the given handles in the given order and orientations.
     virtual void destroy_edge(const handle_t& left, const handle_t& right);
     
+    /// Remove all nodes and edges. Does not update any stored paths.
+    virtual void clear();
+    
     /// Swap the nodes corresponding to the given handles, in the ordering used
     /// by for_each_handle when looping over the graph. Other handles to the
     /// nodes being swapped must not be invalidated.
@@ -339,9 +342,6 @@ public:
     /// the same as the input graph. If inverting edges are present, node strandedness is arbitrary.
     VG unfold(uint32_t max_length,
               unordered_map<id_t, pair<id_t, bool> >& node_translation);
-    /// Create reverse complement nodes and edges for the entire graph. Doubles the size. Converts all inverting
-    /// edges into non-inverting edges.
-    VG split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation);
     /// Create the reverse complemented graph with topology preserved. Record translation in provided map.
     VG reverse_complement_graph(unordered_map<id_t, pair<id_t, bool>>& node_translation);
     /// Record the translation of this graph into itself in the provided map.

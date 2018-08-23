@@ -113,6 +113,8 @@ gbwt::vector_type predecessors(const xg::XG& xg_index, const Path& path) {
     return result;
 }
 
+std::vector<std::string> parseGenotypes(const std::string& vcf_line, size_t num_samples);
+
 // Thread database files written by vg index -G and read by vg index -x.
 // These should probably be in thread_database.cpp or something like that.
 void write_thread_db(const std::string& filename, const std::vector<std::string>& thread_names, size_t haplotype_count);
@@ -567,6 +569,7 @@ int main_index(int argc, char** argv) {
         // Generate haplotypes
         if (index_haplotypes) {
             vcflib::VariantCallFile variant_file;
+            variant_file.parseSamples = false; // vcflib parsing is very slow if there are many samples.
             variant_file.open(vcf_name);
             if (!variant_file.is_open()) {
                 cerr << "error: [vg index] could not open " << vcf_name << endl;
@@ -709,11 +712,12 @@ int main_index(int argc, char** argv) {
                     }
 
                     // Store the phasings in PhasingInformation structures.
+                    std::vector<std::string> genotypes = parseGenotypes(var.originalLine, num_samples);
                     for (size_t batch = 0; batch < phasings.size(); batch++) {
                         std::vector<gbwt::Phasing> current_phasings;
                         for (size_t sample = phasings[batch].offset(); sample < phasings[batch].limit(); sample++) {
                             string& sample_name = variant_file.sampleNames[sample];
-                            current_phasings.emplace_back(var.getGenotype(sample_name), was_diploid[sample]);
+                            current_phasings.emplace_back(genotypes[sample], was_diploid[sample]);
                             was_diploid[sample] = current_phasings.back().diploid;
                             if(force_phasing) {
                                 current_phasings.back().forcePhased([&]() {
@@ -1016,6 +1020,44 @@ int main_index(int argc, char** argv) {
         cerr << "Memory usage: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
     }
     return 0;
+}
+
+std::vector<std::string> parseGenotypes(const std::string& vcf_line, size_t num_samples) {
+    std::vector<std::string> result;
+
+    // The 9th tab-separated field should start with "GT".
+    size_t offset = 0;
+    for (int i = 0; i < 8; i++) {
+        size_t pos = vcf_line.find('\t', offset);
+        if (pos == std::string::npos) {
+            std::cerr << "error: [vg index] VCF line does not contain genotype information" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        offset = pos + 1;
+    }
+    if (vcf_line.substr(offset, 2) != "GT") {
+        std::cerr << "error: [vg index] VCF line does not contain genotype information" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    // Genotype strings are the first colon-separated fields in the 10th+ tab-separated fields.
+    offset = vcf_line.find('\t', offset);
+    while (offset != std::string::npos && offset + 1 < vcf_line.length()) {
+        offset++;
+        size_t pos = vcf_line.find_first_of("\t:", offset);
+        if (pos == std::string::npos) {
+            pos = vcf_line.length();
+        }
+        result.emplace_back(vcf_line.substr(offset, pos - offset));
+        offset = vcf_line.find('\t', offset);
+    }
+
+    if (result.size() != num_samples) {
+        std::cerr << "error: [vg index] expected " << num_samples << " samples, got " << result.size() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    return result;
 }
 
 void write_thread_db(const std::string& filename, const std::vector<std::string>& thread_names, size_t haplotype_count) {

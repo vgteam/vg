@@ -134,6 +134,9 @@ namespace vg {
     ///
     void transfer_read_metadata(const MultipathAlignment& from, MultipathAlignment& to);
     
+    /// Merges non-branching paths in a multipath alignment in place
+    void merge_non_branching_subpaths(MultipathAlignment& multipath_aln);
+    
     /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
     /// each connected component
     vector<vector<int64_t>> connected_components(const MultipathAlignment& multipath_aln);
