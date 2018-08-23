@@ -1248,7 +1248,7 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(7, false)) == -1);
         }
     }//end test case
-    TEST_CASE( "Shortest path exits common ancestor","[dist][bug]" ) {
+    TEST_CASE( "Shortest path exits common ancestor","[dist]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");

@@ -80,7 +80,7 @@ class DistanceIndex {
             int64_t nodeLength(VG*graph, NetGraph* ng,  pair<id_t, bool> node);
         
             //Total length of the snarl
-            int64_t snarlLength();
+            int64_t snarlLength(VG* graph, NetGraph* ng);
 
             /*Given distances from a position to either end of a node, find the
               shortest distance from that position to the start and end nodes of
@@ -102,17 +102,16 @@ class DistanceIndex {
              and any other node is -1
              Distance from a node to itself is -1 unless there is a path leaving
              that node and reaching it again
+             Distances are stored with an offset of 1 (-1 dist stored as 0, 0
+               distance stored as 1)
              */
-            vector<int64_t> distances;
+            int_vector<> distances;
 
             //ID of the first node in the snarl, also key for distance index 
             pair<id_t, bool> snarlStart;
  
            //End facing out of snarl
             pair<id_t, bool> snarlEnd;           
-
-            //Total length of the snarl- start to end plus length of end
-            int64_t length; 
 
             //The index into distances for distance start->end
             size_t index(pair<id_t, bool> start, pair<id_t, bool> end);
@@ -170,17 +169,19 @@ class DistanceIndex {
 
             /*Dist from start of chain to start and end of each boundary node of
               all snarls in the chain*/
-            vector<int64_t> prefixSum;
+            int_vector<> prefixSum;
 
             /*For each boundary node of snarls in the chain, the distance
                from the start of the node traversing forward to the end of 
                the same node traversing backwards*/
-            vector<int64_t> loopFd;
+            int_vector<> loopFd;
     
             /*For each boundary node of snarls in the chain, the distance
                from the end of the node traversing backward to the start of 
                the same node traversing forward*/
-            vector<int64_t> loopRev;
+            int_vector<> loopRev;
+
+
         
             /*Helper function for finding distances*/
             int64_t chainDistanceHelper(pair<size_t, bool> start, 
