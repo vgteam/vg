@@ -12,7 +12,6 @@ TODO:
 3. new API without snarls
 4. CLI
 */
-//TODO : subtract 1 from all loopFd/loopRev
 using namespace std;
 namespace vg {
 
@@ -156,7 +155,6 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager, istream& in) {
 
 void DistanceIndex::serialize(ostream& out) {
 
-//TODO: Going to need to change how snarl index is represented
     auto toUint = [](int64_t val) {
         /* convert signed integer into unsigned representation where last bit 
            represents sign*/ 
@@ -246,10 +244,10 @@ void DistanceIndex::serialize(ostream& out) {
 }
 
 
-vector<int64_t> DistanceIndex::calculateNodeToSnarl(VG* vg, SnarlManager* sm){
+int_vector<> DistanceIndex::calculateNodeToSnarl(VG* vg, SnarlManager* sm){
 
     id_t minNodeID = vg->min_node_id();
-    vector<int64_t> result(vg->max_node_id() - minNodeID + 1, -1);
+    int_vector<> result(vg->max_node_id() - minNodeID + 1, -1);
 
     const vector<const Snarl*> topSnarls = sm->top_level_snarls();
     vector<const Snarl*> allSnarls(topSnarls.begin(), topSnarls.end());
@@ -276,7 +274,7 @@ vector<int64_t> DistanceIndex::calculateNodeToSnarl(VG* vg, SnarlManager* sm){
             }
         }
     }
-    
+    util::bit_compress(result);
     return result;
 
 }
@@ -2124,27 +2122,7 @@ int64_t DistanceIndex::SnarlDistances::nodeLength(VG* graph,
     } else {
         return graph->get_node(node.first)->sequence().size();
     }
-/*TODO: Delete
-    //Requires node has an edge to another node in the snarl
 
-
-    pair<id_t, bool> next (-1, -1); //index of a node after start
-    auto getIndex = [&](const handle_t& h)-> bool {
-    next.first = ng->get_id(h);
-       next.second = ng->get_is_reverse(h); 
-       return false;
-    };
-    ng->follow_edges(handle, false, getIndex);
-
-    if (next.first == -1) { 
-        return nodeLength(graph, ng, make_pair(node.first, !node.second));
-    } else {
-
-        size_t j = index(node, next); 
-        int64_t d = distances.at(j);
-        return d == 0 ? : d; 
-    }
-*/
 }
 
 int64_t DistanceIndex::SnarlDistances::snarlLength(VG* graph, NetGraph* ng) {   
@@ -2291,6 +2269,10 @@ DistanceIndex::ChainDistances::ChainDistances(hash_map<id_t, size_t> s,
     for (size_t i = 0; i < rev.size(); i++) {
         loopRev[i] = rev[i] + 1;
     }
+  
+    util::bit_compress(prefixSum);
+    util::bit_compress(loopFd);
+    util::bit_compress(loopRev);
 
 }
 

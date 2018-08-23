@@ -214,9 +214,8 @@ class DistanceIndex {
     /*Index to find the snarl containing a node
       The start node id of the snarl containing each node - negative if 
        the start node is reverse
-    TODO: Maybe put this somewhere else and use sdsl bit compression
-    */
-    vector<int64_t> nodeToSnarl;
+    TODO: Maybe put this somewhere else and use sdsl bit vector    */
+    int_vector<> nodeToSnarl;
 
 
 
@@ -230,7 +229,7 @@ class DistanceIndex {
     void calculateMaxIndex(const Chain* chain, int64_t cap); 
 
     //Helper function for constructor - populate node to snarl
-    vector<int64_t> calculateNodeToSnarl(VG* vg, SnarlManager* sm);
+    int_vector<> calculateNodeToSnarl(VG* vg, SnarlManager* sm);
 
     //Flag each node with true if it is in a cycle that has minimum length
     //smaller than cap
