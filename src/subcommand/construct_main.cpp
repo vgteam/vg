@@ -273,6 +273,7 @@ int main_construct(int argc, char** argv) {
                 return 1;
             }
             vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
+            variant_file->parseSamples = false; // Major speedup if there are many samples.
             variant_files.emplace_back(variant_file);
             variant_file->open(vcf_filename);
             if (!variant_file->is_open()) {
