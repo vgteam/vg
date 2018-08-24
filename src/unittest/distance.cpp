@@ -203,7 +203,7 @@ class TestDistanceIndex : public DistanceIndex {
         snarl_manager.add_chain(Chain{ptr2}, ptr1);
         snarl_manager.add_chain(Chain{ptr1}, nullptr);
 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
         
         SECTION( "Create distance index" ) {
 
@@ -386,7 +386,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
         
         SECTION( "Create distance index" ) {
             //REQUIRE(di.chainIndex.size() == 0);
@@ -482,7 +482,7 @@ class TestDistanceIndex : public DistanceIndex {
         snarl_manager.add_chain(Chain{ptr1}, nullptr);
 
 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
 
 
         SECTION("Create distance index") {
@@ -652,7 +652,7 @@ class TestDistanceIndex : public DistanceIndex {
         snarl_manager.add_chain(Chain{ptr1}, nullptr);
 
 
-        TestDistanceIndex di(&graph, &snarl_manager, 50);
+        TestDistanceIndex di(&graph, &snarl_manager);
 
 
         SECTION("Create distance index") {
@@ -812,7 +812,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
 
 
         SECTION("Create distance index") {
@@ -969,7 +969,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
 
 
         SECTION("Create distance index") {
@@ -1126,7 +1126,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
 
 
         SECTION("Create distance index") {
@@ -1280,7 +1280,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
         
         SECTION( "Create distance index" ) {
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
@@ -1372,7 +1372,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
         
         SECTION( "Create distance index" ) {
 
@@ -1496,7 +1496,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
         
         SECTION( "Create distance index" ) {
 
@@ -1590,7 +1590,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
 
 
         SECTION("Create distance index") {
@@ -1685,7 +1685,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
         
         SECTION( "Create distance index" ) {
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
@@ -1823,7 +1823,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
         
         SECTION( "Create distance index" ) {
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
@@ -1949,7 +1949,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager, 50);
+        TestDistanceIndex di (&graph, &snarl_manager);
 
 
         SECTION("Create distance index") {
@@ -2035,7 +2035,7 @@ class TestDistanceIndex : public DistanceIndex {
 
 
        SECTION ("Distance functions") {
-            TestDistanceIndex di (&graph, &snarl_manager, 50);
+            TestDistanceIndex di (&graph, &snarl_manager);
             #ifdef print
                 di.printSelf();
             #endif
@@ -2083,7 +2083,7 @@ class TestDistanceIndex : public DistanceIndex {
             SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
                         graph.serialize_to_file("testGraph");
-            TestDistanceIndex di (&graph, &snarl_manager, 50);
+            TestDistanceIndex di (&graph, &snarl_manager);
             #ifdef print        
                 di.printSelf();
 
@@ -2173,7 +2173,7 @@ class TestDistanceIndex : public DistanceIndex {
         }
     } //end test case
 
-/*
+
     TEST_CASE("Serialize distance index", "[dist][serial]") {
         for (int i = 0; i < 100; i++) {
 
@@ -2183,7 +2183,7 @@ class TestDistanceIndex : public DistanceIndex {
             SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
                         graph.serialize_to_file("testGraph");
-            TestDistanceIndex di (&graph, &snarl_manager, 50);
+            TestDistanceIndex di (&graph, &snarl_manager);
   
             filebuf buf;
             buf.open("distanceIndex", ios::out);
@@ -2278,7 +2278,7 @@ class TestDistanceIndex : public DistanceIndex {
              
         }
     } //end test case
-*/
+
 }
 
 }

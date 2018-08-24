@@ -73,7 +73,7 @@ int64_t DistanceIndex::sizeOf() {
 }
 
 
-DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager, int64_t cap){
+DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager){
     /*Constructor for the distance index given a VG and snarl manager
       cap is the largest distance that the maximum distance estimation will be
       accurate to 
@@ -121,26 +121,29 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager, istream& in) {
       of ints from serialization
     */
    
-    nodeToSnarl = calculateNodeToSnarl(vg, snarlManager);//TODO: Probably need to serialize/deserialize this index too
-
+    graph = vg;
+    sm = snarlManager;
+    load(in);
+}
+void DistanceIndex::load(istream& in){
+    //Load serialized index from an istream
     auto toInt = [] (uint64_t uval) {
         /*convert unsigned representation of signed int back to int64_t*/
         int64_t val = uval / 2;
         if (uval % 2 == 1) {val = -val;}
         return val;
     };
-    graph = vg;
-    sm = snarlManager;
 
     int_vector<> d1;
     int_vector<> d2;
     int_vector<> d3;
-    int_vector<> d4;   
+    int_vector<> d4;
   
     d1.load(in);
     d2.load(in);
     d3.load(in);
     d4.load(in);
+    nodeToSnarl.load(in);
 
     vector<int64_t> snarlNodes(d1.size(), 0); 
     vector<int64_t> snarlVector(d2.size(), 0);
@@ -300,13 +303,22 @@ void DistanceIndex::serialize(ostream& out) {
     snarlVector.serialize(out, NULL, "snarl_vector");
     chainNodes.serialize(out, NULL, "chain_nodes");
     chainVector.serialize(out, NULL, "chain_vector");
+    nodeToSnarl.serialize(out, NULL, "node_to_snarl");
 }
 
 
 int_vector<> DistanceIndex::calculateNodeToSnarl(VG* vg, SnarlManager* sm){
 
+    auto toUint = [](int64_t val) {
+        /* convert signed integer into unsigned representation where last bit 
+           represents sign*/ 
+        uint64_t uval= abs(val) * 2;
+        if (val < 0) { uval += 1; }
+        return uval;
+    };
+
     id_t minNodeID = vg->min_node_id();
-    int_vector<> result(vg->max_node_id() - minNodeID + 1, -1);
+    int_vector<> result(vg->max_node_id() - minNodeID + 1, 0);
 
     const vector<const Snarl*> topSnarls = sm->top_level_snarls();
     vector<const Snarl*> allSnarls(topSnarls.begin(), topSnarls.end());
@@ -329,7 +341,7 @@ int_vector<> DistanceIndex::calculateNodeToSnarl(VG* vg, SnarlManager* sm){
                 //If this node is a child snarl
                 allSnarls.push_back(nextSnarl);
             } else {
-                result[nodeID - minNodeID] = currSnarlID; 
+                result[nodeID - minNodeID] = toUint(currSnarlID); 
             }
         }
     }
@@ -990,6 +1002,7 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
 
 void DistanceIndex::calculateMaxIndex(const Chain* chain, int64_t cap) {
     //Calculate maximum distance index
+//TODO: Finish
 
     hash_map<id_t, bool> inCycle; //Flag each node that is in a cycle
     for (const Snarl* snarl : *chain) {
@@ -2025,7 +2038,20 @@ int64_t DistanceIndex::minPos (vector<int64_t> vals) {
 const Snarl* DistanceIndex::snarlOf (id_t nodeID) {
     /*Given a node id, return the snarl that contains the node*/
 
-    int64_t snarlID = nodeToSnarl[nodeID - minNodeID];
+
+    int64_t uintSID = nodeToSnarl[nodeID - minNodeID];
+/*
+    //Convert from uint to int (same as toInt)
+    snarlID = snarlID / 2;
+    if (snarlID % 2 == 1) {snarlID = - snarlID;}
+i*/
+    auto toInt = [] (uint64_t uval) {
+        /*convert unsigned representation of signed int back to int64_t*/
+        int64_t val = uval / 2;
+        if (uval % 2 == 1) {val = -val;}
+        return val;
+    };
+    int64_t snarlID = toInt(uintSID);
 
     const Snarl* s = sm->into_which_snarl(abs(snarlID), (snarlID < 0));
     return s;

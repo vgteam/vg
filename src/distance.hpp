@@ -11,13 +11,15 @@ class DistanceIndex {
 
     public: 
     //Constructor 
-    DistanceIndex (VG* vg, SnarlManager* snarlManager, int64_t cap);
+    DistanceIndex (VG* vg, SnarlManager* snarlManager);
 
     //Constructor to load index from serialization 
     DistanceIndex (VG* vg, SnarlManager* snarlManager, istream& in);
   
     //Serialize object into out
     void serialize(ostream& out);
+    //Load serialized object from in
+    void load(istream& in);
 
 
 
