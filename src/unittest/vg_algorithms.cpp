@@ -21,6 +21,7 @@
 #include "algorithms/distance_to_head.hpp"
 #include "algorithms/distance_to_tail.hpp"
 #include "algorithms/apply_bulk_modifications.hpp"
+#include "algorithms/count_walks.hpp"
 #include "vg.hpp"
 #include "json2pb.h"
 
@@ -4378,14 +4379,14 @@ namespace vg {
     TEST_CASE("split_strands() should properly split the forward and reverse strands", "[vg][split]") {
         
         VG graph;
-        graph.create_node("ATA", 1);
-        graph.create_node("CT", 2);
-        graph.create_node("TGA", 3);
+        handle_t n1 = graph.create_handle("ATA", 1);
+        handle_t n2 = graph.create_handle("CT", 2);
+        handle_t n3 = graph.create_handle("TGA", 3);
         
-        graph.create_edge(1, 2);
-        graph.create_edge(3, 2, true, true);
-        graph.create_edge(1, 2, false, true);
-        graph.create_edge(2, 3, true, false);
+        graph.create_edge(n1, n2);
+        graph.create_edge(graph.flip(n3), graph.flip(n2));
+        graph.create_edge(n1, graph.flip(n2));
+        graph.create_edge(graph.flip(n2), n3);
         
         VG split;
         unordered_map<id_t, pair<id_t, bool> > node_translation = algorithms::split_strands(&graph, &split);
@@ -4486,5 +4487,30 @@ namespace vg {
         REQUIRE(found_edge_6);
         REQUIRE(found_edge_7);
         REQUIRE(found_edge_8);
+    }
+    
+    TEST_CASE("count_walks() can count the source-to-sink walks in a DAG", "[algorithms][walks]") {
+        
+        VG vg;
+        
+        handle_t n0 = vg.create_handle("GATTACA");
+        handle_t n1 = vg.create_handle("GATTACA");
+        handle_t n2 = vg.create_handle("GATTACA");
+        handle_t n3 = vg.create_handle("GATTACA");
+        handle_t n4 = vg.create_handle("GATTACA");
+        handle_t n5 = vg.create_handle("GATTACA");
+        handle_t n6 = vg.create_handle("GATTACA");
+        handle_t n7 = vg.create_handle("GATTACA");
+        
+        vg.create_edge(n0, n5);
+        vg.create_edge(n1, n2);
+        vg.create_edge(n1, n3);
+        vg.create_edge(n3, n4);
+        vg.create_edge(n2, n4);
+        vg.create_edge(n2, n5);
+        vg.create_edge(n4, n6);
+        vg.create_edge(n4, n7);
+        
+        REQUIRE(algorithms::count_walks(&vg) == 6);
     }
 }
