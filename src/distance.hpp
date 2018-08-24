@@ -220,7 +220,7 @@ class DistanceIndex {
       The start node id of the snarl containing each node - negative if 
        the start node is reverse
     TODO: Maybe put this somewhere else and use sdsl bit vector    */
-    int_vector<> nodeToSnarl;
+    vlc_vector<> nodeToSnarl;
     id_t minNodeID; //minimum node id of the graph
 
 

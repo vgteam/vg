@@ -15,6 +15,7 @@ TODO:
 using namespace std;
 namespace vg {
 int64_t DistanceIndex::sizeOf() {
+//TODO: Delete this
     //Estimate of the size of the object - probably keep this in uncommitted branch
    
     int64_t total = 0;
@@ -35,6 +36,9 @@ int64_t DistanceIndex::sizeOf() {
         total += numNodes * 17; //Add all elements in visitToIndex
         total += sd.distances.capacity() / 8;
         
+        total += 3 * sizeof(pair<id_t, bool>);
+        total += sizeof(hash_map<pair<id_t, bool>, int64_t>);
+        
 
     }
     
@@ -54,12 +58,10 @@ int64_t DistanceIndex::sizeOf() {
         total += cd.prefixSum.capacity() / 8;
         total += cd.loopFd.capacity() / 8;
         total += cd.loopRev.capacity() / 8;
+        total += sizeof(id_t) + sizeof(hash_map<id_t, int64_t>);
     }
  
-    total += numSnarls * (sizeof(pair<id_t, bool>) + sizeof(SnarlDistances)) +
-             numChains * (sizeof(id_t) + sizeof(ChainDistances));
-    total += sizeof(vector<int64_t>);
-    total += nodeToSnarl.capacity() / 8;
+    total += nodeToSnarl.size();//TODO: ???
 
 
     cerr << numSnarls << " snarls containing " << snarlNodes << " nodes" << endl;
