@@ -21,6 +21,8 @@ using namespace std;
     /// Returns the number of source-to-sink walks through the graph. Assumes that
     /// the graph is a single-stranded DAG. Consider checking these properties with
     /// algorithms::is_single_stranded and algorithms::is_directed_acyclic for safety.
+    /// Returns numeric_limits<size_t>::max() if the actual number of walks is larger
+    /// than this.
     size_t count_walks(const HandleGraph* graph);
 
 }

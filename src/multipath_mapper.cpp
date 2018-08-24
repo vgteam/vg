@@ -101,7 +101,7 @@ namespace vg {
         // extract graphs around the clusters
         auto cluster_graphs = query_cluster_graphs(alignment, mems, clusters);
         
-        // actually perform the alignments and post-process to meeth MultipathAlignment invariants
+        // actually perform the alignments and post-process to meet MultipathAlignment invariants
         vector<size_t> cluster_idxs = range_vector(cluster_graphs.size());
         align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, num_mapping_attempts, &cluster_idxs);
         
@@ -183,10 +183,10 @@ namespace vg {
         for (auto& cluster_graph : cluster_graphs) {
             // if we have a cluster graph with small enough MEM coverage compared to the best one or we've made
             // the maximum number of alignments we stop producing alternate alignments
-            if (get<2>(cluster_graph) < mem_coverage_min_ratio * get<2>(cluster_graphs[0])
+            if (get<2>(cluster_graph) < mem_coverage_min_ratio * get<2>(cluster_graphs.front())
                 || num_mappings >= num_mappings_to_compute) {
 #ifdef debug_multipath_mapper
-                cerr << "halting further alignments, either because MEM coverage of " << get<2>(cluster_graph) << " is too far below optimum of " << get<2>(cluster_graphs[0]) << " or because already made " << num_mappings << " of " << num_mappings_to_compute << " mappings" << endl;
+                cerr << "halting further alignments, either because MEM coverage of " << get<2>(cluster_graph) << " is too far below optimum of " << get<2>(cluster_graphs.front()) << " or because already made " << num_mappings << " of " << num_mappings_to_compute << " mappings" << endl;
 #endif
                 
 //#pragma omp atomic
