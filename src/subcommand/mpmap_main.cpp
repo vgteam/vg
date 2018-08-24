@@ -115,7 +115,7 @@ int main_mpmap(int argc, char** argv) {
     int snarl_cut_size = 5;
     int max_paired_end_map_attempts = 24;
     int max_single_end_mappings_for_rescue = 64;
-    int max_single_end_map_attempts = 64;
+    int max_single_end_map_attempts = 36;
     int max_rescue_attempts = 10;
     int population_max_paths = 10;
     // How many distinct single path alignments should we look for in a multipath, for MAPQ?
@@ -130,7 +130,7 @@ int main_mpmap(int argc, char** argv) {
     double reseed_diff = 0.45;
     double reseed_exp = 0.065;
     bool use_adaptive_reseed = true;
-    double cluster_ratio = 0.2;
+    double cluster_ratio = 0.35;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Adaptive;
@@ -138,7 +138,7 @@ int main_mpmap(int argc, char** argv) {
     int max_dist_error = 12;
     int num_alt_alns = 4;
     double suboptimal_path_exponent = 1.25;
-    double likelihood_approx_exp = 10.0;
+    double likelihood_approx_exp = 8.0;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
     size_t frag_length_sample_size = 1000;
@@ -167,6 +167,8 @@ int main_mpmap(int argc, char** argv) {
     int secondary_rescue_subopt_diff = 35;
     int min_median_mem_coverage_for_split = 0;
     bool suppress_cluster_merging = false;
+    bool dynamic_max_alt_alns = true;
+    bool simplify_topologies = true;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -683,11 +685,12 @@ int main_mpmap(int argc, char** argv) {
         
         num_alt_alns = 1;
     }
-    
-    // we get better performance by splitting up clusters a bit more when we're forcing alignments to go to only one place
     if (single_path_alignment_mode) {
+        // we get better performance by splitting up clusters a bit more when we're forcing alignments to go to only one place
         min_median_mem_coverage_for_split = 2;
         suppress_cluster_merging = true;
+        // simplifying topologies is redundant work if we're just going to take the maximum weight path anyway
+        simplify_topologies = false;
     }
     
     // ensure required parameters are provided
@@ -844,6 +847,8 @@ int main_mpmap(int argc, char** argv) {
     // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;
     multipath_mapper.num_alt_alns = num_alt_alns;
+    multipath_mapper.dynamic_max_alt_alns = dynamic_max_alt_alns;
+    multipath_mapper.simplify_topologies = simplify_topologies;
     multipath_mapper.max_suboptimal_path_score_ratio = suboptimal_path_exponent;
     
     // if directed to, auto calibrate the mismapping detection to the graph

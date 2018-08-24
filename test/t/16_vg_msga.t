@@ -19,7 +19,7 @@ plan tests 13
 
 is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 16e56f0090b310d2b1479d49cf790324 "MSGA produces the expected graph for GRCh38 HLA-V"
 
-is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 --xdrop-alignment | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 55bf0df5d2aa025730ad0315030f773e "X-drop DP MSGA produces the expected graph for GRCh38 HLA-V"
+is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 --xdrop-alignment | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 2ab075dd73c31ea9939726d72c12655f "X-drop DP MSGA produces the expected graph for GRCh38 HLA-V"
 
 vg msga -f msgas/s.fa -w 16 | vg mod -U 10 - | vg mod -c - | vg view -j -
 

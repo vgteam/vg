@@ -46,7 +46,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "Embed GAM alignments into a graph to facilitate variant calling" << endl
          << endl
          << "general options:" << endl
-         << "    -a, --augmentation-mode M   augmentation mode.  M = {pileup, direct} [pileup]" << endl
+         << "    -a, --augmentation-mode M   augmentation mode.  M = {pileup, direct} [direct]" << endl
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
          << "    -h, --help                  print this help message" << endl
@@ -71,7 +71,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
 int main_augment(int argc, char** argv) {
 
     // augmentation mode
-    string augmentation_mode = "pileup";
+    string augmentation_mode = "direct";
     
     // load pileupes from here
     string pileup_file_name;
@@ -242,6 +242,18 @@ int main_augment(int argc, char** argv) {
         cerr << "[vg augment] error: pileup and direct are currently the only supported augmentation modes (-a)" << endl;
         return 1;
     }
+
+    if (augmentation_mode != "direct" and !gam_out_file_name.empty()) {
+        cerr << "[vg augment] error: GAM output only works with \"direct\" augmentation mode" << endl;
+        return 1;
+    }
+
+    if (augmentation_mode != "pileup" and (!support_file_name.empty() || !pileup_file_name.empty())) {
+        cerr << "[vg augment] error: Pileup (-P) and Support (-S) output only work with  \"pileup\" augmentation mode" << endl;
+        return 1;
+    }
+    
+    
 
     // read the graph
     if (show_progress) {

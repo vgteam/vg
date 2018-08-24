@@ -587,6 +587,9 @@ void for_each_parallel(std::istream& in,
  *
  * Can call callbacks with the groups emitted and their virtual offsets, for
  * indexing purposes.
+ * 
+ * Note that the callbacks may be called by the ProtobufEmitter's destructor,
+ * so anything they reference needs to outlive the ProtobufEmitter.
  *
  * Not thread-safe. May be more efficient than repeated write/write_buffered
  * calls because a single BGZF stream can be used.
@@ -647,7 +650,7 @@ public:
     /// Add an event listener that listens for emitted groups. The listener
     /// will be called with the group buffer, the start virtual offset, and the
     /// past-end virtual offset. Moves the function passed in.
-    /// Anything the function uses by reference must outlive this object.
+    /// Anything the function uses by reference must outlive this object!
     void on_group(listener_t&& listener) {
         group_handlers.emplace_back(std::move(listener));
     }
@@ -1012,7 +1015,23 @@ private:
     }
 };
 
-#undef debug
+/// Produce an std::function that can be invoked with Protobuf objects and save them to the given stream.
+/// Easy way to get a dumping callback to feed to something that wants a callback.
+/// The passed stream must outlive the resulting function.
+template<typename Item>
+std::function<void(const Item&)> emit_to(ostream& out) {
+    // We are going to be clever and make a lambda capture a shared_ptr to an
+    // emitter, so we can have the emitter last as long as the function we
+    // return.
+    shared_ptr<ProtobufEmitter<Item>> emitter(new ProtobufEmitter<Item>(out));
+
+    return [emitter](const Item& item) {
+        // Write out each item.
+        // TODO: Set up so we can use the move operation the cursors support
+        // Not easy because of https://stackoverflow.com/a/30394755
+        emitter->write_copy(item);
+    };
+}
 
 }
 

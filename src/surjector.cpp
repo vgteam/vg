@@ -467,10 +467,11 @@ using namespace std;
             unordered_map<id_t, pair<id_t, bool>> path_trans;
             VG path_graph = extract_linearized_path_graph(ref_path_interval.first, ref_path_interval.second, xpath, path_trans);
             
-            unordered_map<id_t, pair<id_t, bool>> split_trans;
-            VG split_path_graph = path_graph.split_strands(split_trans);
+            // split it into a forward and reverse strand
+            VG split_path_graph;
+            unordered_map<id_t, pair<id_t, bool>> split_trans = algorithms::split_strands(&path_graph, &split_path_graph);
             
-            split_path_graph.lazy_sort();
+            algorithms::lazier_sort(&split_path_graph);
             
             auto node_trans = split_path_graph.overlay_node_translations(split_trans, path_trans);
             
@@ -494,7 +495,7 @@ using namespace std;
             
             // align the intervening segments and store the result in a multipath alignment
             MultipathAlignment mp_aln;
-            mp_aln_graph.align(source, split_path_graph, get_aligner(), false, 1, 1, mp_aln);
+            mp_aln_graph.align(source, split_path_graph, get_aligner(), false, 1, false, 1, mp_aln);
             topologically_order_subpaths(mp_aln);
             
             for (size_t i = 0; i < mp_aln.subpath_size(); i++) {

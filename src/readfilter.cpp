@@ -732,6 +732,29 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
             ++counts.wrong_name[co];
             keep = false;    
         }
+        if ((keep || verbose) && !excluded_refpos_contigs.empty() && aln.refpos_size() != 0) {
+            // We have refpos exclusion filters and a refpos is set.
+            // We need to bang every refpos anme against every filter.
+            
+            bool found_match = false;
+            for (auto& expression : excluded_refpos_contigs) {
+                for (auto& refpos : aln.refpos()) {
+                    if (regex_search(refpos.name(), expression)) {
+                        // We don't want this read because of this match
+                        found_match = true;
+                        break;
+                    }
+                }
+                if (found_match) {
+                    break;
+                }
+            }
+            
+            if (found_match) {
+                ++counts.wrong_refpos[co];
+                keep = false;    
+            }
+        }
         if ((keep || verbose) && ((aln.is_secondary() && score < min_secondary) ||
             (!aln.is_secondary() && score < min_primary))) {
             ++counts.min_score[co];
@@ -807,6 +830,8 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
              << counts.read[1] << endl
              << "Read Name Filter (primary):        " << counts.wrong_name[0] << endl
              << "Read Name Filter (secondary):      " << counts.wrong_name[1] << endl
+             << "refpos Contig Filter (primary):    " << counts.wrong_refpos[0] << endl
+             << "refpos Contig Filter (secondary):  " << counts.wrong_refpos[1] << endl
              << "Min Identity Filter (primary):     " << counts.min_score[0] << endl
              << "Min Identity Filter (secondary):   " << counts.min_score[1] << endl
              << "Max Overhang Filter (primary):     " << counts.max_overhang[0] << endl
@@ -818,9 +843,9 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
              << "Repeat Ends Filter (primary):      " << counts.repeat[0] << endl
              << "Repeat Ends Filter (secondary):    " << counts.repeat[1] << endl
              << "Min Quality Filter (primary):      " << counts.min_mapq[0] << endl
-             << "Min Quality Filter (secondary):   " << counts.min_mapq[1] << endl
-             << "Random Filter (primary):      " << counts.random[0] << endl
-             << "Random Filter (secondary):   " << counts.random[1] << endl
+             << "Min Quality Filter (secondary):    " << counts.min_mapq[1] << endl
+             << "Random Filter (primary):           " << counts.random[0] << endl
+             << "Random Filter (secondary):         " << counts.random[1] << endl
                         
             
              << endl;

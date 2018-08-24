@@ -31,6 +31,9 @@ namespace vg {
         // Set up the initial multipath graph from the given path chunks.
         create_path_chunk_nodes(vg, path_chunks, alignment, projection_trans, injection_trans);
         
+        // trim indels off of nodes to make the score dynamic programmable across nodes
+        trim_hanging_indels(alignment);
+        
         // compute reachability and add edges
         add_reachability_edges(vg, projection_trans, injection_trans);
         
@@ -83,6 +86,37 @@ namespace vg {
         
     }
     
+    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
+        
+        // this can only be done on aligned sequences
+        if (!alignment.has_path()) {
+            return;
+        }
+        
+        // shim the aligned path into the path chunks constructor to make a node for it
+        vector<pair<pair<string::const_iterator, string::const_iterator>, Path>> path_holder;
+        path_holder.emplace_back(make_pair(alignment.sequence().begin(), alignment.sequence().end()), alignment.path());
+        create_path_chunk_nodes(vg, path_holder, alignment, projection_trans, injection_trans);
+        
+        // cut the snarls out of the aligned path so we can realign through them
+        resect_snarls_from_paths(&snarl_manager, projection_trans, max_snarl_cut_size);
+        
+        // the snarls algorithm adds edges where necessary
+        has_reachability_edges = true;
+        
+        // trim indels from the end of path nodes so that scores will be dynamic programmable across subpaths
+        trim_hanging_indels(alignment);
+    }
+    
+    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans) :
+                                                     MultipathAlignmentGraph(vg, alignment, snarl_manager, max_snarl_cut_size, projection_trans,
+                                                                             create_injection_trans(projection_trans)) {
+        // Nothing to do
+    }
+    
     void MultipathAlignmentGraph::create_path_chunk_nodes(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                                           const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                           const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
@@ -95,8 +129,118 @@ namespace vg {
             
             const Path& path = path_chunk.second;
             
-            // if the path begins or ends with any gaps we have to remove them to make the score
-            // dynamic programmable across Subpaths
+            auto range = injection_trans.equal_range(path.mapping(0).position().node_id());
+            for (auto iter = range.first; iter != range.second; iter++) {
+                
+                id_t injected_id = iter->second.first;
+                
+                if (iter->second.second != path.mapping(0).position().is_reverse()) {
+                    continue;
+                }
+                
+                // stack for DFS, each record contains records of (next trav index, next traversals)
+                vector<pair<size_t, vector<NodeTraversal>>> stack;
+                stack.emplace_back(0, vector<NodeTraversal>{NodeTraversal(vg.get_node(injected_id))});
+                
+                while (!stack.empty()) {
+                    auto& back = stack.back();
+                    if (back.first == back.second.size()) {
+#ifdef debug_multipath_alignment
+                        cerr << "traversed all edges out of current traversal" << endl;
+#endif
+                        stack.pop_back();
+                        continue;
+                    }
+                    NodeTraversal trav = back.second[back.first];
+                    back.first++;
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "checking node " << trav.node->id() << endl;
+#endif
+                    
+                    auto f = projection_trans.find(trav.node->id());
+                    if (f != projection_trans.end()) {
+                        pair<id_t, bool> projected_trav = f->second;
+                        
+                        const Position& pos = path.mapping(stack.size() - 1).position();
+                        if (projected_trav.first == pos.node_id() &&
+                            projected_trav.second == (projected_trav.second != trav.backward)) {
+                            
+                            // position matched the path
+                            
+#ifdef debug_multipath_alignment
+                            cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << endl;
+#endif
+                            
+                            if (stack.size() == path.mapping_size()) {
+#ifdef debug_multipath_alignment
+                                cerr << "finished walking path" << endl;
+#endif
+                                break;
+                            }
+                            stack.emplace_back(0, vector<NodeTraversal>());
+                            vg.nodes_next(trav, stack.back().second);
+                        }
+                    }
+                }
+                
+                // did we successfully walk the path out?
+                if (stack.empty()) {
+#ifdef debug_multipath_alignment
+                    cerr << "failed to successfully walk path, skipping" << endl;
+#endif
+                    continue;
+                }
+                
+                // now we can make a node in the subpath graph
+                path_nodes.emplace_back();
+                PathNode& path_node = path_nodes.back();
+                
+                path_node.begin = path_chunk.first.first;
+                path_node.end = path_chunk.first.second;
+                
+                // move over the path
+                for (size_t i = 0; i < path.mapping_size(); i++) {
+                    const Mapping& mapping = path.mapping(i);
+                    const Position& position = mapping.position();
+                    
+                    auto& stack_record = stack[i];
+                    NodeTraversal& trav = stack_record.second[stack_record.first - 1];
+                    
+                    Mapping* new_mapping = path_node.path.add_mapping();
+                    Position* new_position = new_mapping->mutable_position();
+                    
+                    new_mapping->set_rank(path_node.path.mapping_size());
+                    
+                    // use the node space that we walked out in
+                    new_position->set_node_id(trav.node->id());
+                    new_position->set_is_reverse(trav.backward);
+                    
+                    new_position->set_offset(position.offset());
+                    
+                    for (int64_t j = 0; j < mapping.edit_size(); j++) {
+                        *new_mapping->add_edit() = mapping.edit(j);
+                    }
+                }
+                
+#ifdef debug_multipath_alignment
+                cerr << "walked path: " << pb2json(path_node.path) << endl;
+#endif
+            }
+        }
+    }
+    
+    void MultipathAlignmentGraph::trim_hanging_indels(const Alignment& alignment) {
+        
+        // if the path begins or ends with any gaps we have to remove them to make the score
+        // dynamic programmable across Subpaths
+        
+        unordered_set<size_t> to_remove;
+        
+        for (size_t i = 0; i < path_nodes.size(); i++) {
+            
+            PathNode& path_node = path_nodes[i];
+            Path& path = path_node.path;
             
             int64_t mapping_start_idx = 0;
             int64_t mapping_last_idx = path.mapping_size() - 1;
@@ -107,11 +251,11 @@ namespace vg {
             // don't cut off softclips (we assume the entire softclip is in one edit and the next edit is aligned bases)
             bool softclip_start = (path.mapping(0).edit(0).from_length() == 0 &&
                                    path.mapping(0).edit(0).to_length() > 0 &&
-                                   path_chunk.first.first == alignment.sequence().begin());
+                                   path_node.begin == alignment.sequence().begin());
             
             bool softclip_end = (path.mapping(mapping_last_idx).edit(edit_last_idx).from_length() == 0 &&
                                  path.mapping(mapping_last_idx).edit(edit_last_idx).to_length() > 0 &&
-                                 path_chunk.first.second == alignment.sequence().end());
+                                 path_node.end == alignment.sequence().end());
             
             int64_t removed_start_to_length = 0;
             int64_t removed_end_to_length = 0;
@@ -160,119 +304,129 @@ namespace vg {
                     }
                 }
             }
-            
 #ifdef debug_multipath_alignment
             cerr << "after removing non-softclip flanking indels and N matches, path goes from (" << mapping_start_idx << ", " << edit_start_idx << ") to (" << mapping_last_idx << ", " << edit_last_idx << ")" << endl;
 #endif
             
-            if (mapping_start_idx < mapping_last_idx ||
-                (mapping_start_idx == mapping_last_idx && edit_start_idx <= edit_last_idx)) {
+            // did we find any indels?
+            if (mapping_start_idx != 0 || mapping_last_idx + 1 != path.mapping_size() ||
+                edit_start_idx != 0 || edit_last_idx + 1 != path.mapping(mapping_last_idx).edit_size()) {
                 
-                // the entire chunk didn't end up being removed so let's try to walk it out
-                
-                auto range = injection_trans.equal_range(path.mapping(mapping_start_idx).position().node_id());
-                for (auto iter = range.first; iter != range.second; iter++) {
+                // would we need to trim the whole node?
+                if (mapping_start_idx < mapping_last_idx ||
+                    (mapping_start_idx == mapping_last_idx && edit_start_idx <= edit_last_idx)) {
                     
-                    id_t injected_id = iter->second.first;
+                    // update the read interval
+                    path_node.begin += removed_start_to_length;
+                    path_node.end -= removed_end_to_length;
                     
-                    if (iter->second.second != path.mapping(mapping_start_idx).position().is_reverse()) {
-                        continue;
-                    }
-                    
-                    // stack for DFS, each record contains records of (next trav index, next traversals)
-                    vector<pair<size_t, vector<NodeTraversal>>> stack;
-                    stack.emplace_back(0, vector<NodeTraversal>{NodeTraversal(vg.get_node(injected_id))});
-                    
-                    while (!stack.empty()) {
-                        auto& back = stack.back();
-                        if (back.first == back.second.size()) {
-#ifdef debug_multipath_alignment
-                            cerr << "traversed all edges out of current traversal" << endl;
-#endif
-                            stack.pop_back();
-                            continue;
-                        }
-                        NodeTraversal trav = back.second[back.first];
-                        back.first++;
-                        
-#ifdef debug_multipath_alignment
-                        cerr << "checking node " << trav.node->id() << endl;
-#endif
-                        
-                        auto f = projection_trans.find(trav.node->id());
-                        if (f != projection_trans.end()) {
-                            pair<id_t, bool> projected_trav = f->second;
-                            
-                            const Position& pos = path.mapping(stack.size() + mapping_start_idx - 1).position();
-                            if (projected_trav.first == pos.node_id() &&
-                                projected_trav.second == (projected_trav.second != trav.backward)) {
-                                
-                                // position matched the path
-                                
-#ifdef debug_multipath_alignment
-                                cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << endl;
-#endif
-                                
-                                if (stack.size() == mapping_last_idx - mapping_start_idx + 1) {
-#ifdef debug_multipath_alignment
-                                    cerr << "finished walking path" << endl;
-#endif
-                                    break;
-                                }
-                                stack.emplace_back(0, vector<NodeTraversal>());
-                                vg.nodes_next(trav, stack.back().second);
-                            }
-                        }
-                    }
-                    
-                    // did we successfully walk the path out?
-                    if (stack.empty()) {
-#ifdef debug_multipath_alignment
-                        cerr << "failed to successfully walk path, skipping" << endl;
-#endif
-                        continue;
-                    }
-                    
-                    // now we can make a node in the subpath graph
-                    path_nodes.emplace_back();
-                    PathNode& path_node = path_nodes.back();
-                    
-                    path_node.begin = path_chunk.first.first + removed_start_to_length;
-                    path_node.end = path_chunk.first.second - removed_end_to_length;
-                    
-                    // move over the portion of the path that we didn't remove
-                    for (int64_t i = mapping_start_idx; i <= mapping_last_idx; i++) {
-                        const Mapping& mapping = path.mapping(i);
+                    // make a new path with the indels trimmed
+                    Path trimmed_path;
+                    for (int64_t j = mapping_start_idx; j <= mapping_last_idx; j++) {
+                        const Mapping& mapping = path.mapping(j);
                         const Position& position = mapping.position();
                         
-                        auto& stack_record = stack[i - mapping_start_idx];
-                        NodeTraversal& trav = stack_record.second[stack_record.first - 1];
-                        
-                        Mapping* new_mapping = path_node.path.add_mapping();
+                        Mapping* new_mapping = trimmed_path.add_mapping();
                         Position* new_position = new_mapping->mutable_position();
                         
-                        new_mapping->set_rank(path_node.path.mapping_size());
+                        new_position->set_node_id(position.node_id());
+                        new_position->set_is_reverse(position.is_reverse());
+                        new_position->set_offset(position.offset() + (j == mapping_start_idx ? removed_start_mapping_from_length : 0));
                         
-                        // use the node space that we walked out in
-                        new_position->set_node_id(trav.node->id());
-                        new_position->set_is_reverse(trav.backward);
-                        
-                        new_position->set_offset(position.offset() +
-                                                 (i == mapping_start_idx ? removed_start_mapping_from_length : 0));
-                        
-                        int64_t j_range_start = (i == mapping_start_idx ? edit_start_idx : 0);
-                        int64_t j_range_end = (i == mapping_last_idx ? edit_last_idx + 1 : mapping.edit_size());
-                        for (int64_t j = j_range_start; j < j_range_end; j++) {
-                            *new_mapping->add_edit() = mapping.edit(j);
+                        size_t k_start = (j == mapping_start_idx ? edit_start_idx : 0);
+                        size_t k_end = (j == mapping_last_idx ? edit_last_idx + 1 : mapping.edit_size());
+                        for (size_t k = k_start; k < k_end; k++) {
+                            *new_mapping->add_edit() = mapping.edit(k);
                         }
                     }
                     
-#ifdef debug_multipath_alignment
-                    cerr << "walked path: " << pb2json(path_node.path) << endl;
-#endif
+                    path_node.path = move(trimmed_path);
+                }
+                else {
+                    to_remove.insert(i);
                 }
             }
         }
+        
+        if (!to_remove.empty()) {
+            // we need remove the nodes that were completely trimmed from the graph
+            
+            // first we need to make edges that bypass the nodes we're going to remove
+            for (size_t i = 0; i < path_nodes.size(); i++) {
+                if (to_remove.count(i)) {
+                    // we don't need to update edges on nodes we're going to remove
+                    continue;
+                }
+                
+                vector<pair<size_t, size_t>> new_edges;
+                
+                // records of (distance, index) in a queue for Dijkstra traversal
+                priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, greater<pair<size_t, size_t>>> edge_queue;
+                // the indexes of edges we've already added
+                unordered_set<size_t> added_edges;
+                
+                for (pair<size_t, size_t>& edge : path_nodes[i].edges) {
+                    edge_queue.emplace(edge.second, edge.first);
+                }
+                
+                while (!edge_queue.empty()) {
+                    pair<size_t, size_t> traversed_edge = edge_queue.top();
+                    edge_queue.pop();
+                    
+                    if (to_remove.count(traversed_edge.second)) {
+                        // we're removing this path node, so traverse it and add connections along its edges
+                        PathNode& removing_node = path_nodes[traversed_edge.second];
+                        size_t through_length = traversed_edge.first + path_from_length(removing_node.path);
+                        for (pair<size_t, size_t>& edge : removing_node.edges) {
+                            edge_queue.emplace(through_length + edge.second, edge.first);
+                        }
+                    }
+                    else if (!added_edges.count(traversed_edge.second)) {
+                        // we've finished walking a shortest path to a non-removed node, switch the order back and add it
+                        new_edges.emplace_back(traversed_edge.second, traversed_edge.first);
+                        
+                        // and mark it as added so we don't make duplicate edges
+                        added_edges.insert(traversed_edge.second);
+                    }
+                }
+                
+                // replace the old edges with the new ones
+                path_nodes[i].edges = new_edges;
+            }
+            
+            // move the nodes we're going to keep into the prefix of the vector
+            vector<size_t> removed_so_far(path_nodes.size(), 0);
+            for (size_t i = 0; i < path_nodes.size(); i++) {
+                if (i > 0) {
+                    removed_so_far[i] = removed_so_far[i - 1];
+                }
+                
+                if (to_remove.count(i)) {
+                    removed_so_far[i]++;;
+                }
+                else if (removed_so_far[i]) {
+                    path_nodes[i - removed_so_far[i]] = move(path_nodes[i]);
+                }
+            }
+            
+            // actually remove the nodes
+            path_nodes.resize(path_nodes.size() - to_remove.size());
+            
+            // update the indexes of the edges
+            for (size_t i = 0; i < path_nodes.size(); i++) {
+                for (pair<size_t, size_t>& edge : path_nodes[i].edges) {
+                    edge.first -= removed_so_far[edge.first];
+                }
+            }
+            
+#ifdef debug_multipath_alignment
+            cerr << "removed " << removed_so_far.back() << " complete nodes" << endl;
+#endif
+        }
+        
+#ifdef debug_multipath_alignment
+        cerr << "finished trimming hanging indels" << endl;
+#endif
     }
     
     void MultipathAlignmentGraph::create_match_nodes(VG& vg, const MultipathMapper::memcluster_t& hits,
@@ -948,30 +1102,33 @@ namespace vg {
                 path_node->edges.clear();
                 path->clear_mapping();
                 
-                size_t prefix_length = 0;
+                size_t prefix_from_length = 0;
+                size_t prefix_to_length = 0;
                 size_t prefix_idx = 0;
                 while (prefix_idx < keep_segments.front().first) {
-                    prefix_length += mapping_from_length(original_path.mapping(prefix_idx));
+                    prefix_from_length += mapping_from_length(original_path.mapping(prefix_idx));
+                    prefix_to_length += mapping_to_length(original_path.mapping(prefix_idx));
                     prefix_idx++;
                 }
                 
                 // keep track whether we trimmed a prefix off the left side of the priginal path
-                trimmed_prefix_length[i] = prefix_length;
-                trimmed_any_prefix = trimmed_any_prefix || (prefix_length > 0);
+                trimmed_prefix_length[i] = prefix_from_length;
+                trimmed_any_prefix = trimmed_any_prefix || (prefix_from_length > 0);
                 
 #ifdef debug_multipath_alignment
                 cerr << "making path for initial keep segment " << keep_segments.front().first << ":" << keep_segments.front().second << " at idx " << i << endl;
 #endif
                 
                 // place the first keep segment into the original node
-                path_node->begin = original_begin + prefix_length;
+                path_node->begin = original_begin + prefix_to_length;
                 for (int32_t rank = 1; prefix_idx < keep_segments.front().second; prefix_idx++, rank++) {
                     Mapping* mapping = path->add_mapping();
                     *mapping = original_path.mapping(prefix_idx);
                     mapping->set_rank(rank);
-                    prefix_length += mapping_from_length(*mapping);
+                    prefix_from_length += mapping_from_length(*mapping);
+                    prefix_to_length += mapping_to_length(*mapping);
                 }
-                path_node->end = original_begin + prefix_length;
+                path_node->end = original_begin + prefix_to_length;
                 
                 
 #ifdef debug_multipath_alignment
@@ -986,15 +1143,16 @@ namespace vg {
                     auto& keep_segment = keep_segments[j];
                     
 #ifdef debug_multipath_alignment
-                    cerr << "making path for initial keep segment " << keep_segments.front().first << ":" << keep_segments.front().second << " at idx " << i << endl;
+                    cerr << "making path for next keep segment " << keep_segments[j].first << ":" << keep_segments[j].second << " at idx " << path_nodes.size() << endl;
 #endif
                     
                     // record the start of the intersegment section of the read
-                    size_t intersegment_start = prefix_length;
+                    size_t intersegment_start = prefix_from_length;
                     
                     // advance to the next keep segment
                     while (prefix_idx < keep_segment.first) {
-                        prefix_length += mapping_from_length(original_path.mapping(prefix_idx));
+                        prefix_from_length += mapping_from_length(original_path.mapping(prefix_idx));
+                        prefix_to_length += mapping_to_length(original_path.mapping(prefix_idx));
                         prefix_idx++;
                     }
                     
@@ -1004,17 +1162,18 @@ namespace vg {
                     Path& cut_path = cut_node.path;
                     
                     // add a connecting edge from the last keep segment
-                    path_nodes[prev_segment_idx].edges.emplace_back(path_nodes.size() - 1, prefix_length - intersegment_start);
+                    path_nodes[prev_segment_idx].edges.emplace_back(path_nodes.size() - 1, prefix_from_length - intersegment_start);
                     
                     // transfer over the path and the read interval
-                    cut_node.begin = original_begin + prefix_length;
+                    cut_node.begin = original_begin + prefix_to_length;
                     for (int32_t rank = 1; prefix_idx < keep_segment.second; prefix_idx++, rank++) {
                         Mapping* mapping = cut_path.add_mapping();
                         *mapping = original_path.mapping(prefix_idx);
                         mapping->set_rank(rank);
-                        prefix_length += mapping_from_length(*mapping);
+                        prefix_from_length += mapping_from_length(*mapping);
+                        prefix_to_length += mapping_to_length(*mapping);
                     }
-                    cut_node.end = original_begin + prefix_length;
+                    cut_node.end = original_begin + prefix_to_length;
                     
 #ifdef debug_multipath_alignment
                     cerr << "new cut path: " << pb2json(cut_path) << endl;
@@ -1027,7 +1186,7 @@ namespace vg {
                 path_nodes[prev_segment_idx].edges = move(forward_edges);
                 
                 // add the length of the trimmed portion of the path to the edge length
-                size_t trimmed_suffix_length = (original_begin + prefix_length) - original_end;
+                size_t trimmed_suffix_length = path_from_length(original_path) - prefix_from_length;
                 if (trimmed_suffix_length) {
                     for (pair<size_t, size_t>& edge : path_nodes[prev_segment_idx].edges) {
                         edge.second += trimmed_suffix_length;
@@ -1074,6 +1233,15 @@ namespace vg {
         // there.
         
         
+        // optimization: we never add edges unless there are multiple nodes, and frequently there is only one
+        // so we can skip traversing over the entire graph
+        if (path_nodes.size() <= 1) {
+#ifdef debug_multipath_alignment
+            cerr << "skipping reachability computation because there are " << path_nodes.size() << " path nodes" << endl;
+#endif
+            has_reachability_edges = true;
+            return;
+        }
         
         
 #ifdef debug_multipath_alignment
@@ -1812,7 +1980,7 @@ namespace vg {
                         candidate_end_node.edges.push_back(make_pair(start, candidate_dist));
                         
 #ifdef debug_multipath_alignment
-                        cerr << "connection is read colinear, adding edge" << endl;
+                        cerr << "connection is read colinear, adding edge for total of " << candidate_end_node.edges.size() << " edges so far" << endl;
 #endif
                         
                         // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
@@ -1844,7 +2012,7 @@ namespace vg {
 #endif
                         }
                         
-                        // traverse through any exposes starts to see if we can find other exposed ends
+                        // traverse through any exposed starts to see if we can find other exposed ends
                         priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> exposed_start_queue;
                         unordered_set<size_t> traversed_exposed_start;
                         
@@ -2623,7 +2791,7 @@ namespace vg {
     }
     
     void MultipathAlignmentGraph::align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
-                                        size_t num_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out) {
+                                        size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out) {
         
         // Can only align if edges are present.
         assert(has_reachability_edges);
@@ -2682,7 +2850,7 @@ namespace vg {
             // make a pos_t that points to the final base in the match
             pos_t src_pos = make_pos_t(final_mapping_position.node_id(),
                                        final_mapping_position.is_reverse(),
-                                       final_mapping_position.offset() + mapping_from_length(final_mapping) - 1);
+                                       final_mapping_position.offset() + mapping_from_length(final_mapping));
             
             // the longest gap that could be detected at this position in the read
             size_t src_max_gap = aligner->longest_detectable_gap(alignment, src_path_node.end);
@@ -2698,25 +2866,22 @@ namespace vg {
 #endif
                 
                 size_t intervening_length = dest_path_node.begin - src_path_node.end;
-                size_t max_dist = intervening_length +
-                std::min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin)) + 1;
+                size_t max_dist = intervening_length + std::min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin));
                 
 #ifdef debug_multipath_alignment
                 cerr << "read dist: " << intervening_length << ", source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << endl;
 #endif
                 
                 // extract the graph between the matches
-                Graph connecting_graph;
-                unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&align_graph,     // DAG with split strands
-                                                                                               connecting_graph, // graph to extract into
-                                                                                               max_dist,         // longest distance necessary
-                                                                                               src_pos,          // end of earlier match
-                                                                                               dest_pos,         // beginning of later match
-                                                                                               false,            // do not extract the end positions in the matches
-                                                                                               false,            // do not bother finding all cycles (it's a DAG)
-                                                                                               true,             // remove tips
-                                                                                               true,             // only include nodes on connecting paths
-                                                                                               true);            // enforce max distance strictly
+                VG connecting_graph;
+                unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&align_graph,      // DAG with split strands
+                                                                                               &connecting_graph, // graph to extract into
+                                                                                               max_dist,          // longest distance necessary
+                                                                                               src_pos,           // end of earlier match
+                                                                                               dest_pos,          // beginning of later match
+                                                                                               false,             // do not bother finding all cycles (it's a DAG)
+                                                                                               true,              // only include nodes on connecting paths
+                                                                                               true);             // enforce max distance strictly
                 
                 
                 if (connecting_graph.node_size() == 0) {
@@ -2724,6 +2889,8 @@ namespace vg {
                     edges_for_removal.insert(edge);
                     continue;
                 }
+                
+                size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&connecting_graph)) : max_alt_alns;
                 
                 // transfer the substring between the matches to a new alignment
                 Alignment intervening_sequence;
@@ -2735,14 +2902,13 @@ namespace vg {
                 }
                 
 #ifdef debug_multipath_alignment
-                cerr << "aligning sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph) << endl;
+                cerr << "aligning sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph.graph) << endl;
 #endif
                 
                 bool added_direct_connection = false;
                 // TODO a better way of choosing the number of alternate alignments
-                // TODO alternate alignments restricted only to distinct node paths?
                 vector<Alignment> alt_alignments;
-                aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alt_alns, band_padding, true);
+                aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph.graph, num_alt_alns, band_padding, true);
                 
                 for (Alignment& connecting_alignment : alt_alignments) {
 #ifdef debug_multipath_alignment
@@ -2814,7 +2980,7 @@ namespace vg {
                         translate_node_ids(*connecting_subpath->mutable_path(), connect_trans);
                         Mapping* first_subpath_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
                         if (first_subpath_mapping->position().node_id() == final_mapping.position().node_id()) {
-                            first_subpath_mapping->mutable_position()->set_offset(offset(src_pos) + 1);
+                            first_subpath_mapping->mutable_position()->set_offset(offset(src_pos));
                         }
                     }
                     
@@ -2856,13 +3022,17 @@ namespace vg {
                     // want past-the-last instead of last index here
                     get_offset(end_pos)++;
                     
-                    Graph tail_graph;
+                    VG tail_graph_extractor;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               tail_graph,
+                                                                                               &tail_graph_extractor,
                                                                                                target_length,
                                                                                                end_pos,
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
+                    
+                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) : max_alt_alns;
+                    
+                    Graph& tail_graph = tail_graph_extractor.graph;
                     
                     // ensure invariants that gssw-based alignment expects
                     groom_graph_for_gssw(tail_graph);
@@ -2909,6 +3079,7 @@ namespace vg {
                     }
                     else {
                         // align against the graph
+                        
                         aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
                     }
                     
@@ -2965,14 +3136,17 @@ namespace vg {
                     pos_t begin_pos = initial_position(path_node.path);
                     
                     
-                    Graph tail_graph;
+                    VG tail_graph_extractor;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               tail_graph,
+                                                                                               &tail_graph_extractor,
                                                                                                target_length,
                                                                                                begin_pos,
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
+                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) : max_alt_alns;
+                    
+                    Graph& tail_graph = tail_graph_extractor.graph;
                     // ensure invariants that gssw-based alignment expects
                     groom_graph_for_gssw(tail_graph);
                     
