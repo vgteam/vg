@@ -31,8 +31,6 @@ class DistanceIndex {
     int64_t distance( 
          const Snarl* snarl1, const Snarl* snarl2, pos_t& pos1, pos_t& pos2);
 
-    //Get a rough estimate of the size of the index
-    int64_t sizeOf();
   
     //Helper function to find the minimum value that is not -1
     static int64_t minPos(vector<int64_t> vals);

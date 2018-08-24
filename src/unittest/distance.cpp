@@ -2173,7 +2173,7 @@ class TestDistanceIndex : public DistanceIndex {
         }
     } //end test case
 
-
+/*
     TEST_CASE("Serialize distance index", "[dist][serial]") {
         for (int i = 0; i < 100; i++) {
 
@@ -2278,7 +2278,7 @@ class TestDistanceIndex : public DistanceIndex {
              
         }
     } //end test case
-
+*/
 }
 
 }

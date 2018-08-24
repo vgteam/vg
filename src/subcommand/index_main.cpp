@@ -17,6 +17,8 @@
 #include "../vg_set.hpp"
 #include "../utility.hpp"
 #include "../region.hpp"
+#include "../snarls.hpp"
+#include "../distance.hpp"
 
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
@@ -71,7 +73,10 @@ void help_index(char** argv) {
          << "    -N, --node-alignments  input is (ideally, sorted) .gam format," << endl
          << "                           cross reference nodes by alignment traversals" << endl
          << "    -D, --dump             print the contents of the db to stdout" << endl
-         << "    -C, --compact          compact the index into a single level (improves performance)" << endl;
+         << "    -C, --compact          compact the index into a single level (improves performance)" << endl
+         << "snarl distance index options" << endl
+         << "    -c  --dist-graph FILE  generate snarl distane index from VG in FILE" << endl
+         << "    -s  --dist-name FILE   use this file to store a snarl-based distance index" << endl;
 }
 
 // Convert gbwt::node_type to ThreadMapping.
@@ -128,15 +133,15 @@ int main_index(int argc, char** argv) {
     }
 
     // Which indexes to build.
-    bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt = false, build_gcsa = false, build_rocksdb = false;
+    bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
 
     // Files we should read.
-    string vcf_name, mapping_name;
+    string vcf_name, mapping_name, dist_graph;
     vector<string> thread_db_names;
     vector<string> dbg_names;
 
     // Files we should write.
-    string xg_name, gbwt_name, threads_name, gcsa_name, rocksdb_name;
+    string xg_name, gbwt_name, threads_name, gcsa_name, rocksdb_name, dist_name;
 
     // General
     bool show_progress = false;
@@ -219,11 +224,15 @@ int main_index(int argc, char** argv) {
             {"node-alignments", no_argument, 0, 'N'},
             {"dump", no_argument, 0, 'D'},
             {"compact", no_argument, 0, 'C'},
+
+            //Snarl distance index
+            {"dist-graph", required_argument, 0, 'c'},
+            {"dist-name", required_argument, 0, 's'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:TM:G:H:PoOB:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCh",
+        c = getopt_long (argc, argv, "b:t:px:F:v:TM:G:H:PoOB:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCc:s:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -390,6 +399,16 @@ int main_index(int argc, char** argv) {
             compact = true;
             break;
 
+        //Snarl distance index
+        case 'c':
+            build_dist = true;
+            dist_graph = optarg;
+            break;
+        case 's':
+            build_dist = true;
+            dist_name = optarg;
+            break;
+
         case 'h':
         case '?':
             help_index(argv);
@@ -406,7 +425,7 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if (xg_name.empty() && gbwt_name.empty() && threads_name.empty() && gcsa_name.empty() && rocksdb_name.empty() && !build_gam_index) {
+    if (xg_name.empty() && gbwt_name.empty() && threads_name.empty() && gcsa_name.empty() && rocksdb_name.empty() && dist_graph.empty() && !build_gam_index) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
     }
@@ -1012,6 +1031,29 @@ int main_index(int argc, char** argv) {
             index.open_read_only(rocksdb_name);
             index.dump(cout);
             index.close();
+        }
+
+    }
+
+    //Build snarl distance index
+    if (build_dist) {
+        if (dist_graph.empty() || dist_name.empty()) {
+            cerr << "error: [vg index] distance index requires vg and output file" << endl;
+            return 1;
+        } else {
+            ifstream vg_stream(dist_graph);
+            if (!vg_stream) {
+                cerr << "error: [vg index] cannot open VG file" << endl;
+                exit(1);
+            }
+            VG vg(vg_stream);
+            CactusSnarlFinder bubble_finder(vg);
+            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            DistanceIndex di (&vg, &snarl_manager);
+
+ 
+            ofstream dist_out(dist_name);           
+            di.serialize(dist_out);
         }
 
     }
