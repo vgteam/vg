@@ -71,7 +71,8 @@ void help_mpmap(char** argv) {
     << "  -K, --clust-length INT    minimum MEM length form clusters [automatic]" << endl
     << "  -c, --hit-max INT         use at most this many hits for any MEM (0 for no limit) [1024]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
-    << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
+    << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [10.0]" << endl
+    << "      --haplo-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
     << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
     << "  -U, --prune-exp FLOAT     prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
     << "scoring:" << endl
@@ -97,6 +98,7 @@ int main_mpmap(int argc, char** argv) {
 
     // initialize parameters with their default options
     #define OPT_SCORE_MATRIX 1000
+    #define OPT_HAPLO_PENALTY 1001
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -140,6 +142,7 @@ int main_mpmap(int argc, char** argv) {
     int num_alt_alns = 4;
     double suboptimal_path_exponent = 1.25;
     double likelihood_approx_exp = 10.0;
+    double haplo_penalty = 20.7;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
     size_t frag_length_sample_size = 1000;
@@ -218,6 +221,7 @@ int main_mpmap(int argc, char** argv) {
             {"hit-max", required_argument, 0, 'c'},
             {"max-dist-error", required_argument, 0, 'd'},
             {"approx-exp", required_argument, 0, 'w'},
+            {"haplo-penalty", required_argument, 0, OPT_HAPLO_PENALTY},
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, 'U'},
             {"long-read-scoring", no_argument, 0, 'E'},
@@ -442,6 +446,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'w':
                 likelihood_approx_exp = parse<double>(optarg);
+                break;
+                
+            case OPT_HAPLO_PENALTY:
+                haplo_penalty = parse<double>(optarg);
                 break;
                 
             case 'C':
@@ -874,6 +882,7 @@ int main_mpmap(int argc, char** argv) {
     // Use population MAPQs when we have the right option combination to make that sensible.
     multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
     multipath_mapper.population_max_paths = population_max_paths;
+    multipath_mapper.recombination_penalty = haplo_penalty;
     
     // set pruning and clustering parameters
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
