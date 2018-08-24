@@ -82,10 +82,13 @@ namespace vg {
         /// when mappings are likely to have occurred by chance
         void calibrate_mismapping_detection(size_t num_simulations = 1000, size_t simulated_read_length = 150);
         
+        /// Should be called once after construction, or any time the band padding multiplier is changed
+        void init_band_padding_memo();
+        
         // parameters
         
         int64_t max_snarl_cut_size = 5;
-        double band_padding_multiplier = 0.33;
+        double band_padding_multiplier = 1.0;
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
@@ -340,12 +343,6 @@ namespace vg {
                                           OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
                                           OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
                                           OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
-        
-        /// Should be called once after construction, or any time the band padding multiplier is changed
-        void init_band_padding_memo();
-        
-        /// Computes the band padding for inter-MEM alignment
-        size_t get_band_padding(string::const_iterator read_begin, string::const_iterator read_end);
         
         SnarlManager* snarl_manager;
         

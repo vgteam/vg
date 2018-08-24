@@ -475,12 +475,6 @@ namespace vg {
         }
     }
     
-    size_t MultipathMapper::get_band_padding(string::const_iterator read_begin, string::const_iterator read_end) {
-        size_t read_length = read_end - read_begin;
-        return read_length < band_padding_memo.size() ? band_padding_memo[read_length]
-                                                      : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
-    }
-    
     bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) {
     
         // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
@@ -2974,8 +2968,14 @@ namespace vg {
         }
 #endif
         
+        function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
+            size_t read_length = seq.sequence().end() - seq.sequence().begin();
+            return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
+                                                          : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
+        };
+        
         // do the connecting alignments and fill out the MultipathAlignment object
-        multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, dynamic_max_alt_alns, band_padding, multipath_aln_out);
+        multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, dynamic_max_alt_alns, choose_band_padding, multipath_aln_out);
         
         
 #ifdef debug_multipath_mapper_alignment
@@ -3008,8 +3008,14 @@ namespace vg {
         multi_aln_graph.topological_sort(topological_order);
         multi_aln_graph.remove_transitive_edges(topological_order);
         
+        function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
+            size_t read_length = seq.sequence().end() - seq.sequence().begin();
+            return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
+                                                          : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
+        };
+        
         // do the connecting alignments and fill out the MultipathAlignment object
-        multi_aln_graph.align(alignment, subgraph, get_aligner(), false, num_alt_alns, dynamic_max_alt_alns, band_padding, multipath_aln_out);
+        multi_aln_graph.align(alignment, subgraph, get_aligner(), false, num_alt_alns, dynamic_max_alt_alns, choose_band_padding, multipath_aln_out);
         
         for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
             translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);

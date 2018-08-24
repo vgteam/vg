@@ -2796,6 +2796,18 @@ namespace vg {
     void MultipathAlignmentGraph::align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                                         size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out) {
         
+        // don't dynamically choose band padding, shim constant value into a function type
+        function<size_t(const Alignment&,const HandleGraph&)> constant_padding = [&](const Alignment& seq, const HandleGraph& graph) {
+            return band_padding;
+        };
+        align(alignment, align_graph, aligner, score_anchors_as_matches, max_alt_alns, dynamic_alt_alns, constant_padding, multipath_aln_out);
+    }
+    
+    void MultipathAlignmentGraph::align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
+                                        size_t max_alt_alns, bool dynamic_alt_alns,
+                                        function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
+                                        MultipathAlignment& multipath_aln_out) {
+        
         // Can only align if edges are present.
         assert(has_reachability_edges);
         
@@ -2911,7 +2923,8 @@ namespace vg {
                 bool added_direct_connection = false;
                 // TODO a better way of choosing the number of alternate alignments
                 vector<Alignment> alt_alignments;
-                aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph.graph, num_alt_alns, band_padding, true);
+                aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph.graph, num_alt_alns,
+                                                   band_padding_function(intervening_sequence, connecting_graph), true);
                 
                 for (Alignment& connecting_alignment : alt_alignments) {
 #ifdef debug_multipath_alignment
