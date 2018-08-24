@@ -60,7 +60,7 @@ void help_mpmap(char** argv) {
     << "  -P, --max-p-val FLOAT     background model p value must be less than this to avoid mismapping detection [0.00001]" << endl
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - adaptive, 3 - exact [2]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
-    << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
+    << "  -p, --padding-mult FLOAT  pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [0.33]" << endl
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [24 paired / 48 unpaired]" << endl
     << "  -O, --max-paths INT       consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
@@ -134,7 +134,7 @@ int main_mpmap(int argc, char** argv) {
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Adaptive;
-    int band_padding = 2;
+    double band_padding_multiplier = 0.33;
     int max_dist_error = 12;
     int num_alt_alns = 4;
     double suboptimal_path_exponent = 1.25;
@@ -197,7 +197,7 @@ int main_mpmap(int argc, char** argv) {
             {"max-p-val", required_argument, 0, 'P'},
             {"mq-method", required_argument, 0, 'v'},
             {"mq-max", required_argument, 0, 'Q'},
-            {"band-padding", required_argument, 0, 'p'},
+            {"padding-mult", required_argument, 0, 'p'},
             {"map-attempts", required_argument, 0, 'u'},
             {"max-paths", required_argument, 0, 'O'},
             {"max-multimaps", required_argument, 0, 'M'},
@@ -386,7 +386,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'p':
-                band_padding = parse<int>(optarg);
+                band_padding_multiplier = parse<double>(optarg);
                 break;
                 
             case 'u':
@@ -557,8 +557,8 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (band_padding < 0) {
-        cerr << "error:[vg mpmap] Band padding (-p) set to " << band_padding << ", must set to a nonnegative integer." << endl;
+    if (band_padding_multiplier < 0.0) {
+        cerr << "error:[vg mpmap] Band padding (-p) set to " << band_padding_multiplier << ", must set to a nonnegative number." << endl;
         exit(1);
     }
     
@@ -791,7 +791,8 @@ int main_mpmap(int argc, char** argv) {
     if(matrix_stream.is_open()) multipath_mapper.load_scoring_matrix(matrix_stream);
     multipath_mapper.adjust_alignments_for_base_quality = qual_adjusted;
     multipath_mapper.strip_bonuses = strip_full_length_bonus;
-    multipath_mapper.band_padding = band_padding;
+    multipath_mapper.band_padding_multiplier = band_padding_multiplier;
+    multipath_mapper.init_band_padding_memo();
     
     // set mem finding parameters
     multipath_mapper.hit_max = hit_max;

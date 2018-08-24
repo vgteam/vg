@@ -9,7 +9,7 @@
 #include <type_traits>
 
 //#define debug_multiple_tracebacks
-#define debug_verbose_validation
+//#define debug_verbose_validation
 
 using namespace std;
 using namespace structures;
@@ -1414,6 +1414,7 @@ namespace vg {
             
             int64_t read_at = subpath_read_interval[i].first;
             
+            bool first_mapping = true;
             for (size_t j = 0; j < subpath.path().mapping_size(); j++) {
                 const Mapping& mapping = subpath.path().mapping(j);
                 string pos_string = format_position(mapping.position());
@@ -1449,14 +1450,17 @@ namespace vg {
                 string mapping_read_str = mapping_read_strm.str();
                 string mapping_node_str = mapping_node_strm.str();
                 
-                if (line_length + mapping_node_str.size() + 1 <= max_line_length) {
+                if (line_length + mapping_node_str.size() + 1 <= max_line_length || first_mapping) {
                     read_strm << " " << mapping_read_str;
                     node_strm << " " << mapping_node_str;
                     line_length += mapping_node_str.size() + 1;
+                    
+                    first_mapping = false;
                 }
                 else {
                     out << read_strm.str() << endl;
-                    out << node_strm.str() << endl << endl;;
+                    out << node_strm.str() << endl << endl;
+                    
                     read_strm.str("");
                     node_strm.str("");
                     read_strm << "\tread" << string(read_header.size() - 4, ' ') << " " << mapping_read_str;
@@ -1464,6 +1468,7 @@ namespace vg {
                     
                     line_length = 9 + read_header.size() + mapping_node_str.size();
                 }
+                
             }
             
             out << read_strm.str() << endl;

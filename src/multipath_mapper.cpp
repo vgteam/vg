@@ -460,6 +460,21 @@ namespace vg {
         return true;
     }
     
+    void MultipathMapper::init_band_padding_memo() {
+        band_padding_memo.clear();
+        band_padding_memo.resize(band_padding_memo_size);
+        
+        for (size_t i = 0; i < band_padding_memo.size(); i++) {
+            band_padding_memo[i] = size_t(band_padding_multiplier * sqrt(i)) + 1;
+        }
+    }
+    
+    size_t MultipathMapper::get_band_padding(string::const_iterator read_begin, string::const_iterator read_end) {
+        size_t read_length = read_end - read_begin;
+        return read_length < band_padding_memo.size() ? band_padding_memo[read_length]
+                                                      : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
+    }
+    
     bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) {
     
         // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
@@ -519,6 +534,7 @@ namespace vg {
             return p_value;
         }
     }
+    
     
     void MultipathMapper::calibrate_mismapping_detection(size_t num_simulations, size_t simulated_read_length) {
         // we don't want to do base quality adjusted alignments for this stage since we are just simulating random sequences

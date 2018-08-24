@@ -1977,10 +1977,13 @@ namespace vg {
                     
                     if (candidate_end_node.end <= start_node.begin) {
                         // these MEMs are read colinear and graph reachable, so connect them
-                        candidate_end_node.edges.push_back(make_pair(start, candidate_dist));
+                        candidate_end_node.edges.emplace_back(start, candidate_dist);
                         
 #ifdef debug_multipath_alignment
-                        cerr << "connection is read colinear, adding edge for total of " << candidate_end_node.edges.size() << " edges so far" << endl;
+                        cerr << "connection is read colinear, adding edge on " << candidate_end << " for total of " << candidate_end_node.edges.size() << " edges so far" << endl;
+                        for (auto& edge : candidate_end_node.edges) {
+                            cerr << "\t-> " << edge.first << " dist " << edge.second << endl;
+                        }
 #endif
                         
                         // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
