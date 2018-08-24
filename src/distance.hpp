@@ -221,6 +221,7 @@ class DistanceIndex {
        the start node is reverse
     TODO: Maybe put this somewhere else and use sdsl bit vector    */
     int_vector<> nodeToSnarl;
+    id_t minNodeID; //minimum node id of the graph
 
 
 

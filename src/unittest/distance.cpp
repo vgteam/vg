@@ -2140,7 +2140,6 @@ class TestDistanceIndex : public DistanceIndex {
                     int64_t myDist = di.distance(pos1, pos2);
                     int64_t actDist = distance(&graph, pos1, pos2);
  
-//                    cerr << nodeID1 << endl;
                     if (snarl_manager.into_which_snarl(nodeID1, false) == NULL ||
                         snarl_manager.into_which_snarl(nodeID1, true) == NULL) {
                         REQUIRE( di.snarlOf(nodeID1) == snarl1); 

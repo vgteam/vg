@@ -144,90 +144,65 @@ int main_distcompare(int argc, char** argv){
 
     int64_t size = di.sizeOf();
     
-//TODO: record time to do this, and memory 
     cout << "Time to create distance index: " << t << endl;
     cout << "Space taken up by distance index: " << size << endl;
 
     cout << endl;
+ 
 
-/*
-    vector<const Snarl*> allSnarls;
-    auto addSnarl = [&] (const Snarl* s) {
-        allSnarls.push_back(s);
-    };
-    snarl_manager.for_each_snarl_preorder(addSnarl);
-   
     random_device seed_source;
-    uniform_int_distribution<int> randomSnarlIndex(0, allSnarls.size() - 1);
     default_random_engine generator(seed_source());
 
     size_t count = 0;
     while (count < 10000) {
         //Find distances between random positions in the graph
-        / *Outputs: my distance /t old distance /t time for my calculation /t 
-                   time for old calculation /t
-        * /
+        //Outputs: my distance /t old distance /t time for my calculation /t 
+        //           time for old calculation /t
+        
     
         //Generate random positions by choosing snarls then nodes, then position
-//TODO: Start using xg positions then find snarl containing node
-        const Snarl* snarl1 = allSnarls[randomSnarlIndex(generator)];
-        const Snarl* snarl2 = allSnarls[randomSnarlIndex(generator)];
-   
-        pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 = 
-              snarl_manager.shallow_contents(snarl1, vg, true);
-        pair<unordered_set<Node*>, unordered_set<Edge*>> contents2 = 
-              snarl_manager.shallow_contents(snarl2, vg, true);
-   
-        vector<Node*> nodes1 (contents1.first.begin(), contents1.first.end());
-        vector<Node*> nodes2 (contents2.first.begin(), contents2.first.end());
 
-        uniform_int_distribution<int> randNodeIndex1(0, nodes1.size()-1);
-        uniform_int_distribution<int> randNodeIndex2(0, nodes2.size()-1);
-   
-        Node* node1 = nodes1[randNodeIndex1(generator)];
-        Node* node2 = nodes2[randNodeIndex2(generator)];
-  
-        vg::id_t nodeID1 = node1->id();
-        vg::id_t nodeID2 = node2->id();
+        size_t maxPos = xg_index.seq_length;
 
 
-        vg::off_t offset1 = uniform_int_distribution<int>(0, node1->sequence().size()-1)(generator);
-        vg::off_t offset2 = uniform_int_distribution<int>(0, node2->sequence().size()-1)(generator);
+        size_t offset1 = uniform_int_distribution<int>(1, maxPos)(generator);
+        size_t offset2 = uniform_int_distribution<int>(1, maxPos)(generator);
+
+        vg::id_t nodeID1 = xg_index.node_at_seq_pos(offset1);
+        vg::id_t nodeID2 = xg_index.node_at_seq_pos(offset2);
  
-        bool rev1 = uniform_int_distribution<int>(0,1)(generator) == 0;
-        bool rev2 = uniform_int_distribution<int>(0,1)(generator) == 0;
-        pos_t pos1 = make_pos_t(nodeID1, rev1, offset1);
-        pos_t pos2 = make_pos_t(nodeID2, rev2, offset2);
+        pos_t pos1 = make_pos_t(nodeID1, false, 0);
+        pos_t pos2 = make_pos_t(nodeID2, false, 0);
 
        
-        //Check that positions chosen are in the snarl, not child snarl
-        if (!(nodeID1 != snarl1->start().node_id() &&
-            (snarl_manager.into_which_snarl(nodeID1, false) != NULL ||
-             snarl_manager.into_which_snarl(nodeID1, true) != NULL)) &&
-            ! (nodeID2 != snarl2->start().node_id() &&
-               (snarl_manager.into_which_snarl(nodeID2, false) != NULL ||
-                snarl_manager.into_which_snarl(nodeID2, true) != NULL))) {
-            //Nodes aren't on child snarls
           
-            count ++;
+        count ++;
 
-            clock_t t = clock();
-            int64_t myDist = di.distance(snarl1, snarl2, pos1, pos2);
-            clock_t t1 = clock() - t;
+        clock_t start2 = clock();
+        int64_t oldDist = abs(xg_index.closest_shared_path_oriented_distance(
+                    nodeID1, 0, false, nodeID2, 0, false));
+        clock_t end2 = clock();
+        clock_t t2 = end2 - start2;
 
-            t = clock();
-            int64_t oldDist = abs(xg_index.closest_shared_path_oriented_distance(
-                    nodeID1, offset1, rev1, nodeID2, offset2, rev2));
-         
-            if (oldDist != 9223372036854775807 &&  myDist > oldDist + 1) {cerr << "WRONG";}
-            clock_t t2 = clock() - t;
 
-            cout  << myDist << "\t" << oldDist << "\t" << t1 << "\t" << t2;
-            cout << endl;
-        }
-    
+        clock_t start3 = clock();
+//        const Snarl* snarl1 = di.snarlOf(get_id(pos1));
+//        const Snarl* snarl2 = di.snarlOf(get_id(pos2));
+        di.distance(pos1, pos2);
+        clock_t end3 = clock();
+        clock_t t3 = end3 - start3;
+
+
+        clock_t start1 = clock();
+        int64_t myDist = di.distance(pos1, pos2);
+        clock_t end1 = clock();
+        clock_t t1 = end1 - start1;
+        
+        cout  << myDist << "\t" << oldDist << "\t" << t1 << "\t" << t2 << "\t" << t3;
+        cout << endl;
     }
-*/
+    
+
 
     return 0;
 }

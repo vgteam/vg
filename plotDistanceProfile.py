@@ -25,6 +25,7 @@ def main():
     oldDists = []
     myTimes = []
     oldTimes = []
+    fastTimes = []
 
     for l in inFile.readlines():
 
@@ -33,6 +34,7 @@ def main():
         oldDists.append(int(line[1]))
         myTimes.append(int(line[2]))
         oldTimes.append(int(line[3]))
+        fastTimes.append(int(line[4]))
   
     inFile.close()
 
@@ -75,16 +77,22 @@ def main():
     timeDict = {} #maps time to (# oldTimes, # myTimes)
     for time in oldTimes:
         if time not in timeDict:
-            timeDict[time] = (1, 0)
+            timeDict[time] = (1, 0, 0)
         else:
-            (a, b) = timeDict[time]
-            timeDict[time] = (a+1, b)
+            (a, b, c) = timeDict[time]
+            timeDict[time] = (a+1, b, c)
     for time in myTimes:
         if time not in timeDict:
-            timeDict[time] = (0, 1)
+            timeDict[time] = (0, 1, 0)
         else :
-            (a, b) = timeDict[time]
-            timeDict[time] = (a, b + 1)
+            (a, b, c) = timeDict[time]
+            timeDict[time] = (a, b + 1, c)
+    for time in fastTimes:
+        if time not in timeDict:
+            timeDict[time] = (0, 0, 1)
+        else :
+            (a, b, c) = timeDict[time]
+            timeDict[time] = (a, b, c+1)
 
     minTime = min(timeDict.keys())
     maxTime = max(timeDict.keys())
@@ -92,22 +100,27 @@ def main():
  
     maxCount = 0
     for i in range(maxTime):
-       xStart = i * 3
-       (h1, h2) = timeDict.get(i+1, (0, 0))
+       xStart = i * 4
+       (h1, h2, h3) = timeDict.get(i+1, (0, 0, 0))
        maxCount = max(maxCount, h1, h2)
        rect1 = mplpatches.Rectangle([xStart, 0], 1, h1, \
                      facecolor = "red")
        rect2 = mplpatches.Rectangle([xStart+1, 0], 1, h2, \
                      facecolor = "blue")
+       rect3 = mplpatches.Rectangle([xStart+2, 0], 1, h3, \
+                     facecolor = "green")
 
        timesPanel.add_patch(rect1)
        timesPanel.add_patch(rect2)
+       timesPanel.add_patch(rect3)
  
     extra = mplpatches.Rectangle((0, 0), 1, 1, fc="w", fill=False, edgecolor='none', linewidth=0)
     string = "Time for calculating \n index: " + str(timeIndex) + " " 
-    timesPanel.legend([rect1, rect2],
+    timesPanel.legend([rect1, rect2, rect3],
                       ("Path based\n total time: " + str(totalTimeOld), 
-                       "Snarl based\n total time: " + str(totalTimeNew)))       
+                       "Snarl based\n total time: " + str(sum(myTimes)) +
+                        "\n  + " + str(timeIndex), 
+               "Snarl based given snarl\n total time: " + str(sum(fastTimes)) ))
     
     timesPanel.set_xlabel("Time")
     timesPanel.set_ylabel("Count")
