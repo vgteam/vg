@@ -115,7 +115,7 @@ int main_mpmap(int argc, char** argv) {
     int snarl_cut_size = 5;
     int max_paired_end_map_attempts = 24;
     int max_single_end_mappings_for_rescue = 64;
-    int max_single_end_map_attempts = 64;
+    int max_single_end_map_attempts = 36;
     int max_rescue_attempts = 10;
     int population_max_paths = 10;
     // How many distinct single path alignments should we look for in a multipath, for MAPQ?
@@ -130,7 +130,7 @@ int main_mpmap(int argc, char** argv) {
     double reseed_diff = 0.45;
     double reseed_exp = 0.065;
     bool use_adaptive_reseed = true;
-    double cluster_ratio = 0.2;
+    double cluster_ratio = 0.35;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Adaptive;
@@ -138,7 +138,7 @@ int main_mpmap(int argc, char** argv) {
     int max_dist_error = 12;
     int num_alt_alns = 4;
     double suboptimal_path_exponent = 1.25;
-    double likelihood_approx_exp = 10.0;
+    double likelihood_approx_exp = 8.0;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
     size_t frag_length_sample_size = 1000;
