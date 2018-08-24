@@ -175,6 +175,7 @@ int main_mpmap(int argc, char** argv) {
     int mismatch_score_arg = std::numeric_limits<int>::min();
     int gap_open_score_arg = std::numeric_limits<int>::min();
     int gap_extension_score_arg = std::numeric_limits<int>::min();
+    int full_length_bonus_arg = std::numeric_limits<int>::min();
     
     
     int c;
@@ -484,7 +485,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'L':
-                full_length_bonus = parse<int>(optarg);
+                full_length_bonus_arg = parse<int>(optarg);
                 break;
                 
             case 'A':
@@ -691,6 +692,9 @@ int main_mpmap(int argc, char** argv) {
     }
     if (gap_extension_score_arg != std::numeric_limits<int>::min()) {
         gap_extension_score = gap_extension_score_arg;
+    }
+    if (full_length_bonus_arg != std::numeric_limits<int>::min()) {
+        full_length_bonus = full_length_bonus_arg;
     }
     
     if (match_score > std::numeric_limits<int8_t>::max() || mismatch_score > std::numeric_limits<int8_t>::max()
