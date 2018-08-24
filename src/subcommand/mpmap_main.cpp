@@ -61,7 +61,7 @@ void help_mpmap(char** argv) {
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - adaptive, 3 - exact [2]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
-    << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [24 paired / 48 unpaired]" << endl
+    << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [24 paired / 36 unpaired]" << endl
     << "  -O, --max-paths INT       consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
@@ -70,8 +70,8 @@ void help_mpmap(char** argv) {
     << "  -K, --clust-length INT    minimum MEM length form clusters [automatic]" << endl
     << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [1024]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
-    << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
-    << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
+    << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [8.0]" << endl
+    << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.35]" << endl
     << "  -U, --prune-exp FLOAT     prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
     << "scoring:" << endl
     << "  -q, --match INT           use this match score [1]" << endl
