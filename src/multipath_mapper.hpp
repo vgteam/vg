@@ -82,10 +82,13 @@ namespace vg {
         /// when mappings are likely to have occurred by chance
         void calibrate_mismapping_detection(size_t num_simulations = 1000, size_t simulated_read_length = 150);
         
+        /// Should be called once after construction, or any time the band padding multiplier is changed
+        void init_band_padding_memo();
+        
         // parameters
         
         int64_t max_snarl_cut_size = 5;
-        int32_t band_padding = 2;
+        double band_padding_multiplier = 1.0;
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
@@ -94,6 +97,7 @@ namespace vg {
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
+        size_t band_padding_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
         double max_mapping_p_value = 0.00001;
         bool unstranded_clustering = true;
@@ -347,6 +351,9 @@ namespace vg {
         
         // a memo for the transcendental p-value function (thread local to maintain threadsafety)
         static thread_local unordered_map<pair<size_t, size_t>, double> p_value_memo;
+        
+        // a memo for transcendental band padidng function (gets initialized at construction)
+        vector<size_t> band_padding_memo;
     };
         
 }
