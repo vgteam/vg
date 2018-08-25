@@ -2913,9 +2913,15 @@ namespace vg {
             vector<size_t> topological_order;
             multi_aln_graph.topological_sort(topological_order);
             
-            // prune this graph down the paths that have reasonably high likelihood
+            // prune this graph down the nodes and edges that have reasonably high likelihood
             multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
                                                         max_suboptimal_path_score_ratio, topological_order);
+            
+            // if we removed any nodes, we need to recalculate the topological order
+            if (topological_order.size() > multi_aln_graph.size()) {
+                topological_order.clear();
+                multi_aln_graph.topological_sort(topological_order);
+            }
             
             // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
             multi_aln_graph.remove_transitive_edges(topological_order);
