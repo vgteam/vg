@@ -123,8 +123,11 @@ namespace vg {
         /// Get lists of the vg node IDs that participate in each connected component in the MultipathAlignmentGraph
         vector<vector<id_t>> get_connected_components() const;
         
-        /// Does the multipath alignment xgraph have any nodes?
-        bool empty();
+        /// How many nodes does the multipath alignment graph has?
+        size_t size() const;
+        
+        /// Does the multipath alignment graph have any nodes?
+        bool empty() const;
         
     private:
         

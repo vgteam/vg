@@ -3323,8 +3323,12 @@ namespace vg {
         }
     }
     
-    bool MultipathAlignmentGraph::empty() {
+    bool MultipathAlignmentGraph::empty() const {
         return path_nodes.empty();
+    }
+    
+    size_t MultipathAlignmentGraph::size() const {
+        return path_nodes.size();
     }
     
     void MultipathAlignmentGraph::to_dot(ostream& out) const {
