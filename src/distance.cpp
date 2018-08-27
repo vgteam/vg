@@ -3,11 +3,67 @@
 
 #include "distance.hpp"
 
-
-
-
 using namespace std;
 namespace vg {
+int64_t DistanceIndex::sizeOf() {
+//TODO: Delete this
+    //Estimate of the size of the object - probably keep this in uncommitted branch
+   
+    int64_t total = 0;
+   
+    int64_t numSnarls = snarlIndex.size();
+
+    int64_t snarlDists = 0;
+    int64_t snarlNodes = 0; //# node ids + direction
+
+    for (auto x : snarlIndex) {
+        //Add size of each SnarlDistances object
+        SnarlDistances sd = x.second;
+        int64_t numNodes = sd.visitToIndex.size();
+
+        snarlNodes += numNodes; 
+        snarlDists += ((numNodes + 1) * numNodes) / 2;
+  
+        total += numNodes * 17; //Add all elements in visitToIndex
+        total += sd.distances.capacity() / 8;
+        
+        total += 3 * sizeof(pair<id_t, bool>);
+        total += sizeof(hash_map<pair<id_t, bool>, int64_t>);
+        
+
+    }
+    
+    int64_t chainDists = 0;
+    int64_t chainNodes = 0;
+
+    int64_t numChains = chainIndex.size();
+  
+    for (auto x : chainIndex) {
+        ChainDistances cd = x.second;
+        int64_t numNodes = cd.snarlToIndex.size();
+        
+        chainDists += numNodes*3;
+        chainNodes += numNodes;
+
+        total += numNodes * 16; //Add all elements in snarlToIndex
+        total += cd.prefixSum.capacity() / 8;
+        total += cd.loopFd.capacity() / 8;
+        total += cd.loopRev.capacity() / 8;
+        total += sizeof(id_t) + sizeof(hash_map<id_t, int64_t>);
+    }
+ 
+    total += nodeToSnarl.size() * 8;//TODO: ???
+
+
+    cerr << numSnarls << " snarls containing " << snarlNodes << " nodes" << endl;
+    cerr << numChains << " chains containing " << chainNodes << " nodes" << endl;
+    cerr << "Total: " << total << " bytes??" << endl;
+    return total; 
+    
+
+}
+
+
 DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager){
     /*Constructor for the distance index given a VG and snarl manager
       cap is the largest distance that the maximum distance estimation will be
@@ -56,6 +112,7 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager, istream& in) {
       of ints from serialization
     */
    
+    minNodeID = vg->min_node_id();
     graph = vg;
     sm = snarlManager;
     load(in);
@@ -1973,22 +2030,8 @@ int64_t DistanceIndex::minPos (vector<int64_t> vals) {
 const Snarl* DistanceIndex::snarlOf (id_t nodeID) {
     /*Given a node id, return the snarl that contains the node*/
 
-
     int64_t uintSID = nodeToSnarl[nodeID - minNodeID];
-/*
-    //Convert from uint to int (same as toInt)
-    snarlID = snarlID / 2;
-    if (snarlID % 2 == 1) {snarlID = - snarlID;}
-i*/
-    auto toInt = [] (uint64_t uval) {
-        /*convert unsigned representation of signed int back to int64_t*/
-        int64_t val = uval / 2;
-        if (uval % 2 == 1) {val = -val;}
-        return val;
-    };
-    int64_t snarlID = toInt(uintSID);
-
-    const Snarl* s = sm->into_which_snarl(abs(snarlID), (snarlID < 0));
+    const Snarl* s = sm->into_which_snarl(uintSID>>1, (uintSID % 2 == 1));
     return s;
 
 

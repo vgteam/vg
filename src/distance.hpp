@@ -1,4 +1,5 @@
 #include "snarls.hpp"
+#include "hash_map.hpp"
 using namespace sdsl;
 namespace vg { 
 
@@ -18,10 +19,11 @@ class DistanceIndex {
   
     //Serialize object into out
     void serialize(ostream& out);
+
     //Load serialized object from in
     void load(istream& in);
 
-
+    int64_t sizeOf();
 
     /*Get the distance between two positions
       pos1 must be on a node contained in snarl1 and not on any children of
@@ -219,8 +221,8 @@ class DistanceIndex {
     /*Index to find the snarl containing a node
       The start node id of the snarl containing each node - negative if 
        the start node is reverse
-    TODO: Maybe put this somewhere else and use sdsl bit vector    */
-    vlc_vector<> nodeToSnarl;
+    TODO: Maybe put this somewhere else*/
+    dac_vector<> nodeToSnarl;
     id_t minNodeID; //minimum node id of the graph
 
 

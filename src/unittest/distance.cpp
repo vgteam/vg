@@ -2174,6 +2174,7 @@ class TestDistanceIndex : public DistanceIndex {
     } //end test case
 
 /*
+
     TEST_CASE("Serialize distance index", "[dist][serial]") {
         for (int i = 0; i < 100; i++) {
 
@@ -2186,12 +2187,13 @@ class TestDistanceIndex : public DistanceIndex {
             TestDistanceIndex di (&graph, &snarl_manager);
   
             filebuf buf;
-            buf.open("distanceIndex", ios::out);
-            ostream out(&buf);
+            //buf.open("distanceIndex", ios::out);
+            ofstream out("distanceIndex");
            
             di.serialize(out);
+            out.close();
 
-            buf.close();
+            //buf.close();
 
             buf.open("distanceIndex", ios::in);
             istream in(&buf);
@@ -2251,7 +2253,7 @@ class TestDistanceIndex : public DistanceIndex {
 
                     //If the nodes aren't child snarls
 
-                    int64_t myDist = di.distance(snarl1, snarl2,pos1, pos2);
+                    int64_t myDist = di.distance(pos1, pos2);
                     int64_t serialDist = sdi.distance(snarl1, snarl2,pos1, pos2);
                     bool passed = myDist == serialDist;
 

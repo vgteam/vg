@@ -1054,6 +1054,7 @@ int main_index(int argc, char** argv) {
  
             ofstream dist_out(dist_name);           
             di.serialize(dist_out);
+            dist_out.close();
         }
 
     }
