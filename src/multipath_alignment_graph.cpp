@@ -1977,10 +1977,13 @@ namespace vg {
                     
                     if (candidate_end_node.end <= start_node.begin) {
                         // these MEMs are read colinear and graph reachable, so connect them
-                        candidate_end_node.edges.push_back(make_pair(start, candidate_dist));
+                        candidate_end_node.edges.emplace_back(start, candidate_dist);
                         
 #ifdef debug_multipath_alignment
-                        cerr << "connection is read colinear, adding edge for total of " << candidate_end_node.edges.size() << " edges so far" << endl;
+                        cerr << "connection is read colinear, adding edge on " << candidate_end << " for total of " << candidate_end_node.edges.size() << " edges so far" << endl;
+                        for (auto& edge : candidate_end_node.edges) {
+                            cerr << "\t-> " << edge.first << " dist " << edge.second << endl;
+                        }
 #endif
                         
                         // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
@@ -2793,6 +2796,18 @@ namespace vg {
     void MultipathAlignmentGraph::align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                                         size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out) {
         
+        // don't dynamically choose band padding, shim constant value into a function type
+        function<size_t(const Alignment&,const HandleGraph&)> constant_padding = [&](const Alignment& seq, const HandleGraph& graph) {
+            return band_padding;
+        };
+        align(alignment, align_graph, aligner, score_anchors_as_matches, max_alt_alns, dynamic_alt_alns, constant_padding, multipath_aln_out);
+    }
+    
+    void MultipathAlignmentGraph::align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
+                                        size_t max_alt_alns, bool dynamic_alt_alns,
+                                        function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
+                                        MultipathAlignment& multipath_aln_out) {
+        
         // Can only align if edges are present.
         assert(has_reachability_edges);
         
@@ -2902,13 +2917,14 @@ namespace vg {
                 }
                 
 #ifdef debug_multipath_alignment
-                cerr << "aligning sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph.graph) << endl;
+                cerr << "making " << num_alt_alns << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph.graph) << endl;
 #endif
                 
                 bool added_direct_connection = false;
                 // TODO a better way of choosing the number of alternate alignments
                 vector<Alignment> alt_alignments;
-                aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph.graph, num_alt_alns, band_padding, true);
+                aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph.graph, num_alt_alns,
+                                                   band_padding_function(intervening_sequence, connecting_graph), true);
                 
                 for (Alignment& connecting_alignment : alt_alignments) {
 #ifdef debug_multipath_alignment
@@ -3047,7 +3063,7 @@ namespace vg {
                     }
                     
 #ifdef debug_multipath_alignment
-                    cerr << "aligning sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph: " << pb2json(tail_graph) << endl;
+                    cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph: " << pb2json(tail_graph) << endl;
 #endif
                     
                     vector<Alignment> alt_alignments;
@@ -3158,7 +3174,7 @@ namespace vg {
                     
                     
 #ifdef debug_multipath_alignment
-                    cerr << "aligning sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph: " << pb2json(tail_graph) << endl;
+                    cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph: " << pb2json(tail_graph) << endl;
 #endif
                     vector<Alignment> alt_alignments;
                     if (tail_graph.node_size() == 0) {

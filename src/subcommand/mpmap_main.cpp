@@ -1,4 +1,4 @@
-/**
+    /**
  * \file mpmap_main.cpp: multipath mapping of reads to a graph
  */
 
@@ -39,14 +39,15 @@ void help_mpmap(char** argv) {
     << "  -f, --fastq FILE          input FASTQ (possibly compressed), can be given twice for paired ends (for stdin use -)" << endl
     << "  -G, --gam-input FILE      input GAM (for stdin, use -)" << endl
     << "  -i, --interleaved         FASTQ or GAM contains interleaved paired ends" << endl
-    << "  -N, --sample NAME         add this sample name to output GAM" << endl
-    << "  -R, --read-group NAME     add this read group to output GAM" << endl
+    << "  -N, --sample NAME         add this sample name to output GAMP" << endl
+    << "  -R, --read-group NAME     add this read group to output GAMP" << endl
     << "  -e, --same-strand         read pairs are from the same strand of the DNA molecule" << endl
     << "algorithm:" << endl
     << "  -S, --single-path-mode    produce single-path alignments (GAM) instead of multipath alignments (GAMP) (ignores -sua)" << endl
     << "  -s, --snarls FILE         align to alternate paths in these snarls" << endl
     << "scoring:" << endl
     << "  -A, --no-qual-adjust      do not perform base quality adjusted alignments (required if input does not have base qualities)" << endl
+    << "  -E, --long-read-scoring   set alignment scores to long-read defaults: -q1 -z1 -o1 -y1 -L0 (can be overridden)" << endl
     << endl
     << "advanced options:" << endl
     << "algorithm:" << endl
@@ -60,15 +61,15 @@ void help_mpmap(char** argv) {
     << "  -P, --max-p-val FLOAT     background model p value must be less than this to avoid mismapping detection [0.00001]" << endl
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - adaptive, 3 - exact [2]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
-    << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
-    << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [24 paired / 48 unpaired]" << endl
+    << "  -p, --padding-mult FLOAT  pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
+    << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
     << "  -O, --max-paths INT       consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
     << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
     << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
     << "  -K, --clust-length INT    minimum MEM length form clusters [automatic]" << endl
-    << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [1024]" << endl
+    << "  -c, --hit-max INT         use at most this many hits for any MEM (0 for no limit) [1024]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
     << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
@@ -134,7 +135,7 @@ int main_mpmap(int argc, char** argv) {
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Adaptive;
-    int band_padding = 2;
+    double band_padding_multiplier = 1.0;
     int max_dist_error = 12;
     int num_alt_alns = 4;
     double suboptimal_path_exponent = 1.25;
@@ -169,6 +170,13 @@ int main_mpmap(int argc, char** argv) {
     bool suppress_cluster_merging = false;
     bool dynamic_max_alt_alns = true;
     bool simplify_topologies = true;
+    bool long_read_scoring = false;
+    int match_score_arg = std::numeric_limits<int>::min();
+    int mismatch_score_arg = std::numeric_limits<int>::min();
+    int gap_open_score_arg = std::numeric_limits<int>::min();
+    int gap_extension_score_arg = std::numeric_limits<int>::min();
+    int full_length_bonus_arg = std::numeric_limits<int>::min();
+    
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -199,7 +207,7 @@ int main_mpmap(int argc, char** argv) {
             {"max-p-val", required_argument, 0, 'P'},
             {"mq-method", required_argument, 0, 'v'},
             {"mq-max", required_argument, 0, 'Q'},
-            {"band-padding", required_argument, 0, 'p'},
+            {"padding-mult", required_argument, 0, 'p'},
             {"map-attempts", required_argument, 0, 'u'},
             {"max-paths", required_argument, 0, 'O'},
             {"max-multimaps", required_argument, 0, 'M'},
@@ -212,6 +220,7 @@ int main_mpmap(int argc, char** argv) {
             {"approx-exp", required_argument, 0, 'w'},
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, 'U'},
+            {"long-read-scoring", no_argument, 0, 'E'},
             {"match", required_argument, 0, 'q'},
             {"mismatch", required_argument, 0, 'z'},
             {"score-matrix", required_argument, 0, OPT_SCORE_MATRIX},
@@ -226,7 +235,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:f:G:N:R:ieSs:u:O:a:nb:I:D:BP:v:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:f:G:N:R:ieSs:u:O:a:nb:I:D:BP:v:Q:p:M:r:W:k:K:c:d:w:C:R:Eq:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -388,7 +397,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'p':
-                band_padding = parse<int>(optarg);
+                band_padding_multiplier = parse<double>(optarg);
                 break;
                 
             case 'u':
@@ -443,12 +452,16 @@ int main_mpmap(int argc, char** argv) {
                 suboptimal_path_exponent = parse<double>(optarg);
                 break;
                 
+            case 'E':
+                long_read_scoring = true;
+                break;
+                
             case 'q':
-                match_score = parse<int>(optarg);
+                match_score_arg = parse<int>(optarg);
                 break;
                 
             case 'z':
-                mismatch_score = parse<int>(optarg);
+                mismatch_score_arg = parse<int>(optarg);
                 break;
                 
             case OPT_SCORE_MATRIX:
@@ -460,11 +473,11 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'o':
-                gap_open_score = parse<int>(optarg);
+                gap_open_score_arg = parse<int>(optarg);
                 break;
                 
             case 'y':
-                gap_extension_score = parse<int>(optarg);
+                gap_extension_score_arg = parse<int>(optarg);
                 break;
                 
             case 'm':
@@ -472,7 +485,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'L':
-                full_length_bonus = parse<int>(optarg);
+                full_length_bonus_arg = parse<int>(optarg);
                 break;
                 
             case 'A':
@@ -559,8 +572,8 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (band_padding < 0) {
-        cerr << "error:[vg mpmap] Band padding (-p) set to " << band_padding << ", must set to a nonnegative integer." << endl;
+    if (band_padding_multiplier < 0.0) {
+        cerr << "error:[vg mpmap] Band padding (-p) set to " << band_padding_multiplier << ", must set to a nonnegative number." << endl;
         exit(1);
     }
     
@@ -653,6 +666,37 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if ((match_score_arg != std::numeric_limits<int>::min() || mismatch_score_arg != std::numeric_limits<int>::min()) && !matrix_file_name.empty())  {
+        cerr << "error:[vg mpmap] Cannot choose custom scoring matrix (--score-matrix) and custom match/mismatch score (-q/-z) simultaneously." << endl;
+        exit(1);
+    }
+    
+    if (long_read_scoring) {
+        // defaults for long read scoring
+        match_score = 1;
+        mismatch_score = 1;
+        gap_open_score = 1;
+        gap_extension_score = 1;
+        full_length_bonus = 0;
+    }
+    
+    // if we indicated any other scores, apply those, possibly overriding
+    if (match_score_arg != std::numeric_limits<int>::min()) {
+        match_score = match_score_arg;
+    }
+    if (mismatch_score_arg != std::numeric_limits<int>::min()) {
+        mismatch_score = mismatch_score_arg;
+    }
+    if (gap_open_score_arg != std::numeric_limits<int>::min()) {
+        gap_open_score = gap_open_score_arg;
+    }
+    if (gap_extension_score_arg != std::numeric_limits<int>::min()) {
+        gap_extension_score = gap_extension_score_arg;
+    }
+    if (full_length_bonus_arg != std::numeric_limits<int>::min()) {
+        full_length_bonus = full_length_bonus_arg;
+    }
+    
     if (match_score > std::numeric_limits<int8_t>::max() || mismatch_score > std::numeric_limits<int8_t>::max()
         || gap_open_score > std::numeric_limits<int8_t>::max() || gap_extension_score > std::numeric_limits<int8_t>::max()
         || full_length_bonus > std::numeric_limits<int8_t>::max() || match_score < 0 || mismatch_score < 0
@@ -666,7 +710,7 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    // adjust parameters that produce irrelevant extra work in single path mode
+    // adjust parameters that produce irrelevant extra work or bad behavior single path mode
     
     if (single_path_alignment_mode && population_max_paths == 0) {
         // TODO: I don't like having these constants floating around in two different places, but it's not very risky, just a warning
@@ -685,10 +729,14 @@ int main_mpmap(int argc, char** argv) {
         
         num_alt_alns = 1;
     }
-    if (single_path_alignment_mode) {
+    
+    if (single_path_alignment_mode && !long_read_scoring) {
         // we get better performance by splitting up clusters a bit more when we're forcing alignments to go to only one place
         min_median_mem_coverage_for_split = 2;
         suppress_cluster_merging = true;
+    }
+    
+    if (single_path_alignment_mode) {
         // simplifying topologies is redundant work if we're just going to take the maximum weight path anyway
         simplify_topologies = false;
     }
@@ -696,12 +744,12 @@ int main_mpmap(int argc, char** argv) {
     // ensure required parameters are provided
     
     if (xg_name.empty()) {
-        cerr << "error:[vg mpmap] Multipath mapping requires an XG index, must provide XG file" << endl;
+        cerr << "error:[vg mpmap] Multipath mapping requires an XG index, must provide XG file (-x)" << endl;
         exit(1);
     }
     
     if (gcsa_name.empty()) {
-        cerr << "error:[vg mpmap] Multipath mapping requires a GCSA2 index, must provide GCSA2 file" << endl;
+        cerr << "error:[vg mpmap] Multipath mapping requires a GCSA2 index, must provide GCSA2 file (-g)" << endl;
         exit(1);
     }
     
@@ -794,7 +842,8 @@ int main_mpmap(int argc, char** argv) {
     if(matrix_stream.is_open()) multipath_mapper.load_scoring_matrix(matrix_stream);
     multipath_mapper.adjust_alignments_for_base_quality = qual_adjusted;
     multipath_mapper.strip_bonuses = strip_full_length_bonus;
-    multipath_mapper.band_padding = band_padding;
+    multipath_mapper.band_padding_multiplier = band_padding_multiplier;
+    multipath_mapper.init_band_padding_memo();
     
     // set mem finding parameters
     multipath_mapper.hit_max = hit_max;

@@ -1897,6 +1897,14 @@ vector<Edge> XG::edges_on_end(int64_t id) const {
     return edges;
 }
 
+int XG::indegree(int64_t id) const {
+  return g_iv[g_bv_select(id_to_rank(id)) + G_NODE_TO_COUNT_OFFSET];
+}
+
+int XG::outdegree(int64_t id) const {
+  return g_iv[g_bv_select(id_to_rank(id)) + G_NODE_FROM_COUNT_OFFSET];
+}
+
 size_t XG::max_node_rank(void) const {
     return s_bv_rank(s_bv.size());
 }
