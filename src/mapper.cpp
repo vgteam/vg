@@ -1666,7 +1666,7 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
     
     // Build Yohei's recombination probability calculator. Feed it the haplotype
     // count from the XG index that was generated alongside the GBWT.
-    haplo::haploMath::RRMemo haplo_memo(NEG_LOG_PER_BASE_RECOMB_PROB, haplotype_count);
+    haplo::haploMath::RRMemo haplo_memo(recombination_penalty, haplotype_count);
     
     // This holds all the computed haplotype logprobs
     vector<double> haplotype_logprobs;
