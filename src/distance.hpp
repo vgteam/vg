@@ -245,7 +245,7 @@ class DistanceIndex {
 
     //Flag each node with true if it is in a cycle that has minimum length
     //smaller than cap
-    void flagCycles(const Snarl* snarl, hash_map<id_t, bool>* inCycle,
+    void flagCycles(const Snarl* snarl, bit_vector& inCycle,
                     int64_t cap);
 
     //Minimum distance of a loop that involves node

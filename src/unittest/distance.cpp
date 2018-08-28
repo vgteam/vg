@@ -1460,13 +1460,13 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(6, false),  
                                         make_pair(6, false)) == -1);
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
-                                        make_pair(3, false)) == 9);
+                                        make_pair(3, false)) == 10);
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(5, false),  
-                                        make_pair(5, false)) == 9);
+                                        make_pair(5, false)) == 10);
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(4, false),  
-                                        make_pair(4, false)) == 13);
+                                        make_pair(4, false)) == 14);
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(7, false),  
-                                        make_pair(7, false)) == 9);
+                                        make_pair(7, false)) == 10);
         }
     }//End test case
 
@@ -1756,15 +1756,15 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(11, false)) == 4);
             REQUIRE(di.loopDistance(snarl2, snarl3, make_pair(2, false),  
                                         make_pair(3, false)) == 14);
-            REQUIRE(di.loopDistance(snarl3, snarl2, make_pair(3, false),  
-                                        make_pair(2, false)) == 14);
+            REQUIRE(di.loopDistance(snarl3, snarl2, make_pair(3, true),  
+                                        make_pair(2, true)) == 14);
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(5, false),  
                                         make_pair(5, false)) == 22);
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
                                         make_pair(3, false)) == 14);
-            REQUIRE(di.loopDistance(snarl3, snarl2, make_pair(8, false),  
+            REQUIRE(di.loopDistance(snarl6, snarl2, make_pair(8, false),  
                                         make_pair(9, false)) == 14);
-            REQUIRE(di.loopDistance(snarl2, snarl3, make_pair(9, true),  
+            REQUIRE(di.loopDistance(snarl2, snarl6, make_pair(9, true),  
                                         make_pair(8, true)) == 14);
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(11, true),  
                                         make_pair(2, true)) == 4);
