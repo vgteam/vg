@@ -256,6 +256,12 @@ void VG::destroy_edge(const handle_t& left, const handle_t& right) {
         // TODO: does destroy_edge update paths?
     }
 }
+    
+void VG::clear() {
+    graph.mutable_node()->Clear();
+    graph.mutable_edge()->Clear();
+    clear_indexes();
+}
 
 void VG::swap_handles(const handle_t& a, const handle_t& b) {
     swap_nodes(get_node(get_id(a)), get_node(get_id(b)));
@@ -3401,16 +3407,6 @@ vector<Edge> VG::break_cycles(void) {
     algorithms::sort(this);
     return removed;
 }
-
-bool VG::is_single_stranded(void) {
-    for (size_t i = 0; i < graph.edge_size(); i++) {
-        const Edge& edge = graph.edge(i);
-        if (edge.from_start() != edge.to_end()) {
-            return false;
-        }
-    }
-    return true;
-}
     
 void VG::identity_translation(unordered_map<id_t, pair<id_t, bool>>& node_translation) {
     node_translation.clear();
@@ -3446,99 +3442,6 @@ VG VG::reverse_complement_graph(unordered_map<id_t, pair<id_t, bool>>& node_tran
     rev_comp.build_indexes();
     
     return rev_comp;
-}
-    
-bool VG::is_directed_acyclic(void) {
-    unordered_map<id_t, pair<int64_t, int64_t>> degrees(graph.node_size());
-    for (size_t i = 0; i < graph.node_size(); i++) {
-        Node* node = graph.mutable_node(i);
-        degrees[node->id()] = make_pair(start_degree(node), end_degree(node));
-    }
-    
-    vector<NodeTraversal> stack;
-    for (size_t i = 0; i < graph.node_size(); i++) {
-        Node* node = graph.mutable_node(i);
-        pair<int64_t, int64_t> node_degrees = degrees[node->id()];
-        if (node_degrees.first == 0) {
-            stack.emplace_back(node, false);
-        }
-        if (node_degrees.second == 0) {
-            stack.emplace_back(node, true);
-        }
-    }
-    
-    while (!stack.empty()) {
-        NodeTraversal here = stack.back();
-        stack.pop_back();
-        
-        auto iter = degrees.find(here.node->id());
-        if (iter == degrees.end()) {
-            continue;
-        }
-        
-        degrees.erase(iter);
-        
-        vector<NodeTraversal> nexts;
-        nodes_next(here, nexts);
-        for (NodeTraversal next : nexts) {
-            auto next_iter = degrees.find(next.node->id());
-            if (next_iter != degrees.end()) {
-                int64_t& in_degree = next.backward ? next_iter->second.second : next_iter->second.first;
-                in_degree--;
-                if (in_degree == 0) {
-                    stack.push_back(next);
-                }
-            }
-        }
-    }
-    return degrees.empty();
-}
-    
-void VG::lazy_sort(void) {
-    // a map to the degrees on the left and right sides of nodes
-    unordered_map<id_t, pair<int64_t, int64_t>> side_degrees;
-    for (size_t i = 0; i < graph.node_size(); i++) {
-        id_t id = graph.node(i).id();
-        side_degrees[id] = make_pair(start_degree(get_node(id)), end_degree(get_node(id)));
-    }
-    
-    // find the nodes with 0 in degree an initialize the queue with them
-    vector<NodeTraversal> stack;
-    for (const auto& degree_record : side_degrees) {
-        if (degree_record.second.first == 0) {
-            stack.emplace_back(get_node(degree_record.first));
-        }
-    }
-    
-    vector<id_t> order;
-    order.reserve(graph.node_size());
-    
-    while (!stack.empty()) {
-        // get a head node off the queue
-        NodeTraversal head_trav = stack.back();
-        stack.pop_back();
-        
-        // add it to the topological order
-        order.push_back(head_trav.node->id());
-        
-        // remove its outgoing edges
-        vector<NodeTraversal> nexts;
-        nodes_next(head_trav, nexts);
-        for (NodeTraversal& next : nexts) {
-            // reduce the degree of the appropriate side
-            int64_t& inward_degree = next.backward ? side_degrees[next.node->id()].second : side_degrees[next.node->id()].first;
-            inward_degree--;
-            if (inward_degree == 0) {
-                // after removing this edge, the node is now a head, add it to the queue
-                stack.push_back(next);
-            }
-        }
-    }
-    
-    for (size_t i = 0; i < order.size(); i++) {
-        // Put the nodes in the order we got
-        swap_nodes(get_node(order[i]), graph.mutable_node(i));
-    }
 }
 
 bool VG::is_acyclic(void) {
@@ -7181,79 +7084,6 @@ void VG::wrap_with_null_nodes(void) {
     for (vector<Node*>::iterator t = tails.begin(); t != tails.end(); ++t) {
         create_edge(*t, tail);
     }
-}
-
-VG VG::split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation) {
-    
-    VG split;
-    
-    split.current_id = 1;
-    
-    unordered_map<id_t, id_t> forward_node;
-    unordered_map<id_t, id_t> reverse_node;
-    
-    for (int64_t i = 0; i < graph.node_size(); i++) {
-        const Node& node = graph.node(i);
-        Node* fwd_node = split.graph.add_node();
-        fwd_node->set_sequence(node.sequence());
-        fwd_node->set_id(split.current_id);
-        split.current_id++;
-        
-        Node* rev_node = split.graph.add_node();
-        rev_node->set_sequence(reverse_complement(node.sequence()));
-        rev_node->set_id(split.current_id);
-        split.current_id++;
-        
-        forward_node[node.id()] = fwd_node->id();
-        reverse_node[node.id()] = rev_node->id();
-        
-        node_translation[fwd_node->id()] = make_pair(node.id(), false);
-        node_translation[rev_node->id()] = make_pair(node.id(), true);
-    }
-    
-    for (int64_t i = 0; i < graph.edge_size(); i++) {
-        const Edge& edge = graph.edge(i);
-        if (!edge.from_start() && !edge.to_end()) {
-            Edge* fwd_edge = split.graph.add_edge();
-            fwd_edge->set_from(forward_node[edge.from()]);
-            fwd_edge->set_to(forward_node[edge.to()]);
-            
-            Edge* rev_edge = split.graph.add_edge();
-            rev_edge->set_from(reverse_node[edge.to()]);
-            rev_edge->set_to(reverse_node[edge.from()]);
-        }
-        else if (edge.from_start() && edge.to_end()) {
-            Edge* fwd_edge = split.graph.add_edge();
-            fwd_edge->set_from(reverse_node[edge.from()]);
-            fwd_edge->set_to(reverse_node[edge.to()]);
-            
-            Edge* rev_edge = split.graph.add_edge();
-            rev_edge->set_from(forward_node[edge.to()]);
-            rev_edge->set_to(forward_node[edge.from()]);
-        }
-        else if (edge.from_start()) {
-            Edge* fwd_edge = split.graph.add_edge();
-            fwd_edge->set_from(reverse_node[edge.from()]);
-            fwd_edge->set_to(forward_node[edge.to()]);
-            
-            Edge* rev_edge = split.graph.add_edge();
-            rev_edge->set_from(reverse_node[edge.to()]);
-            rev_edge->set_to(forward_node[edge.from()]);
-        }
-        else {
-            Edge* fwd_edge = split.graph.add_edge();
-            fwd_edge->set_from(forward_node[edge.from()]);
-            fwd_edge->set_to(reverse_node[edge.to()]);
-            
-            Edge* rev_edge = split.graph.add_edge();
-            rev_edge->set_from(forward_node[edge.to()]);
-            rev_edge->set_to(reverse_node[edge.from()]);
-        }
-    }
-    
-    split.build_indexes();
-    
-    return split;
 }
 
 VG VG::unfold(uint32_t max_length,

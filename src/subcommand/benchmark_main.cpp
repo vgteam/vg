@@ -111,8 +111,8 @@ int main_benchmark(int argc, char** argv) {
     
     vector<BenchmarkResult> results;
     
-    results.push_back(run_benchmark("vg::algorithms topological_sort", 1000, [&]() {
-        vector<handle_t> order = algorithms::topological_sort(&vg);
+    results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
+        vector<handle_t> order = algorithms::topological_order(&vg);
         assert(order.size() == vg.node_size());
     }));
     
@@ -149,9 +149,9 @@ int main_benchmark(int argc, char** argv) {
         
         int64_t max_len = 500;
         
-        Graph g;
+        VG extractor;
         
-        auto trans = algorithms::extract_connecting_graph(&xg_index, g, max_len, pos_1, pos_2, false, false, true, true, true);
+        auto trans = algorithms::extract_connecting_graph(&xg_index, &extractor, max_len, pos_1, pos_2, true, true);
     
     }));
     
@@ -161,9 +161,9 @@ int main_benchmark(int argc, char** argv) {
         
         int64_t max_len = 500;
         
-        Graph g;
+        VG extractor;
         
-        auto trans = algorithms::extract_connecting_graph(&vg, g, max_len, pos_1, pos_2, false, false, true, true, true);
+        auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true, true);
     
     }));
     

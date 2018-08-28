@@ -68,11 +68,24 @@ namespace vg {
         MultipathAlignmentGraph(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                 const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
         
+        /// Make a multipath alignment graph using the path of a single-path alignment
+        MultipathAlignmentGraph(VG& vg, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+        
+        /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
+        MultipathAlignmentGraph(VG& vg, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
+        
         ~MultipathAlignmentGraph();
         
         /// Fills input vector with node indices of a topological sort. 
         /// Reachability edges must be in the graph.
         void topological_sort(vector<size_t>& order_out);
+        
+        /// Removes non-softclip indels from path nodes. Does not update edges--should be called
+        /// prior to adding computing edges.
+        void trim_hanging_indels(const Alignment& alignment);
         
         /// Removes all transitive edges from graph (reduces to minimum equivalent graph).
         /// Note: reorders internal representation of adjacency lists.
@@ -101,10 +114,17 @@ namespace vg {
                                     
         /// Do intervening and tail alignments between the anchoring paths and store the result
         /// in a MultipathAlignment. Reachability edges must be in the graph.
-        /// Reachability edges must be in the graph.
         void align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
-                   size_t num_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out);
-                   
+                   size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out);
+        
+        /// Do intervening and tail alignments between the anchoring paths and store the result
+        /// in a MultipathAlignment. Reachability edges must be in the graph. Also, choose the
+        /// band padding dynamically as a function of the inter-MEM sequence and graph
+        void align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
+                   size_t max_alt_alns, bool dynamic_alt_alns,
+                   function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
+                   MultipathAlignment& multipath_aln_out);
+        
         /// Converts a MultipathAlignmentGraph to a GraphViz Dot representation, output to the given ostream.
         void to_dot(ostream& out) const;
         

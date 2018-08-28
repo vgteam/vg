@@ -14,6 +14,8 @@
 #include "../vg.pb.h"
 #include "../hash_map.hpp"
 #include "../handle.hpp"
+#include "apply_bulk_modifications.hpp"
+#include "is_single_stranded.hpp"
 
 namespace vg {
 namespace algorithms {
@@ -29,7 +31,8 @@ vector<handle_t> tail_nodes(const HandleGraph* g);
 /**
  * Order and orient the nodes in the graph using a topological sort. The sort is
  * guaranteed to be machine-independent given the initial graph's node and edge
- * ordering.
+ * ordering. The algorithm is well-defined on non-DAG graphs, but the order is
+ * necessarily not a topological order.
  * 
  * We use a bidirected adaptation of Kahn's topological sort (1962), which can handle components with no heads or tails.
  * 
@@ -55,14 +58,51 @@ vector<handle_t> tail_nodes(const HandleGraph* g);
  *                     (This helps start at natural entry points to cycles)
  *     return L (a topologically sorted order and orientation)
  */
-vector<handle_t> topological_sort(const HandleGraph* g);
+vector<handle_t> topological_order(const HandleGraph* g);
+
+/**
+ * Order the nodes in a graph using a topological sort. The sort is NOT guaranteed
+ * to be machine-independent, but it is faster than topological_order(). This algorithm 
+ * is invalid in a graph that has any cycles. For safety, consider this property with
+ * algorithms::is_directed_acyclic().
+ */
+vector<handle_t> lazy_topological_order(const HandleGraph* g);
+    
+/**
+ * Order the nodes in a graph using a topological sort. Similar to lazy_topological_order
+ * but somewhat faster. The algorithm is invalid in a graph that has any cycles or
+ * any reversing edges. For safety, consider these properties with algorithms::is_acyclic()
+ * and algorithms::is_single_stranded().
+ */
+vector<handle_t> lazier_topological_order(const HandleGraph* g);
+    
+/**
+ * Topologically sort the given handle graph, and then apply that sort to re-
+ * order the nodes of the graph. The sort is guaranteed to be stable. This sort is well-defined
+ * on graphs that are not DAGs, but instead of finding a topological sort ti does a heuristic
+ * sort to minimize a feedback arc set.
+ */
+void sort(MutableHandleGraph* g);
+    
+/**
+ * Topologically sort the given handle graph, and then apply that sort to re-
+ * order the nodes of the graph. The sort is NOT guaranteed to be stable or
+ * machine-independent, but it is faster than sort(). This algorithm is invalid 
+ * in a graph that has any cycles. For safety, consider checking this property with
+ * algorithms::is_acyclic().
+ */
+void lazy_sort(MutableHandleGraph* g);
 
 /**
  * Topologically sort the given handle graph, and then apply that sort to re-
- * order the nodes of the graph. The sort is guaranteed to be stable.
+ * order the nodes of the graph. The sort is NOT guaranteed to be stable or
+ * machine-independent, but it is faster than sort() and somewhat faster than
+ * lazy_sort(). This algorithm is invalid in a graph that has any cycles or reversing
+ * edges. For safety, consider checking these properties with algorithms::is_single_stranded()
+ * and algorithms::is_acyclic().
  */
-void sort(MutableHandleGraph* g);
-
+void lazier_sort(MutableHandleGraph* g);
+    
 /**
  * Topologically sort the given handle graph, and then apply that sort to orient
  * all the nodes in the global forward direction. May invalidate any paths

@@ -145,6 +145,9 @@ public:
     /// Remove the edge connecting the given handles in the given order and orientations.
     virtual void destroy_edge(const handle_t& left, const handle_t& right);
     
+    /// Remove all nodes and edges. Does not update any stored paths.
+    virtual void clear();
+    
     /// Swap the nodes corresponding to the given handles, in the ordering used
     /// by for_each_handle when looping over the graph. Other handles to the
     /// nodes being swapped must not be invalidated.
@@ -307,10 +310,6 @@ public:
     set<set<id_t> > multinode_strongly_connected_components(void);
     /// Returns true if the graph does not contain cycles.
     bool is_acyclic(void);
-    /// Returns true if the graph does not contain a directed cycle (but it may contain a reversing cycle)
-    bool is_directed_acyclic(void);
-    /// Return true if there are no reversing edges in the graph
-    bool is_single_stranded(void);
     /// Remove all elements which are not in a strongly connected component.
     void keep_multinode_strongly_connected_components(void);
     /// Does the specified node have any self-loops?
@@ -343,9 +342,6 @@ public:
     /// the same as the input graph. If inverting edges are present, node strandedness is arbitrary.
     VG unfold(uint32_t max_length,
               unordered_map<id_t, pair<id_t, bool> >& node_translation);
-    /// Create reverse complement nodes and edges for the entire graph. Doubles the size. Converts all inverting
-    /// edges into non-inverting edges.
-    VG split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation);
     /// Create the reverse complemented graph with topology preserved. Record translation in provided map.
     VG reverse_complement_graph(unordered_map<id_t, pair<id_t, bool>>& node_translation);
     /// Record the translation of this graph into itself in the provided map.
@@ -957,10 +953,6 @@ public:
                   bool check_paths = true,
                   bool check_orphans = true);
 
-    /// Topologically order the nodes in the Protobuf graph. Only valid if the graph is a DAG with all
-    /// no reversing edges or doubly reversing edges. No guarantee of system independent behavior, but
-    /// significantly faster than VG::sort().
-    void lazy_sort(void);
     /// Swap the given nodes. TODO: what does that mean?
     void swap_nodes(Node* a, Node* b);
     

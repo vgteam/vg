@@ -1006,6 +1006,136 @@ namespace vg {
         // it should go into fragment_prev or fragment_next
     }
     
+    void merge_non_branching_subpaths(MultipathAlignment& multipath_aln) {
+        
+        vector<size_t> in_degree(multipath_aln.subpath_size(), 0);
+        for (const Subpath& subpath : multipath_aln.subpath()) {
+            for (int64_t next : subpath.next()) {
+                in_degree[next]++;
+            }
+        }
+        
+        vector<bool> removed(multipath_aln.subpath_size(), false);
+        vector<size_t> removed_so_far(multipath_aln.subpath_size(), 0);
+        
+        auto get_mergeable_next = [&](const Subpath& subpath) {
+            if (subpath.next_size() == 1) {
+                if (in_degree[subpath.next(0)] == 1) {
+                    return int64_t(subpath.next(0));
+                }
+            }
+            return int64_t(-1);
+        };
+        
+        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            
+            if (i > 0) {
+                removed_so_far[i] = removed_so_far[i - 1];
+            }
+            
+            // this one has been marked for removal,
+            if (removed[i]) {
+                removed_so_far[i]++;
+                continue;
+            }
+            
+            // the subpath we might merge into
+            Subpath* subpath = multipath_aln.mutable_subpath(i);
+            
+            // move it up in the vector if we've removed earlier subpaths
+            if (removed_so_far[i] > 0) {
+                *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*subpath);
+                subpath = multipath_aln.mutable_subpath(i - removed_so_far[i]);
+            }
+            
+            int64_t last = -1;
+            // iterate through non-branching subpaths
+            for (int64_t j = get_mergeable_next(*subpath); j >= 0; j = get_mergeable_next(multipath_aln.subpath(j))) {
+                
+                // mark the next one for removal
+                removed[j] = true;
+                
+                const Subpath& merge_subpath = multipath_aln.subpath(j);
+                
+                subpath->set_score(subpath->score() + merge_subpath.score());
+                
+                const Path& merge_path = merge_subpath.path();
+                if (merge_path.mapping_size() == 0) {
+                    continue;
+                }
+                
+                Path* path = subpath->mutable_path();
+                Mapping* final_mapping = path->mutable_mapping(path->mapping_size() - 1);
+                const Position& final_position = final_mapping->position();
+                
+                const Mapping& first_mapping = merge_path.mapping(0);
+                const Position& first_position = first_mapping.position();
+                
+                int64_t mapping_idx = 0;
+                
+                // do we need to merge the abutting mappings?
+                if (first_position.node_id() == final_position.node_id() &&
+                    first_position.is_reverse() == final_position.is_reverse() &&
+                    first_position.offset() == final_position.offset() + mapping_from_length(*final_mapping)) {
+                    
+                    // do we need to merge the abutting edits?
+                    int64_t edit_idx = 0;
+                    if (final_mapping->edit_size() && first_mapping.edit_size()) {
+                        Edit* final_edit = final_mapping->mutable_edit(0);
+                        const Edit& first_edit = first_mapping.edit(0);
+                        if ((first_edit.from_length() > 0) == (final_edit->from_length() > 0) &&
+                            (first_edit.to_length() > 0) == (final_edit->to_length() > 0) &&
+                            first_edit.sequence().empty() == final_edit->sequence().empty()) {
+                            
+                            final_edit->set_from_length(final_edit->from_length() + first_edit.from_length());
+                            final_edit->set_to_length(final_edit->to_length() + first_edit.to_length());
+                            final_edit->set_sequence(final_edit->sequence() + first_edit.sequence());
+                            
+                            edit_idx++;
+                        }
+                    }
+                    
+                    // append rest of the edits
+                    for (; edit_idx < first_mapping.edit_size(); edit_idx++) {
+                        *final_mapping->add_edit() = first_mapping.edit(edit_idx);
+                    }
+                    
+                    mapping_idx++;
+                }
+                
+                // append rest of the mappings
+                for (; mapping_idx < merge_path.mapping_size(); mapping_idx++) {
+                    *path->add_mapping() = merge_path.mapping(mapping_idx);
+                }
+                
+                last = j;
+            }
+            
+            // move the adjacencies over from the last one we merged in
+            if (last >= 0) {
+                subpath->clear_next();
+                for (int64_t next : multipath_aln.subpath(last).next()) {
+                    subpath->add_next(next);
+                }
+            }
+        }
+        
+        // did we merge and remove any subpaths?
+        if (removed_so_far.back()) {
+            // trim the vector of subpaths
+            multipath_aln.mutable_subpath()->DeleteSubrange(multipath_aln.subpath_size() - removed_so_far.back(),
+                                                            removed_so_far.back());
+            
+            // update the indexes of the adjacencies
+            for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+                Subpath* subpath = multipath_aln.mutable_subpath(i);
+                for (size_t j = 0; j < subpath->next_size(); j++) {
+                    subpath->set_next(j, subpath->next(j) - removed_so_far[subpath->next(j)]);
+                }
+            }
+        }
+    }
+    
     vector<vector<int64_t>> connected_components(const MultipathAlignment& multipath_aln) {
         
         int64_t comps = 0;
@@ -1096,7 +1226,7 @@ namespace vg {
     }
     
     
-    bool validate_multipath_alignment(const MultipathAlignment& multipath_aln, HandleGraph& handle_graph) {
+    bool validate_multipath_alignment(const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph) {
         
         // are the subpaths in topological order?
         
@@ -1300,7 +1430,7 @@ namespace vg {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
                         if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) != subseq[seq_idx]) {
 #ifdef debug_verbose_validation
-                            cerr << "validation failure on match that does not match" << endl;
+                            cerr << "validation failure on match that does not match for read " << multipath_aln.name() << endl;
                             cerr << pb2json(mapping) << ", " << subseq << endl;
 #endif
                             return false;
@@ -1373,6 +1503,111 @@ namespace vg {
         
         
         return true;
+    }
+    
+    void view_multipath_alignment(ostream& out, const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph) {
+        
+        size_t max_line_length = 128;
+        
+        vector<pair<int64_t, int64_t>> subpath_read_interval(multipath_aln.subpath_size(), pair<int64_t, int64_t>(0, 0));
+        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            
+            const Subpath& subpath = multipath_aln.subpath(i);
+            subpath_read_interval[i].second = subpath_read_interval[i].first + path_to_length(subpath.path());
+            
+            for (int64_t j : subpath.next()) {
+                subpath_read_interval[j].first = subpath_read_interval[i].second;
+            }
+        }
+        
+        auto format_position = [](const Position& pos) {
+            stringstream strm;
+            strm << pos.node_id() << (pos.is_reverse() ? "-" : "+") << (pos.offset() ? (":" + to_string(pos.offset())) : "");
+            return strm.str();
+        };
+        
+        for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            const Subpath& subpath = multipath_aln.subpath(i);
+            
+            stringstream read_strm;
+            stringstream node_strm;
+            
+            out << "subpath " << i << " (score " << subpath.score() << ")" << endl;
+            
+            string read_header = "read[" + to_string(subpath_read_interval[i].first) + ":" + to_string(subpath_read_interval[i].second) + "]";
+            string node_header = "graph" + string(max(int(read_header.size()) - 5, 0), ' ');
+            
+            read_strm << "\t" << read_header;
+            node_strm << "\t" << node_header;
+            
+            size_t line_length = 8 + read_header.size();
+            
+            int64_t read_at = subpath_read_interval[i].first;
+            
+            bool first_mapping = true;
+            for (size_t j = 0; j < subpath.path().mapping_size(); j++) {
+                const Mapping& mapping = subpath.path().mapping(j);
+                string pos_string = format_position(mapping.position());
+                
+                
+                stringstream mapping_read_strm;
+                stringstream mapping_node_strm;
+                mapping_read_strm << pos_string << " ";
+                mapping_node_strm << string(pos_string.size() + 1, ' ');
+                
+                string node_seq = handle_graph.get_sequence(handle_graph.get_handle(mapping.position().node_id(),
+                                                                                    mapping.position().is_reverse()));
+                
+                int64_t node_at = mapping.position().offset();
+                for (const Edit& edit : mapping.edit()) {
+                    if (edit.from_length() > 0 && edit.to_length() > 0) {
+                        mapping_read_strm << multipath_aln.sequence().substr(read_at, edit.to_length());
+                        mapping_node_strm << node_seq.substr(node_at, edit.from_length());
+                    }
+                    else if (edit.from_length() > 0) {
+                        mapping_read_strm << string(edit.from_length(), '-');
+                        mapping_node_strm << node_seq.substr(node_at, edit.from_length());
+                    }
+                    else if (edit.to_length() > 0) {
+                        mapping_read_strm << multipath_aln.sequence().substr(read_at, edit.to_length());
+                        mapping_node_strm << string(edit.to_length(), '-');
+                    }
+                    
+                    read_at += edit.to_length();
+                    node_at += edit.from_length();
+                }
+                
+                string mapping_read_str = mapping_read_strm.str();
+                string mapping_node_str = mapping_node_strm.str();
+                
+                if (line_length + mapping_node_str.size() + 1 <= max_line_length || first_mapping) {
+                    read_strm << " " << mapping_read_str;
+                    node_strm << " " << mapping_node_str;
+                    line_length += mapping_node_str.size() + 1;
+                    
+                    first_mapping = false;
+                }
+                else {
+                    out << read_strm.str() << endl;
+                    out << node_strm.str() << endl << endl;
+                    
+                    read_strm.str("");
+                    node_strm.str("");
+                    read_strm << "\tread" << string(read_header.size() - 4, ' ') << " " << mapping_read_str;
+                    node_strm << "\tgraph" << string(read_header.size() - 5, ' ') << " " << mapping_node_str;
+                    
+                    line_length = 9 + read_header.size() + mapping_node_str.size();
+                }
+                
+            }
+            
+            out << read_strm.str() << endl;
+            out << node_strm.str() << endl;
+            
+            for (size_t j = 0; j < subpath.next_size(); j++) {
+                out << "\t-> " << subpath.next(j) << endl;
+            }
+        }
     }
 }
 

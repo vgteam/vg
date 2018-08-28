@@ -8,7 +8,7 @@
 #include "snarls.hpp"
 #include "json2pb.h"
 #include "algorithms/topological_sort.hpp"
-#include "algorithms/is_directed_acyclic.hpp"
+#include "algorithms/is_acyclic.hpp"
 
 namespace vg {
 

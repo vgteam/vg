@@ -26,6 +26,10 @@
 #include "algorithms/extract_extending_graph.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/weakly_connected_components.hpp"
+#include "algorithms/is_acyclic.hpp"
+#include "algorithms/is_single_stranded.hpp"
+#include "algorithms/split_strands.hpp"
+#include "algorithms/count_walks.hpp"
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>
@@ -78,10 +82,13 @@ namespace vg {
         /// when mappings are likely to have occurred by chance
         void calibrate_mismapping_detection(size_t num_simulations = 1000, size_t simulated_read_length = 150);
         
+        /// Should be called once after construction, or any time the band padding multiplier is changed
+        void init_band_padding_memo();
+        
         // parameters
         
         int64_t max_snarl_cut_size = 5;
-        int32_t band_padding = 2;
+        double band_padding_multiplier = 1.0;
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
@@ -90,6 +97,7 @@ namespace vg {
         double log_likelihood_approx_factor = 1.0;
         size_t min_clustering_mem_length = 0;
         size_t max_p_value_memo_size = 500;
+        size_t band_padding_memo_size = 500;
         double pseudo_length_multiplier = 1.65;
         double max_mapping_p_value = 0.00001;
         bool unstranded_clustering = true;
@@ -111,6 +119,8 @@ namespace vg {
         size_t min_median_mem_coverage_for_split = 0;
         bool suppress_cluster_merging = false;
         size_t alt_anchor_max_length_diff = 5;
+        bool dynamic_max_alt_alns = false;
+        bool simplify_topologies = false;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -241,8 +251,14 @@ namespace vg {
                              memcluster_t& graph_mems,
                              MultipathAlignment& multipath_aln_out) const;
         
+        /// Removes the sections of an Alignment's path within snarls and re-aligns them with multiple traceback
+        /// to create a multipath alignment with non-trivial topology
+        void make_nontrivial_multipath_alignment(const Alignment& alignment, VG& subgraph,
+                                                 unordered_map<id_t, pair<id_t, bool>>& translator,
+                                                 SnarlManager& snarl_manager, MultipathAlignment& multipath_aln_out) const;
+        
         /// Remove the full length bonus from all source or sink subpaths that received it
-        void strip_full_length_bonuses(MultipathAlignment& mulipath_aln) const;
+        void strip_full_length_bonuses(MultipathAlignment& multipath_aln) const;
         
         /// Compute a mapping quality from a list of scores, using the selected method.
         int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method) const;
@@ -335,6 +351,9 @@ namespace vg {
         
         // a memo for the transcendental p-value function (thread local to maintain threadsafety)
         static thread_local unordered_map<pair<size_t, size_t>, double> p_value_memo;
+        
+        // a memo for transcendental band padidng function (gets initialized at construction)
+        vector<size_t> band_padding_memo;
     };
         
 }

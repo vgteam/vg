@@ -1767,6 +1767,8 @@ bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
 void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     // How big is the g vector entry size we are on?
     size_t entry_size = 0;
+    // The lambda function will let us know if we're bailing early.
+    bool stop_early = false;
     auto lambda = [&](size_t g) {
         // Make the handle
         // We need to make sure our index won't set the orientation bit.
@@ -1778,23 +1780,31 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
         // Run the iteratee
         if (!iteratee(handle)) {
             // The iteratee is bored and wants to stop.
+#pragma omp atomic write
+            stop_early = true;
             return;
         }
-    
+        
         // How many edges are there of each type on this record?
         size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
         size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
         
         // This record is the header plus all the edge records it contains
         entry_size = G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
+        
     };
     if (parallel) {
 #pragma omp parallel for schedule(dynamic,1)
         for (size_t g = 0; g < g_iv.size(); g += entry_size) {
             lambda(g);
+            
+            // This is hack-y, but it achieves a 'break' statement while keeping OpenMP happy.
+            if (stop_early) {
+                entry_size = g_iv.size() - g;
+            }
         }
     } else {
-        for (size_t g = 0; g < g_iv.size(); g += entry_size) {
+        for (size_t g = 0; g < g_iv.size() && !stop_early; g += entry_size) {
             lambda(g);
         }
     }
@@ -1885,6 +1895,14 @@ vector<Edge> XG::edges_on_end(int64_t id) const {
         }
     }
     return edges;
+}
+
+int XG::indegree(int64_t id) const {
+  return g_iv[g_bv_select(id_to_rank(id)) + G_NODE_TO_COUNT_OFFSET];
+}
+
+int XG::outdegree(int64_t id) const {
+  return g_iv[g_bv_select(id_to_rank(id)) + G_NODE_FROM_COUNT_OFFSET];
 }
 
 size_t XG::max_node_rank(void) const {

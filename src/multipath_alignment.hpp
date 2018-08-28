@@ -134,6 +134,9 @@ namespace vg {
     ///
     void transfer_read_metadata(const MultipathAlignment& from, MultipathAlignment& to);
     
+    /// Merges non-branching paths in a multipath alignment in place
+    void merge_non_branching_subpaths(MultipathAlignment& multipath_aln);
+    
     /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
     /// each connected component
     vector<vector<int64_t>> connected_components(const MultipathAlignment& multipath_aln);
@@ -147,7 +150,10 @@ namespace vg {
     /// Debugging function to check that multipath alignment meets the formalism's basic
     /// invariants. Returns true if multipath alignment is valid, else false. Does not
     /// validate alignment score.
-    bool validate_multipath_alignment(const MultipathAlignment& multipath_aln, HandleGraph& xg_index);
+    bool validate_multipath_alignment(const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph);
+    
+    /// Send a formatted string representation of the MultipathAlignment into the ostream
+    void view_multipath_alignment(ostream& out, const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph);
     
     // TODO: function for adding a graph augmentation to an existing multipath alignment
 }

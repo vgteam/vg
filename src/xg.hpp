@@ -173,6 +173,8 @@ public:
     vector<Edge> edges_from(int64_t id) const;
     vector<Edge> edges_on_start(int64_t id) const;
     vector<Edge> edges_on_end(int64_t id) const;
+    int indegree(int64_t id) const;
+    int outdegree(int64_t id) const;
     
     /// Get the rank of the edge, or numeric_limits<size_t>.max() if no such edge exists.
     // Given an edge which is in the graph in some orientation, return the edge
