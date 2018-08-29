@@ -2905,27 +2905,31 @@ namespace vg {
                     continue;
                 }
                 
-                size_t num_alt_alns = max((size_t) 1, dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&connecting_graph)) : 
-                                                                         max_alt_alns);
-                
-                // transfer the substring between the matches to a new alignment
-                Alignment intervening_sequence;
-                intervening_sequence.set_sequence(alignment.sequence().substr(src_path_node.end - alignment.sequence().begin(),
-                                                                              dest_path_node.begin - src_path_node.end));
-                if (!alignment.quality().empty()) {
-                    intervening_sequence.set_quality(alignment.quality().substr(src_path_node.end - alignment.sequence().begin(),
-                                                                                dest_path_node.begin - src_path_node.end));
-                }
-                
-#ifdef debug_multipath_alignment
-                cerr << "making " << num_alt_alns << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph.graph) << endl;
-#endif
+                size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&connecting_graph)) : 
+                                                         max_alt_alns;
                 
                 bool added_direct_connection = false;
                 // TODO a better way of choosing the number of alternate alignments
                 vector<Alignment> alt_alignments;
-                aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph.graph, num_alt_alns,
-                                                   band_padding_function(intervening_sequence, connecting_graph), true);
+                if (num_alt_alns > 0) {
+                
+                    // transfer the substring between the matches to a new alignment
+                    Alignment intervening_sequence;
+                    intervening_sequence.set_sequence(alignment.sequence().substr(src_path_node.end - alignment.sequence().begin(),
+                                                                                  dest_path_node.begin - src_path_node.end));
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "making " << num_alt_alns << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph.graph) << endl;
+#endif
+                    
+                    if (!alignment.quality().empty()) {
+                        intervening_sequence.set_quality(alignment.quality().substr(src_path_node.end - alignment.sequence().begin(),
+                                                                                    dest_path_node.begin - src_path_node.end));
+                    }
+                
+                    aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph.graph, num_alt_alns,
+                                                       band_padding_function(intervening_sequence, connecting_graph), true);
+                }
                 
                 for (Alignment& connecting_alignment : alt_alignments) {
 #ifdef debug_multipath_alignment
@@ -3047,58 +3051,61 @@ namespace vg {
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    size_t num_alt_alns = max((size_t) 1, dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) :
-                                                                             max_alt_alns);
-                    
-                    Graph& tail_graph = tail_graph_extractor.graph;
-                    
-                    // ensure invariants that gssw-based alignment expects
-                    groom_graph_for_gssw(tail_graph);
-                    
-                    // get the sequence remaining in the right tail
-                    Alignment right_tail_sequence;
-                    right_tail_sequence.set_sequence(alignment.sequence().substr(path_node.end - alignment.sequence().begin(),
-                                                                                 alignment.sequence().end() - path_node.end));
-                    if (!alignment.quality().empty()) {
-                        right_tail_sequence.set_quality(alignment.quality().substr(path_node.end - alignment.sequence().begin(),
-                                                                                   alignment.sequence().end() - path_node.end));
-                    }
-                    
-#ifdef debug_multipath_alignment
-                    cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph: " << pb2json(tail_graph) << endl;
-#endif
+                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) :
+                                                             max_alt_alns;
                     
                     vector<Alignment> alt_alignments;
-                    if (tail_graph.node_size() == 0) {
-                        // edge case for when a read keeps going past the end of a graph
-                        alt_alignments.emplace_back();
-                        Alignment& tail_alignment = alt_alignments.back();
-                        tail_alignment.set_score(aligner->score_gap(right_tail_sequence.sequence().size()));
-                        Mapping* insert_mapping = tail_alignment.mutable_path()->add_mapping();
+                    if (num_alt_alns > 0) {
+                    
+                        Graph& tail_graph = tail_graph_extractor.graph;
                         
-                        // add a soft clip
-                        Edit* edit = insert_mapping->add_edit();
-                        edit->set_to_length(right_tail_sequence.sequence().size());
-                        edit->set_sequence(right_tail_sequence.sequence());
+                        // ensure invariants that gssw-based alignment expects
+                        groom_graph_for_gssw(tail_graph);
                         
-                        // make it at the correct position
-                        const Path& anchoring_path = path_nodes[j].path;
-                        const Mapping& anchoring_mapping = anchoring_path.mapping(anchoring_path.mapping_size() - 1);
-                        Position* anchoring_position = insert_mapping->mutable_position();
-                        anchoring_position->set_node_id(anchoring_mapping.position().node_id());
-                        anchoring_position->set_is_reverse(anchoring_mapping.position().is_reverse());
-                        anchoring_position->set_offset(anchoring_mapping.position().offset() + mapping_from_length(anchoring_mapping));
+                        // get the sequence remaining in the right tail
+                        Alignment right_tail_sequence;
+                        right_tail_sequence.set_sequence(alignment.sequence().substr(path_node.end - alignment.sequence().begin(),
+                                                                                     alignment.sequence().end() - path_node.end));
+                        if (!alignment.quality().empty()) {
+                            right_tail_sequence.set_quality(alignment.quality().substr(path_node.end - alignment.sequence().begin(),
+                                                                                       alignment.sequence().end() - path_node.end));
+                        }
+                        
 #ifdef debug_multipath_alignment
-                        cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
+                        cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph: " << pb2json(tail_graph) << endl;
 #endif
-                        // the ID translator is empty, so add this ID here so it doesn't give an out of index error
-                        id_t node_id = insert_mapping->position().node_id();
-                        tail_trans[node_id] = node_id;
-                    }
-                    else {
-                        // align against the graph
                         
-                        aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                        if (tail_graph.node_size() == 0) {
+                            // edge case for when a read keeps going past the end of a graph
+                            alt_alignments.emplace_back();
+                            Alignment& tail_alignment = alt_alignments.back();
+                            tail_alignment.set_score(aligner->score_gap(right_tail_sequence.sequence().size()));
+                            Mapping* insert_mapping = tail_alignment.mutable_path()->add_mapping();
+                            
+                            // add a soft clip
+                            Edit* edit = insert_mapping->add_edit();
+                            edit->set_to_length(right_tail_sequence.sequence().size());
+                            edit->set_sequence(right_tail_sequence.sequence());
+                            
+                            // make it at the correct position
+                            const Path& anchoring_path = path_nodes[j].path;
+                            const Mapping& anchoring_mapping = anchoring_path.mapping(anchoring_path.mapping_size() - 1);
+                            Position* anchoring_position = insert_mapping->mutable_position();
+                            anchoring_position->set_node_id(anchoring_mapping.position().node_id());
+                            anchoring_position->set_is_reverse(anchoring_mapping.position().is_reverse());
+                            anchoring_position->set_offset(anchoring_mapping.position().offset() + mapping_from_length(anchoring_mapping));
+#ifdef debug_multipath_alignment
+                            cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
+#endif
+                            // the ID translator is empty, so add this ID here so it doesn't give an out of index error
+                            id_t node_id = insert_mapping->position().node_id();
+                            tail_trans[node_id] = node_id;
+                        }
+                        else {
+                            // align against the graph
+                            
+                            aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                        }
                     }
                     
 #ifdef debug_multipath_alignment
@@ -3162,47 +3169,50 @@ namespace vg {
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    size_t num_alt_alns = max((size_t) 1, dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) : 
-                                                                             max_alt_alns);
-                    
-                    Graph& tail_graph = tail_graph_extractor.graph;
-                    // ensure invariants that gssw-based alignment expects
-                    groom_graph_for_gssw(tail_graph);
-                    
-                    Alignment left_tail_sequence;
-                    left_tail_sequence.set_sequence(alignment.sequence().substr(0, path_node.begin - alignment.sequence().begin()));
-                    if (!alignment.quality().empty()) {
-                        left_tail_sequence.set_quality(alignment.quality().substr(0, path_node.begin - alignment.sequence().begin()));
-                    }
-                    
-                    
-#ifdef debug_multipath_alignment
-                    cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph: " << pb2json(tail_graph) << endl;
-#endif
+                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) : 
+                                                             max_alt_alns;
+                            
                     vector<Alignment> alt_alignments;
-                    if (tail_graph.node_size() == 0) {
-                        // edge case for when a read keeps going past the end of a graph
-                        alt_alignments.emplace_back();
-                        Alignment& tail_alignment = alt_alignments.back();
-                        tail_alignment.set_score(aligner->score_gap(left_tail_sequence.sequence().size()));
-                        Mapping* insert_mapping = tail_alignment.mutable_path()->add_mapping();
+                    if (num_alt_alns > 0) {
+                    
+                        Graph& tail_graph = tail_graph_extractor.graph;
+                        // ensure invariants that gssw-based alignment expects
+                        groom_graph_for_gssw(tail_graph);
                         
-                        // add a soft clip
-                        Edit* edit = insert_mapping->add_edit();
-                        edit->set_to_length(left_tail_sequence.sequence().size());
-                        edit->set_sequence(left_tail_sequence.sequence());
+                        Alignment left_tail_sequence;
+                        left_tail_sequence.set_sequence(alignment.sequence().substr(0, path_node.begin - alignment.sequence().begin()));
+                        if (!alignment.quality().empty()) {
+                            left_tail_sequence.set_quality(alignment.quality().substr(0, path_node.begin - alignment.sequence().begin()));
+                        }
                         
-                        // make it at the correct position
-                        *insert_mapping->mutable_position() = path_nodes[j].path.mapping(0).position();
+                        
 #ifdef debug_multipath_alignment
-                        cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
+                        cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph: " << pb2json(tail_graph) << endl;
 #endif
-                        // the ID translator is empty, so add this ID here so it doesn't give an out of index error
-                        id_t node_id = insert_mapping->position().node_id();
-                        tail_trans[node_id] = node_id;
-                    }
-                    else {
-                        aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                        if (tail_graph.node_size() == 0) {
+                            // edge case for when a read keeps going past the end of a graph
+                            alt_alignments.emplace_back();
+                            Alignment& tail_alignment = alt_alignments.back();
+                            tail_alignment.set_score(aligner->score_gap(left_tail_sequence.sequence().size()));
+                            Mapping* insert_mapping = tail_alignment.mutable_path()->add_mapping();
+                            
+                            // add a soft clip
+                            Edit* edit = insert_mapping->add_edit();
+                            edit->set_to_length(left_tail_sequence.sequence().size());
+                            edit->set_sequence(left_tail_sequence.sequence());
+                            
+                            // make it at the correct position
+                            *insert_mapping->mutable_position() = path_nodes[j].path.mapping(0).position();
+#ifdef debug_multipath_alignment
+                            cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
+#endif
+                            // the ID translator is empty, so add this ID here so it doesn't give an out of index error
+                            id_t node_id = insert_mapping->position().node_id();
+                            tail_trans[node_id] = node_id;
+                        }
+                        else {
+                            aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                        }
                     }
                     
 #ifdef debug_multipath_alignment
