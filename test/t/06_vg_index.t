@@ -129,6 +129,10 @@ is $(vg paths -g x_gam.gbwt -T -x x_gam.xg -V | vg view -c - | jq -cr '.path[].n
 
 rm -f x.vg x.xg sim.gam x_gam.gbwt
 
+# We do not test GBWT construction parameters (-B, -u, -n) because they matter only for large inputs.
+# We do not test chromosome-length path generation (-P, -o) for the same reason.
+
+
 # Other tests
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg bogus123.vg

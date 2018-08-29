@@ -510,7 +510,9 @@ int main_index(int argc, char** argv) {
         // Do we build GBWT?
         gbwt::GBWTBuilder* gbwt_builder = 0;
         if (build_gbwt) {
-            if (show_progress) { cerr << "Building GBWT index" << endl; }
+            if (show_progress) {
+                cerr << "GBWT parameters: buffer size " << gbwt_buffer_size << ", id interval " << id_interval << endl;
+            }
             gbwt::Verbosity::set(gbwt::Verbosity::SILENT);  // Make the construction thread silent.
             gbwt_builder = new gbwt::GBWTBuilder(id_width, gbwt_buffer_size * gbwt::MILLION, id_interval);
         }
@@ -606,7 +608,15 @@ int main_index(int argc, char** argv) {
             sample_range.second = std::min(sample_range.second, num_samples);
             haplotype_count += 2 * (sample_range.second - sample_range.first);  // Assuming a diploid genome
             if (show_progress) {
-                cerr << "Processing samples " << sample_range.first << " to " << (sample_range.second - 1) << " with batch size " << samples_in_batch << endl;
+                cerr << "Haplotype generation parameters:" << endl;
+                cerr << "- Samples " << sample_range.first << " to " << (sample_range.second - 1) << endl;
+                cerr << "- Batch size " << samples_in_batch << endl;
+                if (force_phasing) {
+                    cerr << "- Force phasing" << endl;
+                }
+                if (discard_overlaps) {
+                    cerr << "- Discard overlaps" << endl;
+                }
             }
 
             // Process each VCF contig corresponding to an XG path.
