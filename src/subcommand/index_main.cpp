@@ -49,6 +49,8 @@ void help_index(char** argv) {
          << "    -o, --discard-overlaps skip overlapping alternate alleles if the overlap cannot be resolved" << endl
          << "    -O, --check-overlaps   print information on overlapping variants to stderr" << endl
          << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
+         << "    -u, --buffer-size N    GBWT construction buffer size in millions of nodes (default 100)" << endl
+         << "    -n, --id-interval N    store haplotype ids at one out of N positions (default 1024)" << endl
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -I, --region C:S-E     operate on only the given 1-based region of the given VCF contig (may repeat)" << endl
@@ -145,7 +147,9 @@ int main_index(int argc, char** argv) {
     bool index_haplotypes = false, index_paths = false, index_gam = false;
     vector<string> gam_file_names;
     bool force_phasing = false, discard_overlaps = false, check_overlaps = false;
-    size_t samples_in_batch = 200; // Samples per batch.
+    size_t samples_in_batch = 200;
+    size_t gbwt_buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION; // Millions of nodes.
+    size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
     std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
     map<string, string> path_to_vcf; // Path name conversion from --rename.
     map<string, pair<size_t, size_t>> regions; // Region restrictions for contigs, in VCF name space, as 0-based exclusive-end ranges.
@@ -194,6 +198,8 @@ int main_index(int argc, char** argv) {
             {"discard-overlaps", no_argument, 0, 'o'},
             {"check-overlaps", no_argument, 0, 'O'},
             {"batch-size", required_argument, 0, 'B'},
+            {"buffer-size", required_argument, 0, 'u'},
+            {"id-interval", required_argument, 0, 'n'},
             {"range", required_argument, 0, 'R'},
             {"rename", required_argument, 0, 'r'},
             {"region", required_argument, 0, 'I'},
@@ -223,7 +229,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:TM:G:H:PoOB:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCh",
+        c = getopt_long (argc, argv, "b:t:px:F:v:TM:G:H:PoOB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCh",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -286,6 +292,12 @@ int main_index(int argc, char** argv) {
             break;
         case 'B':
             samples_in_batch = std::max(parse<size_t>(optarg), 1ul);
+            break;
+        case 'u':
+            gbwt_buffer_size = std::max(parse<size_t>(optarg), 1ul);
+            break;
+        case 'n':
+            id_interval = parse<size_t>(optarg);
             break;
         case 'R':
             {
@@ -500,7 +512,7 @@ int main_index(int argc, char** argv) {
         if (build_gbwt) {
             if (show_progress) { cerr << "Building GBWT index" << endl; }
             gbwt::Verbosity::set(gbwt::Verbosity::SILENT);  // Make the construction thread silent.
-            gbwt_builder = new gbwt::GBWTBuilder(id_width);
+            gbwt_builder = new gbwt::GBWTBuilder(id_width, gbwt_buffer_size * gbwt::MILLION, id_interval);
         }
 
         // Do we write threads?
