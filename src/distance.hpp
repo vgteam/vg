@@ -247,8 +247,11 @@ class DistanceIndex {
     //smaller than cap
     void flagCycles(const Snarl* snarl, bit_vector& inCycle,
                     int64_t cap);
+    //Assign each node to a connected component of cycles
+    pair<int_vector<>, uint64_t> findCycleComponents();
 
     //Minimum distance of a loop that involves node
+    int64_t loopDistance(pair<id_t, bool> node1, pair<id_t, bool> node2); 
     int64_t loopDistance( const Snarl* snarl1, const Snarl* snarl2,
                           pair<id_t, bool> node1, pair<id_t, bool> node2); 
 

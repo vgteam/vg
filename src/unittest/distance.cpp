@@ -143,6 +143,7 @@ class TestDistanceIndex : public DistanceIndex {
         using DistanceIndex::checkChainLoopFd;
         using DistanceIndex::checkChainLoopRev;
         using DistanceIndex::printSelf;
+        using DistanceIndex::findCycleComponents;
 };
 
 
@@ -327,7 +328,7 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(distance(&graph, pos7, pos8) == 5);
             REQUIRE(distance(&graph, pos4, pos9) == -1);
 
-
+ 
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
                                         make_pair(2, false)) == -1);
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
@@ -344,6 +345,12 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(6, false)) == -1);
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
                                         make_pair(8, false)) == -1);
+
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 0);
+            for (auto x : nodeToCC.first) {
+                REQUIRE(x == 0);
+            }
         }
     }//End test case
 
@@ -592,6 +599,12 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(5, false)) == -1);
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
                                         make_pair(8, false)) == -1);
+
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 0);
+            for (auto x : nodeToCC.first) {
+                REQUIRE(x == 0);
+            }
         }
     }//end test case
 
@@ -778,6 +791,12 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(5, false)) == -1);
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
                                         make_pair(8, false)) == -1);
+
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 0);
+            for (auto x : nodeToCC.first) {
+                REQUIRE(x == 0);
+            }
         }
     }//end test case
 
@@ -935,6 +954,11 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(8, false)) == -1);
             REQUIRE(di.loopDistance(snarl8, snarl8, make_pair(9, false),  
                                         make_pair(9, false)) == -1);
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 0);
+            for (auto x : nodeToCC.first) {
+                REQUIRE(x == 0);
+            }
         }
     }//end test case
     TEST_CASE("Interior chain", "[dist]") {
@@ -1101,6 +1125,11 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(10, false)) == -1);
             REQUIRE(di.loopDistance(snarl7, snarl7, make_pair(9, false),  
                                         make_pair(9, false)) == -1);
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 0);
+            for (auto x : nodeToCC.first) {
+                REQUIRE(x == 0);
+            }
         }
     }//end test case
     TEST_CASE("Top level loop creates unary snarl", "[dist]") {
@@ -1246,6 +1275,12 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(5, false)) == -1);
             REQUIRE(di.loopDistance(snarl7, snarl7, make_pair(7, false),  
                                         make_pair(7, false)) == -1);
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 0);
+            for (auto x : nodeToCC.first) {
+                REQUIRE(x == 0);
+            }
+
         }
     }//end test case
     TEST_CASE( "Shortest path exits common ancestor","[dist]" ) {
@@ -1342,6 +1377,10 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(5, false)) == 12);
             REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(7, false),  
                                         make_pair(7, false)) == -1);
+
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 1);
+            REQUIRE(nodeToCC.first[4] == 1);
         }
     }//End test case
     TEST_CASE( "Simple nested snarl with loop",
@@ -1467,9 +1506,74 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(4, false)) == 14);
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(7, false),  
                                         make_pair(7, false)) == 10);
+
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 1);
+            REQUIRE(nodeToCC.first[2] == 1);
+            REQUIRE(nodeToCC.first[3] == 1);
+            REQUIRE(nodeToCC.first[4] == 1);
+            REQUIRE(nodeToCC.first[6] == 1);
         }
     }//End test case
 
+    TEST_CASE( "Three loops",
+                   "[dist]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("G");
+        Node* n9 = graph.create_node("G");
+        Node* n10 = graph.create_node("G");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n6);
+        Edge* e3 = graph.create_edge(n1, n10);
+        Edge* e4 = graph.create_edge(n2, n3);
+        Edge* e5 = graph.create_edge(n2, n4);
+        Edge* e6 = graph.create_edge(n3, n5);
+        Edge* e7 = graph.create_edge(n4, n5);
+        Edge* e8 = graph.create_edge(n5, n6);
+        Edge* e9 = graph.create_edge(n5, n2);
+        Edge* e10 = graph.create_edge(n6, n7);
+        Edge* e11 = graph.create_edge(n6, n8);
+        Edge* e12 = graph.create_edge(n7, n8);
+        Edge* e13 = graph.create_edge(n7, n7);
+        Edge* e14 = graph.create_edge(n8, n9);
+        Edge* e15 = graph.create_edge(n9, n8);
+        Edge* e16 = graph.create_edge(n9, n10);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+        TestDistanceIndex di (&graph, &snarl_manager);
+        
+        SECTION( "Create distance index" ) {
+#ifdef print
+            di.printSelf();
+#endif
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 3);
+            int64_t c1 = nodeToCC.first[1];
+            int64_t c2 = nodeToCC.first[6];
+            int64_t c3 = nodeToCC.first[7]; 
+         
+            REQUIRE(nodeToCC.first[0] == 0);
+            REQUIRE(nodeToCC.first[1] == c1);
+            REQUIRE(nodeToCC.first[2] == c1);
+            REQUIRE(nodeToCC.first[3] == c1);
+            REQUIRE(nodeToCC.first[4] == c1);
+            REQUIRE(nodeToCC.first[5] == 0);
+            REQUIRE(nodeToCC.first[6] == c2);
+            REQUIRE(nodeToCC.first[7] == c3);
+            REQUIRE(nodeToCC.first[8] == c3);
+            REQUIRE(nodeToCC.first[9] == 0);
+        }
+    }//End test case
 
     TEST_CASE( "More loops",
                    "[dist]" ) {
@@ -1557,96 +1661,17 @@ class TestDistanceIndex : public DistanceIndex {
                                                     make_pair(2, true)) == -1);
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(6, false),  
                                                     make_pair(6, false)) == -1);
-            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
+            REQUIRE(di.loopDistance( make_pair(3, false),  
                                                     make_pair(3, false)) == -1);
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(5, false),  
                                                     make_pair(5, false)) == -1);
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 0);
+            for (auto x : nodeToCC.first) {
+                REQUIRE(x == 0);
+            }
         }
     }//End test case
-    TEST_CASE("Nested unary snarls", "[dist]") {
-        VG graph;
-        Node* n1 = graph.create_node("GCA");
-        Node* n2 = graph.create_node("T");
-        Node* n3 = graph.create_node("G");
-        Node* n4 = graph.create_node("CTGA");
-        Node* n5 = graph.create_node("GCA");
-        Node* n6 = graph.create_node("T");
-        Node* n7 = graph.create_node("G");
-        Node* n8 = graph.create_node("CTGA");
-
-        Edge* e1 = graph.create_edge(n1, n2);
-        Edge* e2 = graph.create_edge(n1, n4);
-        Edge* e3 = graph.create_edge(n1, n8);
-        Edge* e4 = graph.create_edge(n2, n3);
-        Edge* e5 = graph.create_edge(n4, n5);
-        Edge* e6 = graph.create_edge(n4, n6);
-        Edge* e7 = graph.create_edge(n5, n7);
-        Edge* e8 = graph.create_edge(n6, n7);
-        Edge* e9 = graph.create_edge(n7, n7, false, true);
-        Edge* e10 = graph.create_edge(n8, n4, true, false);
-        Edge* e11 = graph.create_edge(n8, n2, true, false);
-
-
-
-        CactusSnarlFinder bubble_finder(graph);
-        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
-
-
-        SECTION("Create distance index") {
-            #ifdef print
-            di.printSelf();
-            #endif
-            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
-            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, true);
-
-            }
-        SECTION ("Distance functions") {
-            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, true);
-            const Snarl* snarl2 = snarl_manager.into_which_snarl(2, true);
-            const Snarl* snarl3 = snarl_manager.into_which_snarl(3, true);
-            const Snarl* snarl5 = snarl_manager.into_which_snarl(5, false);
-
-            pos_t pos1 = make_pos_t(1, false, 0);
-            pos_t pos2 = make_pos_t(2, false, 0);
-            pos_t pos3 = make_pos_t(3, false, 0);
-            pos_t pos4 = make_pos_t(4, false, 0);
-            pos_t pos5 = make_pos_t(5, false, 0);
-            pos_t pos7 = make_pos_t(7, false, 0);
-            pos_t pos8 = make_pos_t(8, false, 0);
-
-            REQUIRE(di.distance(pos1, pos1) == 1);
-            REQUIRE(di.distance(pos1, pos2) == 4);
-            REQUIRE(di.distance( pos1, pos8) == 4);
-            REQUIRE(di.distance( pos1, pos5) == 8);
-            REQUIRE(di.distance( pos3, pos5) == -1);
-            REQUIRE(di.distance( pos3, pos8) == 3);
-
-            REQUIRE(distance(&graph, pos1, pos1) == 1);
-            REQUIRE(distance(&graph, pos1, pos2) == 4);
-            REQUIRE(distance(&graph, pos1, pos8) == 4);
-            REQUIRE(distance(&graph, pos1, pos5) == 8);
-            REQUIRE(distance(&graph, pos3, pos5) == -1);
-            REQUIRE(distance(&graph, pos3, pos8) == 3);
- 
-            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
-                                        make_pair(2, false)) == -1);
-            REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
-                                        make_pair(2, true)) == -1);
-            REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(5, false),  
-                                        make_pair(5, false)) == -1);
-            REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(5, false),  
-                                        make_pair(7, false)) == -1);
-            REQUIRE(di.loopDistance(snarl2, snarl3, make_pair(2, false),  
-                                        make_pair(3, false)) == -1);
-            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(2, false),  
-                                        make_pair(3, false)) == -1);
-            REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
-                                        make_pair(3, false)) == -1);
-            REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(5, false),  
-                                        make_pair(5, false)) == -1);
-        }
-    }//end test case
 
     TEST_CASE( "Exit common ancestor","[dist]" ) {
         VG graph;
@@ -1770,6 +1795,19 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(2, true)) == 4);
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
                                         make_pair(11, false)) == 4);
+            REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(7, true),  
+                                        make_pair(6, true)) == 14);
+
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 1);
+            for (size_t i = 0 ; i < nodeToCC.first.size() ; i ++) {
+                if ( i == 0 || i == 9) {
+
+                    REQUIRE(nodeToCC.first[i] == 0);
+                } else {
+                    REQUIRE(nodeToCC.first[i] == 1);
+                }
+            }
         }
     }//End test case
 
@@ -1895,7 +1933,12 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(5, false)) == 19);
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
                                         make_pair(3, false)) == 11);
-
+            REQUIRE(di.loopDistance(snarl3, snarl6, make_pair(5, false),  
+                                        make_pair(6, false)) == 19);
+            REQUIRE(di.loopDistance(snarl1, snarl2, make_pair(1, false),  
+                                        make_pair(2, false)) == 9);
+            REQUIRE(di.loopDistance(make_pair(1, false),  
+                                        make_pair(2, false)) == 9);
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
                                         make_pair(16, false)) == 5);
             REQUIRE(di.loopDistance(snarl2, snarl3, make_pair(2, false),  
@@ -1912,6 +1955,14 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(8, false)) == 11);
             REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(6, false),  
                                         make_pair(7, false)) == 12);
+            REQUIRE(di.loopDistance(snarl9, snarl2, make_pair(11, false),  
+                                        make_pair(2, false)) == 5);
+
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 1);
+            for (auto x : nodeToCC.first) {
+                REQUIRE(x == 1);
+            }
         }
     }//End test case
 
@@ -2005,6 +2056,12 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(3, false)) == 11);
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(1, false),  
                                         make_pair(8, false)) == 4);
+
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 1);
+            for (auto x : nodeToCC.first) {
+                REQUIRE(x == 1);
+            }
         }
     }//end test case
 
@@ -2070,6 +2127,12 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(5, true)) == 10);
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),
                                         make_pair(4, false)) == 14);
+
+            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
+            REQUIRE(nodeToCC.second == 1);
+            for (auto x : nodeToCC.first) {
+                REQUIRE(x == 1);
+            }
         }
  
     }
