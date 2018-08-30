@@ -572,6 +572,10 @@ namespace vg {
                     // Note: we still want bounds for SVs, we just have to get them differently
                     std::pair<int64_t, int64_t> bounds;
                     bounds = get_bounds(parsed_clump[variant]);
+                    if (variant->is_symbolic_sv()){
+                        bounds = get_bounds(*variant);
+                    }
+                    
 
                     if (bounds.first != numeric_limits<int64_t>::max() || bounds.second != -1) {
                         // There's a (possibly 0-length) variable region
@@ -721,7 +725,6 @@ namespace vg {
 
                             inversion_starts[inv_start].insert(inv_end);
                             inversion_ends[inv_end - 1].insert(inv_start - 1);
-                            cerr << *variant << endl << inv_start << " " << inv_end << endl;
                         }
                         else {
                             // Unknown or unsupported SV type
@@ -1506,7 +1509,7 @@ namespace vg {
                 // Canonicalize the variant and see if that disqualifies it.
                 // This also takes care of setting the variant's insertion sequences.
                 variant_acceptable = vvar->canonicalize(reference, insertions, true);
-                    
+ 
                 if (variant_acceptable) {
                     // Worth checking for multiple alts.
                     if (vvar->alt.size() > 1) {
