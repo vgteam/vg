@@ -14,7 +14,7 @@
 #include <algorithm>
 #include <memory>
 
-//#define debug
+#define debug
 
 namespace vg {
 
@@ -724,7 +724,7 @@ namespace vg {
                             // inversion_ends[inv_end + 1].insert(inv_start);
 
                             inversion_starts[inv_start].insert(inv_end);
-                            inversion_ends[inv_end - 1].insert(inv_start - 1);
+                            inversion_ends[inv_end].insert(inv_start);
                         }
                         else {
                             // Unknown or unsupported SV type
