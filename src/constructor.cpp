@@ -14,7 +14,7 @@
 #include <algorithm>
 #include <memory>
 
-#define debug
+//#define debug
 
 namespace vg {
 
