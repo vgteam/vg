@@ -1047,9 +1047,12 @@ int main_index(int argc, char** argv) {
                 exit(1);
             }
             VG vg(vg_stream);
+            vg_stream.close();
+
             CactusSnarlFinder bubble_finder(vg);
             SnarlManager snarl_manager = bubble_finder.find_snarls();
             DistanceIndex di (&vg, &snarl_manager);
+            
 
  
             ofstream dist_out(dist_name);           

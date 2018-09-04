@@ -143,7 +143,7 @@ class TestDistanceIndex : public DistanceIndex {
         using DistanceIndex::checkChainLoopFd;
         using DistanceIndex::checkChainLoopRev;
         using DistanceIndex::printSelf;
-        using DistanceIndex::findCycleComponents;
+        using DistanceIndex::findComponents;
 };
 
 
@@ -346,9 +346,10 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
                                         make_pair(8, false)) == -1);
 
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 0);
-            for (auto x : nodeToCC.first) {
+            int_vector<> nodeToCC(8, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 0);
+            for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
             }
         }
@@ -600,9 +601,10 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
                                         make_pair(8, false)) == -1);
 
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 0);
-            for (auto x : nodeToCC.first) {
+            int_vector<> nodeToCC(8, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 0);
+            for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
             }
         }
@@ -792,9 +794,10 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
                                         make_pair(8, false)) == -1);
 
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 0);
-            for (auto x : nodeToCC.first) {
+            int_vector<> nodeToCC(8, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 0);
+            for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
             }
         }
@@ -954,9 +957,11 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(8, false)) == -1);
             REQUIRE(di.loopDistance(snarl8, snarl8, make_pair(9, false),  
                                         make_pair(9, false)) == -1);
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 0);
-            for (auto x : nodeToCC.first) {
+
+            int_vector<> nodeToCC(10, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 0);
+            for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
             }
         }
@@ -1125,9 +1130,11 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(10, false)) == -1);
             REQUIRE(di.loopDistance(snarl7, snarl7, make_pair(9, false),  
                                         make_pair(9, false)) == -1);
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 0);
-            for (auto x : nodeToCC.first) {
+
+            int_vector<> nodeToCC(10, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 0);
+            for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
             }
         }
@@ -1275,9 +1282,11 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(5, false)) == -1);
             REQUIRE(di.loopDistance(snarl7, snarl7, make_pair(7, false),  
                                         make_pair(7, false)) == -1);
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 0);
-            for (auto x : nodeToCC.first) {
+
+            int_vector<> nodeToCC(7, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 0);
+            for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
             }
 
@@ -1378,9 +1387,10 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(7, false),  
                                         make_pair(7, false)) == -1);
 
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 1);
-            REQUIRE(nodeToCC.first[4] == 1);
+            int_vector<> nodeToCC(10, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 1);
+            REQUIRE(nodeToCC[4] == 1);
         }
     }//End test case
     TEST_CASE( "Simple nested snarl with loop",
@@ -1507,12 +1517,13 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(7, false),  
                                         make_pair(7, false)) == 10);
 
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 1);
-            REQUIRE(nodeToCC.first[2] == 1);
-            REQUIRE(nodeToCC.first[3] == 1);
-            REQUIRE(nodeToCC.first[4] == 1);
-            REQUIRE(nodeToCC.first[6] == 1);
+            int_vector<> nodeToCC(8, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 1);
+            REQUIRE(nodeToCC[2] == 1);
+            REQUIRE(nodeToCC[3] == 1);
+            REQUIRE(nodeToCC[4] == 1);
+            REQUIRE(nodeToCC[6] == 1);
         }
     }//End test case
 
@@ -1530,9 +1541,10 @@ class TestDistanceIndex : public DistanceIndex {
         Node* n8 = graph.create_node("G");
         Node* n9 = graph.create_node("G");
         Node* n10 = graph.create_node("G");
+        Node* n11 = graph.create_node("G");
+        Node* n12 = graph.create_node("G");
 
-        Edge* e1 = graph.create_edge(n1, n2);
-        Edge* e2 = graph.create_edge(n1, n6);
+        Edge* e1 = graph.create_edge(n1, n12);
         Edge* e3 = graph.create_edge(n1, n10);
         Edge* e4 = graph.create_edge(n2, n3);
         Edge* e5 = graph.create_edge(n2, n4);
@@ -1546,7 +1558,9 @@ class TestDistanceIndex : public DistanceIndex {
         Edge* e13 = graph.create_edge(n7, n7);
         Edge* e14 = graph.create_edge(n8, n9);
         Edge* e15 = graph.create_edge(n9, n8);
-        Edge* e16 = graph.create_edge(n9, n10);
+        Edge* e16 = graph.create_edge(n9, n11);
+        Edge* e17 = graph.create_edge(n11, n10);
+        Edge* e18 = graph.create_edge(n12, n2);
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
@@ -1556,22 +1570,58 @@ class TestDistanceIndex : public DistanceIndex {
 #ifdef print
             di.printSelf();
 #endif
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 3);
-            int64_t c1 = nodeToCC.first[1];
-            int64_t c2 = nodeToCC.first[6];
-            int64_t c3 = nodeToCC.first[7]; 
+
+            REQUIRE(di.loopDistance(make_pair(7, false),  
+                                                    make_pair(8, false)) == -1);
+            
+            REQUIRE(di.loopDistance(make_pair(9, false),  
+                                                   make_pair(11, false)) == -1);
+            REQUIRE(di.loopDistance(make_pair(11, false),  
+                                                   make_pair(10, false)) == -1);
+            REQUIRE(di.loopDistance(make_pair(12, false),  
+                                                   make_pair(2, false)) == -1);
+            REQUIRE(di.loopDistance(make_pair(1, false),  
+                                                   make_pair(12, false)) == -1);
+            int_vector<> nodeToCC(12, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 3);
+            int64_t c1 = nodeToCC[1];
+            int64_t c2 = nodeToCC[6];
+            int64_t c3 = nodeToCC[7]; 
          
-            REQUIRE(nodeToCC.first[0] == 0);
-            REQUIRE(nodeToCC.first[1] == c1);
-            REQUIRE(nodeToCC.first[2] == c1);
-            REQUIRE(nodeToCC.first[3] == c1);
-            REQUIRE(nodeToCC.first[4] == c1);
-            REQUIRE(nodeToCC.first[5] == 0);
-            REQUIRE(nodeToCC.first[6] == c2);
-            REQUIRE(nodeToCC.first[7] == c3);
-            REQUIRE(nodeToCC.first[8] == c3);
-            REQUIRE(nodeToCC.first[9] == 0);
+            REQUIRE(nodeToCC[0] == 0);
+            REQUIRE(nodeToCC[1] == c1);
+            REQUIRE(nodeToCC[2] == c1);
+            REQUIRE(nodeToCC[3] == c1);
+            REQUIRE(nodeToCC[4] == c1);
+            REQUIRE(nodeToCC[5] == 0);
+            REQUIRE(nodeToCC[6] == c2);
+            REQUIRE(nodeToCC[7] == c3);
+            REQUIRE(nodeToCC[8] == c3);
+            REQUIRE(nodeToCC[9] == 0);
+            REQUIRE(nodeToCC[10] == 0);
+            REQUIRE(nodeToCC[11] == 0);
+            REQUIRE(c1 != c2);
+            REQUIRE(c3 != c2);
+            REQUIRE(c3 != c1);
+            
+            di.findComponents(nodeToCC, n, false);
+            
+            int64_t c4 = nodeToCC[0];
+            int64_t c5 = nodeToCC[5];
+            REQUIRE(nodeToCC[0] == c4);
+            REQUIRE(nodeToCC[1] == c1);
+            REQUIRE(nodeToCC[2] == c1);
+            REQUIRE(nodeToCC[3] == c1);
+            REQUIRE(nodeToCC[4] == c1);
+            REQUIRE(nodeToCC[5] == c5);
+            REQUIRE(nodeToCC[6] == c2);
+            REQUIRE(nodeToCC[7] == c3);
+            REQUIRE(nodeToCC[8] == c3);
+            REQUIRE(nodeToCC[9] == c4);
+            REQUIRE(nodeToCC[10] == c4);
+            REQUIRE(nodeToCC[11] == c4);
+            REQUIRE(c4 != c5);
         }
     }//End test case
 
@@ -1665,9 +1715,11 @@ class TestDistanceIndex : public DistanceIndex {
                                                     make_pair(3, false)) == -1);
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(5, false),  
                                                     make_pair(5, false)) == -1);
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 0);
-            for (auto x : nodeToCC.first) {
+
+            int_vector<> nodeToCC(7, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 0);
+            for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
             }
         }
@@ -1798,14 +1850,15 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(7, true),  
                                         make_pair(6, true)) == 14);
 
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 1);
-            for (size_t i = 0 ; i < nodeToCC.first.size() ; i ++) {
+            int_vector<> nodeToCC(12, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 1);
+            for (size_t i = 0 ; i < nodeToCC.size() ; i ++) {
                 if ( i == 0 || i == 9) {
 
-                    REQUIRE(nodeToCC.first[i] == 0);
+                    REQUIRE(nodeToCC[i] == 0);
                 } else {
-                    REQUIRE(nodeToCC.first[i] == 1);
+                    REQUIRE(nodeToCC[i] == 1);
                 }
             }
         }
@@ -1958,9 +2011,10 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl9, snarl2, make_pair(11, false),  
                                         make_pair(2, false)) == 5);
 
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 1);
-            for (auto x : nodeToCC.first) {
+            int_vector<> nodeToCC(16, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 1);
+            for (auto x : nodeToCC) {
                 REQUIRE(x == 1);
             }
         }
@@ -2057,9 +2111,10 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(1, false),  
                                         make_pair(8, false)) == 4);
 
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 1);
-            for (auto x : nodeToCC.first) {
+            int_vector<> nodeToCC(10, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 1);
+            for (auto x : nodeToCC) {
                 REQUIRE(x == 1);
             }
         }
@@ -2128,16 +2183,32 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),
                                         make_pair(4, false)) == 14);
 
-            pair<int_vector<>, uint64_t> nodeToCC = di.findCycleComponents();
-            REQUIRE(nodeToCC.second == 1);
-            for (auto x : nodeToCC.first) {
+            int_vector<> nodeToCC(5, 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            REQUIRE(n == 1);
+            for (auto x : nodeToCC) {
                 REQUIRE(x == 1);
             }
         }
  
     }
 
-    TEST_CASE("Random test", "[dist]") {
+    TEST_CASE("Random test", "[dist][bug]") {
+/* 
+        ifstream vg_stream("testGraph");
+        VG vg(vg_stream);
+        CactusSnarlFinder bubble_finder(vg);
+        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+
+        TestDistanceIndex di (&vg, &snarl_manager);
+        pos_t pos1 = make_pos_t(31, false,0 );
+        pos_t pos2 =  make_pos_t(171, true,0 );
+
+        REQUIRE(di.distance(pos1, pos2 ) == 50);
+*/
+
+
+        
         for (int i = 0; i < 100; i++) {
             //1000 different graphs
             VG graph = randomGraph(1000, 20, 100); 
@@ -2145,13 +2216,23 @@ class TestDistanceIndex : public DistanceIndex {
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
-                        graph.serialize_to_file("testGraph");
             TestDistanceIndex di (&graph, &snarl_manager);
             #ifdef print        
                 di.printSelf();
 
             #endif
- 
+            int_vector<> nodeToCC(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC, 0, true);
+/*
+            for (size_t i = 0 ; i < graph.max_node_id(); i++) {
+            cerr << i+1 << ": " << nodeToCC[i] << endl;
+            }
+*/
+            di.findComponents(nodeToCC, n, false);
+            for (int64_t x : nodeToCC) {
+                REQUIRE(x > 0);
+            }
+
             vector<const Snarl*> allSnarls;
             auto addSnarl = [&] (const Snarl* s) {
                 allSnarls.push_back(s);
@@ -2213,8 +2294,9 @@ class TestDistanceIndex : public DistanceIndex {
                     }
                     bool passed = myDist == actDist;
 
-                    if (!passed) { 
+                    if (!passed && myDist < 100) { 
                         graph.serialize_to_file("testGraph");
+di.printSelf();
                         cerr << "Failed on random test: " << endl;
                         
                         cerr << "Position 1 on snarl " << 
@@ -2237,6 +2319,42 @@ class TestDistanceIndex : public DistanceIndex {
     } //end test case
 
 /*
+    TEST_CASE("From serialized index", "[dist]"){
+
+       ifstream vg_stream("testGraph");
+       VG vg(vg_stream);
+       vg_stream.close();
+
+       ifstream xg_stream("primary-BRCA1.xg");
+       xg::XG xg(xg_stream);
+       xg_stream.close();
+ 
+       CactusSnarlFinder bubble_finder(vg);
+       SnarlManager snarl_manager = bubble_finder.find_snarls();
+
+       ifstream dist_stream("primary-dist");
+       
+       DistanceIndex di(&vg, &snarl_manager, dist_stream);
+       dist_stream.close();
+
+       random_device seed_source;
+       default_random_engine generator(seed_source());
+       for (size_t i = 0; i < 1000 ; i++) {
+    
+           size_t maxPos = xg.seq_length;
+           size_t offset1 = uniform_int_distribution<int>(1, maxPos)(generator);
+           size_t offset2 = uniform_int_distribution<int>(1, maxPos)(generator); 
+           id_t nodeID1 = xg.node_at_seq_pos(offset1);
+           id_t nodeID2 = xg.node_at_seq_pos(offset2);
+
+           pos_t pos1 = make_pos_t(nodeID1, false, 0);
+           pos_t pos2 = make_pos_t(nodeID2, false, 0);
+           REQUIRE(di.distance(pos1, pos2) == distance(&vg, pos1, pos2));
+        }
+
+    }
+        
+
 
     TEST_CASE("Serialize distance index", "[dist][serial]") {
         for (int i = 0; i < 100; i++) {
@@ -2250,7 +2368,6 @@ class TestDistanceIndex : public DistanceIndex {
             TestDistanceIndex di (&graph, &snarl_manager);
   
             filebuf buf;
-            //buf.open("distanceIndex", ios::out);
             ofstream out("distanceIndex");
            
             di.serialize(out);

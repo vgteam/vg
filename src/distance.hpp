@@ -82,7 +82,7 @@ class DistanceIndex {
                      int64_t dist);
              
             //Length of a node
-            int64_t nodeLength(VG*graph, NetGraph* ng,  pair<id_t, bool> node);
+            int64_t nodeLength(VG*graph, NetGraph* ng,  id_t node);
         
             //Total length of the snarl
             int64_t snarlLength(VG* graph, NetGraph* ng);
@@ -248,7 +248,8 @@ class DistanceIndex {
     void flagCycles(const Snarl* snarl, bit_vector& inCycle,
                     int64_t cap);
     //Assign each node to a connected component of cycles
-    pair<int_vector<>, uint64_t> findCycleComponents();
+    uint64_t findComponents(int_vector<>& nodeToComponent, 
+                              uint64_t currComponent, bool onlyCycles);
 
     //Minimum distance of a loop that involves node
     int64_t loopDistance(pair<id_t, bool> node1, pair<id_t, bool> node2); 

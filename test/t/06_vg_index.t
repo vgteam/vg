@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 52
+plan tests 53
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -259,3 +259,11 @@ rm -f t.gcsa
 rm -f x.vg
 
 rm -f r.gcsa.lcp c.gcsa.lcp t.gcsa.lcp ins_and_del.vg ins_and_del.vg.xg
+
+# Single graph without haplotypes
+vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
+
+vg index -c x.vg -s distIndex
+is $? 0 "building a distance index of a graph"
+
+rm -f x.vg distIndex

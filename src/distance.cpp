@@ -5,6 +5,7 @@
 
 using namespace std;
 namespace vg {
+
 int64_t DistanceIndex::sizeOf() {
 //TODO: Delete this
     //Estimate of the size of the object - probably keep this in uncommitted branch
@@ -118,6 +119,21 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager, istream& in) {
     graph = vg;
     sm = snarlManager;
     load(in);
+
+    for ( auto x : snarlIndex ) {
+    //Check that vg and snarl manager match the distance index
+  
+        pair<id_t, bool> node = x.first;
+        if (!graph->has_node(node.first)) {
+
+            throw runtime_error("Distance index does not match vg");
+
+        } else if (sm->into_which_snarl(node.first, node.second) == NULL) {
+
+            throw runtime_error("Distance index does not match snarl manager");
+        }
+
+    }
 }
 void DistanceIndex::load(istream& in){
     //Load serialized index from an istream
@@ -443,10 +459,8 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
                     //If node has not already been found:
 
                     //Save distance from start to current node 
-                    if (currDist == 0 && firstLoop) { 
-                        //if current node is the start node
-                        sd.insertDistance(startID, currID, -1);
-                    } else {
+                    if (!firstLoop) {
+
                         sd.insertDistance(startID, currID, currDist);
                         seenNodes.insert(currID);
                     }
@@ -661,8 +675,10 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
                     auto addHandle = [&](const handle_t& h)-> bool {
                          pair<id_t, bool> node = make_pair(
                                     ng.get_id(h), ng.get_is_reverse(h));
+                       if (nodeLen != -1) {
                        reachable.push(make_pair(node, currDist + nodeLen));
-                       
+                       }
+                      
                          #ifdef indexTraverse
                              cerr << node.first << " " << node.second << ", ";
                          #endif
@@ -1018,31 +1034,30 @@ cerr << endl;
 */
 
     /////// DFS to get connected componpents that are in cycles
-    pair<int_vector<>, uint64_t> n = findCycleComponents();
-    nodeToCC = n.first;
-    numCC = n.second;
-    
+    int_vector<> components (graph->max_node_id() - minNodeID + 1, 0);
+    uint64_t numCC = findComponents(components, 0, true);
+    findComponents(components, numCC, false);
 
 
 }
 
-pair<int_vector<>, uint64_t> DistanceIndex::findCycleComponents(){
+uint64_t DistanceIndex::findComponents(
+        int_vector<>& nodeToComponent, uint64_t currComponent, bool onlyCycles){
     /*Assign all nodes to a component of connected cycles if in a cycle,
       0 otherwise
       Returns the int_vector representing assignments and the maximum 
       component number, also the number of connected components of cycles
     */
- 
+uint64_t tmp = currComponent;
     int64_t maxNodeID = graph->max_node_id();
-    int_vector<> nodeToComponent (maxNodeID - minNodeID + 1, 0);
     hash_set<pair<id_t, bool>> seen;
-
-    uint64_t currComponent = 0; 
     for (id_t i = minNodeID ; i <= maxNodeID ; i ++ ) {
-        if (graph->has_node(i) &&
-              loopDistance(make_pair(i, false), make_pair(i, false)) > -1 &&
-              nodeToComponent[i - minNodeID] == 0 )  {
-            //If this node is in a cycle and hasn't been seen before
+        bool loops = loopDistance(make_pair(i, false), make_pair(i, false)) > -1;
+        if (graph->has_node(i) && nodeToComponent[i - minNodeID] == 0  &&
+             onlyCycles == loops)  {
+            //If this node hasn't been seen before and if only counting cycles,
+            // is in a cycle
+
             currComponent++;
             vector<pair<id_t, bool>> nextNodes;
             nextNodes.push_back(make_pair(i, true));
@@ -1066,14 +1081,23 @@ pair<int_vector<>, uint64_t> DistanceIndex::findCycleComponents(){
 
                         pair<id_t, bool> node = make_pair(
                              graph->get_id(h), graph->get_is_reverse(h));
-                        int64_t loopDist = loopDistance(currNode, node);
-
-                        if (loopDist > -1 && seen.count(node) == 0){
+                        int64_t edgeLoop = loopDistance(currNode, node) > -1;
+                        int64_t nodeLoop = loopDistance(node, node) > -1;
+ 
+                        if (seen.count(node) == 0 && 
+                             ((onlyCycles && edgeLoop && nodeLoop) || 
+                              (!onlyCycles && !edgeLoop && !nodeLoop)) ){
                             //Add nodes whose edges are in loops
                             nextNodes.push_back(node);
+                            if (seen.count(make_pair(node.first, !node.second))
+                                    == 0) { 
+                                nextNodes.push_back(make_pair( node.first, 
+                                                              !node.second));
+                            }
                         }
                         return true;
                     };
+
 
                     nodeToComponent[currNode.first-minNodeID] = currComponent;
 
@@ -1089,7 +1113,7 @@ pair<int_vector<>, uint64_t> DistanceIndex::findCycleComponents(){
             }
         }
     }
-    return make_pair(nodeToComponent, currComponent);
+    return currComponent;
 }
 void DistanceIndex::flagCycles(const Snarl* snarl, 
                                bit_vector& inCycle, int64_t cap){
@@ -1143,7 +1167,6 @@ void DistanceIndex::flagCycles(const Snarl* snarl,
 
 }
 
-//TODO: Add this to hpp
 int64_t DistanceIndex::loopDistance(
                  pair<id_t, bool> node1, pair<id_t, bool> node2) {
     const Snarl* snarl1 = snarlOf(node1.first);
@@ -1155,7 +1178,7 @@ int64_t DistanceIndex::loopDistance(const Snarl* snarl1,const Snarl* snarl2,
                  pair<id_t, bool> node1, pair<id_t, bool> node2) {
     /*Find the minimum distance to loop through the given edge or, if node1 and
       node2 are the same, to loop through that node    */
-//TODO 
+//TODO Check that this is correct - new function in unittest
  
 #ifdef indexTraverse 
 cerr << endl << " NEW LOOP CALCULATION: " << node1.first <<  " TO " << node2.first << endl;
@@ -1367,7 +1390,7 @@ cerr << endl << " NEW LOOP CALCULATION: " << node1.first <<  " TO " << node2.fir
 
 
         } 
-assert(snarl1 != NULL && snarl2 != NULL);
+assert(snarl1 != NULL && snarl2 != NULL);//TODO
         if (sm->parent_of(snarl2) == snarl1) {
             //Snarl2 is start or end of child snarl in snarl1
             if (sm->in_nontrivial_chain(snarl2)) {
@@ -2424,6 +2447,7 @@ void DistanceIndex::SnarlDistances::insertDistance(pair<id_t, bool> start,
                                            pair<id_t, bool> end, int64_t dist) {
     //Assign distance between start and end
     size_t i = index(start, end);
+
     distances[i] = dist + 1;
 }
    
@@ -2433,7 +2457,7 @@ int64_t DistanceIndex::SnarlDistances::snarlDistance(VG* graph,
     */
     size_t i = index(start, end);
     int64_t dist = int64_t(distances[i])-1;
-    return dist == -1 ? -1 : dist + nodeLength(graph, ng,start); 
+    return dist == -1 ? -1 : dist + nodeLength(graph, ng,start.first); 
 }
 
 int64_t DistanceIndex::SnarlDistances::snarlDistanceShort(pair<id_t, bool> start, pair<id_t, bool> end) {
@@ -2443,34 +2467,33 @@ int64_t DistanceIndex::SnarlDistances::snarlDistanceShort(pair<id_t, bool> start
     return int64_t(distances[i]) - 1; 
 }
 int64_t DistanceIndex::SnarlDistances::nodeLength(VG* graph, 
-           NetGraph* ng, pair<id_t, bool> node){
+           NetGraph* ng, id_t node){
 
     //Get the length of the node. 
  
-    handle_t handle = ng->get_handle(node.first, node.second);   
+    handle_t handle = ng->get_handle(node, false);   
 //TODO: Probably bad to do distIndex->sm->
 //TODO: Should be able to use is_child
                     //Get the snarl that the node represents, if any
                     const Snarl* tempSnarl = distIndex->sm->into_which_snarl(
-                                              node.first, node.second);
+                                              node, false);
                     const Snarl* currSnarl = tempSnarl == NULL ? 
-                        distIndex->sm->into_which_snarl(node.first, !node.second) :
+                        distIndex->sm->into_which_snarl(node, true) :
                         tempSnarl; 
 
-                    if (node.first != snarlStart.first &&
-                            node.first != snarlEnd.first &&
+                    if (node!= snarlStart.first && node!= snarlEnd.first &&
                             currSnarl != NULL) {
         //If node represents a chain or snarl
-        auto chainDists = distIndex->chainIndex.find(node.first);
+        auto chainDists = distIndex->chainIndex.find(node);
 
         if (chainDists != distIndex->chainIndex.end()) {
             //If chain
             return chainDists->second.chainLength();
         } else {
             //If snarl
-            auto snarlDists = distIndex->snarlIndex.find(node);
-            auto snarlDists1 = distIndex->snarlIndex.find(make_pair(node.first,
-                                                              !node.second));
+            auto snarlDists = distIndex->snarlIndex.find(make_pair(node, false));
+            auto snarlDists1 = distIndex->snarlIndex.find(make_pair(node,
+                                                              true));
             if (snarlDists != distIndex->snarlIndex.end()) {
                 return snarlDists->second.snarlLength(graph, ng);
             } else {
@@ -2479,7 +2502,7 @@ int64_t DistanceIndex::SnarlDistances::nodeLength(VG* graph,
         }
          
     } else {
-        return graph->get_node(node.first)->sequence().size();
+        return graph->get_node(node)->sequence().size();
     }
 
 }
@@ -2576,9 +2599,9 @@ void DistanceIndex::SnarlDistances::printSelf() {
     for (auto n : visitToIndex) {
         cerr << n.first.first;
         if (n.first.second) {
-           cerr << "f   "; 
+           cerr << "r   "; 
          } else {
-             cerr << "r    ";
+             cerr << "f    ";
          }
     }
     cerr << endl;
@@ -2595,11 +2618,11 @@ void DistanceIndex::SnarlDistances::printSelf() {
             size_t k = length - i1;
    
             size_t i =  ( ((length + 1) * length ) / 2 ) - ( ((k + 1) * k ) / 2 ) + i2-i1;
-            if (i1 < i2) {
-                cerr << int64_t(distances[i])-1 << "   "; 
-            } else { 
-                cerr << "-   "; 
-            }
+//            if (i1 <= i2) {
+                cerr << snarlDistanceShort(n1.first, n2.first) << "   "; 
+//            } else { 
+//                cerr << "-   "; 
+//            }
         }
         cerr << endl;
     }
