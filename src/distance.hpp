@@ -23,7 +23,6 @@ class DistanceIndex {
     //Load serialized object from in
     void load(istream& in);
 
-    int64_t sizeOf();
 
     /*Get the distance between two positions
       pos1 must be on a node contained in snarl1 and not on any children of
