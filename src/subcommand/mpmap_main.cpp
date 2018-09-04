@@ -30,61 +30,62 @@ void help_mpmap(char** argv) {
     << endl
     << "basic options:" << endl
     << "graph/index:" << endl
-    << "  -x, --xg-name FILE        use this xg index (required)" << endl
-    << "  -g, --gcsa-name FILE      use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
-    << "  -H, --gbwt-name FILE      use this GBWT haplotype index for population-based MAPQs" << endl
-    << "      --linear-index FILE   use this sublinear Li and Stephens index file for population-based MAPQs" << endl
-    << "      --linear-path PATH    use the given path name as the path that the linear index is against" << endl
+    << "  -x, --xg-name FILE            use this xg index (required)" << endl
+    << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
+    << "  -H, --gbwt-name FILE          use this GBWT haplotype index for population-based MAPQs" << endl
+    << "      --linear-index FILE       use this sublinear Li and Stephens index file for population-based MAPQs" << endl
+    << "      --linear-path PATH        use the given path name as the path that the linear index is against" << endl
     << "input:" << endl
-    << "  -f, --fastq FILE          input FASTQ (possibly compressed), can be given twice for paired ends (for stdin use -)" << endl
-    << "  -G, --gam-input FILE      input GAM (for stdin, use -)" << endl
-    << "  -i, --interleaved         FASTQ or GAM contains interleaved paired ends" << endl
-    << "  -N, --sample NAME         add this sample name to output GAMP" << endl
-    << "  -R, --read-group NAME     add this read group to output GAMP" << endl
-    << "  -e, --same-strand         read pairs are from the same strand of the DNA molecule" << endl
+    << "  -f, --fastq FILE              input FASTQ (possibly compressed), can be given twice for paired ends (for stdin use -)" << endl
+    << "  -G, --gam-input FILE          input GAM (for stdin, use -)" << endl
+    << "  -i, --interleaved             FASTQ or GAM contains interleaved paired ends" << endl
+    << "  -N, --sample NAME             add this sample name to output GAMP" << endl
+    << "  -R, --read-group NAME         add this read group to output GAMP" << endl
+    << "  -e, --same-strand             read pairs are from the same strand of the DNA molecule" << endl
     << "algorithm:" << endl
-    << "  -S, --single-path-mode    produce single-path alignments (GAM) instead of multipath alignments (GAMP) (ignores -sua)" << endl
-    << "  -s, --snarls FILE         align to alternate paths in these snarls" << endl
+    << "  -S, --single-path-mode        produce single-path alignments (GAM) instead of multipath alignments (GAMP) (ignores -sua)" << endl
+    << "  -s, --snarls FILE             align to alternate paths in these snarls" << endl
     << "scoring:" << endl
-    << "  -A, --no-qual-adjust      do not perform base quality adjusted alignments (required if input does not have base qualities)" << endl
-    << "  -E, --long-read-scoring   set alignment scores to long-read defaults: -q1 -z1 -o1 -y1 -L0 (can be overridden)" << endl
+    << "  -A, --no-qual-adjust          do not perform base quality adjusted alignments (required if input does not have base qualities)" << endl
+    << "  -E, --long-read-scoring       set alignment scores to long-read defaults: -q1 -z1 -o1 -y1 -L0 (can be overridden)" << endl
     << endl
     << "advanced options:" << endl
     << "algorithm:" << endl
-    << "  -X, --snarl-max-cut INT   do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
-    << "  -a, --alt-paths INT       align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
-    << "  -n, --unstranded          use lazy strand consistency when clustering MEMs" << endl
-    << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
-    << "  -I, --frag-mean           mean for fixed fragment length distribution" << endl
-    << "  -D, --frag-stddev         standard deviation for fixed fragment length distribution" << endl
-    << "  -B, --no-calibrate        do not auto-calibrate mismapping dectection" << endl
-    << "  -P, --max-p-val FLOAT     background model p value must be less than this to avoid mismapping detection [0.00001]" << endl
-    << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - adaptive, 3 - exact [2]" << endl
-    << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
-    << "  -p, --padding-mult FLOAT  pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
-    << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
-    << "  -O, --max-paths INT       consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
-    << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
-    << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
-    << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
-    << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
-    << "  -K, --clust-length INT    minimum MEM length form clusters [automatic]" << endl
-    << "  -c, --hit-max INT         use at most this many hits for any MEM (0 for no limit) [1024]" << endl
-    << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
-    << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
-    << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
-    << "  -U, --prune-exp FLOAT     prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
+    << "  -X, --snarl-max-cut INT       do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
+    << "  -a, --alt-paths INT           align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
+    << "  -n, --unstranded              use lazy strand consistency when clustering MEMs" << endl
+    << "  -b, --frag-sample INT         look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
+    << "  -I, --frag-mean               mean for fixed fragment length distribution" << endl
+    << "  -D, --frag-stddev             standard deviation for fixed fragment length distribution" << endl
+    << "  -B, --no-calibrate            do not auto-calibrate mismapping dectection" << endl
+    << "  -P, --max-p-val FLOAT         background model p value must be less than this to avoid mismapping detection [0.00001]" << endl
+    << "  -v, --mq-method OPT           mapping quality method: 0 - none, 1 - fast approximation, 2 - adaptive, 3 - exact [2]" << endl
+    << "  -Q, --mq-max INT              cap mapping quality estimates at this much [60]" << endl
+    << "  -p, --padding-mult FLOAT      pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
+    << "  -u, --map-attempts INT        perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
+    << "  -O, --max-paths INT           consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
+    << "  -M, --max-multimaps INT       report (up to) this many mappings per read [1]" << endl
+    << "  -r, --reseed-length INT       reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
+    << "  -W, --reseed-diff FLOAT       require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
+    << "  -k, --min-mem-length INT      minimum MEM length to anchor multipath alignments [1]" << endl
+    << "  -K, --clust-length INT        minimum MEM length form clusters [automatic]" << endl
+    << "  -c, --hit-max INT             use at most this many hits for any MEM (0 for no limit) [1024]" << endl
+    << "  -d, --max-dist-error INT      maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
+    << "  -w, --approx-exp FLOAT        let the approximate likelihood miscalculate likelihood ratios by this power [10.0]" << endl
+    << "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
+    << "  -C, --drop-subgraph FLOAT     drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
+    << "  -U, --prune-exp FLOAT         prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
     << "scoring:" << endl
-    << "  -q, --match INT           use this match score [1]" << endl
-    << "  -z, --mismatch INT        use this mismatch penalty [4]" << endl
-    << "  --score-matrix FILE       read a 5x5 integer substitution scoring matrix from a file" << endl
-    << "  -o, --gap-open INT        use this gap open penalty [6]" << endl
-    << "  -y, --gap-extend INT      use this gap extension penalty [1]" << endl
-    << "  -L, --full-l-bonus INT    add this score to alignments that use the full length of the read [5]" << endl
-    << "  -m, --remove-bonuses      remove full length alignment bonuses in reported scores" << endl
+    << "  -q, --match INT               use this match score [1]" << endl
+    << "  -z, --mismatch INT            use this mismatch penalty [4]" << endl
+    << "  --score-matrix FILE           read a 5x5 integer substitution scoring matrix from a file" << endl
+    << "  -o, --gap-open INT            use this gap open penalty [6]" << endl
+    << "  -y, --gap-extend INT          use this gap extension penalty [1]" << endl
+    << "  -L, --full-l-bonus INT        add this score to alignments that use the full length of the read [5]" << endl
+    << "  -m, --remove-bonuses          remove full length alignment bonuses in reported scores" << endl
     << "computational parameters:" << endl
-    << "  -t, --threads INT         number of compute threads to use" << endl
-    << "  -Z, --buffer-size INT     buffer this many alignments together (per compute thread) before outputting to stdout [100]" << endl;
+    << "  -t, --threads INT             number of compute threads to use" << endl
+    << "  -Z, --buffer-size INT         buffer this many alignments together (per compute thread) before outputting to stdout [100]" << endl;
     
 }
 
@@ -97,6 +98,7 @@ int main_mpmap(int argc, char** argv) {
 
     // initialize parameters with their default options
     #define OPT_SCORE_MATRIX 1000
+    #define OPT_RECOMBINATION_PENALTY 1001
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -140,6 +142,7 @@ int main_mpmap(int argc, char** argv) {
     int num_alt_alns = 4;
     double suboptimal_path_exponent = 1.25;
     double likelihood_approx_exp = 10.0;
+    double recombination_penalty = 20.7;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
     size_t frag_length_sample_size = 1000;
@@ -218,6 +221,7 @@ int main_mpmap(int argc, char** argv) {
             {"hit-max", required_argument, 0, 'c'},
             {"max-dist-error", required_argument, 0, 'd'},
             {"approx-exp", required_argument, 0, 'w'},
+            {"recombination-penalty", required_argument, 0, OPT_RECOMBINATION_PENALTY},
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, 'U'},
             {"long-read-scoring", no_argument, 0, 'E'},
@@ -442,6 +446,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'w':
                 likelihood_approx_exp = parse<double>(optarg);
+                break;
+                
+            case OPT_RECOMBINATION_PENALTY:
+                recombination_penalty = parse<double>(optarg);
                 break;
                 
             case 'C':
@@ -874,6 +882,7 @@ int main_mpmap(int argc, char** argv) {
     // Use population MAPQs when we have the right option combination to make that sensible.
     multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
     multipath_mapper.population_max_paths = population_max_paths;
+    multipath_mapper.recombination_penalty = recombination_penalty;
     
     // set pruning and clustering parameters
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
