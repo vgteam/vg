@@ -435,6 +435,11 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
+    if (parse_only && (index_paths || index_gam)) {
+        cerr << "error: [vg index] --parse-only does not work with --store-threads or --store-gam" << endl;
+        return 1;
+    }
+
     if (file_names.size() <= 0 && dbg_names.empty()){
         //cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
