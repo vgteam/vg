@@ -225,10 +225,13 @@ namespace vg {
             topologically_order_subpaths(multipath_aln);
         }
         
+        if (!multipath_alns_out.empty()) {
+        
 #ifdef debug_multipath_mapper
-        cerr << "computing mapping quality and sorting mappings" << endl;
+            cerr << "computing mapping quality and sorting mappings" << endl;
 #endif
-        sort_and_compute_mapping_quality(multipath_alns_out, mapq_method, cluster_idxs);
+            sort_and_compute_mapping_quality(multipath_alns_out, mapq_method, cluster_idxs);
+        }
         
         if (!multipath_alns_out.empty() ? likely_mismapping(multipath_alns_out.front()) : false) {
             multipath_alns_out.front().set_mapping_quality(0);
