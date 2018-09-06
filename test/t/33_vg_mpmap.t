@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 12
+plan tests 13
 
 
 # Exercise the GBWT
@@ -22,7 +22,11 @@ is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.m
 # For paired end, don't do any fragment length estimation
 
 is "$(vg mpmap -B -P 1 -I 200 -D 200 -x xy2.xg -g xy2.gcsa -f reads/xy2.matchpaired.fq -i -S | vg view -aj - | head -n1 | jq '.mapping_quality')" "null" "MAPQ is 0 when paired without haplotype info"
-is "$(vg mpmap -B -P 1 -I 200 -D 200 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.matchpaired.fq -i -S | vg view -aj - | head -n1 | jq '.mapping_quality')" "1" "haplotype match can disambiguate paired"
+vg mpmap -B -P 1 -I 200 -D 200 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.matchpaired.fq -i -S > gbwt.gam
+is "$(vg view -aj gbwt.gam | head -n1 | jq '.mapping_quality')" "1" "haplotype match can disambiguate paired"
+is "$(vg view -aj gbwt.gam | head -n1 | jq '.annotation.haplotype_score_used')" "true" "use of haplotype-aware mapping is recorded"
+
+rm -f gbwt.gam
 
 # Now we map a read with genotype 0,1,0,1 against haplotypes 1,1,1,1|0,1,0,0 and 1,1,0,1|0,0,1,0 on X and Y
 # First 2 variants are inserts; second 2 are SNPs

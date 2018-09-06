@@ -3233,7 +3233,9 @@ namespace vg {
                     continue;
                 }
                 
-                // Otherwise, pick the best adjusted score and its difference from the best unadjusted score
+                // Otherwise, we have population scores.
+                
+                // Pick the best adjusted score and its difference from the best unadjusted score
                 pop_adjusted_scores[i] = numeric_limits<double>::min();
                 double adjustment;
                 for (size_t j = 0; j < alignments.size(); j++) {
@@ -3248,6 +3250,15 @@ namespace vg {
                     }
                 }
                 
+                // Save the population score from the best total score read,
+                // even if population scoring doesn't get used. TODO: When
+                // flattening the multipath alignment back to single path, we
+                // should replace this score or make sure to use this winning
+                // single path alignment.
+                auto max_scoring_it = std::max_element(pop_adjusted_scores.begin(), pop_adjusted_scores.end());
+                auto max_scoring_index = max_scoring_it - pop_adjusted_scores.begin();
+                set_annotation(multipath_alns[i], "haplotype_score", alignment_pop_scores[max_scoring_index]); 
+                
                 // See if we have a new minimum adjustment value, for the adjustment applicable to the chosen traceback.
                 min_adjustment = min(min_adjustment, adjustment);
             }
@@ -3257,6 +3268,17 @@ namespace vg {
             for (auto& score : pop_adjusted_scores) {
                 // Adjust the adjusted scores up/down by the minimum adjustment to ensure no scores are negative
                 score -= min_adjustment;
+            }
+            
+            for (auto& mpaln : multipath_alns) {
+                // Remember that we did use population scoring on all these MultipathAlignments
+                set_annotation(mpaln, "haplotype_score_used", true);
+            }
+        } else {
+            // Clean up pop score annotations and remove scores on all the reads.
+            for (auto& mpaln : multipath_alns) {
+                clear_annotation(mpaln, "haplotype_score_used");
+                clear_annotation(mpaln, "haplotype_score");
             }
         }
         
@@ -3447,6 +3469,10 @@ namespace vg {
                 // Compute the total pop adjusted score for this MultipathAlignment
                 pop_adjusted_scores[i] = base_pop_scores1[best_index1] + base_pop_scores2[best_index2] + frag_score;
                 
+                // Save the pop scores to the multipath alignments
+                set_annotation(multipath_aln_pair.first, "haplotype_score", base_pop_scores1[best_index1]);
+                set_annotation(multipath_aln_pair.second, "haplotype_score", base_pop_scores2[best_index2]);
+                
                 assert(!std::isnan(base_pop_scores1[best_index1]));
                 assert(!std::isnan(base_pop_scores2[best_index2]));
                 assert(!std::isnan(frag_score));
@@ -3467,6 +3493,25 @@ namespace vg {
         for (auto& score : scores) {
             // Pull the min frag or extra score out of the score so it will be nonnegative
             score -= (include_population_component && all_paths_pop_consistent) ? min_extra_score : min_frag_score;
+        }
+        
+        if (include_population_component && all_paths_pop_consistent) {
+            // Record that we used the population score
+            for (auto& multipath_aln_pair : multipath_aln_pairs) {
+                // We have to do it on each read in each pair.
+                // TODO: Come up with a simpler way to dump annotations in based on what happens during mapping.
+                set_annotation(multipath_aln_pair.first, "haplotype_score_used", true);
+                set_annotation(multipath_aln_pair.second, "haplotype_score_used", true);
+            }
+        } else {
+            // Clean up pop score annotations if present and remove scores from all the reads
+            for (auto& multipath_aln_pair : multipath_aln_pairs) {
+                // We have to do it on each read in each pair.
+                clear_annotation(multipath_aln_pair.first, "haplotype_score_used");
+                clear_annotation(multipath_aln_pair.first, "haplotype_score");
+                clear_annotation(multipath_aln_pair.second, "haplotype_score_used");
+                clear_annotation(multipath_aln_pair.second, "haplotype_score");
+            }
         }
         
         // find the order of the scores
