@@ -20,10 +20,10 @@ For example lets say we have a small VG graph:
 node:100 a vg:Node ; vg:linksForwardToForward node:101 ; rdf:value "ACT" .
 node:101 a vg:Node ; vg:linksForwardToForward node:102 : rdf:value "TGAAGT" .
 node:102 a vg:Node ; vg:linksForwardToForward node:103 ; rdf:value "A" .
-node:103 a vg:Node ; vg:linksForwardToForward node:104 ; rdf:value "TGA"
+node:103 a vg:Node ; vg:linksForwardToForward node:104 ; rdf:value "TGA" .
 
 
-alternative_node:103 a vg:Node ; vg:linksForwardToForward node:104 ; rdf:value "A"
+alternative_node:103 a vg:Node ; vg:linksForwardToForward node:104 ; rdf:value "A" .
 node:102 a vg:Node ; vg:linksForwardToForward alternative_node:103 .
 
 

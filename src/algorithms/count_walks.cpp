@@ -33,11 +33,22 @@ using namespace std;
         });
         
         // count walks by dynamic programming
+        bool overflowed = false;
         for (const handle_t& handle : lazier_topological_order(graph)) {
             size_t count_here = count[handle];
             graph->follow_edges(handle, false, [&](const handle_t& next) {
-                count[next] += count_here;
+                size_t& count_next = count[next];
+                if (numeric_limits<size_t>::max() - count_here < count_next) {
+                    overflowed = true;
+                }
+                else {
+                    count_next += count_here;
+                }
             });
+            
+            if (overflowed) {
+                return numeric_limits<size_t>::max();
+            }
         }
         
         // total up the walks at the sinks
