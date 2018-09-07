@@ -19,6 +19,70 @@
 namespace vg {
 namespace unittest {
 
+int64_t loopDistance(VG* graph, const Snarl* snarl1, const Snarl* snarl2, pair<id_t, bool> node1, pair<id_t, bool> node2){
+    //Loop distance using djikstras algorithm
+
+    auto cmp = [] (pair<pair<id_t, bool> , int64_t> x, 
+                   pair<pair<id_t, bool>, int64_t> y ) {
+        return (x.second > y.second);
+    };
+ 
+    int64_t shortestDistance = -1;
+
+
+    priority_queue< pair<pair<id_t, bool> , int64_t>, 
+                    vector<pair<pair<id_t, bool>, int64_t>>,
+                          decltype(cmp)> reachable(cmp); 
+    handle_t currHandle = graph->get_handle(node2.first, node2.second);
+
+    int64_t dist;
+    dist = graph->get_length(currHandle);
+
+    auto addFirst = [&](const handle_t& h) -> bool {
+        pair<id_t, bool> node = make_pair(graph->get_id(h), 
+                                          graph->get_is_reverse(h));
+        reachable.push(make_pair(node, dist));
+        return true;
+    };
+  
+    graph->follow_edges(currHandle, false, addFirst);
+    unordered_set<pair<id_t, bool>> seen;
+    while (reachable.size() > 0) {
+    
+        pair<pair<id_t, bool>, int64_t> next = reachable.top();
+        reachable.pop();
+        pair<id_t, bool> currID = next.first;
+        dist = next.second;
+        if (seen.count(currID) == 0) {
+ 
+            seen.insert(currID);
+            currHandle = graph->get_handle(currID.first, currID.second);
+            int64_t currDist = graph->get_length(currHandle); 
+        
+            auto addNext = [&](const handle_t& h) -> bool {
+                pair<id_t, bool> node = make_pair(graph->get_id(h), 
+                                                graph->get_is_reverse(h));
+                reachable.push(make_pair(node, currDist + dist));
+                return true;
+            };
+            graph->follow_edges(currHandle, false, addNext);
+        
+        }
+
+        if (currID == node1){
+        //Dist is distance to beginning or end of node containing pos2
+            if (node1 != node2){        
+                dist = dist +  graph->get_node(node1.first)->sequence().size();
+            }
+            if (shortestDistance == -1) {shortestDistance = dist;}
+            else {shortestDistance = min(dist, shortestDistance);}
+        }
+
+    }
+    return shortestDistance;
+};
+
+
 int64_t distanceHelp(VG* graph, pos_t pos1, pos_t pos2,
                        bool rev){
     //Distance using djikstras algorithm
@@ -331,11 +395,17 @@ class TestDistanceIndex : public DistanceIndex {
  
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
                                         make_pair(2, false)) == -1);
+            REQUIRE(loopDistance(&graph, snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(2, false)) == -1);
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
+                                        make_pair(6, false)) == -1);
+            REQUIRE(loopDistance(&graph, snarl2, snarl2, make_pair(2, false),  
                                         make_pair(6, false)) == -1);
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
                                         make_pair(3, false)) == -1);
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
+                                        make_pair(2, true)) == -1);
+            REQUIRE(loopDistance(&graph, snarl2, snarl2, make_pair(2, true),  
                                         make_pair(2, true)) == -1);
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(4, false),  
                                         make_pair(4, false)) == -1);
@@ -592,6 +662,8 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(3, false)) == -1);
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, true),  
                                         make_pair(2, true)) == -1);
+            REQUIRE(loopDistance(&graph, snarl5, snarl5, make_pair(6, false),  
+                                        make_pair(6, false)) == -1);
             REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(6, false),  
                                         make_pair(6, false)) == -1);
             REQUIRE(di.loopDistance(snarl5, snarl5, make_pair(5, false),  
@@ -1510,9 +1582,15 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(6, false)) == -1);
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),  
                                         make_pair(3, false)) == 10);
+            REQUIRE(loopDistance(&graph, snarl3, snarl3, make_pair(3, false),  
+                                        make_pair(3, false)) == 10);
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(5, false),  
                                         make_pair(5, false)) == 10);
+            REQUIRE(loopDistance(&graph, snarl3, snarl3, make_pair(5, false),  
+                                        make_pair(5, false)) == 10);
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(4, false),  
+                                        make_pair(4, false)) == 14);
+            REQUIRE(loopDistance(&graph, snarl3, snarl3, make_pair(4, false),  
                                         make_pair(4, false)) == 14);
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(7, false),  
                                         make_pair(7, false)) == 10);
@@ -1571,12 +1649,15 @@ class TestDistanceIndex : public DistanceIndex {
             di.printSelf();
 #endif
 
+            const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
             REQUIRE(di.loopDistance(make_pair(7, false),  
                                                     make_pair(8, false)) == -1);
             
             REQUIRE(di.loopDistance(make_pair(9, false),  
                                                    make_pair(11, false)) == -1);
             REQUIRE(di.loopDistance(make_pair(11, false),  
+                                                   make_pair(10, false)) == -1);
+            REQUIRE(loopDistance(&graph, snarl1, snarl1, make_pair(11, false),  
                                                    make_pair(10, false)) == -1);
             REQUIRE(di.loopDistance(make_pair(12, false),  
                                                    make_pair(2, false)) == -1);
@@ -2193,7 +2274,7 @@ class TestDistanceIndex : public DistanceIndex {
  
     }
 
-    TEST_CASE("Random test", "[dist][bug]") {
+    TEST_CASE("Random test", "[dist]") {
 /* 
         ifstream vg_stream("testGraph");
         VG vg(vg_stream);
@@ -2283,6 +2364,24 @@ class TestDistanceIndex : public DistanceIndex {
 
                     int64_t myDist = di.distance(pos1, pos2);
                     int64_t actDist = distance(&graph, pos1, pos2);
+         
+                    int64_t myLoop = di.loopDistance(snarl1, snarl1, make_pair(nodeID1, false), make_pair(nodeID1, false));
+                    int64_t actLoop = loopDistance(&graph, snarl1, snarl1, make_pair(nodeID1, false), make_pair(nodeID1, false));
+
+ 
+                    pair<id_t, bool> next;
+                    auto addFirst = [&](const handle_t& h) -> bool {
+                        next = make_pair(graph.get_id(h), 
+                                          graph.get_is_reverse(h));
+                        return true;
+                    };
+                    handle_t currHandle = graph.get_handle(nodeID1, false); 
+                    graph.follow_edges(currHandle, false, addFirst);
+
+                    int64_t myEdge = di.loopDistance(make_pair(nodeID1, false),
+                                                     next); 
+                    int64_t actEdge = loopDistance(&graph, snarl1, di.snarlOf(nodeID1), make_pair(nodeID1, false), next);
+           
  
                     if (snarl_manager.into_which_snarl(nodeID1, false) == NULL ||
                         snarl_manager.into_which_snarl(nodeID1, true) == NULL) {
@@ -2292,9 +2391,10 @@ class TestDistanceIndex : public DistanceIndex {
                         snarl_manager.into_which_snarl(nodeID2, true) == NULL) {
                         REQUIRE( di.snarlOf(nodeID2) == snarl2);
                     }
-                    bool passed = myDist == actDist;
+                    bool passed = (myDist == actDist) && (myLoop == actLoop) &&
+                                   (myEdge == actEdge);
 
-                    if (!passed && myDist < 100) { 
+                    if (!passed) { 
                         graph.serialize_to_file("testGraph");
 di.printSelf();
                         cerr << "Failed on random test: " << endl;
@@ -2310,6 +2410,12 @@ di.printSelf();
 
                         cerr << "Actual distance: " << actDist << "    " <<
                                 "Guessed distance: " << myDist << endl;
+                        cerr << "Actual loop distance: "  << actLoop << "    " 
+                             << "Guessed loop distance: " << myLoop << endl;
+                        cerr << "Actual edge loop distance: "  << actEdge
+                             << "    " << "Guessed edge loop distance: " << 
+                             myEdge << " From " << nodeID1 << " TO " 
+                             << next.first << endl;
                     }
                     REQUIRE(passed);
                 }
@@ -2321,7 +2427,7 @@ di.printSelf();
 /*
     TEST_CASE("From serialized index", "[dist]"){
 
-       ifstream vg_stream("testGraph");
+       ifstream vg_stream("primary-BRCA1.vg");
        VG vg(vg_stream);
        vg_stream.close();
 
@@ -2330,11 +2436,20 @@ di.printSelf();
        xg_stream.close();
  
        CactusSnarlFinder bubble_finder(vg);
-       SnarlManager snarl_manager = bubble_finder.find_snarls();
+       //SnarlManager snarl_manager1 = bubble_finder.find_snarls();
+       SnarlManager* snarl_manager = nullptr; 
+       ifstream snarl_stream("primary-snarls.pb");
+       snarl_manager = new SnarlManager(snarl_stream);
+       snarl_stream.close();
+
+
+
+
 
        ifstream dist_stream("primary-dist");
        
-       DistanceIndex di(&vg, &snarl_manager, dist_stream);
+//       DistanceIndex di(&vg, snarl_manager);
+       DistanceIndex di(&vg, snarl_manager, dist_stream);
        dist_stream.close();
 
        random_device seed_source;

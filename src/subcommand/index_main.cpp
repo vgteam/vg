@@ -76,7 +76,8 @@ void help_index(char** argv) {
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "snarl distance index options" << endl
          << "    -c  --dist-graph FILE  generate snarl distane index from VG in FILE" << endl
-         << "    -s  --dist-name FILE   use this file to store a snarl-based distance index" << endl;
+         << "    -s  --snarl-name FILE  load snarls from FILE" << endl
+         << "    -e  --dist-name FILE   use this file to store a snarl-based distance index" << endl;
 }
 
 // Convert gbwt::node_type to ThreadMapping.
@@ -141,7 +142,7 @@ int main_index(int argc, char** argv) {
     vector<string> dbg_names;
 
     // Files we should write.
-    string xg_name, gbwt_name, threads_name, gcsa_name, rocksdb_name, dist_name;
+    string xg_name, gbwt_name, threads_name, gcsa_name, rocksdb_name, dist_name, snarl_name;
 
     // General
     bool show_progress = false;
@@ -227,12 +228,13 @@ int main_index(int argc, char** argv) {
 
             //Snarl distance index
             {"dist-graph", required_argument, 0, 'c'},
-            {"dist-name", required_argument, 0, 's'},
+            {"snarl-name", required_argument, 0, 's'},
+            {"dist-name", required_argument, 0, 'e'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:TM:G:H:PoOB:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCc:s:h",
+        c = getopt_long (argc, argv, "b:t:px:F:v:TM:G:H:PoOB:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCc:s:e:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -405,6 +407,10 @@ int main_index(int argc, char** argv) {
             dist_graph = optarg;
             break;
         case 's':
+            build_dist = true;
+            snarl_name = optarg;
+            break;
+        case 'e':
             build_dist = true;
             dist_name = optarg;
             break;
@@ -1037,10 +1043,17 @@ int main_index(int argc, char** argv) {
 
     //Build snarl distance index
     if (build_dist) {
-        if (dist_graph.empty() || dist_name.empty()) {
-            cerr << "error: [vg index] distance index requires vg and output file" << endl;
+        if (dist_graph.empty()) {
+            cerr << "error: [vg index] distance index requires a vg file" << endl;
             return 1;
-        } else {
+        } else if (dist_name.empty()) {
+            cerr << "error: [vg index] distance index requires an output file" << endl;
+            return 1;
+        } else if (snarl_name.empty()) {
+            cerr << "error: [vg index] distance index requires a snarl file" << endl;
+            return 1;
+            
+        }else {
             ifstream vg_stream(dist_graph);
             if (!vg_stream) {
                 cerr << "error: [vg index] cannot open VG file" << endl;
@@ -1048,10 +1061,16 @@ int main_index(int argc, char** argv) {
             }
             VG vg(vg_stream);
             vg_stream.close();
+          
+            ifstream snarl_stream(snarl_name);
+            if (!snarl_stream) {
+                cerr << "error: [vg index] cannot open Snarls file" << endl;
+                exit(1);
+            }
+            SnarlManager* snarl_manager = new SnarlManager(snarl_stream);
+            snarl_stream.close();
 
-            CactusSnarlFinder bubble_finder(vg);
-            SnarlManager snarl_manager = bubble_finder.find_snarls();
-            DistanceIndex di (&vg, &snarl_manager);
+            DistanceIndex di (&vg, snarl_manager);
             
 
  
