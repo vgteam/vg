@@ -11,6 +11,7 @@ using namespace std;
         unordered_map<handle_t, size_t> count;
         count.reserve(graph->node_size());
         
+        // identify sources and sinks
         graph->for_each_handle([&](const handle_t& handle) {
             bool is_source = true, is_sink = true;
             graph->follow_edges(handle, true, [&](const handle_t& prev) {
@@ -22,6 +23,7 @@ using namespace std;
                 return false;
             });
             
+            // base case for dynamic programming
             if (is_source) {
                 count[handle] = 1;
             }
@@ -30,6 +32,7 @@ using namespace std;
             }
         });
         
+        // count walks by dynamic programming
         bool overflowed = false;
         for (const handle_t& handle : lazier_topological_order(graph)) {
             size_t count_here = count[handle];
@@ -48,6 +51,7 @@ using namespace std;
             }
         }
         
+        // total up the walks at the sinks
         size_t total_count = 0;
         for (handle_t& sink : sinks) {
             total_count += count[sink];
