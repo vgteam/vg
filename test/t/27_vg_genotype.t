@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 7
+plan tests 5
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
 vg index -x tiny.vg.xg -g tiny.vg.gcsa -k 16 tiny.vg
@@ -21,18 +21,6 @@ vg genotype tiny.vg tiny.gam.index -v > /dev/null
 is "$?" "0" "vg genotype runs successfully when emitting vcf"
 
 rm -Rf tiny.vg tiny.vg.xg tiny.gam.index tiny.gam reads.txt
-
-vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
-vg index -x tiny.vg.xg -g tiny.vg.gcsa -k 16 tiny.vg
-# Make empty gam
-printf "" > tiny.gam
-vg index -d tiny.gam.index -N tiny.gam
-
-is "$(vg genotype tiny.vg tiny.gam.index -Sp --ref notARealPath 2>&1 | grep 'Found 0 ultrabubbles' | wc -l)" "1" "vg genotype finds no ultrabubbles for an empty subset"
-
-is "$(vg genotype tiny.vg tiny.gam.index -vSp 2>&1 | grep 'Found 9 ultrabubbles' | wc -l)" "1" "vg genotype finds few ultrabubbles for a subset of just the reference"
-
-rm -Rf tiny.vg tiny.vg.xg tiny.vg.gcsa tiny.vg.gcsa.lcp tiny.gam.index tiny.gam reads.txt
 
 vg construct -r tiny/tiny.fa >flat.vg
 vg index -x flat.xg -g flat.gcsa -k 8 flat.vg
