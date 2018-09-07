@@ -48,7 +48,6 @@ void help_index(char** argv) {
          << "    -F, --thread-db FILE   write thread database to FILE" << endl
          << "    -P, --force-phasing    replace unphased genotypes with randomly phased ones" << endl
          << "    -o, --discard-overlaps skip overlapping alternate alleles if the overlap cannot be resolved" << endl
-         << "    -O, --check-overlaps   print information on overlapping variants to stderr" << endl
          << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
          << "    -u, --buffer-size N    GBWT construction buffer size in millions of nodes (default 100)" << endl
          << "    -n, --id-interval N    store haplotype ids at one out of N positions (default 1024)" << endl
@@ -148,7 +147,7 @@ int main_index(int argc, char** argv) {
     bool index_haplotypes = false, index_paths = false, index_gam = false;
     bool parse_only = false;
     vector<string> gam_file_names;
-    bool force_phasing = false, discard_overlaps = false, check_overlaps = false;
+    bool force_phasing = false, discard_overlaps = false;
     size_t samples_in_batch = 200;
     size_t gbwt_buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION; // Millions of nodes.
     size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
@@ -156,7 +155,6 @@ int main_index(int argc, char** argv) {
     map<string, string> path_to_vcf; // Path name conversion from --rename.
     map<string, pair<size_t, size_t>> regions; // Region restrictions for contigs, in VCF name space, as 0-based exclusive-end ranges.
     unordered_set<string> excluded_samples; // Excluded sample names from --exclude.
-    std::set<std::pair<gbwt::size_type, gbwt::size_type>> overlaps; // Unresolved overlaps in the haplotypes.
 
     // GCSA
     gcsa::size_type kmer_size = gcsa::Key::MAX_LENGTH;
@@ -199,7 +197,6 @@ int main_index(int argc, char** argv) {
             {"write-haps", required_argument, 0, 'H'},
             {"force-phasing", no_argument, 0, 'P'},
             {"discard-overlaps", no_argument, 0, 'o'},
-            {"check-overlaps", no_argument, 0, 'O'},
             {"batch-size", required_argument, 0, 'B'},
             {"buffer-size", required_argument, 0, 'u'},
             {"id-interval", required_argument, 0, 'n'},
@@ -232,7 +229,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:e:TM:G:H:PoOB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCh",
+        c = getopt_long (argc, argv, "b:t:px:F:v:e:TM:G:H:PoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCh",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -293,9 +290,6 @@ int main_index(int argc, char** argv) {
             break;
         case 'o':
             discard_overlaps = true;
-            break;
-        case 'O':
-            check_overlaps = true;
             break;
         case 'B':
             samples_in_batch = std::max(parse<size_t>(optarg), 1ul);
@@ -779,9 +773,6 @@ int main_index(int argc, char** argv) {
                     }
                     cerr << "- Phasing information: " << gbwt::inMegabytes(phasing_bytes) << " MB" << endl;
                 }
-                if (check_overlaps) {
-                    gbwt::checkOverlaps(variants, cerr, true);
-                }
 
                 // Save memory:
                 // - Delete the alt paths if we no longer need them.
@@ -815,22 +806,12 @@ int main_index(int argc, char** argv) {
                                     << "_" << haplotype.count;
                                 store_thread(haplotype.path, sn.str());
                             },
-                            [&](gbwt::size_type site, gbwt::size_type allele) -> bool {
-                                if (check_overlaps) {
-                                    overlaps.insert(std::make_pair(site, allele));
-                                }
+                            [&](gbwt::size_type, gbwt::size_type) -> bool {
                                 return discard_overlaps;
                             });
                         if (show_progress) {
                             cerr << "- Processed samples " << phasings[batch].offset() << " to " << (phasings[batch].offset() + phasings[batch].size() - 1) << endl;
                         }
-                    }
-                    if (check_overlaps && !overlaps.empty()) {
-                        cerr << overlaps.size() << " unresolved overlaps:" << endl;
-                        for (auto overlap : overlaps) {
-                            cerr << "- site " << overlap.first << ", allele " << overlap.second << endl;
-                        }
-                        overlaps.clear();
                     }
                 } // End of haplotype generation for the current contig.
             } // End of contigs.
