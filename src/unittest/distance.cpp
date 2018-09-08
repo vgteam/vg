@@ -2378,9 +2378,9 @@ class TestDistanceIndex : public DistanceIndex {
                     handle_t currHandle = graph.get_handle(nodeID1, false); 
                     graph.follow_edges(currHandle, false, addFirst);
 
-                    int64_t myEdge = di.loopDistance(make_pair(nodeID1, false),
-                                                     next); 
-                    int64_t actEdge = loopDistance(&graph, snarl1, di.snarlOf(nodeID1), make_pair(nodeID1, false), next);
+//                    int64_t myEdge = di.loopDistance(make_pair(nodeID1, false),
+//                                                     next); 
+//                    int64_t actEdge = loopDistance(&graph, snarl1, di.snarlOf(nodeID1), make_pair(nodeID1, false), next);
            
  
                     if (snarl_manager.into_which_snarl(nodeID1, false) == NULL ||
@@ -2411,10 +2411,11 @@ di.printSelf();
                                 "Guessed distance: " << myDist << endl;
                         cerr << "Actual loop distance: "  << actLoop << "    " 
                              << "Guessed loop distance: " << myLoop << endl;
-                        cerr << "Actual edge loop distance: "  << actEdge
+/*                        cerr << "Actual edge loop distance: "  << actEdge
                              << "    " << "Guessed edge loop distance: " << 
                              myEdge << " From " << nodeID1 << " TO " 
                              << next.first << endl;
+*/ 
                     }
                     REQUIRE(passed);
                 }
