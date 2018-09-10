@@ -50,7 +50,7 @@ TEST_CASE("Annotations can be populated", "[alignment][annotation]") {
     
 }
 
-TEST_CASE("Multi-value annotations can be set and gotten", "[alignment][annotation]") {
+TEST_CASE("Multi-value annotations can be set and gotten and cleared", "[alignment][annotation]") {
     
     Alignment aln;
     
@@ -64,6 +64,16 @@ TEST_CASE("Multi-value annotations can be set and gotten", "[alignment][annotati
     for (size_t i = 0; i < words.size(); i++) {
         REQUIRE(recovered[i] == words[i]);
     }
+    
+    // Make sure we can clear it
+    clear_annotation(&aln, "words");
+    recovered = get_annotation<vector<string>>(&aln, "words");
+    REQUIRE(recovered.size() == 0);
+    
+    // Make sure we can clear it again, when empty
+    clear_annotation(&aln, "words");
+    recovered = get_annotation<vector<string>>(&aln, "words");
+    REQUIRE(recovered.size() == 0);
     
 }
    

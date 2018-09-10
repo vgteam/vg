@@ -116,6 +116,7 @@ message Alignment {
     int32 mapping_quality = 5; // The mapping quality score for the alignment, in Phreds.
     int32 score = 6; // The score for the alignment, in points.
     int32 query_position = 7; // The offset in the query at which this Alignment occurs.
+    reserved 8; // Old field 8 has been removed
     string sample_name = 9; // The name of the sample that produced the aligned read.
     string read_group = 10; // The name of the read group to which the aligned read belongs.
     Alignment fragment_prev = 11; // The previous Alignment in the fragment. Contains just enough information to locate the full Alignment; e.g. contains an Alignment with only a name, or only a graph mapping position.
@@ -141,9 +142,7 @@ message Alignment {
     bool mate_mapped_to_disjoint_subgraph = 31;
     
     string fragment_length_distribution = 32; // The fragment length distribution under which a paired-end alignment was aligned.
-
-    bool haplotype_scored = 33; // True if this alignment's score is adjusted for haplotype consistency, and false otherwise.
-    double haplotype_logprob = 34; // Actual log probability haplotype consistency likelihood
+    reserved 33 to 34; // Haplotype-scoring-related fields migrated to the annotation system.
     double time_used = 35; // The time this alignment took
     Position to_correct = 36; // A path/offset/orientation pair specifying the distance to the correct alignment
     bool correctly_mapped = 37; // This can be set to true to annotate the Alignment as having been mapped correctly.

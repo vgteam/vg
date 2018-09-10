@@ -213,7 +213,7 @@ inline void clear_annotation(Annotated* annotated, const string& name) {
     // Get ahold of the struct
     auto* annotation_struct = Annotation<Annotated>::get_mutable(annotated);
     // Clear out that field
-    annotation_struct->mutable_fields()->clear(name);
+    annotation_struct->mutable_fields()->erase(name);
 }
 
 template<typename Annotated>
