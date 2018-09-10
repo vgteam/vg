@@ -275,7 +275,7 @@ message Visit {
 
     // Indicates:
     //   if node_id is specified     reverse complement of node
-    //   if feature_id is specified  traversal of a child snarl entering backwards through
+    //   if snarl is specified       traversal of a child snarl entering backwards through
     //                               end and leaving backwards through start
     bool backward = 3;
 }

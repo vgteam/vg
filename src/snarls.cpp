@@ -572,7 +572,10 @@ ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool 
 SnarlManager::SnarlManager(istream& in) {
     // add snarls to master list
     for (stream::ProtobufIterator<Snarl> iter(in); iter.has_next(); iter.get_next()) {
-        snarls.push_back(*iter);
+        // Make a SnarlRecord
+        snarls.emplace_back();
+        // Copy the Snarl into it
+        snarls.back() = *iter;
     }
     // record the tree structure and build the other indexes
     build_indexes();
@@ -583,11 +586,11 @@ const vector<const Snarl*>& SnarlManager::children_of(const Snarl* snarl) const 
         // Looking for top level snarls
         return roots;
     }
-    return children.at(key_form(snarl));
+    return record(snarl)->children;
 }
     
 const Snarl* SnarlManager::parent_of(const Snarl* snarl) const {
-    return parent.at(key_form(snarl));
+    return record(snarl)->parent;
 }
     
 const Snarl* SnarlManager::snarl_sharing_start(const Snarl* here) const {
@@ -608,7 +611,7 @@ const Snarl* SnarlManager::snarl_sharing_end(const Snarl* here) const {
 }
     
 const Chain* SnarlManager::chain_of(const Snarl* snarl) const {
-    return parent_chain.at(key_form(snarl));
+    return record(snarl)->parent_chain;
 }
     
 bool SnarlManager::in_nontrivial_chain(const Snarl* here) const {
@@ -655,9 +658,9 @@ const deque<Chain>& SnarlManager::chains_of(const Snarl* snarl) const {
         // We want the root chains
         return root_chains;
     }
-        
+    
     // Otherwise, go look up the child chains of this snarl.
-    return child_chains.at(key_form(snarl));
+    return record(snarl)->child_chains;
 }
     
 NetGraph SnarlManager::net_graph_of(const Snarl* snarl, const HandleGraph* graph, bool use_internal_connectivity) const {
@@ -667,11 +670,11 @@ NetGraph SnarlManager::net_graph_of(const Snarl* snarl, const HandleGraph* graph
 }
     
 bool SnarlManager::is_leaf(const Snarl* snarl) const {
-    return children.at(key_form(snarl)).size() == 0;
+    return record(snarl)->children.size() == 0;
 }
     
 bool SnarlManager::is_root(const Snarl* snarl) const {
-    return parent.at(key_form(snarl)) == nullptr;
+    return parent_of(snarl) == nullptr;
 }
     
 const vector<const Snarl*>& SnarlManager::top_level_snarls() const {
@@ -726,72 +729,47 @@ void SnarlManager::for_each_snarl_parallel(const function<void(const Snarl*)>& l
     
 void SnarlManager::flip(const Snarl* snarl) {
         
-    // save the key used in the indices before editing the snarl
-    auto old_key = key_form(snarl);
-        
-    // Get a non-const reference to the cannonical snarl.
-    // TODO: Can't we use a const cast and save a lookup?
-    Snarl& to_flip = *self[key_form(snarl)];
-        
+    // Get a non-const pointer to the SnarlRecord, which we own.
+    // Allowed because we ourselves aren't const.
+    SnarlRecord* to_flip = (SnarlRecord*) record(snarl);
     // swap and reverse the start and end Visits
-    int64_t start_id = to_flip.start().node_id();
-    bool start_orientation = to_flip.start().backward();
+    int64_t start_id = to_flip->start().node_id();
+    bool start_orientation = to_flip->start().backward();
         
-    to_flip.mutable_start()->set_node_id(to_flip.end().node_id());
-    to_flip.mutable_start()->set_backward(!to_flip.end().backward());
+    to_flip->mutable_start()->set_node_id(to_flip->end().node_id());
+    to_flip->mutable_start()->set_backward(!to_flip->end().backward());
         
-    to_flip.mutable_end()->set_node_id(start_id);
-    to_flip.mutable_end()->set_backward(!start_orientation);
+    to_flip->mutable_end()->set_node_id(start_id);
+    to_flip->mutable_end()->set_backward(!start_orientation);
         
-    // update parent index
-    parent[key_form(snarl)] = parent[old_key];
-    parent.erase(old_key);
-        
-    // update children index
-    children[key_form(snarl)] = std::move(children[old_key]);
-    children.erase(old_key);
-        
-    // And the child chain index
-    child_chains[key_form(snarl)] = std::move(child_chains[old_key]);
-    child_chains.erase(old_key);
-        
-    // And the parent chain index
-    parent_chain[key_form(snarl)] = std::move(parent_chain[old_key]);
-    parent_chain.erase(old_key);
-        
-    // Update self index
-    self[key_form(snarl)] = std::move(self[old_key]);
-    self.erase(old_key);
-        
-    // note: snarl_into index is invariant to flipping
+    // Note: snarl_into index is invariant to flipping.
+    // All the other indexes live in the SnarlRecords and don't need to change.
 }
     
 const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
-    // Store the snarl
-    snarls.push_back(new_snarl);
-    Snarl* snarl = &snarls.back();
-        
+    // Allocate a default SnarlRecord
+    snarls.emplace_back();
+    
+    SnarlRecord* new_record = &snarls.back();
+    
+    // Hackily copy the snarl in
+    *new_record = new_snarl;
+    
+    // TODO: Should this be a non-default SnarlRecord constructor?
+
 #ifdef debug
     cerr << "Adding snarl " << new_snarl.start().node_id() << " " << new_snarl.start().backward() << " -> "
          << new_snarl.end().node_id() << " " << new_snarl.end().backward() << endl;
 #endif
         
-    // Remember where each snarl is
-    self[key_form(snarl)] = snarl;
-        
-    // It has an empty vector of children
-    children[key_form(snarl)] = vector<const Snarl*>();
-    // It has an empty list of child chains.
-    child_chains[key_form(snarl)] = deque<Chain>();
-        
     // We will set the parent later when we add the snarl's chain.
     // Every snarl has to be in a chain. Even the unary ones, in trivial chains.
         
     // Record how you get in and out
-    snarl_into[make_pair(snarl->start().node_id(), snarl->start().backward())] = snarl;
-    snarl_into[make_pair(snarl->end().node_id(), !snarl->end().backward())] = snarl;
+    snarl_into[make_pair(new_record->start().node_id(), new_record->start().backward())] = unrecord(new_record);
+    snarl_into[make_pair(new_record->end().node_id(), !new_record->end().backward())] = unrecord(new_record);
         
-    return snarl;
+    return unrecord(new_record);
 }
     
 void SnarlManager::add_chain(const Chain& new_chain, const Snarl* chain_parent) {
@@ -809,13 +787,13 @@ void SnarlManager::add_chain(const Chain& new_chain, const Snarl* chain_parent) 
             // Save it as a root snarl
             roots.push_back(child);
                 
-            // Save its parent, which is null
-            parent.emplace(key_form(child), nullptr);
-                
+            // Get the mutable record for the child
+            SnarlRecord* child_record = (SnarlRecord*) record(child);
+            
             // Save its chain. Relies on the Chain in root_chains never
             // moving.
-            parent_chain.emplace(key_form(child), &root_chains.back());
-                
+            child_record->parent_chain = &root_chains.back();
+
 #ifdef debug
             cerr << "Stored parent of " << child << endl;
 #endif
@@ -830,19 +808,26 @@ void SnarlManager::add_chain(const Chain& new_chain, const Snarl* chain_parent) 
              << endl;
 #endif
         
+        // Grab the parent record. Make sure to de-const it (which we can do
+        // becasuse we own it and we ourselves are not const).
+        SnarlRecord* chain_parent_record = (SnarlRecord*) record(chain_parent);
+       
         // Save a copy of the chain as a child chain
-        child_chains[key_form(chain_parent)].push_back(new_chain);
+        chain_parent_record->child_chains.push_back(new_chain);
             
         for (const Snarl* child : new_chain) {
+            // Get the record for the child
+            SnarlRecord* child_record = (SnarlRecord*) record(child);
+            
             // Save it as a child of the parent
-            children[key_form(chain_parent)].push_back(child);
+            chain_parent_record->children.push_back(child);
                 
             // Save its parent
-            parent.emplace(key_form(child), chain_parent);
-                
+            child_record->parent = chain_parent;
+            
             // Save its chain. Relies on the Chain in child_chains never
             // moving.
-            parent_chain.emplace(key_form(child), &child_chains[key_form(chain_parent)].back());
+            child_record->parent_chain = &chain_parent_record->child_chains.back();
                 
 #ifdef debug
             cerr << "Stored parent of " << child << endl;
@@ -889,40 +874,44 @@ unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_start_index
     return index;
 }
     
-// can include definition of inline function apart from forward declaration b/c only used in this file
-inline SnarlManager::key_t SnarlManager::key_form(const Snarl* snarl) const {
-    return make_pair(make_pair(snarl->start().node_id(), snarl->start().backward()),
-                     make_pair(snarl->end().node_id(), snarl->end().backward()));
-}
-    
-
 void SnarlManager::build_indexes() {
         
 #ifdef debug
     cerr << "Building SnarlManager index of " << snarls.size() << " snarls" << endl;
 #endif
+
+    // Reserve space for the snarl_into index, so we hopefully don't need to rehash or move anything.
+    snarl_into.reserve(snarls.size() * 2);
+
+    for (SnarlRecord& rec : snarls) {
+        Snarl& snarl = *unrecord(&rec);
+    
+        // Build the snarl_into index first so we can manage() to resolve populated-snarl cross-references to parents later.
+        snarl_into[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
+        snarl_into[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
+    }
+    
         
-    for (Snarl& snarl : snarls) {
+    for (SnarlRecord& rec : snarls) {
+        Snarl& snarl = *unrecord(&rec);
             
 #ifdef debug
         cerr << pb2json(snarl) << endl;
 #endif
             
-        // Remember where each snarl is
-        self[key_form(&snarl)] = &snarl;
-        
         // is this a top-level snarl?
         if (snarl.has_parent()) {
             // add this snarl to the parent-to-children index
 #ifdef debug
             cerr << "\tSnarl is a child" << endl;
 #endif
-            if (!children.count(key_form(&(snarl.parent()))) ) {
-                children.insert(make_pair(key_form(&snarl.parent()), vector<const Snarl*>(1, &snarl)));
-            }
-            else {
-                children[key_form(&(snarl.parent()))].push_back(&snarl);
-            }
+            
+            // Record it as a child of its parent
+            SnarlRecord* parent = (SnarlRecord*) record(manage(snarl.parent()));
+            parent->children.push_back(&snarl);
+            
+            // And that its parent is its parent
+            record(&snarl)->parent = parent;
         }
         else {
             // record top level status
@@ -930,58 +919,45 @@ void SnarlManager::build_indexes() {
             cerr << "\tSnarl is top-level" << endl;
 #endif
             roots.push_back(&snarl);
-            parent[key_form(&snarl)] = nullptr;
-        }
             
-        // add the boundaries into the indices
-        snarl_into[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
-        snarl_into[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
-    }
-        
-    for (Snarl& snarl : snarls) {
-        if (children.count(key_form(&snarl))) {
-            // mark this snarl as the parent in child-to-parent map
-            for (const Snarl* child : children[key_form(&snarl)]) {
-                parent[key_form(child)] = &snarl;
-            }
-        }
-        else {
-            // ensure that all snarls are in the parent-to-children map
-            children.insert(make_pair(key_form(&snarl), vector<const Snarl*>()));
+            record(&snarl)->parent = nullptr;
         }
     }
         
-    if (root_chains.empty() || child_chains.empty()) {
-        // Chains were not provided already.
-        // Now compute the chains using the into and out-of indexes.
+    // Compute the chains using the into and out-of indexes.
+    
+    // Compute the chains for the root level snarls
+    root_chains = compute_chains(roots);
         
-        // Compute the chains for the root level snarls
-        root_chains = compute_chains(roots);
+    // Build the back index from root snarl to containing chain
+    for (auto& chain : root_chains) {
+        for (const Snarl* snarl : chain) {
+            // Get the mutable record for each child snarl in the chain
+            SnarlRecord* child_record = (SnarlRecord*) record(snarl);
             
-        // Build the back index from root snarl to containing chain
-        for (auto& chain : root_chains) {
+            // Give it a pointer to the chain.
+            child_record->parent_chain = &chain;
+        }
+    }
+    
+    for (SnarlRecord& rec : snarls) {
+        if (rec.children.empty()) {
+            // Only look at snarls with children.
+            continue;
+        }
+        
+        // Compute the chains among the children
+        rec.child_chains = compute_chains(rec.children);
+        
+        // Build the back index from child snarl to containing chain
+        for (auto& chain : rec.child_chains) {
             for (const Snarl* snarl : chain) {
-                parent_chain.emplace(key_form(snarl), &chain);
+                // Get the mutable record for each child snarl in the chain
+                SnarlRecord* child_record = (SnarlRecord*) record(snarl);
+                
+                // Give it a pointer to the chain.
+                child_record->parent_chain = &chain;
             }
-        }
-        
-        for (auto& kv : children) {
-            // For each parent snarl
-            const key_t& parent_key = kv.first;
-            // And its children
-            vector<const Snarl*>& snarl_children = kv.second;
-                
-            // Compute chains of the children and store it under the parent.
-            // Keep the iterator.
-            auto inserted = child_chains.emplace(make_pair(parent_key, compute_chains(snarl_children))).first;
-                
-            // Build the back index from child snarl to containing chain
-            for (auto& chain : inserted->second) {
-                for (const Snarl* snarl : chain) {
-                    parent_chain.emplace(key_form(snarl), &chain);
-                }
-            }
-                
         }
     }
 }
@@ -1326,14 +1302,14 @@ const Snarl* SnarlManager::manage(const Snarl& not_owned) const {
     // TODO: keep the Snarls in some kind of sorted order to make lookup
     // efficient. We could also have a map<Snarl, Snarl*> but that would be
     // a tremendous waste of space.
+    
+    // Work out how to read into the snarl
+    pair<int64_t, bool> reading_in = make_pair(not_owned.start().node_id(), not_owned.start().backward());
+    
+    // Get the cannonical pointer to the snarl that we are reading into with the start, inward visit.
+    auto it = snarl_into.find(reading_in);
         
-    // Work out the key for the snarl
-    key_t key = key_form(&not_owned);
-        
-    // Get the cannonical pointer to the snarl with that key.
-    auto it = self.find(key);
-        
-    if (it == self.end()) {
+    if (it == snarl_into.end()) {
         // It's not there. Someone is trying to manage a snarl we don't
         // really own. Complain.
         throw runtime_error("Unable to find snarl " +  pb2json(not_owned) + " in SnarlManager");
