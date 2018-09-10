@@ -184,9 +184,15 @@ int main_filter(int argc, char** argv) {
                     
                     // Everything before that is the seed
                     auto seed_string = opt_string.substr(0, point);
+                    // Use the 0 seed by default even if no actual seed shows up
+                    int32_t seed = 0;
                     if (seed_string != "") {
                         // If there was a seed (even 0), parse it
-                        int32_t seed = parse<int32_t>(seed_string);
+                        seed = parse<int32_t>(seed_string);
+                    }
+                    
+                    if (seed != 0) {
+                        // We want a nonempty mask.
                         
                         // Use the C rng like Samtools does to get a mask.
                         // See https://github.com/samtools/samtools/blob/60138c42cf04c5c473dc151f3b9ca7530286fb1b/sam_view.c#L298-L299

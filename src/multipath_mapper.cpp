@@ -8,6 +8,7 @@
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
+//#define debug_pretty_print_alignments
 
 #include "multipath_mapper.hpp"
 #include "multipath_alignment_graph.hpp"
@@ -100,7 +101,7 @@ namespace vg {
         // extract graphs around the clusters
         auto cluster_graphs = query_cluster_graphs(alignment, mems, clusters);
         
-        // actually perform the alignments and post-process to meeth MultipathAlignment invariants
+        // actually perform the alignments and post-process to meet MultipathAlignment invariants
         vector<size_t> cluster_idxs = range_vector(cluster_graphs.size());
         align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, num_mapping_attempts, &cluster_idxs);
         
@@ -149,6 +150,12 @@ namespace vg {
         for (auto cluster_graph : cluster_graphs) {
             delete get<0>(cluster_graph);
         }
+#ifdef debug_pretty_print_alignments
+        cerr << "final alignments being returned:" << endl;
+        for (const MultipathAlignment& multipath_aln : multipath_alns_out) {
+            view_multipath_alignment(cerr, multipath_aln, *xindex);
+        }
+#endif
     }
     
     void MultipathMapper::align_to_cluster_graphs(const Alignment& alignment,
@@ -176,10 +183,10 @@ namespace vg {
         for (auto& cluster_graph : cluster_graphs) {
             // if we have a cluster graph with small enough MEM coverage compared to the best one or we've made
             // the maximum number of alignments we stop producing alternate alignments
-            if (get<2>(cluster_graph) < mem_coverage_min_ratio * get<2>(cluster_graphs[0])
+            if (get<2>(cluster_graph) < mem_coverage_min_ratio * get<2>(cluster_graphs.front())
                 || num_mappings >= num_mappings_to_compute) {
 #ifdef debug_multipath_mapper
-                cerr << "halting further alignments, either because MEM coverage of " << get<2>(cluster_graph) << " is too far below optimum of " << get<2>(cluster_graphs[0]) << " or because already made " << num_mappings << " of " << num_mappings_to_compute << " mappings" << endl;
+                cerr << "halting further alignments, either because MEM coverage of " << get<2>(cluster_graph) << " is too far below optimum of " << get<2>(cluster_graphs.front()) << " or because already made " << num_mappings << " of " << num_mappings_to_compute << " mappings" << endl;
 #endif
                 
 //#pragma omp atomic
@@ -459,6 +466,15 @@ namespace vg {
         return true;
     }
     
+    void MultipathMapper::init_band_padding_memo() {
+        band_padding_memo.clear();
+        band_padding_memo.resize(band_padding_memo_size);
+        
+        for (size_t i = 0; i < band_padding_memo.size(); i++) {
+            band_padding_memo[i] = size_t(band_padding_multiplier * sqrt(i)) + 1;
+        }
+    }
+    
     bool MultipathMapper::likely_mismapping(const MultipathAlignment& multipath_aln) {
     
         // empirically, we get better results by scaling the pseudo-length down, I have no good explanation for this probabilistically
@@ -518,6 +534,7 @@ namespace vg {
             return p_value;
         }
     }
+    
     
     void MultipathMapper::calibrate_mismapping_detection(size_t num_simulations, size_t simulated_read_length) {
         // we don't want to do base quality adjusted alignments for this stage since we are just simulating random sequences
@@ -1645,6 +1662,16 @@ namespace vg {
         for (auto cluster_graph : cluster_graphs2) {
             delete get<0>(cluster_graph);
         }
+        
+#ifdef debug_pretty_print_alignments
+        cerr << "final alignments being returned:" << endl;
+        for (const pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
+            cerr << "read 1: " << endl;
+            view_multipath_alignment(cerr, multipath_aln_pair.first, *xindex);
+            cerr << "read 2: " << endl;
+            view_multipath_alignment(cerr, multipath_aln_pair.second, *xindex);
+        }
+#endif
     }
     
     void MultipathMapper::reduce_to_single_path(const MultipathAlignment& multipath_aln, vector<Alignment>& alns_out,
@@ -2941,8 +2968,14 @@ namespace vg {
         }
 #endif
         
+        function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
+            size_t read_length = seq.sequence().end() - seq.sequence().begin();
+            return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
+                                                          : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
+        };
+        
         // do the connecting alignments and fill out the MultipathAlignment object
-        multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, dynamic_max_alt_alns, band_padding, multipath_aln_out);
+        multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, dynamic_max_alt_alns, choose_band_padding, multipath_aln_out);
         
         
 #ifdef debug_multipath_mapper_alignment
@@ -2975,8 +3008,14 @@ namespace vg {
         multi_aln_graph.topological_sort(topological_order);
         multi_aln_graph.remove_transitive_edges(topological_order);
         
+        function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
+            size_t read_length = seq.sequence().end() - seq.sequence().begin();
+            return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
+                                                          : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
+        };
+        
         // do the connecting alignments and fill out the MultipathAlignment object
-        multi_aln_graph.align(alignment, subgraph, get_aligner(), false, num_alt_alns, dynamic_max_alt_alns, band_padding, multipath_aln_out);
+        multi_aln_graph.align(alignment, subgraph, get_aligner(), false, num_alt_alns, dynamic_max_alt_alns, choose_band_padding, multipath_aln_out);
         
         for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
             translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);
@@ -3194,7 +3233,9 @@ namespace vg {
                     continue;
                 }
                 
-                // Otherwise, pick the best adjusted score and its difference from the best unadjusted score
+                // Otherwise, we have population scores.
+                
+                // Pick the best adjusted score and its difference from the best unadjusted score
                 pop_adjusted_scores[i] = numeric_limits<double>::min();
                 double adjustment;
                 for (size_t j = 0; j < alignments.size(); j++) {
@@ -3209,6 +3250,15 @@ namespace vg {
                     }
                 }
                 
+                // Save the population score from the best total score read,
+                // even if population scoring doesn't get used. TODO: When
+                // flattening the multipath alignment back to single path, we
+                // should replace this score or make sure to use this winning
+                // single path alignment.
+                auto max_scoring_it = std::max_element(pop_adjusted_scores.begin(), pop_adjusted_scores.end());
+                auto max_scoring_index = max_scoring_it - pop_adjusted_scores.begin();
+                set_annotation(multipath_alns[i], "haplotype_score", alignment_pop_scores[max_scoring_index]); 
+                
                 // See if we have a new minimum adjustment value, for the adjustment applicable to the chosen traceback.
                 min_adjustment = min(min_adjustment, adjustment);
             }
@@ -3218,6 +3268,17 @@ namespace vg {
             for (auto& score : pop_adjusted_scores) {
                 // Adjust the adjusted scores up/down by the minimum adjustment to ensure no scores are negative
                 score -= min_adjustment;
+            }
+            
+            for (auto& mpaln : multipath_alns) {
+                // Remember that we did use population scoring on all these MultipathAlignments
+                set_annotation(mpaln, "haplotype_score_used", true);
+            }
+        } else {
+            // Clean up pop score annotations and remove scores on all the reads.
+            for (auto& mpaln : multipath_alns) {
+                clear_annotation(mpaln, "haplotype_score_used");
+                clear_annotation(mpaln, "haplotype_score");
             }
         }
         
@@ -3408,6 +3469,10 @@ namespace vg {
                 // Compute the total pop adjusted score for this MultipathAlignment
                 pop_adjusted_scores[i] = base_pop_scores1[best_index1] + base_pop_scores2[best_index2] + frag_score;
                 
+                // Save the pop scores to the multipath alignments
+                set_annotation(multipath_aln_pair.first, "haplotype_score", base_pop_scores1[best_index1]);
+                set_annotation(multipath_aln_pair.second, "haplotype_score", base_pop_scores2[best_index2]);
+                
                 assert(!std::isnan(base_pop_scores1[best_index1]));
                 assert(!std::isnan(base_pop_scores2[best_index2]));
                 assert(!std::isnan(frag_score));
@@ -3428,6 +3493,25 @@ namespace vg {
         for (auto& score : scores) {
             // Pull the min frag or extra score out of the score so it will be nonnegative
             score -= (include_population_component && all_paths_pop_consistent) ? min_extra_score : min_frag_score;
+        }
+        
+        if (include_population_component && all_paths_pop_consistent) {
+            // Record that we used the population score
+            for (auto& multipath_aln_pair : multipath_aln_pairs) {
+                // We have to do it on each read in each pair.
+                // TODO: Come up with a simpler way to dump annotations in based on what happens during mapping.
+                set_annotation(multipath_aln_pair.first, "haplotype_score_used", true);
+                set_annotation(multipath_aln_pair.second, "haplotype_score_used", true);
+            }
+        } else {
+            // Clean up pop score annotations if present and remove scores from all the reads
+            for (auto& multipath_aln_pair : multipath_aln_pairs) {
+                // We have to do it on each read in each pair.
+                clear_annotation(multipath_aln_pair.first, "haplotype_score_used");
+                clear_annotation(multipath_aln_pair.first, "haplotype_score");
+                clear_annotation(multipath_aln_pair.second, "haplotype_score_used");
+                clear_annotation(multipath_aln_pair.second, "haplotype_score");
+            }
         }
         
         // find the order of the scores

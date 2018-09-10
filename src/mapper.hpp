@@ -245,6 +245,9 @@ public:
     int unpaired_penalty = 17;
     bool precollapse_order_length_hits = true;
     
+    // The recombination rate (negative log per-base recombination probability) for haplotype-aware mapping
+    double recombination_penalty = 20.7; // 9 * 2.3 = 20.7
+    
     // Remove any bonuses used by the aligners from the final reported scores.
     // Does NOT (yet) remove the haplotype consistency bonus.
     bool strip_bonuses; 
@@ -341,9 +344,6 @@ protected:
     // 0 = no haplotype consistency scoring done.
     // 1 = multiply in haplotype likelihood once when computing alignment score
     double haplotype_consistency_exponent = 1;
-    // The recombination rate
-    // TODO: expose to command line
-    constexpr static double NEG_LOG_PER_BASE_RECOMB_PROB = 9 * 2.3;
     
     FragmentLengthDistribution fragment_length_distr;
 

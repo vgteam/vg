@@ -24,7 +24,8 @@ const string Version::BUILD_HOST = VG_BUILD_HOST;
 // Add new codenames here
 const unordered_map<string, string> Version::codenames = {
     {"v1.8.0", "Vallata"},
-    {"v1.9.0", "Miglionico"}
+    {"v1.9.0", "Miglionico"},
+    {"v1.10.0", "Rionero"}
     // Add more codenames here
 };
 

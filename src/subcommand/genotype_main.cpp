@@ -32,7 +32,6 @@ void help_genotype(char** argv) {
          << "    -l, --length INT        override total sequence length" << endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << endl
          << "    -Q, --ignore_mapq       do not use mapping qualities" << endl
-         << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << endl
          << "    -A, --no_indel_realign  disable indel realignment" << endl
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << endl
          << "    -P, --min_per_strand    min unique reads per strand for a called allele to accept a call" << endl
@@ -87,9 +86,7 @@ int main_genotype(int argc, char** argv) {
 
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
-
-    // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
-    bool subset_graph = false;
+    
     // What should the heterozygous genotype prior be? (1/this)
     double het_prior_denominator = 10.0;
     // At least how many reads must be unique support for a called allele per strand for a call?
@@ -110,7 +107,6 @@ int main_genotype(int argc, char** argv) {
                 {"length", required_argument, 0, 'l'},
                 {"augmented", required_argument, 0, 'a'},
                 {"ignore_mapq", no_argument, 0, 'Q'},
-                {"subset-graph", no_argument, 0, 'S'},
                 {"no_indel_realign", no_argument, 0, 'A'},
                 {"het_prior_denom", required_argument, 0, 'd'},
                 {"min_per_strand", required_argument, 0, 'P'},
@@ -127,7 +123,7 @@ int main_genotype(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:QSAd:P:pt:V:I:G:F:zET:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:QAd:P:pt:V:I:G:F:zET:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -169,10 +165,6 @@ int main_genotype(int argc, char** argv) {
         case 'Q':
             // Ignore mapping qualities
             use_mapq = false;
-            break;
-        case 'S':
-            // Find sites on the graph subset with any read support
-            subset_graph = true;
             break;
         case 'z':
             just_call = true;
@@ -394,7 +386,6 @@ int main_genotype(int argc, char** argv) {
                   contig_name,
                   sample_name,
                   augmented_file_name,
-                  subset_graph,
                   output_vcf,
                   output_json,
                   length_override,
