@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 52
+plan tests 58
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -47,10 +47,22 @@ is $? 0 "building all indexes at once"
 cmp x.xg x2.xg && cmp x.gbwt x2.gbwt && cmp x.gcsa x2.gcsa && cmp x.gcsa.lcp x2.gcsa.lcp
 is $? 0 "the indexes are identical"
 
+# Build the same GBWT indirectly from a VCF parse
+vg index -v small/x.vcf.gz -e parse x.vg
+is $? 0 "storing a VCF parse for a graph with haplotypes"
+
+../deps/gbwt/build_gbwt -p -r parse_x > /dev/null 2> /dev/null
+is $? 0 "building a GBWT index from the VCF parse"
+
+cmp parse_x.gbwt x.gbwt
+is $? 0 "the indexes are identical"
+
 rm -f x.vg
 rm -f x.threads
 rm -f x.xg x.gbwtx.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
+rm -f parse_x parse_x_0_1 parse_x.gbwt
+
 
 # Subregion graph with haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz -a --region x:100-200 > x.part.vg
@@ -61,6 +73,7 @@ is $? 0 "building GBWT index for a regional graph"
 is "$(cat log.txt | wc -c)" "0" "no warnings about missing variants produced"
 
 rm -f x.part.vg x.part.xg x.part.gbwt log.txt
+
 
 # Multiple graphs without haplotypes
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C > x.vg 2> /dev/null
@@ -104,10 +117,21 @@ is $? 0 "building all three indexes at once"
 cmp xy.xg xy2.xg && cmp xy.gcsa xy2.gcsa && cmp xy.gcsa.lcp xy2.gcsa.lcp && cmp xy.gbwt xy2.gbwt
 is $? 0 "the indexes are identical"
 
+# Build the same GBWT indirectly from a VCF parse
+vg index -v small/xy2.vcf.gz -e parse x.vg && vg index -v small/xy2.vcf.gz -e parse y.vg
+is $? 0 "storing a VCF parse for multiple graphs with haplotypes"
+
+../deps/gbwt/build_gbwt -p -r -o parse_xy parse_x parse_y > /dev/null 2> /dev/null
+is $? 0 "building a GBWT index from the VCF parses"
+
+cmp parse_xy.gbwt xy.gbwt
+is $? 0 "the indexes are identical"
+
 rm -f x.vg y.vg
 rm -f x.gbwt y.gbwt x.threads y.threads
 rm -f xy.xg xy.gbwt xy.gcsa xy.gcsa.lcp
 rm -f xy2.xg xy2.gbwt xy2.gcsa xy2.gcsa.lcp
+rm -f parse_x parse_x_0_1 parse_y parse_y_0_1 parse_xy.gbwt
 
 
 # GBWT construction options
@@ -128,6 +152,10 @@ vg index -G x_gam.gbwt -M sim.gam -x x_gam.xg x.vg
 is $(vg paths -g x_gam.gbwt -T -x x_gam.xg -V | vg view -c - | jq -cr '.path[].name'  | sort | md5sum | cut -f 1 -d\ ) $(vg view -a sim.gam | jq -r .name | sort | md5sum | cut -f 1 -d\ ) "we can build a GBWT from alignments and index it by name with xg thread naming"
 
 rm -f x.vg x.xg sim.gam x_gam.gbwt
+
+# We do not test GBWT construction parameters (-B, -u, -n) because they matter only for large inputs.
+# We do not test chromosome-length path generation (-P, -o) for the same reason.
+
 
 # Other tests
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
