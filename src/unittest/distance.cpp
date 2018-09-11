@@ -2275,22 +2275,23 @@ class TestDistanceIndex : public DistanceIndex {
     }
 
     TEST_CASE("Random test", "[dist]") {
-/* 
+
+/*
         ifstream vg_stream("testGraph");
         VG vg(vg_stream);
         CactusSnarlFinder bubble_finder(vg);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
         TestDistanceIndex di (&vg, &snarl_manager);
-        pos_t pos1 = make_pos_t(31, false,0 );
-        pos_t pos2 =  make_pos_t(171, true,0 );
+di.printSelf();
+        pair<id_t, bool> pos1 = make_pair(167, false );
+        pair<id_t, bool> pos2 =  make_pair(164, false );
 
-        REQUIRE(di.distance(pos1, pos2 ) == 50);
+        REQUIRE(di.loopDistance(pos1, pos2 ) == 128);
 */
 
-
         
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10000; i++) {
             //1000 different graphs
             VG graph = randomGraph(1000, 20, 100); 
 
@@ -2369,19 +2370,25 @@ class TestDistanceIndex : public DistanceIndex {
                     int64_t actLoop = loopDistance(&graph, snarl1, snarl1, make_pair(nodeID1, false), make_pair(nodeID1, false));
 
  
+                    bool found = false;
                     pair<id_t, bool> next;
                     auto addFirst = [&](const handle_t& h) -> bool {
                         next = make_pair(graph.get_id(h), 
                                           graph.get_is_reverse(h));
-                        return true;
+                        found = true;
+                        return false;
                     };
                     handle_t currHandle = graph.get_handle(nodeID1, false); 
                     graph.follow_edges(currHandle, false, addFirst);
-
-//                    int64_t myEdge = di.loopDistance(make_pair(nodeID1, false),
-//                                                     next); 
-//                    int64_t actEdge = loopDistance(&graph, snarl1, di.snarlOf(nodeID1), make_pair(nodeID1, false), next);
+                    int64_t myEdge;
+                    int64_t actEdge; 
+                    if (found) {
+                        myEdge = di.loopDistance(make_pair(nodeID1, false),
+                                                     next); 
+                    
+                        actEdge = loopDistance(&graph, snarl1, di.snarlOf(nodeID1), make_pair(nodeID1, false), next);
            
+                    } else {myEdge = 0; actEdge = 0;}
  
                     if (snarl_manager.into_which_snarl(nodeID1, false) == NULL ||
                         snarl_manager.into_which_snarl(nodeID1, true) == NULL) {
@@ -2391,7 +2398,8 @@ class TestDistanceIndex : public DistanceIndex {
                         snarl_manager.into_which_snarl(nodeID2, true) == NULL) {
                         REQUIRE( di.snarlOf(nodeID2) == snarl2);
                     }
-                    bool passed = (myDist == actDist) && (myLoop == actLoop); //&&(myEdge == actEdge);
+                    bool passed = (myDist == actDist) && (myLoop == actLoop) &&
+                                   (myEdge == actEdge);
 
                     if (!passed) { 
                         graph.serialize_to_file("testGraph");
@@ -2411,11 +2419,10 @@ di.printSelf();
                                 "Guessed distance: " << myDist << endl;
                         cerr << "Actual loop distance: "  << actLoop << "    " 
                              << "Guessed loop distance: " << myLoop << endl;
-/*                        cerr << "Actual edge loop distance: "  << actEdge
+                        cerr << "Actual edge loop distance: "  << actEdge
                              << "    " << "Guessed edge loop distance: " << 
                              myEdge << " From " << nodeID1 << " TO " 
                              << next.first << endl;
-*/ 
                     }
                     REQUIRE(passed);
                 }

@@ -200,6 +200,7 @@ class DistanceIndex {
         friend class TestDistanceIndex;
     }; 
 
+int64_t sizeOf();
     ///////// Data members of overall index
 
     //map each node to connected component for max distance estimation 

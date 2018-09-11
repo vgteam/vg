@@ -6,6 +6,65 @@
 using namespace std;
 namespace vg {
 
+int64_t DistanceIndex::sizeOf() {
+//TODO: Delete this
+    //Estimate of the size of the object - probably keep this in uncommitted branch
+   
+    int64_t total = 0;
+   
+    int64_t numSnarls = snarlIndex.size();
+
+    int64_t snarlDists = 0;
+    int64_t snarlNodes = 0; //# node ids + direction
+
+    for (auto x : snarlIndex) {
+        //Add size of each SnarlDistances object
+        SnarlDistances sd = x.second;
+        int64_t numNodes = sd.visitToIndex.size();
+
+        snarlNodes += numNodes; 
+        snarlDists += ((numNodes + 1) * numNodes) / 2;
+  
+        total += numNodes * 17; //Add all elements in visitToIndex
+        total += sd.distances.capacity() / 8;
+        
+        total += 3 * sizeof(pair<id_t, bool>);
+        total += sizeof(hash_map<pair<id_t, bool>, int64_t>);
+        
+
+    }
+    
+    int64_t chainDists = 0;
+    int64_t chainNodes = 0;
+
+    int64_t numChains = chainIndex.size();
+  
+    for (auto x : chainIndex) {
+        ChainDistances cd = x.second;
+        int64_t numNodes = cd.snarlToIndex.size();
+        
+        chainDists += numNodes*3;
+        chainNodes += numNodes;
+
+        total += numNodes * 16; //Add all elements in snarlToIndex
+        total += cd.prefixSum.capacity() / 8;
+        total += cd.loopFd.capacity() / 8;
+        total += cd.loopRev.capacity() / 8;
+        total += sizeof(id_t) + sizeof(hash_map<id_t, int64_t>);
+    }
+ 
+    total += nodeToSnarl.size() * 8;//TODO: ???
+
+
+    cerr << numSnarls << " snarls containing " << snarlNodes << " nodes" << endl;
+    cerr << numChains << " chains containing " << chainNodes << " nodes" << endl;
+    cerr << "Total: " << total << " bytes??" << endl;
+    return total; 
+    
+
+}
+
+
 DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager){
     /*Constructor for the distance index given a VG and snarl manager
       cap is the largest distance that the maximum distance estimation will be
@@ -1137,6 +1196,14 @@ int64_t DistanceIndex::loopDistance(const Snarl* snarl1,const Snarl* snarl2,
     /*Find the minimum distance to loop through the given edge or, if node1 and
       node2 are the same, to loop through that node    */
  
+    if (node1 != node2 && !graph->has_edge(
+                                      NodeSide(node1.first, !node1.second),
+                                     NodeSide(node2.first, node2.second))){
+        //Edge must exist
+        throw runtime_error("Edge does not exist");       
+
+    }
+
 #ifdef indexTraverse 
 cerr << endl << " NEW LOOP CALCULATION: " << node1.first <<  " TO " << node2.first << endl;
 #endif
@@ -1147,6 +1214,8 @@ cerr << endl << " NEW LOOP CALCULATION: " << node1.first <<  " TO " << node2.fir
     int64_t distSFd = -1; // not including the length of the node
     int64_t distERev = -1;
     int64_t distEFd = 0;
+    int64_t distERev1 = -1;
+    int64_t distSFd2 = -1;
 
  
     const Snarl* snarl;
@@ -1177,7 +1246,7 @@ cerr << endl << " NEW LOOP CALCULATION: " << node1.first <<  " TO " << node2.fir
 
         snarl = snarl1;
 
-    }  else if (sm->chain_of(snarl1) == sm->chain_of(snarl2))     {
+    }  else if (sm->chain_of(snarl1) == sm->chain_of(snarl2))  {
         //If the two snarls are on the same chain
        
         const Chain* chain = sm->chain_of(snarl1);
@@ -1227,13 +1296,16 @@ cerr << endl << " NEW LOOP CALCULATION: " << node1.first <<  " TO " << node2.fir
             } else {
                 bound = make_pair(chainStartID, false);
             }
+          
+            bool rev1 = chainRev != snarl1->start().backward() ? !node1.second : node1.second;
             distSRev = chainDists.chainDistance(bound, make_pair(node1.first,
-                                                     chainRev != node1.second));
+                                                                 rev1));
             length1 = chainDists.chainLength();
 
             distERev = chainDists.chainDistance(
-                              make_pair(node1.first, chainRev == node1.second),
-                              make_pair(node1.first, chainRev != node1.second));
+                              make_pair(node1.first, !rev1),
+                              make_pair(node1.first, rev1));
+            distERev1 = distERev;
             node1 = make_pair(chainStartID, node1.second);
 
 #ifdef indexTraverse 
@@ -1262,6 +1334,7 @@ cerr << "DISTANCES TO ENDS OF CHAIN OF NODE 1: " << distSRev << " " << distSFd
 
             distERev = snarlDists.snarlDistance(graph, &ng, 
                           make_pair(node1.first, !node1.second), node1);
+            distERev1 = distERev;
 
             node1 = make_pair(snarl1->start().node_id(), node1.second);
 
@@ -1292,13 +1365,18 @@ cerr << "DISTANCES TO ENDS OF SNARL OF NODE 1: " << distSRev << " " << distSFd
                 bound = make_pair(chainStartID, false);
             }
 
+            bool rev2 = chainRev != snarl2->start().backward()? !node2.second : node2.second;
+
             distEFd = chainDists.chainDistance(bound, 
-                 make_pair(node2.first, chainRev == node2.second));
+                 make_pair(node2.first, !rev2));
             length2 = chainDists.chainLength();
 
+
             distSFd = chainDists.chainDistance(
-                              make_pair(node2.first, chainRev != node2.second),
-                              make_pair(node2.first, chainRev == node2.second));
+                              make_pair(node2.first, rev2),
+                              make_pair(node2.first, !rev2));
+            distSFd2 = distSFd;
+
             node2 = make_pair(chainStartID, node2.second);
 
 #ifdef indexTraverse 
@@ -1329,6 +1407,7 @@ cerr << "DISTANCES TO ENDS OF CHAIN OF NODE 2: " << distSRev << " " << distSFd
 
             distSFd = snarlDists.snarlDistance(graph, &ng, node2, 
                                      make_pair(node2.first, !node2.second));
+            distSFd2 = distSFd;
             node2 = make_pair(snarl2->start().node_id(), node2.second);
 
 #ifdef indexTraverse 
@@ -1344,6 +1423,10 @@ cerr << "DISTANCES TO ENDS OF SNARL OF NODE 2: " << distSRev << " " << distSFd
 
 
         snarl = sm->parent_of(snarl1);
+
+#ifdef indexTraverse 
+cerr << "DISTANCES: " << distSRev << " " << distSFd << " " << distERev << " " << distEFd << endl;       
+#endif
 
     } else {
         //One snarl must be the parent of the other
@@ -1458,20 +1541,28 @@ cerr << "DISTANCES IN CHILD SNARL " << snarl2->start().node_id() << " : " << dis
             NetGraph ng = NetGraph(snarl->start(), 
                                snarl->end(),sm->chains_of(snarl), graph);
 
+            pair<id_t, bool> node1Rev = make_pair(node1.first, !node1.second);
             pair<id_t, bool> node2Rev = make_pair(node2.first, !node2.second);
             //Update snarl, node, and node length
 
+            int64_t distSL = snarlDists.snarlDistanceShort(node2Rev, node1Rev);
             int64_t distEL = snarlDists.snarlDistanceShort(node2Rev, node1);
+            int64_t distSR = snarlDists.snarlDistanceShort(node2, node1Rev);
+            int64_t distER = snarlDists.snarlDistanceShort(node2, node1);
 
-            int64_t distSFdTemp = 
-                (distSFd == -1 || distEL == -1) ? -1 : distSFd + distEL;
+            int64_t distSFdTemp = minPos({ 
+                (distSFd == -1 || distSL == -1) ? -1 : distSFd + distSL});
 
-            int64_t distERevTemp = 
-                (distERev == -1 || distEL == -1) ? -1 : distERev + distEL ;
+            int64_t distERevTemp = minPos({ 
+                (distERev == -1 || distEL == -1) ? -1 : distERev + distEL});
 
+            distSFd2 = distSFdTemp;
             distSRev = 0;
-            distSFd = distSFdTemp;
-            distERev = distERevTemp;
+
+            distSFd = distSFdTemp == -1 ? -1 : distSFdTemp + 
+                         snarlDists.nodeLength(graph, &ng, node1.first);
+            distERev = distERevTemp == -1 ? -1 : distERevTemp + 
+                          snarlDists.nodeLength(graph, &ng, node2.first);
 
 #ifdef indexTraverse 
 cerr << "DISTANCES: " << distSRev << " " << distSFd << " " << distERev << " " << distEFd << endl;       
@@ -1501,8 +1592,8 @@ cerr << "SNARL: " << snarl->start() << endl;
                 snarlDists.snarlDistanceShort(node2, node1),
                 snarlDists.snarlDistanceShort(node1Rev, node2Rev)});
 
-        int64_t loopL = snarlDists.snarlDistanceShort(node1Rev, node1);
-        int64_t loopR = snarlDists.snarlDistanceShort(node2, node2Rev); 
+        int64_t loopL = snarlDists.snarlDistanceShort(node1Rev, node2);
+        int64_t loopR = snarlDists.snarlDistanceShort(node2, node1Rev); 
 #ifdef indexTraverse 
 cerr << "SNARL LOOPS: " << loop << " " << loopL << " " << loopR << endl;
  #endif
@@ -1510,33 +1601,42 @@ cerr << "SNARL LOOPS: " << loop << " " << loopL << " " << loopR << endl;
                                            loop + distSRev + distEFd + nodeLen;
         int64_t loop2 = loop == -1 || distSFd == -1 || distERev == -1 ? -1 : 
                                            loop + distSFd + distERev + nodeLen;
-        loopL = loopL == -1 || distSFd == -1 || distSRev == -1 ? -1 : 
+        int64_t loop3 = -1;
+        if (node1 == node2) {
+
+            loopL = loopL == -1 || distSFd == -1 || distSRev == -1 ? -1 : 
                                            loopL + distSFd + distSRev + nodeLen;
-        loopR = loopR == -1 || distEFd == -1 || distERev == -1 ? -1 : 
+            loopR = loopR == -1 || distEFd == -1 || distERev == -1 ? -1 : 
                                            loopR + distEFd + distERev + nodeLen;
+        } else {
+
+            loopL = loopL == -1 || distSFd2 == -1 || distSRev == -1 ? -1 : 
+                                        loopL + distSFd2 + distSRev + nodeLen;
+            loopR = loopR == -1 || distEFd == -1 || distERev1 == -1 ? -1 : 
+                                          loopR + distEFd + distERev1 + nodeLen;
+            loop3 = distSFd2 == -1 || distERev1 == -1 ? -1 : distSFd2 + distERev1 + nodeLen;
+        }
         
 
 #ifdef indexTraverse 
-cerr << "    LOOP DISTANCES: " << loop1 << " " << loop2 << " " << loopL << " " << loopR << endl;
+cerr << "    LOOP DISTANCES: " << loop3 << " " << loop1 << " " << loop2 << " " << loopL << " " << loopR << endl;
 #endif
-        minLoop = minPos({minLoop, loop1, loop2, loopL, loopR});
+        minLoop = minPos({minLoop, loop1, loop2, loop3, loopL, loopR});
           
 
         //Update snarl, node, and node length
-        int64_t distSL = (node1.first == snarl->start().node_id() &&
-                          node1.second == snarl->start().backward()) ? 0 :
+        int64_t distSL = (node1 == snarlDists.snarlStart) ? 0 :
              snarlDists.snarlDistance(graph, &ng, make_pair(
                    snarl->start().node_id(), snarl->start().backward()), node1);
-        int64_t distSR = (node2.first == snarl->start().node_id() &&
-                          node2.second != snarl->start().backward()) ? 0 : 
+        int64_t distSR = (node2.first == snarlDists.snarlStart.first &&
+                          node2.second != snarlDists.snarlStart.second) ? 0 : 
               snarlDists.snarlDistance(graph, &ng, make_pair(
                 snarl->start().node_id(), snarl->start().backward()), node2Rev);
-        int64_t distEL = (node1.first == snarl->end().node_id() &&
-                          node1.second != snarl->end().backward()) ? 0 : 
+        int64_t distEL = (node1.first == snarlDists.snarlEnd.first &&
+                          node1.second != snarlDists.snarlEnd.second) ? 0 : 
                  snarlDists.snarlDistance(graph, &ng, make_pair(
                       snarl->end().node_id(), !snarl->end().backward()), node1);
-        int64_t distER = (node2.first == snarl->end().node_id() &&
-                          node2.second == snarl->end().backward()) ? 0 :
+        int64_t distER = (node2 == snarlDists.snarlEnd) ? 0 :
                   snarlDists.snarlDistance(graph, &ng, make_pair(
                    snarl->end().node_id(), !snarl->end().backward()), node2Rev);
   
@@ -1559,6 +1659,30 @@ cerr << "DISTANCES IN SNARL " << snarl->start().node_id() << " : " << distSL << 
                 ((distSFd == -1 || distEL == -1) ? -1 : distSFd + distEL), 
                 ((distEFd == -1 || distER == -1) ? -1 : distEFd + distER) });
 
+        if (node1 != node2) {
+            int64_t distSL2 =  snarlDists.snarlDistance(graph, &ng, make_pair(
+                   snarl->start().node_id(), snarl->start().backward()), node2);
+
+            int64_t distSR1 = snarlDists.snarlDistance(graph, &ng, make_pair(
+                snarl->start().node_id(), snarl->start().backward()), node1Rev);
+
+            int64_t distEL2 = snarlDists.snarlDistance(graph, &ng, make_pair(
+                      snarl->end().node_id(), !snarl->end().backward()), node2);
+            int64_t distER1 = snarlDists.snarlDistance(graph, &ng, make_pair(
+                   snarl->end().node_id(), !snarl->end().backward()), node1Rev);
+
+            distSRevTemp = minPos({distSRevTemp, 
+              ((distERev1 == -1 || distSR1 == -1) ? -1 : distERev1 + distSR1)});
+
+            distSFdTemp = minPos({distSFdTemp,
+                ((distSFd2 == -1 || distSL2 == -1) ? -1 : distSFd2 + distSL2)});
+ 
+            distERevTemp = minPos({distERevTemp,
+             ((distERev1 == -1 || distER1 == -1) ? -1 : distERev1 + distER1) });
+
+            distEFdTemp = minPos({distEFdTemp, 
+               ((distSFd2 == -1 || distEL2 == -1) ? -1 : distSFd2 + distEL2) });
+        }
         distSRev = distSRevTemp;
         distSFd = distSFdTemp;
         distERev = distERevTemp;
@@ -1567,6 +1691,7 @@ cerr << "DISTANCES IN SNARL " << snarl->start().node_id() << " : " << distSL << 
 #ifdef indexTraverse 
 cerr << "DISTANCES AFTER SNARL: " << distSRev << " " << distSFd << " " << distERev << " " << distEFd << endl;
 #endif
+//TODO
         node1 = snarlDists.snarlStart;
 
         node2 = node1; 
@@ -1645,7 +1770,8 @@ cerr << "   CHAIN LOOPS " << chainStartID << " : " << loop1  <<  " " << loop2 <<
 cerr << "DISTANCES chain? : " << distSL << " " << distSR << " " << distEL << " " << distER << endl;       
 cerr << "DISTANCES TO ENDS OF CHAIN: " << distSRev << " " << distSFd << " " << distERev << " " << distEFd << endl;
 #endif
-            node1 = make_pair(chainStartID, get_start_of(*chain).backward());
+            bool rev1 = node1.first == chainEndID ? !get_start_of(*chain).backward() : get_start_of(*chain).backward();
+            node1 = make_pair(chainStartID, rev1);
             node2 = node1;
 
   
