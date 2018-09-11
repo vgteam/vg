@@ -579,9 +579,9 @@ ReplaceLocalHaplotypeCommand GenomeState::replace_snarl_haplotype(const ReplaceS
                     // Get the chain for the child
                     const Chain* child_chain = manager.chain_of(child);
                     
-                    for (const Snarl* s : *child_chain) {
+                    for (auto it = chain_begin(*child_chain); it != chain_end(*child_chain); ++it) {
                         // For each snarl in the chain, remember to delete this overall lane
-                        lanes_to_delete[s].insert(handle_and_lane.second);
+                        lanes_to_delete[it->first].insert(handle_and_lane.second);
                     }
                 }
             }

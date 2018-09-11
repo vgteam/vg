@@ -93,10 +93,13 @@ public:
  * Snarls are defined at the Protobuf level, but here is how we define
  * chains as real objects.
  *
+ * A chain is a sequence of Snarls, in either normal (false) or reverse (true)
+ * orientation.
+ *
  * The SnarlManager is going to have one official copy of each chain stored,
  * and it will give you a pointer to it on demand.
  */
-using Chain = vector<const Snarl*>;
+using Chain = vector<pair<const Snarl*, bool>>;
     
 /**
  * Return true if the first snarl in the given chain is backward relative to the chain.
@@ -136,9 +139,7 @@ struct ChainIterator {
         
     /// Are we a reverse iterator or not?
     bool go_left;
-    /// Is the snarl we are at backward or forward in its chain?
-    bool backward;
-        
+    
     /// What position in the underlying vector are we in?
     Chain::const_iterator pos;
         
@@ -236,9 +237,9 @@ public:
         // All we need to do is index the children. They come mixed as real chains and unary snarls.
             
         for (auto& chain : child_chains_mixed) {
-            if (chain.size() == 1 && chain.front()->type() == UNARY) {
+            if (chain.size() == 1 && chain.front().first->type() == UNARY) {
                 // This is a unary snarl wrapped in a chain
-                add_unary_child(chain.front());
+                add_unary_child(chain.front().first);
             } else {
                 // This is a real (but possibly trivial) chain
                 add_chain_child(chain);
@@ -255,7 +256,6 @@ public:
              bool use_internal_connectivity = false) : NetGraph(start, end, graph, use_internal_connectivity) {
             
         // All we need to do is index the children.
-            
         for (const Snarl* unary : child_unary_snarls) {
             add_unary_child(unary);
         }
@@ -268,7 +268,7 @@ public:
     /// Make a net graph from the given chains and unary snarls (as raw values) in the given backing graph.
     /// Mostly for testing.
     NetGraph(const Visit& start, const Visit& end,
-             const vector<vector<Snarl>>& child_chains,
+             const vector<vector<pair<Snarl, bool>>>& child_chains,
              const vector<Snarl>& child_unary_snarls,
              const HandleGraph* graph,
              bool use_internal_connectivity = false);
@@ -390,7 +390,8 @@ public:
     /// Construct a SnarlManager for the snarls contained in an input stream
     SnarlManager(istream& in);
         
-    /// Default constructor
+    /// Default constructor for an empty SnarlManager. Must call finish() once
+    /// all snarls have been added with add_snarl().
     SnarlManager() = default;
         
     /// Destructor
@@ -403,6 +404,30 @@ public:
     /// Can be moved
     SnarlManager(SnarlManager&& other) = default;
     SnarlManager& operator=(SnarlManager&& other) = default;
+    
+    ///////////////////////////////////////////////////////////////////////////
+    // Write API
+    ///////////////////////////////////////////////////////////////////////////
+    
+    /// Add the given snarl to the SnarlManager. After all snarls have been
+    /// added, finish() must be called to compute chains and indexes. We don't
+    /// let precomputed chains be added, because we want chain orientations
+    /// relative to snarls to be deterministic given an order of snarls.
+    /// Returns a pointer to the managed snarl copy.
+    /// Only this function may add in new Snarls.
+    const Snarl* add_snarl(const Snarl& new_snarl);
+    
+    /// Reverses the orientation of a managed snarl.
+    void flip(const Snarl* snarl);
+        
+    /// Note that we have finished calling add_snarl. Compute the snarl
+    /// parent/child indexes and chains.
+    void finish();
+    
+    ///////////////////////////////////////////////////////////////////////////
+    // Read API
+    ///////////////////////////////////////////////////////////////////////////
+    
         
     /// Returns a vector of pointers to the children of a Snarl.
     /// If given null, returns the top-level root snarls.
@@ -454,23 +479,6 @@ public:
         
     /// Returns a reference to a vector with the roots of the Snarl trees
     const vector<const Snarl*>& top_level_snarls() const;
-        
-    /// Reverses the orientation of a snarl
-    void flip(const Snarl* snarl);
-        
-    /// Add the given snarl to the SnarlManager as neither a root nor a
-    /// child of any other snarl. The snarl must eventually either be added
-    /// to a parent snarl or as a root snarl through add_chain() or it will
-    /// not be visible.
-    const Snarl* add_snarl(const Snarl& new_snarl);
-        
-    /// Add the given chain of snarls that have already been added with
-    /// add_snarl(). Parents the chain to the given parent snarl, also added
-    /// with add_snarl(). If the parent is null, makes the chain a root
-    /// chain and all of its snarls root snarls. Note that the chains are
-    /// allowed to be reallocated until the last child chain of a snarl is
-    /// added.
-    void add_chain(const Chain& new_chain, const Snarl* chain_parent);
         
     /// Returns the Nodes and Edges contained in this Snarl but not in any child Snarls (always includes the
     /// Nodes that form the boundaries of child Snarls, optionally includes this Snarl's own boundary Nodes)
@@ -573,6 +581,11 @@ private:
     /// Master list of the snarls in the graph.
     /// Use a deque so pointers never get invalidated but we still have some locality.
     deque<SnarlRecord> snarls;
+    
+    /// Have we finished adding snarls? This ought to be true for any
+    /// non-trivial read operations. Otherwise the parent/child/chain indexes
+    /// haven't been computed.
+    bool finished = false;
         
     /// Roots of snarl trees
     vector<const Snarl*> roots;
@@ -734,14 +747,11 @@ ostream& operator<<(ostream& out, const Snarl& snarl);
 template <typename SnarlIterator>
 SnarlManager::SnarlManager(SnarlIterator begin, SnarlIterator end) {
     // add snarls to master list
-    for (auto iter = begin; iter != end; iter++) {
-        // Make a SnarlRecord
-        snarls.emplace_back();
-        // Copy in the Snarl
-        snarls.back() = *iter;
+    for (auto iter = begin; iter != end; ++iter) {
+        add_snarl(*iter);
     }
     // record the tree structure and build the other indexes
-    build_indexes();
+    finish();
 }
     
 inline NodeTraversal to_node_traversal(const Visit& visit, VG& graph) {

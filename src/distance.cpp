@@ -24,11 +24,11 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager){
               const Chain* chain = sm->chain_of(snarl);
               calculateIndex(chain);
               for (auto s : *chain) {
-                  seenSnarls.insert(s);
+                  seenSnarls.insert(s.first);
               }
            } else {
                Chain currChain;
-               currChain.push_back(snarl);
+               currChain.emplace_back(snarl, false);
                calculateIndex(&currChain);
                seenSnarls.insert(snarl);
            }
@@ -461,7 +461,7 @@ int64_t DistanceIndex::calculateIndex(const Chain* chain) {
                                 
                                 //Create chain to recurse on and recurse
                                 Chain currChain;
-                                currChain.push_back(currSnarl);
+                                currChain.emplace_back(currSnarl, false);
                                 calculateIndex(&currChain);
 
                                 SnarlDistances& currSnarlDists = 

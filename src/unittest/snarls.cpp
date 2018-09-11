@@ -49,11 +49,11 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have a chain with a snarl in it
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             top_chains.emplace_back();
             auto& top_chain1 = top_chains.back();
             top_chain1.emplace_back();
-            auto& nested_snarl1 = top_chain1.back();
+            auto& nested_snarl1 = top_chain1.back().first;
             
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
@@ -143,11 +143,11 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have a chain with a snarl in it
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             top_chains.emplace_back();
             auto& top_chain1 = top_chains.back();
             top_chain1.emplace_back();
-            auto& nested_snarl1 = top_chain1.back();
+            auto& nested_snarl1 = top_chain1.back().first;
             
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
@@ -293,11 +293,11 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have a chain with a snarl in it
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             top_chains.emplace_back();
             auto& top_chain1 = top_chains.back();
             top_chain1.emplace_back();
-            auto& nested_snarl1 = top_chain1.back();
+            auto& nested_snarl1 = top_chain1.back().first;
             
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
@@ -442,11 +442,11 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have a chain with a snarl in it
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             top_chains.emplace_back();
             auto& top_chain1 = top_chains.back();
             top_chain1.emplace_back();
-            auto& nested_snarl1 = top_chain1.back();
+            auto& nested_snarl1 = top_chain1.back().first;
             
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
@@ -614,11 +614,11 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have a chain with a snarl in it
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             top_chains.emplace_back();
             auto& top_chain1 = top_chains.back();
             top_chain1.emplace_back();
-            auto& nested_snarl1 = top_chain1.back();
+            auto& nested_snarl1 = top_chain1.back().first;
             
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
@@ -724,7 +724,7 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have no chains
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             
             // We havetwo child unary snarls.
             vector<Snarl> top_unary_snarls;
@@ -952,7 +952,7 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have no chains
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             
             // We havetwo child unary snarls.
             vector<Snarl> top_unary_snarls;
@@ -2465,11 +2465,10 @@ namespace vg {
             auto ptr4 = snarl_manager.add_snarl(snarl4);
             
             auto ptr1 = snarl_manager.add_snarl(snarl1);
-            snarl_manager.add_chain(Chain{ptr3}, ptr1);
-            snarl_manager.add_chain(Chain{ptr4}, ptr1);
             
             auto ptr2 = snarl_manager.add_snarl(snarl2);
-            snarl_manager.add_chain(Chain{ptr1, ptr2}, nullptr);
+            
+            snarl_manager.finish();
  
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -2877,8 +2876,8 @@ namespace vg {
             REQUIRE(chain.size() == 2);
             
             // And the snarls in the chain
-            const Snarl* left_child = chain.at(0);
-            const Snarl* right_child = chain.at(1);
+            const Snarl* left_child = chain.at(0).first;
+            const Snarl* right_child = chain.at(1).first;
             
             REQUIRE(left_child->start().node_id() == 2);
             REQUIRE(left_child->end().node_id() == 4);
@@ -2901,8 +2900,8 @@ namespace vg {
                 
                 SECTION("The chain has the two snarls in it") {
                     REQUIRE(chain->size() == 2);
-                    REQUIRE(chain->at(0) == left_child);
-                    REQUIRE(chain->at(1) == right_child);
+                    REQUIRE(chain->at(0).first == left_child);
+                    REQUIRE(chain->at(1).first == right_child);
                 }
                 
                 SECTION("The chain end orientations are correct") {

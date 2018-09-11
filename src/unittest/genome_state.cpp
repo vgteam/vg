@@ -414,8 +414,8 @@ TEST_CASE("SnarlState works on snarls with nontrivial child chains", "[snarlstat
     REQUIRE(chain.size() == 2);
     
     // And the snarls in the chain
-    const Snarl* left_child = chain.at(0);
-    const Snarl* right_child = chain.at(1);
+    const Snarl* left_child = chain.at(0).first;
+    const Snarl* right_child = chain.at(1).first;
     
     REQUIRE(left_child->start().node_id() == 2);
     REQUIRE(left_child->end().node_id() == 4);
@@ -896,8 +896,8 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains", "[genomesta
     REQUIRE(chain.size() == 2);
     
     // And the snarls in the chain
-    const Snarl* left_child = chain.at(0);
-    const Snarl* right_child = chain.at(1);
+    const Snarl* left_child = chain.at(0).first;
+    const Snarl* right_child = chain.at(1).first;
     
     REQUIRE(left_child->start().node_id() == 2);
     REQUIRE(left_child->end().node_id() == 4);
@@ -1042,8 +1042,8 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
     REQUIRE(chain.size() == 2);
     
     // And the snarls in the chain
-    const Snarl* left_child = chain.at(0);
-    const Snarl* right_child = chain.at(1);
+    const Snarl* left_child = chain.at(0).first;
+    const Snarl* right_child = chain.at(1).first;
     
     REQUIRE(left_child->start().node_id() == 2);
     REQUIRE(left_child->end().node_id() == 4);
