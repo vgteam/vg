@@ -417,7 +417,9 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(8, false)) == -1);
 
             int_vector<> nodeToCC(8, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists, 0, true);
             REQUIRE(n == 0);
             for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
@@ -674,7 +676,9 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(8, false)) == -1);
 
             int_vector<> nodeToCC(8, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
             REQUIRE(n == 0);
             for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
@@ -867,7 +871,9 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(8, false)) == -1);
 
             int_vector<> nodeToCC(8, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC,minDists, maxDists,0, true);
             REQUIRE(n == 0);
             for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
@@ -1031,7 +1037,9 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(9, false)) == -1);
 
             int_vector<> nodeToCC(10, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
             REQUIRE(n == 0);
             for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
@@ -1204,7 +1212,9 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(9, false)) == -1);
 
             int_vector<> nodeToCC(10, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
             REQUIRE(n == 0);
             for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
@@ -1356,7 +1366,9 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(7, false)) == -1);
 
             int_vector<> nodeToCC(7, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists, 0, true);
             REQUIRE(n == 0);
             for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
@@ -1460,7 +1472,9 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(7, false)) == -1);
 
             int_vector<> nodeToCC(10, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
             REQUIRE(n == 1);
             REQUIRE(nodeToCC[4] == 1);
         }
@@ -1596,7 +1610,9 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(7, false)) == 10);
 
             int_vector<> nodeToCC(8, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
             REQUIRE(n == 1);
             REQUIRE(nodeToCC[2] == 1);
             REQUIRE(nodeToCC[3] == 1);
@@ -1664,7 +1680,9 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(make_pair(1, false),  
                                                    make_pair(12, false)) == -1);
             int_vector<> nodeToCC(12, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC,minDists,maxDists, 0, true);
             REQUIRE(n == 3);
             int64_t c1 = nodeToCC[1];
             int64_t c2 = nodeToCC[6];
@@ -1686,7 +1704,7 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(c3 != c2);
             REQUIRE(c3 != c1);
             
-            di.findComponents(nodeToCC, n, false);
+            di.findComponents(nodeToCC, minDists, maxDists, n, false);
             
             int64_t c4 = nodeToCC[0];
             int64_t c5 = nodeToCC[5];
@@ -1798,7 +1816,9 @@ class TestDistanceIndex : public DistanceIndex {
                                                     make_pair(5, false)) == -1);
 
             int_vector<> nodeToCC(7, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC, minDists,maxDists,0, true);
             REQUIRE(n == 0);
             for (auto x : nodeToCC) {
                 REQUIRE(x == 0);
@@ -1932,7 +1952,9 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(6, true)) == 14);
 
             int_vector<> nodeToCC(12, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC,minDists,maxDists, 0, true);
             REQUIRE(n == 1);
             for (size_t i = 0 ; i < nodeToCC.size() ; i ++) {
                 if ( i == 0 || i == 9) {
@@ -2093,7 +2115,9 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(2, false)) == 5);
 
             int_vector<> nodeToCC(16, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
             REQUIRE(n == 1);
             for (auto x : nodeToCC) {
                 REQUIRE(x == 1);
@@ -2193,7 +2217,9 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(8, false)) == 4);
 
             int_vector<> nodeToCC(10, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC,minDists, maxDists,0, true);
             REQUIRE(n == 1);
             for (auto x : nodeToCC) {
                 REQUIRE(x == 1);
@@ -2265,7 +2291,9 @@ class TestDistanceIndex : public DistanceIndex {
                                         make_pair(4, false)) == 14);
 
             int_vector<> nodeToCC(5, 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
             REQUIRE(n == 1);
             for (auto x : nodeToCC) {
                 REQUIRE(x == 1);
@@ -2276,22 +2304,39 @@ class TestDistanceIndex : public DistanceIndex {
 
     TEST_CASE("Random test", "[dist]") {
 
+
 /*
+        ifstream vg_stream1("testGraph1");
+        VG vg1(vg_stream1);
+        vg_stream1.close();
+        CactusSnarlFinder bubble_finder1(vg1);
+        SnarlManager snarl_manager1 = bubble_finder1.find_snarls(); 
+
+        TestDistanceIndex di1 (&vg1, &snarl_manager1);
+        pair<id_t, bool> pos1 = make_pair(132, false );
+        pair<id_t, bool> pos2 =  make_pair(23, false );
+
+        REQUIRE(di1.loopDistance(pos1, pos2 ) == 130);
+
+ 
         ifstream vg_stream("testGraph");
         VG vg(vg_stream);
+        vg_stream.close();
         CactusSnarlFinder bubble_finder(vg);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
         TestDistanceIndex di (&vg, &snarl_manager);
 di.printSelf();
-        pair<id_t, bool> pos1 = make_pair(167, false );
-        pair<id_t, bool> pos2 =  make_pair(164, false );
+        pos1 = make_pair(197, false );
+        pos2 =  make_pair(176, false );
 
-        REQUIRE(di.loopDistance(pos1, pos2 ) == 128);
+            TestDistanceIndex::ChainDistances& cd = di.chainIndex.at(1);
+            REQUIRE(cd.chainDistance(make_pair(177, true), make_pair(197, true)) == 171);
+
+        REQUIRE(di.loopDistance(pos1, pos2 ) == 176);       
+
 */
-
-        
-        for (int i = 0; i < 10000; i++) {
+        for (int i = 0; i < 1000; i++) {
             //1000 different graphs
             VG graph = randomGraph(1000, 20, 100); 
 
@@ -2304,13 +2349,15 @@ di.printSelf();
 
             #endif
             int_vector<> nodeToCC(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC, 0, true);
+            int_vector<> minDists(graph.max_node_id(), 0);
+            int_vector<> maxDists(graph.max_node_id(), 0);
+            uint64_t n = di.findComponents(nodeToCC, minDists,maxDists,0, true);
 /*
             for (size_t i = 0 ; i < graph.max_node_id(); i++) {
             cerr << i+1 << ": " << nodeToCC[i] << endl;
             }
 */
-            di.findComponents(nodeToCC, n, false);
+            di.findComponents(nodeToCC,minDists, maxDists, n, false);
             for (int64_t x : nodeToCC) {
                 REQUIRE(x > 0);
             }
