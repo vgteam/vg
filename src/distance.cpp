@@ -1063,8 +1063,8 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
         id_t chainStartID = get_start_of(*chain).node_id();
 
         ChainDistances& chainDists = chainIndex.at( chainStartID); 
-        bool snarlRev1 = chainDists.isReverse(snarl1, sm); 
-        bool snarlRev2 = chainDists.isReverse(snarl2, sm);
+        bool snarlRev1 = sm->chain_orientation_of(snarl1);
+        bool snarlRev2 = sm->chain_orientation_of(snarl2);
 
         //Distance from left of s1 (reverse), left of s2 (forward)
         int64_t d1 = chainDists.chainDistanceShort(graph,
@@ -1127,7 +1127,7 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
 
         id_t chainStartID = get_start_of(*chain).node_id();
         ChainDistances& chainDists = chainIndex.at( chainStartID);
-        bool snarlRev = chainDists.isReverse(snarl1, sm); 
+        bool snarlRev = sm->chain_orientation_of(snarl1);
         pair<int64_t, int64_t> endDists = chainDists.distToEnds(
                            make_pair(nodeID1, snarlRev), distL1, distR1);
 
@@ -1142,7 +1142,7 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
         const Chain* chain = sm->chain_of(snarl2);
         id_t chainStartID = get_start_of(*chain).node_id();
         ChainDistances& chainDists = chainIndex.at( chainStartID);
-        bool snarlRev = chainDists.isReverse(snarl2, sm); 
+        bool snarlRev = sm->chain_orientation_of(snarl2); 
 
         pair<int64_t, int64_t> endDists = chainDists.distToEnds(
                        make_pair(nodeID2, snarlRev), distL2, distR2);    
@@ -1237,7 +1237,7 @@ int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2,
             const Chain* currChain= sm->chain_of(currSnarl);
             ChainDistances& chainDists = chainIndex.at(
                                             get_start_of(*currChain).node_id());
-            bool snarlRev = chainDists.isReverse(currSnarl, sm); 
+            bool snarlRev = sm->chain_orientation_of(currSnarl); 
 
             //Distance from start (reverse) to start (forward)
             int64_t d1 = chainDists.chainDistanceShort(graph,
@@ -1425,7 +1425,7 @@ pair<pair<int64_t, int64_t>, const Snarl*> DistanceIndex::distToCommonAncestor(
             const Chain* chain = sm->chain_of(snarl);
             id_t chainStartID = get_start_of(*chain).node_id();
             ChainDistances& chainDists =  chainIndex.at(chainStartID);
-            bool snarlRev = chainDists.isReverse(snarl, sm); 
+            bool snarlRev = sm->chain_orientation_of(snarl);
 
             pair<int64_t, int64_t> endDists = chainDists.distToEnds(
                           make_pair(nodeID, snarlRev), distL, distR);
@@ -1952,34 +1952,7 @@ int64_t DistanceIndex::ChainDistances::chainDistanceShort(VG* graph,
                    d2 - graph->get_node(end.first)->sequence().size());
     }
 }
-bool DistanceIndex::ChainDistances::isReverse(const Snarl* snarl, SnarlManager* sm) {
-    //Return true if the snarl is reversed in the chain
 
-    id_t start = snarl->start().node_id();
-    id_t end = snarl->end().node_id();
-    if (snarlToIndex.size() == (prefixSum.size()/2) -1 ){
-        //If the chain loops
-
-        bool startRev = snarl->start().backward();
-        bool endRev = snarl->end().backward();
-        const Chain* chain = sm->chain_of(snarl);
-
-        ChainIterator chainEnd = chain_end(*chain);
-        for (ChainIterator c = chain_begin(*chain); c != chainEnd; ++c) {
-            const Snarl* s = c->first; 
-            if (start == s->start().node_id() && startRev == s->start().backward()) {
-                return c->second;
-            }
-            
-        }
-         
-        return true; //Should never reach here
-        
-    } else {
-        //If the start of the snarl has a higher index than end, reversed 
-        return snarlToIndex[start] > snarlToIndex[end];
-    }   
-}
 int64_t DistanceIndex::ChainDistances::chainLength() {
     //Get the length of a chain including length of last node
     return prefixSum.back();
