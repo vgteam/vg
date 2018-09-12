@@ -1665,9 +1665,50 @@ class TestDistanceIndex : public DistanceIndex {
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
             const Chain* chain = snarl_manager.chain_of(snarl1);
             TestDistanceIndex::ChainDistances& cd = di.chainIndex.at(get_start_of(*chain).node_id());
-            REQUIRE(cd.chainDistance(make_pair(1, true), make_pair(8, true)) == 3);
-            REQUIRE(cd.chainDistance(make_pair(8, false), make_pair(1, false)) == 3);
-            REQUIRE(cd.chainDistanceShort(&graph, make_pair(8, false), make_pair(1, false)) == 2);
+            
+            if (get_start_of(*chain).node_id() == 1 && get_start_of(*chain).backward() == false || 
+                get_start_of(*chain).node_id() == 8 && get_start_of(*chain).backward() == false) {
+                // Chain should be 1 fwd -> 8 fwd, 8 fwd -> 1 fwd
+                // or 8 fwd -> 1 fwd, 1 fwd -> 8 fwd
+                // after snarls have been flipped into their in-chain orientations.
+                // Node side flags are normal.
+                
+                // Distance from start of node 1 to start of node 8 should be 1
+                REQUIRE(cd.chainDistance(make_pair(1, false), make_pair(8, false)) == 1);
+                // Distance from start of node 8 to start of node 1 should be 3
+                REQUIRE(cd.chainDistance(make_pair(8, false), make_pair(1, false)) == 3);
+                // Distance from end of node 1 to end of node 8, reading backward, should be 3
+                REQUIRE(cd.chainDistance(make_pair(1, true), make_pair(8, true)) == 3);
+                // Distance from end of node 8 to end of node 1, reading backward, should be 1
+                REQUIRE(cd.chainDistance(make_pair(8, true), make_pair(1, true)) == 1);
+                
+                // Distance from side opposite start of node 8 to start of node 1 should be 2
+                REQUIRE(cd.chainDistanceShort(&graph, make_pair(8, false), make_pair(1, false)) == 2);
+                
+            } else if (get_start_of(*chain).node_id() == 1 && get_start_of(*chain).backward() == true || 
+                get_start_of(*chain).node_id() == 8 && get_start_of(*chain).backward() == true) {
+                // Chain should be 1 rev -> 8 rev, 8 rev -> 1 rev
+                // or 8 rev -> 1 rev, 1 rev -> 8 rev
+                // after snarls have been flipped into their in-chain orientations.
+                // Node side flags are FLIPPED.
+                
+                // Distance from start of node 1 to start of node 8 should be 1
+                REQUIRE(cd.chainDistance(make_pair(1, !false), make_pair(8, !false)) == 1);
+                // Distance from start of node 8 to start of node 1 should be 3
+                REQUIRE(cd.chainDistance(make_pair(8, !false), make_pair(1, !false)) == 3);
+                // Distance from end of node 1 to end of node 8, reading backward, should be 3
+                REQUIRE(cd.chainDistance(make_pair(1, !true), make_pair(8, !true)) == 3);
+                // Distance from end of node 8 to end of node 1, reading backward, should be 1
+                REQUIRE(cd.chainDistance(make_pair(8, !true), make_pair(1, !true)) == 1);
+                
+                // Distance from side opposite start of node 8 to start of node 1 should be 2
+                REQUIRE(cd.chainDistanceShort(&graph, make_pair(8, !false), make_pair(1, !false)) == 2);
+                
+            } else {
+                // Unimplemented view of the graph; we don't know what the chain distance functions should say.
+                // We need to expand the test case for this chain/snarl breakdown.
+                REQUIRE(false);
+            }
           
         }
         SECTION ("Distance functions") {

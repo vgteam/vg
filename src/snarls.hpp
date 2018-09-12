@@ -453,15 +453,15 @@ public:
         
     /// Get the Chain that the given snarl participates in. Instead of
     /// asking this class to walk the chain for you, use ChainIterators on
-    /// this chain.
+    /// this chain. This is always non-null.
     const Chain* chain_of(const Snarl* snarl) const;
     
     /// If the given Snarl is backward in its chain, return true. Otherwise,
     /// return false.
     bool chain_orientation_of(const Snarl* snarl) const;
         
-    /// Return true if a Snarl is part of a nontrivial chain of more than
-    /// one snarl.
+    /// Return true if a Snarl is part of a nontrivial chain of more than one
+    /// snarl. Note that chain_of() still works for snarls in trivial chains.
     bool in_nontrivial_chain(const Snarl* here) const;
         
     /// Get all the snarls in all the chains under the given parent snarl.
