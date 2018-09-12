@@ -198,6 +198,8 @@ class TestDistanceIndex : public DistanceIndex {
     public:
         using DistanceIndex::DistanceIndex;
         using DistanceIndex::SnarlDistances;
+        using DistanceIndex::MaxDistanceIndex;
+        using DistanceIndex::maxIndex;
         using DistanceIndex::snarlIndex;
         using DistanceIndex::ChainDistances;
         using DistanceIndex::loopDistance;
@@ -207,7 +209,6 @@ class TestDistanceIndex : public DistanceIndex {
         using DistanceIndex::checkChainLoopFd;
         using DistanceIndex::checkChainLoopRev;
         using DistanceIndex::printSelf;
-        using DistanceIndex::findComponents;
 };
 
 
@@ -372,16 +373,16 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(((distances1.first == 4)||(distances1.first == 1)));
             REQUIRE(((distances1.second == 4)||(distances1.second == 1)));
 
-            REQUIRE(di.distance(pos3, pos2) == 2);
+            REQUIRE(di.minDistance(pos3, pos2) == 2);
 
-            REQUIRE(di.distance(pos1,pos2) == 6);
+            REQUIRE(di.minDistance(pos1,pos2) == 6);
 
-            REQUIRE(di.distance(pos5,pos2) == 5);
-            REQUIRE(di.distance(pos6,pos2) == 5);
-            REQUIRE(di.distance(pos2, pos5) == 5);
-            REQUIRE(di.distance( pos7, pos8r) == 5);
-            REQUIRE(di.distance( pos7, pos8) == 5);
-            REQUIRE(di.distance(pos4, pos9) == -1);
+            REQUIRE(di.minDistance(pos5,pos2) == 5);
+            REQUIRE(di.minDistance(pos6,pos2) == 5);
+            REQUIRE(di.minDistance(pos2, pos5) == 5);
+            REQUIRE(di.minDistance( pos7, pos8r) == 5);
+            REQUIRE(di.minDistance( pos7, pos8) == 5);
+            REQUIRE(di.minDistance(pos4, pos9) == -1);
 
             REQUIRE(distance(&graph, pos3, pos2) == 2);
             REQUIRE(distance(&graph, pos1,pos2) == 6);
@@ -416,13 +417,8 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
                                         make_pair(8, false)) == -1);
 
-            int_vector<> nodeToCC(8, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists, 0, true);
-            REQUIRE(n == 0);
-            for (auto x : nodeToCC) {
-                REQUIRE(x == 0);
+            for (auto x : di.maxIndex.nodeToComponent) {
+                REQUIRE(x == 1);
             }
         }
     }//End test case
@@ -492,15 +488,15 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos11 = make_pos_t(11, false, 0);
             pos_t pos12 = make_pos_t(12, false, 0);
 
-            REQUIRE(di.distance( pos1, pos4) == 5);
-            REQUIRE(di.distance( pos1, pos6) == 8);
-            REQUIRE(di.distance( pos6, pos7) == -1);
+            REQUIRE(di.minDistance( pos1, pos4) == 5);
+            REQUIRE(di.minDistance( pos1, pos6) == 8);
+            REQUIRE(di.minDistance( pos6, pos7) == -1);
 
-            REQUIRE(di.distance( pos9, pos12) == 6);
-            REQUIRE(di.distance(pos9, pos11) == 2);
-            REQUIRE(di.distance( pos4, pos9) == -1);
-            REQUIRE(di.distance( pos4, pos12) == -1);
-            REQUIRE(di.distance( pos1, pos11) == -1);
+            REQUIRE(di.minDistance( pos9, pos12) == 6);
+            REQUIRE(di.minDistance(pos9, pos11) == 2);
+            REQUIRE(di.minDistance( pos4, pos9) == -1);
+            REQUIRE(di.minDistance( pos4, pos12) == -1);
+            REQUIRE(di.minDistance( pos1, pos11) == -1);
 
 
         }
@@ -637,14 +633,14 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos5 = make_pos_t(1, false, 0);
             pos_t pos6 = make_pos_t(8, true, 0);
 
-            REQUIRE(di.distance(pos1, pos2) == 7);
-            REQUIRE(di.distance(pos2, pos1) == 7);
-            REQUIRE(di.distance(pos3, pos1) == 3);
-            REQUIRE(di.distance( pos1, pos3) == 3);
-            REQUIRE(di.distance(pos3, pos2) == 6);
-            REQUIRE(di.distance(pos3, pos4) == 6);
-            REQUIRE(di.distance(pos5, pos2) == 9);
-            REQUIRE(di.distance(pos5, pos6) == 7);
+            REQUIRE(di.minDistance(pos1, pos2) == 7);
+            REQUIRE(di.minDistance(pos2, pos1) == 7);
+            REQUIRE(di.minDistance(pos3, pos1) == 3);
+            REQUIRE(di.minDistance( pos1, pos3) == 3);
+            REQUIRE(di.minDistance(pos3, pos2) == 6);
+            REQUIRE(di.minDistance(pos3, pos4) == 6);
+            REQUIRE(di.minDistance(pos5, pos2) == 9);
+            REQUIRE(di.minDistance(pos5, pos6) == 7);
 
             REQUIRE(distance(&graph, pos1, pos2) == 7);
             REQUIRE(distance(&graph, pos2, pos1) == 7);
@@ -675,13 +671,8 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
                                         make_pair(8, false)) == -1);
 
-            int_vector<> nodeToCC(8, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
-            REQUIRE(n == 0);
-            for (auto x : nodeToCC) {
-                REQUIRE(x == 0);
+            for (auto x : di.maxIndex.nodeToComponent) {
+                REQUIRE(x == 1);
             }
         }
     }//end test case
@@ -831,17 +822,17 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos7 = make_pos_t(6, false, 10);
             pos_t pos8 = make_pos_t(3, false, 0);
 
-            REQUIRE(di.distance(pos1, pos2) == 7);
-            REQUIRE(di.distance(pos2, pos1) == 7);
-            REQUIRE(di.distance(pos3, pos1) == 3);
-            REQUIRE(di.distance(pos1, pos3) == 3);
-            REQUIRE(di.distance(pos3, pos2) == 6);
-            REQUIRE(di.distance(pos3, pos4) == 6);
-            REQUIRE(di.distance(pos5, pos2) == 9);
-            REQUIRE(di.distance(pos2, pos5) == 9);
-            REQUIRE(di.distance(pos5, pos6) == 7);
-            REQUIRE(di.distance(pos1, pos7) == 10);
-            REQUIRE(di.distance(pos1, pos8) == 10);
+            REQUIRE(di.minDistance(pos1, pos2) == 7);
+            REQUIRE(di.minDistance(pos2, pos1) == 7);
+            REQUIRE(di.minDistance(pos3, pos1) == 3);
+            REQUIRE(di.minDistance(pos1, pos3) == 3);
+            REQUIRE(di.minDistance(pos3, pos2) == 6);
+            REQUIRE(di.minDistance(pos3, pos4) == 6);
+            REQUIRE(di.minDistance(pos5, pos2) == 9);
+            REQUIRE(di.minDistance(pos2, pos5) == 9);
+            REQUIRE(di.minDistance(pos5, pos6) == 7);
+            REQUIRE(di.minDistance(pos1, pos7) == 10);
+            REQUIRE(di.minDistance(pos1, pos8) == 10);
 
             REQUIRE(distance(&graph, pos1, pos2) == 7);
             REQUIRE(distance(&graph, pos2, pos1) == 7);
@@ -870,13 +861,8 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(8, false),  
                                         make_pair(8, false)) == -1);
 
-            int_vector<> nodeToCC(8, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC,minDists, maxDists,0, true);
-            REQUIRE(n == 0);
-            for (auto x : nodeToCC) {
-                REQUIRE(x == 0);
+            for (auto x : di.maxIndex.nodeToComponent) {
+                REQUIRE(x == 1);
             }
         }
     }//end test case
@@ -1003,15 +989,15 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos6 = make_pos_t(8, true, 0);
             pos_t pos7 = make_pos_t(9, true, 0);
 
-            REQUIRE(di.distance(pos1, pos2) == 7);
-            REQUIRE(di.distance(pos2, pos1) == 7);
-            REQUIRE(di.distance(pos3, pos1) == 3);
-            REQUIRE(di.distance(pos1, pos3) == 3);
-            REQUIRE(di.distance(pos3, pos2) == 6);
-            REQUIRE(di.distance(pos3, pos4) == 6);
-            REQUIRE(di.distance(pos5, pos2) == 9);
-            REQUIRE(di.distance(pos5, pos6) == 7);
-            REQUIRE(di.distance(pos3, pos7) == 11);
+            REQUIRE(di.minDistance(pos1, pos2) == 7);
+            REQUIRE(di.minDistance(pos2, pos1) == 7);
+            REQUIRE(di.minDistance(pos3, pos1) == 3);
+            REQUIRE(di.minDistance(pos1, pos3) == 3);
+            REQUIRE(di.minDistance(pos3, pos2) == 6);
+            REQUIRE(di.minDistance(pos3, pos4) == 6);
+            REQUIRE(di.minDistance(pos5, pos2) == 9);
+            REQUIRE(di.minDistance(pos5, pos6) == 7);
+            REQUIRE(di.minDistance(pos3, pos7) == 11);
 
             REQUIRE(distance(&graph, pos1, pos2) == 7);
             REQUIRE(distance(&graph, pos2, pos1) == 7);
@@ -1036,13 +1022,8 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl8, snarl8, make_pair(9, false),  
                                         make_pair(9, false)) == -1);
 
-            int_vector<> nodeToCC(10, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
-            REQUIRE(n == 0);
-            for (auto x : nodeToCC) {
-                REQUIRE(x == 0);
+            for (auto x : di.maxIndex.nodeToComponent) {
+                REQUIRE(x == 1);
             }
         }
     }//end test case
@@ -1174,17 +1155,17 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos8r = make_pos_t(8, true, 0);
             pos_t pos9 = make_pos_t(9, false, 0);
 
-            REQUIRE(di.distance(pos4, pos8) == 5);
-            REQUIRE(di.distance(pos4, pos8) == 5);
-            REQUIRE(di.distance(pos8, pos4) == 5);
-            REQUIRE(di.distance(pos1, pos4) == 6);
-            REQUIRE(di.distance(pos1, pos4) == 6);
-            REQUIRE(di.distance(pos8, pos8r) == 4);
-            REQUIRE(di.distance(pos7, pos8r) == 2);
-            REQUIRE(di.distance(pos7, pos8) == 2);
-            REQUIRE(di.distance(pos8r, pos7) == 2);
-            REQUIRE(di.distance(pos2, pos8) == 7);
-            REQUIRE(di.distance(pos6, pos5) == 10);
+            REQUIRE(di.minDistance(pos4, pos8) == 5);
+            REQUIRE(di.minDistance(pos4, pos8) == 5);
+            REQUIRE(di.minDistance(pos8, pos4) == 5);
+            REQUIRE(di.minDistance(pos1, pos4) == 6);
+            REQUIRE(di.minDistance(pos1, pos4) == 6);
+            REQUIRE(di.minDistance(pos8, pos8r) == 4);
+            REQUIRE(di.minDistance(pos7, pos8r) == 2);
+            REQUIRE(di.minDistance(pos7, pos8) == 2);
+            REQUIRE(di.minDistance(pos8r, pos7) == 2);
+            REQUIRE(di.minDistance(pos2, pos8) == 7);
+            REQUIRE(di.minDistance(pos6, pos5) == 10);
 
             REQUIRE(distance(&graph, pos4, pos8) == 5);
             REQUIRE(distance(&graph, pos4, pos8) == 5);
@@ -1211,13 +1192,8 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl7, snarl7, make_pair(9, false),  
                                         make_pair(9, false)) == -1);
 
-            int_vector<> nodeToCC(10, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
-            REQUIRE(n == 0);
-            for (auto x : nodeToCC) {
-                REQUIRE(x == 0);
+            for (auto x : di.maxIndex.nodeToComponent) {
+                REQUIRE(x == 1);
             }
         }
     }//end test case
@@ -1342,11 +1318,11 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos5 = make_pos_t(5, false, 0);
             pos_t pos7 = make_pos_t(7, false, 0);
 
-            REQUIRE(di.distance(pos1, pos7) == 5);
-            REQUIRE(di.distance(pos2, pos3) == 8);
-            REQUIRE(di.distance(pos2, pos3) == 8);
-            REQUIRE(di.distance(pos4, pos7) == 6);
-            REQUIRE(di.distance(pos1, pos5) == 5);
+            REQUIRE(di.minDistance(pos1, pos7) == 5);
+            REQUIRE(di.minDistance(pos2, pos3) == 8);
+            REQUIRE(di.minDistance(pos2, pos3) == 8);
+            REQUIRE(di.minDistance(pos4, pos7) == 6);
+            REQUIRE(di.minDistance(pos1, pos5) == 5);
 
             REQUIRE(distance(&graph, pos1, pos7) == 5);
             REQUIRE(distance(&graph, pos2, pos3) == 8);
@@ -1365,18 +1341,13 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl7, snarl7, make_pair(7, false),  
                                         make_pair(7, false)) == -1);
 
-            int_vector<> nodeToCC(7, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists, 0, true);
-            REQUIRE(n == 0);
-            for (auto x : nodeToCC) {
-                REQUIRE(x == 0);
+            for (auto x : di.maxIndex.nodeToComponent) {
+                REQUIRE(x == 1);
             }
 
         }
     }//end test case
-    TEST_CASE( "Shortest path exits common ancestor","[dist]" ) {
+    TEST_CASE( "Shortest path exits common ancestor","[dist][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -1450,9 +1421,9 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos5r = make_pos_t(5, false, 11);
             pos_t pos7 = make_pos_t(7, false, 0);
 
-            REQUIRE(di.distance(pos4, pos5) == 6);
-            REQUIRE(di.distance(pos5, pos5r) == 2);
-            REQUIRE(di.distance(pos5, pos7) == 11);
+            REQUIRE(di.minDistance(pos4, pos5) == 6);
+            REQUIRE(di.minDistance(pos5, pos5r) == 2);
+            REQUIRE(di.minDistance(pos5, pos7) == 11);
 
             REQUIRE(distance(&graph, pos4, pos5) == 6);
             REQUIRE(distance(&graph, pos5, pos5r) == 2);
@@ -1471,12 +1442,7 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(7, false),  
                                         make_pair(7, false)) == -1);
 
-            int_vector<> nodeToCC(10, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
-            REQUIRE(n == 1);
-            REQUIRE(nodeToCC[4] == 1);
+            REQUIRE(di.maxIndex.nodeToComponent[4] == 1);
         }
     }//End test case
     TEST_CASE( "Simple nested snarl with loop",
@@ -1565,17 +1531,17 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(((distances1.first == 4)||(distances1.first == 1)));
             REQUIRE(((distances1.second == 4)||(distances1.second == 1)));
 
-            REQUIRE(di.distance(pos3, pos2) == 2);
+            REQUIRE(di.minDistance(pos3, pos2) == 2);
 
-            REQUIRE(di.distance(pos1,pos2) == 6);
+            REQUIRE(di.minDistance(pos1,pos2) == 6);
 
-            REQUIRE(di.distance(pos5,pos2) == 5);
-            REQUIRE(di.distance(pos6,pos2) == 5);
-            REQUIRE(di.distance(pos2, pos5) == 5);
-            REQUIRE(di.distance(pos7, pos8) == 5);
-            REQUIRE(di.distance(pos4, pos9) == 8);
-            REQUIRE(di.distance(pos10, pos9) == 9);
-            REQUIRE(di.distance(pos9, pos10) == 9);
+            REQUIRE(di.minDistance(pos5,pos2) == 5);
+            REQUIRE(di.minDistance(pos6,pos2) == 5);
+            REQUIRE(di.minDistance(pos2, pos5) == 5);
+            REQUIRE(di.minDistance(pos7, pos8) == 5);
+            REQUIRE(di.minDistance(pos4, pos9) == 8);
+            REQUIRE(di.minDistance(pos10, pos9) == 9);
+            REQUIRE(di.minDistance(pos9, pos10) == 9);
 
             REQUIRE(distance(&graph,pos3, pos2) == 2);
             REQUIRE(distance(&graph, pos1,pos2) == 6);
@@ -1609,15 +1575,10 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(7, false),  
                                         make_pair(7, false)) == 10);
 
-            int_vector<> nodeToCC(8, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
-            REQUIRE(n == 1);
-            REQUIRE(nodeToCC[2] == 1);
-            REQUIRE(nodeToCC[3] == 1);
-            REQUIRE(nodeToCC[4] == 1);
-            REQUIRE(nodeToCC[6] == 1);
+            REQUIRE(di.maxIndex.nodeToComponent[2] == 1);
+            REQUIRE(di.maxIndex.nodeToComponent[3] == 1);
+            REQUIRE(di.maxIndex.nodeToComponent[4] == 1);
+            REQUIRE(di.maxIndex.nodeToComponent[6] == 1);
         }
     }//End test case
 
@@ -1679,47 +1640,24 @@ class TestDistanceIndex : public DistanceIndex {
                                                    make_pair(2, false)) == -1);
             REQUIRE(di.loopDistance(make_pair(1, false),  
                                                    make_pair(12, false)) == -1);
-            int_vector<> nodeToCC(12, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC,minDists,maxDists, 0, true);
-            REQUIRE(n == 3);
-            int64_t c1 = nodeToCC[1];
-            int64_t c2 = nodeToCC[6];
-            int64_t c3 = nodeToCC[7]; 
-         
-            REQUIRE(nodeToCC[0] == 0);
-            REQUIRE(nodeToCC[1] == c1);
-            REQUIRE(nodeToCC[2] == c1);
-            REQUIRE(nodeToCC[3] == c1);
-            REQUIRE(nodeToCC[4] == c1);
-            REQUIRE(nodeToCC[5] == 0);
-            REQUIRE(nodeToCC[6] == c2);
-            REQUIRE(nodeToCC[7] == c3);
-            REQUIRE(nodeToCC[8] == c3);
-            REQUIRE(nodeToCC[9] == 0);
-            REQUIRE(nodeToCC[10] == 0);
-            REQUIRE(nodeToCC[11] == 0);
-            REQUIRE(c1 != c2);
-            REQUIRE(c3 != c2);
-            REQUIRE(c3 != c1);
-            
-            di.findComponents(nodeToCC, minDists, maxDists, n, false);
-            
-            int64_t c4 = nodeToCC[0];
-            int64_t c5 = nodeToCC[5];
-            REQUIRE(nodeToCC[0] == c4);
-            REQUIRE(nodeToCC[1] == c1);
-            REQUIRE(nodeToCC[2] == c1);
-            REQUIRE(nodeToCC[3] == c1);
-            REQUIRE(nodeToCC[4] == c1);
-            REQUIRE(nodeToCC[5] == c5);
-            REQUIRE(nodeToCC[6] == c2);
-            REQUIRE(nodeToCC[7] == c3);
-            REQUIRE(nodeToCC[8] == c3);
-            REQUIRE(nodeToCC[9] == c4);
-            REQUIRE(nodeToCC[10] == c4);
-            REQUIRE(nodeToCC[11] == c4);
+           
+            int64_t c1 = di.maxIndex.nodeToComponent[1];
+            int64_t c2 = di.maxIndex.nodeToComponent[6];
+            int64_t c3 = di.maxIndex.nodeToComponent[7];
+            int64_t c4 = di.maxIndex.nodeToComponent[0];
+            int64_t c5 = di.maxIndex.nodeToComponent[5];
+            REQUIRE(di.maxIndex.nodeToComponent[0] == c4);
+            REQUIRE(di.maxIndex.nodeToComponent[1] == c1);
+            REQUIRE(di.maxIndex.nodeToComponent[2] == c1);
+            REQUIRE(di.maxIndex.nodeToComponent[3] == c1);
+            REQUIRE(di.maxIndex.nodeToComponent[4] == c1);
+            REQUIRE(di.maxIndex.nodeToComponent[5] == c5);
+            REQUIRE(di.maxIndex.nodeToComponent[6] == c2);
+            REQUIRE(di.maxIndex.nodeToComponent[7] == c3);
+            REQUIRE(di.maxIndex.nodeToComponent[8] == c3);
+            REQUIRE(di.maxIndex.nodeToComponent[9] == c4);
+            REQUIRE(di.maxIndex.nodeToComponent[10] == c4);
+            REQUIRE(di.maxIndex.nodeToComponent[11] == c4);
             REQUIRE(c4 != c5);
         }
     }//End test case
@@ -1796,9 +1734,9 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos6 = make_pos_t(6, false, 0);
             pos_t pos7 = make_pos_t(7, false, 0);
 
-            REQUIRE(di.distance(pos1, pos4) == 5);
-            REQUIRE(di.distance( pos5, pos6) == 12);
-            REQUIRE(di.distance(pos2, pos7) == 7);
+            REQUIRE(di.minDistance(pos1, pos4) == 5);
+            REQUIRE(di.minDistance( pos5, pos6) == 12);
+            REQUIRE(di.minDistance(pos2, pos7) == 7);
 
             REQUIRE(distance(&graph, pos1, pos4) == 5);
             REQUIRE(distance(&graph, pos5, pos6) == 12);
@@ -1815,13 +1753,9 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(5, false),  
                                                     make_pair(5, false)) == -1);
 
-            int_vector<> nodeToCC(7, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC, minDists,maxDists,0, true);
-            REQUIRE(n == 0);
-            for (auto x : nodeToCC) {
-                REQUIRE(x == 0);
+      
+            for (auto x : di.maxIndex.nodeToComponent) {
+                REQUIRE(x == 1);
             }
         }
     }//End test case
@@ -1907,12 +1841,12 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos11 = make_pos_t(11, false, 0);
             pos_t pos12 = make_pos_t(12, false, 0);
 
-            REQUIRE(di.distance( pos2, pos9r) == 2);
-            REQUIRE(di.distance( pos3, pos9) == 4);
-            REQUIRE(di.distance( pos4, pos5) == 6);
-            REQUIRE(di.distance( pos4, pos5) == 6);
-            REQUIRE(di.distance(pos7, pos12) == 14);
-            REQUIRE(di.distance(pos8, pos11) == 8);
+            REQUIRE(di.minDistance( pos2, pos9r) == 2);
+            REQUIRE(di.minDistance( pos3, pos9) == 4);
+            REQUIRE(di.minDistance( pos4, pos5) == 6);
+            REQUIRE(di.minDistance( pos4, pos5) == 6);
+            REQUIRE(di.minDistance(pos7, pos12) == 14);
+            REQUIRE(di.minDistance(pos8, pos11) == 8);
 
 
             REQUIRE(distance(&graph, pos2, pos9r) == 2);
@@ -1951,19 +1885,6 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl6, snarl6, make_pair(7, true),  
                                         make_pair(6, true)) == 14);
 
-            int_vector<> nodeToCC(12, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC,minDists,maxDists, 0, true);
-            REQUIRE(n == 1);
-            for (size_t i = 0 ; i < nodeToCC.size() ; i ++) {
-                if ( i == 0 || i == 9) {
-
-                    REQUIRE(nodeToCC[i] == 0);
-                } else {
-                    REQUIRE(nodeToCC[i] == 1);
-                }
-            }
         }
     }//End test case
 
@@ -2067,12 +1988,12 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos14 = make_pos_t(14, false, 0);
             pos_t pos16 = make_pos_t(16, false, 0);
 
-            REQUIRE(di.distance(pos2, pos10) == 3);
-            REQUIRE(di.distance(pos4, pos5) == 6);
-            REQUIRE(di.distance(pos4r, pos5r) == 12);
-            REQUIRE(di.distance(pos14, pos10) == 6);
-            REQUIRE(di.distance(pos14, pos3) == 8);
-            REQUIRE(di.distance(pos16, pos3) == 4);
+            REQUIRE(di.minDistance(pos2, pos10) == 3);
+            REQUIRE(di.minDistance(pos4, pos5) == 6);
+            REQUIRE(di.minDistance(pos4r, pos5r) == 12);
+            REQUIRE(di.minDistance(pos14, pos10) == 6);
+            REQUIRE(di.minDistance(pos14, pos3) == 8);
+            REQUIRE(di.minDistance(pos16, pos3) == 4);
 
             REQUIRE(distance(&graph, pos2, pos10) == 3);
             REQUIRE(distance(&graph, pos4, pos5) == 6);
@@ -2114,12 +2035,7 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl9, snarl2, make_pair(11, false),  
                                         make_pair(2, false)) == 5);
 
-            int_vector<> nodeToCC(16, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
-            REQUIRE(n == 1);
-            for (auto x : nodeToCC) {
+            for (auto x : di.maxIndex.nodeToComponent) {
                 REQUIRE(x == 1);
             }
         }
@@ -2190,8 +2106,8 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos6 = make_pos_t(6, true, 0);
             pos_t pos7 = make_pos_t(7, true, 0);
 
-            REQUIRE(di.distance(pos4, pos6) == 8);
-            REQUIRE(di.distance(pos2, pos7) == 6);
+            REQUIRE(di.minDistance(pos4, pos6) == 8);
+            REQUIRE(di.minDistance(pos2, pos7) == 6);
 
             REQUIRE(distance(&graph, pos4, pos6) == 8);
             REQUIRE(distance(&graph, pos2, pos7) == 6);
@@ -2216,12 +2132,7 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl1, snarl1, make_pair(1, false),  
                                         make_pair(8, false)) == 4);
 
-            int_vector<> nodeToCC(10, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC,minDists, maxDists,0, true);
-            REQUIRE(n == 1);
-            for (auto x : nodeToCC) {
+            for (auto x : di.maxIndex.nodeToComponent) {
                 REQUIRE(x == 1);
             }
         }
@@ -2265,7 +2176,7 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos1 = make_pos_t(1, false, 0);
             pos_t pos2 = make_pos_t(2, false, 0);
 
-            REQUIRE(di.distance(pos1, pos2) == distance(&graph, pos1, pos2));
+            REQUIRE(di.minDistance(pos1, pos2) == distance(&graph, pos1, pos2));
 
 
 
@@ -2290,12 +2201,7 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.loopDistance(snarl3, snarl3, make_pair(3, false),
                                         make_pair(4, false)) == 14);
 
-            int_vector<> nodeToCC(5, 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC, minDists, maxDists,0, true);
-            REQUIRE(n == 1);
-            for (auto x : nodeToCC) {
+            for (auto x : di.maxIndex.nodeToComponent) {
                 REQUIRE(x == 1);
             }
         }
@@ -2348,17 +2254,18 @@ di.printSelf();
                 di.printSelf();
 
             #endif
-            int_vector<> nodeToCC(graph.max_node_id(), 0);
-            int_vector<> minDists(graph.max_node_id(), 0);
-            int_vector<> maxDists(graph.max_node_id(), 0);
-            uint64_t n = di.findComponents(nodeToCC, minDists,maxDists,0, true);
-/*
+
             for (size_t i = 0 ; i < graph.max_node_id(); i++) {
-            cerr << i+1 << ": " << nodeToCC[i] << endl;
+                if (graph.has_node(i+1)) {
+                    REQUIRE(di.maxIndex.nodeToComponent[i] > 0);
+                    REQUIRE(di.maxIndex.maxDistances[i] >= 
+                            di.maxIndex.minDistances[i]);
+                    REQUIRE(di.maxIndex.minDistances[i] >= 0);
+                    REQUIRE(di.maxIndex.maxDistances[i] >= 0);
+                }
             }
-*/
-            di.findComponents(nodeToCC,minDists, maxDists, n, false);
-            for (int64_t x : nodeToCC) {
+
+            for (int64_t x : di.maxIndex.nodeToComponent) {
                 REQUIRE(x > 0);
             }
 
@@ -2410,7 +2317,7 @@ di.printSelf();
 
                     //If the nodes aren't child snarls
 
-                    int64_t myDist = di.distance(pos1, pos2);
+                    int64_t myDist = di.minDistance(pos1, pos2);
                     int64_t actDist = distance(&graph, pos1, pos2);
          
                     int64_t myLoop = di.loopDistance(snarl1, snarl1, make_pair(nodeID1, false), make_pair(nodeID1, false));
@@ -2518,7 +2425,7 @@ di.printSelf();
 
            pos_t pos1 = make_pos_t(nodeID1, false, 0);
            pos_t pos2 = make_pos_t(nodeID2, false, 0);
-           REQUIRE(di.distance(pos1, pos2) == distance(&vg, pos1, pos2));
+           REQUIRE(di.minDistance(pos1, pos2) == distance(&vg, pos1, pos2));
         }
 
     }
@@ -2602,8 +2509,8 @@ di.printSelf();
 
                     //If the nodes aren't child snarls
 
-                    int64_t myDist = di.distance(pos1, pos2);
-                    int64_t serialDist = sdi.distance(snarl1, snarl2,pos1, pos2);
+                    int64_t myDist = di.minDistance(pos1, pos2);
+                    int64_t serialDist = sdi.minDistance(snarl1, snarl2,pos1, pos2);
                     bool passed = myDist == serialDist;
 
                     if (!passed) { 

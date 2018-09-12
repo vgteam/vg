@@ -109,7 +109,7 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager){
     }
     //TODO: Cap should be given
     int64_t cap = 20;
-    calculateMaxIndex(&topSnarls, cap);
+    maxIndex = MaxDistanceIndex (this, &topSnarls, cap);
   
 };
 
@@ -139,6 +139,11 @@ DistanceIndex::DistanceIndex(VG* vg, SnarlManager* snarlManager, istream& in) {
         }
 
     }
+
+    int64_t cap = 20;
+    const vector<const Snarl*> topSnarls = sm->top_level_snarls();
+//TODO: Serialize this too
+    maxIndex = MaxDistanceIndex (this, &topSnarls, cap);
 }
 void DistanceIndex::load(istream& in){
     //Load serialized index from an istream
@@ -1030,14 +1035,14 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
 
 
 
-//////////////////    Calculate distances
+//////////////////    Calculate Minimum Distances
 
-int64_t DistanceIndex::distance(pos_t& pos1, pos_t& pos2) {
+int64_t DistanceIndex::minDistance(pos_t& pos1, pos_t& pos2) {
     const Snarl* snarl1 = snarlOf(get_id(pos1));
     const Snarl* snarl2 = snarlOf(get_id(pos2)); 
-    return distance(snarl1, snarl2, pos1,pos2);
+    return minDistance(snarl1, snarl2, pos1,pos2);
 }
-int64_t DistanceIndex::distance(const Snarl* snarl1, const Snarl* snarl2, 
+int64_t DistanceIndex::minDistance(const Snarl* snarl1, const Snarl* snarl2, 
                                    pos_t& pos1, pos_t& pos2) {
     /*Find the shortest distance between two positions
       pos1 and pos2 must be on nodes contained in snarl1/snarl2 */
@@ -2307,9 +2312,12 @@ void DistanceIndex::ChainDistances::printSelf() {
 ///////////////////////   MAXIMUM DISTANCE   ///////////////////////////////////
 
 
-void DistanceIndex::calculateMaxIndex(const Chain* chain, int64_t cap) {
+DistanceIndex::MaxDistanceIndex::MaxDistanceIndex() {
+//TODO: Need this to compile for some reason?
+}
+DistanceIndex::MaxDistanceIndex::MaxDistanceIndex(DistanceIndex* di, const Chain* chain, int64_t cap) {
+
     //Calculate maximum distance index
-//TODO: Finish
 
     //TODO: Try different bit vectors
 /*
@@ -2331,92 +2339,137 @@ cerr << endl;
 */
 
     /////// DFS to get connected componpents that are in cycles
-    int_vector<> components (graph->max_node_id() - minNodeID + 1, 0);
-    int_vector<> maxDists (graph->max_node_id() - minNodeID + 1, 0);
-    int_vector<> minDists (graph->max_node_id() - minNodeID + 1, 0);
+    distIndex = di;
+    int64_t maxNodeID = distIndex->graph->max_node_id();
+    int64_t minNodeID = distIndex->minNodeID;
+    int_vector<> n(maxNodeID- minNodeID + 1, 0);
+    nodeToComponent = n;
+//TODO: All distances in these will be +1
+    int_vector<> max(maxNodeID - minNodeID + 1, 0);
+    maxDistances = max;
+    int_vector<> min(maxNodeID - minNodeID + 1, 0);
+    minDistances = min;
 
-    uint64_t numCC = findComponents(components, maxDists, minDists, 0, true);
+    numCycles= findComponents(nodeToComponent, maxDistances, minDistances, 0, true);
 
     //Find connected components of nodes not in cycles
-    uint64_t numComponents = findComponents(components, maxDists, minDists, 
-                                            numCC, false);
+    numComponents = findComponents(nodeToComponent, maxDistances, minDistances, 
+                                            numCycles, false);
 
+cerr << numCycles << " " << numComponents << endl;
 
 }
 
-uint64_t DistanceIndex::findComponents( int_vector<>& nodeToComponent, 
-        int_vector<>& maxDists, int_vector<>& minDists, 
-        uint64_t currComponent, bool onlyCycles   ){
+
+uint64_t DistanceIndex::MaxDistanceIndex::findComponents( 
+        int_vector<>& nodeToComponent, int_vector<>& maxDists, 
+        int_vector<>& minDists, uint64_t currComponent, bool onlyCycles   ){
 
     /*If onlyCycles, assign all nodes to a component of connected cycles 
                if in a cycle, 0 otherwise
       If not onlyCycles, assign all unassigned nodes to a connected component
 
-      Returnsthe maximum component number, the number of connected components
+      Returns the maximum component number, the number of connected components
     */
 
+    int64_t minNodeID = distIndex->minNodeID;
+    VG* graph = distIndex->graph;
     int64_t maxNodeID = graph->max_node_id();
     hash_set<pair<id_t, bool>> seen;
     for (id_t i = minNodeID ; i <= maxNodeID ; i ++ ) {
+cerr << i << endl;
         if (graph->has_node(i) && nodeToComponent[i - minNodeID] == 0) {
+cerr << "   EXISTS" << endl;
 
-            bool loops = loopDistance(make_pair(i, false), make_pair(i, false)) > -1;
+            bool loops = distIndex->loopDistance(make_pair(i, false), make_pair(i, false)) > -1;
             if (onlyCycles == loops)  {
-            //If this node hasn't been seen before and if only counting cycles,
-            // is in a cycle
+cerr << " AND START HERE" << endl;
+                //If this node hasn't been seen before and if only counting cycles,
 
-            currComponent++;
-            vector<pair<id_t, bool>> nextNodes;
-            nextNodes.push_back(make_pair(i, true));
-            nextNodes.push_back(make_pair(i, false));
-            pair<id_t, bool> currNode;
+                currComponent++;
+                //Next nodes to look at; going forward at the end, remove from end 
+                list<pair<pair<id_t, bool>, bool>> nextNodes;
+            
+                //Arbitrarily assign direction for DAG
+                nextNodes.push_back(make_pair(make_pair(i, true), true));
+                nextNodes.push_back(make_pair(make_pair(i, false), false));
+                unordered_set<pair<id_t, bool>> sinkNodes;//Sink nodes of DAG
+                pair<id_t, bool> currNode; 
 
-
-            while (nextNodes.size() > 0) {
-                //For each reachable node
-
-                currNode = nextNodes.back();
-                nextNodes.pop_back();
-
-                if (seen.count(currNode) == 0) {
-                    //That hasn't been seen before
-
-                    seen.insert(currNode);
-
-                    auto addNextNodes = [&](const handle_t& h)-> bool {
-                        //Helper fn to get adjacent nodes
-
-                        pair<id_t, bool> node = make_pair(
-                             graph->get_id(h), graph->get_is_reverse(h));
-                        int64_t edgeLoop = loopDistance(currNode, node) > -1;
-                        int64_t nodeLoop = loopDistance(node, node) > -1;
+    
+                while (nextNodes.size() > 0) {
+                    //For each reachable node
  
-                        if (seen.count(node) == 0 && 
-                             ((onlyCycles && edgeLoop && nodeLoop) || 
-                              (!onlyCycles && !edgeLoop && !nodeLoop)) ){
-                            //Add nodes whose edges are in loops
-                            nextNodes.push_back(node);
-                            if (seen.count(make_pair(node.first, !node.second))
+                    //Traverse going forward first          
+                    pair<pair<id_t, bool>, bool> next =  nextNodes.back();
+                    nextNodes.pop_back();
+
+                    currNode = next.first;
+                    bool forward = next.second;
+
+                    if (seen.count(currNode) == 0) {
+                        //That hasn't been seen before
+                    
+                        seen.insert(currNode);
+                        bool added = false;
+
+                        auto addNextNodes = [&](const handle_t& h)-> bool {
+                            //Helper fn to get adjacent nodes
+
+                            pair<id_t, bool> node = make_pair(
+                            graph->get_id(h), graph->get_is_reverse(h));
+                            int64_t edgeLoop = distIndex->loopDistance(currNode, node) > -1;
+                            int64_t nodeLoop = distIndex->loopDistance(node, node) > -1;
+ 
+                            if (seen.count(node) == 0 && 
+                                 ((onlyCycles && edgeLoop && nodeLoop) || 
+                                  (!onlyCycles && !edgeLoop && !nodeLoop)) ){
+                                //Add nodes whose edges are in loops
+
+                                added = true;
+
+                                if (forward) {
+                                    nextNodes.push_back(make_pair(node, forward));
+                                } else {
+                                    nextNodes.push_front(make_pair(node, forward));
+                                }
+
+                                if (seen.count(make_pair(node.first, !node.second))
                                     == 0) { 
-                                nextNodes.push_back(make_pair( node.first, 
-                                                              !node.second));
+                                    if (forward) {
+                                        nextNodes.push_front(make_pair(
+                                            make_pair( node.first, !node.second), 
+                                                                         !forward));
+                                    } else {
+                                        nextNodes.push_back(make_pair(
+                                            make_pair( node.first, !node.second), 
+                                                                     !forward));
+                                    }
+                                }
                             }
-                        }
-                        return true;
-                    };
+                            return true;
+                        };
 
 
-                    nodeToComponent[currNode.first-minNodeID] = currComponent;
+                        nodeToComponent[currNode.first-minNodeID] = currComponent;
 
-                    handle_t handle =graph->get_handle(currNode.first, 
+                        handle_t handle =graph->get_handle(currNode.first, 
                                                        currNode.second);
  
-                    //Add nodes that are connected by edges in loops
-                    graph->follow_edges(handle, false, addNextNodes);
-                    
-                    
+                        //Add nodes that are connected by edges in loops
+                        graph->follow_edges(handle, false, addNextNodes);
+
+                        if (!added && forward) {
+                            //If there were no outgoing edges and this was a sink
+                            sinkNodes.insert(currNode);
+                        }
                      
                     }
+                }
+                //Found all nodes in current component 
+                if (!onlyCycles) {
+                    calculateMaxDistances(sinkNodes, nodeToComponent, maxDists, 
+                                                                      minDists);
                 }
             }
         }
@@ -2425,6 +2478,68 @@ uint64_t DistanceIndex::findComponents( int_vector<>& nodeToComponent,
 }
 
 
+void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
+                           unordered_set<pair<id_t, bool>>& sinkNodes,  
+                           int_vector<>& nodeToComponent,
+                           int_vector<>& maxDists, int_vector<>& minDists   ){
+
+    /*Given all nodes in a connected component and a set of source/sink nodes 
+      (pointing out),get the max and min distances from each node to a sink node
+    */
+    //TODO: This is arbitrarily breaking long loops
+    //TODO: I think not using directions in nodes will still produce an upper bound, just not as tight
+
+    VG* graph = distIndex->graph;
+    int64_t minNodeID = distIndex->minNodeID; 
+    
+    for (pair<id_t, bool> sink : sinkNodes) {
+        //Sink nodes are pointing out of the DAG
+
+        pair<id_t, bool> currNode = make_pair(sink.first, !sink.second);
+        vector<pair<pair<id_t, bool>, pair<uint64_t, uint64_t>>> nextNodes;
+        nextNodes.push_back(make_pair(currNode, make_pair(0, 0)));
+
+        while (nextNodes.size() != 0) {
+            //Traverse graph from one sink node
+ 
+            pair<pair<id_t, bool>, pair<uint64_t, uint64_t>> next = 
+                                                               nextNodes.back();
+            nextNodes.pop_back(); 
+            currNode = next.first;
+            uint64_t minDist = next.second.first;
+            uint64_t maxDist = next.second.second;
+
+            uint64_t oldMin = minDists[currNode.first-minNodeID]; 
+            uint64_t newMin = oldMin == 0 ? minDist + 1 :
+                                                 min(oldMin, minDist + 1);
+            minDists[currNode.first-minNodeID] = newMin;
+            uint64_t oldMax = maxDists[currNode.first-minNodeID];
+            uint64_t newMax = oldMax == 0 ? maxDist + 1 :
+                                                 max(oldMax, maxDist + 1);
+            maxDists[currNode.first-minNodeID] = newMax;
+            
+            int64_t nodeLen = graph->get_node(currNode.first)->sequence().size();
+
+            auto addNextNodes = [&](const handle_t& h)-> bool {
+                //Helper fn to get adjacent nodes
+
+                pair<id_t, bool> node = make_pair(
+                     graph->get_id(h), graph->get_is_reverse(h));
+                if ( nodeToComponent[currNode.first - minNodeID] == 
+                     nodeToComponent[node.first - minNodeID]) {
+                    nextNodes.push_back(make_pair(node, 
+                                    make_pair(newMin+nodeLen, newMax+nodeLen)));
+                }
+                return true;
+            };
+           
+
+            
+        } 
+    }
+    
+   
+}
 void DistanceIndex::flagCycles(const Snarl* snarl, 
                                bit_vector& inCycle, int64_t cap){
 //TODO: May not actually use this
