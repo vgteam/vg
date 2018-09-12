@@ -788,11 +788,23 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
         }
 
         
-        // Otherwise, we have no pair of tips. We have to
-        // be cyclic, so find the biggest cycle (strongly connected component)
-        // in the weakly connected component, pick an arbitrary node, and pick
-        // the outward-facing ends of the node.
+        // Otherwise, we have no pair of tips.
         
+        // We have to be cyclic, but we could be sort of a dumbell shape:
+        //
+        //  (>1-2<)
+        //
+       
+        // If we can find a node along a normal cycle, where one edge isn't
+        // used twice, we can use opposite ends of that node. If we can find a
+        // node that's on one of these bridges, we can use two copies of the
+        // same side to define a unary snarl. We can also use two copies of the
+        // other side to define the abutting unary snarl, and just have two
+        // top-level unary snarls.
+        
+        // We have to be cyclic, so find the biggest cycle (strongly connected
+        // component) in the weakly connected component, and pick an arbitrary
+        // node.
         {
             // What strongly connected components do we have?
             auto& strong_components = component_strong_components[i];
@@ -804,7 +816,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
             size_t largest_component = 0;
             size_t largest_component_nodes = 0;
             for (size_t j = 0; j < strong_components.size(); j++) {
-                // For each other strong component
+                // For each strong component
                 
                 cerr << "Component " << j << " has size " << strong_components[j].size() << endl;
                 
@@ -847,7 +859,8 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
                 }
             }
             
-            cerr << "Largest actually cyclic component of " << strong_components.size() << " is " << largest_component << " with " << largest_component_nodes << " nodes" << endl;
+            cerr << "Largest actually cyclic component of " << strong_components.size() << " is "
+                << largest_component << " with " << largest_component_nodes << " nodes" << endl;
             
             // Pick some arbitrary node in the largest component.
             // Also, assert we found one.
@@ -858,10 +871,76 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
             cerr << "Elect to break at node " << break_node
                 << " in largest strongly connected component with size " << largest_component_nodes << endl;
 #endif
+
+            // Orient the node
+            handle_t break_handle = graph.get_handle(break_node, false);
             
-            // Break on it
-            // Make sure to feed in telomeres facing out
-            add_telomeres(graph.get_handle(break_node, true), graph.get_handle(break_node, false));
+            // Determine if we can reach this node in the *same* orientation before we reach it in its reverse orientation.
+            // Start only here in this direction.
+            vector<handle_t> dfs_sources{break_handle};
+            // Don't continue backward through this node.
+            unordered_set<handle_t> dfs_sinks{graph.flip(break_handle)};
+            
+            // We set this to true if we find an edge to the forward version of break_handle.
+            bool found = false;
+            
+            function<void(const handle_t&)> handle_noop = [](const handle_t&) {
+            };
+            
+            function<void(const edge_t&)> edge_noop = [](const edge_t&) {
+            };
+            
+            function<bool(void)> dfs_break = [&]() {
+                // Stop the DFS early if we do encounter the thing we are looking for
+                return found;
+            };
+            
+            algorithms::dfs(graph,
+                handle_noop,
+                handle_noop,
+                dfs_break,
+                [&](const edge_t& edge) {
+                    // We found an edge out of an oriented node we are investigating.
+                    
+                    if (edge.second == break_handle) {
+                        // This edge is into the thing we are looking for an edge into.
+                        // It isn't out of the other side because we never explore there.
+                        found = true;
+                    } else if (edge.first == graph.flip(break_handle)) {
+                        // This edge is into the thing we are looking for, but spelled the other way.
+                        found = true;
+                    }
+                },
+                edge_noop,
+                edge_noop,
+                edge_noop,
+                dfs_sources,
+                dfs_sinks);
+                
+            if (found) {
+                // This node is on a normal, 2-edge-connected cycle
+            
+#ifdef debug
+                cerr << "Found an ordinary cycle that can be opened at this node without disconnecting the graph" << endl;
+#endif
+            
+                // If so, break the cycle at opposite ends of the node
+                // Break on it
+                add_telomeres(graph.flip(break_handle), break_handle);
+            } else {
+            
+#ifdef debug
+                cerr << "Found only a both-strand cycle where we will disconnect the graph by dropping this node. Use one unary snarl." << endl;
+#endif
+            
+                // Otherwise, break with the same side of the node twice, because we went around a unary snarl.
+                add_telomeres(break_handle, break_handle);
+                // Also do the other unary snarl.
+                // This breaks the one-telomere-pair-per-component rule, but seems to work to get coverage of the graph.
+                add_telomeres(graph.flip(break_handle), graph.flip(break_handle));
+            }
+            
+            
             continue;
         }
         

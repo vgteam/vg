@@ -3176,6 +3176,87 @@ namespace vg {
              }
         }
 
+        TEST_CASE( "Snarls can be found for a graph with no ordinary cycles", "[snarls]" ) {
+            VG graph;
+                
+            // We have this dumbell-shaped graph, where you have to break open
+            // a cycle but just saying you go from a node to itself isn't a
+            // valid snarl.
+            
+            Node* n1 = graph.create_node("A");
+            Node* n2 = graph.create_node("G");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n1, true, false);
+            Edge* e3 = graph.create_edge(n2, n2, false, true);
+            
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            
+            // There must be something in the top level snarls
+            REQUIRE(!snarl_manager.top_level_snarls().empty());
+            
+            // The decomposition must cover all the nodes
+            unordered_set<id_t> seen_nodes;
+            
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                // Get the contents of each snarl
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.shallow_contents(snarl, graph, true);
+            
+                for (auto& node_ptr : contents.first) {
+                    // And record all the nodes
+                    seen_nodes.insert(node_ptr->id());
+                }
+            });
+            
+            // Make sure both nodes appear.
+            REQUIRE(seen_nodes.size() == 2);
+            
+            
+        }
+        
+        TEST_CASE( "Snarls can be found for a bigger graph with no ordinary cycles", "[snarls]" ) {
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n2, true, false);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n3, n4);
+            Edge* e5 = graph.create_edge(n3, n5);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n5, n3, false, true);
+            
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            
+            // There must be something in the top level snarls
+            REQUIRE(!snarl_manager.top_level_snarls().empty());
+            
+            // The decomposition must cover all the nodes
+            unordered_set<id_t> seen_nodes;
+            
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                // Get the contents of each snarl
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.shallow_contents(snarl, graph, true);
+            
+                for (auto& node_ptr : contents.first) {
+                    // And record all the nodes
+                    seen_nodes.insert(node_ptr->id());
+                }
+            });
+            
+            // Make sure all nodes appear.
+            REQUIRE(seen_nodes.size() == 5);
+            
+            
+        }
+
         TEST_CASE( "NetGraph can traverse looping snarls",
                   "[snarls][netgraph]" ) {
         
@@ -3196,9 +3277,41 @@ namespace vg {
             Edge* e7 = graph.create_edge(n5, n3, false, true);
             
             // Define the snarls for the top level
+            
+            // This test depends on the snarl decomposition being rooted at
+            // node 1. So we force that to happen by specifying the snarls
+            // manually.
+            
+            vector<Snarl> to_manage;
+            
+            // We only need the top snarl and its direct child for this test.
+            to_manage.emplace_back();
+            to_manage.back().mutable_start()->set_node_id(1);
+            to_manage.back().mutable_start()->set_backward(true);
+            to_manage.back().mutable_end()->set_node_id(1);
+            to_manage.back().mutable_end()->set_backward(true);
+            to_manage.back().set_type(SnarlType::UNCLASSIFIED);
+            to_manage.back().set_start_self_reachable(true);
+            to_manage.back().set_end_self_reachable(true);
+            to_manage.back().set_start_end_reachable(true);
+            
+            
+            to_manage.emplace_back();
+            to_manage.back().mutable_start()->set_node_id(2);
+            to_manage.back().mutable_start()->set_backward(false);
+            to_manage.back().mutable_end()->set_node_id(2);
+            to_manage.back().mutable_end()->set_backward(true);
+            to_manage.back().set_type(SnarlType::UNARY);
+            to_manage.back().set_start_self_reachable(true);
+            to_manage.back().set_end_self_reachable(true);
+            to_manage.back().set_start_end_reachable(true);
+            to_manage.back().mutable_parent()->mutable_start()->set_node_id(1);
+            to_manage.back().mutable_parent()->mutable_start()->set_backward(true);
+            to_manage.back().mutable_parent()->mutable_end()->set_node_id(1);
+            to_manage.back().mutable_parent()->mutable_end()->set_backward(true);
+            
            
-            CactusSnarlFinder bubble_finder(graph);
-            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            SnarlManager snarl_manager(to_manage.begin(), to_manage.end());
 
             const vector<const Snarl*>& snarls = snarl_manager.top_level_snarls();
             
@@ -3226,7 +3339,7 @@ namespace vg {
                 const vector<const Snarl*>& children= snarl_manager.children_of(
                                                                    topSnarl);
                 //One child snarl starting at node 2 forward
-                const Snarl* childSnarl = children[0];
+                const Snarl* childSnarl = children.at(0);
                 pair<id_t, bool> childNode (childSnarl->start().node_id(),
                                             childSnarl->start().backward());
 
@@ -3339,7 +3452,7 @@ namespace vg {
                 const vector<const Snarl*>& children= snarl_manager.children_of(
                                                                    topSnarl);
                 //One child snarl starting at node 2 forward
-                const Snarl* childSnarl = children[0];
+                const Snarl* childSnarl = children.at(0);
                 pair<id_t, bool> childNode (childSnarl->start().node_id(),
                                             childSnarl->start().backward());
 
